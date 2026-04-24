@@ -132,3 +132,53 @@ export interface OcRead extends OcListItem {
   created_at: string;
   updated_at: string;
 }
+
+// ─── Movimiento ───────────────────────────────────────────────────────────────
+
+export interface MovimientoRead {
+  movimiento_id: number;
+  fecha: string;
+  descripcion: string | null;
+  abono: string;
+  egreso: string;
+  saldo_contable: string | null;
+  saldo_cehta: string | null;
+  saldo_corfo: string | null;
+  concepto_general: string | null;
+  concepto_detallado: string | null;
+  tipo_egreso: string | null;
+  fuente: string | null;
+  proyecto: string | null;
+  banco: string | null;
+  real_proyectado: string | null;
+  anio: number;
+  periodo: string;
+  empresa_codigo: string;
+  iva_credito_fiscal: string;
+  iva_debito_fiscal: string;
+  tipo_documento: string | null;
+  numero_documento: string | null;
+}
+
+// ─── F29 ──────────────────────────────────────────────────────────────────────
+
+export interface F29Read {
+  f29_id: number;
+  empresa_codigo: string;
+  periodo_tributario: string;
+  fecha_vencimiento: string;
+  monto_a_pagar: string | null;
+  fecha_pago: string | null;
+  estado: string;
+  comprobante_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface F29Create {
+  empresa_codigo: string;
+  periodo_tributario: string;
+  fecha_vencimiento: string;
+  monto_a_pagar?: number | null;
+  estado?: string;
+}
