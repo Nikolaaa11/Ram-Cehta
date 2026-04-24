@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS core.empresas (
     empresa_id      SERIAL PRIMARY KEY,
     codigo          TEXT UNIQUE NOT NULL,           -- 'TRONGKAI','CSL','EVOQUE','DTE','REVTECH','CENERGY','RHO','AFIS','FIP_CEHTA'
     razon_social    TEXT NOT NULL,
-    rut             TEXT UNIQUE NOT NULL,           -- formato 12.345.678-9
+    rut             TEXT UNIQUE,                    -- formato 12.345.678-9 (nullable: p.ej. CENERGY pendiente de confirmación)
     giro            TEXT,
     direccion       TEXT,
     ciudad          TEXT,

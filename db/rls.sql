@@ -12,12 +12,15 @@
 -- =====================================================================
 
 -- Helper: leer el app_role desde el JWT del request.
-CREATE OR REPLACE FUNCTION auth.app_role() RETURNS TEXT AS $$
+-- Vive en 'public' porque 'auth' es gestionado por Supabase y no permite CREATE.
+CREATE OR REPLACE FUNCTION public.app_role() RETURNS TEXT AS $$
     SELECT COALESCE(
         (current_setting('request.jwt.claims', true)::jsonb ->> 'app_role'),
         'viewer'
     );
 $$ LANGUAGE SQL STABLE;
+
+GRANT EXECUTE ON FUNCTION public.app_role() TO authenticated;
 
 -- =====================================================================
 -- ACTIVAR RLS en todas las tablas de core
@@ -97,33 +100,33 @@ END$$;
 DROP POLICY IF EXISTS "write_admin_finance" ON core.proveedores;
 CREATE POLICY "write_admin_finance" ON core.proveedores
     FOR ALL TO authenticated
-    USING (auth.app_role() IN ('admin','finance'))
-    WITH CHECK (auth.app_role() IN ('admin','finance'));
+    USING (public.app_role() IN ('admin','finance'))
+    WITH CHECK (public.app_role() IN ('admin','finance'));
 
 DROP POLICY IF EXISTS "write_admin_finance" ON core.ordenes_compra;
 CREATE POLICY "write_admin_finance" ON core.ordenes_compra
     FOR ALL TO authenticated
-    USING (auth.app_role() IN ('admin','finance'))
-    WITH CHECK (auth.app_role() IN ('admin','finance'));
+    USING (public.app_role() IN ('admin','finance'))
+    WITH CHECK (public.app_role() IN ('admin','finance'));
 
 DROP POLICY IF EXISTS "write_admin_finance" ON core.ordenes_compra_detalle;
 CREATE POLICY "write_admin_finance" ON core.ordenes_compra_detalle
     FOR ALL TO authenticated
-    USING (auth.app_role() IN ('admin','finance'))
-    WITH CHECK (auth.app_role() IN ('admin','finance'));
+    USING (public.app_role() IN ('admin','finance'))
+    WITH CHECK (public.app_role() IN ('admin','finance'));
 
 DROP POLICY IF EXISTS "write_admin_finance" ON core.f29_obligaciones;
 CREATE POLICY "write_admin_finance" ON core.f29_obligaciones
     FOR ALL TO authenticated
-    USING (auth.app_role() IN ('admin','finance'))
-    WITH CHECK (auth.app_role() IN ('admin','finance'));
+    USING (public.app_role() IN ('admin','finance'))
+    WITH CHECK (public.app_role() IN ('admin','finance'));
 
 -- Empresas: solo admin las modifica.
 DROP POLICY IF EXISTS "write_admin_only" ON core.empresas;
 CREATE POLICY "write_admin_only" ON core.empresas
     FOR ALL TO authenticated
-    USING (auth.app_role() = 'admin')
-    WITH CHECK (auth.app_role() = 'admin');
+    USING (public.app_role() = 'admin')
+    WITH CHECK (public.app_role() = 'admin');
 
 -- Movimientos: nadie los modifica desde el frontend (llegan por ETL vía service_role).
 -- Sin policy de INSERT/UPDATE/DELETE para authenticated → RLS los rechaza.
