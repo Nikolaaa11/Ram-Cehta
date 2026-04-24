@@ -1,0 +1,48 @@
+# fly.toml — Cehta Capital Backend
+# Deploy: fly deploy (from backend/)
+# First time: fly launch --no-deploy, then set secrets, then fly deploy
+
+app = "cehta-backend"
+primary_region = "gru"       # São Paulo — más cercano a Chile
+kill_signal = "SIGINT"
+kill_timeout = "5s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  APP_ENV = "production"
+  LOG_LEVEL = "INFO"
+  PORT = "8000"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+# Secrets (configurar con: fly secrets set KEY=value)
+# DATABASE_URL
+# ALEMBIC_DATABASE_URL
+# SUPABASE_URL
+# SUPABASE_ANON_KEY
+# SUPABASE_SERVICE_ROLE_KEY
+# SUPABASE_JWT_SECRET
+# SECRET_KEY
+# CORS_ORIGINS  (e.g. https://cehta.vercel.app)
+# ANTHROPIC_API_KEY   (opcional)
+# DROPBOX_REFRESH_TOKEN  (opcional)

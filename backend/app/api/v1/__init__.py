@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 
-from app.api.v1 import auth, catalogos, dashboard, health, ordenes_compra, proveedores, validate
+from app.api.v1 import (
+    auth, catalogos, dashboard, f29, health,
+    movimientos, ordenes_compra, proveedores, validate,
+)
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -11,3 +14,5 @@ api_router.include_router(proveedores.router, prefix="/proveedores", tags=["prov
 api_router.include_router(catalogos.router, prefix="/catalogos", tags=["catalogos"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(ordenes_compra.router, prefix="/ordenes-compra", tags=["ordenes-compra"])
+api_router.include_router(movimientos.router, prefix="/movimientos", tags=["movimientos"])
+api_router.include_router(f29.router, prefix="/f29", tags=["f29"])
