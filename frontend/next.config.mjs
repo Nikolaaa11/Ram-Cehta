@@ -3,9 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
-  experimental: {
-    typedRoutes: true,
-  },
+  typedRoutes: true,
 
   async headers() {
     return [
