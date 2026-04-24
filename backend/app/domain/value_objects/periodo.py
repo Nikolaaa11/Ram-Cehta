@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 
 _PERIODO_RE = re.compile(r"^(?P<mes>0[1-9]|1[0-2])_(?P<anio>\d{2})$")
 
@@ -33,3 +34,9 @@ class Periodo:
     def anio_completo(self) -> int:
         # Convención: 00-69 -> 2000s, 70-99 -> 1900s. Caduca en 2069, aceptable.
         return 2000 + self.anio if self.anio < 70 else 1900 + self.anio
+
+
+def current_periodo() -> str:
+    """Retorna el período tributario actual como 'MM_YY' (ej. '04_26')."""
+    today = date.today()
+    return f"{today.month:02d}_{today.year % 100:02d}"
