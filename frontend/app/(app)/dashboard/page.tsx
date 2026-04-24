@@ -1,5 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
-import { apiClient } from "@/lib/api/client";
+import { serverApiGet } from "@/lib/api/server";
 import type { DashboardData } from "@/lib/api/types";
 
 const clp = (value: string | number | null | undefined) => {
@@ -26,14 +25,11 @@ const estadoBadge = (estado: string) => {
 };
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-
   let data: DashboardData | null = null;
   let fetchError: string | null = null;
 
   try {
-    data = await apiClient.get<DashboardData>("/dashboard", session);
+    data = await serverApiGet<DashboardData>("/dashboard");
   } catch (err) {
     fetchError = err instanceof Error ? err.message : "Error desconocido al cargar el dashboard.";
   }

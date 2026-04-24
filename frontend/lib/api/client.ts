@@ -55,12 +55,3 @@ export const apiClient = {
   },
 };
 
-/** Server-side helper: reads session from Supabase SSR, then calls the API. */
-export async function serverApiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const { createClient } = await import("@/lib/supabase/server");
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  return coreFetch<T>(path, init, session);
-}
