@@ -89,7 +89,7 @@ export default function NuevoProveedorPage() {
       if (err instanceof ApiError) {
         // Handle FastAPI 422 validation errors
         if (err.status === 422) {
-          let detail: FieldErrors = {};
+          const detail: FieldErrors = {};
           try {
             const parsed = JSON.parse(err.detail);
             if (Array.isArray(parsed)) {
