@@ -12,8 +12,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
-      - ./db/views.sql:/docker-entrypoint-initdb.d/02_views.sql:ro
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./backend/db/views.sql:/docker-entrypoint-initdb.d/02_views.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cehta -d cehta"]
       interval: 5s

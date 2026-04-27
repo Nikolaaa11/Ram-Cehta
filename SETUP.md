@@ -145,9 +145,9 @@ alembic upgrade head
 ```
 
 Esto corre la migración `0001_initial_schema` que aplica:
-- `db/schema.sql` (4 schemas: raw, stg, core, audit + tablas + seeds)
-- `db/views.sql` (5 vistas operativas)
-- `db/rls.sql` (Row Level Security)
+- `backend/db/schema.sql` (4 schemas: raw, stg, core, audit + tablas + seeds)
+- `backend/db/views.sql` (5 vistas operativas)
+- `backend/db/rls.sql` (Row Level Security)
 
 **Verificar en Supabase UI**: `Table Editor → core.empresas` debería tener 9 filas
 (las empresas del portfolio).

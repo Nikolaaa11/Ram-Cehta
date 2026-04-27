@@ -8,6 +8,7 @@ from jose import jwt
 from app.core.security import AuthenticatedUser, InvalidTokenError, decode_supabase_jwt
 
 SECRET = "test-secret"
+ISSUER = "https://example.supabase.co/auth/v1"
 
 
 def make_token(
@@ -16,12 +17,14 @@ def make_token(
     secret: str = SECRET,
     expired: bool = False,
     include_role: bool = True,
+    issuer: str = ISSUER,
 ) -> str:
     now = int(time.time())
     payload: dict = {
         "sub": sub,
         "email": f"{sub}@test.cl",
         "aud": "authenticated",
+        "iss": issuer,
         "exp": now - 1 if expired else now + 3600,
     }
     if include_role:

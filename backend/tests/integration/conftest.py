@@ -12,6 +12,7 @@ from jose import jwt
 from app.main import app
 
 SECRET = "test-secret"
+ISSUER = "https://example.supabase.co/auth/v1"
 
 
 def make_token(sub: str = "test-uid", role: str = "admin", secret: str = SECRET) -> str:
@@ -21,6 +22,7 @@ def make_token(sub: str = "test-uid", role: str = "admin", secret: str = SECRET)
         "email": f"{sub}@test.cl",
         "app_role": role,
         "aud": "authenticated",
+        "iss": ISSUER,
         "exp": now + 3600,
     }
     return jwt.encode(payload, secret, algorithm="HS256")

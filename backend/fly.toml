@@ -4,11 +4,16 @@
 
 app = "cehta-backend"
 primary_region = "gru"       # São Paulo — más cercano a Chile
-kill_signal = "SIGINT"
-kill_timeout = "5s"
+kill_signal = "SIGTERM"      # graceful shutdown — uvicorn cierra conexiones limpio
+kill_timeout = "10s"
 
 [build]
   dockerfile = "Dockerfile"
+
+# Cada deploy aplica migraciones automáticamente antes de cambiar el tráfico.
+# Si la migración falla, el deploy se aborta y se mantiene la versión anterior.
+[deploy]
+  release_command = "alembic upgrade head"
 
 [env]
   APP_ENV = "production"

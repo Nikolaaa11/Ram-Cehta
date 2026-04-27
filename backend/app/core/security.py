@@ -33,6 +33,11 @@ class AuthenticatedUser:
         return scope in role_scopes.get(self.app_role, set())
 
 
+def _expected_issuer() -> str:
+    """Issuer canónico del proyecto Supabase (para validar el claim `iss`)."""
+    return f"{str(settings.supabase_url).rstrip('/')}/auth/v1"
+
+
 def decode_supabase_jwt(token: str) -> AuthenticatedUser:
     try:
         claims = jwt.decode(
@@ -40,6 +45,8 @@ def decode_supabase_jwt(token: str) -> AuthenticatedUser:
             settings.supabase_jwt_secret,
             algorithms=["HS256"],
             audience="authenticated",
+            issuer=_expected_issuer(),
+            options={"require": ["exp", "sub", "aud", "iss"]},
         )
     except JWTError as exc:
         raise InvalidTokenError(str(exc)) from exc

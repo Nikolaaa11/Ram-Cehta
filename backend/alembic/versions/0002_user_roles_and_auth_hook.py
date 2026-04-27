@@ -15,7 +15,8 @@ down_revision: str | None = "0001_initial_schema"
 branch_labels = None
 depends_on = None
 
-_DB_DIR = Path(__file__).parent.parent.parent.parent / "db"
+# Mismo path que 0001 — backend/db/ vive dentro del build context.
+_DB_DIR = Path(__file__).resolve().parents[2] / "db"
 
 
 def _read(name: str) -> str:

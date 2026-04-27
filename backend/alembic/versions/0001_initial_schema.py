@@ -22,7 +22,10 @@ down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-_DB_DIR = Path(__file__).resolve().parents[3] / "db"
+# Resuelve a backend/db/ tanto en local (parents[2] = backend/) como en el
+# contenedor Fly (parents[2] = /app/). La carpeta db/ vive dentro de backend/
+# para que entre al build context del Dockerfile.
+_DB_DIR = Path(__file__).resolve().parents[2] / "db"
 
 
 def _read(name: str) -> str:
