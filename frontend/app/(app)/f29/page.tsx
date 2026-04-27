@@ -1,53 +1,154 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
+import { Plus, Receipt } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { Surface } from "@/components/ui/surface";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { toCLP, toDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Page, F29Read } from "@/lib/api/schema";
 
-const ESTADOS = [
-  { value: "", label: "Todos los estados" },
+const EMPRESA_TODAS = "__todas__";
+const ESTADO_TODOS = "__todos__";
+
+const ESTADO_OPTIONS: ComboboxItem[] = [
+  { value: ESTADO_TODOS, label: "Todos los estados" },
   { value: "pendiente", label: "Pendiente" },
   { value: "pagado", label: "Pagado" },
   { value: "vencido", label: "Vencido" },
   { value: "exento", label: "Exento" },
 ];
 
-const clp = (v: string | number) =>
-  new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(Number(v));
+const ESTADO_VARIANT: Record<string, BadgeProps["variant"]> = {
+  pendiente: "warning",
+  pagado: "success",
+  vencido: "danger",
+  exento: "neutral",
+};
 
-function EstadoBadge({ estado }: { estado: string }) {
-  const styles: Record<string, string> = {
-    pendiente: "bg-yellow-100 text-yellow-800",
-    pagado: "bg-green-100 text-green-800",
-    vencido: "bg-red-100 text-red-700",
-    exento: "bg-gray-100 text-gray-600",
-  };
-  const cls = styles[estado] ?? "bg-gray-100 text-gray-600";
+const COLUMNS = [
+  { key: "empresa", label: "Empresa", align: "left" as const },
+  { key: "periodo", label: "Período tributario", align: "left" as const },
+  { key: "vencimiento", label: "Vencimiento", align: "left" as const },
+  { key: "monto", label: "Monto", align: "right" as const },
+  { key: "estado", label: "Estado", align: "left" as const },
+  { key: "fecha_pago", label: "Fecha pago", align: "left" as const },
+];
+
+function daysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function VencimientoCell({ fecha }: { fecha: string }) {
+  const days = daysUntil(fecha);
+  let dotColor = "bg-ink-300";
+  let label: string | null = null;
+  if (days < 0) {
+    dotColor = "bg-negative";
+    label = `Vencido hace ${Math.abs(days)}d`;
+  } else if (days <= 7) {
+    dotColor = "bg-warning";
+    label = days === 0 ? "Vence hoy" : `En ${days}d`;
+  } else {
+    label = `En ${days}d`;
+  }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
-      {estado.charAt(0).toUpperCase() + estado.slice(1)}
-    </span>
+    <div className="flex items-center gap-2">
+      <span
+        className={cn("inline-block h-1.5 w-1.5 rounded-full", dotColor)}
+        aria-hidden="true"
+      />
+      <span className="tabular-nums text-ink-900">{toDate(fecha)}</span>
+      <span className="text-xs text-ink-500">· {label}</span>
+    </div>
+  );
+}
+
+function TableSkeleton() {
+  return (
+    <Surface padding="none" className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-hairline text-sm">
+          <thead className="bg-ink-100/40">
+            <tr>
+              {COLUMNS.map((c) => (
+                <th
+                  key={c.key}
+                  className={cn(
+                    "px-4 py-3 text-xs uppercase tracking-wide text-ink-500 font-medium",
+                    c.align === "right" ? "text-right" : "text-left",
+                  )}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-hairline">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <tr key={i}>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-20" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-5 w-16 rounded-full" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-32" />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Skeleton className="ml-auto h-4 w-24" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Surface>
   );
 }
 
 export default function F29Page() {
   const { data: me } = useMe();
   const { data: empresas = [] } = useCatalogoEmpresas();
-  const [empresa, setEmpresa] = useState("");
-  const [estado, setEstado] = useState("");
+  const [empresa, setEmpresa] = useState<string>(EMPRESA_TODAS);
+  const [estado, setEstado] = useState<string>(ESTADO_TODOS);
+
+  const empresaItems = useMemo<ComboboxItem[]>(() => {
+    const list: ComboboxItem[] = [
+      { value: EMPRESA_TODAS, label: "Todas las empresas" },
+    ];
+    for (const e of empresas) {
+      list.push({ value: e.codigo, label: `${e.codigo} — ${e.razon_social}` });
+    }
+    return list;
+  }, [empresas]);
 
   const params = new URLSearchParams({ page: "1", size: "50" });
-  if (empresa) params.set("empresa_codigo", empresa);
-  if (estado) params.set("estado", estado);
+  if (empresa && empresa !== EMPRESA_TODAS) params.set("empresa_codigo", empresa);
+  if (estado && estado !== ESTADO_TODOS) params.set("estado", estado);
 
   const path = `/f29?${params.toString()}`;
 
   const { data, isLoading, error } = useApiQuery<Page<F29Read>>(
     ["f29", empresa, estado],
-    path
+    path,
   );
 
   const items = data?.items ?? [];
@@ -58,137 +159,161 @@ export default function F29Page() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">F29 / Tributario</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Obligaciones tributarias mensuales por empresa.
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
+            F29 / Tributario
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {data
+              ? `${data.total.toLocaleString("es-CL")} obligación${data.total !== 1 ? "es" : ""} tributaria${data.total !== 1 ? "s" : ""}`
+              : "Obligaciones tributarias mensuales por empresa."}
           </p>
         </div>
         {canCreateF29 && (
           <Link
             href="/f29/nuevo"
-            className="inline-flex items-center gap-2 rounded-lg bg-green-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Registrar F29
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Nueva F29
           </Link>
         )}
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select
-          value={empresa}
-          onChange={(e) => setEmpresa(e.target.value)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
-        >
-          <option value="">Todas las empresas</option>
-          {empresas.map((e) => (
-            <option key={e.codigo} value={e.codigo}>
-              {e.codigo} — {e.razon_social}
-            </option>
-          ))}
-        </select>
+      <Surface variant="glass" padding="compact">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Empresa
+            </span>
+            <Combobox
+              items={empresaItems}
+              value={empresa}
+              onValueChange={setEmpresa}
+              placeholder="Todas las empresas"
+              searchPlaceholder="Buscar empresa…"
+              emptyText="Sin empresas."
+              triggerClassName="w-64"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Estado
+            </span>
+            <Combobox
+              items={ESTADO_OPTIONS}
+              value={estado}
+              onValueChange={setEstado}
+              placeholder="Todos los estados"
+              searchPlaceholder="Buscar estado…"
+              emptyText="Sin estados."
+              triggerClassName="w-48"
+            />
+          </div>
+        </div>
+      </Surface>
 
-        <select
-          value={estado}
-          onChange={(e) => setEstado(e.target.value)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
-        >
-          {ESTADOS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Loading */}
+      {isLoading && <TableSkeleton />}
 
-      {/* States */}
-      {isLoading && (
-        <p className="text-sm text-gray-500">Cargando...</p>
-      )}
-
+      {/* Error */}
       {!isLoading && error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-700">
-            Error al cargar obligaciones F29:{" "}
+        <Surface className="bg-negative/5 ring-negative/20">
+          <p className="text-sm font-medium text-negative">
+            Error al cargar obligaciones F29
+          </p>
+          <p className="mt-1 text-xs text-negative/80">
             {error instanceof Error ? error.message : "Error desconocido"}
           </p>
-        </div>
+        </Surface>
       )}
 
+      {/* Empty */}
       {!isLoading && !error && items.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-white px-5 py-12 text-center shadow-sm">
-          <svg
-            className="mx-auto h-10 w-10 text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-gray-500">
-            Sin obligaciones F29 registradas
-          </p>
-          {canCreateF29 && (
-            <Link
-              href="/f29/nuevo"
-              className="mt-4 inline-flex items-center text-sm font-medium text-green-800 hover:underline"
-            >
-              Registrar primera obligación →
-            </Link>
-          )}
-        </div>
+        <Surface className="py-16">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
+              <Receipt className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
+            </div>
+            <p className="text-base font-semibold text-ink-900">
+              Sin obligaciones F29 registradas
+            </p>
+            <p className="mt-1 max-w-md text-sm text-ink-500">
+              {canCreateF29
+                ? "Empezá registrando la primera obligación tributaria del período."
+                : "Aún no se han registrado obligaciones tributarias."}
+            </p>
+            {canCreateF29 && (
+              <Link
+                href="/f29/nuevo"
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
+              >
+                <Plus className="h-4 w-4" strokeWidth={1.5} />
+                Registrar primera obligación
+              </Link>
+            )}
+          </div>
+        </Surface>
       )}
 
       {/* Table */}
       {!isLoading && !error && items.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3">Empresa</th>
-                <th className="px-4 py-3">Período Tributario</th>
-                <th className="px-4 py-3">Vencimiento</th>
-                <th className="px-4 py-3 text-right">Monto</th>
-                <th className="px-4 py-3">Estado</th>
-                <th className="px-4 py-3">Fecha Pago</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {items.map((f) => (
-                <tr key={f.f29_id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-800">
-                    {f.empresa_codigo}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {f.periodo_tributario}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {f.fecha_vencimiento}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right text-gray-800">
-                    {f.monto_a_pagar ? clp(f.monto_a_pagar) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <EstadoBadge estado={f.estado} />
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-500">
-                    {f.fecha_pago ?? "—"}
-                  </td>
+        <Surface padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-hairline text-sm">
+              <thead className="bg-ink-100/40">
+                <tr>
+                  {COLUMNS.map((c) => (
+                    <th
+                      key={c.key}
+                      className={cn(
+                        "px-4 py-3 text-xs uppercase tracking-wide text-ink-500 font-medium",
+                        c.align === "right" ? "text-right" : "text-left",
+                      )}
+                    >
+                      {c.label}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {items.map((f) => {
+                  const variant = ESTADO_VARIANT[f.estado] ?? "neutral";
+                  const monto = f.monto_a_pagar ? Number(f.monto_a_pagar) : null;
+                  return (
+                    <tr
+                      key={f.f29_id}
+                      className="transition-colors duration-150 hover:bg-ink-100/30"
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 font-medium text-ink-900">
+                        {f.empresa_codigo}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <Badge variant="info">{f.periodo_tributario}</Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <VencimientoCell fecha={f.fecha_vencimiento} />
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-ink-900">
+                        {monto !== null ? toCLP(monto) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge variant={variant}>
+                          {f.estado.charAt(0).toUpperCase() + f.estado.slice(1)}
+                        </Badge>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-ink-700 tabular-nums">
+                        {f.fecha_pago ? toDate(f.fecha_pago) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Surface>
       )}
     </div>
   );

@@ -1,174 +1,373 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  DatabaseZap,
+} from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { Surface } from "@/components/ui/surface";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { toCLP, toDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Page, MovimientoRead } from "@/lib/api/schema";
 import { ApiError } from "@/lib/api/client";
 
-const clp = (v: string | number) =>
-  new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(Number(v));
+const EMPRESA_TODAS = "__todas__";
+
+const RP_OPTIONS: { value: string; label: string }[] = [
+  { value: "", label: "Todos" },
+  { value: "Real", label: "Real" },
+  { value: "Proyectado", label: "Proyectado" },
+];
+
+const COLUMNS = [
+  { key: "fecha", label: "Fecha", align: "left" as const },
+  { key: "empresa", label: "Empresa", align: "left" as const },
+  { key: "descripcion", label: "Descripción", align: "left" as const },
+  { key: "concepto", label: "Concepto", align: "left" as const },
+  { key: "abono", label: "Abono", align: "right" as const },
+  { key: "egreso", label: "Egreso", align: "right" as const },
+  { key: "saldo", label: "Saldo", align: "right" as const },
+];
+
+function formatSaldo(value: string | null): string {
+  if (value === null || value === undefined || value === "") return "—";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "—";
+  return toCLP(num);
+}
+
+function TableSkeleton() {
+  return (
+    <Surface padding="none" className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-hairline text-sm">
+          <thead className="bg-ink-100/40">
+            <tr>
+              {COLUMNS.map((c) => (
+                <th
+                  key={c.key}
+                  className={cn(
+                    "px-4 py-3 text-xs uppercase tracking-wide text-ink-500 font-medium",
+                    c.align === "right" ? "text-right" : "text-left",
+                  )}
+                >
+                  {c.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-hairline">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <tr key={i}>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-20" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-56" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-3 w-32" />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Skeleton className="ml-auto h-4 w-24" />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Skeleton className="ml-auto h-4 w-24" />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Skeleton className="ml-auto h-4 w-28" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Surface>
+  );
+}
 
 export default function MovimientosPage() {
   const currentYear = new Date().getFullYear();
   const { data: empresas = [] } = useCatalogoEmpresas();
-  const [empresa, setEmpresa] = useState("");
-  const [anio, setAnio] = useState<string>(String(currentYear));
-  const [realProyectado, setRealProyectado] = useState("");
 
-  const params = new URLSearchParams({ page: "1", size: "50" });
-  if (empresa) params.set("empresa_codigo", empresa);
+  const [empresa, setEmpresa] = useState<string>(EMPRESA_TODAS);
+  const [anio, setAnio] = useState<string>(String(currentYear));
+  const [realProyectado, setRealProyectado] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const SIZE = 50;
+
+  const empresaItems = useMemo<ComboboxItem[]>(() => {
+    const list: ComboboxItem[] = [
+      { value: EMPRESA_TODAS, label: "Todas las empresas" },
+    ];
+    for (const e of empresas) {
+      list.push({ value: e.codigo, label: `${e.codigo} — ${e.razon_social}` });
+    }
+    return list;
+  }, [empresas]);
+
+  const params = new URLSearchParams({ page: String(page), size: String(SIZE) });
+  if (empresa && empresa !== EMPRESA_TODAS) params.set("empresa_codigo", empresa);
   if (anio) params.set("anio", anio);
   if (realProyectado) params.set("real_proyectado", realProyectado);
 
   const path = `/movimientos?${params.toString()}`;
 
   const { data, isLoading, error } = useApiQuery<Page<MovimientoRead>>(
-    ["movimientos", empresa, anio, realProyectado],
-    path
+    ["movimientos", empresa, anio, realProyectado, String(page)],
+    path,
   );
 
   const isNotFound =
     error instanceof ApiError && (error.status === 404 || error.status === 422);
 
   const items = data?.items ?? [];
+  const totalCount = data?.total ?? 0;
 
-  const totalAbono = items.reduce((sum, m) => sum + Number(m.abono), 0);
-  const totalEgreso = items.reduce((sum, m) => sum + Number(m.egreso), 0);
+  const updateFilter = (apply: () => void) => {
+    apply();
+    setPage(1);
+  };
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Movimientos</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Historial de abonos y egresos por empresa y período.
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
+          Movimientos
+        </h1>
+        <p className="mt-1 text-sm text-ink-500">
+          {data
+            ? `${totalCount.toLocaleString("es-CL")} movimiento${totalCount !== 1 ? "s" : ""} · abonos y egresos por empresa y período`
+            : "Historial de abonos y egresos por empresa y período."}
         </p>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select
-          value={empresa}
-          onChange={(e) => setEmpresa(e.target.value)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
-        >
-          <option value="">Todas las empresas</option>
-          {empresas.map((e) => (
-            <option key={e.codigo} value={e.codigo}>
-              {e.codigo} — {e.razon_social}
-            </option>
-          ))}
-        </select>
+      <Surface variant="glass" padding="compact">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Empresa
+            </span>
+            <Combobox
+              items={empresaItems}
+              value={empresa}
+              onValueChange={(v) => updateFilter(() => setEmpresa(v))}
+              placeholder="Todas las empresas"
+              searchPlaceholder="Buscar empresa…"
+              emptyText="Sin empresas."
+              triggerClassName="w-64"
+            />
+          </div>
 
-        <input
-          type="number"
-          value={anio}
-          onChange={(e) => setAnio(e.target.value)}
-          placeholder="Año"
-          min={2020}
-          max={2099}
-          className="w-28 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
-        />
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Año
+            </span>
+            <div className="relative">
+              <Calendar
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300"
+                strokeWidth={1.5}
+              />
+              <input
+                type="number"
+                value={anio}
+                onChange={(e) => updateFilter(() => setAnio(e.target.value))}
+                placeholder="Año"
+                min={2020}
+                max={2099}
+                className="h-9 w-32 rounded-xl bg-white pl-9 pr-3 text-sm text-ink-900 ring-1 ring-hairline tabular-nums shadow-glass placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green"
+              />
+            </div>
+          </div>
 
-        <select
-          value={realProyectado}
-          onChange={(e) => setRealProyectado(e.target.value)}
-          className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
-        >
-          <option value="">Real / Proyectado</option>
-          <option value="Real">Real</option>
-          <option value="Proyectado">Proyectado</option>
-        </select>
-      </div>
-
-      {/* States */}
-      {isLoading && (
-        <p className="text-sm text-gray-500">Cargando...</p>
-      )}
-
-      {!isLoading && (isNotFound || (!error && items.length === 0)) && (
-        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-5 py-8 text-center">
-          <p className="text-sm font-medium text-yellow-800">
-            Sin movimientos cargados aún — ejecuta el ETL primero.
-          </p>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Tipo
+            </span>
+            <div
+              role="tablist"
+              aria-label="Real o proyectado"
+              className="inline-flex h-9 items-center rounded-xl bg-ink-100/60 p-1 ring-1 ring-hairline"
+            >
+              {RP_OPTIONS.map((opt) => {
+                const active = realProyectado === opt.value;
+                return (
+                  <button
+                    key={opt.value || "all"}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() =>
+                      updateFilter(() => setRealProyectado(opt.value))
+                    }
+                    className={cn(
+                      "inline-flex h-7 items-center rounded-lg px-3 text-xs font-medium transition-colors duration-150 ease-apple",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+                      active
+                        ? "bg-white text-ink-900 shadow-glass"
+                        : "text-ink-500 hover:text-ink-900",
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
-      )}
+      </Surface>
 
+      {/* Loading */}
+      {isLoading && <TableSkeleton />}
+
+      {/* Error real (no 404/422) */}
       {!isLoading && error && !isNotFound && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-700">
-            Error al cargar movimientos:{" "}
+        <Surface className="bg-negative/5 ring-negative/20">
+          <p className="text-sm font-medium text-negative">
+            Error al cargar movimientos
+          </p>
+          <p className="mt-1 text-xs text-negative/80">
             {error instanceof Error ? error.message : "Error desconocido"}
           </p>
-        </div>
+        </Surface>
+      )}
+
+      {/* Empty (404/422 ETL aún no corrió, o sin items) */}
+      {!isLoading && !error && items.length === 0 && (
+        <Surface className="py-16">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
+              <DatabaseZap className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
+            </div>
+            <p className="text-base font-semibold text-ink-900">
+              Sin movimientos para los filtros seleccionados
+            </p>
+            <p className="mt-1 max-w-md text-sm text-ink-500">
+              Probá ajustar el año, empresa o tipo. Si recién instalaste la
+              plataforma, ejecuta el ETL primero.
+            </p>
+          </div>
+        </Surface>
+      )}
+
+      {!isLoading && isNotFound && (
+        <Surface className="py-16">
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
+              <DatabaseZap className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
+            </div>
+            <p className="text-base font-semibold text-ink-900">
+              Sin datos de movimientos
+            </p>
+            <p className="mt-1 max-w-md text-sm text-ink-500">
+              El ETL todavía no ha corrido. Cuando se ejecute por primera vez,
+              los movimientos aparecerán aquí.
+            </p>
+          </div>
+        </Surface>
       )}
 
       {/* Table */}
       {!isLoading && !error && items.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                <th className="px-4 py-3">Fecha</th>
-                <th className="px-4 py-3">Empresa</th>
-                <th className="px-4 py-3">Descripción</th>
-                <th className="px-4 py-3 text-right">Abono</th>
-                <th className="px-4 py-3 text-right">Egreso</th>
-                <th className="px-4 py-3">Concepto</th>
-                <th className="px-4 py-3">Proyecto</th>
-                <th className="px-4 py-3">Banco</th>
-                <th className="px-4 py-3">Período</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {items.map((m) => (
-                <tr key={m.movimiento_id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {m.fecha}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-800">
-                    {m.empresa_codigo}
-                  </td>
-                  <td className="max-w-xs truncate px-4 py-3 text-gray-600">
-                    {m.descripcion ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-green-700">
-                    {Number(m.abono) > 0 ? clp(m.abono) : "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right font-medium text-red-600">
-                    {Number(m.egreso) > 0 ? clp(m.egreso) : "—"}
-                  </td>
-                  <td className="max-w-[160px] truncate px-4 py-3 text-gray-600">
-                    {m.concepto_general ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {m.proyecto ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                    {m.banco ?? "—"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-500">
-                    {m.periodo}
-                  </td>
+        <Surface padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-hairline text-sm">
+              <thead className="bg-ink-100/40">
+                <tr>
+                  {COLUMNS.map((c) => (
+                    <th
+                      key={c.key}
+                      className={cn(
+                        "px-4 py-3 text-xs uppercase tracking-wide text-ink-500 font-medium",
+                        c.align === "right" ? "text-right" : "text-left",
+                      )}
+                    >
+                      {c.label}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-gray-200 bg-gray-50 font-semibold text-sm">
-                <td colSpan={3} className="px-4 py-3 text-gray-700">
-                  Total ({items.length} movimientos)
-                </td>
-                <td className="px-4 py-3 text-right text-green-700">
-                  {clp(totalAbono)}
-                </td>
-                <td className="px-4 py-3 text-right text-red-600">
-                  {clp(totalEgreso)}
-                </td>
-                <td colSpan={4} />
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {items.map((m) => {
+                  const abono = Number(m.abono);
+                  const egreso = Number(m.egreso);
+                  return (
+                    <tr
+                      key={m.movimiento_id}
+                      className="transition-colors duration-150 hover:bg-ink-100/30"
+                    >
+                      <td className="whitespace-nowrap px-4 py-3 text-ink-700 tabular-nums">
+                        <Calendar
+                          className="mr-1 inline h-3 w-3 text-ink-300"
+                          strokeWidth={1.5}
+                        />
+                        {toDate(m.fecha)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <Badge variant="neutral">{m.empresa_codigo}</Badge>
+                      </td>
+                      <td className="max-w-[22rem] truncate px-4 py-3 text-ink-900">
+                        {m.descripcion ?? "—"}
+                      </td>
+                      <td className="max-w-[14rem] truncate px-4 py-3 text-xs text-ink-500">
+                        {m.concepto_general ?? "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums font-medium text-positive">
+                        {abono > 0 ? `+${toCLP(abono)}` : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums font-medium text-negative">
+                        {egreso > 0 ? `-${toCLP(egreso)}` : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-ink-900">
+                        {formatSaldo(m.saldo_contable)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Surface>
+      )}
+
+      {/* Pagination */}
+      {data && data.pages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-ink-500 tabular-nums">
+            Página {data.page} de {data.pages} · {data.total.toLocaleString("es-CL")} resultados
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={data.page <= 1}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-50 disabled:hover:bg-white"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+              Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => p + 1)}
+              disabled={data.page >= data.pages}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-50 disabled:hover:bg-white"
+            >
+              Siguiente
+              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
       )}
     </div>
