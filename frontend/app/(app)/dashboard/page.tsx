@@ -8,6 +8,11 @@ import { KpiSecondarySection } from "@/components/dashboard/KpiSecondarySection"
 import { KpiSecondarySkeleton } from "@/components/dashboard/KpiSecondarySkeleton";
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState";
 import { ChartsGrid } from "@/components/dashboard/ChartsGrid";
+import { ProyectosRanking } from "@/components/dashboard/ProyectosRanking";
+import { ProyectosRankingSkeleton } from "@/components/dashboard/ProyectosRankingSkeleton";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { ActivityFeedSkeleton } from "@/components/dashboard/ActivityFeedSkeleton";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
 interface PageProps {
@@ -76,7 +81,27 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <KpiSecondarySection initialData={kpis} />
         </Suspense>
 
-        <ChartsGrid />
+        <ErrorBoundary>
+          <ChartsGrid />
+        </ErrorBoundary>
+
+        {/* Bottom row — ranking + activity feed (5/7 split en lg, stack en mobile) */}
+        <div className="grid grid-cols-12 gap-6">
+          <div className="col-span-12 lg:col-span-5">
+            <ErrorBoundary>
+              <Suspense fallback={<ProyectosRankingSkeleton />}>
+                <ProyectosRanking />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+          <div className="col-span-12 lg:col-span-7">
+            <ErrorBoundary>
+              <Suspense fallback={<ActivityFeedSkeleton />}>
+                <ActivityFeed />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        </div>
       </div>
     </div>
   );
