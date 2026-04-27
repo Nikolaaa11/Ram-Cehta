@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { Route } from "next";
 import { createClient } from "@/lib/supabase/server";
 
-const nav = [
+type NavItem = { href: Route; label: string; icon: React.ReactNode };
+
+const nav: NavItem[] = [
   {
     href: "/dashboard",
     label: "Dashboard",

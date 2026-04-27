@@ -73,6 +73,18 @@ export type DashboardData = DashboardResponse;
 export type SaldoEmpresa = components["schemas"]["SaldoEmpresa"];
 export type OcResumen = components["schemas"]["OCResumen"];
 
+// Endpoints ultra-pro (commit ebe35c8)
+export type DashboardKPIs = components["schemas"]["DashboardKPIs"];
+export type CashflowResponse = components["schemas"]["CashflowResponse"];
+export type CashflowPoint = components["schemas"]["CashflowPoint"];
+export type EgresoConcepto = components["schemas"]["EgresoConcepto"];
+export type SaldoEmpresaDetalle = components["schemas"]["SaldoEmpresaDetalle"];
+export type IvaPoint = components["schemas"]["IvaPoint"];
+export type ProyectoRanking = components["schemas"]["ProyectoRanking"];
+
+/** Estado del último ETL: success | failed | stale | unknown. */
+export type EtlStatus = "success" | "failed" | "stale" | "unknown" | string;
+
 // ─── Catálogos ────────────────────────────────────────────────────────────────
 
 export type CatalogosResponse = components["schemas"]["CatalogosResponse"];
