@@ -7,7 +7,7 @@ import { KpiHeroSkeleton } from "@/components/dashboard/KpiHeroSkeleton";
 import { KpiSecondarySection } from "@/components/dashboard/KpiSecondarySection";
 import { KpiSecondarySkeleton } from "@/components/dashboard/KpiSecondarySkeleton";
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState";
-import { ChartsPlaceholder } from "@/components/dashboard/ChartsPlaceholder";
+import { ChartsGrid } from "@/components/dashboard/ChartsGrid";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
 interface PageProps {
@@ -76,7 +76,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
           <KpiSecondarySection initialData={kpis} />
         </Suspense>
 
-        <ChartsPlaceholder />
+        <ChartsGrid />
       </div>
     </div>
   );
