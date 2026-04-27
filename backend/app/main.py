@@ -12,9 +12,15 @@ from slowapi.util import get_remote_address
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.observability import init_sentry
 
 configure_logging()
 log = get_logger(__name__)
+
+# Sentry se inicializa antes de instanciar FastAPI para que los integrations capturen
+# el ciclo completo de la app. Si no hay SENTRY_DSN seteado queda silenciosamente apagado.
+sentry_active = init_sentry()
+log.info("sentry", active=sentry_active)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
