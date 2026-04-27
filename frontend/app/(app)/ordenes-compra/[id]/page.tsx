@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
+import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
@@ -107,19 +108,26 @@ export default async function OcDetallePage({
             {oc.empresa_codigo} · Emitida {toDate(oc.fecha_emision)}
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <EstadoBadge estado={oc.estado} />
-          {oc.pdf_url && (
-            <a
-              href={oc.pdf_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-cehta-green hover:underline"
-            >
-              Ver PDF
-              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-            </a>
-          )}
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex items-center gap-3">
+            <EstadoBadge estado={oc.estado} />
+            {oc.pdf_url && (
+              <a
+                href={oc.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-cehta-green hover:underline"
+              >
+                Ver PDF
+                <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
+              </a>
+            )}
+          </div>
+          <OcActions
+            ocId={oc.oc_id}
+            numeroOc={oc.numero_oc}
+            allowedActions={oc.allowed_actions ?? []}
+          />
         </div>
       </header>
 

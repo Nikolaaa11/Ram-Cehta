@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ExternalLink, Inbox, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
 import type { Page, OcListItem } from "@/lib/api/schema";
 
@@ -112,10 +113,19 @@ export default function SolicitudesPagoPage() {
         session,
       );
       await queryClient.invalidateQueries({ queryKey: QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
+      toast.success(
+        nuevoEstado === "pagada"
+          ? "OC marcada como pagada"
+          : "OC anulada",
+      );
     } catch (err) {
-      // Toast system pendiente — alert() temporal hasta migración.
-      alert(
-        `Error al actualizar la OC: ${err instanceof Error ? err.message : "Error desconocido"}`,
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "Error al actualizar la OC",
       );
     }
   }

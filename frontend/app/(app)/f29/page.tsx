@@ -10,6 +10,7 @@ import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { F29RowActions } from "@/components/f29/F29RowActions";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, F29Read } from "@/lib/api/schema";
@@ -39,6 +40,7 @@ const COLUMNS = [
   { key: "monto", label: "Monto", align: "right" as const },
   { key: "estado", label: "Estado", align: "left" as const },
   { key: "fecha_pago", label: "Fecha pago", align: "left" as const },
+  { key: "acciones", label: "", align: "right" as const },
 ];
 
 function daysUntil(dateStr: string): number {
@@ -115,6 +117,9 @@ function TableSkeleton() {
                 <td className="px-4 py-3">
                   <Skeleton className="h-4 w-24" />
                 </td>
+                <td className="px-4 py-3 text-right">
+                  <Skeleton className="ml-auto h-7 w-32" />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -155,6 +160,8 @@ export default function F29Page() {
   // Disciplina 3: el frontend NUNCA decide permisos por sí mismo. Lee de
   // `allowed_actions` derivado server-side desde rbac.ROLE_SCOPES.
   const canCreateF29 = me?.allowed_actions.includes("f29:create") ?? false;
+  const canUpdateF29 = me?.allowed_actions.includes("f29:update") ?? false;
+  const canDeleteF29 = me?.allowed_actions.includes("f29:delete") ?? false;
 
   return (
     <div className="space-y-6">
@@ -306,6 +313,13 @@ export default function F29Page() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-ink-700 tabular-nums">
                         {f.fecha_pago ? toDate(f.fecha_pago) : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        <F29RowActions
+                          f29={f}
+                          canUpdate={canUpdateF29}
+                          canDelete={canDeleteF29}
+                        />
                       </td>
                     </tr>
                   );
