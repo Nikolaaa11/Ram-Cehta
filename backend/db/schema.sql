@@ -238,6 +238,48 @@ CREATE TABLE IF NOT EXISTS core.suscripciones_acciones (
 );
 
 -- =====================================================================
+-- CORE: TRABAJADORES (HR por empresa) — V3 fase 2
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS core.trabajadores (
+    trabajador_id     BIGSERIAL PRIMARY KEY,
+    empresa_codigo    TEXT NOT NULL REFERENCES core.empresas(codigo),
+    nombre_completo   TEXT NOT NULL,
+    rut               TEXT NOT NULL,
+    cargo             TEXT,
+    email             TEXT,
+    telefono          TEXT,
+    fecha_ingreso     DATE NOT NULL,
+    fecha_egreso      DATE,
+    sueldo_bruto      NUMERIC(18,2),
+    tipo_contrato     TEXT CHECK (tipo_contrato IN ('indefinido','plazo_fijo','honorarios','part_time')),
+    estado            TEXT NOT NULL DEFAULT 'activo' CHECK (estado IN ('activo','inactivo','licencia')),
+    dropbox_folder    TEXT,
+    notas             TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (empresa_codigo, rut)
+);
+
+CREATE INDEX IF NOT EXISTS idx_trabajadores_empresa ON core.trabajadores(empresa_codigo);
+CREATE INDEX IF NOT EXISTS idx_trabajadores_estado  ON core.trabajadores(estado);
+CREATE INDEX IF NOT EXISTS idx_trabajadores_rut     ON core.trabajadores(rut);
+
+CREATE TABLE IF NOT EXISTS core.trabajador_documentos (
+    documento_id      BIGSERIAL PRIMARY KEY,
+    trabajador_id     BIGINT NOT NULL REFERENCES core.trabajadores(trabajador_id) ON DELETE CASCADE,
+    tipo              TEXT NOT NULL,
+    nombre_archivo    TEXT NOT NULL,
+    dropbox_path      TEXT NOT NULL,
+    tamano_bytes      BIGINT,
+    uploaded_by       UUID,
+    uploaded_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+    metadata          JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_trab_docs_trabajador ON core.trabajador_documentos(trabajador_id);
+CREATE INDEX IF NOT EXISTS idx_trab_docs_tipo       ON core.trabajador_documentos(tipo);
+
+-- =====================================================================
 -- RAW: landing tables (volcado directo, preserva columnas originales)
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS raw.resumen_excel (
@@ -283,7 +325,7 @@ DECLARE
 BEGIN
     FOR t IN SELECT unnest(ARRAY[
         'core.empresas','core.proveedores','core.movimientos',
-        'core.ordenes_compra','core.f29_obligaciones'
+        'core.ordenes_compra','core.f29_obligaciones','core.trabajadores'
     ])
     LOOP
         EXECUTE format(

@@ -110,6 +110,67 @@ class DropboxService:
         content = response.content
         return content if isinstance(content, bytes) else bytes(content)
 
+    # ------------------------------------------------------------------
+    # Write operations (V3 fase 2 — trabajadores upload)
+    # ------------------------------------------------------------------
+
+    def create_folder(self, path: str) -> str:
+        """Crea carpeta. Idempotente — si ya existe, no falla."""
+        try:
+            self.dbx.files_create_folder_v2(path)
+        except dropbox.exceptions.ApiError as exc:
+            # Si ya existe, OK (path/conflict/folder)
+            if "conflict" in str(exc).lower():
+                return path
+            raise
+        return path
+
+    def ensure_folder_path(self, path: str) -> str:
+        """Crea recursivamente todas las subcarpetas de path si no existen."""
+        parts = [p for p in path.split("/") if p]
+        current = ""
+        for part in parts:
+            current = f"{current}/{part}"
+            self.create_folder(current)
+        return path
+
+    def upload_file(
+        self, path: str, content: bytes, *, overwrite: bool = True
+    ) -> dict[str, Any]:
+        """Sube un archivo. Si existe y overwrite=True, sobreescribe."""
+        mode = (
+            dropbox.files.WriteMode.overwrite
+            if overwrite
+            else dropbox.files.WriteMode.add
+        )
+        res = self.dbx.files_upload(content, path, mode=mode, autorename=False)
+        return {
+            "name": res.name,
+            "path": res.path_display,
+            "size": res.size,
+        }
+
+    def move(self, from_path: str, to_path: str) -> str:
+        """Mueve archivo o carpeta. autorename=False — falla si destino existe."""
+        self.dbx.files_move_v2(
+            from_path, to_path, allow_shared_folder=True, autorename=False
+        )
+        return to_path
+
+    def get_temporary_link(self, path: str) -> str:
+        """Genera URL temporal (4h vida) para descarga directa del archivo."""
+        res = self.dbx.files_get_temporary_link(path)
+        return str(res.link)
+
+    def delete(self, path: str) -> None:
+        """Borra archivo o carpeta (no falla si no existe)."""
+        try:
+            self.dbx.files_delete_v2(path)
+        except dropbox.exceptions.ApiError as exc:
+            if "not_found" in str(exc).lower():
+                return
+            raise
+
 
 def build_oauth_flow(session_state: dict[str, Any]) -> DropboxOAuth2Flow:
     """Crea el flow OAuth2 con `token_access_type=offline` (refresh_token).

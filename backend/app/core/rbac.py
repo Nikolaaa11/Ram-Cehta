@@ -35,6 +35,8 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "user:read", "user:write", "user:delete",
         # Integraciones (Dropbox, etc.) — V3
         "integration:read", "integration:write",
+        # Trabajadores (HR per empresa) — V3 fase 2
+        "trabajador:read", "trabajador:create", "trabajador:update", "trabajador:delete",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
@@ -42,6 +44,8 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "f29:read", "f29:create", "f29:update",
         "movimiento:read",
         "suscripcion:read", "suscripcion:create",
+        # Finance puede crear y editar trabajadores pero no eliminarlos.
+        "trabajador:read", "trabajador:create", "trabajador:update",
     }),
     "viewer": frozenset({
         "oc:read",
@@ -49,6 +53,7 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "f29:read",
         "movimiento:read",
         "suscripcion:read",
+        "trabajador:read",
         # NO audit:read, NO user:* — privacy / least privilege.
     }),
 }
