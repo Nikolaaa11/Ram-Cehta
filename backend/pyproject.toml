@@ -7,7 +7,6 @@ name = "cehta-backend"
 version = "0.1.0"
 description = "Backend FastAPI para Plataforma Cehta Capital"
 requires-python = ">=3.12"
-readme = "../README.md"
 license = { text = "Proprietary" }
 
 dependencies = [
