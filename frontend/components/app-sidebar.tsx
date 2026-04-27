@@ -11,35 +11,98 @@ import {
   Receipt,
   Wallet,
   FileBarChart,
-  Shield,
   LogOut,
   Sparkles,
+  LineChart,
+  CalendarDays,
+  Target,
+  Search,
+  Scale,
+  UserCog,
+  Database,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { cn } from "@/lib/utils";
 
+/**
+ * V3 Sidebar — 5 grupos jerárquicos según docs/V3_VISION.md §1.
+ *
+ * Visibilidad por `me.app_role` (UI hint puro, Disciplina 3):
+ *  - admin → ve todo
+ *  - ceo   → ve EJECUTIVO + OPERACIONES + ESTRATEGIA + DOCUMENTOS
+ *           (NO existe en backend todavía — se trata igual que admin para
+ *            esta fase mientras se agrega el rol al ROLE_SCOPES del backend)
+ *  - resto → ve OPERACIONES + ESTRATEGIA + DOCUMENTOS
+ *
+ * El sidebar es UI rendering puro: el backend re-valida cada endpoint vía
+ * `allowed_actions`. Mostrar/ocultar nav items es affordance, no autorización.
+ */
+
 type NavItem = {
   href: Route;
   label: string;
   icon: LucideIcon;
-  adminOnly?: boolean;
 };
 
-const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/proveedores", label: "Proveedores", icon: Users },
-  { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
-  { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
-  { href: "/f29", label: "F29 / Tributario", icon: Receipt },
-  { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
-  { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
-  // adminOnly: el sidebar es UI rendering puro (visibility/affordance) — no
-  // gate de seguridad. Disciplina 3 prohíbe usar `app_role` para autorizar
-  // acciones (que sí van por `allowed_actions` validado server-side), pero
-  // mostrar/ocultar un nav item es un caso legítimo de UI hint. El backend
-  // re-valida cada request. Ver also: dashboard/F29 que ya leen me.allowed_actions.
-  { href: "/admin" as Route, label: "Admin", icon: Shield, adminOnly: true },
+type NavGroup = {
+  id: "ejecutivo" | "operaciones" | "estrategia" | "documentos" | "admin";
+  label: string;
+  items: NavItem[];
+};
+
+const GROUPS: NavGroup[] = [
+  {
+    id: "ejecutivo",
+    label: "Ejecutivo",
+    items: [
+      { href: "/ceo" as Route, label: "Dashboard CEO", icon: LineChart },
+      { href: "/calendario" as Route, label: "Calendario", icon: CalendarDays },
+    ],
+  },
+  {
+    id: "operaciones",
+    label: "Operaciones",
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/proveedores", label: "Proveedores", icon: Users },
+      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
+      { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
+      { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
+      { href: "/f29", label: "F29 / Tributario", icon: Receipt },
+    ],
+  },
+  {
+    id: "estrategia",
+    label: "Estrategia",
+    items: [
+      { href: "/avance" as Route, label: "Avance Empresas", icon: Target },
+      { href: "/fondos" as Route, label: "Búsqueda de Fondos", icon: Search },
+      { href: "/asistente" as Route, label: "AI Asistente", icon: Sparkles },
+    ],
+  },
+  {
+    id: "documentos",
+    label: "Documentos",
+    items: [
+      { href: "/legal" as Route, label: "Legal", icon: Scale },
+      { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
+    ],
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    items: [
+      { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
+      { href: "/admin/etl" as Route, label: "ETL Runs", icon: Database },
+      {
+        href: "/admin/data-quality" as Route,
+        label: "Data Quality",
+        icon: ShieldCheck,
+      },
+    ],
+  },
 ];
 
 interface AppSidebarProps {
@@ -49,9 +112,17 @@ interface AppSidebarProps {
 export function AppSidebar({ email }: AppSidebarProps) {
   const pathname = usePathname() ?? "";
   const { data: me } = useMe();
-  const isAdmin = me?.app_role === "admin";
+  const role = me?.app_role;
+  const isAdmin = role === "admin";
+  // `ceo` aún no existe en backend (ROLE_SCOPES). Mientras tanto lo tratamos
+  // como nivel ejecutivo: ve EJECUTIVO pero NO ve ADMIN.
+  const isExecutive = isAdmin || role === "ceo";
 
-  const visibleItems = NAV.filter((item) => !item.adminOnly || isAdmin);
+  const visibleGroups = GROUPS.filter((g) => {
+    if (g.id === "ejecutivo") return isExecutive;
+    if (g.id === "admin") return isAdmin;
+    return true; // operaciones, estrategia, documentos → todos
+  });
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
@@ -62,36 +133,48 @@ export function AppSidebar({ email }: AppSidebarProps) {
             <Sparkles className="h-4 w-4 text-white" strokeWidth={1.5} />
           </div>
           <div>
-            <p className="text-sm font-semibold tracking-tight text-ink-900">Cehta Capital</p>
+            <p className="text-sm font-semibold tracking-tight text-ink-900">
+              Cehta Capital
+            </p>
             <p className="text-xs text-ink-500">FIP CEHTA ESG</p>
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 px-3 py-4">
-        {visibleItems.map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            pathname === item.href || pathname.startsWith(`${item.href}/`);
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
-                isActive
-                  ? "bg-cehta-green/15 text-cehta-green"
-                  : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green",
-              )}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.5} />
-              {item.label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2">
+        {visibleGroups.map((group) => (
+          <div key={group.id}>
+            <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300">
+              {group.label}
+            </h3>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={isActive ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+                      isActive
+                        ? "bg-cehta-green/15 text-cehta-green"
+                        : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green",
+                    )}
+                  >
+                    <Icon className="h-4 w-4" strokeWidth={1.5} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}
