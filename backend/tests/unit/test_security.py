@@ -96,6 +96,7 @@ def test_malformed_token_raises_invalid_token_error() -> None:
 @pytest.mark.parametrize(
     ("role", "scope", "expected"),
     [
+        # OC scopes — preexistentes (Bloque A/B).
         ("admin", "oc:read", True),
         ("admin", "oc:approve", True),
         ("admin", "oc:cancel", True),
@@ -108,6 +109,25 @@ def test_malformed_token_raises_invalid_token_error() -> None:
         ("viewer", "oc:approve", False),
         ("viewer", "oc:cancel", False),
         ("viewer", "oc:mark_paid", False),
+        # Proveedor scopes — nuevos en Bloque C (rbac.py canónico).
+        ("admin", "proveedor:create", True),
+        ("admin", "proveedor:delete", True),
+        ("finance", "proveedor:create", True),
+        ("finance", "proveedor:delete", False),
+        ("viewer", "proveedor:read", True),
+        ("viewer", "proveedor:create", False),
+        # F29 scopes — nuevos en Bloque C.
+        ("admin", "f29:create", True),
+        ("finance", "f29:update", True),
+        ("viewer", "f29:create", False),
+        # User admin — sólo admin escribe roles.
+        ("admin", "user:write", True),
+        ("finance", "user:write", False),
+        ("viewer", "user:read", False),
+        # Movimientos read — todos los roles.
+        ("viewer", "movimiento:read", True),
+        # Scope desconocido — siempre False.
+        ("admin", "scope:inexistente", False),
     ],
 )
 def test_has_scope(role: str, scope: str, expected: bool) -> None:

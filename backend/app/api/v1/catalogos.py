@@ -2,12 +2,37 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
 from app.schemas.catalogo import CatalogosResponse, ConceptoDetallado
 
 router = APIRouter()
+
+
+class EmpresaCatalogo(BaseModel):
+    codigo: str
+    razon_social: str
+    oc_prefix: str | None = None
+    rut: str | None = None
+
+
+@router.get("/empresas", response_model=list[EmpresaCatalogo])
+async def list_empresas(user: CurrentUser, db: DBSession) -> list[EmpresaCatalogo]:
+    """Catálogo plano de empresas activas — único source-of-truth para selects (Disciplina 1)."""
+    rows = (
+        await db.execute(
+            text(
+                "SELECT codigo, razon_social, oc_prefix, rut "
+                "FROM core.empresas WHERE activo = true ORDER BY codigo"
+            )
+        )
+    ).fetchall()
+    return [
+        EmpresaCatalogo(codigo=r[0], razon_social=r[1], oc_prefix=r[2], rut=r[3])
+        for r in rows
+    ]
 
 
 @router.get("", response_model=CatalogosResponse)

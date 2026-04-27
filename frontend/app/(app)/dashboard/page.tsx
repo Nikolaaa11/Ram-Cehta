@@ -1,5 +1,5 @@
 import { serverApiGet } from "@/lib/api/server";
-import type { DashboardData } from "@/lib/api/types";
+import type { DashboardData } from "@/lib/api/schema";
 
 const clp = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) return "—";

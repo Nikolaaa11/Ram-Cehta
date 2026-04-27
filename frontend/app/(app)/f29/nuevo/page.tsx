@@ -4,23 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
-import type { F29Create } from "@/lib/api/types";
-
-const EMPRESAS = [
-  "TRONGKAI",
-  "REVTECH",
-  "EVOQUE",
-  "DTE",
-  "CSL",
-  "RHO",
-  "AFIS",
-  "FIP_CEHTA",
-  "CENERGY",
-];
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import type { F29Create } from "@/lib/api/schema";
 
 export default function F29NuevoPage() {
   const router = useRouter();
   const { session } = useSession();
+  const { data: empresas = [] } = useCatalogoEmpresas();
 
   const [empresaCodigo, setEmpresaCodigo] = useState("");
   const [periodoTributario, setPeriodoTributario] = useState("");
@@ -43,6 +33,7 @@ export default function F29NuevoPage() {
       periodo_tributario: periodoTributario,
       fecha_vencimiento: fechaVencimiento,
       monto_a_pagar: montoAPagar ? Number(montoAPagar) : null,
+      estado: "pendiente",
     };
 
     setSubmitting(true);
@@ -84,9 +75,9 @@ export default function F29NuevoPage() {
             className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-800 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
           >
             <option value="">Selecciona una empresa</option>
-            {EMPRESAS.map((e) => (
-              <option key={e} value={e}>
-                {e}
+            {empresas.map((e) => (
+              <option key={e.codigo} value={e.codigo}>
+                {e.codigo} — {e.razon_social}
               </option>
             ))}
           </select>

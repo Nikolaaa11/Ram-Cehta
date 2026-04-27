@@ -6,6 +6,7 @@ from typing import Any
 from jose import JWTError, jwt
 
 from app.core.config import settings
+from app.core.rbac import scopes_for
 
 
 class InvalidTokenError(Exception):
@@ -24,13 +25,8 @@ class AuthenticatedUser:
         return self.app_role == "admin"
 
     def has_scope(self, scope: str) -> bool:
-        # Placeholder; scopes finos se modelan en Fase 2.2.
-        role_scopes = {
-            "admin": {"oc:read", "oc:approve", "oc:cancel", "oc:mark_paid"},
-            "finance": {"oc:read", "oc:approve", "oc:mark_paid"},
-            "viewer": {"oc:read"},
-        }
-        return scope in role_scopes.get(self.app_role, set())
+        """Delega en `app.core.rbac.scopes_for` — única fuente de verdad."""
+        return scope in scopes_for(self.app_role)
 
 
 def _expected_issuer() -> str:

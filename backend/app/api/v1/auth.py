@@ -1,12 +1,15 @@
 """Auth endpoints: /me y gestión de roles de usuario."""
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.rbac import scopes_for
 from app.core.security import AuthenticatedUser
 
 router = APIRouter()
@@ -29,12 +32,13 @@ class SetRoleRequest(BaseModel):
 
 
 def _allowed_actions(user: AuthenticatedUser) -> list[str]:
-    actions: list[str] = ["read_data"]
-    if user.app_role in ("admin", "finance"):
-        actions += ["create_oc", "create_proveedor", "mark_paid", "create_f29"]
-    if user.app_role == "admin":
-        actions += ["manage_users", "cancel_oc", "delete_proveedor", "edit_empresas"]
-    return actions
+    """Deriva la lista de acciones permitidas desde la matriz canónica RBAC.
+
+    El frontend consume este array para decidir qué botones mostrar
+    (Disciplina 3). Mantenemos el formato `list[str]` para compat con clientes
+    existentes; el contenido viene 1:1 de `app.core.rbac.ROLE_SCOPES`.
+    """
+    return sorted(scopes_for(user.app_role))
 
 
 @router.get("/me", response_model=UserMeResponse)
@@ -48,10 +52,10 @@ async def get_me(user: CurrentUser) -> UserMeResponse:
 
 
 @router.get("/users", response_model=list[UserRoleItem])
-async def list_users(user: CurrentUser, db: DBSession) -> list[UserRoleItem]:
-    if not user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo admins")
-
+async def list_users(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("user:read"))],
+    db: DBSession,
+) -> list[UserRoleItem]:
     result = await db.execute(
         text("SELECT user_id::text, app_role FROM core.user_roles ORDER BY created_at")
     )
@@ -62,11 +66,9 @@ async def list_users(user: CurrentUser, db: DBSession) -> list[UserRoleItem]:
 async def set_user_role(
     user_id: str,
     body: SetRoleRequest,
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("user:write"))],
     db: DBSession,
 ) -> Response:
-    if not user.is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo admins")
     if body.app_role not in ("admin", "finance", "viewer"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

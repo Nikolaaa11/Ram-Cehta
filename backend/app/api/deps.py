@@ -35,3 +35,31 @@ def current_user(authorization: Annotated[str | None, Header()] = None) -> Authe
 
 CurrentUser = Annotated[AuthenticatedUser, Depends(current_user)]
 DBSession = Annotated[AsyncSession, Depends(db_session)]
+
+
+def require_scope(scope: str):
+    """Factory de dependency que exige un scope concreto.
+
+    Uso típico en endpoints:
+
+        @router.post("")
+        async def create_x(
+            user: Annotated[AuthenticatedUser, Depends(require_scope("x:create"))],
+            ...
+        ):
+            ...
+
+    El scope se resuelve contra `app.core.rbac.ROLE_SCOPES` — única fuente de
+    verdad. Devuelve el `AuthenticatedUser` para mantener la firma uniforme con
+    `CurrentUser` (los handlers pueden seguir leyendo `user.sub`, etc.).
+    """
+
+    def _dep(user: CurrentUser) -> AuthenticatedUser:
+        if not user.has_scope(scope):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Falta permiso: {scope}",
+            )
+        return user
+
+    return _dep

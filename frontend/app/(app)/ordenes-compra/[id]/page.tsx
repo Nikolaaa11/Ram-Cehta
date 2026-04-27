@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
-import type { OcRead } from "@/lib/api/types";
+import type { OcRead } from "@/lib/api/schema";
 
 const clp = (v: string | number | null | undefined) => {
   if (v === null || v === undefined) return "—";

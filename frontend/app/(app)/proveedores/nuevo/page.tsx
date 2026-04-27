@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
-import type { ProveedorCreate } from "@/lib/api/types";
+import type { ProveedorCreate } from "@/lib/api/schema";
 
 // Chilean RUT: 7+ digits optionally followed by a verification digit (0-9 or K/k)
 function isValidRut(rut: string): boolean {

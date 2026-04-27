@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
-import type { ProveedorRead } from "@/lib/api/types";
+import type { ProveedorRead } from "@/lib/api/schema";
 
 export default async function ProveedorDetallePage({
   params,

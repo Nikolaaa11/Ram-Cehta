@@ -13,7 +13,10 @@ async def test_me_admin_returns_correct_role_and_actions(
     assert response.status_code == 200
     data = response.json()
     assert data["app_role"] == "admin"
-    assert "manage_users" in data["allowed_actions"]
+    # Bloque C: allowed_actions ahora son scopes derivados de rbac.ROLE_SCOPES.
+    assert "user:write" in data["allowed_actions"]
+    assert "oc:cancel" in data["allowed_actions"]
+    assert "proveedor:delete" in data["allowed_actions"]
 
 
 @pytest.mark.integration
@@ -25,7 +28,9 @@ async def test_me_viewer_returns_correct_role(
     assert response.status_code == 200
     data = response.json()
     assert data["app_role"] == "viewer"
-    assert "manage_users" not in data["allowed_actions"]
+    assert "user:write" not in data["allowed_actions"]
+    assert "oc:create" not in data["allowed_actions"]
+    assert "oc:read" in data["allowed_actions"]
 
 
 @pytest.mark.integration
@@ -50,5 +55,9 @@ async def test_me_finance_has_create_oc_action(
     assert response.status_code == 200
     data = response.json()
     assert data["app_role"] == "finance"
-    assert "create_oc" in data["allowed_actions"]
-    assert "manage_users" not in data["allowed_actions"]
+    # Bloque C: scopes en lugar de strings legacy. Finance puede crear OC y
+    # marcar pagada pero no anular ni administrar usuarios.
+    assert "oc:create" in data["allowed_actions"]
+    assert "oc:mark_paid" in data["allowed_actions"]
+    assert "oc:cancel" not in data["allowed_actions"]
+    assert "user:write" not in data["allowed_actions"]

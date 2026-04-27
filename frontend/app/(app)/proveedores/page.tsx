@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { Page, ProveedorRead } from "@/lib/api/types";
+import type { Page, ProveedorRead } from "@/lib/api/schema";
 
 function useDebounce<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);

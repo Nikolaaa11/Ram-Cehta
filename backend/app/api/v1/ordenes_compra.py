@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.models.orden_compra import OrdenCompra
@@ -86,14 +86,10 @@ async def list_ocs(
 
 @router.post("", response_model=OrdenCompraRead, status_code=status.HTTP_201_CREATED)
 async def create_oc(
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:create"))],
     db: DBSession,
     body: OrdenCompraCreate,
 ) -> OrdenCompraRead:
-    if user.app_role not in ("admin", "finance"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes"
-        )
     repo = OrdenCompraRepository(db)
     if await repo.exists_numero_oc(body.empresa_codigo, body.numero_oc):
         raise HTTPException(

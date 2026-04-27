@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient } from "@/lib/api/client";
-import type { Page, OcListItem } from "@/lib/api/types";
+import type { Page, OcListItem } from "@/lib/api/schema";
 
 const clp = (v: string | number) =>
   new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(Number(v));

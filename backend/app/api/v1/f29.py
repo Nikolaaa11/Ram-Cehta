@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy import text
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.security import AuthenticatedUser
 from app.schemas.common import Page
 from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read
 
@@ -64,10 +65,11 @@ async def list_f29(
 
 
 @router.post("", response_model=F29Read, status_code=status.HTTP_201_CREATED)
-async def create_f29(user: CurrentUser, db: DBSession, body: F29Create) -> F29Read:
-    if user.app_role not in ("admin", "finance"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes")
-
+async def create_f29(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
+    db: DBSession,
+    body: F29Create,
+) -> F29Read:
     result = await db.execute(
         text("""
             INSERT INTO core.f29_obligaciones
@@ -102,11 +104,11 @@ async def create_f29(user: CurrentUser, db: DBSession, body: F29Create) -> F29Re
 
 @router.patch("/{f29_id}/estado", response_model=F29Read)
 async def update_f29_estado(
-    user: CurrentUser, db: DBSession, f29_id: int, body: F29EstadoUpdate
+    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:update"))],
+    db: DBSession,
+    f29_id: int,
+    body: F29EstadoUpdate,
 ) -> F29Read:
-    if user.app_role not in ("admin", "finance"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes")
-
     row = (
         await db.execute(
             text(f"SELECT {_F29_COLS} FROM core.f29_obligaciones WHERE f29_id = :id"),

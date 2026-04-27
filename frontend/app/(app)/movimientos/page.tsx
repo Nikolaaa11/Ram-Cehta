@@ -2,26 +2,16 @@
 
 import { useState } from "react";
 import { useApiQuery } from "@/hooks/use-api-query";
-import type { Page, MovimientoRead } from "@/lib/api/types";
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import type { Page, MovimientoRead } from "@/lib/api/schema";
 import { ApiError } from "@/lib/api/client";
-
-const EMPRESAS = [
-  "TRONGKAI",
-  "REVTECH",
-  "EVOQUE",
-  "DTE",
-  "CSL",
-  "RHO",
-  "AFIS",
-  "FIP_CEHTA",
-  "CENERGY",
-];
 
 const clp = (v: string | number) =>
   new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(Number(v));
 
 export default function MovimientosPage() {
   const currentYear = new Date().getFullYear();
+  const { data: empresas = [] } = useCatalogoEmpresas();
   const [empresa, setEmpresa] = useState("");
   const [anio, setAnio] = useState<string>(String(currentYear));
   const [realProyectado, setRealProyectado] = useState("");
@@ -64,9 +54,9 @@ export default function MovimientosPage() {
           className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
         >
           <option value="">Todas las empresas</option>
-          {EMPRESAS.map((e) => (
-            <option key={e} value={e}>
-              {e}
+          {empresas.map((e) => (
+            <option key={e.codigo} value={e.codigo}>
+              {e.codigo} — {e.razon_social}
             </option>
           ))}
         </select>

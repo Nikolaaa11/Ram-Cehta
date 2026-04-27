@@ -1,0 +1,4212 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Cehta Capital API",
+    "description": "Backend para la Plataforma Cehta Capital (FIP CEHTA ESG).",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/validate/rut": {
+      "get": {
+        "tags": [
+          "validate"
+        ],
+        "summary": "Validate Rut Endpoint",
+        "operationId": "validate_rut_endpoint_api_v1_validate_rut_get",
+        "parameters": [
+          {
+            "name": "rut",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "RUT con o sin formato: '12.345.678-9' o '123456789'",
+              "title": "Rut"
+            },
+            "description": "RUT con o sin formato: '12.345.678-9' o '123456789'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RutValidationResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Get Me",
+        "operationId": "get_me_api_v1_auth_me_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserMeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/users": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_v1_auth_users_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserRoleItem"
+                  },
+                  "title": "Response List Users Api V1 Auth Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/users/{user_id}/role": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Set User Role",
+        "operationId": "set_user_role_api_v1_auth_users__user_id__role_post",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/proveedores": {
+      "get": {
+        "tags": [
+          "proveedores"
+        ],
+        "summary": "List Proveedores",
+        "operationId": "list_proveedores_api_v1_proveedores_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_ProveedorRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "proveedores"
+        ],
+        "summary": "Create Proveedor",
+        "operationId": "create_proveedor_api_v1_proveedores_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProveedorCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProveedorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/proveedores/{proveedor_id}": {
+      "get": {
+        "tags": [
+          "proveedores"
+        ],
+        "summary": "Get Proveedor",
+        "operationId": "get_proveedor_api_v1_proveedores__proveedor_id__get",
+        "parameters": [
+          {
+            "name": "proveedor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Proveedor Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProveedorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "proveedores"
+        ],
+        "summary": "Update Proveedor",
+        "operationId": "update_proveedor_api_v1_proveedores__proveedor_id__patch",
+        "parameters": [
+          {
+            "name": "proveedor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Proveedor Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProveedorUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProveedorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "proveedores"
+        ],
+        "summary": "Delete Proveedor",
+        "operationId": "delete_proveedor_api_v1_proveedores__proveedor_id__delete",
+        "parameters": [
+          {
+            "name": "proveedor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Proveedor Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos/empresas": {
+      "get": {
+        "tags": [
+          "catalogos"
+        ],
+        "summary": "List Empresas",
+        "description": "Cat\u00e1logo plano de empresas activas \u2014 \u00fanico source-of-truth para selects (Disciplina 1).",
+        "operationId": "list_empresas_api_v1_catalogos_empresas_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EmpresaCatalogo"
+                  },
+                  "title": "Response List Empresas Api V1 Catalogos Empresas Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/catalogos": {
+      "get": {
+        "tags": [
+          "catalogos"
+        ],
+        "summary": "Get Catalogos",
+        "operationId": "get_catalogos_api_v1_catalogos_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_api_v1_dashboard_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/kpis": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Kpis",
+        "operationId": "get_kpis_api_v1_dashboard_kpis_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardKPIs"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/cashflow": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Cashflow",
+        "description": "Devuelve los \u00faltimos N meses pivotando real vs proyectado.\n\nSi `empresa_codigo` es None, agrega sobre todo el portafolio.",
+        "operationId": "get_cashflow_api_v1_dashboard_cashflow_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "meses",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 36,
+              "minimum": 1,
+              "default": 12,
+              "title": "Meses"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CashflowResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/egresos-por-concepto": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Egresos Por Concepto",
+        "description": "Top 10 conceptos por egreso del periodo. Default: periodo actual.",
+        "operationId": "get_egresos_por_concepto_api_v1_dashboard_egresos_por_concepto_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EgresoConcepto"
+                  },
+                  "title": "Response Get Egresos Por Concepto Api V1 Dashboard Egresos Por Concepto Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/saldos-por-empresa": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Saldos Por Empresa",
+        "description": "Saldo actual + variaci\u00f3n \u00faltimos 30 d\u00edas por empresa.",
+        "operationId": "get_saldos_por_empresa_api_v1_dashboard_saldos_por_empresa_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaldoEmpresaDetalle"
+                  },
+                  "title": "Response Get Saldos Por Empresa Api V1 Dashboard Saldos Por Empresa Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/iva-trend": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Iva Trend",
+        "operationId": "get_iva_trend_api_v1_dashboard_iva_trend_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "meses",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 36,
+              "minimum": 1,
+              "default": 12,
+              "title": "Meses"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IvaPoint"
+                  },
+                  "title": "Response Get Iva Trend Api V1 Dashboard Iva Trend Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/proyectos-ranking": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Proyectos Ranking",
+        "operationId": "get_proyectos_ranking_api_v1_dashboard_proyectos_ranking_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProyectoRanking"
+                  },
+                  "title": "Response Get Proyectos Ranking Api V1 Dashboard Proyectos Ranking Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard/movimientos-recientes": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Movimientos Recientes",
+        "operationId": "get_movimientos_recientes_api_v1_dashboard_movimientos_recientes_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MovimientoReciente"
+                  },
+                  "title": "Response Get Movimientos Recientes Api V1 Dashboard Movimientos Recientes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra": {
+      "get": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "List Ocs",
+        "operationId": "list_ocs_api_v1_ordenes_compra_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_OrdenCompraListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Create Oc",
+        "operationId": "create_oc_api_v1_ordenes_compra_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrdenCompraCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/{oc_id}": {
+      "get": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Get Oc",
+        "operationId": "get_oc_api_v1_ordenes_compra__oc_id__get",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/{oc_id}/estado": {
+      "patch": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Update Estado",
+        "operationId": "update_estado_api_v1_ordenes_compra__oc_id__estado_patch",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstadoUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/movimientos": {
+      "get": {
+        "tags": [
+          "movimientos"
+        ],
+        "summary": "List Movimientos",
+        "operationId": "list_movimientos_api_v1_movimientos_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "anio",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Anio"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "real_proyectado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Real Proyectado"
+            }
+          },
+          {
+            "name": "proyecto",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Proyecto"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MovimientoRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/f29": {
+      "get": {
+        "tags": [
+          "f29"
+        ],
+        "summary": "List F29",
+        "operationId": "list_f29_api_v1_f29_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_F29Read_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "f29"
+        ],
+        "summary": "Create F29",
+        "operationId": "create_f29_api_v1_f29_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/F29Create"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F29Read"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/f29/{f29_id}/estado": {
+      "patch": {
+        "tags": [
+          "f29"
+        ],
+        "summary": "Update F29 Estado",
+        "operationId": "update_f29_estado_api_v1_f29__f29_id__estado_patch",
+        "parameters": [
+          {
+            "name": "f29_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "F29 Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/F29EstadoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F29Read"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CashflowPoint": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "fecha_inicio": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Inicio"
+          },
+          "abono_real": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Abono Real"
+          },
+          "egreso_real": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Egreso Real"
+          },
+          "abono_proyectado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Abono Proyectado"
+          },
+          "egreso_proyectado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Egreso Proyectado"
+          },
+          "flujo_neto_real": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Flujo Neto Real"
+          },
+          "flujo_neto_proyectado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Flujo Neto Proyectado"
+          },
+          "saldo_acumulado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saldo Acumulado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "fecha_inicio",
+          "abono_real",
+          "egreso_real",
+          "abono_proyectado",
+          "egreso_proyectado",
+          "flujo_neto_real",
+          "flujo_neto_proyectado",
+          "saldo_acumulado"
+        ],
+        "title": "CashflowPoint"
+      },
+      "CashflowResponse": {
+        "properties": {
+          "empresa_codigo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Empresa Codigo"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/CashflowPoint"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "points"
+        ],
+        "title": "CashflowResponse"
+      },
+      "CatalogosResponse": {
+        "properties": {
+          "empresas": {
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Empresas"
+          },
+          "concepto_general": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Concepto General"
+          },
+          "concepto_detallado": {
+            "items": {
+              "$ref": "#/components/schemas/ConceptoDetallado"
+            },
+            "type": "array",
+            "title": "Concepto Detallado"
+          },
+          "tipo_egreso": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Proyecto"
+          },
+          "banco": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Banco"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresas",
+          "concepto_general",
+          "concepto_detallado",
+          "tipo_egreso",
+          "fuente",
+          "proyecto",
+          "banco"
+        ],
+        "title": "CatalogosResponse"
+      },
+      "ConceptoDetallado": {
+        "properties": {
+          "concepto_detallado": {
+            "type": "string",
+            "title": "Concepto Detallado"
+          },
+          "concepto_general": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concepto General"
+          }
+        },
+        "type": "object",
+        "required": [
+          "concepto_detallado",
+          "concepto_general"
+        ],
+        "title": "ConceptoDetallado"
+      },
+      "DashboardKPIs": {
+        "properties": {
+          "saldo_total_consolidado": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saldo Total Consolidado"
+          },
+          "saldo_total_cehta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saldo Total Cehta"
+          },
+          "saldo_total_corfo": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saldo Total Corfo"
+          },
+          "egreso_mes_actual": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Egreso Mes Actual"
+          },
+          "egreso_mes_anterior": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Egreso Mes Anterior"
+          },
+          "egreso_delta_pct": {
+            "type": "number",
+            "title": "Egreso Delta Pct"
+          },
+          "abono_mes_actual": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Abono Mes Actual"
+          },
+          "abono_mes_anterior": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Abono Mes Anterior"
+          },
+          "abono_delta_pct": {
+            "type": "number",
+            "title": "Abono Delta Pct"
+          },
+          "flujo_neto_mes": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Flujo Neto Mes"
+          },
+          "iva_a_pagar_mes": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva A Pagar Mes"
+          },
+          "oc_emitidas_pendientes": {
+            "type": "integer",
+            "title": "Oc Emitidas Pendientes"
+          },
+          "monto_oc_pendiente": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monto Oc Pendiente"
+          },
+          "f29_proximas_30d": {
+            "type": "integer",
+            "title": "F29 Proximas 30D"
+          },
+          "f29_vencidas": {
+            "type": "integer",
+            "title": "F29 Vencidas"
+          },
+          "ultimo_etl_run": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultimo Etl Run"
+          },
+          "etl_status": {
+            "type": "string",
+            "title": "Etl Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saldo_total_consolidado",
+          "saldo_total_cehta",
+          "saldo_total_corfo",
+          "egreso_mes_actual",
+          "egreso_mes_anterior",
+          "egreso_delta_pct",
+          "abono_mes_actual",
+          "abono_mes_anterior",
+          "abono_delta_pct",
+          "flujo_neto_mes",
+          "iva_a_pagar_mes",
+          "oc_emitidas_pendientes",
+          "monto_oc_pendiente",
+          "f29_proximas_30d",
+          "f29_vencidas",
+          "ultimo_etl_run",
+          "etl_status"
+        ],
+        "title": "DashboardKPIs",
+        "description": "Hero stats del dashboard. Todo lo necesario para 6 tarjetas grandes."
+      },
+      "DashboardResponse": {
+        "properties": {
+          "saldos_por_empresa": {
+            "items": {
+              "$ref": "#/components/schemas/SaldoEmpresa"
+            },
+            "type": "array",
+            "title": "Saldos Por Empresa"
+          },
+          "movimientos_recientes": {
+            "items": {
+              "$ref": "#/components/schemas/MovimientoReciente"
+            },
+            "type": "array",
+            "title": "Movimientos Recientes"
+          },
+          "oc_resumen": {
+            "$ref": "#/components/schemas/OCResumen"
+          },
+          "f29_pendientes": {
+            "items": {
+              "$ref": "#/components/schemas/F29Resumen"
+            },
+            "type": "array",
+            "title": "F29 Pendientes"
+          },
+          "periodo_actual": {
+            "type": "string",
+            "title": "Periodo Actual"
+          }
+        },
+        "type": "object",
+        "required": [
+          "saldos_por_empresa",
+          "movimientos_recientes",
+          "oc_resumen",
+          "f29_pendientes",
+          "periodo_actual"
+        ],
+        "title": "DashboardResponse"
+      },
+      "EgresoConcepto": {
+        "properties": {
+          "concepto_general": {
+            "type": "string",
+            "title": "Concepto General"
+          },
+          "concepto_detallado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concepto Detallado"
+          },
+          "total_egreso": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Egreso"
+          },
+          "porcentaje": {
+            "type": "number",
+            "title": "Porcentaje"
+          },
+          "num_movimientos": {
+            "type": "integer",
+            "title": "Num Movimientos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "concepto_general",
+          "concepto_detallado",
+          "total_egreso",
+          "porcentaje",
+          "num_movimientos"
+        ],
+        "title": "EgresoConcepto"
+      },
+      "EmpresaCatalogo": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "razon_social": {
+            "type": "string",
+            "title": "Razon Social"
+          },
+          "oc_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oc Prefix"
+          },
+          "rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "razon_social"
+        ],
+        "title": "EmpresaCatalogo"
+      },
+      "EstadoUpdateRequest": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "enum": [
+              "emitida",
+              "pagada",
+              "anulada",
+              "parcial"
+            ],
+            "title": "Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado"
+        ],
+        "title": "EstadoUpdateRequest"
+      },
+      "F29Create": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo_tributario": {
+            "type": "string",
+            "title": "Periodo Tributario"
+          },
+          "fecha_vencimiento": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Vencimiento"
+          },
+          "monto_a_pagar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto A Pagar"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "pendiente",
+              "pagado",
+              "vencido",
+              "exento"
+            ],
+            "title": "Estado",
+            "default": "pendiente"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "periodo_tributario",
+          "fecha_vencimiento"
+        ],
+        "title": "F29Create"
+      },
+      "F29EstadoUpdate": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "enum": [
+              "pendiente",
+              "pagado",
+              "vencido",
+              "exento"
+            ],
+            "title": "Estado"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "comprobante_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comprobante Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado"
+        ],
+        "title": "F29EstadoUpdate"
+      },
+      "F29Read": {
+        "properties": {
+          "f29_id": {
+            "type": "integer",
+            "title": "F29 Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo_tributario": {
+            "type": "string",
+            "title": "Periodo Tributario"
+          },
+          "fecha_vencimiento": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Vencimiento"
+          },
+          "monto_a_pagar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto A Pagar"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "comprobante_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comprobante Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "f29_id",
+          "empresa_codigo",
+          "periodo_tributario",
+          "fecha_vencimiento",
+          "monto_a_pagar",
+          "fecha_pago",
+          "estado",
+          "comprobante_url",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "F29Read"
+      },
+      "F29Resumen": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo_tributario": {
+            "type": "string",
+            "title": "Periodo Tributario"
+          },
+          "fecha_vencimiento": {
+            "type": "string",
+            "title": "Fecha Vencimiento"
+          },
+          "monto_a_pagar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto A Pagar"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "periodo_tributario",
+          "fecha_vencimiento",
+          "monto_a_pagar",
+          "estado"
+        ],
+        "title": "F29Resumen"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "database": {
+            "type": "string",
+            "title": "Database"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "HealthResponse"
+      },
+      "IvaPoint": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "fecha_inicio": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Inicio"
+          },
+          "iva_credito": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva Credito"
+          },
+          "iva_debito": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva Debito"
+          },
+          "iva_a_pagar": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva A Pagar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "fecha_inicio",
+          "iva_credito",
+          "iva_debito",
+          "iva_a_pagar"
+        ],
+        "title": "IvaPoint"
+      },
+      "MovimientoRead": {
+        "properties": {
+          "movimiento_id": {
+            "type": "integer",
+            "title": "Movimiento Id"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "abono": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Abono"
+          },
+          "egreso": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Egreso"
+          },
+          "saldo_contable": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Contable"
+          },
+          "saldo_cehta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Cehta"
+          },
+          "saldo_corfo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Corfo"
+          },
+          "concepto_general": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concepto General"
+          },
+          "concepto_detallado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concepto Detallado"
+          },
+          "tipo_egreso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proyecto"
+          },
+          "banco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banco"
+          },
+          "real_proyectado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Real Proyectado"
+          },
+          "anio": {
+            "type": "integer",
+            "title": "Anio"
+          },
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "iva_credito_fiscal": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva Credito Fiscal"
+          },
+          "iva_debito_fiscal": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva Debito Fiscal"
+          },
+          "tipo_documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Documento"
+          },
+          "numero_documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Documento"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "movimiento_id",
+          "fecha",
+          "descripcion",
+          "abono",
+          "egreso",
+          "saldo_contable",
+          "saldo_cehta",
+          "saldo_corfo",
+          "concepto_general",
+          "concepto_detallado",
+          "tipo_egreso",
+          "fuente",
+          "proyecto",
+          "banco",
+          "real_proyectado",
+          "anio",
+          "periodo",
+          "empresa_codigo",
+          "iva_credito_fiscal",
+          "iva_debito_fiscal",
+          "tipo_documento",
+          "numero_documento",
+          "created_at"
+        ],
+        "title": "MovimientoRead"
+      },
+      "MovimientoReciente": {
+        "properties": {
+          "movimiento_id": {
+            "type": "integer",
+            "title": "Movimiento Id"
+          },
+          "fecha": {
+            "type": "string",
+            "title": "Fecha"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "abono": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Abono"
+          },
+          "egreso": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Egreso"
+          },
+          "concepto_general": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concepto General"
+          },
+          "proyecto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proyecto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "movimiento_id",
+          "fecha",
+          "empresa_codigo",
+          "descripcion",
+          "abono",
+          "egreso",
+          "concepto_general",
+          "proyecto"
+        ],
+        "title": "MovimientoReciente"
+      },
+      "OCDetalleCreate": {
+        "properties": {
+          "item": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Item"
+          },
+          "descripcion": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Descripcion"
+          },
+          "precio_unitario": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Precio Unitario"
+          },
+          "cantidad": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Cantidad"
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "descripcion",
+          "precio_unitario",
+          "cantidad"
+        ],
+        "title": "OCDetalleCreate"
+      },
+      "OCDetalleRead": {
+        "properties": {
+          "detalle_id": {
+            "type": "integer",
+            "title": "Detalle Id"
+          },
+          "item": {
+            "type": "integer",
+            "title": "Item"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "precio_unitario": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Precio Unitario"
+          },
+          "cantidad": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Cantidad"
+          },
+          "total_linea": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Linea"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detalle_id",
+          "item",
+          "descripcion",
+          "precio_unitario",
+          "cantidad",
+          "total_linea"
+        ],
+        "title": "OCDetalleRead"
+      },
+      "OCResumen": {
+        "properties": {
+          "total_emitidas": {
+            "type": "integer",
+            "title": "Total Emitidas"
+          },
+          "monto_total_emitidas": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monto Total Emitidas"
+          },
+          "total_pagadas": {
+            "type": "integer",
+            "title": "Total Pagadas"
+          },
+          "monto_total_pagadas": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monto Total Pagadas"
+          },
+          "total_anuladas": {
+            "type": "integer",
+            "title": "Total Anuladas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_emitidas",
+          "monto_total_emitidas",
+          "total_pagadas",
+          "monto_total_pagadas",
+          "total_anuladas"
+        ],
+        "title": "OCResumen"
+      },
+      "OrdenCompraCreate": {
+        "properties": {
+          "numero_oc": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Numero Oc"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "proveedor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Id"
+          },
+          "fecha_emision": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Emision"
+          },
+          "validez_dias": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Validez Dias",
+            "default": 30
+          },
+          "moneda": {
+            "type": "string",
+            "enum": [
+              "CLP",
+              "UF",
+              "USD"
+            ],
+            "title": "Moneda",
+            "default": "CLP"
+          },
+          "neto": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Neto"
+          },
+          "forma_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forma Pago"
+          },
+          "plazo_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plazo Pago"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OCDetalleCreate"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero_oc",
+          "empresa_codigo",
+          "fecha_emision",
+          "neto",
+          "items"
+        ],
+        "title": "OrdenCompraCreate"
+      },
+      "OrdenCompraListItem": {
+        "properties": {
+          "oc_id": {
+            "type": "integer",
+            "title": "Oc Id"
+          },
+          "numero_oc": {
+            "type": "string",
+            "title": "Numero Oc"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "proveedor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Id"
+          },
+          "fecha_emision": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Emision"
+          },
+          "moneda": {
+            "type": "string",
+            "title": "Moneda"
+          },
+          "neto": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Neto"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Url"
+          },
+          "allowed_actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Actions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "oc_id",
+          "numero_oc",
+          "empresa_codigo",
+          "proveedor_id",
+          "fecha_emision",
+          "moneda",
+          "neto",
+          "total",
+          "estado",
+          "pdf_url"
+        ],
+        "title": "OrdenCompraListItem"
+      },
+      "OrdenCompraRead": {
+        "properties": {
+          "oc_id": {
+            "type": "integer",
+            "title": "Oc Id"
+          },
+          "numero_oc": {
+            "type": "string",
+            "title": "Numero Oc"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "proveedor_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Id"
+          },
+          "fecha_emision": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Emision"
+          },
+          "validez_dias": {
+            "type": "integer",
+            "title": "Validez Dias"
+          },
+          "moneda": {
+            "type": "string",
+            "title": "Moneda"
+          },
+          "neto": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Neto"
+          },
+          "iva": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "forma_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forma Pago"
+          },
+          "plazo_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plazo Pago"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Url"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OCDetalleRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "allowed_actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Actions",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "oc_id",
+          "numero_oc",
+          "empresa_codigo",
+          "proveedor_id",
+          "fecha_emision",
+          "validez_dias",
+          "moneda",
+          "neto",
+          "iva",
+          "total",
+          "forma_pago",
+          "plazo_pago",
+          "observaciones",
+          "estado",
+          "pdf_url",
+          "items",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OrdenCompraRead"
+      },
+      "Page_F29Read_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/F29Read"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[F29Read]"
+      },
+      "Page_MovimientoRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MovimientoRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[MovimientoRead]"
+      },
+      "Page_OrdenCompraListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrdenCompraListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[OrdenCompraListItem]"
+      },
+      "Page_ProveedorRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProveedorRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[ProveedorRead]"
+      },
+      "ProveedorCreate": {
+        "properties": {
+          "razon_social": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Razon Social"
+          },
+          "rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut"
+          },
+          "giro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Giro"
+          },
+          "direccion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direccion"
+          },
+          "ciudad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ciudad"
+          },
+          "contacto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contacto"
+          },
+          "telefono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefono"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "banco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banco"
+          },
+          "tipo_cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Cuenta"
+          },
+          "numero_cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Cuenta"
+          }
+        },
+        "type": "object",
+        "required": [
+          "razon_social"
+        ],
+        "title": "ProveedorCreate"
+      },
+      "ProveedorRead": {
+        "properties": {
+          "razon_social": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Razon Social"
+          },
+          "rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut"
+          },
+          "giro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Giro"
+          },
+          "direccion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direccion"
+          },
+          "ciudad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ciudad"
+          },
+          "contacto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contacto"
+          },
+          "telefono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefono"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "banco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banco"
+          },
+          "tipo_cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Cuenta"
+          },
+          "numero_cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Cuenta"
+          },
+          "proveedor_id": {
+            "type": "integer",
+            "title": "Proveedor Id"
+          },
+          "activo": {
+            "type": "boolean",
+            "title": "Activo"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "razon_social",
+          "proveedor_id",
+          "activo",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProveedorRead"
+      },
+      "ProveedorUpdate": {
+        "properties": {
+          "razon_social": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Razon Social"
+          },
+          "rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut"
+          },
+          "giro": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Giro"
+          },
+          "direccion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direccion"
+          },
+          "ciudad": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ciudad"
+          },
+          "contacto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contacto"
+          },
+          "telefono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefono"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "banco": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Banco"
+          },
+          "tipo_cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Cuenta"
+          },
+          "numero_cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Cuenta"
+          }
+        },
+        "type": "object",
+        "title": "ProveedorUpdate"
+      },
+      "ProyectoRanking": {
+        "properties": {
+          "proyecto": {
+            "type": "string",
+            "title": "Proyecto"
+          },
+          "total_egreso": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Egreso"
+          },
+          "num_movimientos": {
+            "type": "integer",
+            "title": "Num Movimientos"
+          },
+          "empresas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Empresas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proyecto",
+          "total_egreso",
+          "num_movimientos",
+          "empresas"
+        ],
+        "title": "ProyectoRanking"
+      },
+      "RutValidationResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "formatted": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Formatted"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "formatted",
+          "message"
+        ],
+        "title": "RutValidationResponse"
+      },
+      "SaldoEmpresa": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "razon_social": {
+            "type": "string",
+            "title": "Razon Social"
+          },
+          "saldo_cehta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Cehta"
+          },
+          "saldo_corfo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Corfo"
+          },
+          "saldo_contable": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Contable"
+          },
+          "periodo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Periodo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "razon_social",
+          "saldo_cehta",
+          "saldo_corfo",
+          "saldo_contable",
+          "periodo"
+        ],
+        "title": "SaldoEmpresa"
+      },
+      "SaldoEmpresaDetalle": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "razon_social": {
+            "type": "string",
+            "title": "Razon Social"
+          },
+          "saldo_contable": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Contable"
+          },
+          "saldo_cehta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Cehta"
+          },
+          "saldo_corfo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saldo Corfo"
+          },
+          "ultima_actualizacion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ultima Actualizacion"
+          },
+          "delta_30d": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Delta 30D"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "razon_social",
+          "saldo_contable",
+          "saldo_cehta",
+          "saldo_corfo",
+          "ultima_actualizacion",
+          "delta_30d"
+        ],
+        "title": "SaldoEmpresaDetalle"
+      },
+      "SetRoleRequest": {
+        "properties": {
+          "app_role": {
+            "type": "string",
+            "title": "App Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "app_role"
+        ],
+        "title": "SetRoleRequest"
+      },
+      "UserMeResponse": {
+        "properties": {
+          "sub": {
+            "type": "string",
+            "title": "Sub"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "app_role": {
+            "type": "string",
+            "title": "App Role"
+          },
+          "allowed_actions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Allowed Actions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sub",
+          "email",
+          "app_role",
+          "allowed_actions"
+        ],
+        "title": "UserMeResponse"
+      },
+      "UserRoleItem": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "app_role": {
+            "type": "string",
+            "title": "App Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "app_role"
+        ],
+        "title": "UserRoleItem"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

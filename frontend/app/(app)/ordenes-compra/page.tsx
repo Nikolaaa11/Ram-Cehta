@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { Button } from "@/components/ui/button";
-import type { Page, OcListItem } from "@/lib/api/types";
+import type { Page, OcListItem } from "@/lib/api/schema";
 
 const clp = (value: string | number) => {
   const num = typeof value === "string" ? Number(value) : value;
@@ -32,10 +33,10 @@ function EstadoBadge({ estado }: { estado: string }) {
   );
 }
 
-const EMPRESAS = ["", "CEHTA", "CORFO", "OTRA"]; // Extend based on real data
 const ESTADOS = ["", "emitida", "pagada", "anulada", "pendiente", "aprobada", "rechazada"];
 
 export default function OrdenesCompraPage() {
+  const { data: empresas = [] } = useCatalogoEmpresas();
   const [page, setPage] = useState(1);
   const [empresa, setEmpresa] = useState("");
   const [estado, setEstado] = useState("");
@@ -85,9 +86,9 @@ export default function OrdenesCompraPage() {
             className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
           >
             <option value="">Todas las empresas</option>
-            {EMPRESAS.filter(Boolean).map((e) => (
-              <option key={e} value={e}>
-                {e}
+            {empresas.map((e) => (
+              <option key={e.codigo} value={e.codigo}>
+                {e.codigo} — {e.razon_social}
               </option>
             ))}
           </select>

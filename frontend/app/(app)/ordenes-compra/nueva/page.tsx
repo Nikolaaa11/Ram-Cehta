@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
-import type { OcRead } from "@/lib/api/types";
+import type { OcRead } from "@/lib/api/schema";
 
 interface ItemForm {
   descripcion: string;

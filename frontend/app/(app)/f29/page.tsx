@@ -3,20 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { useSession } from "@/hooks/use-session";
-import type { Page, F29Read } from "@/lib/api/types";
-
-const EMPRESAS = [
-  "TRONGKAI",
-  "REVTECH",
-  "EVOQUE",
-  "DTE",
-  "CSL",
-  "RHO",
-  "AFIS",
-  "FIP_CEHTA",
-  "CENERGY",
-];
+import { useMe } from "@/hooks/use-me";
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import type { Page, F29Read } from "@/lib/api/schema";
 
 const ESTADOS = [
   { value: "", label: "Todos los estados" },
@@ -45,7 +34,8 @@ function EstadoBadge({ estado }: { estado: string }) {
 }
 
 export default function F29Page() {
-  const { session } = useSession();
+  const { data: me } = useMe();
+  const { data: empresas = [] } = useCatalogoEmpresas();
   const [empresa, setEmpresa] = useState("");
   const [estado, setEstado] = useState("");
 
@@ -61,9 +51,9 @@ export default function F29Page() {
   );
 
   const items = data?.items ?? [];
-  const isAdminOrFinance =
-    session?.user?.user_metadata?.app_role === "admin" ||
-    session?.user?.user_metadata?.app_role === "finance";
+  // Disciplina 3: el frontend NUNCA decide permisos por sí mismo. Lee de
+  // `allowed_actions` derivado server-side desde rbac.ROLE_SCOPES.
+  const canCreateF29 = me?.allowed_actions.includes("f29:create") ?? false;
 
   return (
     <div className="space-y-6">
@@ -75,7 +65,7 @@ export default function F29Page() {
             Obligaciones tributarias mensuales por empresa.
           </p>
         </div>
-        {isAdminOrFinance && (
+        {canCreateF29 && (
           <Link
             href="/f29/nuevo"
             className="inline-flex items-center gap-2 rounded-lg bg-green-800 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-700"
@@ -96,9 +86,9 @@ export default function F29Page() {
           className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-green-800 focus:outline-none focus:ring-1 focus:ring-green-800"
         >
           <option value="">Todas las empresas</option>
-          {EMPRESAS.map((e) => (
-            <option key={e} value={e}>
-              {e}
+          {empresas.map((e) => (
+            <option key={e.codigo} value={e.codigo}>
+              {e.codigo} — {e.razon_social}
             </option>
           ))}
         </select>
@@ -148,7 +138,7 @@ export default function F29Page() {
           <p className="mt-3 text-sm font-medium text-gray-500">
             Sin obligaciones F29 registradas
           </p>
-          {isAdminOrFinance && (
+          {canCreateF29 && (
             <Link
               href="/f29/nuevo"
               className="mt-4 inline-flex items-center text-sm font-medium text-green-800 hover:underline"

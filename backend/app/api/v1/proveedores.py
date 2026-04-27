@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
 from app.schemas.common import Page
 from app.schemas.proveedor import ProveedorCreate, ProveedorRead, ProveedorUpdate
@@ -34,14 +35,10 @@ async def list_proveedores(
 
 @router.post("", response_model=ProveedorRead, status_code=status.HTTP_201_CREATED)
 async def create_proveedor(
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:create"))],
     db: DBSession,
     body: ProveedorCreate,
 ) -> ProveedorRead:
-    if user.app_role not in ("admin", "finance"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes"
-        )
     repo = ProveedorRepository(db)
     if body.rut:
         existing = await repo.get_by_rut(body.rut)
@@ -70,15 +67,11 @@ async def get_proveedor(
 
 @router.patch("/{proveedor_id}", response_model=ProveedorRead)
 async def update_proveedor(
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:update"))],
     db: DBSession,
     proveedor_id: int,
     body: ProveedorUpdate,
 ) -> ProveedorRead:
-    if user.app_role not in ("admin", "finance"):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Permisos insuficientes"
-        )
     repo = ProveedorRepository(db)
     proveedor = await repo.get(proveedor_id)
     if not proveedor or not proveedor.activo:
@@ -97,14 +90,10 @@ async def update_proveedor(
 
 @router.delete("/{proveedor_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def delete_proveedor(
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:delete"))],
     db: DBSession,
     proveedor_id: int,
 ) -> Response:
-    if not user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Solo admins"
-        )
     repo = ProveedorRepository(db)
     proveedor = await repo.get(proveedor_id)
     if not proveedor or not proveedor.activo:
