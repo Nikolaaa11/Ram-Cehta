@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { motion, useReducedMotion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { EmpresaFilter } from "./EmpresaFilter";
 import { PeriodoFilter } from "./PeriodoFilter";
@@ -26,6 +27,7 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
   const queryClient = useQueryClient();
   const { filters } = useDashboardFilters();
   const [refreshing, setRefreshing] = useState(false);
+  const prefersReduced = useReducedMotion();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -38,7 +40,10 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
   };
 
   return (
-    <header
+    <motion.header
+      initial={prefersReduced ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className={cn(
         "sticky top-0 z-30 -mx-6 lg:-mx-10 mb-6",
         "bg-white/70 backdrop-blur-xl",
@@ -77,6 +82,6 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
           </SimpleTooltip>
         </div>
       </div>
-    </header>
+    </motion.header>
   );
 }

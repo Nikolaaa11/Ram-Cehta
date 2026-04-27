@@ -1,11 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Wallet, TrendingUp, FileText, Calendar } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { KpiCard } from "./KpiCard";
+import { StaggerReveal } from "./StaggerReveal";
 import { dashboardKeys, filtersToQueryString } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
 import { toCLP, toPct } from "@/lib/format";
@@ -14,21 +14,6 @@ import type { DashboardKPIs } from "@/lib/api/schema";
 interface Props {
   initialData: DashboardKPIs;
 }
-
-const container = {
-  show: {
-    transition: { staggerChildren: 0.06 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
-  },
-};
 
 export function KpiHeroSection({ initialData }: Props) {
   const { session, loading } = useSession();
@@ -54,46 +39,46 @@ export function KpiHeroSection({ initialData }: Props) {
         ? "warning"
         : "default";
 
-  // egreso_delta_pct viene como número con signo desde backend.
-  // Lo presentamos como `toPct(value, {signed:true})`.
-  // La direction debe entender: para flujo neto, "up" = mejor.
-  // Acá usamos egreso_delta_pct como métrica acompañante: backend ya lo entrega
-  // con su signo, pero la *dirección semántica* del flujo neto la tomamos del
-  // valor del flujo, no del delta de egresos. Mostramos abono_delta_pct como
-  // contexto secundario.
-
   return (
-    <motion.section
-      variants={container}
-      initial="hidden"
-      animate="show"
+    <section
       className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
       aria-label="Indicadores principales"
     >
-      <motion.div variants={item}>
+      <StaggerReveal index={0}>
         <KpiCard
           label="Saldo consolidado"
           value={toCLP(data.saldo_total_consolidado)}
           icon={Wallet}
           tone="default"
         />
-      </motion.div>
+      </StaggerReveal>
 
-      <motion.div variants={item}>
+      <StaggerReveal index={1}>
         <KpiCard
           label="Flujo neto del mes"
           value={toCLP(data.flujo_neto_mes)}
           icon={TrendingUp}
-          tone={flujoDir === "up" ? "positive" : flujoDir === "down" ? "negative" : "default"}
+          tone={
+            flujoDir === "up"
+              ? "positive"
+              : flujoDir === "down"
+                ? "negative"
+                : "default"
+          }
           delta={{
             value: toPct(data.abono_delta_pct, { signed: true }),
             label: "abonos vs. mes anterior",
-            direction: data.abono_delta_pct > 0 ? "up" : data.abono_delta_pct < 0 ? "down" : "flat",
+            direction:
+              data.abono_delta_pct > 0
+                ? "up"
+                : data.abono_delta_pct < 0
+                  ? "down"
+                  : "flat",
           }}
         />
-      </motion.div>
+      </StaggerReveal>
 
-      <motion.div variants={item}>
+      <StaggerReveal index={2}>
         <KpiCard
           label="OCs pendientes"
           value={String(data.oc_emitidas_pendientes)}
@@ -102,9 +87,9 @@ export function KpiHeroSection({ initialData }: Props) {
           href="/ordenes-compra"
           tone="default"
         />
-      </motion.div>
+      </StaggerReveal>
 
-      <motion.div variants={item}>
+      <StaggerReveal index={3}>
         <KpiCard
           label="F29 próximas"
           value={String(data.f29_proximas_30d)}
@@ -117,7 +102,7 @@ export function KpiHeroSection({ initialData }: Props) {
           href="/f29"
           tone={f29Tone}
         />
-      </motion.div>
-    </motion.section>
+      </StaggerReveal>
+    </section>
   );
 }

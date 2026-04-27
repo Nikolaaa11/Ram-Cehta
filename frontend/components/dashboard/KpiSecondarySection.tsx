@@ -1,11 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Landmark, Receipt, DatabaseZap } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { KpiCardSmall } from "./KpiCardSmall";
+import { StaggerReveal } from "./StaggerReveal";
 import { dashboardKeys, filtersToQueryString } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
 import { toCLP, toRelative } from "@/lib/format";
@@ -15,20 +15,8 @@ interface Props {
   initialData: DashboardKPIs;
 }
 
-const container = {
-  show: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.18 },
-  },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 8 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
-  },
-};
+// Ofset post-hero para que esta sección entre cuando la primera ya está casi.
+const HERO_OFFSET_MS = 0.18;
 
 export function KpiSecondarySection({ initialData }: Props) {
   const { session, loading } = useSession();
@@ -52,42 +40,39 @@ export function KpiSecondarySection({ initialData }: Props) {
           : "neutral";
 
   return (
-    <motion.section
-      variants={container}
-      initial="hidden"
-      animate="show"
+    <section
       className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
       aria-label="Indicadores secundarios"
     >
-      <motion.div variants={item}>
+      <StaggerReveal index={0} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="Saldo Cehta"
           value={toCLP(data.saldo_total_cehta)}
           icon={Building2}
         />
-      </motion.div>
-      <motion.div variants={item}>
+      </StaggerReveal>
+      <StaggerReveal index={1} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="Saldo CORFO"
           value={toCLP(data.saldo_total_corfo)}
           icon={Landmark}
         />
-      </motion.div>
-      <motion.div variants={item}>
+      </StaggerReveal>
+      <StaggerReveal index={2} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="IVA del mes"
           value={toCLP(data.iva_a_pagar_mes)}
           icon={Receipt}
         />
-      </motion.div>
-      <motion.div variants={item}>
+      </StaggerReveal>
+      <StaggerReveal index={3} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="Última actualización"
           value={toRelative(data.ultimo_etl_run)}
           icon={DatabaseZap}
           dot={etlDot}
         />
-      </motion.div>
-    </motion.section>
+      </StaggerReveal>
+    </section>
   );
 }

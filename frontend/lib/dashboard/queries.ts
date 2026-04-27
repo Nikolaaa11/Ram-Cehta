@@ -12,14 +12,22 @@ export const dashboardKeys = {
     [...dashboardKeys.all, "cashflow", filters] as const,
   egresoConceptos: (filters: DashboardFilters) =>
     [...dashboardKeys.all, "egreso-conceptos", filters] as const,
+  egresosPorConcepto: (filters: DashboardFilters) =>
+    [...dashboardKeys.all, "egreso-conceptos", filters] as const,
   saldosPorEmpresa: (filters: DashboardFilters) =>
     [...dashboardKeys.all, "saldos", filters] as const,
   iva: (filters: DashboardFilters) =>
+    [...dashboardKeys.all, "iva", filters] as const,
+  ivaTrend: (filters: DashboardFilters) =>
     [...dashboardKeys.all, "iva", filters] as const,
   proyectos: (filters: DashboardFilters) =>
     [...dashboardKeys.all, "proyectos", filters] as const,
   movimientos: (filters: DashboardFilters) =>
     [...dashboardKeys.all, "movimientos", filters] as const,
+  projectsRanking: (filters?: DashboardFilters) =>
+    [...dashboardKeys.all, "proyectos-ranking", filters ?? {}] as const,
+  recentActivity: () =>
+    [...dashboardKeys.all, "movimientos-recientes"] as const,
 };
 
 /**
