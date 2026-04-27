@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { ChevronLeft, ChevronRight, Inbox, Plus, Search, Users } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Surface } from "@/components/ui/surface";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Page, ProveedorRead } from "@/lib/api/schema";
 
 function useDebounce<T>(value: T, delayMs: number): T {
@@ -14,6 +15,55 @@ function useDebounce<T>(value: T, delayMs: number): T {
     return () => clearTimeout(id);
   }, [value, delayMs]);
   return debounced;
+}
+
+const COLUMNS = ["Razón social", "RUT", "Giro", "Ciudad", "Email", ""];
+
+function TableSkeleton() {
+  return (
+    <Surface padding="none">
+      <div className="overflow-hidden">
+        <table className="min-w-full divide-y divide-hairline text-sm">
+          <thead className="bg-ink-100/40">
+            <tr>
+              {COLUMNS.map((h, idx) => (
+                <th
+                  key={`${h}-${idx}`}
+                  className="px-4 py-3 text-left text-xs uppercase tracking-wide text-ink-500 font-medium"
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-hairline">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <tr key={i}>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-48" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-24" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-32" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-20" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-40" />
+                </td>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-16" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Surface>
+  );
 }
 
 export default function ProveedoresPage() {
@@ -29,7 +79,7 @@ export default function ProveedoresPage() {
 
   const { data, isLoading, isError, error } = useApiQuery<Page<ProveedorRead>>(
     ["proveedores", String(page), debouncedSearch],
-    queryPath
+    queryPath,
   );
 
   const handleSearchChange = useCallback(
@@ -37,142 +87,183 @@ export default function ProveedoresPage() {
       setSearch(e.target.value);
       setPage(1);
     },
-    []
+    [],
   );
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Proveedores</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {data ? `${data.total} proveedor${data.total !== 1 ? "es" : ""} registrado${data.total !== 1 ? "s" : ""}` : ""}
+          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
+            Proveedores
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {data
+              ? `${data.total} proveedor${data.total !== 1 ? "es" : ""} registrado${data.total !== 1 ? "s" : ""}`
+              : "Cargando proveedores…"}
           </p>
         </div>
         <Link
           href="/proveedores/nuevo"
-          className="inline-flex items-center rounded-md bg-green-800 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-900"
+          className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
         >
-          + Nuevo proveedor
+          <Plus className="h-4 w-4" strokeWidth={1.5} />
+          Nuevo proveedor
         </Link>
       </div>
 
       {/* Search */}
-      <div className="max-w-sm">
-        <Input
+      <div className="relative max-w-sm">
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300"
+          strokeWidth={1.5}
+        />
+        <input
           type="search"
-          placeholder="Buscar por razón social o RUT..."
+          placeholder="Buscar por razón social o RUT…"
           value={search}
           onChange={handleSearchChange}
-          className="border-gray-300"
+          className="w-full rounded-lg border-0 bg-white px-3 py-2 pl-9 text-sm text-ink-900 ring-1 ring-hairline placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green"
         />
       </div>
 
       {/* Error state */}
       {isError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          Error al cargar proveedores: {error?.message}
-        </div>
+        <Surface className="bg-negative/5 ring-negative/20">
+          <p className="text-sm font-medium text-negative">
+            Error al cargar proveedores
+          </p>
+          <p className="mt-1 text-xs text-negative/80">{error?.message}</p>
+        </Surface>
       )}
 
       {/* Loading state */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-16">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-green-800 border-t-transparent" />
-          <span className="ml-2 text-sm text-gray-500">Cargando...</span>
-        </div>
-      )}
+      {isLoading && <TableSkeleton />}
 
-      {/* Table */}
+      {/* Table / empty state */}
       {data && !isLoading && (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+        <>
           {data.items.length === 0 ? (
-            <div className="px-6 py-12 text-center text-sm text-gray-500">
-              {debouncedSearch
-                ? `Sin resultados para "${debouncedSearch}"`
-                : "No hay proveedores registrados aún."}
-            </div>
+            <Surface className="py-16">
+              <div className="flex flex-col items-center text-center">
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
+                  {debouncedSearch ? (
+                    <Inbox className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
+                  ) : (
+                    <Users className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
+                  )}
+                </div>
+                <p className="text-base font-semibold text-ink-900">
+                  {debouncedSearch
+                    ? `Sin resultados para “${debouncedSearch}”`
+                    : "No hay proveedores registrados"}
+                </p>
+                <p className="mt-1 text-sm text-ink-500">
+                  {debouncedSearch
+                    ? "Probá con otro término de búsqueda."
+                    : "Empezá creando tu primer proveedor."}
+                </p>
+                {!debouncedSearch && (
+                  <Link
+                    href="/proveedores/nuevo"
+                    className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
+                  >
+                    <Plus className="h-4 w-4" strokeWidth={1.5} />
+                    Nuevo proveedor
+                  </Link>
+                )}
+              </div>
+            </Surface>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["Razón social", "RUT", "Giro", "Ciudad", "Email", "Acciones"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.items.map((p) => (
-                  <tr key={p.proveedor_id} className="hover:bg-gray-50">
-                    <td className="max-w-xs truncate px-4 py-3 font-medium text-gray-900">
-                      {p.razon_social}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-gray-600">
-                      {p.rut ?? "—"}
-                    </td>
-                    <td className="max-w-[12rem] truncate px-4 py-3 text-gray-600">
-                      {p.giro ?? "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                      {p.ciudad ?? "—"}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-gray-600">
-                      {p.email ? (
-                        <a
-                          href={`mailto:${p.email}`}
-                          className="text-green-700 hover:underline"
+            <Surface padding="none" className="overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-hairline text-sm">
+                  <thead className="bg-ink-100/40">
+                    <tr>
+                      {COLUMNS.map((h, idx) => (
+                        <th
+                          key={`${h}-${idx}`}
+                          className="px-4 py-3 text-left text-xs uppercase tracking-wide text-ink-500 font-medium"
                         >
-                          {p.email}
-                        </a>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <Link
-                        href={`/proveedores/${p.proveedor_id}`}
-                        className="text-xs font-medium text-green-700 hover:underline"
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hairline">
+                    {data.items.map((p) => (
+                      <tr
+                        key={p.proveedor_id}
+                        className="transition-colors duration-150 hover:bg-ink-100/30"
                       >
-                        Ver detalle
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        <td className="max-w-xs truncate px-4 py-3 font-medium text-ink-900">
+                          {p.razon_social}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 font-mono tabular-nums text-ink-700">
+                          {p.rut ?? "—"}
+                        </td>
+                        <td className="max-w-[12rem] truncate px-4 py-3 text-ink-700">
+                          {p.giro ?? "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-ink-700">
+                          {p.ciudad ?? "—"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-ink-700">
+                          {p.email ? (
+                            <a
+                              href={`mailto:${p.email}`}
+                              className="text-cehta-green hover:underline"
+                            >
+                              {p.email}
+                            </a>
+                          ) : (
+                            <span className="text-ink-300">—</span>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                          <Link
+                            href={`/proveedores/${p.proveedor_id}`}
+                            className="text-xs font-medium text-cehta-green hover:underline"
+                          >
+                            Ver detalle →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Surface>
           )}
-        </div>
+        </>
       )}
 
       {/* Pagination */}
       {data && data.pages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-gray-500">
-            Página {data.page} de {data.pages} &mdash; {data.total} resultados
+          <p className="text-xs text-ink-500 tabular-nums">
+            Página {data.page} de {data.pages} · {data.total} resultados
           </p>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={data.page <= 1}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-50 disabled:hover:bg-white"
             >
-              ← Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
+              Anterior
+            </button>
+            <button
+              type="button"
               onClick={() => setPage((p) => p + 1)}
               disabled={data.page >= data.pages}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-50 disabled:hover:bg-white"
             >
-              Siguiente →
-            </Button>
+              Siguiente
+              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       )}

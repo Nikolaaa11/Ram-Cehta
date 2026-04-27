@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ArrowLeft } from "lucide-react";
+import { Surface } from "@/components/ui/surface";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import type { ProveedorCreate } from "@/lib/api/schema";
@@ -24,18 +23,40 @@ const FIELDS: Array<{
   type?: string;
   placeholder?: string;
 }> = [
-  { name: "razon_social", label: "Razón social", required: true, placeholder: "Empresa S.A." },
+  {
+    name: "razon_social",
+    label: "Razón social",
+    required: true,
+    placeholder: "Empresa S.A.",
+  },
   { name: "rut", label: "RUT", placeholder: "12345678-9" },
   { name: "giro", label: "Giro", placeholder: "Servicios de consultoría" },
   { name: "direccion", label: "Dirección", placeholder: "Av. Providencia 123" },
   { name: "ciudad", label: "Ciudad", placeholder: "Santiago" },
   { name: "contacto", label: "Contacto", placeholder: "Nombre del contacto" },
   { name: "telefono", label: "Teléfono", placeholder: "+56 9 1234 5678" },
-  { name: "email", label: "Email", type: "email", placeholder: "contacto@empresa.cl" },
+  {
+    name: "email",
+    label: "Email",
+    type: "email",
+    placeholder: "contacto@empresa.cl",
+  },
   { name: "banco", label: "Banco", placeholder: "Banco Estado" },
-  { name: "tipo_cuenta", label: "Tipo de cuenta", placeholder: "Corriente / Vista / Ahorro" },
-  { name: "numero_cuenta", label: "Número de cuenta", placeholder: "00123456789" },
+  {
+    name: "tipo_cuenta",
+    label: "Tipo de cuenta",
+    placeholder: "Corriente / Vista / Ahorro",
+  },
+  {
+    name: "numero_cuenta",
+    label: "Número de cuenta",
+    placeholder: "00123456789",
+  },
 ];
+
+const inputBase =
+  "w-full rounded-lg border-0 ring-1 ring-hairline bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green";
+const inputError = "ring-negative focus:ring-negative";
 
 export default function NuevoProveedorPage() {
   const router = useRouter();
@@ -121,73 +142,79 @@ export default function NuevoProveedorPage() {
       <div>
         <Link
           href="/proveedores"
-          className="mb-1 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600"
+          className="mb-2 inline-flex items-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-900"
         >
-          ← Volver a proveedores
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+          Volver a proveedores
         </Link>
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Nuevo proveedor</h1>
-        <p className="mt-1 text-sm text-gray-500">Completa los datos del proveedor.</p>
+        <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
+          Nuevo proveedor
+        </h1>
+        <p className="mt-1 text-sm text-ink-500">
+          Completa los datos del proveedor.
+        </p>
       </div>
 
       {/* General error banner */}
       {errors.general && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errors.general}
-        </div>
+        <Surface className="bg-negative/5 ring-negative/20">
+          <p className="text-sm text-negative">{errors.general}</p>
+        </Surface>
       )}
 
       {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm"
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {FIELDS.map(({ name, label, required, type, placeholder }) => (
-            <div key={name} className={name === "razon_social" ? "sm:col-span-2" : ""}>
-              <Label
-                htmlFor={name}
-                className="mb-1.5 block text-sm font-medium text-gray-700"
+      <form onSubmit={handleSubmit} noValidate>
+        <Surface>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {FIELDS.map(({ name, label, required, type, placeholder }) => (
+              <div
+                key={name}
+                className={name === "razon_social" ? "sm:col-span-2" : ""}
               >
-                {label}
-                {required && <span className="ml-0.5 text-red-500">*</span>}
-              </Label>
-              <Input
-                id={name}
-                type={type ?? "text"}
-                placeholder={placeholder}
-                value={(form[name] as string) ?? ""}
-                onChange={(e) => handleChange(name, e.target.value)}
-                className={
-                  errors[name]
-                    ? "border-red-400 focus:border-red-500 focus:ring-red-500"
-                    : "border-gray-300 focus:border-green-800 focus:ring-green-800"
-                }
-              />
-              {errors[name] && (
-                <p className="mt-1 text-xs text-red-600">{errors[name]}</p>
-              )}
-            </div>
-          ))}
-        </div>
+                <label
+                  htmlFor={name}
+                  className="mb-1.5 block text-sm font-medium text-ink-700"
+                >
+                  {label}
+                  {required && (
+                    <span className="ml-0.5 text-negative">*</span>
+                  )}
+                </label>
+                <input
+                  id={name}
+                  type={type ?? "text"}
+                  placeholder={placeholder}
+                  value={(form[name] as string) ?? ""}
+                  onChange={(e) => handleChange(name, e.target.value)}
+                  className={`${inputBase} ${errors[name] ? inputError : ""}`}
+                  aria-invalid={errors[name] ? true : undefined}
+                />
+                {errors[name] && (
+                  <p className="mt-1 text-xs text-negative">{errors[name]}</p>
+                )}
+              </div>
+            ))}
+          </div>
 
-        {/* Actions */}
-        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-5">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.push("/proveedores")}
-            disabled={submitting}
-          >
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="bg-green-800 text-white hover:bg-green-900 disabled:opacity-60"
-          >
-            {submitting ? "Guardando..." : "Guardar proveedor"}
-          </Button>
-        </div>
+          {/* Actions */}
+          <div className="mt-6 flex justify-end gap-3 border-t border-hairline pt-5">
+            <button
+              type="button"
+              onClick={() => router.push("/proveedores")}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
+            >
+              {submitting ? "Guardando…" : "Guardar proveedor"}
+            </button>
+          </div>
+        </Surface>
       </form>
     </div>
   );

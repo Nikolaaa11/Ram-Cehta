@@ -1,8 +1,35 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, Building2, Landmark } from "lucide-react";
+import { Surface } from "@/components/ui/surface";
+import { Badge } from "@/components/ui/badge";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
+import { toDateTime } from "@/lib/format";
 import type { ProveedorRead } from "@/lib/api/schema";
+
+function Field({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value: string | null | undefined;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+        {label}
+      </dt>
+      <dd
+        className={`mt-1 text-sm text-ink-900 ${mono ? "font-mono tabular-nums" : ""}`}
+      >
+        {value || <span className="text-ink-300">—</span>}
+      </dd>
+    </div>
+  );
+}
 
 export default async function ProveedorDetallePage({
   params,
@@ -26,64 +53,92 @@ export default async function ProveedorDetallePage({
   if (fetchError || !proveedor) {
     return (
       <div className="space-y-6">
-        <Link href="/proveedores" className="text-sm text-green-700 hover:underline">
-          ← Volver a proveedores
+        <Link
+          href="/proveedores"
+          className="inline-flex items-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-900"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+          Volver a proveedores
         </Link>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm font-medium text-red-700">No se pudo cargar el proveedor</p>
-          <p className="mt-1 text-xs text-red-500">{fetchError}</p>
-        </div>
+        <Surface className="bg-negative/5 ring-negative/20">
+          <p className="text-sm font-medium text-negative">
+            No se pudo cargar el proveedor
+          </p>
+          <p className="mt-1 text-xs text-negative/80">{fetchError}</p>
+        </Surface>
       </div>
     );
   }
 
-  const Field = ({ label, value }: { label: string; value: string | null | undefined }) => (
-    <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</dt>
-      <dd className="mt-1 text-sm text-gray-900">{value || "—"}</dd>
-    </div>
-  );
-
   return (
     <div className="space-y-6">
-      <Link href="/proveedores" className="text-sm text-green-700 hover:underline">
-        ← Volver a proveedores
+      <Link
+        href="/proveedores"
+        className="inline-flex items-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-900"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+        Volver a proveedores
       </Link>
 
-      <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
-          {proveedor.razon_social}
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          {proveedor.rut ? `RUT ${proveedor.rut}` : "Sin RUT registrado"}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
+            {proveedor.razon_social}
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {proveedor.rut ? "Proveedor registrado" : "Sin RUT registrado"}
+          </p>
+        </div>
+        {proveedor.rut && (
+          <Badge variant="neutral" className="font-mono tabular-nums">
+            RUT {proveedor.rut}
+          </Badge>
+        )}
       </header>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-medium text-gray-800">Datos generales</h2>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Giro" value={proveedor.giro} />
-          <Field label="Dirección" value={proveedor.direccion} />
-          <Field label="Ciudad" value={proveedor.ciudad} />
-          <Field label="Contacto" value={proveedor.contacto} />
-          <Field label="Teléfono" value={proveedor.telefono} />
-          <Field label="Email" value={proveedor.email} />
-        </dl>
-      </section>
+      <Surface>
+        <Surface.Header divider>
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-ink-500" strokeWidth={1.5} />
+            <Surface.Title>Datos generales</Surface.Title>
+          </div>
+        </Surface.Header>
+        <Surface.Body>
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <Field label="Giro" value={proveedor.giro} />
+            <Field label="Dirección" value={proveedor.direccion} />
+            <Field label="Ciudad" value={proveedor.ciudad} />
+            <Field label="Contacto" value={proveedor.contacto} />
+            <Field label="Teléfono" value={proveedor.telefono} mono />
+            <Field label="Email" value={proveedor.email} />
+          </dl>
+        </Surface.Body>
+      </Surface>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-medium text-gray-800">Datos bancarios</h2>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Field label="Banco" value={proveedor.banco} />
-          <Field label="Tipo de cuenta" value={proveedor.tipo_cuenta} />
-          <Field label="Número de cuenta" value={proveedor.numero_cuenta} />
-        </dl>
-      </section>
+      <Surface>
+        <Surface.Header divider>
+          <div className="flex items-center gap-2">
+            <Landmark className="h-4 w-4 text-ink-500" strokeWidth={1.5} />
+            <Surface.Title>Datos bancarios</Surface.Title>
+          </div>
+        </Surface.Header>
+        <Surface.Body>
+          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            <Field label="Banco" value={proveedor.banco} />
+            <Field label="Tipo de cuenta" value={proveedor.tipo_cuenta} />
+            <Field
+              label="Número de cuenta"
+              value={proveedor.numero_cuenta}
+              mono
+            />
+          </dl>
+        </Surface.Body>
+      </Surface>
 
-      <p className="text-xs text-gray-400">
-        Creado: {new Date(proveedor.created_at).toLocaleString("es-CL")}
+      <p className="text-xs text-ink-300 tabular-nums">
+        Creado: {toDateTime(proveedor.created_at)}
         {" · "}
-        Actualizado: {new Date(proveedor.updated_at).toLocaleString("es-CL")}
+        Actualizado: {toDateTime(proveedor.updated_at)}
       </p>
     </div>
   );

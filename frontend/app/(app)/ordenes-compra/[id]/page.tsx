@@ -1,31 +1,53 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft, ExternalLink } from "lucide-react";
+import { Surface } from "@/components/ui/surface";
+import { Badge } from "@/components/ui/badge";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
+import { toCLP, toDate } from "@/lib/format";
 import type { OcRead } from "@/lib/api/schema";
 
-const clp = (v: string | number | null | undefined) => {
-  if (v === null || v === undefined) return "—";
-  const n = typeof v === "string" ? Number(v) : v;
-  if (Number.isNaN(n)) return "—";
-  return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP" }).format(n);
+type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
+
+const ESTADO_VARIANT: Record<string, BadgeVariant> = {
+  borrador: "neutral",
+  emitida: "info",
+  pagada: "success",
+  parcial: "warning",
+  pendiente: "warning",
+  aprobada: "info",
+  anulada: "danger",
+  rechazada: "danger",
 };
 
-const estadoBadge = (estado: string) => {
-  const map: Record<string, string> = {
-    borrador: "bg-gray-100 text-gray-700",
-    emitida: "bg-blue-100 text-blue-800",
-    pagada: "bg-green-100 text-green-800",
-    parcial: "bg-yellow-100 text-yellow-800",
-    anulada: "bg-red-100 text-red-700",
-  };
-  const cls = map[estado.toLowerCase()] ?? "bg-gray-100 text-gray-700";
+function EstadoBadge({ estado }: { estado: string }) {
+  const variant = ESTADO_VARIANT[estado.toLowerCase()] ?? "neutral";
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+    <Badge variant={variant} className="capitalize">
       {estado}
-    </span>
+    </Badge>
   );
-};
+}
+
+function Field({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <dt className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+        {label}
+      </dt>
+      <dd className="mt-1 text-sm text-ink-900">{children}</dd>
+    </div>
+  );
+}
 
 export default async function OcDetallePage({
   params,
@@ -49,135 +71,180 @@ export default async function OcDetallePage({
   if (fetchError || !oc) {
     return (
       <div className="space-y-6">
-        <Link href="/ordenes-compra" className="text-sm text-green-700 hover:underline">
-          ← Volver a OCs
+        <Link
+          href="/ordenes-compra"
+          className="inline-flex items-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-900"
+        >
+          <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+          Volver a OCs
         </Link>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-6">
-          <p className="text-sm font-medium text-red-700">No se pudo cargar la OC</p>
-          <p className="mt-1 text-xs text-red-500">{fetchError}</p>
-        </div>
+        <Surface className="bg-negative/5 ring-negative/20">
+          <p className="text-sm font-medium text-negative">
+            No se pudo cargar la OC
+          </p>
+          <p className="mt-1 text-xs text-negative/80">{fetchError}</p>
+        </Surface>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <Link href="/ordenes-compra" className="text-sm text-green-700 hover:underline">
-        ← Volver a OCs
+      <Link
+        href="/ordenes-compra"
+        className="inline-flex items-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-900"
+      >
+        <ArrowLeft className="h-4 w-4" strokeWidth={1.5} />
+        Volver a OCs
       </Link>
 
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">
+          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
             OC {oc.numero_oc}
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            {oc.empresa_codigo} · Emitida {oc.fecha_emision}
+          <p className="mt-1 text-sm text-ink-500 tabular-nums">
+            {oc.empresa_codigo} · Emitida {toDate(oc.fecha_emision)}
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
-          {estadoBadge(oc.estado)}
+          <EstadoBadge estado={oc.estado} />
           {oc.pdf_url && (
             <a
               href={oc.pdf_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-medium text-green-700 hover:underline"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-cehta-green hover:underline"
             >
-              Ver PDF ↗
+              Ver PDF
+              <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
             </a>
           )}
         </div>
       </header>
 
+      {/* KPI cards */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Neto</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{clp(oc.neto)}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-gray-500">IVA</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{clp(oc.iva)}</p>
-        </div>
-        <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-gray-500">Total</p>
-          <p className="mt-1 text-2xl font-semibold text-green-800">{clp(oc.total)}</p>
-        </div>
+        <Surface>
+          <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+            Neto
+          </p>
+          <p className="mt-1.5 text-kpi-sm font-display text-ink-900 tabular-nums">
+            {toCLP(oc.neto)}
+          </p>
+        </Surface>
+        <Surface>
+          <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+            IVA
+          </p>
+          <p className="mt-1.5 text-kpi-sm font-display text-ink-900 tabular-nums">
+            {toCLP(oc.iva)}
+          </p>
+        </Surface>
+        <Surface className="ring-cehta-green/20 bg-cehta-green/[0.04]">
+          <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+            Total
+          </p>
+          <p className="mt-1.5 text-kpi-sm font-display text-cehta-green tabular-nums">
+            {toCLP(oc.total)}
+          </p>
+        </Surface>
       </section>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="mb-3 text-lg font-medium text-gray-800">Detalle</h2>
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-500">Proveedor</dt>
-            <dd className="mt-1">
+      {/* Detalle */}
+      <Surface>
+        <Surface.Header divider>
+          <Surface.Title>Detalle</Surface.Title>
+        </Surface.Header>
+        <Surface.Body>
+          <dl className="grid grid-cols-1 gap-5 text-sm sm:grid-cols-2">
+            <Field label="Proveedor">
               {oc.proveedor_id ? (
                 <Link
                   href={`/proveedores/${oc.proveedor_id}`}
-                  className="text-green-700 hover:underline"
+                  className="text-cehta-green hover:underline"
                 >
                   Proveedor #{oc.proveedor_id}
                 </Link>
               ) : (
-                <span className="text-gray-400">—</span>
+                <span className="text-ink-300">—</span>
               )}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-500">Moneda</dt>
-            <dd className="mt-1 text-gray-900">{oc.moneda}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-500">Validez</dt>
-            <dd className="mt-1 text-gray-900">{oc.validez_dias} días</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-500">Forma de pago</dt>
-            <dd className="mt-1 text-gray-900">{oc.forma_pago ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase tracking-wide text-gray-500">Plazo</dt>
-            <dd className="mt-1 text-gray-900">{oc.plazo_pago ?? "—"}</dd>
-          </div>
-          <div className="sm:col-span-2">
-            <dt className="text-xs uppercase tracking-wide text-gray-500">Observaciones</dt>
-            <dd className="mt-1 whitespace-pre-wrap text-gray-900">{oc.observaciones ?? "—"}</dd>
-          </div>
-        </dl>
-      </section>
+            </Field>
+            <Field label="Moneda">{oc.moneda}</Field>
+            <Field label="Validez">{oc.validez_dias} días</Field>
+            <Field label="Forma de pago">
+              {oc.forma_pago ?? <span className="text-ink-300">—</span>}
+            </Field>
+            <Field label="Plazo">
+              {oc.plazo_pago ?? <span className="text-ink-300">—</span>}
+            </Field>
+            <Field label="Observaciones" className="sm:col-span-2">
+              {oc.observaciones ? (
+                <span className="whitespace-pre-wrap">{oc.observaciones}</span>
+              ) : (
+                <span className="text-ink-300">—</span>
+              )}
+            </Field>
+          </dl>
+        </Surface.Body>
+      </Surface>
 
+      {/* Items */}
       {oc.items && oc.items.length > 0 && (
-        <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-          <h2 className="border-b border-gray-100 px-6 py-4 text-lg font-medium text-gray-800">
-            Ítems
-          </h2>
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-              <tr>
-                <th className="px-4 py-3 text-left">#</th>
-                <th className="px-4 py-3 text-left">Descripción</th>
-                <th className="px-4 py-3 text-right">P. Unitario</th>
-                <th className="px-4 py-3 text-right">Cantidad</th>
-                <th className="px-4 py-3 text-right">Total línea</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {oc.items.map((it) => (
-                <tr key={it.detalle_id}>
-                  <td className="px-4 py-3 text-gray-500">{it.item}</td>
-                  <td className="px-4 py-3 text-gray-900">{it.descripcion}</td>
-                  <td className="px-4 py-3 text-right text-gray-900">
-                    {clp(it.precio_unitario)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-gray-900">{it.cantidad}</td>
-                  <td className="px-4 py-3 text-right font-medium text-gray-900">
-                    {clp(it.total_linea)}
-                  </td>
+        <Surface padding="none" className="overflow-hidden">
+          <div className="border-b border-hairline px-6 py-4">
+            <h2 className="text-base font-semibold tracking-tight text-ink-900">
+              Ítems
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-hairline text-sm">
+              <thead className="bg-ink-100/40">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-ink-500 font-medium">
+                    #
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs uppercase tracking-wide text-ink-500 font-medium">
+                    Descripción
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-ink-500 font-medium">
+                    P. Unitario
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-ink-500 font-medium">
+                    Cantidad
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs uppercase tracking-wide text-ink-500 font-medium">
+                    Total línea
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {oc.items.map((it) => (
+                  <tr
+                    key={it.detalle_id}
+                    className="transition-colors duration-150 hover:bg-ink-100/30"
+                  >
+                    <td className="px-4 py-3 text-ink-500 tabular-nums">
+                      {it.item}
+                    </td>
+                    <td className="px-4 py-3 text-ink-900">
+                      {it.descripcion}
+                    </td>
+                    <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
+                      {toCLP(it.precio_unitario)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
+                      {it.cantidad}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-ink-900 tabular-nums">
+                      {toCLP(it.total_linea)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Surface>
       )}
     </div>
   );
