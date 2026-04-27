@@ -54,7 +54,9 @@ jobs:
       SUPABASE_URL: https://example.supabase.co
       SUPABASE_ANON_KEY: test-anon
       SUPABASE_SERVICE_ROLE_KEY: test-service
-      SUPABASE_JWT_SECRET: ci-secret
+      # Debe coincidir con el SECRET de tests/conftest.py + tests/integration/conftest.py.
+      # Si lo cambian, también actualicen ambos conftest (y viceversa).
+      SUPABASE_JWT_SECRET: test-secret
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
