@@ -135,3 +135,155 @@ async def test_list_f29_filter_by_estado_pendiente(
 async def test_list_f29_unauthenticated(test_client_with_db: AsyncClient) -> None:
     r = await test_client_with_db.get("/api/v1/f29")
     assert r.status_code == 401
+
+
+# ---------- PATCH /{id} (V2) ----------
+async def test_patch_f29_mark_paid_with_fecha_pago_returns_200(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="TRONGKAI", periodo="06_26", monto=200_000),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/f29/{created['f29_id']}",
+        json={"estado": "pagado", "fecha_pago": "2026-07-01"},
+        headers=finance_headers,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["estado"] == "pagado"
+    assert body["fecha_pago"] == "2026-07-01"
+
+
+async def test_patch_f29_mark_paid_without_fecha_pago_returns_422(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="TRONGKAI", periodo="07_26"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/f29/{created['f29_id']}",
+        json={"estado": "pagado"},
+        headers=finance_headers,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_f29_partial_only_url(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="TRONGKAI", periodo="08_26"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/f29/{created['f29_id']}",
+        json={"comprobante_url": "https://x/y.pdf"},
+        headers=finance_headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["comprobante_url"] == "https://x/y.pdf"
+
+
+async def test_patch_f29_with_viewer_returns_403(
+    test_client_with_db: AsyncClient,
+    finance_headers: dict[str, str],
+    viewer_headers: dict[str, str],
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="REVTECH", periodo="09_26"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/f29/{created['f29_id']}",
+        json={"comprobante_url": "https://x"},
+        headers=viewer_headers,
+    )
+    assert r.status_code == 403
+
+
+async def test_patch_f29_not_found(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    r = await test_client_with_db.patch(
+        "/api/v1/f29/9999999",
+        json={"comprobante_url": "https://x"},
+        headers=finance_headers,
+    )
+    assert r.status_code == 404
+
+
+# ---------- DELETE /{id} ----------
+async def test_delete_f29_with_admin_returns_204(
+    test_client_with_db: AsyncClient,
+    finance_headers: dict[str, str],
+    auth_headers: dict[str, str],
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="REVTECH", periodo="10_26"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.delete(
+        f"/api/v1/f29/{created['f29_id']}", headers=auth_headers
+    )
+    assert r.status_code == 204
+
+
+async def test_delete_f29_with_finance_returns_403(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="REVTECH", periodo="11_26"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.delete(
+        f"/api/v1/f29/{created['f29_id']}", headers=finance_headers
+    )
+    assert r.status_code == 403
+
+
+async def test_delete_f29_with_viewer_returns_403(
+    test_client_with_db: AsyncClient,
+    finance_headers: dict[str, str],
+    viewer_headers: dict[str, str],
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/f29",
+            json=_f29_payload(empresa="REVTECH", periodo="12_26"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.delete(
+        f"/api/v1/f29/{created['f29_id']}", headers=viewer_headers
+    )
+    assert r.status_code == 403
+
+
+async def test_delete_f29_not_found(
+    test_client_with_db: AsyncClient, auth_headers: dict[str, str]
+) -> None:
+    r = await test_client_with_db.delete(
+        "/api/v1/f29/9999999", headers=auth_headers
+    )
+    assert r.status_code == 404

@@ -5,13 +5,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from sqlalchemy import func, select
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.schemas.common import Page
-from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read
+from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read, F29Update
 
 router = APIRouter()
 
@@ -138,3 +137,63 @@ async def update_f29_estado(
         )
     ).mappings().one()
     return F29Read.model_validate(dict(updated))
+
+
+@router.patch("/{f29_id}", response_model=F29Read)
+async def update_f29(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:update"))],
+    db: DBSession,
+    f29_id: int,
+    body: F29Update,
+) -> F29Read:
+    """PATCH parcial. Validación cross-field en `F29Update.model_validator`:
+    estado='pagado' exige fecha_pago no nula."""
+    row = (
+        await db.execute(
+            text(f"SELECT {_F29_COLS} FROM core.f29_obligaciones WHERE f29_id = :id"),
+            {"id": f29_id},
+        )
+    ).mappings().first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="F29 no encontrado")
+
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        # nada que actualizar — retornar el actual
+        return F29Read.model_validate(dict(row))
+
+    sets: list[str] = [f"{k} = :{k}" for k in fields]
+    sets.append("updated_at = now()")
+    sql = f"UPDATE core.f29_obligaciones SET {', '.join(sets)} WHERE f29_id = :id"
+    params = dict(fields)
+    params["id"] = f29_id
+    await db.execute(text(sql), params)
+    await db.commit()
+
+    updated = (
+        await db.execute(
+            text(f"SELECT {_F29_COLS} FROM core.f29_obligaciones WHERE f29_id = :id"),
+            {"id": f29_id},
+        )
+    ).mappings().one()
+    return F29Read.model_validate(dict(updated))
+
+
+@router.delete(
+    "/{f29_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+)
+async def delete_f29(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:delete"))],
+    db: DBSession,
+    f29_id: int,
+) -> Response:
+    """Hard-delete (admin only)."""
+    result = await db.execute(
+        text("DELETE FROM core.f29_obligaciones WHERE f29_id = :id"),
+        {"id": f29_id},
+    )
+    rowcount: int = getattr(result, "rowcount", 0) or 0
+    if rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="F29 no encontrado")
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

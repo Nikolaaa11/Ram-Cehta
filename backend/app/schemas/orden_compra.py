@@ -95,3 +95,26 @@ class OrdenCompraListItem(BaseModel):
 
 class EstadoUpdateRequest(BaseModel):
     estado: Literal["emitida", "pagada", "anulada", "parcial"]
+
+
+class OrdenCompraUpdate(BaseModel):
+    """PATCH /ordenes-compra/{id} — edición de campos no-críticos.
+
+    Sólo permite editar campos operativos. Los campos críticos
+    (numero_oc, empresa_codigo, fecha_emision, neto, iva, total, estado)
+    NO se pueden modificar acá: 'numero_oc' rompería trazabilidad,
+    los montos se recalculan al crear, y 'estado' tiene su propio endpoint
+    `PATCH /{id}/estado` con validación de transiciones.
+
+    Si el body trae alguno de esos campos, son ignorados (extra='ignore'
+    por default en pydantic v2). Si querés que sea hard-fail, cambiar a
+    `model_config = {"extra": "forbid"}`.
+    """
+
+    forma_pago: str | None = None
+    plazo_pago: str | None = None
+    validez_dias: int | None = Field(default=None, ge=1)
+    observaciones: str | None = None
+    pdf_url: str | None = None
+
+    model_config = {"extra": "ignore"}

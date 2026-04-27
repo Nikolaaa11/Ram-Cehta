@@ -16,6 +16,7 @@ from app.schemas.orden_compra import (
     OrdenCompraCreate,
     OrdenCompraListItem,
     OrdenCompraRead,
+    OrdenCompraUpdate,
 )
 from app.services.authorization_service import AuthorizationService
 
@@ -111,6 +112,35 @@ async def get_oc(user: CurrentUser, db: DBSession, oc_id: int) -> OrdenCompraRea
     if not oc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
     return _to_read(user, oc)
+
+
+_OC_EDITABLE_ESTADOS = {"emitida", "parcial"}
+
+
+@router.patch("/{oc_id}", response_model=OrdenCompraRead)
+async def update_oc(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:update"))],
+    db: DBSession,
+    oc_id: int,
+    body: OrdenCompraUpdate,
+) -> OrdenCompraRead:
+    """Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`."""
+    repo = OrdenCompraRepository(db)
+    oc = await repo.get(oc_id)
+    if not oc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
+    if oc.estado not in _OC_EDITABLE_ESTADOS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo OCs en estado 'emitida' o 'parcial' son editables",
+        )
+    updated = await repo.update_fields(oc, body)
+    await db.commit()
+    # re-fetch para refrescar items via selectin
+    refreshed = await repo.get(oc_id)
+    if not refreshed:  # pragma: no cover — invariant
+        raise HTTPException(status_code=500, detail="Error al recuperar OC editada")
+    return _to_read(user, refreshed)
 
 
 @router.patch("/{oc_id}/estado", response_model=OrdenCompraRead)

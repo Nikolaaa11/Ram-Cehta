@@ -310,3 +310,137 @@ async def test_create_oc_unauthenticated_returns_401(
 ) -> None:
     r = await test_client_with_db.post("/api/v1/ordenes-compra", json=_oc_payload())
     assert r.status_code == 401
+
+
+# ---------- PATCH /{id} (V2 — edición de campos no-críticos) ----------
+async def test_patch_oc_fields_with_finance_returns_200(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/ordenes-compra",
+            json=_oc_payload(numero="OC-EDIT-001"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/ordenes-compra/{created['oc_id']}",
+        json={
+            "observaciones": "Editada por integration test",
+            "forma_pago": "Transferencia",
+            "validez_dias": 60,
+        },
+        headers=finance_headers,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["observaciones"] == "Editada por integration test"
+    assert body["forma_pago"] == "Transferencia"
+    assert body["validez_dias"] == 60
+
+
+async def test_patch_oc_ignores_critical_fields(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    """Aunque el cliente mande total/numero_oc/estado, el server no los modifica."""
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/ordenes-compra",
+            json=_oc_payload(numero="OC-EDIT-002"),
+            headers=finance_headers,
+        )
+    ).json()
+    original_numero = created["numero_oc"]
+    original_total = created["total"]
+
+    r = await test_client_with_db.patch(
+        f"/api/v1/ordenes-compra/{created['oc_id']}",
+        json={
+            "observaciones": "X",
+            "numero_oc": "OC-HACK-999",
+            "total": 99999999,
+            "estado": "pagada",
+        },
+        headers=finance_headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["numero_oc"] == original_numero
+    assert body["total"] == original_total
+    assert body["estado"] == "emitida"
+
+
+async def test_patch_oc_on_pagada_returns_403(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    """OC pagada → no editable."""
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/ordenes-compra",
+            json=_oc_payload(numero="OC-EDIT-003"),
+            headers=finance_headers,
+        )
+    ).json()
+    # marcar como pagada
+    await test_client_with_db.patch(
+        f"/api/v1/ordenes-compra/{created['oc_id']}/estado",
+        json={"estado": "pagada"},
+        headers=finance_headers,
+    )
+
+    r = await test_client_with_db.patch(
+        f"/api/v1/ordenes-compra/{created['oc_id']}",
+        json={"observaciones": "ya tarde"},
+        headers=finance_headers,
+    )
+    assert r.status_code == 403
+    assert "editables" in r.json()["detail"]
+
+
+async def test_patch_oc_with_viewer_returns_403(
+    test_client_with_db: AsyncClient,
+    finance_headers: dict[str, str],
+    viewer_headers: dict[str, str],
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/ordenes-compra",
+            json=_oc_payload(numero="OC-EDIT-004"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/ordenes-compra/{created['oc_id']}",
+        json={"observaciones": "intent"},
+        headers=viewer_headers,
+    )
+    assert r.status_code == 403
+
+
+async def test_patch_oc_validez_dias_zero_returns_422(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    created = (
+        await test_client_with_db.post(
+            "/api/v1/ordenes-compra",
+            json=_oc_payload(numero="OC-EDIT-005"),
+            headers=finance_headers,
+        )
+    ).json()
+    r = await test_client_with_db.patch(
+        f"/api/v1/ordenes-compra/{created['oc_id']}",
+        json={"validez_dias": 0},
+        headers=finance_headers,
+    )
+    assert r.status_code == 422
+
+
+async def test_patch_oc_not_found(
+    test_client_with_db: AsyncClient, finance_headers: dict[str, str]
+) -> None:
+    r = await test_client_with_db.patch(
+        "/api/v1/ordenes-compra/9999999",
+        json={"observaciones": "x"},
+        headers=finance_headers,
+    )
+    assert r.status_code == 404

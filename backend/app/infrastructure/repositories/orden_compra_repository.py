@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
-from app.schemas.orden_compra import OrdenCompraCreate
+from app.schemas.orden_compra import OrdenCompraCreate, OrdenCompraUpdate
 
 
 class OrdenCompraRepository:
@@ -78,6 +78,16 @@ class OrdenCompraRepository:
 
     async def update_estado(self, oc: OrdenCompra, nuevo_estado: str) -> OrdenCompra:
         oc.estado = nuevo_estado  # type: ignore[assignment]
+        await self._session.flush()
+        await self._session.refresh(oc)
+        return oc
+
+    async def update_fields(
+        self, oc: OrdenCompra, data: OrdenCompraUpdate
+    ) -> OrdenCompra:
+        """Edita sólo campos no-críticos. Validación de estado en el endpoint."""
+        for k, v in data.model_dump(exclude_unset=True).items():
+            setattr(oc, k, v)
         await self._session.flush()
         await self._session.refresh(oc)
         return oc
