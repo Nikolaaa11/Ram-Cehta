@@ -33,6 +33,8 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "audit:read",
         # Administración de usuarios
         "user:read", "user:write", "user:delete",
+        # Integraciones (Dropbox, etc.) — V3
+        "integration:read", "integration:write",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",

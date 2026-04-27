@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.empresa import Empresa
 from app.models.etl_run import EtlRun
+from app.models.integration import Integration
 from app.models.movimiento import Movimiento
 from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
 from app.models.proveedor import Proveedor
@@ -12,6 +13,7 @@ __all__ = [
     "Base",
     "Empresa",
     "EtlRun",
+    "Integration",
     "Movimiento",
     "OrdenCompra",
     "OrdenCompraDetalle",

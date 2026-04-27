@@ -6,6 +6,7 @@ from app.api.v1 import (
     auth,
     catalogos,
     dashboard,
+    dropbox,
     f29,
     health,
     movimientos,
@@ -29,3 +30,4 @@ api_router.include_router(f29.router, prefix="/f29", tags=["f29"])
 api_router.include_router(suscripciones.router, prefix="/suscripciones", tags=["suscripciones"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
+api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])

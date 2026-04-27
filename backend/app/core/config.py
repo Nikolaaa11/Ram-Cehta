@@ -44,6 +44,10 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str | None = None
     dropbox_refresh_token: str | None = None
+    dropbox_client_id: str | None = None
+    dropbox_client_secret: str | None = None
+    dropbox_redirect_uri: str | None = None
+    frontend_url: str = "https://cehta-capital.vercel.app"
 
     @field_validator("cors_origins", mode="before")
     @classmethod
