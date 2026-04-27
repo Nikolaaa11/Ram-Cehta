@@ -10,13 +10,21 @@ import {
   BarChart3,
   Receipt,
   Wallet,
+  FileBarChart,
+  Shield,
   LogOut,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import { useMe } from "@/hooks/use-me";
 import { cn } from "@/lib/utils";
 
-type NavItem = { href: Route; label: string; icon: LucideIcon };
+type NavItem = {
+  href: Route;
+  label: string;
+  icon: LucideIcon;
+  adminOnly?: boolean;
+};
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +33,13 @@ const NAV: NavItem[] = [
   { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
   { href: "/f29", label: "F29 / Tributario", icon: Receipt },
   { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
+  { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
+  // adminOnly: el sidebar es UI rendering puro (visibility/affordance) — no
+  // gate de seguridad. Disciplina 3 prohíbe usar `app_role` para autorizar
+  // acciones (que sí van por `allowed_actions` validado server-side), pero
+  // mostrar/ocultar un nav item es un caso legítimo de UI hint. El backend
+  // re-valida cada request. Ver also: dashboard/F29 que ya leen me.allowed_actions.
+  { href: "/admin" as Route, label: "Admin", icon: Shield, adminOnly: true },
 ];
 
 interface AppSidebarProps {
@@ -33,6 +48,10 @@ interface AppSidebarProps {
 
 export function AppSidebar({ email }: AppSidebarProps) {
   const pathname = usePathname() ?? "";
+  const { data: me } = useMe();
+  const isAdmin = me?.app_role === "admin";
+
+  const visibleItems = NAV.filter((item) => !item.adminOnly || isAdmin);
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
@@ -51,7 +70,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3 py-4">
-        {NAV.map((item) => {
+        {visibleItems.map((item) => {
           const Icon = item.icon;
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
