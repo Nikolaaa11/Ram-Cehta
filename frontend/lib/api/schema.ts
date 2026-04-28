@@ -82,53 +82,15 @@ export type SaldoEmpresaDetalle = components["schemas"]["SaldoEmpresaDetalle"];
 export type IvaPoint = components["schemas"]["IvaPoint"];
 export type ProyectoRanking = components["schemas"]["ProyectoRanking"];
 
-// CEO Dashboard (V3 fase 3+4) — types definidos manualmente porque el
-// frontend a veces se buildea sin haber regenerado /types/api.ts. Se
-// pueden migrar a `components["schemas"]["..."]` tras `npm run gen:types`.
-export interface EmpresaCEOKPIs {
-  empresa_codigo: string;
-  razon_social: string;
-  saldo_contable: string | number;
-  flujo_neto_30d: string | number;
-  oc_pendientes: number;
-  monto_oc_pendiente: string | number;
-  f29_proximas: number;
-  f29_vencidas: number;
-  health_score: number;
-  trend: "up" | "flat" | "down" | string;
-}
+// CEO Dashboard (V3 fase 3+4) — usa los tipos OpenAPI auto-generados.
+export type CEOConsolidatedReport = components["schemas"]["CEOConsolidatedReport"];
+export type EmpresaCEOKPIs = components["schemas"]["EmpresaCEOKPIs"];
+export type HeatmapCell = components["schemas"]["HeatmapCell"];
+export type CeoAlert = components["schemas"]["Alert"];
 
-export interface HeatmapCell {
-  empresa_codigo: string;
-  kpi: string;
-  value: number;
-  color: "green" | "yellow" | "red" | string;
-}
-
-export interface CeoAlert {
-  severity: "critical" | "warning" | "info" | string;
-  empresa_codigo?: string | null;
-  title: string;
-  detail: string;
-  href?: string | null;
-}
-
-export interface CEOConsolidatedReport {
-  aum_total: string | number;
-  aum_cehta: string | number;
-  aum_corfo: string | number;
-  delta_30d: number;
-  delta_90d: number;
-  flujo_neto_30d: string | number;
-  by_empresa: EmpresaCEOKPIs[];
-  heatmap: HeatmapCell[];
-  top_alerts: CeoAlert[];
-  insights_ai: string;
-  last_updated: string;
-}
-
-// Legal Vault (V3 fase 3+4) — types definidos manualmente para evitar
-// dependencia con `gen:types` recién generado.
+// Legal Vault (V3 fase 3+4) — los tipos manuales se complementan con los
+// generados; mantenemos los manual `LegalCategoria` / `LegalEstado` por DX
+// (autocomplete con literal union sin pagar el costo de pasar por openapi).
 export type LegalCategoria =
   | "contrato"
   | "acta"

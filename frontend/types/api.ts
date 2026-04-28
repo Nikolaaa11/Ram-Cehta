@@ -310,6 +310,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/ceo-consolidated": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ceo Consolidated
+         * @description Reporte consolidado para Dashboard CEO.
+         *
+         *     Datos reales calculados sobre los movimientos / OC / F29 ya cargados.
+         *     El bloque `insights_ai` queda como placeholder hasta integrar con el
+         *     AI Asistente (V3 fase 3 — separado).
+         */
+        get: operations["ceo_consolidated_api_v1_dashboard_ceo_consolidated_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ordenes-compra": {
         parameters: {
             query?: never;
@@ -342,7 +366,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Oc
+         * @description Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`.
+         */
+        patch: operations["update_oc_api_v1_ordenes_compra__oc_id__patch"];
         trace?: never;
     };
     "/api/v1/ordenes-compra/{oc_id}/estado": {
@@ -414,10 +442,788 @@ export interface paths {
         patch: operations["update_f29_estado_api_v1_f29__f29_id__estado_patch"];
         trace?: never;
     };
+    "/api/v1/f29/{f29_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete F29
+         * @description Hard-delete (admin only).
+         */
+        delete: operations["delete_f29_api_v1_f29__f29_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update F29
+         * @description PATCH parcial. Validación cross-field en `F29Update.model_validator`:
+         *     estado='pagado' exige fecha_pago no nula.
+         */
+        patch: operations["update_f29_api_v1_f29__f29_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/suscripciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Suscripciones */
+        get: operations["list_suscripciones_api_v1_suscripciones_get"];
+        put?: never;
+        /** Create Suscripcion */
+        post: operations["create_suscripcion_api_v1_suscripciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/suscripciones/totals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Totals Per Empresa
+         * @description Reporte agregado para inversionistas: totales por empresa emisora.
+         */
+        get: operations["totals_per_empresa_api_v1_suscripciones_totals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/etl-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_audit_etl_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/etl-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_audit_etl_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/etl-runs/{run_id}/rejected-rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Rejected Rows */
+        get: operations["rejected_rows_api_v1_audit_etl_runs__run_id__rejected_rows_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/data-quality": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Data Quality
+         * @description Reporte de issues operativos. Computa varios chequeos y los devuelve
+         *     como lista de issues con severidad + count + descripción + recurso para
+         *     drill-down desde la UI.
+         */
+        get: operations["data_quality_api_v1_audit_data_quality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Users */
+        get: operations["list_users_api_v1_admin_users_get"];
+        put?: never;
+        /** Assign User */
+        post: operations["assign_user_api_v1_admin_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Role */
+        patch: operations["update_role_api_v1_admin_users__user_id__role_patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove User */
+        delete: operations["remove_user_api_v1_admin_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dropbox/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connect
+         * @description Inicia OAuth flow. Devuelve la authorize_url para redirigir al usuario.
+         */
+        get: operations["connect_api_v1_dropbox_connect_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dropbox/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Callback
+         * @description Dropbox redirige acá tras autorización del usuario.
+         *
+         *     Este endpoint es PÚBLICO porque Dropbox redirige al browser del admin sin
+         *     Authorization header. La integridad la garantiza el CSRF token que
+         *     `DropboxOAuth2Flow.finish` valida contra `_oauth_session`.
+         */
+        get: operations["callback_api_v1_dropbox_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dropbox/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description ¿Tenemos credenciales válidas guardadas? (no llama a Dropbox).
+         */
+        get: operations["get_status_api_v1_dropbox_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dropbox/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Files
+         * @description Lista archivos+carpetas en `path`. Requiere conexión activa.
+         */
+        get: operations["list_files_api_v1_dropbox_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dropbox/data-madre": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find Data Madre
+         * @description Encuentra `Inteligencia de Negocios/` y reporta `Data Madre.xlsx`.
+         *
+         *     Estrategia:
+         *     1. Buscar `Cehta Capital` en root (apps con carpeta dedicada lo tienen
+         *        como root virtual y no aparece; full Dropbox sí).
+         *     2. Buscar `Inteligencia de Negocios` dentro (o en root si no hay
+         *        carpeta `Cehta Capital`).
+         *     3. Listar contenido y detectar `Data Madre.xlsx` (case-insensitive).
+         */
+        get: operations["find_data_madre_api_v1_dropbox_data_madre_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dropbox/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disconnect
+         * @description Borra los tokens de Dropbox de la base.
+         *
+         *     TODO V4: revocar el access_token vía Dropbox API
+         *     (`auth/token/revoke`) además de borrar local.
+         */
+        post: operations["disconnect_api_v1_dropbox_disconnect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trabajadores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Trabajadores */
+        get: operations["list_trabajadores_api_v1_trabajadores_get"];
+        put?: never;
+        /** Create Trabajador */
+        post: operations["create_trabajador_api_v1_trabajadores_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trabajadores/{trabajador_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Trabajador */
+        get: operations["get_trabajador_api_v1_trabajadores__trabajador_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Trabajador
+         * @description Hard delete del trabajador (cascade borra documentos en DB).
+         *     NOTA: NO borra los archivos de Dropbox — se conservan para histórico.
+         */
+        delete: operations["delete_trabajador_api_v1_trabajadores__trabajador_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Trabajador */
+        patch: operations["update_trabajador_api_v1_trabajadores__trabajador_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/trabajadores/{trabajador_id}/inactivar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Inactive */
+        post: operations["mark_inactive_api_v1_trabajadores__trabajador_id__inactivar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trabajadores/{trabajador_id}/documentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Documento */
+        post: operations["upload_documento_api_v1_trabajadores__trabajador_id__documentos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trabajadores/{trabajador_id}/documentos/{documento_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Documento
+         * @description Genera link temporal Dropbox y redirige el browser allí.
+         */
+        get: operations["download_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/trabajadores/{trabajador_id}/documentos/{documento_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Documento
+         * @description Borra el registro DB. NO borra el archivo Dropbox — queda en histórico.
+         */
+        delete: operations["delete_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Conversations
+         * @description Lista las conversaciones del usuario actual en una empresa.
+         */
+        get: operations["list_conversations_api_v1_ai_conversations_get"];
+        put?: never;
+        /** Create Conversation */
+        post: operations["create_conversation_api_v1_ai_conversations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Messages */
+        get: operations["list_messages_api_v1_ai_conversations__conversation_id__messages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversation_id}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Chat
+         * @description Envía un mensaje y devuelve un stream SSE con la respuesta del LLM.
+         *
+         *     Frames:
+         *     - `{"type": "citations", "citations": [...]}` — al inicio, post vector search.
+         *     - `{"type": "content_delta", "text": "..."}` — N veces durante stream.
+         *     - `{"type": "done", "message_id": N, "citations": [...], "tokens_used": N}`.
+         *     - `{"type": "error", "detail": "..."}` — en caso de fallo.
+         */
+        post: operations["chat_api_v1_ai_conversations__conversation_id__chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Conversation */
+        delete: operations["delete_conversation_api_v1_ai_conversations__conversation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/index/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Index
+         * @description Re-indexa la KB Dropbox de la empresa. Admin-only.
+         */
+        post: operations["trigger_index_api_v1_ai_index__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/index/{empresa_codigo}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Index Status
+         * @description Cuenta de chunks + última indexación + lista de fuentes.
+         */
+        get: operations["index_status_api_v1_ai_index__empresa_codigo__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/index/{empresa_codigo}/folder-hint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Folder Hint
+         * @description Devuelve la ruta canónica de la KB en Dropbox (utility para frontend).
+         */
+        get: operations["folder_hint_api_v1_ai_index__empresa_codigo__folder_hint_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Legal */
+        get: operations["list_legal_api_v1_legal_get"];
+        put?: never;
+        /** Create Legal */
+        post: operations["create_legal_api_v1_legal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Alerts Legal */
+        get: operations["alerts_legal_api_v1_legal_alerts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Legal */
+        get: operations["get_legal_api_v1_legal__documento_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Legal
+         * @description Soft delete: pasa el documento a estado=cancelado.
+         *
+         *     No borramos físicamente para mantener trazabilidad legal.
+         */
+        delete: operations["delete_legal_api_v1_legal__documento_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Legal */
+        patch: operations["update_legal_api_v1_legal__documento_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Legal */
+        post: operations["upload_legal_api_v1_legal__documento_id__upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Legal */
+        get: operations["download_legal_api_v1_legal__documento_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notifications Status */
+        get: operations["notifications_status_api_v1_notifications_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Notifications Test
+         * @description Envía un email de prueba al `to` indicado o al primer admin recipient.
+         */
+        post: operations["notifications_test_api_v1_notifications_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * Alert
+         * @description Alerta priorizada para el panel del CEO.
+         */
+        Alert: {
+            /** Severity */
+            severity: string;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
+            /** Href */
+            href?: string | null;
+        };
+        /** Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post */
+        Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "contrato" | "anexo" | "dni" | "cv" | "liquidacion" | "finiquito" | "cert_afp" | "cert_fonasa" | "otro";
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_upload_legal_api_v1_legal__documento_id__upload_post */
+        Body_upload_legal_api_v1_legal__documento_id__upload_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+            /** Nombre Archivo */
+            nombre_archivo?: string | null;
+        };
+        /**
+         * CEOConsolidatedReport
+         * @description Reporte consolidado para Dashboard CEO.
+         */
+        CEOConsolidatedReport: {
+            /** Aum Total */
+            aum_total: string;
+            /** Aum Cehta */
+            aum_cehta: string;
+            /** Aum Corfo */
+            aum_corfo: string;
+            /** Delta 30D */
+            delta_30d: number;
+            /** Delta 90D */
+            delta_90d: number;
+            /** Flujo Neto 30D */
+            flujo_neto_30d: string;
+            /** By Empresa */
+            by_empresa: components["schemas"]["EmpresaCEOKPIs"][];
+            /** Heatmap */
+            heatmap: components["schemas"]["HeatmapCell"][];
+            /** Top Alerts */
+            top_alerts: components["schemas"]["Alert"][];
+            /** Insights Ai */
+            insights_ai: string;
+            /**
+             * Last Updated
+             * Format: date-time
+             */
+            last_updated: string;
+        };
         /** CashflowPoint */
         CashflowPoint: {
             /** Periodo */
@@ -468,12 +1274,45 @@ export interface components {
             /** Banco */
             banco: string[];
         };
+        /** ChatRequest */
+        ChatRequest: {
+            /** Message */
+            message: string;
+        };
         /** ConceptoDetallado */
         ConceptoDetallado: {
             /** Concepto Detallado */
             concepto_detallado: string;
             /** Concepto General */
             concepto_general: string | null;
+        };
+        /** ConversationCreate */
+        ConversationCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Title */
+            title?: string | null;
+        };
+        /** ConversationRead */
+        ConversationRead: {
+            /** Conversation Id */
+            conversation_id: number;
+            /** User Id */
+            user_id: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Title */
+            title: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
         };
         /**
          * DashboardKPIs
@@ -527,6 +1366,36 @@ export interface components {
             /** Periodo Actual */
             periodo_actual: string;
         };
+        /** DataQualityIssue */
+        DataQualityIssue: {
+            /** Code */
+            code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "info" | "warning" | "critical";
+            /** Count */
+            count: number;
+            /** Description */
+            description: string;
+            /** Resource */
+            resource?: string | null;
+        };
+        /** DataQualityReport */
+        DataQualityReport: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Issues */
+            issues: components["schemas"]["DataQualityIssue"][];
+            /** Total Issues */
+            readonly total_issues: number;
+            /** Critical Count */
+            readonly critical_count: number;
+        };
         /** EgresoConcepto */
         EgresoConcepto: {
             /** Concepto General */
@@ -539,6 +1408,32 @@ export interface components {
             porcentaje: number;
             /** Num Movimientos */
             num_movimientos: number;
+        };
+        /**
+         * EmpresaCEOKPIs
+         * @description KPIs por empresa para el comparador del CEO Dashboard.
+         */
+        EmpresaCEOKPIs: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Saldo Contable */
+            saldo_contable: string;
+            /** Flujo Neto 30D */
+            flujo_neto_30d: string;
+            /** Oc Pendientes */
+            oc_pendientes: number;
+            /** Monto Oc Pendiente */
+            monto_oc_pendiente: string;
+            /** F29 Proximas */
+            f29_proximas: number;
+            /** F29 Vencidas */
+            f29_vencidas: number;
+            /** Health Score */
+            health_score: number;
+            /** Trend */
+            trend: string;
         };
         /** EmpresaCatalogo */
         EmpresaCatalogo: {
@@ -558,6 +1453,39 @@ export interface components {
              * @enum {string}
              */
             estado: "emitida" | "pagada" | "anulada" | "parcial";
+        };
+        /** EtlRunRead */
+        EtlRunRead: {
+            /** Run Id */
+            run_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Source File */
+            source_file: string;
+            /** Source Hash */
+            source_hash: string | null;
+            /** Rows Extracted */
+            rows_extracted: number | null;
+            /** Rows Loaded */
+            rows_loaded: number | null;
+            /** Rows Rejected */
+            rows_rejected: number | null;
+            /** Status */
+            status: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Triggered By */
+            triggered_by: string | null;
+            /**
+             * Duration Seconds
+             * @description Duración total de la corrida en segundos. None si aún corre.
+             */
+            readonly duration_seconds: number | null;
         };
         /** F29Create */
         F29Create: {
@@ -636,6 +1564,24 @@ export interface components {
             /** Estado */
             estado: string;
         };
+        /**
+         * F29Update
+         * @description PATCH /f29/{id} — edición parcial.
+         *
+         *     Reglas cross-field (model_validator):
+         *     - Si estado=='pagado', `fecha_pago` es obligatoria (no None).
+         *     - Si estado!='pagado', `fecha_pago` puede ser None (limpieza permitida).
+         */
+        F29Update: {
+            /** Estado */
+            estado?: ("pendiente" | "pagado" | "vencido" | "exento") | null;
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            /** Comprobante Url */
+            comprobante_url?: string | null;
+            /** Monto A Pagar */
+            monto_a_pagar?: number | string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -647,6 +1593,48 @@ export interface components {
             status: string;
             /** Database */
             database: string;
+        };
+        /**
+         * HeatmapCell
+         * @description Celda del heatmap empresa × KPI.
+         *
+         *     `kpi` ∈ {saldo, flujo, oc, f29, etl, audit}
+         *     `value` 0-100
+         *     `color` ∈ {green, yellow, red}
+         */
+        HeatmapCell: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Kpi */
+            kpi: string;
+            /** Value */
+            value: number;
+            /** Color */
+            color: string;
+        };
+        /** IndexStatus */
+        IndexStatus: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Chunk Count */
+            chunk_count: number;
+            /** Last Indexed At */
+            last_indexed_at: string | null;
+            /** Sources */
+            sources?: string[];
+        };
+        /** IndexTriggerResponse */
+        IndexTriggerResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Folder Path */
+            folder_path: string;
+            /** Files Processed */
+            files_processed: number;
+            /** Chunks Created */
+            chunks_created: number;
+            /** Skipped */
+            skipped?: string[];
         };
         /** IvaPoint */
         IvaPoint: {
@@ -663,6 +1651,207 @@ export interface components {
             iva_debito: string;
             /** Iva A Pagar */
             iva_a_pagar: string;
+        };
+        /**
+         * LegalAlert
+         * @description Alerta de vencimiento próximo (consumido por dashboard CEO + emails).
+         */
+        LegalAlert: {
+            /** Documento Id */
+            documento_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Categoria */
+            categoria: string;
+            /** Nombre */
+            nombre: string;
+            /** Contraparte */
+            contraparte?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Dias Para Vencer */
+            dias_para_vencer: number;
+            /** Alerta Nivel */
+            alerta_nivel: string;
+        };
+        /**
+         * LegalDocumentCreate
+         * @description Body para POST /legal. `dropbox_path` se setea via upload separado.
+         */
+        LegalDocumentCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Categoria
+             * @enum {string}
+             */
+            categoria: "contrato" | "acta" | "declaracion_sii" | "permiso" | "poliza" | "estatuto" | "otro";
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Contraparte */
+            contraparte?: string | null;
+            /** Fecha Emision */
+            fecha_emision?: string | null;
+            /** Fecha Vigencia Desde */
+            fecha_vigencia_desde?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto */
+            monto?: number | string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /**
+             * Estado
+             * @default vigente
+             * @enum {string}
+             */
+            estado: "vigente" | "vencido" | "renovado" | "cancelado" | "borrador";
+        };
+        /**
+         * LegalDocumentListItem
+         * @description Vista resumida para tabla.
+         */
+        LegalDocumentListItem: {
+            /** Documento Id */
+            documento_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Categoria */
+            categoria: string;
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Nombre */
+            nombre: string;
+            /** Contraparte */
+            contraparte?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto */
+            monto?: string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /** Estado */
+            estado: string;
+            /** Dias Para Vencer */
+            dias_para_vencer?: number | null;
+            /** Alerta Nivel */
+            alerta_nivel?: string | null;
+        };
+        /** LegalDocumentRead */
+        LegalDocumentRead: {
+            /** Documento Id */
+            documento_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Categoria */
+            categoria: string;
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Contraparte */
+            contraparte?: string | null;
+            /** Fecha Emision */
+            fecha_emision?: string | null;
+            /** Fecha Vigencia Desde */
+            fecha_vigencia_desde?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto */
+            monto?: string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Estado */
+            estado: string;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /** Uploaded By */
+            uploaded_by?: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LegalDocumentUpdate */
+        LegalDocumentUpdate: {
+            /** Categoria */
+            categoria?: ("contrato" | "acta" | "declaracion_sii" | "permiso" | "poliza" | "estatuto" | "otro") | null;
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Nombre */
+            nombre?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Contraparte */
+            contraparte?: string | null;
+            /** Fecha Emision */
+            fecha_emision?: string | null;
+            /** Fecha Vigencia Desde */
+            fecha_vigencia_desde?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto */
+            monto?: number | string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /** Estado */
+            estado?: ("vigente" | "vencido" | "renovado" | "cancelado" | "borrador") | null;
+        };
+        /**
+         * MarkInactiveRequest
+         * @description Marca a un trabajador como inactivo. La fecha de egreso es obligatoria.
+         */
+        MarkInactiveRequest: {
+            /**
+             * Fecha Egreso
+             * Format: date
+             */
+            fecha_egreso: string;
+            /** Motivo */
+            motivo?: string | null;
+        };
+        /** MessageRead */
+        MessageRead: {
+            /** Message Id */
+            message_id: number;
+            /** Conversation Id */
+            conversation_id: number;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "assistant" | "system";
+            /** Content */
+            content: string;
+            /** Citations */
+            citations?: {
+                [key: string]: unknown;
+            }[] | null;
+            /** Tokens Used */
+            tokens_used?: number | null;
+            /** Model */
+            model?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** MovimientoRead */
         MovimientoRead: {
@@ -737,6 +1926,20 @@ export interface components {
             concepto_general: string | null;
             /** Proyecto */
             proyecto: string | null;
+        };
+        /** NotificationsStatus */
+        NotificationsStatus: {
+            /** Enabled */
+            enabled: boolean;
+            /** Email From */
+            email_from: string;
+            /** Admin Recipients */
+            admin_recipients: string[];
+        };
+        /** NotificationsTestRequest */
+        NotificationsTestRequest: {
+            /** To */
+            to?: string | null;
         };
         /** OCDetalleCreate */
         OCDetalleCreate: {
@@ -896,10 +2099,62 @@ export interface components {
              */
             allowed_actions: string[];
         };
+        /**
+         * OrdenCompraUpdate
+         * @description PATCH /ordenes-compra/{id} — edición de campos no-críticos.
+         *
+         *     Sólo permite editar campos operativos. Los campos críticos
+         *     (numero_oc, empresa_codigo, fecha_emision, neto, iva, total, estado)
+         *     NO se pueden modificar acá: 'numero_oc' rompería trazabilidad,
+         *     los montos se recalculan al crear, y 'estado' tiene su propio endpoint
+         *     `PATCH /{id}/estado` con validación de transiciones.
+         *
+         *     Si el body trae alguno de esos campos, son ignorados (extra='ignore'
+         *     por default en pydantic v2). Si querés que sea hard-fail, cambiar a
+         *     `model_config = {"extra": "forbid"}`.
+         */
+        OrdenCompraUpdate: {
+            /** Forma Pago */
+            forma_pago?: string | null;
+            /** Plazo Pago */
+            plazo_pago?: string | null;
+            /** Validez Dias */
+            validez_dias?: number | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Pdf Url */
+            pdf_url?: string | null;
+        };
+        /** Page[EtlRunRead] */
+        Page_EtlRunRead_: {
+            /** Items */
+            items: components["schemas"]["EtlRunRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[F29Read] */
         Page_F29Read_: {
             /** Items */
             items: components["schemas"]["F29Read"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[LegalDocumentListItem] */
+        Page_LegalDocumentListItem_: {
+            /** Items */
+            items: components["schemas"]["LegalDocumentListItem"][];
             /** Total */
             total: number;
             /** Page */
@@ -939,6 +2194,45 @@ export interface components {
         Page_ProveedorRead_: {
             /** Items */
             items: components["schemas"]["ProveedorRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[RejectedRowRead] */
+        Page_RejectedRowRead_: {
+            /** Items */
+            items: components["schemas"]["RejectedRowRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[SuscripcionRead] */
+        Page_SuscripcionRead_: {
+            /** Items */
+            items: components["schemas"]["SuscripcionRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[TrabajadorListItem] */
+        Page_TrabajadorListItem_: {
+            /** Items */
+            items: components["schemas"]["TrabajadorListItem"][];
             /** Total */
             total: number;
             /** Page */
@@ -1048,6 +2342,28 @@ export interface components {
             /** Empresas */
             empresas: string[];
         };
+        /** RejectedRowRead */
+        RejectedRowRead: {
+            /** Rejected Id */
+            rejected_id: number;
+            /** Run Id */
+            run_id: string | null;
+            /** Source Sheet */
+            source_sheet: string | null;
+            /** Source Row Num */
+            source_row_num: number | null;
+            /** Reason */
+            reason: string | null;
+            /** Raw Data */
+            raw_data: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** RutValidationResponse */
         RutValidationResponse: {
             /** Valid */
@@ -1094,6 +2410,246 @@ export interface components {
             /** App Role */
             app_role: string;
         };
+        /** SuscripcionCreate */
+        SuscripcionCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Fecha Recibo
+             * Format: date
+             */
+            fecha_recibo: string;
+            /** Acciones Pagadas */
+            acciones_pagadas: number | string;
+            /** Monto Uf */
+            monto_uf?: number | string | null;
+            /** Monto Clp */
+            monto_clp: number | string;
+            /** Contrato Ref */
+            contrato_ref?: string | null;
+            /** Recibo Url */
+            recibo_url?: string | null;
+            /**
+             * Firmado
+             * @default false
+             */
+            firmado: boolean;
+            /** Fecha Firma */
+            fecha_firma?: string | null;
+        };
+        /** SuscripcionRead */
+        SuscripcionRead: {
+            /** Suscripcion Id */
+            suscripcion_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Fecha Recibo
+             * Format: date
+             */
+            fecha_recibo: string;
+            /** Acciones Pagadas */
+            acciones_pagadas: string;
+            /** Monto Uf */
+            monto_uf: string | null;
+            /** Monto Clp */
+            monto_clp: string;
+            /** Contrato Ref */
+            contrato_ref: string | null;
+            /** Recibo Url */
+            recibo_url: string | null;
+            /** Firmado */
+            firmado: boolean;
+            /** Fecha Firma */
+            fecha_firma: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * SuscripcionResumen
+         * @description Agregado por empresa para reporte a inversionistas.
+         *
+         *     Cada item resume todas las suscripciones de una empresa: total de acciones
+         *     emitidas, total CLP cobrado, total UF (si aplica) y conteo de recibos.
+         */
+        SuscripcionResumen: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Total Acciones */
+            total_acciones: string;
+            /** Total Clp */
+            total_clp: string;
+            /** Total Uf */
+            total_uf?: string | null;
+            /** Recibos Count */
+            recibos_count: number;
+            /** Recibos Firmados */
+            recibos_firmados: number;
+        };
+        /**
+         * TrabajadorCreate
+         * @description Body para POST /trabajadores. `dropbox_folder` lo calcula el service.
+         */
+        TrabajadorCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre Completo */
+            nombre_completo: string;
+            /** Rut */
+            rut: string;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /**
+             * Fecha Ingreso
+             * Format: date
+             */
+            fecha_ingreso: string;
+            /** Fecha Egreso */
+            fecha_egreso?: string | null;
+            /** Sueldo Bruto */
+            sueldo_bruto?: number | string | null;
+            /** Tipo Contrato */
+            tipo_contrato?: ("indefinido" | "plazo_fijo" | "honorarios" | "part_time") | null;
+            /**
+             * Estado
+             * @default activo
+             * @enum {string}
+             */
+            estado: "activo" | "inactivo" | "licencia";
+            /** Notas */
+            notas?: string | null;
+        };
+        /** TrabajadorDocumentoRead */
+        TrabajadorDocumentoRead: {
+            /** Documento Id */
+            documento_id: number;
+            /** Trabajador Id */
+            trabajador_id: number;
+            /** Tipo */
+            tipo: string;
+            /** Nombre Archivo */
+            nombre_archivo: string;
+            /** Dropbox Path */
+            dropbox_path: string;
+            /** Tamano Bytes */
+            tamano_bytes?: number | null;
+            /** Uploaded By */
+            uploaded_by?: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * TrabajadorListItem
+         * @description Vista resumida para listados (sin documentos / sueldo / notas).
+         */
+        TrabajadorListItem: {
+            /** Trabajador Id */
+            trabajador_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre Completo */
+            nombre_completo: string;
+            /** Rut */
+            rut: string;
+            /** Cargo */
+            cargo?: string | null;
+            /**
+             * Fecha Ingreso
+             * Format: date
+             */
+            fecha_ingreso: string;
+            /** Fecha Egreso */
+            fecha_egreso?: string | null;
+            /** Tipo Contrato */
+            tipo_contrato?: string | null;
+            /** Estado */
+            estado: string;
+        };
+        /** TrabajadorRead */
+        TrabajadorRead: {
+            /** Trabajador Id */
+            trabajador_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre Completo */
+            nombre_completo: string;
+            /** Rut */
+            rut: string;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /**
+             * Fecha Ingreso
+             * Format: date
+             */
+            fecha_ingreso: string;
+            /** Fecha Egreso */
+            fecha_egreso?: string | null;
+            /** Sueldo Bruto */
+            sueldo_bruto?: string | null;
+            /** Tipo Contrato */
+            tipo_contrato?: string | null;
+            /** Estado */
+            estado: string;
+            /** Dropbox Folder */
+            dropbox_folder?: string | null;
+            /** Notas */
+            notas?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Documentos */
+            documentos?: components["schemas"]["TrabajadorDocumentoRead"][];
+        };
+        /** TrabajadorUpdate */
+        TrabajadorUpdate: {
+            /** Nombre Completo */
+            nombre_completo?: string | null;
+            /** Rut */
+            rut?: string | null;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Fecha Ingreso */
+            fecha_ingreso?: string | null;
+            /** Fecha Egreso */
+            fecha_egreso?: string | null;
+            /** Sueldo Bruto */
+            sueldo_bruto?: number | string | null;
+            /** Tipo Contrato */
+            tipo_contrato?: ("indefinido" | "plazo_fijo" | "honorarios" | "part_time") | null;
+            /** Estado */
+            estado?: ("activo" | "inactivo" | "licencia") | null;
+            /** Notas */
+            notas?: string | null;
+        };
         /** UserMeResponse */
         UserMeResponse: {
             /** Sub */
@@ -1105,12 +2661,59 @@ export interface components {
             /** Allowed Actions */
             allowed_actions: string[];
         };
+        /**
+         * UserRoleAssignRequest
+         * @description POST /admin/users — asigna un rol al usuario identificado por email.
+         *
+         *     El email debe existir en `auth.users` (Supabase). Si no existe, el
+         *     endpoint responde 404 indicando que primero se debe crear vía Dashboard.
+         */
+        UserRoleAssignRequest: {
+            /** Email */
+            email: string;
+            /**
+             * App Role
+             * @description Rol canónico: admin|finance|viewer
+             * @enum {string}
+             */
+            app_role: "admin" | "finance" | "viewer";
+        };
         /** UserRoleItem */
         UserRoleItem: {
             /** User Id */
             user_id: string;
             /** App Role */
             app_role: string;
+        };
+        /** UserRoleRead */
+        UserRoleRead: {
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string | null;
+            /**
+             * App Role
+             * @enum {string}
+             */
+            app_role: "admin" | "finance" | "viewer";
+            /**
+             * Assigned At
+             * Format: date-time
+             */
+            assigned_at: string;
+            /** Assigned By */
+            assigned_by: string | null;
+        };
+        /**
+         * UserRoleUpdateRequest
+         * @description PATCH /admin/users/{user_id}/role — cambia rol de un usuario existente.
+         */
+        UserRoleUpdateRequest: {
+            /**
+             * App Role
+             * @enum {string}
+             */
+            app_role: "admin" | "finance" | "viewer";
         };
         /** ValidationError */
         ValidationError: {
@@ -1773,6 +3376,37 @@ export interface operations {
             };
         };
     };
+    ceo_consolidated_api_v1_dashboard_ceo_consolidated_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CEOConsolidatedReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_ocs_api_v1_ordenes_compra_get: {
         parameters: {
             query?: {
@@ -1856,6 +3490,43 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrdenCompraRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_oc_api_v1_ordenes_compra__oc_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrdenCompraUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -2048,6 +3719,1568 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["F29Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_f29_api_v1_f29__f29_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                f29_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_f29_api_v1_f29__f29_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                f29_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["F29Update"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F29Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_suscripciones_api_v1_suscripciones_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                empresa_codigo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SuscripcionRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_suscripcion_api_v1_suscripciones_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuscripcionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuscripcionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    totals_per_empresa_api_v1_suscripciones_totals_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuscripcionResumen"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_audit_etl_runs_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                status?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_EtlRunRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_audit_etl_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtlRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rejected_rows_api_v1_audit_etl_runs__run_id__rejected_rows_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_RejectedRowRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    data_quality_api_v1_audit_data_quality_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataQualityReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_admin_users_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRoleRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_user_api_v1_admin_users_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRoleAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRoleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_role_api_v1_admin_users__user_id__role_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRoleUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserRoleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_user_api_v1_admin_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    connect_api_v1_dropbox_connect_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    callback_api_v1_dropbox_callback_get: {
+        parameters: {
+            query: {
+                code: string;
+                state: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_v1_dropbox_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_files_api_v1_dropbox_files_get: {
+        parameters: {
+            query?: {
+                /** @description Path en Dropbox. '' = root. */
+                path?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_data_madre_api_v1_dropbox_data_madre_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disconnect_api_v1_dropbox_disconnect_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_trabajadores_api_v1_trabajadores_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                estado?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_TrabajadorListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_trabajador_api_v1_trabajadores_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrabajadorCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrabajadorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_trabajador_api_v1_trabajadores__trabajador_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrabajadorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_trabajador_api_v1_trabajadores__trabajador_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_trabajador_api_v1_trabajadores__trabajador_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrabajadorUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrabajadorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_inactive_api_v1_trabajadores__trabajador_id__inactivar_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkInactiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrabajadorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_documento_api_v1_trabajadores__trabajador_id__documentos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrabajadorDocumentoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                trabajador_id: number;
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_conversations_api_v1_ai_conversations_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_conversation_api_v1_ai_conversations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_messages_api_v1_ai_conversations__conversation_id__messages_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    chat_api_v1_ai_conversations__conversation_id__chat_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_conversation_api_v1_ai_conversations__conversation_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                conversation_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_index_api_v1_ai_index__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexTriggerResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    index_status_api_v1_ai_index__empresa_codigo__status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IndexStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    folder_hint_api_v1_ai_index__empresa_codigo__folder_hint_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_legal_api_v1_legal_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                categoria?: string | null;
+                estado?: string | null;
+                search?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_LegalDocumentListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_legal_api_v1_legal_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalDocumentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    alerts_legal_api_v1_legal_alerts_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                dias?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalAlert"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_legal_api_v1_legal__documento_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_legal_api_v1_legal__documento_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_legal_api_v1_legal__documento_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LegalDocumentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_legal_api_v1_legal__documento_id__upload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_legal_api_v1_legal__documento_id__upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_legal_api_v1_legal__documento_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notifications_status_api_v1_notifications_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationsStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notifications_test_api_v1_notifications_test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["NotificationsTestRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

@@ -558,7 +558,7 @@
           "catalogos"
         ],
         "summary": "List Empresas",
-        "description": "Cat\u00e1logo plano de empresas activas \u2014 \u00fanico source-of-truth para selects (Disciplina 1).",
+        "description": "Catálogo plano de empresas activas — único source-of-truth para selects (Disciplina 1).",
         "operationId": "list_empresas_api_v1_catalogos_empresas_get",
         "parameters": [
           {
@@ -759,7 +759,7 @@
           "dashboard"
         ],
         "summary": "Get Cashflow",
-        "description": "Devuelve los \u00faltimos N meses pivotando real vs proyectado.\n\nSi `empresa_codigo` es None, agrega sobre todo el portafolio.",
+        "description": "Devuelve los últimos N meses pivotando real vs proyectado.\n\nSi `empresa_codigo` es None, agrega sobre todo el portafolio.",
         "operationId": "get_cashflow_api_v1_dashboard_cashflow_get",
         "parameters": [
           {
@@ -923,7 +923,7 @@
           "dashboard"
         ],
         "summary": "Get Saldos Por Empresa",
-        "description": "Saldo actual + variaci\u00f3n \u00faltimos 30 d\u00edas por empresa.",
+        "description": "Saldo actual + variación últimos 30 días por empresa.",
         "operationId": "get_saldos_por_empresa_api_v1_dashboard_saldos_por_empresa_get",
         "parameters": [
           {
@@ -1182,6 +1182,56 @@
         }
       }
     },
+    "/api/v1/dashboard/ceo-consolidated": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Ceo Consolidated",
+        "description": "Reporte consolidado para Dashboard CEO.\n\nDatos reales calculados sobre los movimientos / OC / F29 ya cargados.\nEl bloque `insights_ai` queda como placeholder hasta integrar con el\nAI Asistente (V3 fase 3 — separado).",
+        "operationId": "ceo_consolidated_api_v1_dashboard_ceo_consolidated_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CEOConsolidatedReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ordenes-compra": {
       "get": {
         "tags": [
@@ -1377,6 +1427,73 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Update Oc",
+        "description": "Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`.",
+        "operationId": "update_oc_api_v1_ordenes_compra__oc_id__patch",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrdenCompraUpdate"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1849,10 +1966,3099 @@
           }
         }
       }
+    },
+    "/api/v1/f29/{f29_id}": {
+      "patch": {
+        "tags": [
+          "f29"
+        ],
+        "summary": "Update F29",
+        "description": "PATCH parcial. Validación cross-field en `F29Update.model_validator`:\nestado='pagado' exige fecha_pago no nula.",
+        "operationId": "update_f29_api_v1_f29__f29_id__patch",
+        "parameters": [
+          {
+            "name": "f29_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "F29 Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/F29Update"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/F29Read"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "f29"
+        ],
+        "summary": "Delete F29",
+        "description": "Hard-delete (admin only).",
+        "operationId": "delete_f29_api_v1_f29__f29_id__delete",
+        "parameters": [
+          {
+            "name": "f29_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "F29 Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/suscripciones": {
+      "get": {
+        "tags": [
+          "suscripciones"
+        ],
+        "summary": "List Suscripciones",
+        "operationId": "list_suscripciones_api_v1_suscripciones_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_SuscripcionRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "suscripciones"
+        ],
+        "summary": "Create Suscripcion",
+        "operationId": "create_suscripcion_api_v1_suscripciones_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuscripcionCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuscripcionRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/suscripciones/totals": {
+      "get": {
+        "tags": [
+          "suscripciones"
+        ],
+        "summary": "Totals Per Empresa",
+        "description": "Reporte agregado para inversionistas: totales por empresa emisora.",
+        "operationId": "totals_per_empresa_api_v1_suscripciones_totals_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SuscripcionResumen"
+                  },
+                  "title": "Response Totals Per Empresa Api V1 Suscripciones Totals Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit/etl-runs": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "List Runs",
+        "operationId": "list_runs_api_v1_audit_etl_runs_get",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_EtlRunRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit/etl-runs/{run_id}": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Get Run",
+        "operationId": "get_run_api_v1_audit_etl_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtlRunRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit/etl-runs/{run_id}/rejected-rows": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Rejected Rows",
+        "operationId": "rejected_rows_api_v1_audit_etl_runs__run_id__rejected_rows_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_RejectedRowRead_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/audit/data-quality": {
+      "get": {
+        "tags": [
+          "audit"
+        ],
+        "summary": "Data Quality",
+        "description": "Reporte de issues operativos. Computa varios chequeos y los devuelve\ncomo lista de issues con severidad + count + descripción + recurso para\ndrill-down desde la UI.",
+        "operationId": "data_quality_api_v1_audit_data_quality_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQualityReport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserRoleRead"
+                  },
+                  "title": "Response List Users Api V1 Admin Users Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Assign User",
+        "operationId": "assign_user_api_v1_admin_users_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleAssignRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRoleRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}/role": {
+      "patch": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Update Role",
+        "operationId": "update_role_api_v1_admin_users__user_id__role_patch",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRoleUpdateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserRoleRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "delete": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Remove User",
+        "operationId": "remove_user_api_v1_admin_users__user_id__delete",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dropbox/connect": {
+      "get": {
+        "tags": [
+          "dropbox"
+        ],
+        "summary": "Connect",
+        "description": "Inicia OAuth flow. Devuelve la authorize_url para redirigir al usuario.",
+        "operationId": "connect_api_v1_dropbox_connect_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Connect Api V1 Dropbox Connect Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dropbox/callback": {
+      "get": {
+        "tags": [
+          "dropbox"
+        ],
+        "summary": "Callback",
+        "description": "Dropbox redirige acá tras autorización del usuario.\n\nEste endpoint es PÚBLICO porque Dropbox redirige al browser del admin sin\nAuthorization header. La integridad la garantiza el CSRF token que\n`DropboxOAuth2Flow.finish` valida contra `_oauth_session`.",
+        "operationId": "callback_api_v1_dropbox_callback_get",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "State"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dropbox/status": {
+      "get": {
+        "tags": [
+          "dropbox"
+        ],
+        "summary": "Get Status",
+        "description": "¿Tenemos credenciales válidas guardadas? (no llama a Dropbox).",
+        "operationId": "get_status_api_v1_dropbox_status_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Status Api V1 Dropbox Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dropbox/files": {
+      "get": {
+        "tags": [
+          "dropbox"
+        ],
+        "summary": "List Files",
+        "description": "Lista archivos+carpetas en `path`. Requiere conexión activa.",
+        "operationId": "list_files_api_v1_dropbox_files_get",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Path en Dropbox. '' = root.",
+              "default": "",
+              "title": "Path"
+            },
+            "description": "Path en Dropbox. '' = root."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Files Api V1 Dropbox Files Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dropbox/data-madre": {
+      "get": {
+        "tags": [
+          "dropbox"
+        ],
+        "summary": "Find Data Madre",
+        "description": "Encuentra `Inteligencia de Negocios/` y reporta `Data Madre.xlsx`.\n\nEstrategia:\n1. Buscar `Cehta Capital` en root (apps con carpeta dedicada lo tienen\n   como root virtual y no aparece; full Dropbox sí).\n2. Buscar `Inteligencia de Negocios` dentro (o en root si no hay\n   carpeta `Cehta Capital`).\n3. Listar contenido y detectar `Data Madre.xlsx` (case-insensitive).",
+        "operationId": "find_data_madre_api_v1_dropbox_data_madre_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Find Data Madre Api V1 Dropbox Data Madre Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dropbox/disconnect": {
+      "post": {
+        "tags": [
+          "dropbox"
+        ],
+        "summary": "Disconnect",
+        "description": "Borra los tokens de Dropbox de la base.\n\nTODO V4: revocar el access_token vía Dropbox API\n(`auth/token/revoke`) además de borrar local.",
+        "operationId": "disconnect_api_v1_dropbox_disconnect_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trabajadores": {
+      "get": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "List Trabajadores",
+        "operationId": "list_trabajadores_api_v1_trabajadores_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(activo|inactivo|licencia)$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_TrabajadorListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Create Trabajador",
+        "operationId": "create_trabajador_api_v1_trabajadores_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrabajadorCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrabajadorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trabajadores/{trabajador_id}": {
+      "get": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Get Trabajador",
+        "operationId": "get_trabajador_api_v1_trabajadores__trabajador_id__get",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrabajadorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Update Trabajador",
+        "operationId": "update_trabajador_api_v1_trabajadores__trabajador_id__patch",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrabajadorUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrabajadorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Delete Trabajador",
+        "description": "Hard delete del trabajador (cascade borra documentos en DB).\nNOTA: NO borra los archivos de Dropbox — se conservan para histórico.",
+        "operationId": "delete_trabajador_api_v1_trabajadores__trabajador_id__delete",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trabajadores/{trabajador_id}/inactivar": {
+      "post": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Mark Inactive",
+        "operationId": "mark_inactive_api_v1_trabajadores__trabajador_id__inactivar_post",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkInactiveRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrabajadorRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trabajadores/{trabajador_id}/documentos": {
+      "post": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Upload Documento",
+        "operationId": "upload_documento_api_v1_trabajadores__trabajador_id__documentos_post",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrabajadorDocumentoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trabajadores/{trabajador_id}/documentos/{documento_id}/download": {
+      "get": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Download Documento",
+        "description": "Genera link temporal Dropbox y redirige el browser allí.",
+        "operationId": "download_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__download_get",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trabajadores/{trabajador_id}/documentos/{documento_id}": {
+      "delete": {
+        "tags": [
+          "trabajadores"
+        ],
+        "summary": "Delete Documento",
+        "description": "Borra el registro DB. NO borra el archivo Dropbox — queda en histórico.",
+        "operationId": "delete_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__delete",
+        "parameters": [
+          {
+            "name": "trabajador_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Trabajador Id"
+            }
+          },
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/conversations": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "List Conversations",
+        "description": "Lista las conversaciones del usuario actual en una empresa.",
+        "operationId": "list_conversations_api_v1_ai_conversations_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationRead"
+                  },
+                  "title": "Response List Conversations Api V1 Ai Conversations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Create Conversation",
+        "operationId": "create_conversation_api_v1_ai_conversations_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/conversations/{conversation_id}/messages": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "List Messages",
+        "operationId": "list_messages_api_v1_ai_conversations__conversation_id__messages_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MessageRead"
+                  },
+                  "title": "Response List Messages Api V1 Ai Conversations  Conversation Id  Messages Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/conversations/{conversation_id}/chat": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Chat",
+        "description": "Envía un mensaje y devuelve un stream SSE con la respuesta del LLM.\n\nFrames:\n- `{\"type\": \"citations\", \"citations\": [...]}` — al inicio, post vector search.\n- `{\"type\": \"content_delta\", \"text\": \"...\"}` — N veces durante stream.\n- `{\"type\": \"done\", \"message_id\": N, \"citations\": [...], \"tokens_used\": N}`.\n- `{\"type\": \"error\", \"detail\": \"...\"}` — en caso de fallo.",
+        "operationId": "chat_api_v1_ai_conversations__conversation_id__chat_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/conversations/{conversation_id}": {
+      "delete": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Delete Conversation",
+        "operationId": "delete_conversation_api_v1_ai_conversations__conversation_id__delete",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Conversation Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/index/{empresa_codigo}": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Trigger Index",
+        "description": "Re-indexa la KB Dropbox de la empresa. Admin-only.",
+        "operationId": "trigger_index_api_v1_ai_index__empresa_codigo__post",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexTriggerResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/index/{empresa_codigo}/status": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Index Status",
+        "description": "Cuenta de chunks + última indexación + lista de fuentes.",
+        "operationId": "index_status_api_v1_ai_index__empresa_codigo__status_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ai/index/{empresa_codigo}/folder-hint": {
+      "get": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Folder Hint",
+        "description": "Devuelve la ruta canónica de la KB en Dropbox (utility para frontend).",
+        "operationId": "folder_hint_api_v1_ai_index__empresa_codigo__folder_hint_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Folder Hint Api V1 Ai Index  Empresa Codigo  Folder Hint Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/legal": {
+      "get": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "List Legal",
+        "operationId": "list_legal_api_v1_legal_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "categoria",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Categoria"
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Size"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_LegalDocumentListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Create Legal",
+        "operationId": "create_legal_api_v1_legal_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalDocumentCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocumentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/legal/alerts": {
+      "get": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Alerts Legal",
+        "operationId": "alerts_legal_api_v1_legal_alerts_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "dias",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 0,
+              "default": 90,
+              "title": "Dias"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LegalAlert"
+                  },
+                  "title": "Response Alerts Legal Api V1 Legal Alerts Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/legal/{documento_id}": {
+      "get": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Get Legal",
+        "operationId": "get_legal_api_v1_legal__documento_id__get",
+        "parameters": [
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocumentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Update Legal",
+        "operationId": "update_legal_api_v1_legal__documento_id__patch",
+        "parameters": [
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalDocumentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocumentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Delete Legal",
+        "description": "Soft delete: pasa el documento a estado=cancelado.\n\nNo borramos físicamente para mantener trazabilidad legal.",
+        "operationId": "delete_legal_api_v1_legal__documento_id__delete",
+        "parameters": [
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/legal/{documento_id}/upload": {
+      "post": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Upload Legal",
+        "operationId": "upload_legal_api_v1_legal__documento_id__upload_post",
+        "parameters": [
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_legal_api_v1_legal__documento_id__upload_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LegalDocumentRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/legal/{documento_id}/download": {
+      "get": {
+        "tags": [
+          "legal"
+        ],
+        "summary": "Download Legal",
+        "operationId": "download_legal_api_v1_legal__documento_id__download_get",
+        "parameters": [
+          {
+            "name": "documento_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Documento Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/status": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Notifications Status",
+        "operationId": "notifications_status_api_v1_notifications_status_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notifications/test": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Notifications Test",
+        "description": "Envía un email de prueba al `to` indicado o al primer admin recipient.",
+        "operationId": "notifications_test_api_v1_notifications_test_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/NotificationsTestRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Notifications Test Api V1 Notifications Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "Alert": {
+        "properties": {
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "empresa_codigo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Empresa Codigo"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "href": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Href"
+          }
+        },
+        "type": "object",
+        "required": [
+          "severity",
+          "title",
+          "detail"
+        ],
+        "title": "Alert",
+        "description": "Alerta priorizada para el panel del CEO."
+      },
+      "Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post": {
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "contrato",
+              "anexo",
+              "dni",
+              "cv",
+              "liquidacion",
+              "finiquito",
+              "cert_afp",
+              "cert_fonasa",
+              "otro"
+            ],
+            "title": "Tipo"
+          },
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo",
+          "file"
+        ],
+        "title": "Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post"
+      },
+      "Body_upload_legal_api_v1_legal__documento_id__upload_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          },
+          "nombre_archivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre Archivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_legal_api_v1_legal__documento_id__upload_post"
+      },
+      "CEOConsolidatedReport": {
+        "properties": {
+          "aum_total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Aum Total"
+          },
+          "aum_cehta": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Aum Cehta"
+          },
+          "aum_corfo": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Aum Corfo"
+          },
+          "delta_30d": {
+            "type": "number",
+            "title": "Delta 30D"
+          },
+          "delta_90d": {
+            "type": "number",
+            "title": "Delta 90D"
+          },
+          "flujo_neto_30d": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Flujo Neto 30D"
+          },
+          "by_empresa": {
+            "items": {
+              "$ref": "#/components/schemas/EmpresaCEOKPIs"
+            },
+            "type": "array",
+            "title": "By Empresa"
+          },
+          "heatmap": {
+            "items": {
+              "$ref": "#/components/schemas/HeatmapCell"
+            },
+            "type": "array",
+            "title": "Heatmap"
+          },
+          "top_alerts": {
+            "items": {
+              "$ref": "#/components/schemas/Alert"
+            },
+            "type": "array",
+            "title": "Top Alerts"
+          },
+          "insights_ai": {
+            "type": "string",
+            "title": "Insights Ai"
+          },
+          "last_updated": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Updated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aum_total",
+          "aum_cehta",
+          "aum_corfo",
+          "delta_30d",
+          "delta_90d",
+          "flujo_neto_30d",
+          "by_empresa",
+          "heatmap",
+          "top_alerts",
+          "insights_ai",
+          "last_updated"
+        ],
+        "title": "CEOConsolidatedReport",
+        "description": "Reporte consolidado para Dashboard CEO."
+      },
       "CashflowPoint": {
         "properties": {
           "periodo": {
@@ -2016,6 +5222,21 @@
         ],
         "title": "CatalogosResponse"
       },
+      "ChatRequest": {
+        "properties": {
+          "message": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "title": "ChatRequest"
+      },
       "ConceptoDetallado": {
         "properties": {
           "concepto_detallado": {
@@ -2040,6 +5261,80 @@
           "concepto_general"
         ],
         "title": "ConceptoDetallado"
+      },
+      "ConversationCreate": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Empresa Codigo"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo"
+        ],
+        "title": "ConversationCreate"
+      },
+      "ConversationRead": {
+        "properties": {
+          "conversation_id": {
+            "type": "integer",
+            "title": "Conversation Id"
+          },
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "conversation_id",
+          "user_id",
+          "empresa_codigo",
+          "title",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConversationRead"
       },
       "DashboardKPIs": {
         "properties": {
@@ -2194,6 +5489,84 @@
         ],
         "title": "DashboardResponse"
       },
+      "DataQualityIssue": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warning",
+              "critical"
+            ],
+            "title": "Severity"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "resource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "severity",
+          "count",
+          "description"
+        ],
+        "title": "DataQualityIssue"
+      },
+      "DataQualityReport": {
+        "properties": {
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          },
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityIssue"
+            },
+            "type": "array",
+            "title": "Issues"
+          },
+          "total_issues": {
+            "type": "integer",
+            "title": "Total Issues",
+            "readOnly": true
+          },
+          "critical_count": {
+            "type": "integer",
+            "title": "Critical Count",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "generated_at",
+          "issues",
+          "total_issues",
+          "critical_count"
+        ],
+        "title": "DataQualityReport"
+      },
       "EgresoConcepto": {
         "properties": {
           "concepto_general": {
@@ -2234,6 +5607,68 @@
           "num_movimientos"
         ],
         "title": "EgresoConcepto"
+      },
+      "EmpresaCEOKPIs": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "razon_social": {
+            "type": "string",
+            "title": "Razon Social"
+          },
+          "saldo_contable": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Saldo Contable"
+          },
+          "flujo_neto_30d": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Flujo Neto 30D"
+          },
+          "oc_pendientes": {
+            "type": "integer",
+            "title": "Oc Pendientes"
+          },
+          "monto_oc_pendiente": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monto Oc Pendiente"
+          },
+          "f29_proximas": {
+            "type": "integer",
+            "title": "F29 Proximas"
+          },
+          "f29_vencidas": {
+            "type": "integer",
+            "title": "F29 Vencidas"
+          },
+          "health_score": {
+            "type": "integer",
+            "title": "Health Score"
+          },
+          "trend": {
+            "type": "string",
+            "title": "Trend"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "razon_social",
+          "saldo_contable",
+          "flujo_neto_30d",
+          "oc_pendientes",
+          "monto_oc_pendiente",
+          "f29_proximas",
+          "f29_vencidas",
+          "health_score",
+          "trend"
+        ],
+        "title": "EmpresaCEOKPIs",
+        "description": "KPIs por empresa para el comparador del CEO Dashboard."
       },
       "EmpresaCatalogo": {
         "properties": {
@@ -2293,6 +5728,141 @@
           "estado"
         ],
         "title": "EstadoUpdateRequest"
+      },
+      "EtlRunRead": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "source_file": {
+            "type": "string",
+            "title": "Source File"
+          },
+          "source_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Hash"
+          },
+          "rows_extracted": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows Extracted"
+          },
+          "rows_loaded": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows Loaded"
+          },
+          "rows_rejected": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows Rejected"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "triggered_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Triggered By"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds",
+            "description": "Duración total de la corrida en segundos. None si aún corre.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "started_at",
+          "finished_at",
+          "source_file",
+          "source_hash",
+          "rows_extracted",
+          "rows_loaded",
+          "rows_rejected",
+          "status",
+          "error_message",
+          "triggered_by",
+          "duration_seconds"
+        ],
+        "title": "EtlRunRead"
       },
       "F29Create": {
         "properties": {
@@ -2511,6 +6081,68 @@
         ],
         "title": "F29Resumen"
       },
+      "F29Update": {
+        "properties": {
+          "estado": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pendiente",
+                  "pagado",
+                  "vencido",
+                  "exento"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estado"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "comprobante_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comprobante Url"
+          },
+          "monto_a_pagar": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto A Pagar"
+          }
+        },
+        "type": "object",
+        "title": "F29Update",
+        "description": "PATCH /f29/{id} — edición parcial.\n\nReglas cross-field (model_validator):\n- Si estado=='pagado', `fecha_pago` es obligatoria (no None).\n- Si estado!='pagado', `fecha_pago` puede ser None (limpieza permitida)."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2541,6 +6173,108 @@
           "database"
         ],
         "title": "HealthResponse"
+      },
+      "HeatmapCell": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "kpi": {
+            "type": "string",
+            "title": "Kpi"
+          },
+          "value": {
+            "type": "integer",
+            "title": "Value"
+          },
+          "color": {
+            "type": "string",
+            "title": "Color"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "kpi",
+          "value",
+          "color"
+        ],
+        "title": "HeatmapCell",
+        "description": "Celda del heatmap empresa × KPI.\n\n`kpi` ∈ {saldo, flujo, oc, f29, etl, audit}\n`value` 0-100\n`color` ∈ {green, yellow, red}"
+      },
+      "IndexStatus": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "chunk_count": {
+            "type": "integer",
+            "title": "Chunk Count"
+          },
+          "last_indexed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Indexed At"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "chunk_count",
+          "last_indexed_at"
+        ],
+        "title": "IndexStatus"
+      },
+      "IndexTriggerResponse": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "folder_path": {
+            "type": "string",
+            "title": "Folder Path"
+          },
+          "files_processed": {
+            "type": "integer",
+            "title": "Files Processed"
+          },
+          "chunks_created": {
+            "type": "integer",
+            "title": "Chunks Created"
+          },
+          "skipped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "folder_path",
+          "files_processed",
+          "chunks_created"
+        ],
+        "title": "IndexTriggerResponse"
       },
       "IvaPoint": {
         "properties": {
@@ -2578,6 +6312,750 @@
           "iva_a_pagar"
         ],
         "title": "IvaPoint"
+      },
+      "LegalAlert": {
+        "properties": {
+          "documento_id": {
+            "type": "integer",
+            "title": "Documento Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "contraparte": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte"
+          },
+          "fecha_vigencia_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Hasta"
+          },
+          "dias_para_vencer": {
+            "type": "integer",
+            "title": "Dias Para Vencer"
+          },
+          "alerta_nivel": {
+            "type": "string",
+            "title": "Alerta Nivel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documento_id",
+          "empresa_codigo",
+          "categoria",
+          "nombre",
+          "dias_para_vencer",
+          "alerta_nivel"
+        ],
+        "title": "LegalAlert",
+        "description": "Alerta de vencimiento próximo (consumido por dashboard CEO + emails)."
+      },
+      "LegalDocumentCreate": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Empresa Codigo"
+          },
+          "categoria": {
+            "type": "string",
+            "enum": [
+              "contrato",
+              "acta",
+              "declaracion_sii",
+              "permiso",
+              "poliza",
+              "estatuto",
+              "otro"
+            ],
+            "title": "Categoria"
+          },
+          "subcategoria": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategoria"
+          },
+          "nombre": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "contraparte": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte"
+          },
+          "fecha_emision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Emision"
+          },
+          "fecha_vigencia_desde": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Desde"
+          },
+          "fecha_vigencia_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Hasta"
+          },
+          "monto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "vigente",
+              "vencido",
+              "renovado",
+              "cancelado",
+              "borrador"
+            ],
+            "title": "Estado",
+            "default": "vigente"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "categoria",
+          "nombre"
+        ],
+        "title": "LegalDocumentCreate",
+        "description": "Body para POST /legal. `dropbox_path` se setea via upload separado."
+      },
+      "LegalDocumentListItem": {
+        "properties": {
+          "documento_id": {
+            "type": "integer",
+            "title": "Documento Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "subcategoria": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategoria"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "contraparte": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte"
+          },
+          "fecha_vigencia_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Hasta"
+          },
+          "monto": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "dias_para_vencer": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dias Para Vencer"
+          },
+          "alerta_nivel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alerta Nivel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documento_id",
+          "empresa_codigo",
+          "categoria",
+          "nombre",
+          "estado"
+        ],
+        "title": "LegalDocumentListItem",
+        "description": "Vista resumida para tabla."
+      },
+      "LegalDocumentRead": {
+        "properties": {
+          "documento_id": {
+            "type": "integer",
+            "title": "Documento Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "categoria": {
+            "type": "string",
+            "title": "Categoria"
+          },
+          "subcategoria": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategoria"
+          },
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "contraparte": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte"
+          },
+          "fecha_emision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Emision"
+          },
+          "fecha_vigencia_desde": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Desde"
+          },
+          "fecha_vigencia_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Hasta"
+          },
+          "monto": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "dropbox_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropbox Path"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "metadata_": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          },
+          "uploaded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded By"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Uploaded At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documento_id",
+          "empresa_codigo",
+          "categoria",
+          "nombre",
+          "estado",
+          "uploaded_at",
+          "updated_at"
+        ],
+        "title": "LegalDocumentRead"
+      },
+      "LegalDocumentUpdate": {
+        "properties": {
+          "categoria": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "contrato",
+                  "acta",
+                  "declaracion_sii",
+                  "permiso",
+                  "poliza",
+                  "estatuto",
+                  "otro"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Categoria"
+          },
+          "subcategoria": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subcategoria"
+          },
+          "nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "contraparte": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte"
+          },
+          "fecha_emision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Emision"
+          },
+          "fecha_vigencia_desde": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Desde"
+          },
+          "fecha_vigencia_hasta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Vigencia Hasta"
+          },
+          "monto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "estado": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "vigente",
+                  "vencido",
+                  "renovado",
+                  "cancelado",
+                  "borrador"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estado"
+          }
+        },
+        "type": "object",
+        "title": "LegalDocumentUpdate"
+      },
+      "MarkInactiveRequest": {
+        "properties": {
+          "fecha_egreso": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Egreso"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha_egreso"
+        ],
+        "title": "MarkInactiveRequest",
+        "description": "Marca a un trabajador como inactivo. La fecha de egreso es obligatoria."
+      },
+      "MessageRead": {
+        "properties": {
+          "message_id": {
+            "type": "integer",
+            "title": "Message Id"
+          },
+          "conversation_id": {
+            "type": "integer",
+            "title": "Conversation Id"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ],
+            "title": "Role"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "citations": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citations"
+          },
+          "tokens_used": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens Used"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "message_id",
+          "conversation_id",
+          "role",
+          "content",
+          "created_at"
+        ],
+        "title": "MessageRead"
       },
       "MovimientoRead": {
         "properties": {
@@ -2872,6 +7350,50 @@
           "proyecto"
         ],
         "title": "MovimientoReciente"
+      },
+      "NotificationsStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "email_from": {
+            "type": "string",
+            "title": "Email From"
+          },
+          "admin_recipients": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Admin Recipients"
+          }
+        },
+        "type": "object",
+        "required": [
+          "enabled",
+          "email_from",
+          "admin_recipients"
+        ],
+        "title": "NotificationsStatus"
+      },
+      "NotificationsTestRequest": {
+        "properties": {
+          "to": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To"
+          }
+        },
+        "type": "object",
+        "title": "NotificationsTestRequest"
       },
       "OCDetalleCreate": {
         "properties": {
@@ -3346,6 +7868,105 @@
         ],
         "title": "OrdenCompraRead"
       },
+      "OrdenCompraUpdate": {
+        "properties": {
+          "forma_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forma Pago"
+          },
+          "plazo_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plazo Pago"
+          },
+          "validez_dias": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Validez Dias"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pdf Url"
+          }
+        },
+        "type": "object",
+        "title": "OrdenCompraUpdate",
+        "description": "PATCH /ordenes-compra/{id} — edición de campos no-críticos.\n\nSólo permite editar campos operativos. Los campos críticos\n(numero_oc, empresa_codigo, fecha_emision, neto, iva, total, estado)\nNO se pueden modificar acá: 'numero_oc' rompería trazabilidad,\nlos montos se recalculan al crear, y 'estado' tiene su propio endpoint\n`PATCH /{id}/estado` con validación de transiciones.\n\nSi el body trae alguno de esos campos, son ignorados (extra='ignore'\npor default en pydantic v2). Si querés que sea hard-fail, cambiar a\n`model_config = {\"extra\": \"forbid\"}`."
+      },
+      "Page_EtlRunRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EtlRunRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[EtlRunRead]"
+      },
       "Page_F29Read_": {
         "properties": {
           "items": {
@@ -3381,6 +8002,42 @@
           "pages"
         ],
         "title": "Page[F29Read]"
+      },
+      "Page_LegalDocumentListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LegalDocumentListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[LegalDocumentListItem]"
       },
       "Page_MovimientoRead_": {
         "properties": {
@@ -3489,6 +8146,114 @@
           "pages"
         ],
         "title": "Page[ProveedorRead]"
+      },
+      "Page_RejectedRowRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedRowRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[RejectedRowRead]"
+      },
+      "Page_SuscripcionRead_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SuscripcionRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[SuscripcionRead]"
+      },
+      "Page_TrabajadorListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TrabajadorListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[TrabajadorListItem]"
       },
       "ProveedorCreate": {
         "properties": {
@@ -3923,6 +8688,86 @@
         ],
         "title": "ProyectoRanking"
       },
+      "RejectedRowRead": {
+        "properties": {
+          "rejected_id": {
+            "type": "integer",
+            "title": "Rejected Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "source_sheet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Sheet"
+          },
+          "source_row_num": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Row Num"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "raw_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Data"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rejected_id",
+          "run_id",
+          "source_sheet",
+          "source_row_num",
+          "reason",
+          "raw_data",
+          "created_at"
+        ],
+        "title": "RejectedRowRead"
+      },
       "RutValidationResponse": {
         "properties": {
           "valid": {
@@ -4118,6 +8963,829 @@
         ],
         "title": "SetRoleRequest"
       },
+      "SuscripcionCreate": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Empresa Codigo"
+          },
+          "fecha_recibo": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Recibo"
+          },
+          "acciones_pagadas": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Acciones Pagadas"
+          },
+          "monto_uf": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Uf"
+          },
+          "monto_clp": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Monto Clp"
+          },
+          "contrato_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contrato Ref"
+          },
+          "recibo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recibo Url"
+          },
+          "firmado": {
+            "type": "boolean",
+            "title": "Firmado",
+            "default": false
+          },
+          "fecha_firma": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Firma"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "fecha_recibo",
+          "acciones_pagadas",
+          "monto_clp"
+        ],
+        "title": "SuscripcionCreate"
+      },
+      "SuscripcionRead": {
+        "properties": {
+          "suscripcion_id": {
+            "type": "integer",
+            "title": "Suscripcion Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "fecha_recibo": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Recibo"
+          },
+          "acciones_pagadas": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Acciones Pagadas"
+          },
+          "monto_uf": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Uf"
+          },
+          "monto_clp": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monto Clp"
+          },
+          "contrato_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contrato Ref"
+          },
+          "recibo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recibo Url"
+          },
+          "firmado": {
+            "type": "boolean",
+            "title": "Firmado"
+          },
+          "fecha_firma": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Firma"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "suscripcion_id",
+          "empresa_codigo",
+          "fecha_recibo",
+          "acciones_pagadas",
+          "monto_uf",
+          "monto_clp",
+          "contrato_ref",
+          "recibo_url",
+          "firmado",
+          "fecha_firma",
+          "created_at"
+        ],
+        "title": "SuscripcionRead"
+      },
+      "SuscripcionResumen": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "total_acciones": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Acciones"
+          },
+          "total_clp": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Clp"
+          },
+          "total_uf": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Uf"
+          },
+          "recibos_count": {
+            "type": "integer",
+            "title": "Recibos Count"
+          },
+          "recibos_firmados": {
+            "type": "integer",
+            "title": "Recibos Firmados"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "total_acciones",
+          "total_clp",
+          "recibos_count",
+          "recibos_firmados"
+        ],
+        "title": "SuscripcionResumen",
+        "description": "Agregado por empresa para reporte a inversionistas.\n\nCada item resume todas las suscripciones de una empresa: total de acciones\nemitidas, total CLP cobrado, total UF (si aplica) y conteo de recibos."
+      },
+      "TrabajadorCreate": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Empresa Codigo"
+          },
+          "nombre_completo": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Nombre Completo"
+          },
+          "rut": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Rut"
+          },
+          "cargo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cargo"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "telefono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefono"
+          },
+          "fecha_ingreso": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Ingreso"
+          },
+          "fecha_egreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Egreso"
+          },
+          "sueldo_bruto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sueldo Bruto"
+          },
+          "tipo_contrato": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "indefinido",
+                  "plazo_fijo",
+                  "honorarios",
+                  "part_time"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Contrato"
+          },
+          "estado": {
+            "type": "string",
+            "enum": [
+              "activo",
+              "inactivo",
+              "licencia"
+            ],
+            "title": "Estado",
+            "default": "activo"
+          },
+          "notas": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "nombre_completo",
+          "rut",
+          "fecha_ingreso"
+        ],
+        "title": "TrabajadorCreate",
+        "description": "Body para POST /trabajadores. `dropbox_folder` lo calcula el service."
+      },
+      "TrabajadorDocumentoRead": {
+        "properties": {
+          "documento_id": {
+            "type": "integer",
+            "title": "Documento Id"
+          },
+          "trabajador_id": {
+            "type": "integer",
+            "title": "Trabajador Id"
+          },
+          "tipo": {
+            "type": "string",
+            "title": "Tipo"
+          },
+          "nombre_archivo": {
+            "type": "string",
+            "title": "Nombre Archivo"
+          },
+          "dropbox_path": {
+            "type": "string",
+            "title": "Dropbox Path"
+          },
+          "tamano_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tamano Bytes"
+          },
+          "uploaded_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded By"
+          },
+          "uploaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Uploaded At"
+          },
+          "metadata_": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "documento_id",
+          "trabajador_id",
+          "tipo",
+          "nombre_archivo",
+          "dropbox_path",
+          "uploaded_at"
+        ],
+        "title": "TrabajadorDocumentoRead"
+      },
+      "TrabajadorListItem": {
+        "properties": {
+          "trabajador_id": {
+            "type": "integer",
+            "title": "Trabajador Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "nombre_completo": {
+            "type": "string",
+            "title": "Nombre Completo"
+          },
+          "rut": {
+            "type": "string",
+            "title": "Rut"
+          },
+          "cargo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cargo"
+          },
+          "fecha_ingreso": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Ingreso"
+          },
+          "fecha_egreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Egreso"
+          },
+          "tipo_contrato": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Contrato"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trabajador_id",
+          "empresa_codigo",
+          "nombre_completo",
+          "rut",
+          "fecha_ingreso",
+          "estado"
+        ],
+        "title": "TrabajadorListItem",
+        "description": "Vista resumida para listados (sin documentos / sueldo / notas)."
+      },
+      "TrabajadorRead": {
+        "properties": {
+          "trabajador_id": {
+            "type": "integer",
+            "title": "Trabajador Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "nombre_completo": {
+            "type": "string",
+            "title": "Nombre Completo"
+          },
+          "rut": {
+            "type": "string",
+            "title": "Rut"
+          },
+          "cargo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cargo"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "telefono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefono"
+          },
+          "fecha_ingreso": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Ingreso"
+          },
+          "fecha_egreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Egreso"
+          },
+          "sueldo_bruto": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sueldo Bruto"
+          },
+          "tipo_contrato": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Contrato"
+          },
+          "estado": {
+            "type": "string",
+            "title": "Estado"
+          },
+          "dropbox_folder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dropbox Folder"
+          },
+          "notas": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notas"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "documentos": {
+            "items": {
+              "$ref": "#/components/schemas/TrabajadorDocumentoRead"
+            },
+            "type": "array",
+            "title": "Documentos"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trabajador_id",
+          "empresa_codigo",
+          "nombre_completo",
+          "rut",
+          "fecha_ingreso",
+          "estado",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TrabajadorRead"
+      },
+      "TrabajadorUpdate": {
+        "properties": {
+          "nombre_completo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 255,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nombre Completo"
+          },
+          "rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut"
+          },
+          "cargo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cargo"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "telefono": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Telefono"
+          },
+          "fecha_ingreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Ingreso"
+          },
+          "fecha_egreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Egreso"
+          },
+          "sueldo_bruto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sueldo Bruto"
+          },
+          "tipo_contrato": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "indefinido",
+                  "plazo_fijo",
+                  "honorarios",
+                  "part_time"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Contrato"
+          },
+          "estado": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "activo",
+                  "inactivo",
+                  "licencia"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estado"
+          },
+          "notas": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notas"
+          }
+        },
+        "type": "object",
+        "title": "TrabajadorUpdate"
+      },
       "UserMeResponse": {
         "properties": {
           "sub": {
@@ -4156,6 +9824,33 @@
         ],
         "title": "UserMeResponse"
       },
+      "UserRoleAssignRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "title": "Email"
+          },
+          "app_role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "finance",
+              "viewer"
+            ],
+            "title": "App Role",
+            "description": "Rol canónico: admin|finance|viewer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email",
+          "app_role"
+        ],
+        "title": "UserRoleAssignRequest",
+        "description": "POST /admin/users — asigna un rol al usuario identificado por email.\n\nEl email debe existir en `auth.users` (Supabase). Si no existe, el\nendpoint responde 404 indicando que primero se debe crear vía Dashboard."
+      },
       "UserRoleItem": {
         "properties": {
           "user_id": {
@@ -4173,6 +9868,78 @@
           "app_role"
         ],
         "title": "UserRoleItem"
+      },
+      "UserRoleRead": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "title": "User Id"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "app_role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "finance",
+              "viewer"
+            ],
+            "title": "App Role"
+          },
+          "assigned_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Assigned At"
+          },
+          "assigned_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "email",
+          "app_role",
+          "assigned_at",
+          "assigned_by"
+        ],
+        "title": "UserRoleRead"
+      },
+      "UserRoleUpdateRequest": {
+        "properties": {
+          "app_role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "finance",
+              "viewer"
+            ],
+            "title": "App Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "app_role"
+        ],
+        "title": "UserRoleUpdateRequest",
+        "description": "PATCH /admin/users/{user_id}/role — cambia rol de un usuario existente."
       },
       "ValidationError": {
         "properties": {
