@@ -45,6 +45,13 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "legal:read", "legal:create", "legal:update", "legal:delete",
         # Notifications (V3 fase 3+4) — admin maneja Resend y emails.
         "notifications:admin",
+        # Avance / Gantt (V3 fase 5) — proyectos, hitos, riesgos por empresa.
+        "avance:read", "avance:create", "avance:update", "avance:delete",
+        # Calendar + agentes scheduled (V3 fase 5).
+        "calendar:read", "calendar:create", "calendar:update", "calendar:delete",
+        "calendar:admin",
+        # Búsqueda de Fondos (V3 fase 5) — pipeline LP/banco/programa.
+        "fondo:read", "fondo:create", "fondo:update", "fondo:delete",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
@@ -58,6 +65,12 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "ai:read", "ai:chat",
         # Legal Vault — operativo (subir/editar contratos) pero no eliminar.
         "legal:read", "legal:create", "legal:update",
+        # Avance — finance crea y edita pero no elimina proyectos/hitos/riesgos.
+        "avance:read", "avance:create", "avance:update",
+        # Calendar — finance puede crear y editar eventos.
+        "calendar:read", "calendar:create", "calendar:update",
+        # Fondos — finance puede crear y editar pero no eliminar.
+        "fondo:read", "fondo:create", "fondo:update",
     }),
     "viewer": frozenset({
         "oc:read",
@@ -70,6 +83,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "ai:read", "ai:chat",
         # Legal Vault — viewer puede consultar documentos pero no modificar.
         "legal:read",
+        # Avance / Calendar / Fondos — read-only para reportes y comité.
+        "avance:read",
+        "calendar:read",
+        "fondo:read",
         # NO audit:read, NO user:* — privacy / least privilege.
     }),
 }
