@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
@@ -21,9 +22,14 @@ import {
   UserCog,
   Database,
   ShieldCheck,
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  Plug,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { cn } from "@/lib/utils";
 
 /**
@@ -101,9 +107,23 @@ const GROUPS: NavGroup[] = [
         label: "Data Quality",
         icon: ShieldCheck,
       },
+      {
+        href: "/admin/integraciones" as Route,
+        label: "Integraciones",
+        icon: Plug,
+      },
     ],
   },
 ];
+
+// Sub-items que aparecen al expandir cada empresa.
+const EMPRESA_SUBSECTIONS = [
+  { suffix: "", label: "Resumen", icon: Building2 },
+  { suffix: "/trabajadores", label: "Trabajadores", icon: Users },
+  { suffix: "/legal", label: "Legal", icon: Scale },
+  { suffix: "/avance", label: "Avance", icon: Target },
+  { suffix: "/asistente", label: "AI Asistente", icon: Sparkles },
+] as const;
 
 interface AppSidebarProps {
   email: string;
@@ -173,6 +193,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 );
               })}
             </div>
+            {/* Empresas list — solo dentro del grupo "operaciones" */}
+            {group.id === "operaciones" && <EmpresasNav pathname={pathname} />}
           </div>
         ))}
       </nav>
@@ -202,3 +224,122 @@ export function AppSidebar({ email }: AppSidebarProps) {
     </aside>
   );
 }
+
+/**
+ * EmpresasNav — sub-grupo dinámico que lista las 9 empresas del portfolio.
+ * Cada empresa es expandible con sus 5 sub-secciones.
+ */
+function EmpresasNav({ pathname }: { pathname: string }) {
+  const { data: empresas, isLoading } = useCatalogoEmpresas();
+  const [expanded, setExpanded] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("sidebar-empresa-expanded");
+  });
+
+  // Auto-expand si el pathname coincide con alguna empresa
+  useEffect(() => {
+    const match = /^\/empresa\/([^/]+)/.exec(pathname);
+    if (match && match[1] && expanded !== match[1]) {
+      setExpanded(match[1]);
+    }
+  }, [pathname, expanded]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (expanded) {
+      localStorage.setItem("sidebar-empresa-expanded", expanded);
+    } else {
+      localStorage.removeItem("sidebar-empresa-expanded");
+    }
+  }, [expanded]);
+
+  if (isLoading) {
+    return (
+      <>
+        <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300">
+          Empresas
+        </h3>
+        <div className="space-y-0.5">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="mx-3 my-1 h-7 animate-pulse rounded-xl bg-ink-100/40"
+            />
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  if (!empresas || empresas.length === 0) return null;
+
+  return (
+    <>
+      <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300">
+        Empresas
+      </h3>
+      <div className="space-y-0.5">
+        {empresas.map((emp) => {
+          const isExpanded = expanded === emp.codigo;
+          const isActive = pathname.startsWith(`/empresa/${emp.codigo}`);
+          const Chevron = isExpanded ? ChevronDown : ChevronRight;
+          return (
+            <div key={emp.codigo}>
+              <button
+                type="button"
+                onClick={() =>
+                  setExpanded(isExpanded ? null : emp.codigo)
+                }
+                aria-expanded={isExpanded}
+                title={emp.razon_social}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+                  isActive
+                    ? "bg-cehta-green/10 text-cehta-green"
+                    : "text-ink-700 hover:bg-cehta-green/5 hover:text-cehta-green",
+                )}
+              >
+                <Chevron
+                  className="h-3.5 w-3.5 shrink-0 text-ink-300"
+                  strokeWidth={2}
+                />
+                <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                <span className="flex-1 truncate text-left">{emp.codigo}</span>
+              </button>
+              {isExpanded && (
+                <div className="ml-2 mt-0.5 space-y-0.5 border-l border-hairline pl-3">
+                  {EMPRESA_SUBSECTIONS.map((sec) => {
+                    const Icon = sec.icon;
+                    const href = `/empresa/${emp.codigo}${sec.suffix}` as Route;
+                    const subActive =
+                      pathname === href ||
+                      (sec.suffix !== "" && pathname.startsWith(`${href}/`));
+                    return (
+                      <Link
+                        key={sec.suffix}
+                        href={href}
+                        aria-current={subActive ? "page" : undefined}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors duration-150 ease-apple",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+                          subActive
+                            ? "bg-cehta-green/15 text-cehta-green font-medium"
+                            : "text-ink-500 hover:bg-cehta-green/5 hover:text-cehta-green",
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        {sec.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
