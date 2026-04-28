@@ -37,6 +37,14 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "integration:read", "integration:write",
         # Trabajadores (HR per empresa) — V3 fase 2
         "trabajador:read", "trabajador:create", "trabajador:update", "trabajador:delete",
+        # AI Asistente (V3 fase 3) — admin puede además forzar reindex de la KB.
+        "ai:read", "ai:chat", "ai:index",
+        # CEO Dashboard (V3 fase 3+4) — vista consolidada del portafolio.
+        "ceo:read",
+        # Legal Vault (V3 fase 3+4) — bóveda de documentos legales por empresa.
+        "legal:read", "legal:create", "legal:update", "legal:delete",
+        # Notifications (V3 fase 3+4) — admin maneja Resend y emails.
+        "notifications:admin",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
@@ -46,6 +54,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "suscripcion:read", "suscripcion:create",
         # Finance puede crear y editar trabajadores pero no eliminarlos.
         "trabajador:read", "trabajador:create", "trabajador:update",
+        # AI Asistente — chat full pero sin re-indexar.
+        "ai:read", "ai:chat",
+        # Legal Vault — operativo (subir/editar contratos) pero no eliminar.
+        "legal:read", "legal:create", "legal:update",
     }),
     "viewer": frozenset({
         "oc:read",
@@ -54,6 +66,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "movimiento:read",
         "suscripcion:read",
         "trabajador:read",
+        # AI Asistente — viewer también puede chatear (es la feature estrella V3).
+        "ai:read", "ai:chat",
+        # Legal Vault — viewer puede consultar documentos pero no modificar.
+        "legal:read",
         # NO audit:read, NO user:* — privacy / least privilege.
     }),
 }

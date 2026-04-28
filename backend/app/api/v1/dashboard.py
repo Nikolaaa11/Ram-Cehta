@@ -18,18 +18,23 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.security import AuthenticatedUser
 from app.domain.value_objects.periodo import Periodo, current_periodo
 from app.schemas.dashboard import (
+    Alert,
     CashflowPoint,
     CashflowResponse,
+    CEOConsolidatedReport,
     DashboardKPIs,
     DashboardResponse,
     EgresoConcepto,
+    EmpresaCEOKPIs,
     F29Resumen,
+    HeatmapCell,
     IvaPoint,
     MovimientoReciente,
     OCResumen,
@@ -694,3 +699,328 @@ async def get_movimientos_recientes(
         )
         for r in rows
     ]
+
+
+# =====================================================================
+# CEO Dashboard helpers (puros, testeables sin DB)
+# =====================================================================
+def compute_health_score(
+    saldo_contable: Decimal,
+    flujo_neto_30d: Decimal,
+    f29_vencidas: int,
+    f29_proximas: int,
+    oc_pendientes: int,
+) -> int:
+    """Score 0-100 que combina los KPIs operativos por empresa.
+
+    Lógica simple, transparente y reversible:
+    - Empezamos en 100.
+    - F29 vencidas: -25 c/u (capeado a -50)
+    - F29 próximas (sin vencidas que ya descontaron): -5 c/u (capeado a -15)
+    - Flujo neto 30d negativo: -20 si <0
+    - Saldo ≤ 0: -25
+    - OCs pendientes >10: -10 (carga operativa)
+    """
+    score = 100
+    score -= min(25 * f29_vencidas, 50)
+    if f29_vencidas == 0:
+        score -= min(5 * f29_proximas, 15)
+    if flujo_neto_30d < 0:
+        score -= 20
+    if saldo_contable <= 0:
+        score -= 25
+    if oc_pendientes > 10:
+        score -= 10
+    return max(0, min(100, score))
+
+
+def trend_from_flujo(flujo_neto_30d: Decimal) -> str:
+    if flujo_neto_30d > 0:
+        return "up"
+    if flujo_neto_30d < 0:
+        return "down"
+    return "flat"
+
+
+def color_for_score(value: int) -> str:
+    """Mapeo color heatmap: ≥80 verde, 60-79 amarillo, <60 rojo."""
+    if value >= 80:
+        return "green"
+    if value >= 60:
+        return "yellow"
+    return "red"
+
+
+# =====================================================================
+# GET /dashboard/ceo-consolidated — vista consolidada para Dashboard CEO
+# =====================================================================
+@router.get("/ceo-consolidated", response_model=CEOConsolidatedReport)
+async def ceo_consolidated(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("ceo:read"))],
+    db: DBSession,
+) -> CEOConsolidatedReport:
+    """Reporte consolidado para Dashboard CEO.
+
+    Datos reales calculados sobre los movimientos / OC / F29 ya cargados.
+    El bloque `insights_ai` queda como placeholder hasta integrar con el
+    AI Asistente (V3 fase 3 — separado).
+    """
+    # ----- AUM consolidado (último saldo por empresa) ---------------------
+    aum_row = (
+        await db.execute(
+            text("""
+                SELECT
+                    COALESCE(SUM(saldo_contable), 0) AS aum_total,
+                    COALESCE(SUM(saldo_cehta),    0) AS aum_cehta,
+                    COALESCE(SUM(saldo_corfo),    0) AS aum_corfo
+                FROM core.v_saldos_actuales
+            """)
+        )
+    ).fetchone()
+
+    aum_total = Decimal(aum_row[0] or 0) if aum_row else ZERO
+    aum_cehta = Decimal(aum_row[1] or 0) if aum_row else ZERO
+    aum_corfo = Decimal(aum_row[2] or 0) if aum_row else ZERO
+
+    # ----- Saldos hace 30/90 días por empresa para deltas -----------------
+    deltas_rows = (
+        await db.execute(
+            text("""
+                WITH ult AS (
+                    SELECT DISTINCT ON (empresa_codigo)
+                        empresa_codigo, COALESCE(saldo_contable, 0) AS saldo_actual
+                    FROM core.movimientos
+                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                ),
+                hace_30 AS (
+                    SELECT DISTINCT ON (empresa_codigo)
+                        empresa_codigo, COALESCE(saldo_contable, 0) AS s30
+                    FROM core.movimientos
+                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                      AND fecha <= CURRENT_DATE - INTERVAL '30 days'
+                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                ),
+                hace_90 AS (
+                    SELECT DISTINCT ON (empresa_codigo)
+                        empresa_codigo, COALESCE(saldo_contable, 0) AS s90
+                    FROM core.movimientos
+                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                      AND fecha <= CURRENT_DATE - INTERVAL '90 days'
+                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                )
+                SELECT
+                    COALESCE(SUM(u.saldo_actual), 0) AS now,
+                    COALESCE(SUM(h30.s30), 0)        AS prev_30,
+                    COALESCE(SUM(h90.s90), 0)        AS prev_90
+                FROM ult u
+                LEFT JOIN hace_30 h30 ON h30.empresa_codigo = u.empresa_codigo
+                LEFT JOIN hace_90 h90 ON h90.empresa_codigo = u.empresa_codigo
+            """)
+        )
+    ).fetchone()
+    saldo_now = Decimal(deltas_rows[0] or 0) if deltas_rows else ZERO
+    saldo_30d = Decimal(deltas_rows[1] or 0) if deltas_rows else ZERO
+    saldo_90d = Decimal(deltas_rows[2] or 0) if deltas_rows else ZERO
+    delta_30d_pct = calc_delta_pct(saldo_now, saldo_30d)
+    delta_90d_pct = calc_delta_pct(saldo_now, saldo_90d)
+
+    # ----- Flujo neto del portafolio últimos 30 días ----------------------
+    flujo_row = (
+        await db.execute(
+            text("""
+                SELECT COALESCE(SUM(abono), 0) - COALESCE(SUM(egreso), 0)
+                FROM core.movimientos
+                WHERE real_proyectado = 'Real'
+                  AND fecha >= CURRENT_DATE - INTERVAL '30 days'
+            """)
+        )
+    ).fetchone()
+    flujo_neto_30d = Decimal(flujo_row[0] or 0) if flujo_row else ZERO
+
+    # ----- KPIs por empresa -----------------------------------------------
+    by_empresa_rows = (
+        await db.execute(
+            text("""
+                WITH saldo_actual AS (
+                    SELECT DISTINCT ON (empresa_codigo)
+                        empresa_codigo,
+                        COALESCE(saldo_contable, 0) AS saldo_contable
+                    FROM core.movimientos
+                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                ),
+                flujo_30 AS (
+                    SELECT empresa_codigo,
+                           COALESCE(SUM(abono), 0) - COALESCE(SUM(egreso), 0) AS flujo
+                    FROM core.movimientos
+                    WHERE real_proyectado = 'Real'
+                      AND fecha >= CURRENT_DATE - INTERVAL '30 days'
+                    GROUP BY empresa_codigo
+                ),
+                oc_pend AS (
+                    SELECT empresa_codigo,
+                           COUNT(*) FILTER (WHERE estado = 'emitida') AS n_oc,
+                           COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_oc
+                    FROM core.ordenes_compra
+                    GROUP BY empresa_codigo
+                ),
+                f29 AS (
+                    SELECT empresa_codigo,
+                           COUNT(*) FILTER (WHERE dias_para_vencer BETWEEN 0 AND 30)
+                               AS proximas,
+                           COUNT(*) FILTER (WHERE dias_para_vencer < 0 AND estado = 'pendiente')
+                               AS vencidas
+                    FROM core.v_f29_alertas
+                    GROUP BY empresa_codigo
+                )
+                SELECT
+                    e.codigo,
+                    e.razon_social,
+                    COALESCE(s.saldo_contable, 0)                AS saldo_contable,
+                    COALESCE(f.flujo, 0)                         AS flujo_neto_30d,
+                    COALESCE(o.n_oc, 0)                          AS oc_pendientes,
+                    COALESCE(o.monto_oc, 0)                      AS monto_oc_pendiente,
+                    COALESCE(f29.proximas, 0)                    AS f29_proximas,
+                    COALESCE(f29.vencidas, 0)                    AS f29_vencidas
+                FROM core.empresas e
+                LEFT JOIN saldo_actual s ON s.empresa_codigo = e.codigo
+                LEFT JOIN flujo_30 f     ON f.empresa_codigo = e.codigo
+                LEFT JOIN oc_pend o      ON o.empresa_codigo = e.codigo
+                LEFT JOIN f29 f29        ON f29.empresa_codigo = e.codigo
+                WHERE e.activo = true
+                ORDER BY e.codigo
+            """)
+        )
+    ).fetchall()
+
+    by_empresa: list[EmpresaCEOKPIs] = []
+    heatmap: list[HeatmapCell] = []
+    top_alerts: list[Alert] = []
+
+    for r in by_empresa_rows:
+        empresa_codigo = r[0]
+        razon_social = r[1]
+        saldo = Decimal(r[2] or 0)
+        flujo = Decimal(r[3] or 0)
+        oc_pend = int(r[4] or 0)
+        monto_oc = Decimal(r[5] or 0)
+        f29_prox = int(r[6] or 0)
+        f29_venc = int(r[7] or 0)
+
+        score = compute_health_score(saldo, flujo, f29_venc, f29_prox, oc_pend)
+        trend = trend_from_flujo(flujo)
+
+        by_empresa.append(
+            EmpresaCEOKPIs(
+                empresa_codigo=empresa_codigo,
+                razon_social=razon_social,
+                saldo_contable=saldo,
+                flujo_neto_30d=flujo,
+                oc_pendientes=oc_pend,
+                monto_oc_pendiente=monto_oc,
+                f29_proximas=f29_prox,
+                f29_vencidas=f29_venc,
+                health_score=score,
+                trend=trend,
+            )
+        )
+
+        # Heatmap 6 columnas: saldo / flujo / oc / f29 / etl / audit
+        saldo_score = 100 if saldo > 0 else 0
+        flujo_score = 100 if flujo >= 0 else 30
+        oc_score = 100 if oc_pend <= 5 else (60 if oc_pend <= 10 else 30)
+        f29_score = (
+            100
+            if (f29_venc == 0 and f29_prox == 0)
+            else (60 if f29_venc == 0 else 20)
+        )
+        # ETL/audit son globales, pero los exponemos por empresa con el
+        # mismo valor (placeholder hasta que tengamos estado per-empresa).
+        etl_score = 100
+        audit_score = 100
+
+        for kpi, value in [
+            ("saldo", saldo_score),
+            ("flujo", flujo_score),
+            ("oc", oc_score),
+            ("f29", f29_score),
+            ("etl", etl_score),
+            ("audit", audit_score),
+        ]:
+            heatmap.append(
+                HeatmapCell(
+                    empresa_codigo=empresa_codigo,
+                    kpi=kpi,
+                    value=value,
+                    color=color_for_score(value),
+                )
+            )
+
+        # Alertas priorizadas
+        if f29_venc > 0:
+            top_alerts.append(
+                Alert(
+                    severity="critical",
+                    empresa_codigo=empresa_codigo,
+                    title=f"{empresa_codigo}: {f29_venc} F29 vencida(s)",
+                    detail=f"{razon_social} tiene {f29_venc} F29 sin pagar fuera de plazo.",
+                    href="/f29",
+                )
+            )
+        if saldo <= 0:
+            top_alerts.append(
+                Alert(
+                    severity="critical",
+                    empresa_codigo=empresa_codigo,
+                    title=f"{empresa_codigo}: saldo no positivo",
+                    detail=f"Saldo contable de {razon_social}: {saldo}.",
+                    href=f"/empresa/{empresa_codigo}",
+                )
+            )
+        if flujo < 0 and saldo > 0:
+            top_alerts.append(
+                Alert(
+                    severity="warning",
+                    empresa_codigo=empresa_codigo,
+                    title=f"{empresa_codigo}: flujo neto 30d negativo",
+                    detail=f"{razon_social} con flujo {flujo} en últimos 30 días.",
+                    href=f"/empresa/{empresa_codigo}",
+                )
+            )
+        if f29_prox > 0 and f29_venc == 0:
+            top_alerts.append(
+                Alert(
+                    severity="warning",
+                    empresa_codigo=empresa_codigo,
+                    title=f"{empresa_codigo}: {f29_prox} F29 próxima(s) a vencer",
+                    detail=f"{razon_social} tiene {f29_prox} F29 con vencimiento ≤30 días.",
+                    href="/f29",
+                )
+            )
+
+    # Ordenar alertas: critical → warning → info, y por empresa.
+    severity_rank = {"critical": 0, "warning": 1, "info": 2}
+    top_alerts.sort(
+        key=lambda a: (severity_rank.get(a.severity, 9), a.empresa_codigo or "")
+    )
+
+    insights_ai = (
+        "Resumen ejecutivo automatizado próximamente: cuando el AI Asistente "
+        "esté integrado, este bloque mostrará un análisis semanal con drivers "
+        "de cambio, riesgos detectados y recomendaciones priorizadas."
+    )
+
+    return CEOConsolidatedReport(
+        aum_total=aum_total,
+        aum_cehta=aum_cehta,
+        aum_corfo=aum_corfo,
+        delta_30d=delta_30d_pct,
+        delta_90d=delta_90d_pct,
+        flujo_neto_30d=flujo_neto_30d,
+        by_empresa=by_empresa,
+        heatmap=heatmap,
+        top_alerts=top_alerts[:10],
+        insights_ai=insights_ai,
+        last_updated=datetime.now(tz=UTC),
+    )

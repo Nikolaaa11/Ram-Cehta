@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     admin_users,
+    ai,
     audit,
     auth,
     catalogos,
@@ -9,7 +10,9 @@ from app.api.v1 import (
     dropbox,
     f29,
     health,
+    legal,
     movimientos,
+    notifications,
     ordenes_compra,
     proveedores,
     suscripciones,
@@ -33,3 +36,6 @@ api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
 api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["trabajadores"])
+api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
+api_router.include_router(legal.router, prefix="/legal", tags=["legal"])
+api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])

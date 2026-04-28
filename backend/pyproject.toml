@@ -27,6 +27,12 @@ dependencies = [
     "supabase>=2.10,<3.0",
     "sentry-sdk[fastapi]>=2.18,<3",
     "dropbox>=12.0,<13.0",
+    "anthropic>=0.40,<0.60",
+    "openai>=1.50,<2.0",
+    "pgvector>=0.3,<0.4",
+    "tiktoken>=0.8,<0.10",
+    "pypdf>=5.0,<6.0",
+    "resend>=2.0,<3.0",
 ]
 
 [project.optional-dependencies]

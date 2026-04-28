@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reporte mensual — Cehta Capital</title>
+  </head>
+  <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f8;color:#1c1c1e;">
+    <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,0.04);padding:32px;">
+      <h1 style="margin:0 0 8px;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:#0a0a0a;">Reporte mensual</h1>
+      <p style="margin:0 0 24px;color:#6b7280;font-size:14px;">{{ periodo }} · Cehta Capital</p>
+
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="padding:12px;background:#f7f7f8;border-radius:12px;">
+            <p style="margin:0;font-size:12px;color:#6b7280;">AUM total</p>
+            <p style="margin:4px 0 0;font-size:18px;font-weight:600;color:#0a0a0a;font-feature-settings:'tnum';">{{ aum_total }}</p>
+          </td>
+        </tr>
+        <tr><td style="height:8px;"></td></tr>
+        <tr>
+          <td style="padding:12px;background:#f7f7f8;border-radius:12px;">
+            <p style="margin:0;font-size:12px;color:#6b7280;">Flujo neto del mes</p>
+            <p style="margin:4px 0 0;font-size:18px;font-weight:600;color:#0a0a0a;font-feature-settings:'tnum';">{{ flujo_neto }}</p>
+          </td>
+        </tr>
+      </table>
+
+      <p style="margin:0 0 16px;font-size:14px;color:#374151;">{{ resumen }}</p>
+
+      <a href="{{ link }}" style="display:inline-block;background:#1d6f42;color:#fff;text-decoration:none;border-radius:12px;padding:10px 16px;font-size:14px;font-weight:500;">Ver dashboard CEO</a>
+
+      <p style="margin-top:32px;color:#9ca3af;font-size:12px;">Reporte automatizado de la plataforma Cehta Capital.</p>
+    </div>
+  </body>
+</html>

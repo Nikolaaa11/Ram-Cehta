@@ -43,15 +43,35 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
 
     anthropic_api_key: str | None = None
+    openai_api_key: str | None = None
+    ai_chat_model: str = "claude-3-5-sonnet-20241022"
+    ai_embedding_model: str = "text-embedding-3-small"
+    ai_max_context_chunks: int = 10
+    ai_max_response_tokens: int = 2048
     dropbox_refresh_token: str | None = None
     dropbox_client_id: str | None = None
     dropbox_client_secret: str | None = None
     dropbox_redirect_uri: str | None = None
     frontend_url: str = "https://cehta-capital.vercel.app"
 
+    # Email (Resend) — V3 fase 3+4. Soft-fail: si no hay api_key, los flows
+    # que envían email loggean warning pero no rompen.
+    resend_api_key: str | None = None
+    email_from: str = "noreply@cehta.cl"
+    email_admin_recipients: Annotated[list[str], NoDecode] = Field(
+        default_factory=list,
+    )
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def split_cors(cls, v: str | list[str]) -> list[str]:
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+    @field_validator("email_admin_recipients", mode="before")
+    @classmethod
+    def split_admin_recipients(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str):
             return [o.strip() for o in v.split(",") if o.strip()]
         return v

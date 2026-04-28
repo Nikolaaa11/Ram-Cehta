@@ -132,3 +132,62 @@ class ProyectoRanking(BaseModel):
     total_egreso: Decimal
     num_movimientos: int
     empresas: list[str]
+
+
+# =====================================================================
+# CEO Dashboard — V3 fase 3+4 (vista consolidada del portafolio)
+# =====================================================================
+class EmpresaCEOKPIs(BaseModel):
+    """KPIs por empresa para el comparador del CEO Dashboard."""
+
+    empresa_codigo: str
+    razon_social: str
+    saldo_contable: Decimal
+    flujo_neto_30d: Decimal
+    oc_pendientes: int
+    monto_oc_pendiente: Decimal
+    f29_proximas: int
+    f29_vencidas: int
+    health_score: int  # 0-100; >=80 ok, 60-79 warning, <60 crítico
+    trend: str  # 'up' | 'flat' | 'down'
+
+
+class HeatmapCell(BaseModel):
+    """Celda del heatmap empresa × KPI.
+
+    `kpi` ∈ {saldo, flujo, oc, f29, etl, audit}
+    `value` 0-100
+    `color` ∈ {green, yellow, red}
+    """
+
+    empresa_codigo: str
+    kpi: str
+    value: int
+    color: str
+
+
+class Alert(BaseModel):
+    """Alerta priorizada para el panel del CEO."""
+
+    severity: str  # 'critical' | 'warning' | 'info'
+    empresa_codigo: str | None = None
+    title: str
+    detail: str
+    href: str | None = None  # link sugerido para resolver
+
+
+class CEOConsolidatedReport(BaseModel):
+    """Reporte consolidado para Dashboard CEO."""
+
+    aum_total: Decimal
+    aum_cehta: Decimal
+    aum_corfo: Decimal
+    delta_30d: float       # cambio porcentual del AUM últimos 30d
+    delta_90d: float       # cambio porcentual del AUM últimos 90d
+    flujo_neto_30d: Decimal
+
+    by_empresa: list[EmpresaCEOKPIs]
+    heatmap: list[HeatmapCell]
+    top_alerts: list[Alert]
+    insights_ai: str       # placeholder texto generado (Q AI fase futura)
+    last_updated: datetime

@@ -82,6 +82,120 @@ export type SaldoEmpresaDetalle = components["schemas"]["SaldoEmpresaDetalle"];
 export type IvaPoint = components["schemas"]["IvaPoint"];
 export type ProyectoRanking = components["schemas"]["ProyectoRanking"];
 
+// CEO Dashboard (V3 fase 3+4) — types definidos manualmente porque el
+// frontend a veces se buildea sin haber regenerado /types/api.ts. Se
+// pueden migrar a `components["schemas"]["..."]` tras `npm run gen:types`.
+export interface EmpresaCEOKPIs {
+  empresa_codigo: string;
+  razon_social: string;
+  saldo_contable: string | number;
+  flujo_neto_30d: string | number;
+  oc_pendientes: number;
+  monto_oc_pendiente: string | number;
+  f29_proximas: number;
+  f29_vencidas: number;
+  health_score: number;
+  trend: "up" | "flat" | "down" | string;
+}
+
+export interface HeatmapCell {
+  empresa_codigo: string;
+  kpi: string;
+  value: number;
+  color: "green" | "yellow" | "red" | string;
+}
+
+export interface CeoAlert {
+  severity: "critical" | "warning" | "info" | string;
+  empresa_codigo?: string | null;
+  title: string;
+  detail: string;
+  href?: string | null;
+}
+
+export interface CEOConsolidatedReport {
+  aum_total: string | number;
+  aum_cehta: string | number;
+  aum_corfo: string | number;
+  delta_30d: number;
+  delta_90d: number;
+  flujo_neto_30d: string | number;
+  by_empresa: EmpresaCEOKPIs[];
+  heatmap: HeatmapCell[];
+  top_alerts: CeoAlert[];
+  insights_ai: string;
+  last_updated: string;
+}
+
+// Legal Vault (V3 fase 3+4) — types definidos manualmente para evitar
+// dependencia con `gen:types` recién generado.
+export type LegalCategoria =
+  | "contrato"
+  | "acta"
+  | "declaracion_sii"
+  | "permiso"
+  | "poliza"
+  | "estatuto"
+  | "otro";
+
+export type LegalEstado =
+  | "vigente"
+  | "vencido"
+  | "renovado"
+  | "cancelado"
+  | "borrador";
+
+export interface LegalDocumentListItem {
+  documento_id: number;
+  empresa_codigo: string;
+  categoria: string;
+  subcategoria?: string | null;
+  nombre: string;
+  contraparte?: string | null;
+  fecha_vigencia_hasta?: string | null;
+  monto?: string | number | null;
+  moneda?: string | null;
+  estado: string;
+  dias_para_vencer?: number | null;
+  alerta_nivel?: string | null;
+}
+
+export interface LegalDocumentRead extends LegalDocumentListItem {
+  descripcion?: string | null;
+  fecha_emision?: string | null;
+  fecha_vigencia_desde?: string | null;
+  dropbox_path?: string | null;
+  uploaded_by?: string | null;
+  uploaded_at: string;
+  updated_at: string;
+}
+
+export interface LegalDocumentCreate {
+  empresa_codigo: string;
+  categoria: LegalCategoria;
+  subcategoria?: string | null;
+  nombre: string;
+  descripcion?: string | null;
+  contraparte?: string | null;
+  fecha_emision?: string | null;
+  fecha_vigencia_desde?: string | null;
+  fecha_vigencia_hasta?: string | null;
+  monto?: number | null;
+  moneda?: string | null;
+  estado?: LegalEstado;
+}
+
+export interface LegalAlert {
+  documento_id: number;
+  empresa_codigo: string;
+  categoria: string;
+  nombre: string;
+  contraparte?: string | null;
+  fecha_vigencia_hasta?: string | null;
+  dias_para_vencer: number;
+  alerta_nivel: string;
+}
+
 /** Estado del último ETL: success | failed | stale | unknown. */
 export type EtlStatus = "success" | "failed" | "stale" | "unknown" | string;
 
