@@ -20,6 +20,16 @@ kill_timeout = "10s"
   LOG_LEVEL = "INFO"
   PORT = "8000"
 
+# Procesos:
+#   app      — API web (uvicorn).
+#   etl_cron — runner ETL standalone. Se invoca via `flyctl machine run` con un
+#              schedule (ej: */30 min). Mantenerlo en `[processes]` permite
+#              que el deploy lo construya en la misma imagen.
+#   Para schedule: ver docs/etl-setup.md (sección "Cron en Fly").
+[processes]
+  app = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+  etl_cron = "python -m scripts.etl_cron"
+
 [http_service]
   internal_port = 8000
   force_https = true

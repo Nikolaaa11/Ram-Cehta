@@ -5,10 +5,14 @@ from app.api.v1 import (
     ai,
     audit,
     auth,
+    avance,
+    calendar,
     catalogos,
     dashboard,
     dropbox,
+    etl,
     f29,
+    fondos,
     health,
     legal,
     movimientos,
@@ -39,3 +43,7 @@ api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["tr
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
 api_router.include_router(legal.router, prefix="/legal", tags=["legal"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(etl.router, prefix="/etl", tags=["etl"])
+api_router.include_router(avance.router, prefix="/avance", tags=["avance"])
+api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
+api_router.include_router(fondos.router, prefix="/fondos", tags=["fondos"])
