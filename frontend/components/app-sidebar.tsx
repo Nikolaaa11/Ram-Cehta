@@ -35,6 +35,7 @@ import {
 import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
+import { useCriticalObligationsCount } from "@/hooks/use-obligations";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { cn } from "@/lib/utils";
 
@@ -166,6 +167,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
 
   const { data: unread } = useUnreadCount();
   const unreadCount = unread?.unread ?? 0;
+  const criticalObligationsCount = useCriticalObligationsCount();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
@@ -201,6 +203,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showUnreadBadge =
                   String(item.href) === "/notificaciones" &&
                   unreadCount > 0;
+                const showCriticalBadge =
+                  String(item.href) === "/calendario" &&
+                  criticalObligationsCount > 0;
                 return (
                   <Link
                     key={item.href}
@@ -222,6 +227,17 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
                       >
                         {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
+                    {showCriticalBadge && (
+                      <span
+                        aria-label={`${criticalObligationsCount} obligaciones vencidas`}
+                        title={`${criticalObligationsCount} obligaciones vencidas`}
+                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                      >
+                        {criticalObligationsCount > 99
+                          ? "99+"
+                          : criticalObligationsCount}
                       </span>
                     )}
                   </Link>

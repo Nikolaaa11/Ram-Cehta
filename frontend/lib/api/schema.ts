@@ -321,6 +321,31 @@ export interface AgentRunReport {
   errores: string[];
 }
 
+// ─── Calendar Obligations (V3 fase 9) ────────────────────────────────────────
+
+export type ObligationTipo =
+  | "f29"
+  | "legal"
+  | "oc"
+  | "suscripcion"
+  | "event";
+
+export type ObligationSeverity = "critical" | "warning" | "info";
+
+export interface ObligationItem {
+  id: string;
+  tipo: ObligationTipo;
+  severity: ObligationSeverity;
+  title: string;
+  subtitle?: string | null;
+  empresa_codigo?: string | null;
+  due_date: string; // ISO date YYYY-MM-DD
+  days_until: number;
+  monto?: string | number | null;
+  moneda?: string | null;
+  link: string;
+}
+
 // ─── Fondos (V3 fase 5) ──────────────────────────────────────────────────────
 
 export type TipoFondo =
@@ -520,4 +545,28 @@ export interface AuditLogList {
 export interface AuditLogRead extends AuditLogList {
   diff_before: Record<string, unknown> | null;
   diff_after: Record<string, unknown> | null;
+}
+
+// ─── Bulk operations ──────────────────────────────────────────────────────────
+// Definidos a mano — match con `app.schemas.bulk` (backend).
+
+export interface BulkUpdateEstadoRequest {
+  ids: number[];
+  estado: string;
+}
+
+export interface BulkDeleteRequest {
+  ids: number[];
+}
+
+export interface BulkItemError {
+  id: number;
+  detail: string;
+}
+
+export interface BulkUpdateResult {
+  operation: "update_estado" | "delete";
+  requested: number;
+  succeeded: number;
+  failed: BulkItemError[];
 }

@@ -1,7 +1,12 @@
-"""Schemas Pydantic para Calendar Events (V3 fase 5)."""
+"""Schemas Pydantic para Calendar Events (V3 fase 5).
+
+Extendido en V3 fase 9 con `ObligationItem` para el calendario unificado
+de obligaciones (F29 + Legal + OC + Suscripciones + eventos manuales).
+"""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -9,6 +14,9 @@ from pydantic import BaseModel, Field
 TipoEvento = Literal[
     "f29", "reporte_lp", "comite", "reporte_trimestral", "vencimiento", "otro"
 ]
+
+ObligationTipo = Literal["f29", "legal", "oc", "suscripcion", "event"]
+ObligationSeverity = Literal["critical", "warning", "info"]
 
 
 class CalendarEventBase(BaseModel):
@@ -70,3 +78,31 @@ class AgentRunReport(BaseModel):
     reporte_lp_eventos_creados: int = 0
     total_creados: int = 0
     errores: list[str] = Field(default_factory=list)
+
+
+class ObligationItem(BaseModel):
+    """Item del timeline unificado de obligaciones (V3 fase 9).
+
+    Agrega 5 fuentes en un único contrato:
+
+      * `f29`        — F29 con `fecha_vencimiento` y `estado != 'pagado'`
+      * `legal`      — documentos legales `vigente` con `fecha_vigencia_hasta`
+      * `oc`         — OC `emitida`/`aprobada` (no pagada/anulada)
+      * `suscripcion`— suscripciones de acciones por firmar
+      * `event`      — eventos manuales del calendario (`core.calendar_events`)
+
+    El `id` es compuesto (`f"{tipo}:{entity_id}"`) para evitar colisiones
+    entre fuentes y permitir keys estables en el frontend.
+    """
+
+    id: str
+    tipo: ObligationTipo
+    severity: ObligationSeverity
+    title: str
+    subtitle: str | None = None
+    empresa_codigo: str | None = None
+    due_date: date
+    days_until: int
+    monto: Decimal | None = None
+    moneda: str | None = None
+    link: str
