@@ -54,6 +54,11 @@ class Settings(BaseSettings):
     dropbox_redirect_uri: str | None = None
     frontend_url: str = "https://cehta-capital.vercel.app"
 
+    # In-app notifications (V3 fase 8) — si está activo, en startup corre el
+    # generador de alertas (F29 due, contratos due, OCs estancadas) en task de
+    # background. Default False — usualmente esto se hace via cron externo.
+    generate_alerts_on_startup: bool = False
+
     # Email (Resend) — V3 fase 3+4. Soft-fail: si no hay api_key, los flows
     # que envían email loggean warning pero no rompen.
     resend_api_key: str | None = None

@@ -14,6 +14,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { FondoTable } from "@/components/fondos/FondoTable";
 import { FondoDetail } from "@/components/fondos/FondoDetail";
 import { FondoCreateDialog } from "@/components/fondos/FondoCreateDialog";
+import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import type { FondoListItem, FondoStats, Page } from "@/lib/api/schema";
 
 const TIPO_ITEMS: ComboboxItem[] = [
@@ -95,6 +96,7 @@ export default function FondosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportExcelButton entity="fondos" />
           {isAdmin && (
             <button
               type="button"

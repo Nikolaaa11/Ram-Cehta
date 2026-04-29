@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Inbox, Plus, Search, Users } from "lucide-re
 import { useApiQuery } from "@/hooks/use-api-query";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import type { Page, ProveedorRead } from "@/lib/api/schema";
 
 function useDebounce<T>(value: T, delayMs: number): T {
@@ -104,13 +105,16 @@ export default function ProveedoresPage() {
               : "Cargando proveedores…"}
           </p>
         </div>
-        <Link
-          href="/proveedores/nuevo"
-          className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Nuevo proveedor
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton entity="proveedores" />
+          <Link
+            href="/proveedores/nuevo"
+            className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Nuevo proveedor
+          </Link>
+        </div>
       </div>
 
       {/* Search */}

@@ -12,6 +12,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { F29RowActions } from "@/components/f29/F29RowActions";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
+import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, F29Read } from "@/lib/api/schema";
@@ -179,6 +180,13 @@ export default function F29Page() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <ExportExcelButton
+            entity="f29"
+            empresaCodigo={
+              empresa && empresa !== EMPRESA_TODAS ? empresa : null
+            }
+            estado={estado && estado !== ESTADO_TODOS ? estado : null}
+          />
           {empresa && empresa !== EMPRESA_TODAS && (
             <SyncDropboxButton
               empresaCodigo={empresa}

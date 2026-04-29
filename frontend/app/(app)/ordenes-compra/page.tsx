@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { toCLP, toDate } from "@/lib/format";
+import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import type { Page, OcListItem } from "@/lib/api/schema";
 
 type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
@@ -165,13 +166,20 @@ export default function OrdenesCompraPage() {
               : "Cargando órdenes…"}
           </p>
         </div>
-        <Link
-          href="/ordenes-compra/nueva"
-          className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
-        >
-          <Plus className="h-4 w-4" strokeWidth={1.5} />
-          Nueva OC
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton
+            entity="ordenes_compra"
+            empresaCodigo={empresa || null}
+            estado={estado || null}
+          />
+          <Link
+            href="/ordenes-compra/nueva"
+            className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
+          >
+            <Plus className="h-4 w-4" strokeWidth={1.5} />
+            Nueva OC
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

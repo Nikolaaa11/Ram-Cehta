@@ -23,15 +23,19 @@ import {
   Database,
   ShieldCheck,
   Building2,
+  Bell,
   ChevronDown,
   ChevronRight,
   Plug,
   TrendingUp,
   Layers,
+  ScrollText,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { useUnreadCount } from "@/hooks/use-notifications";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { cn } from "@/lib/utils";
 
 /**
@@ -79,6 +83,7 @@ const GROUPS: NavGroup[] = [
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
       { href: "/f29", label: "F29 / Tributario", icon: Receipt },
+      { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
     ],
   },
   {
@@ -109,6 +114,11 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
       { href: "/admin/etl" as Route, label: "ETL Runs", icon: Database },
+      {
+        href: "/admin/audit" as Route,
+        label: "Auditoría de cambios",
+        icon: ScrollText,
+      },
       {
         href: "/admin/data-quality" as Route,
         label: "Data Quality",
@@ -154,20 +164,24 @@ export function AppSidebar({ email }: AppSidebarProps) {
     return true; // operaciones, estrategia, documentos → todos
   });
 
+  const { data: unread } = useUnreadCount();
+  const unreadCount = unread?.unread ?? 0;
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
       {/* Brand */}
-      <div className="border-b border-hairline px-6 py-5">
+      <div className="border-b border-hairline px-4 py-5">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cehta-green shadow-glass">
             <Sparkles className="h-4 w-4 text-white" strokeWidth={1.5} />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold tracking-tight text-ink-900">
               Cehta Capital
             </p>
             <p className="text-xs text-ink-500">FIP CEHTA ESG</p>
           </div>
+          <NotificationsBell />
         </div>
       </div>
 
@@ -184,6 +198,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const isActive =
                   pathname === item.href ||
                   pathname.startsWith(`${item.href}/`);
+                const showUnreadBadge =
+                  String(item.href) === "/notificaciones" &&
+                  unreadCount > 0;
                 return (
                   <Link
                     key={item.href}
@@ -198,7 +215,15 @@ export function AppSidebar({ email }: AppSidebarProps) {
                     )}
                   >
                     <Icon className="h-4 w-4" strokeWidth={1.5} />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {showUnreadBadge && (
+                      <span
+                        aria-label={`${unreadCount} sin leer`}
+                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                      >
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

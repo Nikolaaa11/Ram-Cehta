@@ -13,14 +13,17 @@ from app.api.v1 import (
     dropbox,
     empresa,
     etl,
+    exports,
     f29,
     fondos,
     health,
     legal,
     movimientos,
     notifications,
+    notifications_inbox,
     ordenes_compra,
     proveedores,
+    search,
     suscripciones,
     trabajadores,
     validate,
@@ -45,9 +48,12 @@ api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["tr
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
 api_router.include_router(legal.router, prefix="/legal", tags=["legal"])
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+api_router.include_router(notifications_inbox.router, prefix="/inbox", tags=["inbox"])
 api_router.include_router(etl.router, prefix="/etl", tags=["etl"])
 api_router.include_router(avance.router, prefix="/avance", tags=["avance"])
 api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
 api_router.include_router(fondos.router, prefix="/fondos", tags=["fondos"])
 api_router.include_router(empresa.router, prefix="/empresa", tags=["empresa"])
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
+api_router.include_router(search.router, prefix="/search", tags=["search"])
+api_router.include_router(exports.router, prefix="/exports", tags=["exports"])

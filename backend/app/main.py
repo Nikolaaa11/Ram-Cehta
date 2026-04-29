@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -11,8 +12,12 @@ from slowapi.util import get_remote_address
 
 from app.api.v1 import api_router
 from app.core.config import settings
+from app.core.database import get_session
 from app.core.logging import configure_logging, get_logger
 from app.core.observability import init_sentry
+from app.services.notification_generator_service import (
+    NotificationGeneratorService,
+)
 
 configure_logging()
 log = get_logger(__name__)
@@ -25,9 +30,39 @@ log.info("sentry", active=sentry_active)
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
 
+async def _run_alert_generator_on_startup() -> None:
+    """Corre el generador de alertas in-app en background al startup.
+
+    Solo si `settings.generate_alerts_on_startup` está activo. Soft-fail:
+    si la DB no responde o la tabla no está migrada, loggea warning pero
+    no rompe el boot.
+    """
+    try:
+        async for session in get_session():
+            svc = NotificationGeneratorService(session)
+            report = await svc.run_all()
+            await session.commit()
+            log.info(
+                "alerts_generated_on_startup",
+                f29_due=report.f29_due,
+                contrato_due=report.contrato_due,
+                oc_pending=report.oc_pending,
+                total=report.total,
+            )
+            break
+    except Exception as exc:
+        log.warning("alerts_on_startup_failed", error=str(exc))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> Any:
     log.info("starting", env=settings.app_env)
+    bg_tasks: set[asyncio.Task[None]] = set()
+    if settings.generate_alerts_on_startup:
+        # En background — no bloqueamos el startup.
+        task = asyncio.create_task(_run_alert_generator_on_startup())
+        bg_tasks.add(task)
+        task.add_done_callback(bg_tasks.discard)
     yield
     log.info("shutting_down")
 
