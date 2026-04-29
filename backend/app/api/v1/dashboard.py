@@ -13,6 +13,7 @@ Endpoints (todos bajo /api/v1/dashboard, requieren auth, lectura para todos los 
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -20,6 +21,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
+
+log = logging.getLogger(__name__)
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -764,135 +767,199 @@ async def ceo_consolidated(
     Datos reales calculados sobre los movimientos / OC / F29 ya cargados.
     El bloque `insights_ai` queda como placeholder hasta integrar con el
     AI Asistente (V3 fase 3 — separado).
+
+    Cada query SQL está aislada con try/except — si una falla (vista no existe,
+    schema drift, etc.), el resto del reporte se calcula igual y el bloque
+    afectado vuelve con valores cero. Loggeamos el error para diagnóstico.
     """
     # ----- AUM consolidado (último saldo por empresa) ---------------------
-    aum_row = (
-        await db.execute(
-            text("""
-                SELECT
-                    COALESCE(SUM(saldo_contable), 0) AS aum_total,
-                    COALESCE(SUM(saldo_cehta),    0) AS aum_cehta,
-                    COALESCE(SUM(saldo_corfo),    0) AS aum_corfo
-                FROM core.v_saldos_actuales
-            """)
-        )
-    ).fetchone()
-
-    aum_total = Decimal(aum_row[0] or 0) if aum_row else ZERO
-    aum_cehta = Decimal(aum_row[1] or 0) if aum_row else ZERO
-    aum_corfo = Decimal(aum_row[2] or 0) if aum_row else ZERO
+    # Si la vista `core.v_saldos_actuales` no existe (no se recreó en migración
+    # posterior) hacemos fallback a calcular directo desde core.movimientos.
+    aum_total: Decimal = ZERO
+    aum_cehta: Decimal = ZERO
+    aum_corfo: Decimal = ZERO
+    try:
+        aum_row = (
+            await db.execute(
+                text("""
+                    WITH ult AS (
+                        SELECT DISTINCT ON (empresa_codigo, banco)
+                            empresa_codigo, banco,
+                            COALESCE(saldo_contable, 0) AS saldo_contable,
+                            COALESCE(saldo_cehta, 0)    AS saldo_cehta,
+                            COALESCE(saldo_corfo, 0)    AS saldo_corfo
+                        FROM core.movimientos
+                        WHERE real_proyectado = 'Real'
+                        ORDER BY empresa_codigo, banco, fecha DESC, movimiento_id DESC
+                    )
+                    SELECT
+                        COALESCE(SUM(saldo_contable), 0) AS aum_total,
+                        COALESCE(SUM(saldo_cehta),    0) AS aum_cehta,
+                        COALESCE(SUM(saldo_corfo),    0) AS aum_corfo
+                    FROM ult
+                """)
+            )
+        ).fetchone()
+        if aum_row:
+            aum_total = Decimal(aum_row[0] or 0)
+            aum_cehta = Decimal(aum_row[1] or 0)
+            aum_corfo = Decimal(aum_row[2] or 0)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("ceo_consolidated.aum_query_failed: %s", exc)
 
     # ----- Saldos hace 30/90 días por empresa para deltas -----------------
-    deltas_rows = (
-        await db.execute(
-            text("""
-                WITH ult AS (
-                    SELECT DISTINCT ON (empresa_codigo)
-                        empresa_codigo, COALESCE(saldo_contable, 0) AS saldo_actual
-                    FROM core.movimientos
-                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
-                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
-                ),
-                hace_30 AS (
-                    SELECT DISTINCT ON (empresa_codigo)
-                        empresa_codigo, COALESCE(saldo_contable, 0) AS s30
-                    FROM core.movimientos
-                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
-                      AND fecha <= CURRENT_DATE - INTERVAL '30 days'
-                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
-                ),
-                hace_90 AS (
-                    SELECT DISTINCT ON (empresa_codigo)
-                        empresa_codigo, COALESCE(saldo_contable, 0) AS s90
-                    FROM core.movimientos
-                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
-                      AND fecha <= CURRENT_DATE - INTERVAL '90 days'
-                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
-                )
-                SELECT
-                    COALESCE(SUM(u.saldo_actual), 0) AS now,
-                    COALESCE(SUM(h30.s30), 0)        AS prev_30,
-                    COALESCE(SUM(h90.s90), 0)        AS prev_90
-                FROM ult u
-                LEFT JOIN hace_30 h30 ON h30.empresa_codigo = u.empresa_codigo
-                LEFT JOIN hace_90 h90 ON h90.empresa_codigo = u.empresa_codigo
-            """)
-        )
-    ).fetchone()
-    saldo_now = Decimal(deltas_rows[0] or 0) if deltas_rows else ZERO
-    saldo_30d = Decimal(deltas_rows[1] or 0) if deltas_rows else ZERO
-    saldo_90d = Decimal(deltas_rows[2] or 0) if deltas_rows else ZERO
-    delta_30d_pct = calc_delta_pct(saldo_now, saldo_30d)
-    delta_90d_pct = calc_delta_pct(saldo_now, saldo_90d)
+    delta_30d_pct: float = 0.0
+    delta_90d_pct: float = 0.0
+    try:
+        deltas_rows = (
+            await db.execute(
+                text("""
+                    WITH ult AS (
+                        SELECT DISTINCT ON (empresa_codigo)
+                            empresa_codigo, COALESCE(saldo_contable, 0) AS saldo_actual
+                        FROM core.movimientos
+                        WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                        ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                    ),
+                    hace_30 AS (
+                        SELECT DISTINCT ON (empresa_codigo)
+                            empresa_codigo, COALESCE(saldo_contable, 0) AS s30
+                        FROM core.movimientos
+                        WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                          AND fecha <= CURRENT_DATE - INTERVAL '30 days'
+                        ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                    ),
+                    hace_90 AS (
+                        SELECT DISTINCT ON (empresa_codigo)
+                            empresa_codigo, COALESCE(saldo_contable, 0) AS s90
+                        FROM core.movimientos
+                        WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                          AND fecha <= CURRENT_DATE - INTERVAL '90 days'
+                        ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                    )
+                    SELECT
+                        COALESCE(SUM(u.saldo_actual), 0) AS now,
+                        COALESCE(SUM(h30.s30), 0)        AS prev_30,
+                        COALESCE(SUM(h90.s90), 0)        AS prev_90
+                    FROM ult u
+                    LEFT JOIN hace_30 h30 ON h30.empresa_codigo = u.empresa_codigo
+                    LEFT JOIN hace_90 h90 ON h90.empresa_codigo = u.empresa_codigo
+                """)
+            )
+        ).fetchone()
+        if deltas_rows:
+            saldo_now = Decimal(deltas_rows[0] or 0)
+            saldo_30d = Decimal(deltas_rows[1] or 0)
+            saldo_90d = Decimal(deltas_rows[2] or 0)
+            delta_30d_pct = calc_delta_pct(saldo_now, saldo_30d)
+            delta_90d_pct = calc_delta_pct(saldo_now, saldo_90d)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("ceo_consolidated.deltas_query_failed: %s", exc)
 
     # ----- Flujo neto del portafolio últimos 30 días ----------------------
-    flujo_row = (
-        await db.execute(
-            text("""
-                SELECT COALESCE(SUM(abono), 0) - COALESCE(SUM(egreso), 0)
-                FROM core.movimientos
-                WHERE real_proyectado = 'Real'
-                  AND fecha >= CURRENT_DATE - INTERVAL '30 days'
-            """)
-        )
-    ).fetchone()
-    flujo_neto_30d = Decimal(flujo_row[0] or 0) if flujo_row else ZERO
-
-    # ----- KPIs por empresa -----------------------------------------------
-    by_empresa_rows = (
-        await db.execute(
-            text("""
-                WITH saldo_actual AS (
-                    SELECT DISTINCT ON (empresa_codigo)
-                        empresa_codigo,
-                        COALESCE(saldo_contable, 0) AS saldo_contable
-                    FROM core.movimientos
-                    WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
-                    ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
-                ),
-                flujo_30 AS (
-                    SELECT empresa_codigo,
-                           COALESCE(SUM(abono), 0) - COALESCE(SUM(egreso), 0) AS flujo
+    flujo_neto_30d: Decimal = ZERO
+    try:
+        flujo_row = (
+            await db.execute(
+                text("""
+                    SELECT COALESCE(SUM(abono), 0) - COALESCE(SUM(egreso), 0)
                     FROM core.movimientos
                     WHERE real_proyectado = 'Real'
                       AND fecha >= CURRENT_DATE - INTERVAL '30 days'
-                    GROUP BY empresa_codigo
-                ),
-                oc_pend AS (
-                    SELECT empresa_codigo,
-                           COUNT(*) FILTER (WHERE estado = 'emitida') AS n_oc,
-                           COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_oc
-                    FROM core.ordenes_compra
-                    GROUP BY empresa_codigo
-                ),
-                f29 AS (
-                    SELECT empresa_codigo,
-                           COUNT(*) FILTER (WHERE dias_para_vencer BETWEEN 0 AND 30)
-                               AS proximas,
-                           COUNT(*) FILTER (WHERE dias_para_vencer < 0 AND estado = 'pendiente')
-                               AS vencidas
-                    FROM core.v_f29_alertas
-                    GROUP BY empresa_codigo
+                """)
+            )
+        ).fetchone()
+        if flujo_row:
+            flujo_neto_30d = Decimal(flujo_row[0] or 0)
+    except Exception as exc:  # noqa: BLE001
+        log.exception("ceo_consolidated.flujo_query_failed: %s", exc)
+
+    # ----- KPIs por empresa -----------------------------------------------
+    # Esta query usa la vista `core.v_f29_alertas`. Si la vista no existe
+    # (schema drift) o `core.f29_obligaciones` no tiene datos, hacemos
+    # fallback sin esa pieza.
+    by_empresa_rows: list = []
+    try:
+        by_empresa_rows = list(
+            (
+                await db.execute(
+                    text("""
+                        WITH saldo_actual AS (
+                            SELECT DISTINCT ON (empresa_codigo)
+                                empresa_codigo,
+                                COALESCE(saldo_contable, 0) AS saldo_contable
+                            FROM core.movimientos
+                            WHERE real_proyectado = 'Real' AND saldo_contable IS NOT NULL
+                            ORDER BY empresa_codigo, fecha DESC, movimiento_id DESC
+                        ),
+                        flujo_30 AS (
+                            SELECT empresa_codigo,
+                                   COALESCE(SUM(abono), 0) - COALESCE(SUM(egreso), 0) AS flujo
+                            FROM core.movimientos
+                            WHERE real_proyectado = 'Real'
+                              AND fecha >= CURRENT_DATE - INTERVAL '30 days'
+                            GROUP BY empresa_codigo
+                        ),
+                        oc_pend AS (
+                            SELECT empresa_codigo,
+                                   COUNT(*) FILTER (WHERE estado = 'emitida') AS n_oc,
+                                   COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_oc
+                            FROM core.ordenes_compra
+                            GROUP BY empresa_codigo
+                        ),
+                        f29 AS (
+                            SELECT empresa_codigo,
+                                   COUNT(*) FILTER (
+                                       WHERE estado = 'pendiente'
+                                       AND fecha_vencimiento BETWEEN CURRENT_DATE
+                                                                 AND CURRENT_DATE + INTERVAL '30 days'
+                                   ) AS proximas,
+                                   COUNT(*) FILTER (
+                                       WHERE estado = 'pendiente'
+                                       AND fecha_vencimiento < CURRENT_DATE
+                                   ) AS vencidas
+                            FROM core.f29_obligaciones
+                            GROUP BY empresa_codigo
+                        )
+                        SELECT
+                            e.codigo,
+                            e.razon_social,
+                            COALESCE(s.saldo_contable, 0)                AS saldo_contable,
+                            COALESCE(f.flujo, 0)                         AS flujo_neto_30d,
+                            COALESCE(o.n_oc, 0)                          AS oc_pendientes,
+                            COALESCE(o.monto_oc, 0)                      AS monto_oc_pendiente,
+                            COALESCE(f29.proximas, 0)                    AS f29_proximas,
+                            COALESCE(f29.vencidas, 0)                    AS f29_vencidas
+                        FROM core.empresas e
+                        LEFT JOIN saldo_actual s ON s.empresa_codigo = e.codigo
+                        LEFT JOIN flujo_30 f     ON f.empresa_codigo = e.codigo
+                        LEFT JOIN oc_pend o      ON o.empresa_codigo = e.codigo
+                        LEFT JOIN f29 f29        ON f29.empresa_codigo = e.codigo
+                        WHERE e.activo = true
+                        ORDER BY e.codigo
+                    """)
                 )
-                SELECT
-                    e.codigo,
-                    e.razon_social,
-                    COALESCE(s.saldo_contable, 0)                AS saldo_contable,
-                    COALESCE(f.flujo, 0)                         AS flujo_neto_30d,
-                    COALESCE(o.n_oc, 0)                          AS oc_pendientes,
-                    COALESCE(o.monto_oc, 0)                      AS monto_oc_pendiente,
-                    COALESCE(f29.proximas, 0)                    AS f29_proximas,
-                    COALESCE(f29.vencidas, 0)                    AS f29_vencidas
-                FROM core.empresas e
-                LEFT JOIN saldo_actual s ON s.empresa_codigo = e.codigo
-                LEFT JOIN flujo_30 f     ON f.empresa_codigo = e.codigo
-                LEFT JOIN oc_pend o      ON o.empresa_codigo = e.codigo
-                LEFT JOIN f29 f29        ON f29.empresa_codigo = e.codigo
-                WHERE e.activo = true
-                ORDER BY e.codigo
-            """)
+            ).fetchall()
         )
-    ).fetchall()
+    except Exception as exc:  # noqa: BLE001
+        log.exception("ceo_consolidated.by_empresa_query_failed: %s", exc)
+        # Fallback: query mínima solo con empresas activas — sin KPIs.
+        try:
+            by_empresa_rows = list(
+                (
+                    await db.execute(
+                        text("""
+                            SELECT codigo, razon_social, 0, 0, 0, 0, 0, 0
+                            FROM core.empresas
+                            WHERE activo = true
+                            ORDER BY codigo
+                        """)
+                    )
+                ).fetchall()
+            )
+        except Exception as exc2:  # noqa: BLE001
+            log.exception("ceo_consolidated.fallback_empresas_failed: %s", exc2)
+            by_empresa_rows = []
 
     by_empresa: list[EmpresaCEOKPIs] = []
     heatmap: list[HeatmapCell] = []
