@@ -1150,10 +1150,559 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/etl/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Etl
+         * @description Trigger ETL run manual (audit:read scope = admin only).
+         *
+         *     Devuelve el resultado completo (status + counts + sample rejected). Si
+         *     Dropbox no está conectado → 503 con mensaje útil.
+         */
+        post: operations["trigger_etl_api_v1_etl_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/etl/last-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Last Run
+         * @description Devuelve el último run ETL (filtrable por status).
+         *
+         *     Útil para mostrar en el dashboard `/admin/etl` un highlight del estado
+         *     actual sin paginar.
+         */
+        get: operations["last_run_api_v1_etl_last_run_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/proyectos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proyectos */
+        get: operations["list_proyectos_api_v1_avance__empresa_codigo__proyectos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/proyectos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Proyecto */
+        post: operations["create_proyecto_api_v1_avance_proyectos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/proyectos/{proyecto_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proyecto */
+        get: operations["get_proyecto_api_v1_avance_proyectos__proyecto_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Proyecto */
+        delete: operations["delete_proyecto_api_v1_avance_proyectos__proyecto_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Proyecto */
+        patch: operations["update_proyecto_api_v1_avance_proyectos__proyecto_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/avance/proyectos/{proyecto_id}/hitos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Hito */
+        post: operations["create_hito_api_v1_avance_proyectos__proyecto_id__hitos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/hitos/{hito_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Hito */
+        delete: operations["delete_hito_api_v1_avance_hitos__hito_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Hito */
+        patch: operations["update_hito_api_v1_avance_hitos__hito_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/riesgos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Riesgos Empresa */
+        get: operations["list_riesgos_empresa_api_v1_avance__empresa_codigo__riesgos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/proyectos/{proyecto_id}/riesgos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Riesgo Proyecto */
+        post: operations["create_riesgo_proyecto_api_v1_avance_proyectos__proyecto_id__riesgos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/riesgos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Riesgo Empresa
+         * @description Crear riesgo cross-proyecto (sólo empresa_codigo).
+         */
+        post: operations["create_riesgo_empresa_api_v1_avance_riesgos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/riesgos/{riesgo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Riesgo */
+        delete: operations["delete_riesgo_api_v1_avance_riesgos__riesgo_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Riesgo */
+        patch: operations["update_riesgo_api_v1_avance_riesgos__riesgo_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/sync-roadmap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sync Roadmap
+         * @description Detecta `/Cehta Capital/Proyectos/{codigo}/Roadmap.xlsx` y lo registra.
+         *
+         *     Implementación mínima V3 fase 5: marca el path en el proyecto base
+         *     (creándolo si no existe). El parsing detallado del Excel queda
+         *     para fase posterior — acá garantizamos al menos visibilidad del path.
+         */
+        get: operations["sync_roadmap_api_v1_avance__empresa_codigo__sync_roadmap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Events */
+        get: operations["list_events_api_v1_calendar_events_get"];
+        put?: never;
+        /** Create Event */
+        post: operations["create_event_api_v1_calendar_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/events/{event_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Event */
+        delete: operations["delete_event_api_v1_calendar_events__event_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Event */
+        patch: operations["update_event_api_v1_calendar_events__event_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/calendar/events/{event_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Complete Event */
+        post: operations["complete_event_api_v1_calendar_events__event_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/agents/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Agents
+         * @description Trigger manual de los agentes scheduled.
+         *
+         *     Crea eventos automáticos (F29 mensual + reporte LP) idempotentes.
+         *     En producción se invoca via cron (Fly.io scheduled machine), acá
+         *     queda como endpoint admin para testeos puntuales.
+         */
+        post: operations["run_agents_api_v1_calendar_agents_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fondos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Fondos */
+        get: operations["list_fondos_api_v1_fondos_get"];
+        put?: never;
+        /** Create Fondo */
+        post: operations["create_fondo_api_v1_fondos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fondos/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fondos Stats */
+        get: operations["fondos_stats_api_v1_fondos_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fondos/{fondo_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Fondo */
+        get: operations["get_fondo_api_v1_fondos__fondo_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Fondo */
+        delete: operations["delete_fondo_api_v1_fondos__fondo_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Fondo */
+        patch: operations["update_fondo_api_v1_fondos__fondo_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/fondos/import-from-dropbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import From Dropbox
+         * @description Detecta `LPs Pipeline.xlsx` en Dropbox y lo deja accesible.
+         *
+         *     En V3 fase 5 hacemos detection-only (no parseamos el Excel a fondos).
+         *     El parsing detallado queda para fase posterior cuando exista una
+         *     plantilla estandarizada del Excel. Acá garantizamos visibilidad del
+         *     path para que el frontend pueda linkear al archivo.
+         */
+        post: operations["import_from_dropbox_api_v1_fondos_import_from_dropbox_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/resumen-cc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumen Cc
+         * @description Hero KPIs + tabla Composición Completa CC para una empresa.
+         */
+        get: operations["resumen_cc_api_v1_empresa__empresa_codigo__resumen_cc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/egresos-por-tipo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Egresos Por Tipo
+         * @description Top 9 conceptos por egreso + 'Otros'. Para el donut chart.
+         */
+        get: operations["egresos_por_tipo_api_v1_empresa__empresa_codigo__egresos_por_tipo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/egresos-por-proyecto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Egresos Por Proyecto
+         * @description Egresos agrupados por proyecto, ordenado desc — para treemap.
+         */
+        get: operations["egresos_por_proyecto_api_v1_empresa__empresa_codigo__egresos_por_proyecto_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/flujo-mensual": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Flujo Mensual
+         * @description Time series de los últimos N meses para esta empresa, real + proyectado.
+         */
+        get: operations["flujo_mensual_api_v1_empresa__empresa_codigo__flujo_mensual_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/transacciones-recientes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transacciones Recientes
+         * @description Últimas N transacciones para feed/tabla, con filtros opcionales.
+         */
+        get: operations["transacciones_recientes_api_v1_empresa__empresa_codigo__transacciones_recientes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/categorias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Categorias Breakdown
+         * @description Vista detallada: por concepto_general → concepto_detallado.
+         */
+        get: operations["categorias_breakdown_api_v1_empresa__empresa_codigo__categorias_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/proyectado-vs-real": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proyectado Vs Real
+         * @description Comparativa Real vs Proyectado por categoría (concepto_general).
+         */
+        get: operations["proyectado_vs_real_api_v1_empresa__empresa_codigo__proyectado_vs_real_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AgentRunReport
+         * @description Reporte de los agentes scheduled.
+         */
+        AgentRunReport: {
+            /**
+             * F29 Eventos Creados
+             * @default 0
+             */
+            f29_eventos_creados: number;
+            /**
+             * Reporte Lp Eventos Creados
+             * @default 0
+             */
+            reporte_lp_eventos_creados: number;
+            /**
+             * Total Creados
+             * @default 0
+             */
+            total_creados: number;
+            /** Errores */
+            errores?: string[];
+        };
         /**
          * Alert
          * @description Alerta priorizada para el panel del CEO.
@@ -1224,6 +1773,112 @@ export interface components {
              */
             last_updated: string;
         };
+        /** CalendarEventCreate */
+        CalendarEventCreate: {
+            /** Titulo */
+            titulo: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "f29" | "reporte_lp" | "comite" | "reporte_trimestral" | "vencimiento" | "otro";
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /**
+             * Fecha Inicio
+             * Format: date-time
+             */
+            fecha_inicio: string;
+            /** Fecha Fin */
+            fecha_fin?: string | null;
+            /**
+             * Todo El Dia
+             * @default true
+             */
+            todo_el_dia: boolean;
+            /** Recurrencia */
+            recurrencia?: string | null;
+            /**
+             * Notificar Dias Antes
+             * @default 3
+             */
+            notificar_dias_antes: number;
+            /** Notificar Emails */
+            notificar_emails?: string[] | null;
+        };
+        /** CalendarEventRead */
+        CalendarEventRead: {
+            /** Event Id */
+            event_id: number;
+            /** Titulo */
+            titulo: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Tipo */
+            tipo: string;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /**
+             * Fecha Inicio
+             * Format: date-time
+             */
+            fecha_inicio: string;
+            /** Fecha Fin */
+            fecha_fin?: string | null;
+            /** Todo El Dia */
+            todo_el_dia: boolean;
+            /** Recurrencia */
+            recurrencia?: string | null;
+            /** Notificar Dias Antes */
+            notificar_dias_antes: number;
+            /** Notificar Emails */
+            notificar_emails?: string[] | null;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /** Auto Generado */
+            auto_generado: boolean;
+            /** Completado */
+            completado: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** CalendarEventUpdate */
+        CalendarEventUpdate: {
+            /** Titulo */
+            titulo?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Tipo */
+            tipo?: ("f29" | "reporte_lp" | "comite" | "reporte_trimestral" | "vencimiento" | "otro") | null;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin */
+            fecha_fin?: string | null;
+            /** Todo El Dia */
+            todo_el_dia?: boolean | null;
+            /** Recurrencia */
+            recurrencia?: string | null;
+            /** Notificar Dias Antes */
+            notificar_dias_antes?: number | null;
+            /** Notificar Emails */
+            notificar_emails?: string[] | null;
+            /** Completado */
+            completado?: boolean | null;
+        };
         /** CashflowPoint */
         CashflowPoint: {
             /** Periodo */
@@ -1274,10 +1929,41 @@ export interface components {
             /** Banco */
             banco: string[];
         };
+        /** CategoriaBreakdown */
+        CategoriaBreakdown: {
+            /** Concepto General */
+            concepto_general: string;
+            /** Total Egreso */
+            total_egreso: string;
+            /** Total Abono */
+            total_abono: string;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Sub Categorias */
+            sub_categorias: components["schemas"]["SubCategoriaItem"][];
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
             message: string;
+        };
+        /**
+         * ComposicionRow
+         * @description Una fila de la tabla Composición Completa CC.
+         */
+        ComposicionRow: {
+            /** Categoria */
+            categoria: string;
+            /** Egresos */
+            egresos: string;
+            /** Abonos */
+            abonos: string;
+            /** Neto */
+            neto: string;
+            /** Tipo */
+            tipo: string;
+            /** Transaction Count */
+            transaction_count: number;
         };
         /** ConceptoDetallado */
         ConceptoDetallado: {
@@ -1408,6 +2094,30 @@ export interface components {
             porcentaje: number;
             /** Num Movimientos */
             num_movimientos: number;
+        };
+        /** EgresoProyectoItem */
+        EgresoProyectoItem: {
+            /** Proyecto */
+            proyecto: string;
+            /** Total Egreso */
+            total_egreso: string;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Porcentaje */
+            porcentaje: number;
+        };
+        /** EgresoTipoItem */
+        EgresoTipoItem: {
+            /** Categoria */
+            categoria: string;
+            /** Total Egreso */
+            total_egreso: string;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Porcentaje */
+            porcentaje: number;
+            /** Color */
+            color: string;
         };
         /**
          * EmpresaCEOKPIs
@@ -1582,6 +2292,202 @@ export interface components {
             /** Monto A Pagar */
             monto_a_pagar?: number | string | null;
         };
+        /** FlujoMensualPoint */
+        FlujoMensualPoint: {
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha Inicio
+             * Format: date
+             */
+            fecha_inicio: string;
+            /** Abono Real */
+            abono_real: string;
+            /** Egreso Real */
+            egreso_real: string;
+            /** Abono Proyectado */
+            abono_proyectado: string;
+            /** Egreso Proyectado */
+            egreso_proyectado: string;
+            /** Flujo Neto */
+            flujo_neto: string;
+            /** Saldo Acumulado */
+            saldo_acumulado: string;
+        };
+        /** FondoCreate */
+        FondoCreate: {
+            /** Nombre */
+            nombre: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "lp" | "banco" | "programa_estado" | "family_office" | "vc" | "angel" | "otro";
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Pais */
+            pais?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Ticket Min Usd */
+            ticket_min_usd?: number | string | null;
+            /** Ticket Max Usd */
+            ticket_max_usd?: number | string | null;
+            /** Sectores */
+            sectores?: string[] | null;
+            /** Stage */
+            stage?: string[] | null;
+            /** Thesis */
+            thesis?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Contacto Nombre */
+            contacto_nombre?: string | null;
+            /** Contacto Email */
+            contacto_email?: string | null;
+            /** Contacto Linkedin */
+            contacto_linkedin?: string | null;
+            /**
+             * Estado Outreach
+             * @default no_contactado
+             * @enum {string}
+             */
+            estado_outreach: "no_contactado" | "contactado" | "en_negociacion" | "cerrado" | "descartado";
+            /** Fecha Proximo Contacto */
+            fecha_proximo_contacto?: string | null;
+            /** Notas */
+            notas?: string | null;
+        };
+        /**
+         * FondoListItem
+         * @description Vista resumida para tabla.
+         */
+        FondoListItem: {
+            /** Fondo Id */
+            fondo_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Tipo */
+            tipo: string;
+            /** Pais */
+            pais?: string | null;
+            /** Ticket Min Usd */
+            ticket_min_usd?: string | null;
+            /** Ticket Max Usd */
+            ticket_max_usd?: string | null;
+            /** Sectores */
+            sectores?: string[] | null;
+            /** Estado Outreach */
+            estado_outreach: string;
+            /** Fecha Proximo Contacto */
+            fecha_proximo_contacto?: string | null;
+        };
+        /** FondoRead */
+        FondoRead: {
+            /** Fondo Id */
+            fondo_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Tipo */
+            tipo: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Pais */
+            pais?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Ticket Min Usd */
+            ticket_min_usd?: string | null;
+            /** Ticket Max Usd */
+            ticket_max_usd?: string | null;
+            /** Sectores */
+            sectores?: string[] | null;
+            /** Stage */
+            stage?: string[] | null;
+            /** Thesis */
+            thesis?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Contacto Nombre */
+            contacto_nombre?: string | null;
+            /** Contacto Email */
+            contacto_email?: string | null;
+            /** Contacto Linkedin */
+            contacto_linkedin?: string | null;
+            /** Estado Outreach */
+            estado_outreach: string;
+            /** Fecha Proximo Contacto */
+            fecha_proximo_contacto?: string | null;
+            /** Notas */
+            notas?: string | null;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * FondoStats
+         * @description Counts agregados por tipo y estado.
+         */
+        FondoStats: {
+            /** Total */
+            total: number;
+            /** Por Tipo */
+            por_tipo: {
+                [key: string]: number;
+            };
+            /** Por Estado */
+            por_estado: {
+                [key: string]: number;
+            };
+        };
+        /** FondoUpdate */
+        FondoUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Tipo */
+            tipo?: ("lp" | "banco" | "programa_estado" | "family_office" | "vc" | "angel" | "otro") | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Pais */
+            pais?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Ticket Min Usd */
+            ticket_min_usd?: number | string | null;
+            /** Ticket Max Usd */
+            ticket_max_usd?: number | string | null;
+            /** Sectores */
+            sectores?: string[] | null;
+            /** Stage */
+            stage?: string[] | null;
+            /** Thesis */
+            thesis?: string | null;
+            /** Website */
+            website?: string | null;
+            /** Contacto Nombre */
+            contacto_nombre?: string | null;
+            /** Contacto Email */
+            contacto_email?: string | null;
+            /** Contacto Linkedin */
+            contacto_linkedin?: string | null;
+            /** Estado Outreach */
+            estado_outreach?: ("no_contactado" | "contactado" | "en_negociacion" | "cerrado" | "descartado") | null;
+            /** Fecha Proximo Contacto */
+            fecha_proximo_contacto?: string | null;
+            /** Notas */
+            notas?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1611,6 +2517,106 @@ export interface components {
             value: number;
             /** Color */
             color: string;
+        };
+        /** HitoCreate */
+        HitoCreate: {
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Planificada */
+            fecha_planificada?: string | null;
+            /** Fecha Completado */
+            fecha_completado?: string | null;
+            /**
+             * Estado
+             * @default pendiente
+             * @enum {string}
+             */
+            estado: "pendiente" | "en_progreso" | "completado" | "cancelado";
+            /**
+             * Orden
+             * @default 0
+             */
+            orden: number;
+            /**
+             * Progreso Pct
+             * @default 0
+             */
+            progreso_pct: number;
+            /** Deliverable Url */
+            deliverable_url?: string | null;
+        };
+        /** HitoRead */
+        HitoRead: {
+            /** Hito Id */
+            hito_id: number;
+            /** Proyecto Id */
+            proyecto_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Planificada */
+            fecha_planificada?: string | null;
+            /** Fecha Completado */
+            fecha_completado?: string | null;
+            /** Estado */
+            estado: string;
+            /** Orden */
+            orden: number;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /** Deliverable Url */
+            deliverable_url?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** HitoUpdate */
+        HitoUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Planificada */
+            fecha_planificada?: string | null;
+            /** Fecha Completado */
+            fecha_completado?: string | null;
+            /** Estado */
+            estado?: ("pendiente" | "en_progreso" | "completado" | "cancelado") | null;
+            /** Orden */
+            orden?: number | null;
+            /** Progreso Pct */
+            progreso_pct?: number | null;
+            /** Deliverable Url */
+            deliverable_url?: string | null;
+        };
+        /** ImportFromDropboxResponse */
+        ImportFromDropboxResponse: {
+            /** Found */
+            found: boolean;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /**
+             * Fondos Creados
+             * @default 0
+             */
+            fondos_creados: number;
+            /**
+             * Fondos Actualizados
+             * @default 0
+             */
+            fondos_actualizados: number;
+            /** Message */
+            message: string;
         };
         /** IndexStatus */
         IndexStatus: {
@@ -2151,6 +3157,19 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[FondoListItem] */
+        Page_FondoListItem_: {
+            /** Items */
+            items: components["schemas"]["FondoListItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[LegalDocumentListItem] */
         Page_LegalDocumentListItem_: {
             /** Items */
@@ -2331,6 +3350,136 @@ export interface components {
             /** Numero Cuenta */
             numero_cuenta?: string | null;
         };
+        /** ProyectadoVsRealRow */
+        ProyectadoVsRealRow: {
+            /** Categoria */
+            categoria: string;
+            /** Real */
+            real: string;
+            /** Proyectado */
+            proyectado: string;
+            /** Delta Pct */
+            delta_pct: number;
+        };
+        /** ProyectoCreate */
+        ProyectoCreate: {
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin Estimada */
+            fecha_fin_estimada?: string | null;
+            /**
+             * Estado
+             * @default en_progreso
+             * @enum {string}
+             */
+            estado: "planificado" | "en_progreso" | "completado" | "cancelado" | "pausado";
+            /**
+             * Progreso Pct
+             * @default 0
+             */
+            progreso_pct: number;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Dropbox Roadmap Path */
+            dropbox_roadmap_path?: string | null;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+        };
+        /**
+         * ProyectoDetail
+         * @description Detalle completo con hitos y riesgos asociados.
+         */
+        ProyectoDetail: {
+            /** Proyecto Id */
+            proyecto_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin Estimada */
+            fecha_fin_estimada?: string | null;
+            /** Estado */
+            estado: string;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Dropbox Roadmap Path */
+            dropbox_roadmap_path?: string | null;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Hitos */
+            hitos?: components["schemas"]["HitoRead"][];
+            /** Riesgos */
+            riesgos?: components["schemas"]["RiesgoRead"][];
+        };
+        /**
+         * ProyectoListItem
+         * @description Item del listado: incluye hitos embebidos + count de riesgos abiertos.
+         */
+        ProyectoListItem: {
+            /** Proyecto Id */
+            proyecto_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin Estimada */
+            fecha_fin_estimada?: string | null;
+            /** Estado */
+            estado: string;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Dropbox Roadmap Path */
+            dropbox_roadmap_path?: string | null;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Hitos */
+            hitos?: components["schemas"]["HitoRead"][];
+            /**
+             * Riesgos Abiertos
+             * @default 0
+             */
+            riesgos_abiertos: number;
+        };
         /** ProyectoRanking */
         ProyectoRanking: {
             /** Proyecto */
@@ -2341,6 +3490,62 @@ export interface components {
             num_movimientos: number;
             /** Empresas */
             empresas: string[];
+        };
+        /** ProyectoRead */
+        ProyectoRead: {
+            /** Proyecto Id */
+            proyecto_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin Estimada */
+            fecha_fin_estimada?: string | null;
+            /** Estado */
+            estado: string;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Dropbox Roadmap Path */
+            dropbox_roadmap_path?: string | null;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ProyectoUpdate */
+        ProyectoUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin Estimada */
+            fecha_fin_estimada?: string | null;
+            /** Estado */
+            estado?: ("planificado" | "en_progreso" | "completado" | "cancelado" | "pausado") | null;
+            /** Progreso Pct */
+            progreso_pct?: number | null;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Dropbox Roadmap Path */
+            dropbox_roadmap_path?: string | null;
         };
         /** RejectedRowRead */
         RejectedRowRead: {
@@ -2363,6 +3568,134 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** ResumenCC */
+        ResumenCC: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Transaction Count */
+            transaction_count: number;
+            /** Periodo Filtro */
+            periodo_filtro?: string | null;
+            /** Real Proyectado Filtro */
+            real_proyectado_filtro?: string | null;
+            kpis: components["schemas"]["ResumenCCKpis"];
+            /** Composicion */
+            composicion: components["schemas"]["ComposicionRow"][];
+        };
+        /**
+         * ResumenCCKpis
+         * @description Las 5 tarjetas grandes de la cabecera del dashboard.
+         */
+        ResumenCCKpis: {
+            /** Egresos Totales Cc */
+            egresos_totales_cc: string;
+            /** Abonos Totales Cc */
+            abonos_totales_cc: string;
+            /** Egresos Operacionales */
+            egresos_operacionales: string;
+            /** Presupuesto Corfo */
+            presupuesto_corfo: string;
+            /** Ejecucion Pcto */
+            ejecucion_pcto: number;
+        };
+        /** RiesgoCreate */
+        RiesgoCreate: {
+            /** Titulo */
+            titulo: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Severidad
+             * @default media
+             * @enum {string}
+             */
+            severidad: "alta" | "media" | "baja";
+            /**
+             * Probabilidad
+             * @default media
+             * @enum {string}
+             */
+            probabilidad: "alta" | "media" | "baja";
+            /**
+             * Estado
+             * @default abierto
+             * @enum {string}
+             */
+            estado: "abierto" | "mitigado" | "aceptado" | "cerrado";
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Mitigacion */
+            mitigacion?: string | null;
+            /** Fecha Identificado */
+            fecha_identificado?: string | null;
+            /** Fecha Cierre */
+            fecha_cierre?: string | null;
+            /** Proyecto Id */
+            proyecto_id?: number | null;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+        };
+        /** RiesgoRead */
+        RiesgoRead: {
+            /** Riesgo Id */
+            riesgo_id: number;
+            /** Proyecto Id */
+            proyecto_id?: number | null;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /** Titulo */
+            titulo: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Severidad */
+            severidad: string;
+            /** Probabilidad */
+            probabilidad: string;
+            /** Estado */
+            estado: string;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Mitigacion */
+            mitigacion?: string | null;
+            /**
+             * Fecha Identificado
+             * Format: date
+             */
+            fecha_identificado: string;
+            /** Fecha Cierre */
+            fecha_cierre?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** RiesgoUpdate */
+        RiesgoUpdate: {
+            /** Titulo */
+            titulo?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Severidad */
+            severidad?: ("alta" | "media" | "baja") | null;
+            /** Probabilidad */
+            probabilidad?: ("alta" | "media" | "baja") | null;
+            /** Estado */
+            estado?: ("abierto" | "mitigado" | "aceptado" | "cerrado") | null;
+            /** Owner Email */
+            owner_email?: string | null;
+            /** Mitigacion */
+            mitigacion?: string | null;
+            /** Fecha Cierre */
+            fecha_cierre?: string | null;
         };
         /** RutValidationResponse */
         RutValidationResponse: {
@@ -2409,6 +3742,17 @@ export interface components {
         SetRoleRequest: {
             /** App Role */
             app_role: string;
+        };
+        /** SubCategoriaItem */
+        SubCategoriaItem: {
+            /** Concepto Detallado */
+            concepto_detallado: string;
+            /** Total Egreso */
+            total_egreso: string;
+            /** Total Abono */
+            total_abono: string;
+            /** Transaction Count */
+            transaction_count: number;
         };
         /** SuscripcionCreate */
         SuscripcionCreate: {
@@ -2488,6 +3832,30 @@ export interface components {
             recibos_count: number;
             /** Recibos Firmados */
             recibos_firmados: number;
+        };
+        /**
+         * SyncRoadmapResponse
+         * @description Respuesta del sync con Dropbox Roadmap.xlsx.
+         */
+        SyncRoadmapResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Found */
+            found: boolean;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /**
+             * Proyectos Creados
+             * @default 0
+             */
+            proyectos_creados: number;
+            /**
+             * Hitos Creados
+             * @default 0
+             */
+            hitos_creados: number;
+            /** Message */
+            message: string;
         };
         /**
          * TrabajadorCreate
@@ -2649,6 +4017,31 @@ export interface components {
             estado?: ("activo" | "inactivo" | "licencia") | null;
             /** Notas */
             notas?: string | null;
+        };
+        /** TransaccionRecienteItem */
+        TransaccionRecienteItem: {
+            /** Movimiento Id */
+            movimiento_id: number;
+            /** Fecha */
+            fecha: string;
+            /** Descripcion */
+            descripcion: string | null;
+            /** Abono */
+            abono: string;
+            /** Egreso */
+            egreso: string;
+            /** Saldo Contable */
+            saldo_contable: string | null;
+            /** Concepto General */
+            concepto_general: string | null;
+            /** Concepto Detallado */
+            concepto_detallado: string | null;
+            /** Proyecto */
+            proyecto: string | null;
+            /** Real Proyectado */
+            real_proyectado: string | null;
+            /** Hipervinculo */
+            hipervinculo: string | null;
         };
         /** UserMeResponse */
         UserMeResponse: {
@@ -5281,6 +6674,1248 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_etl_api_v1_etl_run_post: {
+        parameters: {
+            query?: {
+                triggered_by?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    last_run_api_v1_etl_last_run_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EtlRunRead"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_proyectos_api_v1_avance__empresa_codigo__proyectos_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_proyecto_api_v1_avance_proyectos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProyectoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_proyecto_api_v1_avance_proyectos__proyecto_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_proyecto_api_v1_avance_proyectos__proyecto_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_proyecto_api_v1_avance_proyectos__proyecto_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProyectoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_hito_api_v1_avance_proyectos__proyecto_id__hitos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HitoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HitoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_hito_api_v1_avance_hitos__hito_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                hito_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_hito_api_v1_avance_hitos__hito_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                hito_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HitoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HitoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_riesgos_empresa_api_v1_avance__empresa_codigo__riesgos_get: {
+        parameters: {
+            query?: {
+                severidad?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiesgoRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_riesgo_proyecto_api_v1_avance_proyectos__proyecto_id__riesgos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiesgoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiesgoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_riesgo_empresa_api_v1_avance_riesgos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiesgoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiesgoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_riesgo_api_v1_avance_riesgos__riesgo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                riesgo_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_riesgo_api_v1_avance_riesgos__riesgo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                riesgo_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiesgoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiesgoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_roadmap_api_v1_avance__empresa_codigo__sync_roadmap_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncRoadmapResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_events_api_v1_calendar_events_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                empresa?: string | null;
+                tipo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEventRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_event_api_v1_calendar_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarEventCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEventRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_event_api_v1_calendar_events__event_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_event_api_v1_calendar_events__event_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarEventUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEventRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_event_api_v1_calendar_events__event_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                event_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarEventRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_agents_api_v1_calendar_agents_run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentRunReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_fondos_api_v1_fondos_get: {
+        parameters: {
+            query?: {
+                tipo?: string | null;
+                estado?: string | null;
+                sector?: string | null;
+                search?: string | null;
+                page?: number;
+                size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_FondoListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_fondo_api_v1_fondos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FondoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fondos_stats_api_v1_fondos_stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoStats"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_fondo_api_v1_fondos__fondo_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                fondo_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_fondo_api_v1_fondos__fondo_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                fondo_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_fondo_api_v1_fondos__fondo_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                fondo_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FondoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_from_dropbox_api_v1_fondos_import_from_dropbox_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportFromDropboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_cc_api_v1_empresa__empresa_codigo__resumen_cc_get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+                real_proyectado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenCC"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    egresos_por_tipo_api_v1_empresa__empresa_codigo__egresos_por_tipo_get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+                real_proyectado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoTipoItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    egresos_por_proyecto_api_v1_empresa__empresa_codigo__egresos_por_proyecto_get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+                real_proyectado?: string | null;
+                exclude?: string[];
+                include_default_excluded?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoProyectoItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    flujo_mensual_api_v1_empresa__empresa_codigo__flujo_mensual_get: {
+        parameters: {
+            query?: {
+                meses?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlujoMensualPoint"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    transacciones_recientes_api_v1_empresa__empresa_codigo__transacciones_recientes_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                proyecto?: string | null;
+                concepto?: string | null;
+                real_proyectado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransaccionRecienteItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    categorias_breakdown_api_v1_empresa__empresa_codigo__categorias_get: {
+        parameters: {
+            query?: {
+                real_proyectado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoriaBreakdown"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proyectado_vs_real_api_v1_empresa__empresa_codigo__proyectado_vs_real_get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectadoVsRealRow"][];
                 };
             };
             /** @description Validation Error */

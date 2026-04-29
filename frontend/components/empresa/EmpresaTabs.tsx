@@ -10,6 +10,9 @@ import {
   Target,
   FolderOpen,
   Sparkles,
+  TrendingUp,
+  Receipt,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +30,9 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { suffix: "", label: "Resumen", icon: Building2 },
+  { suffix: "/flujo-mensual", label: "Flujo Mensual", icon: TrendingUp },
+  { suffix: "/transacciones", label: "Transacciones", icon: Receipt },
+  { suffix: "/categorias", label: "Categorías", icon: Layers },
   { suffix: "/trabajadores", label: "Trabajadores", icon: Users },
   { suffix: "/legal", label: "Legal", icon: Scale },
   { suffix: "/avance", label: "Avance", icon: Target },

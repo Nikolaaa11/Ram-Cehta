@@ -26,6 +26,8 @@ import {
   ChevronDown,
   ChevronRight,
   Plug,
+  TrendingUp,
+  Layers,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -119,6 +121,9 @@ const GROUPS: NavGroup[] = [
 // Sub-items que aparecen al expandir cada empresa.
 const EMPRESA_SUBSECTIONS = [
   { suffix: "", label: "Resumen", icon: Building2 },
+  { suffix: "/flujo-mensual", label: "Flujo Mensual", icon: TrendingUp },
+  { suffix: "/transacciones", label: "Transacciones", icon: Receipt },
+  { suffix: "/categorias", label: "Categorías", icon: Layers },
   { suffix: "/trabajadores", label: "Trabajadores", icon: Users },
   { suffix: "/legal", label: "Legal", icon: Scale },
   { suffix: "/avance", label: "Avance", icon: Target },

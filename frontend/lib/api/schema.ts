@@ -88,6 +88,19 @@ export type EmpresaCEOKPIs = components["schemas"]["EmpresaCEOKPIs"];
 export type HeatmapCell = components["schemas"]["HeatmapCell"];
 export type CeoAlert = components["schemas"]["Alert"];
 
+// Dashboard rico por empresa (V3 fase 6) — endpoints empresa-scoped.
+export type ResumenCC = components["schemas"]["ResumenCC"];
+export type ResumenCCKpis = components["schemas"]["ResumenCCKpis"];
+export type ComposicionRow = components["schemas"]["ComposicionRow"];
+export type EgresoTipoItem = components["schemas"]["EgresoTipoItem"];
+export type EgresoProyectoItem = components["schemas"]["EgresoProyectoItem"];
+export type FlujoMensualPoint = components["schemas"]["FlujoMensualPoint"];
+export type TransaccionRecienteItem =
+  components["schemas"]["TransaccionRecienteItem"];
+export type CategoriaBreakdown = components["schemas"]["CategoriaBreakdown"];
+export type SubCategoriaItem = components["schemas"]["SubCategoriaItem"];
+export type ProyectadoVsRealRow = components["schemas"]["ProyectadoVsRealRow"];
+
 // Legal Vault (V3 fase 3+4) — los tipos manuales se complementan con los
 // generados; mantenemos los manual `LegalCategoria` / `LegalEstado` por DX
 // (autocomplete con literal union sin pagar el costo de pasar por openapi).

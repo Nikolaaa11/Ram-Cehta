@@ -10,6 +10,7 @@ from app.api.v1 import (
     catalogos,
     dashboard,
     dropbox,
+    empresa,
     etl,
     f29,
     fondos,
@@ -47,3 +48,4 @@ api_router.include_router(etl.router, prefix="/etl", tags=["etl"])
 api_router.include_router(avance.router, prefix="/avance", tags=["avance"])
 api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
 api_router.include_router(fondos.router, prefix="/fondos", tags=["fondos"])
+api_router.include_router(empresa.router, prefix="/empresa", tags=["empresa"])
