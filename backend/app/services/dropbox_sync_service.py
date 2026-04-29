@@ -11,6 +11,11 @@ Decisiones:
   no abortan el sync entero.
 - **Single-tenant**: opera sobre la única integración Dropbox conectada (la
   corporativa de Cehta) — consistente con el resto de la app.
+
+Endpoints expuestos (cada uno con su scope):
+  POST /trabajadores/sync-dropbox/{empresa}  (trabajador:update)
+  POST /legal/sync-dropbox/{empresa}         (legal:create)
+  POST /f29/sync-dropbox/{empresa}           (f29:create)
 """
 from __future__ import annotations
 
