@@ -27,6 +27,7 @@ from app.api.v1 import (
     proveedores,
     saved_views,
     search,
+    status as status_router,
     suscripciones,
     trabajadores,
     validate,
@@ -63,3 +64,4 @@ api_router.include_router(exports.router, prefix="/exports", tags=["exports"])
 api_router.include_router(digest.router, prefix="/digest", tags=["digest"])
 api_router.include_router(saved_views.router, prefix="/me", tags=["saved-views"])
 api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk-import"])
+api_router.include_router(status_router.router, prefix="/admin", tags=["admin-status"])

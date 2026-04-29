@@ -31,6 +31,8 @@ import {
   Layers,
   ScrollText,
   Mail,
+  Activity,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -135,6 +137,16 @@ const GROUPS: NavGroup[] = [
         href: "/admin/digest" as Route,
         label: "Digest CEO",
         icon: Mail,
+      },
+      {
+        href: "/admin/import" as Route,
+        label: "Importar CSV",
+        icon: Upload,
+      },
+      {
+        href: "/admin/status" as Route,
+        label: "Status del sistema",
+        icon: Activity,
       },
     ],
   },
