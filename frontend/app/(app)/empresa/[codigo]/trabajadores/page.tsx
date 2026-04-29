@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { TrabajadorCreateDialog } from "@/components/empresa/TrabajadorCreateDialog";
 import { TrabajadorRow } from "@/components/empresa/TrabajadorRow";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 
 interface TrabajadorListItem {
   trabajador_id: number;
@@ -90,9 +91,9 @@ export default function TrabajadoresPage({
           </div>
         </Surface.Header>
 
-        {/* Tabs activos/inactivos */}
-        <div className="-mx-6 mt-2 border-b border-hairline">
-          <div className="flex gap-1 px-6">
+        {/* Tabs activos/inactivos + Saved views */}
+        <div className="-mx-6 mt-2 flex items-center justify-between border-b border-hairline px-6">
+          <div className="flex gap-1">
             {(["activo", "inactivo"] as const).map((s) => (
               <button
                 key={s}
@@ -107,6 +108,21 @@ export default function TrabajadoresPage({
                 {s === "activo" ? "Activos" : "Inactivos"}
               </button>
             ))}
+          </div>
+          <div className="py-1.5">
+            <SavedViewsMenu
+              page="trabajadores"
+              currentFilters={{
+                empresa_codigo: codigo,
+                estado: estadoFilter,
+              }}
+              onApply={(filters) => {
+                const e = filters.estado;
+                if (e === "activo" || e === "inactivo") {
+                  setEstadoFilter(e);
+                }
+              }}
+            />
           </div>
         </div>
       </Surface>

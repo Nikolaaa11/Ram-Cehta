@@ -19,6 +19,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { toCLP, toDate } from "@/lib/format";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import { useMe } from "@/hooks/use-me";
 import type { Page, OcListItem } from "@/lib/api/schema";
 
@@ -245,6 +246,24 @@ export default function OrdenesCompraPage() {
             }}
             placeholder="Todos los estados"
             triggerClassName="min-w-[12rem]"
+          />
+        </div>
+
+        <div className="ml-auto flex items-end">
+          <SavedViewsMenu
+            page="oc"
+            currentFilters={{ empresa_codigo: empresa, estado }}
+            onApply={(filters) => {
+              setEmpresa(
+                typeof filters.empresa_codigo === "string"
+                  ? filters.empresa_codigo
+                  : "",
+              );
+              setEstado(
+                typeof filters.estado === "string" ? filters.estado : "",
+              );
+              setPage(1);
+            }}
           />
         </div>
       </div>

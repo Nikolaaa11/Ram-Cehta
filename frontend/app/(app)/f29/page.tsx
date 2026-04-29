@@ -14,6 +14,7 @@ import { F29RowActions } from "@/components/f29/F29RowActions";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, F29Read } from "@/lib/api/schema";
@@ -263,6 +264,27 @@ export default function F29Page() {
               searchPlaceholder="Buscar estado…"
               emptyText="Sin estados."
               triggerClassName="w-48"
+            />
+          </div>
+
+          <div className="ml-auto flex items-end">
+            <SavedViewsMenu
+              page="f29"
+              currentFilters={{
+                empresa_codigo:
+                  empresa === EMPRESA_TODAS ? "" : empresa,
+                estado: estado === ESTADO_TODOS ? "" : estado,
+              }}
+              onApply={(filters) => {
+                const ec = filters.empresa_codigo;
+                const es = filters.estado;
+                setEmpresa(
+                  typeof ec === "string" && ec ? ec : EMPRESA_TODAS,
+                );
+                setEstado(
+                  typeof es === "string" && es ? es : ESTADO_TODOS,
+                );
+              }}
             />
           </div>
         </div>

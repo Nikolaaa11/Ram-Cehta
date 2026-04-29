@@ -12,6 +12,7 @@ import { LegalDocumentTable } from "@/components/legal/LegalDocumentTable";
 import { LegalDocumentCreateDialog } from "@/components/legal/LegalDocumentCreateDialog";
 import { LegalDocumentDetail } from "@/components/legal/LegalDocumentDetail";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import type { LegalDocumentListItem, Page } from "@/lib/api/schema";
 
 const CATEGORIA_ITEMS: ComboboxItem[] = [
@@ -128,6 +129,30 @@ export default function EmpresaLegalPage({
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre…"
               className="h-9 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-sm text-ink-900 ring-1 ring-hairline placeholder:text-ink-300 focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            />
+          </div>
+          <div className="ml-auto">
+            <SavedViewsMenu
+              page="legal"
+              currentFilters={{
+                empresa_codigo: codigo,
+                categoria,
+                estado,
+                search,
+              }}
+              onApply={(filters) => {
+                setCategoria(
+                  typeof filters.categoria === "string"
+                    ? filters.categoria
+                    : "",
+                );
+                setEstado(
+                  typeof filters.estado === "string" ? filters.estado : "",
+                );
+                setSearch(
+                  typeof filters.search === "string" ? filters.search : "",
+                );
+              }}
             />
           </div>
         </div>

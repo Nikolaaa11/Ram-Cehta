@@ -7,6 +7,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import type { Page, ProveedorRead } from "@/lib/api/schema";
 
 function useDebounce<T>(value: T, delayMs: number): T {
@@ -117,18 +118,28 @@ export default function ProveedoresPage() {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search
-          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300"
-          strokeWidth={1.5}
-        />
-        <input
-          type="search"
-          placeholder="Buscar por razón social o RUT…"
-          value={search}
-          onChange={handleSearchChange}
-          className="w-full rounded-lg border-0 bg-white px-3 py-2 pl-9 text-sm text-ink-900 ring-1 ring-hairline placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green"
+      {/* Search + Saved views */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-300"
+            strokeWidth={1.5}
+          />
+          <input
+            type="search"
+            placeholder="Buscar por razón social o RUT…"
+            value={search}
+            onChange={handleSearchChange}
+            className="w-full rounded-lg border-0 bg-white px-3 py-2 pl-9 text-sm text-ink-900 ring-1 ring-hairline placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          />
+        </div>
+        <SavedViewsMenu
+          page="proveedores"
+          currentFilters={{ search }}
+          onApply={(filters) => {
+            setSearch(typeof filters.search === "string" ? filters.search : "");
+            setPage(1);
+          }}
         />
       </div>
 

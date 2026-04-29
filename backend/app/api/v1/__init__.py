@@ -24,6 +24,7 @@ from app.api.v1 import (
     notifications_inbox,
     ordenes_compra,
     proveedores,
+    saved_views,
     search,
     suscripciones,
     trabajadores,
@@ -59,3 +60,4 @@ api_router.include_router(documents.router, prefix="/documents", tags=["document
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(exports.router, prefix="/exports", tags=["exports"])
 api_router.include_router(digest.router, prefix="/digest", tags=["digest"])
+api_router.include_router(saved_views.router, prefix="/me", tags=["saved-views"])

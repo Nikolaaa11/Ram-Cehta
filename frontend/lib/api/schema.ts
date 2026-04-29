@@ -547,6 +547,42 @@ export interface AuditLogRead extends AuditLogList {
   diff_after: Record<string, unknown> | null;
 }
 
+// ─── Saved Views (V3 fase 11) ────────────────────────────────────────────────
+// Definidos a mano — match con `app.schemas.saved_view` (backend).
+// `page` es un literal cerrado: cualquier valor fuera quiebra el tipo y se
+// detecta en compile-time tanto en frontend como en backend (Pydantic Literal).
+
+export type SavedViewPage =
+  | "oc"
+  | "f29"
+  | "trabajadores"
+  | "proveedores"
+  | "legal"
+  | "fondos";
+
+export interface SavedViewRead {
+  id: string;
+  user_id: string;
+  page: SavedViewPage | string;
+  name: string;
+  filters: Record<string, unknown>;
+  is_pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedViewCreate {
+  page: SavedViewPage;
+  name: string;
+  filters: Record<string, unknown>;
+}
+
+export interface SavedViewUpdate {
+  name?: string;
+  filters?: Record<string, unknown>;
+  is_pinned?: boolean;
+}
+
 // ─── Bulk operations ──────────────────────────────────────────────────────────
 // Definidos a mano — match con `app.schemas.bulk` (backend).
 
@@ -569,4 +605,48 @@ export interface BulkUpdateResult {
   requested: number;
   succeeded: number;
   failed: BulkItemError[];
+}
+
+// ─── Bulk CSV Import (V3 fase 11) ─────────────────────────────────────────────
+// Definidos a mano — match con `app.schemas.bulk_import` (backend).
+
+export type BulkImportEntityType = "trabajadores" | "fondos" | "proveedores";
+
+export interface InvalidRow {
+  row_index: number;
+  errors: string[];
+  original: Record<string, unknown>;
+}
+
+export interface DuplicateRow {
+  row_index: number;
+  key: string;
+  existing_id: number | null;
+  original: Record<string, unknown>;
+}
+
+export interface ValidRow {
+  row_index: number;
+  data: Record<string, unknown>;
+}
+
+export interface ValidationReport {
+  entity_type: string;
+  total_rows: number;
+  valid_rows: number;
+  invalid_rows: InvalidRow[];
+  duplicates: DuplicateRow[];
+  valid: ValidRow[];
+}
+
+export interface ImportRowError {
+  row_index: number;
+  detail: string;
+}
+
+export interface ImportResult {
+  entity_type: string;
+  created: number;
+  skipped: number;
+  errors: ImportRowError[];
 }

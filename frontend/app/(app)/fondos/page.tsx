@@ -15,6 +15,7 @@ import { FondoTable } from "@/components/fondos/FondoTable";
 import { FondoDetail } from "@/components/fondos/FondoDetail";
 import { FondoCreateDialog } from "@/components/fondos/FondoCreateDialog";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import type { FondoListItem, FondoStats, Page } from "@/lib/api/schema";
 
 const TIPO_ITEMS: ComboboxItem[] = [
@@ -170,6 +171,24 @@ export default function FondosPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre o thesis…"
               className="h-9 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-sm text-ink-900 ring-1 ring-hairline placeholder:text-ink-300 focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            />
+          </div>
+          <div className="ml-auto">
+            <SavedViewsMenu
+              page="fondos"
+              currentFilters={{ tipo, estado, sector, search }}
+              onApply={(filters) => {
+                setTipo(typeof filters.tipo === "string" ? filters.tipo : "");
+                setEstado(
+                  typeof filters.estado === "string" ? filters.estado : "",
+                );
+                setSector(
+                  typeof filters.sector === "string" ? filters.sector : "",
+                );
+                setSearch(
+                  typeof filters.search === "string" ? filters.search : "",
+                );
+              }}
             />
           </div>
         </div>
