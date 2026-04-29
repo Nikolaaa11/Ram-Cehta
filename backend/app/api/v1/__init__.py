@@ -9,6 +9,7 @@ from app.api.v1 import (
     calendar,
     catalogos,
     dashboard,
+    digest,
     documents,
     dropbox,
     empresa,
@@ -57,3 +58,4 @@ api_router.include_router(empresa.router, prefix="/empresa", tags=["empresa"])
 api_router.include_router(documents.router, prefix="/documents", tags=["documents"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(exports.router, prefix="/exports", tags=["exports"])
+api_router.include_router(digest.router, prefix="/digest", tags=["digest"])

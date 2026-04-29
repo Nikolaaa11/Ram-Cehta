@@ -30,6 +30,7 @@ import {
   TrendingUp,
   Layers,
   ScrollText,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -129,6 +130,11 @@ const GROUPS: NavGroup[] = [
         href: "/admin/integraciones" as Route,
         label: "Integraciones",
         icon: Plug,
+      },
+      {
+        href: "/admin/digest" as Route,
+        label: "Digest CEO",
+        icon: Mail,
       },
     ],
   },
