@@ -37,6 +37,7 @@ from app.schemas.legal import (
     LegalDocumentUpdate,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.dropbox_sync_service import DropboxSyncService
 
 router = APIRouter()
 
@@ -237,6 +238,40 @@ async def upload_legal(
     updated = await repo.set_dropbox_path(doc, upload_result["path"])
     await db.commit()
     return LegalDocumentRead.model_validate(updated)
+
+
+@router.post(
+    "/sync-dropbox/{empresa_codigo}",
+    dependencies=[Depends(require_scope("legal:create"))],
+)
+async def sync_legal_dropbox(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: str,
+) -> dict:
+    """Escanea `Cehta Capital/01-Empresas/{empresa}/03-Legal/` recursivamente
+    y crea legal_documents para los archivos que aún no estén en DB.
+
+    Categoría/subcategoría se inferen del path:
+      Contratos/Cliente   → contrato/cliente
+      Contratos/Proveedor → contrato/proveedor
+      Contratos/Bancario  → contrato/bancario
+      Actas               → acta
+      Declaraciones SII/F29 → declaracion_sii/f29
+      Pólizas             → poliza
+
+    Idempotente: match por `dropbox_path`.
+    """
+    dbx = await _get_dropbox_service(db)
+    if dbx is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dropbox no conectado — conectar en /admin/integraciones",
+        )
+    service = DropboxSyncService(db, dbx)
+    result = await service.sync_legal(empresa_codigo)
+    await db.commit()
+    return result.to_dict()
 
 
 @router.get(

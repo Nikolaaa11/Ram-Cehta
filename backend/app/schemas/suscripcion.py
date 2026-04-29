@@ -19,6 +19,19 @@ class SuscripcionCreate(BaseModel):
     fecha_firma: datetime | None = None
 
 
+class SuscripcionUpdate(BaseModel):
+    """PATCH /suscripciones-acciones/{id} — edición parcial."""
+
+    fecha_recibo: date | None = None
+    acciones_pagadas: Decimal | None = Field(default=None, gt=0)
+    monto_uf: Decimal | None = Field(default=None, ge=0)
+    monto_clp: Decimal | None = Field(default=None, gt=0)
+    contrato_ref: str | None = None
+    recibo_url: str | None = None
+    firmado: bool | None = None
+    fecha_firma: datetime | None = None
+
+
 class SuscripcionRead(BaseModel):
     suscripcion_id: int
     empresa_codigo: str

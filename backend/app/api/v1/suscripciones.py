@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 
 from app.api.deps import DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -17,6 +18,7 @@ from app.schemas.suscripcion import (
     SuscripcionCreate,
     SuscripcionRead,
     SuscripcionResumen,
+    SuscripcionUpdate,
 )
 
 router = APIRouter()
@@ -50,6 +52,44 @@ async def create_suscripcion(
     obj = await repo.create(body)
     await db.commit()
     return SuscripcionRead.model_validate(obj)
+
+
+@router.patch("/{suscripcion_id}", response_model=SuscripcionRead)
+async def update_suscripcion(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:update"))],
+    db: DBSession,
+    suscripcion_id: int,
+    body: SuscripcionUpdate,
+) -> SuscripcionRead:
+    """PATCH parcial. admin/finance pueden editar firmado, fecha_firma, etc."""
+    repo = SuscripcionRepository(db)
+    obj = await repo.get(suscripcion_id)
+    if obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Suscripción no encontrada",
+        )
+    updated = await repo.update(obj, body)
+    await db.commit()
+    return SuscripcionRead.model_validate(updated)
+
+
+@router.delete(
+    "/{suscripcion_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def delete_suscripcion(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:delete"))],
+    db: DBSession,
+    suscripcion_id: int,
+) -> Response:
+    repo = SuscripcionRepository(db)
+    obj = await repo.get(suscripcion_id)
+    if obj is not None:
+        await repo.delete(obj)
+        await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/totals", response_model=list[SuscripcionResumen])

@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, ArrowLeft, Save } from "lucide-react";
+import { AlertCircle, ArrowLeft, Save, Sparkles } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { useDocumentAnalysis } from "@/hooks/use-document-analysis";
 import { Surface } from "@/components/ui/surface";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { AiAnalysisPreview } from "@/components/shared/AiAnalysisPreview";
 import { cn } from "@/lib/utils";
 import type { F29Create } from "@/lib/api/schema";
 
@@ -35,6 +37,68 @@ export default function F29NuevoPage() {
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // ── AI Document Analyzer (V3 fase 7) ─────────────────────────────────────
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const {
+    analyze,
+    analyzing,
+    result: aiResult,
+    error: aiError,
+    reset: resetAi,
+  } = useDocumentAnalysis();
+
+  useEffect(() => {
+    if (!aiFile) {
+      resetAi();
+      return;
+    }
+    const handle = setTimeout(() => {
+      void analyze(aiFile, "f29");
+    }, 500);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiFile]);
+
+  /**
+   * Aplica los campos extraídos al form. Match razon_social → empresa via catálogo,
+   * cae en no-op si no hay match.
+   */
+  const applyAi = () => {
+    if (!aiResult) return;
+    const f = aiResult.fields as Record<string, unknown>;
+    if (typeof f.periodo_tributario === "string" && !periodoTributario) {
+      setPeriodoTributario(f.periodo_tributario);
+    }
+    if (typeof f.fecha_vencimiento === "string" && !fechaVencimiento) {
+      setFechaVencimiento(f.fecha_vencimiento);
+    }
+    if (typeof f.monto_a_pagar === "number" && !montoAPagar) {
+      setMontoAPagar(String(f.monto_a_pagar));
+    }
+    if (
+      typeof f.estado === "string" &&
+      ["pendiente", "pagado", "vencido", "exento"].includes(f.estado)
+    ) {
+      setEstado(f.estado as Estado);
+    }
+    if (typeof f.empresa === "string" && !empresaCodigo) {
+      const match = empresas.find(
+        (e) =>
+          e.razon_social.toLowerCase().includes((f.empresa as string).toLowerCase()) ||
+          (f.empresa as string).toLowerCase().includes(e.razon_social.toLowerCase()),
+      );
+      if (match) setEmpresaCodigo(match.codigo);
+    }
+  };
+
+  // Auto-aplicar si confidence ≥ 0.8.
+  useEffect(() => {
+    if (aiResult && aiResult.confidence >= 0.8) {
+      applyAi();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiResult?.tipo_detectado, aiResult?.confidence]);
 
   const empresaItems = useMemo<ComboboxItem[]>(
     () =>
@@ -110,6 +174,37 @@ export default function F29NuevoPage() {
           Completa los datos para registrar una nueva obligación tributaria mensual.
         </p>
       </div>
+
+      {/* AI auto-fill — V3 fase 7 */}
+      <Surface>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-cehta-green" strokeWidth={1.5} />
+            <h2 className="text-sm font-semibold text-ink-900">
+              Auto-fill con IA
+            </h2>
+            <span className="text-xs text-ink-500">
+              Subí el PDF del F29 y completamos los campos.
+            </span>
+          </div>
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            onChange={(e) => setAiFile(e.target.files?.[0] ?? null)}
+            className="block w-full text-sm text-ink-700 file:mr-3 file:rounded-lg file:border-0 file:bg-cehta-green/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-cehta-green hover:file:bg-cehta-green/15"
+          />
+          {(analyzing || aiResult || aiError) && (
+            <AiAnalysisPreview
+              analyzing={analyzing}
+              error={aiError}
+              result={aiResult}
+              onApply={
+                aiResult && aiResult.confidence < 0.8 ? applyAi : undefined
+              }
+            />
+          )}
+        </div>
+      </Surface>
 
       {/* Form card */}
       <Surface>

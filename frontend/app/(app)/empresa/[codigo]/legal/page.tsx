@@ -11,6 +11,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { LegalDocumentTable } from "@/components/legal/LegalDocumentTable";
 import { LegalDocumentCreateDialog } from "@/components/legal/LegalDocumentCreateDialog";
 import { LegalDocumentDetail } from "@/components/legal/LegalDocumentDetail";
+import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
 import type { LegalDocumentListItem, Page } from "@/lib/api/schema";
 
 const CATEGORIA_ITEMS: ComboboxItem[] = [
@@ -81,16 +82,23 @@ export default function EmpresaLegalPage({
                   : "Cargando..."}
               </Surface.Subtitle>
             </div>
-            {canCreate && (
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors duration-150 ease-apple hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                Subir documento
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <SyncDropboxButton
+                empresaCodigo={codigo}
+                resource="legal"
+                onSynced={handleRefresh}
+              />
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors duration-150 ease-apple hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2} />
+                  Subir documento
+                </button>
+              )}
+            </div>
           </div>
         </Surface.Header>
 

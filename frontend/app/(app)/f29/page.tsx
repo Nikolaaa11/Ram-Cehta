@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { F29RowActions } from "@/components/f29/F29RowActions";
+import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, F29Read } from "@/lib/api/schema";
@@ -177,15 +178,24 @@ export default function F29Page() {
               : "Obligaciones tributarias mensuales por empresa."}
           </p>
         </div>
-        {canCreateF29 && (
-          <Link
-            href="/f29/nuevo"
-            className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
-          >
-            <Plus className="h-4 w-4" strokeWidth={1.5} />
-            Nueva F29
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {empresa && empresa !== EMPRESA_TODAS && (
+            <SyncDropboxButton
+              empresaCodigo={empresa}
+              resource="f29"
+              variant="default"
+            />
+          )}
+          {canCreateF29 && (
+            <Link
+              href="/f29/nuevo"
+              className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
+            >
+              <Plus className="h-4 w-4" strokeWidth={1.5} />
+              Nueva F29
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Filters */}

@@ -7,7 +7,11 @@ from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.suscripcion_accion import SuscripcionAccion
-from app.schemas.suscripcion import SuscripcionCreate, SuscripcionResumen
+from app.schemas.suscripcion import (
+    SuscripcionCreate,
+    SuscripcionResumen,
+    SuscripcionUpdate,
+)
 
 
 class SuscripcionRepository:
@@ -41,6 +45,19 @@ class SuscripcionRepository:
         await self._session.flush()
         await self._session.refresh(obj)
         return obj
+
+    async def update(
+        self, obj: SuscripcionAccion, data: SuscripcionUpdate
+    ) -> SuscripcionAccion:
+        for k, v in data.model_dump(exclude_unset=True).items():
+            setattr(obj, k, v)
+        await self._session.flush()
+        await self._session.refresh(obj)
+        return obj
+
+    async def delete(self, obj: SuscripcionAccion) -> None:
+        await self._session.delete(obj)
+        await self._session.flush()
 
     async def totals_by_empresa(self) -> builtins.list[SuscripcionResumen]:
         """Agregado por empresa para reporte a inversionistas."""

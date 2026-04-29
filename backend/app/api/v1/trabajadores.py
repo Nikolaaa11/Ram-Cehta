@@ -36,6 +36,7 @@ from app.schemas.trabajador import (
     TrabajadorUpdate,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.trabajador_service import TrabajadorService
 
 router = APIRouter()
@@ -283,6 +284,48 @@ async def download_documento(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
         ) from exc
     return RedirectResponse(url=link, status_code=302)
+
+
+@router.post(
+    "/sync-dropbox/{empresa_codigo}",
+    dependencies=[Depends(require_scope("trabajador:update"))],
+)
+async def sync_trabajadores_dropbox(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: str,
+) -> dict:
+    """Escanea `Cehta Capital/01-Empresas/{empresa}/02-Trabajadores/Activos/`
+    y reconcilia con la DB.
+
+    Para cada subcarpeta con formato `RUT - Nombre`:
+    - Si NO existe el trabajador en DB → lo crea con estado='activo'.
+    - Para cada archivo dentro → si el `dropbox_path` no existe en DB,
+      crea un `core.trabajador_documento` con `tipo` inferido del nombre.
+
+    Idempotente: el match por `dropbox_path` evita duplicados al re-ejecutar.
+    """
+    integration_repo = IntegrationRepository(db)
+    integration = await integration_repo.get_by_provider("dropbox")
+    if integration is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dropbox no conectado — conectar en /admin/integraciones",
+        )
+    try:
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+    except DropboxNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    service = DropboxSyncService(db, dbx)
+    result = await service.sync_trabajadores(empresa_codigo)
+    await db.commit()
+    return result.to_dict()
 
 
 @router.delete(

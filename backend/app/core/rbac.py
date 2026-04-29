@@ -52,6 +52,12 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "calendar:admin",
         # Búsqueda de Fondos (V3 fase 5) — pipeline LP/banco/programa.
         "fondo:read", "fondo:create", "fondo:update", "fondo:delete",
+        # AI Document Analyzer (V3 fase 7) — auto-fill de forms desde archivos.
+        "document:analyze",
+        # Empresas (datos fiscales / contacto) — V3 fase 7. Admin only.
+        "empresa:update",
+        # Suscripciones — admin puede editar (firmado, fecha_firma, contrato_ref).
+        "suscripcion:update",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
@@ -71,6 +77,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "calendar:read", "calendar:create", "calendar:update",
         # Fondos — finance puede crear y editar pero no eliminar.
         "fondo:read", "fondo:create", "fondo:update",
+        # AI Document Analyzer — finance también auto-fills (uso primario).
+        "document:analyze",
+        # Suscripciones — finance puede editar (operativo).
+        "suscripcion:update",
     }),
     "viewer": frozenset({
         "oc:read",
@@ -87,6 +97,8 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "avance:read",
         "calendar:read",
         "fondo:read",
+        # AI Document Analyzer — viewer también puede analizar (no muta nada).
+        "document:analyze",
         # NO audit:read, NO user:* — privacy / least privilege.
     }),
 }

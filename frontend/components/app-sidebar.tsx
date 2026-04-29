@@ -87,6 +87,11 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/avance" as Route, label: "Avance Empresas", icon: Target },
       { href: "/fondos" as Route, label: "Búsqueda de Fondos", icon: Search },
+      {
+        href: "/suscripciones" as Route,
+        label: "Suscripciones FIP",
+        icon: TrendingUp,
+      },
       { href: "/asistente" as Route, label: "AI Asistente", icon: Sparkles },
     ],
   },

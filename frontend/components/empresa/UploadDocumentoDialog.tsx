@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Upload, FileText } from "lucide-react";
+import { Upload, FileText, Sparkles } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
+import {
+  useDocumentAnalysis,
+  type AnalysisResult,
+} from "@/hooks/use-document-analysis";
 import { ApiError } from "@/lib/api/client";
 import {
   Dialog,
@@ -12,6 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { AiAnalysisPreview } from "@/components/shared/AiAnalysisPreview";
 
 interface Props {
   open: boolean;
@@ -36,6 +41,19 @@ const TIPOS = [
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+/** Mapeo del tipo detectado por el AI al tipo de documento del trabajador. */
+function mapDetectedTipoToTrabajadorTipo(detected: string): string | null {
+  switch (detected) {
+    case "trabajador_contrato":
+    case "contrato":
+      return "contrato";
+    case "liquidacion":
+      return "liquidacion";
+    default:
+      return null;
+  }
+}
+
 export function UploadDocumentoDialog({
   open,
   onOpenChange,
@@ -46,6 +64,44 @@ export function UploadDocumentoDialog({
   const { session } = useSession();
   const [tipo, setTipo] = useState<string>("contrato");
   const [file, setFile] = useState<File | null>(null);
+  const { analyze, analyzing, result, error, reset } = useDocumentAnalysis();
+
+  // Auto-trigger analysis cuando el archivo se setea (con debounce 500ms para
+  // evitar análisis duplicados si el usuario clickea seleccionar varias veces).
+  useEffect(() => {
+    if (!file) {
+      reset();
+      return;
+    }
+    const handle = setTimeout(() => {
+      // El tipo del trabajador no siempre matchea con los tipos del LLM (anexo, dni, cv).
+      // Para esos casos usamos "auto"; para contrato/liquidación usamos el tipo concreto.
+      const llmTipo =
+        tipo === "contrato"
+          ? "trabajador_contrato"
+          : tipo === "liquidacion"
+            ? "liquidacion"
+            : "auto";
+      void analyze(file, llmTipo as never);
+    }, 500);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file]);
+
+  const applyAnalysis = (r: AnalysisResult) => {
+    const mapped = mapDetectedTipoToTrabajadorTipo(r.tipo_detectado);
+    if (mapped) setTipo(mapped);
+    toast.success("Tipo aplicado desde análisis IA.");
+  };
+
+  const closeDialog = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) {
+      setFile(null);
+      setTipo("contrato");
+      reset();
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -79,9 +135,7 @@ export function UploadDocumentoDialog({
     onSuccess: () => {
       toast.success("Documento subido");
       onSuccess();
-      onOpenChange(false);
-      setFile(null);
-      setTipo("contrato");
+      closeDialog(false);
     },
     onError: (err) => {
       toast.error(err instanceof Error ? err.message : "Error al subir");
@@ -89,7 +143,7 @@ export function UploadDocumentoDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent className="max-w-md">
         <DialogTitle>Subir documento</DialogTitle>
         <DialogDescription>
@@ -162,12 +216,44 @@ export function UploadDocumentoDialog({
                 className="hidden"
               />
             </label>
+            {file && !analyzing && !result && !error && (
+              <button
+                type="button"
+                onClick={() => {
+                  const llmTipo =
+                    tipo === "contrato"
+                      ? "trabajador_contrato"
+                      : tipo === "liquidacion"
+                        ? "liquidacion"
+                        : "auto";
+                  void analyze(file, llmTipo as never);
+                }}
+                className="mt-2 inline-flex items-center gap-1 rounded-lg bg-cehta-green/10 px-2.5 py-1 text-xs font-medium text-cehta-green transition-colors hover:bg-cehta-green/15"
+              >
+                <Sparkles className="h-3 w-3" strokeWidth={2} />
+                Analizar con IA
+              </button>
+            )}
           </div>
+
+          {(analyzing || result || error) && (
+            <AiAnalysisPreview
+              analyzing={analyzing}
+              error={error}
+              result={result}
+              onApply={
+                result && result.confidence >= 0.5
+                  ? () => applyAnalysis(result)
+                  : undefined
+              }
+              applyLabel="Aplicar tipo"
+            />
+          )}
 
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => onOpenChange(false)}
+              onClick={() => closeDialog(false)}
               className="rounded-xl px-4 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline hover:bg-ink-100/40"
             >
               Cancelar

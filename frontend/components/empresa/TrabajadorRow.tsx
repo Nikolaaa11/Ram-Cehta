@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, FileText, UserMinus } from "lucide-react";
+import { ChevronRight, FileText, Pencil, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "@/hooks/use-me";
 import { Badge } from "@/components/ui/badge";
 
 type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
 import { MarkInactiveDialog } from "./MarkInactiveDialog";
+import { TrabajadorEditDialog } from "./TrabajadorEditDialog";
 import { UploadDocumentoDialog } from "./UploadDocumentoDialog";
 
 interface Props {
@@ -37,6 +38,7 @@ export function TrabajadorRow({ trabajador, empresaCodigo, onChanged }: Props) {
   const canUpdate = me?.allowed_actions?.includes("trabajador:update") ?? false;
   const [markInactiveOpen, setMarkInactiveOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <>
@@ -66,6 +68,16 @@ export function TrabajadorRow({ trabajador, empresaCodigo, onChanged }: Props) {
         </td>
         <td className="px-4 py-3">
           <div className="flex items-center justify-end gap-1">
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                title="Editar trabajador"
+                className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-cehta-green/10 hover:text-cehta-green"
+              >
+                <Pencil className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            )}
             {canUpdate && (
               <button
                 type="button"
@@ -109,6 +121,12 @@ export function TrabajadorRow({ trabajador, empresaCodigo, onChanged }: Props) {
         trabajadorId={trabajador.trabajador_id}
         trabajadorNombre={trabajador.nombre_completo}
         onSuccess={onChanged}
+      />
+      <TrabajadorEditDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        trabajador={trabajador}
+        onSaved={onChanged}
       />
     </>
   );

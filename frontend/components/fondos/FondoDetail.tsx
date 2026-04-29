@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { X, ExternalLink, Mail, Linkedin } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useMe } from "@/hooks/use-me";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { EditButton } from "@/components/shared/edit-button";
+import { FondoEditDialog } from "./FondoEditDialog";
 import type { FondoRead } from "@/lib/api/schema";
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -20,10 +24,13 @@ interface Props {
 }
 
 export function FondoDetail({ fondoId, onClose }: Props) {
-  const { data, isLoading } = useApiQuery<FondoRead>(
+  const { data: me } = useMe();
+  const canEdit = me?.allowed_actions?.includes("fondo:update") ?? false;
+  const { data, isLoading, refetch } = useApiQuery<FondoRead>(
     ["fondo", String(fondoId)],
     `/fondos/${fondoId}`,
   );
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -34,18 +41,27 @@ export function FondoDetail({ fondoId, onClose }: Props) {
         aria-label="Cerrar"
       />
       <div className="relative z-10 flex h-full w-full max-w-md flex-col overflow-hidden bg-white shadow-card-hover">
-        <div className="flex items-center justify-between border-b border-hairline px-6 py-4">
+        <div className="flex items-center justify-between gap-2 border-b border-hairline px-6 py-4">
           <h3 className="font-display text-base font-semibold text-ink-900">
             {data?.nombre ?? "Detalle de fondo"}
           </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-ink-500 hover:bg-ink-100/40"
-            aria-label="Cerrar"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          <div className="flex items-center gap-2">
+            {canEdit && data && (
+              <EditButton
+                size="sm"
+                onClick={() => setEditOpen(true)}
+                label="Editar"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1 text-ink-500 hover:bg-ink-100/40"
+              aria-label="Cerrar"
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
@@ -164,6 +180,14 @@ export function FondoDetail({ fondoId, onClose }: Props) {
           )}
         </div>
       </div>
+      {data && (
+        <FondoEditDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          fondo={data}
+          onSaved={() => refetch()}
+        />
+      )}
     </div>
   );
 }

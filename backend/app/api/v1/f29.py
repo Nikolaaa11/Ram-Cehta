@@ -9,8 +9,13 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.infrastructure.repositories.integration_repository import (
+    IntegrationRepository,
+)
 from app.schemas.common import Page
 from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read, F29Update
+from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.dropbox_sync_service import DropboxSyncService
 
 router = APIRouter()
 
@@ -177,6 +182,43 @@ async def update_f29(
         )
     ).mappings().one()
     return F29Read.model_validate(dict(updated))
+
+
+@router.post("/sync-dropbox/{empresa_codigo}")
+async def sync_f29_dropbox(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
+    db: DBSession,
+    empresa_codigo: str,
+) -> dict:
+    """Escanea `Cehta Capital/01-Empresas/{empresa}/03-Legal/Declaraciones SII/F29/`
+    y crea entries en `core.f29_obligaciones` para cada PDF cuyo nombre
+    matchee `YYYY-MM` (interpretado como periodo tributario `MM_YY`).
+
+    Idempotente: match por `(empresa_codigo, periodo_tributario)` con
+    `ON CONFLICT DO NOTHING`. Setea fecha_vencimiento por default al día 12
+    del mes siguiente (regla F29 CL).
+    """
+    integration_repo = IntegrationRepository(db)
+    integration = await integration_repo.get_by_provider("dropbox")
+    if integration is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dropbox no conectado — conectar en /admin/integraciones",
+        )
+    try:
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+    except DropboxNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    service = DropboxSyncService(db, dbx)
+    result = await service.sync_f29(empresa_codigo)
+    await db.commit()
+    return result.to_dict()
 
 
 @router.delete(

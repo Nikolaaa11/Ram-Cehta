@@ -1,12 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Download, ExternalLink, X } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
+import { useMe } from "@/hooks/use-me";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EditButton } from "@/components/shared/edit-button";
 import { AlertBadge } from "./AlertBadge";
+import { LegalDocumentEditDialog } from "./LegalDocumentEditDialog";
 import { toCLP, toDate } from "@/lib/format";
 import type { LegalDocumentRead } from "@/lib/api/schema";
 
@@ -25,10 +29,13 @@ interface Props {
  */
 export function LegalDocumentDetail({ documentoId, onClose }: Props) {
   const { session } = useSession();
-  const { data, isLoading, error } = useApiQuery<LegalDocumentRead>(
+  const { data: me } = useMe();
+  const canEdit = me?.allowed_actions?.includes("legal:update") ?? false;
+  const { data, isLoading, error, refetch } = useApiQuery<LegalDocumentRead>(
     ["legal-document", String(documentoId)],
     `/legal/${documentoId}`,
   );
+  const [editOpen, setEditOpen] = useState(false);
 
   const downloadHref = `${API_BASE}/legal/${documentoId}/download`;
 
@@ -41,18 +48,27 @@ export function LegalDocumentDetail({ documentoId, onClose }: Props) {
         aria-label="Cerrar"
       />
       <aside className="relative z-10 flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-hairline bg-white shadow-card-hover">
-        <div className="flex items-center justify-between border-b border-hairline px-6 py-4">
+        <div className="flex items-center justify-between gap-2 border-b border-hairline px-6 py-4">
           <h2 className="text-base font-semibold tracking-tight text-ink-900">
             Detalle de documento
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-1 text-ink-500 transition-colors hover:bg-ink-100/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
-            aria-label="Cerrar"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
+          <div className="flex items-center gap-2">
+            {canEdit && data && (
+              <EditButton
+                size="sm"
+                onClick={() => setEditOpen(true)}
+                label="Editar"
+              />
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg p-1 text-ink-500 transition-colors hover:bg-ink-100/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+              aria-label="Cerrar"
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 px-6 py-5 space-y-4">
@@ -179,6 +195,14 @@ export function LegalDocumentDetail({ documentoId, onClose }: Props) {
           )}
         </div>
       </aside>
+      {data && (
+        <LegalDocumentEditDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          doc={data}
+          onSaved={() => refetch()}
+        />
+      )}
     </div>
   );
 }

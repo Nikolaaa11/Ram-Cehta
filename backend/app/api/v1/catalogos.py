@@ -1,12 +1,13 @@
 """Catalogos — devuelve todas las tablas lookup para poblar formularios del frontend."""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import CurrentUser, DBSession, require_scope
 from app.schemas.catalogo import CatalogosResponse, ConceptoDetallado
+from app.schemas.empresa import EmpresaRead, EmpresaUpdate
 
 router = APIRouter()
 
@@ -16,6 +17,86 @@ class EmpresaCatalogo(BaseModel):
     razon_social: str
     oc_prefix: str | None = None
     rut: str | None = None
+
+
+_EMPRESA_COLS = (
+    "empresa_id, codigo, razon_social, rut, giro, direccion, ciudad, "
+    "telefono, representante_legal, email_firmante, oc_prefix, activo"
+)
+
+
+@router.get(
+    "/empresas/{codigo}",
+    response_model=EmpresaRead,
+)
+async def get_empresa(
+    user: CurrentUser, db: DBSession, codigo: str
+) -> EmpresaRead:
+    """Detalle completo de una empresa (incluye campos fiscales/contacto)."""
+    row = (
+        await db.execute(
+            text(
+                f"SELECT {_EMPRESA_COLS} FROM core.empresas WHERE codigo = :codigo"
+            ),
+            {"codigo": codigo},
+        )
+    ).mappings().first()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Empresa no encontrada: {codigo}",
+        )
+    return EmpresaRead.model_validate(dict(row))
+
+
+@router.patch(
+    "/empresas/{codigo}",
+    response_model=EmpresaRead,
+    dependencies=[Depends(require_scope("empresa:update"))],
+)
+async def update_empresa(
+    user: CurrentUser,
+    db: DBSession,
+    codigo: str,
+    body: EmpresaUpdate,
+) -> EmpresaRead:
+    """Actualiza datos editables de la empresa. Solo admin (`empresa:update`)."""
+    row = (
+        await db.execute(
+            text("SELECT codigo FROM core.empresas WHERE codigo = :codigo"),
+            {"codigo": codigo},
+        )
+    ).first()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Empresa no encontrada: {codigo}",
+        )
+
+    fields = body.model_dump(exclude_unset=True)
+    if fields:
+        sets = [f"{k} = :{k}" for k in fields]
+        sets.append("updated_at = now()")
+        params = dict(fields)
+        params["codigo"] = codigo
+        await db.execute(
+            text(
+                f"UPDATE core.empresas SET {', '.join(sets)} "  # noqa: S608
+                "WHERE codigo = :codigo"
+            ),
+            params,
+        )
+        await db.commit()
+
+    updated = (
+        await db.execute(
+            text(
+                f"SELECT {_EMPRESA_COLS} FROM core.empresas WHERE codigo = :codigo"
+            ),
+            {"codigo": codigo},
+        )
+    ).mappings().one()
+    return EmpresaRead.model_validate(dict(updated))
 
 
 @router.get("/empresas", response_model=list[EmpresaCatalogo])

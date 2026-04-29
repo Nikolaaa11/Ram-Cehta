@@ -1,9 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
+import {
+  useDocumentAnalysis,
+  type AnalysisResult,
+} from "@/hooks/use-document-analysis";
 import { apiClient, ApiError } from "@/lib/api/client";
 import {
   Dialog,
@@ -11,6 +16,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { AiAnalysisPreview } from "@/components/shared/AiAnalysisPreview";
 import type {
   LegalCategoria,
   LegalDocumentCreate,
@@ -52,6 +58,62 @@ const initialForm = (empresaCodigo: string): LegalDocumentCreate => ({
   estado: "vigente",
 });
 
+/** Mapea el tipo detectado por el AI a una `LegalCategoria` válida. */
+function mapDetectedToCategoria(detected: string): LegalCategoria | null {
+  const m: Record<string, LegalCategoria> = {
+    contrato: "contrato",
+    factura: "otro",
+    f29: "declaracion_sii",
+    liquidacion: "otro",
+    trabajador_contrato: "contrato",
+  };
+  return m[detected] ?? null;
+}
+
+/** Aplica los campos extraídos al form, sin pisar lo que el usuario haya tocado. */
+function applyAnalysisToForm(
+  prev: LegalDocumentCreate,
+  result: AnalysisResult,
+): LegalDocumentCreate {
+  const f = result.fields as Record<string, unknown>;
+  const next: LegalDocumentCreate = { ...prev };
+
+  const cat = mapDetectedToCategoria(result.tipo_detectado);
+  if (cat && !prev.nombre) next.categoria = cat;
+
+  // Subcategoría inferida desde el tipo del LLM.
+  if (!prev.subcategoria) {
+    if (result.tipo_detectado === "trabajador_contrato")
+      next.subcategoria = "laboral";
+    else if (result.tipo_detectado === "factura")
+      next.subcategoria = "factura";
+    else if (result.tipo_detectado === "f29") next.subcategoria = "f29";
+  }
+
+  if (typeof f.contraparte === "string" && !prev.contraparte)
+    next.contraparte = f.contraparte;
+  if (typeof f.descripcion === "string" && !prev.descripcion)
+    next.descripcion = f.descripcion;
+  if (typeof f.fecha_inicio === "string" && !prev.fecha_vigencia_desde)
+    next.fecha_vigencia_desde = f.fecha_inicio;
+  if (typeof f.fecha_fin === "string" && !prev.fecha_vigencia_hasta)
+    next.fecha_vigencia_hasta = f.fecha_fin;
+  if (typeof f.fecha === "string" && !prev.fecha_emision)
+    next.fecha_emision = f.fecha;
+  if (typeof f.monto === "number" && prev.monto == null)
+    next.monto = f.monto;
+  if (typeof f.total === "number" && prev.monto == null) next.monto = f.total;
+  if (typeof f.moneda === "string" && (!prev.moneda || prev.moneda === "CLP"))
+    next.moneda = f.moneda;
+
+  // Auto-derivar `nombre` si está vacío y tenemos contraparte.
+  if (!prev.nombre && typeof f.contraparte === "string") {
+    next.nombre = `Contrato ${f.contraparte}`.slice(0, 200);
+  }
+
+  return next;
+}
+
 export function LegalDocumentCreateDialog({
   open,
   onOpenChange,
@@ -62,6 +124,44 @@ export function LegalDocumentCreateDialog({
   const [form, setForm] = useState<LegalDocumentCreate>(initialForm(empresaCodigo));
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const {
+    analyze,
+    analyzing,
+    result,
+    error: aiError,
+    reset: resetAi,
+  } = useDocumentAnalysis();
+
+  // Auto-trigger analysis cuando se selecciona archivo, con debounce 500ms.
+  useEffect(() => {
+    if (!file) {
+      resetAi();
+      return;
+    }
+    const handle = setTimeout(() => {
+      void analyze(file, "auto");
+    }, 500);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file]);
+
+  // Auto-aplicar si confidence ≥ 0.8 (Apple polish: el usuario igual puede editar).
+  useEffect(() => {
+    if (result && result.confidence >= 0.8) {
+      setForm((prev) => applyAnalysisToForm(prev, result));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [result?.tipo_detectado, result?.confidence]);
+
+  const closeDialog = (next: boolean) => {
+    onOpenChange(next);
+    if (!next) {
+      setForm(initialForm(empresaCodigo));
+      setFile(null);
+      setError(null);
+      resetAi();
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -111,9 +211,7 @@ export function LegalDocumentCreateDialog({
     onSuccess: () => {
       toast.success("Documento creado");
       onCreated();
-      onOpenChange(false);
-      setForm(initialForm(empresaCodigo));
-      setFile(null);
+      closeDialog(false);
     },
     onError: (err) => {
       setError(err instanceof ApiError ? err.detail : "Error al crear documento");
@@ -121,7 +219,7 @@ export function LegalDocumentCreateDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={closeDialog}>
       <DialogContent className="max-w-xl">
         <DialogTitle>Nuevo documento legal</DialogTitle>
         <DialogDescription>
@@ -141,6 +239,19 @@ export function LegalDocumentCreateDialog({
             <div className="rounded-lg border border-negative/20 bg-negative/5 px-3 py-2 text-xs text-negative">
               {error}
             </div>
+          )}
+
+          {(analyzing || result || aiError) && (
+            <AiAnalysisPreview
+              analyzing={analyzing}
+              error={aiError}
+              result={result}
+              onApply={
+                result && result.confidence < 0.8
+                  ? () => setForm((prev) => applyAnalysisToForm(prev, result))
+                  : undefined
+              }
+            />
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -250,10 +361,15 @@ export function LegalDocumentCreateDialog({
             </div>
 
             <div className="col-span-2">
-              <Label>Archivo (opcional, máx 25 MB)</Label>
+              <Label>
+                Archivo (opcional, máx 25 MB)
+                <span className="ml-2 inline-flex items-center gap-1 text-xs text-cehta-green">
+                  <Sparkles className="h-3 w-3" strokeWidth={2} /> auto-fill IA
+                </span>
+              </Label>
               <input
                 type="file"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 className="block w-full text-sm text-ink-700 file:mr-3 file:rounded-lg file:border-0 file:bg-ink-100/60 file:px-3 file:py-2 file:text-sm file:text-ink-900 hover:file:bg-ink-100"
               />
@@ -268,7 +384,7 @@ export function LegalDocumentCreateDialog({
           <div className="mt-4 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => onOpenChange(false)}
+              onClick={() => closeDialog(false)}
               className="rounded-xl px-4 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline hover:bg-ink-100/40"
             >
               Cancelar

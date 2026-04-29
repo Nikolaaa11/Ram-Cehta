@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { TrabajadorCreateDialog } from "@/components/empresa/TrabajadorCreateDialog";
 import { TrabajadorRow } from "@/components/empresa/TrabajadorRow";
+import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
 
 interface TrabajadorListItem {
   trabajador_id: number;
@@ -69,16 +70,23 @@ export default function TrabajadoresPage({
                   : "Cargando..."}
               </Surface.Subtitle>
             </div>
-            {canCreate && (
-              <button
-                type="button"
-                onClick={() => setCreateOpen(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors duration-150 ease-apple hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                Nuevo trabajador
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              <SyncDropboxButton
+                empresaCodigo={codigo}
+                resource="trabajadores"
+                onSynced={handleRefresh}
+              />
+              {canCreate && (
+                <button
+                  type="button"
+                  onClick={() => setCreateOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors duration-150 ease-apple hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
+                >
+                  <Plus className="h-4 w-4" strokeWidth={2} />
+                  Nuevo trabajador
+                </button>
+              )}
+            </div>
           </div>
         </Surface.Header>
 
