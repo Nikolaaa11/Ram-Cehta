@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CommandPaletteProvider } from "@/components/search/CommandPaletteProvider";
+import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -13,11 +14,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/login");
   }
 
+  // El auth check es server-side; el shell responsive es client (drawer toggle).
+  // En desktop (md+) el comportamiento es idéntico al original — sidebar al lado
+  // del main. En mobile (<md) el sidebar se oculta detrás de un hamburger.
   return (
-    <div className="flex min-h-screen bg-surface-muted">
-      <AppSidebar email={session.user.email ?? ""} />
-      <main className="flex-1 overflow-auto p-8">{children}</main>
+    <>
+      <MobileLayoutShell
+        sidebar={<AppSidebar email={session.user.email ?? ""} />}
+      >
+        {children}
+      </MobileLayoutShell>
       <CommandPaletteProvider />
-    </div>
+    </>
   );
 }
