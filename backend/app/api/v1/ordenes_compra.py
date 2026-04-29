@@ -9,6 +9,11 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.models.orden_compra import OrdenCompra
+from app.schemas.bulk import (
+    BulkItemError,
+    BulkUpdateEstadoRequest,
+    BulkUpdateResult,
+)
 from app.schemas.common import Page
 from app.schemas.orden_compra import (
     EstadoUpdateRequest,
@@ -217,3 +222,71 @@ async def update_estado(
         after={"estado": body.estado},
     )
     return _to_read(user, updated)
+
+
+@router.post("/bulk-update-estado", response_model=BulkUpdateResult)
+async def bulk_update_estado(
+    user: CurrentUser,
+    db: DBSession,
+    request: Request,
+    body: BulkUpdateEstadoRequest,
+) -> BulkUpdateResult:
+    """Cambio masivo de estado en hasta 200 OCs.
+
+    Reglas:
+    - Reusa la misma autorización por-OC que `PATCH /{oc_id}/estado` — si el
+      usuario no tiene permiso para el cambio en algún ID, ese ID falla y los
+      demás siguen.
+    - Cada cambio es una mutación independiente con su propio `audit_log`,
+      auditado bajo `action='bulk_update'` con `entity_label` que enumera
+      cuántos quedaron.
+    - El commit es uno solo al final — atómico por endpoint pero idempotente
+      por id (re-correr no re-aplica si el estado ya quedó).
+    """
+    repo = OrdenCompraRepository(db)
+    failed: list[BulkItemError] = []
+    succeeded = 0
+    _ESTADO_ACTION = {"pagada": "mark_paid", "anulada": "cancel", "parcial": "mark_paid"}
+    required_action = _ESTADO_ACTION.get(body.estado)
+
+    for oc_id in body.ids:
+        oc = await repo.get(oc_id)
+        if not oc:
+            failed.append(BulkItemError(id=oc_id, detail="not found"))
+            continue
+        if oc.estado == body.estado:
+            failed.append(BulkItemError(id=oc_id, detail="ya en ese estado"))
+            continue
+        allowed = _authz.allowed_actions_for_oc(user, oc.estado)
+        if not required_action or required_action not in allowed:
+            failed.append(
+                BulkItemError(id=oc_id, detail=f"sin permiso para {body.estado}")
+            )
+            continue
+        await repo.update_estado(oc, body.estado)
+        succeeded += 1
+
+    if succeeded:
+        await db.commit()
+        await audit_log(
+            db,
+            request,
+            user,
+            action="update",
+            entity_type="orden_compra",
+            entity_id=f"bulk:{succeeded}",
+            entity_label=f"{succeeded} OCs → {body.estado}",
+            summary=(
+                f"Bulk update estado={body.estado}: {succeeded} OCs ok, "
+                f"{len(failed)} fallaron"
+            ),
+            before=None,
+            after={"estado": body.estado, "ids": body.ids[:50]},
+        )
+
+    return BulkUpdateResult(
+        operation="update_estado",
+        requested=len(body.ids),
+        succeeded=succeeded,
+        failed=failed,
+    )

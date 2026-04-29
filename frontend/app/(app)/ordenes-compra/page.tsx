@@ -18,6 +18,8 @@ import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { toCLP, toDate } from "@/lib/format";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { useMe } from "@/hooks/use-me";
 import type { Page, OcListItem } from "@/lib/api/schema";
 
 type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
@@ -52,6 +54,7 @@ const ESTADOS = [
 ];
 
 const COLUMNS = [
+  "select",
   "N° OC",
   "Empresa",
   "Fecha",
@@ -59,6 +62,11 @@ const COLUMNS = [
   "Total",
   "Estado",
   "",
+];
+
+const OC_BULK_OPTIONS = [
+  { value: "pagada", label: "Marcar pagada" },
+  { value: "anulada", label: "Anular" },
 ];
 
 function TableSkeleton() {
@@ -81,6 +89,9 @@ function TableSkeleton() {
           <tbody className="divide-y divide-hairline">
             {Array.from({ length: 6 }).map((_, i) => (
               <tr key={i}>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-4 rounded" />
+                </td>
                 <td className="px-4 py-3">
                   <Skeleton className="h-4 w-24" />
                 </td>
@@ -113,6 +124,7 @@ function TableSkeleton() {
 
 export default function OrdenesCompraPage() {
   const { data: empresas = [] } = useCatalogoEmpresas();
+  const { data: me } = useMe();
   const [page, setPage] = useState(1);
   const [empresa, setEmpresa] = useState("");
   const [estado, setEstado] = useState("");
@@ -129,6 +141,26 @@ export default function OrdenesCompraPage() {
     ["ordenes-compra", String(page), empresa, estado],
     `/ordenes-compra?${params.toString()}`,
   );
+
+  // Bulk select — admin/finance pueden pagar/anular en masa.
+  const canBulk =
+    (me?.allowed_actions.includes("oc:mark_paid") ?? false) ||
+    (me?.allowed_actions.includes("oc:cancel") ?? false);
+  const items = data?.items ?? [];
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const toggleId = (id: number) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map((i) => i.oc_id)));
+  };
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
 
   const empresaItems = useMemo<ComboboxItem[]>(
     () => [
@@ -230,6 +262,19 @@ export default function OrdenesCompraPage() {
       {/* Loading state */}
       {isLoading && <TableSkeleton />}
 
+      {/* Bulk action bar — sticky cuando hay selección */}
+      {canBulk && selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          ids={Array.from(selectedIds)}
+          endpoint="/ordenes-compra/bulk-update-estado"
+          estados={OC_BULK_OPTIONS}
+          invalidateKeys={[["ordenes-compra", String(page), empresa, estado]]}
+          onClear={() => setSelectedIds(new Set())}
+          entityLabel={{ singular: "OC", plural: "OCs" }}
+        />
+      )}
+
       {/* Table / empty state */}
       {data && !isLoading && (
         <>
@@ -270,17 +315,49 @@ export default function OrdenesCompraPage() {
                             h === "Total" ? "text-right" : "text-left"
                           }`}
                         >
-                          {h}
+                          {h === "select" ? (
+                            canBulk ? (
+                              <input
+                                type="checkbox"
+                                aria-label="Seleccionar todas"
+                                checked={allSelected}
+                                ref={(el) => {
+                                  if (el) el.indeterminate = someSelected;
+                                }}
+                                onChange={toggleAll}
+                                className="h-4 w-4 cursor-pointer rounded border-hairline text-cehta-green focus:ring-cehta-green focus:ring-offset-0"
+                              />
+                            ) : null
+                          ) : (
+                            h
+                          )}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-hairline">
-                    {data.items.map((oc) => (
+                    {data.items.map((oc) => {
+                      const checked = selectedIds.has(oc.oc_id);
+                      return (
                       <tr
                         key={oc.oc_id}
-                        className="group transition-colors duration-150 hover:bg-ink-100/30"
+                        className={`group transition-colors duration-150 ${
+                          checked
+                            ? "bg-cehta-green/5 hover:bg-cehta-green/10"
+                            : "hover:bg-ink-100/30"
+                        }`}
                       >
+                        <td className="whitespace-nowrap px-4 py-3">
+                          {canBulk && (
+                            <input
+                              type="checkbox"
+                              aria-label={`Seleccionar OC ${oc.numero_oc}`}
+                              checked={checked}
+                              onChange={() => toggleId(oc.oc_id)}
+                              className="h-4 w-4 cursor-pointer rounded border-hairline text-cehta-green focus:ring-cehta-green focus:ring-offset-0"
+                            />
+                          )}
+                        </td>
                         <td className="whitespace-nowrap px-4 py-3 font-mono font-medium text-ink-900">
                           {oc.numero_oc}
                         </td>
@@ -329,7 +406,8 @@ export default function OrdenesCompraPage() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

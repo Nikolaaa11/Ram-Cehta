@@ -12,6 +12,11 @@ from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.integration_repository import (
     IntegrationRepository,
 )
+from app.schemas.bulk import (
+    BulkItemError,
+    BulkUpdateEstadoRequest,
+    BulkUpdateResult,
+)
 from app.schemas.common import Page
 from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read, F29Update
 from app.services.audit_service import audit_log
@@ -325,3 +330,71 @@ async def delete_f29(
         after=None,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/bulk-update-estado", response_model=BulkUpdateResult)
+async def bulk_update_estado_f29(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:update"))],
+    db: DBSession,
+    request: Request,
+    body: BulkUpdateEstadoRequest,
+) -> BulkUpdateResult:
+    """Cambio masivo de estado en hasta 200 F29.
+
+    Patrón calcado de OCs: chequea existencia + estado distinto, marca como
+    fallidos los que no aplican, commit único al final.
+    """
+    failed: list[BulkItemError] = []
+    succeeded = 0
+
+    for f29_id in body.ids:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT estado FROM core.f29_obligaciones WHERE f29_id = :id"
+                ),
+                {"id": f29_id},
+            )
+        ).first()
+        if not row:
+            failed.append(BulkItemError(id=f29_id, detail="not found"))
+            continue
+        if row[0] == body.estado:
+            failed.append(BulkItemError(id=f29_id, detail="ya en ese estado"))
+            continue
+        await db.execute(
+            text(
+                """
+                UPDATE core.f29_obligaciones
+                SET estado = :estado, updated_at = now()
+                WHERE f29_id = :id
+                """
+            ),
+            {"estado": body.estado, "id": f29_id},
+        )
+        succeeded += 1
+
+    if succeeded:
+        await db.commit()
+        await audit_log(
+            db,
+            request,
+            user,
+            action="update",
+            entity_type="f29",
+            entity_id=f"bulk:{succeeded}",
+            entity_label=f"{succeeded} F29 → {body.estado}",
+            summary=(
+                f"Bulk update estado={body.estado}: {succeeded} F29 ok, "
+                f"{len(failed)} fallaron"
+            ),
+            before=None,
+            after={"estado": body.estado, "ids": body.ids[:50]},
+        )
+
+    return BulkUpdateResult(
+        operation="update_estado",
+        requested=len(body.ids),
+        succeeded=succeeded,
+        failed=failed,
+    )

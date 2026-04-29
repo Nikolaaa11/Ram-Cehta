@@ -13,6 +13,7 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { F29RowActions } from "@/components/f29/F29RowActions";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
+import { BulkActionBar } from "@/components/shared/BulkActionBar";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, F29Read } from "@/lib/api/schema";
@@ -36,6 +37,7 @@ const ESTADO_VARIANT: Record<string, BadgeProps["variant"]> = {
 };
 
 const COLUMNS = [
+  { key: "select", label: "", align: "left" as const },
   { key: "empresa", label: "Empresa", align: "left" as const },
   { key: "periodo", label: "Período tributario", align: "left" as const },
   { key: "vencimiento", label: "Vencimiento", align: "left" as const },
@@ -43,6 +45,13 @@ const COLUMNS = [
   { key: "estado", label: "Estado", align: "left" as const },
   { key: "fecha_pago", label: "Fecha pago", align: "left" as const },
   { key: "acciones", label: "", align: "right" as const },
+];
+
+const BULK_ESTADO_OPTIONS = [
+  { value: "pagado", label: "Marcar pagado" },
+  { value: "vencido", label: "Marcar vencido" },
+  { value: "exento", label: "Marcar exento" },
+  { value: "pendiente", label: "Volver a pendiente" },
 ];
 
 function daysUntil(dateStr: string): number {
@@ -101,6 +110,9 @@ function TableSkeleton() {
           <tbody className="divide-y divide-hairline">
             {Array.from({ length: 6 }).map((_, i) => (
               <tr key={i}>
+                <td className="px-4 py-3">
+                  <Skeleton className="h-4 w-4 rounded" />
+                </td>
                 <td className="px-4 py-3">
                   <Skeleton className="h-4 w-20" />
                 </td>
@@ -164,6 +176,22 @@ export default function F29Page() {
   const canCreateF29 = me?.allowed_actions.includes("f29:create") ?? false;
   const canUpdateF29 = me?.allowed_actions.includes("f29:update") ?? false;
   const canDeleteF29 = me?.allowed_actions.includes("f29:delete") ?? false;
+
+  // Multi-select para bulk actions
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const toggleId = (id: number) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAll = () => {
+    if (selectedIds.size === items.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(items.map((i) => i.f29_id)));
+  };
+  const allSelected = items.length > 0 && selectedIds.size === items.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
 
   return (
     <div className="space-y-6">
@@ -283,6 +311,19 @@ export default function F29Page() {
         </Surface>
       )}
 
+      {/* Bulk action bar — sticky cuando hay selección */}
+      {canUpdateF29 && selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          ids={Array.from(selectedIds)}
+          endpoint="/f29/bulk-update-estado"
+          estados={BULK_ESTADO_OPTIONS}
+          invalidateKeys={[["f29", empresa, estado]]}
+          onClear={() => setSelectedIds(new Set())}
+          entityLabel={{ singular: "F29", plural: "F29" }}
+        />
+      )}
+
       {/* Table */}
       {!isLoading && !error && items.length > 0 && (
         <Surface padding="none" className="overflow-hidden">
@@ -298,7 +339,20 @@ export default function F29Page() {
                         c.align === "right" ? "text-right" : "text-left",
                       )}
                     >
-                      {c.label}
+                      {c.key === "select" && canUpdateF29 ? (
+                        <input
+                          type="checkbox"
+                          aria-label="Seleccionar todas"
+                          checked={allSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = someSelected;
+                          }}
+                          onChange={toggleAll}
+                          className="h-4 w-4 cursor-pointer rounded border-hairline text-cehta-green focus:ring-cehta-green focus:ring-offset-0"
+                        />
+                      ) : (
+                        c.label
+                      )}
                     </th>
                   ))}
                 </tr>
@@ -307,11 +361,28 @@ export default function F29Page() {
                 {items.map((f) => {
                   const variant = ESTADO_VARIANT[f.estado] ?? "neutral";
                   const monto = f.monto_a_pagar ? Number(f.monto_a_pagar) : null;
+                  const checked = selectedIds.has(f.f29_id);
                   return (
                     <tr
                       key={f.f29_id}
-                      className="transition-colors duration-150 hover:bg-ink-100/30"
+                      className={cn(
+                        "transition-colors duration-150",
+                        checked
+                          ? "bg-cehta-green/5 hover:bg-cehta-green/10"
+                          : "hover:bg-ink-100/30",
+                      )}
                     >
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {canUpdateF29 && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Seleccionar F29 ${f.f29_id}`}
+                            checked={checked}
+                            onChange={() => toggleId(f.f29_id)}
+                            className="h-4 w-4 cursor-pointer rounded border-hairline text-cehta-green focus:ring-cehta-green focus:ring-offset-0"
+                          />
+                        )}
+                      </td>
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-ink-900">
                         {f.empresa_codigo}
                       </td>
