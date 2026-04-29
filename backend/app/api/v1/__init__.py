@@ -6,6 +6,7 @@ from app.api.v1 import (
     audit,
     auth,
     avance,
+    bulk_import,
     calendar,
     catalogos,
     dashboard,
@@ -61,3 +62,4 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(exports.router, prefix="/exports", tags=["exports"])
 api_router.include_router(digest.router, prefix="/digest", tags=["digest"])
 api_router.include_router(saved_views.router, prefix="/me", tags=["saved-views"])
+api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk-import"])
