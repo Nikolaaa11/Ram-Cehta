@@ -226,20 +226,33 @@ def test_empresa_vacia_is_rejected() -> None:
     assert "empresa" in rej.reason.lower()
 
 
-def test_periodo_invalido_is_rejected() -> None:
-    _, rej = _validate_and_transform_row(
-        _row(periodo="04-2026"), VALID_EMPRESAS
+def test_periodo_invalido_se_autoderiva_de_fecha() -> None:
+    """V3 fase5: periodo inválido NO rechaza la fila — se auto-deriva del campo
+    `fecha`, que es la fuente de verdad. Si la fecha es válida, la fila pasa.
+    """
+    row, rej = _validate_and_transform_row(
+        _row(periodo="04-2026", fecha="2026-04-15"), VALID_EMPRESAS
     )
-    assert rej is not None
-    assert "periodo" in rej.reason.lower()
+    assert rej is None
+    assert row is not None
+    # Se auto-derivó al formato canónico MM_YY desde fecha=2026-04-15
+    assert row["periodo"] == "04_26"
 
 
-def test_periodo_inconsistente_con_anio_is_rejected() -> None:
-    _, rej = _validate_and_transform_row(
-        _row(periodo="04_27", anio="2026"), VALID_EMPRESAS
+def test_periodo_inconsistente_con_anio_se_autoderiva_de_fecha() -> None:
+    """V3 fase5: si periodo (04_27) y anio (2026) no concuerdan, la fecha gana.
+    En el dataset real Cehta, la columna AÑO tiene typos pero la fecha es
+    correcta — confiamos en la fecha y derivamos el periodo desde ahí.
+    """
+    row, rej = _validate_and_transform_row(
+        _row(periodo="04_27", anio="2026", fecha="2026-04-15"), VALID_EMPRESAS
     )
-    assert rej is not None
-    assert "periodo" in rej.reason.lower()
+    assert rej is None
+    assert row is not None
+    # anio se deriva de la fecha (2026), no del Excel (que también dice 2026 acá)
+    assert row["anio"] == 2026
+    # periodo se auto-deriva al formato canónico
+    assert row["periodo"] == "04_26"
 
 
 def test_abono_y_egreso_simultaneos_is_rejected() -> None:

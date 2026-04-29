@@ -18,12 +18,16 @@ from openpyxl import load_workbook
 
 
 def inspect(path: Path) -> None:
+    # Configurar UTF-8 en Windows
+    if sys.stdout.encoding != "utf-8":
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     if not path.exists():
-        print(f"❌ Archivo no encontrado: {path}")
+        print(f"[ERROR] Archivo no encontrado: {path}")
         sys.exit(1)
 
-    print(f"📂 Archivo: {path.name}")
-    print(f"📊 Tamaño: {path.stat().st_size / 1024:.1f} KB")
+    print(f"[FILE] Archivo: {path.name}")
+    print(f"[SIZE] Tamano: {path.stat().st_size / 1024:.1f} KB")
     print()
 
     wb = load_workbook(path, read_only=True, data_only=True)
@@ -33,7 +37,7 @@ def inspect(path: Path) -> None:
         rows = list(ws.iter_rows(values_only=True, max_row=10))
 
         if not rows:
-            print(f"📄 SHEET: {sheet_name!r} (vacía)")
+            print(f"[SHEET] {sheet_name!r} (vacia)")
             print()
             continue
 
@@ -51,7 +55,7 @@ def inspect(path: Path) -> None:
         # Re-iter with full sheet to count
         total_rows = ws.max_row or 0
 
-        print(f"📄 SHEET: {sheet_name!r}")
+        print(f"[SHEET] {sheet_name!r}")
         print(f"   filas totales: {total_rows}")
         print(f"   columnas: {ws.max_column}")
         if header is not None:
@@ -73,7 +77,7 @@ def inspect(path: Path) -> None:
                         )
                 print(f"     [fila {j}] {json.dumps(d, default=str, ensure_ascii=False)}")
         else:
-            print(f"   ⚠️ No se detectó header (sheet vacía o muy esparsa)")
+            print(f"   [WARN] No se detecto header (sheet vacia o muy esparsa)")
         print()
 
     wb.close()

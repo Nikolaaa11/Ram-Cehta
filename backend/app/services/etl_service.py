@@ -76,42 +76,114 @@ DATA_MADRE_FILENAME_SUBSTR = "data madre"
 HISTORICO_SUBFOLDER = "Histórico"
 
 RESUMEN_SHEET = "Resumen"
+"""Nombre canónico legacy. La hoja real puede llamarse 'CONSOLIDA' (formato
+del Excel madre Cehta) o 'Resumen'. La búsqueda en `parse_resumen_sheet`
+prueba ambos."""
+
+CONSOLIDA_SHEET_CANDIDATES: tuple[str, ...] = ("CONSOLIDA", "Consolida", "Resumen")
+"""Hojas a probar en orden. CONSOLIDA es el formato real del Excel Cehta
+(2.700+ filas con todas las empresas)."""
 
 # Mapeo de header del Excel → nombre lógico canónico (snake_case).
-# Aceptamos múltiples variantes para tolerar pequeñas diferencias en headers.
+# Aceptamos múltiples variantes para tolerar pequeñas diferencias en headers,
+# typos, prefijos/sufijos. La key se compara con .strip().casefold().
 HEADER_ALIASES: dict[str, str] = {
+    # Hipervínculo (link al respaldo) — Excel real usa "Hyper-Vinculo"
     "hipervinculo": "hipervinculo",
     "hipervínculo": "hipervinculo",
+    "hyper-vinculo": "hipervinculo",
+    "hyper-vínculo": "hipervinculo",
+    "hypervinculo": "hipervinculo",
+    # Fecha
     "fecha": "fecha",
+    # Descripción
     "descripcion": "descripcion",
     "descripción": "descripcion",
+    # Abonos / Egreso
     "abonos": "abonos",
     "abono": "abonos",
     "egreso": "egreso",
     "egresos": "egreso",
+    # Saldos
     "saldo contable": "saldo_contable",
     "saldo cehta": "saldo_cehta",
+    # Typo conocido en hoja TRONGKAI: "ALDO CEHTA" en vez de "SALDO CEHTA"
+    "aldo cehta": "saldo_cehta",
     "saldo corfo": "saldo_corfo",
+    # Conceptos
     "concepto general": "concepto_general",
     "concepto detallado": "concepto_detallado",
+    # Tipo egreso — Excel real usa "TIPO DE EGRESO"
     "tipo egreso": "tipo_egreso",
+    "tipo de egreso": "tipo_egreso",
+    # Fuentes
     "fuentes": "fuentes",
     "fuente": "fuentes",
+    # Proyecto / Banco
     "proyecto": "proyecto",
     "banco": "banco",
+    # Real / Proyectado
     "real/proyectado": "real_proyectado",
     "real proyectado": "real_proyectado",
     "real_proyectado": "real_proyectado",
+    # Año / Periodo
     "año": "anio",
     "anio": "anio",
     "ano": "anio",
     "periodo": "periodo",
+    # Empresa
     "empresa": "empresa",
+    # IVA — Excel real usa "IVA CRÉDITO FISCAL" / "IVA DÉBITO FISCAL"
     "iva crédito": "iva_credito",
     "iva credito": "iva_credito",
+    "iva crédito fiscal": "iva_credito",
+    "iva credito fiscal": "iva_credito",
     "iva débito": "iva_debito",
     "iva debito": "iva_debito",
+    "iva débito fiscal": "iva_debito",
+    "iva debito fiscal": "iva_debito",
 }
+
+
+# Normalización de nombres de empresa del Excel → código canónico en core.empresas.
+# El Excel viene con casing inconsistente y nombres expandidos; la app usa
+# códigos UPPER. C&E es el código de la hoja de CENERGY.
+EMPRESA_NAME_MAP: dict[str, str] = {
+    "csl": "CSL",
+    "trongkai": "TRONGKAI",
+    "revtech": "REVTECH",
+    "rho": "RHO",
+    "evoque": "EVOQUE",
+    "dte": "DTE",
+    "afis": "AFIS",
+    "fip_cehta": "FIP_CEHTA",
+    "fip cehta": "FIP_CEHTA",
+    "fip-cehta": "FIP_CEHTA",
+    "cenergy": "CENERGY",
+    "c&e": "CENERGY",
+    "c & e": "CENERGY",
+    "c y e": "CENERGY",
+}
+
+
+def normalize_empresa_codigo(value: Any) -> str | None:
+    """Normaliza el campo EMPRESA del Excel a un código canónico (UPPER).
+
+    "Trongkai" → "TRONGKAI"
+    "Evoque"   → "EVOQUE"
+    "C&E"      → "CENERGY"
+    None / ""  → None
+    """
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    key = s.casefold()
+    if key in EMPRESA_NAME_MAP:
+        return EMPRESA_NAME_MAP[key]
+    # Default: uppercase + underscores
+    return s.upper().replace(" ", "_")
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +315,11 @@ def _to_decimal(value: Any) -> Decimal | None:
 
 
 def _to_date(value: Any) -> date | None:
-    """Convierte celda a `date`. Acepta datetime, date, ISO string, dd/mm/yyyy."""
+    """Convierte celda a `date`. Acepta datetime, date, ISO string, dd/mm/yyyy.
+
+    El parser openpyxl + nuestro `_coerce_str` convierten datetime a
+    `2024-05-31T00:00:00` (ISO con T). Tenemos que aceptarlo.
+    """
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -253,6 +329,13 @@ def _to_date(value: Any) -> date | None:
     s = str(value).strip()
     if not s:
         return None
+    # Probamos primero `fromisoformat` que maneja '2024-05-31',
+    # '2024-05-31T00:00:00', '2024-05-31 00:00:00' y muchas variantes ISO.
+    try:
+        return datetime.fromisoformat(s).date()
+    except ValueError:
+        pass
+    # Fallback a formatos comunes no-ISO (es-CL).
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
         try:
             return datetime.strptime(s, fmt).date()
@@ -302,18 +385,27 @@ def parse_resumen_sheet(
     with io.BytesIO(content) as buf:
         wb = load_workbook(buf, read_only=True, data_only=True)
         try:
-            if RESUMEN_SHEET not in wb.sheetnames:
-                # Tolerancia: tomamos la primera hoja si no hay 'Resumen' exacto.
-                sheet_name = next(
-                    (
-                        s
-                        for s in wb.sheetnames
-                        if s.casefold() == RESUMEN_SHEET.casefold()
-                    ),
-                    wb.sheetnames[0],
-                )
-            else:
-                sheet_name = RESUMEN_SHEET
+            # Buscamos la hoja en orden de prioridad: CONSOLIDA (formato real
+            # del Excel Cehta con todas las empresas) → Resumen (legacy) →
+            # primera hoja con datos.
+            sheet_name: str | None = None
+            sheet_names_lower = {s.casefold(): s for s in wb.sheetnames}
+            for candidate in CONSOLIDA_SHEET_CANDIDATES:
+                if candidate in wb.sheetnames:
+                    sheet_name = candidate
+                    break
+                if candidate.casefold() in sheet_names_lower:
+                    sheet_name = sheet_names_lower[candidate.casefold()]
+                    break
+
+            if sheet_name is None:
+                # Last resort: primera hoja con >100 filas (asumimos data sheet).
+                for s in wb.sheetnames:
+                    if (wb[s].max_row or 0) > 100:
+                        sheet_name = s
+                        break
+                if sheet_name is None:
+                    sheet_name = wb.sheetnames[0]
 
             ws = wb[sheet_name]
             rows_iter = ws.iter_rows(values_only=True)
@@ -374,8 +466,9 @@ def _validate_and_transform_row(
     if fecha is None:
         return None, RejectedRowDTO(raw.source_row_num, "fecha vacía o inválida", raw_payload)
 
-    # 2) Empresa
-    empresa_codigo = (d.get("empresa") or "").strip().upper()
+    # 2) Empresa — normalizar usando el mapeo (Evoque→EVOQUE, C&E→CENERGY, etc.)
+    empresa_raw = d.get("empresa")
+    empresa_codigo = normalize_empresa_codigo(empresa_raw)
     if not empresa_codigo:
         return None, RejectedRowDTO(
             raw.source_row_num, "empresa vacía", raw_payload
@@ -383,29 +476,34 @@ def _validate_and_transform_row(
     if empresa_codigo not in valid_empresas:
         return None, RejectedRowDTO(
             raw.source_row_num,
-            f"empresa '{empresa_codigo}' no existe en core.empresas",
+            f"empresa '{empresa_codigo}' (raw: {empresa_raw!r}) no existe en core.empresas",
             raw_payload,
         )
 
-    # Año (puede venir como '2025', 2025, '2025.0' por openpyxl)
+    # 3) Periodo del Excel (puede tener whitespace tras pegar de Excel)
+    periodo = (d.get("periodo") or "").strip()
+
+    # 4) Año — derivamos de la fecha (más confiable que la columna AÑO del Excel,
+    # que en este dataset tiene typos: filas con fecha=2025 pero AÑO=2024).
+    # Si la columna AÑO está vacía, también usamos fecha.year.
     anio_raw = d.get("anio")
-    anio: int | None = None
+    anio_excel: int | None = None
     if anio_raw is not None:
         try:
-            anio = int(float(str(anio_raw).strip()))
+            anio_excel = int(float(str(anio_raw).strip()))
         except (ValueError, TypeError):
-            anio = None
-    if anio is None:
-        anio = fecha.year  # fallback razonable
+            anio_excel = None
 
-    # 3+4) Periodo válido y consistente
-    periodo = (d.get("periodo") or "").strip()
-    if not _is_valid_periodo(periodo, anio):
-        return None, RejectedRowDTO(
-            raw.source_row_num,
-            f"periodo '{periodo}' inválido o inconsistente con anio={anio}",
-            raw_payload,
-        )
+    # Authoritative: año de la fecha. anio_excel solo se usa para warning.
+    anio = fecha.year
+
+    # 5) Periodo: si viene vacío o inválido, auto-derivar de la fecha.
+    # El periodo en el Excel es el "mes contable" pero en general coincide
+    # con el mes de la fecha. Si difiere o falta, usamos la fecha como
+    # autoridad — es más confiable que celdas mal pegadas.
+    expected_periodo = f"{fecha.month:02d}_{fecha.year % 100:02d}"
+    if not periodo or not _is_valid_periodo(periodo, anio):
+        periodo = expected_periodo
 
     # 5) Abono y egreso
     abono = _to_decimal(d.get("abonos")) or Decimal("0")
