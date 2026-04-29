@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -25,6 +25,7 @@ from app.schemas.fondo import (
     FondoUpdate,
     ImportFromDropboxResponse,
 )
+from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 
 router = APIRouter()
@@ -92,11 +93,25 @@ async def fondos_stats(
 async def create_fondo(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     body: FondoCreate,
 ) -> FondoRead:
     fondo = await FondoRepository(db).create(body)
     await db.commit()
-    return FondoRead.model_validate(fondo)
+    created = FondoRead.model_validate(fondo)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="fondo",
+        entity_id=str(created.fondo_id),
+        entity_label=created.nombre,
+        summary=f"Fondo '{created.nombre}' creado",
+        before=None,
+        after=created.model_dump(mode="json"),
+    )
+    return created
 
 
 @router.get(
@@ -125,6 +140,7 @@ async def get_fondo(
 async def update_fondo(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     fondo_id: int,
     body: FondoUpdate,
 ) -> FondoRead:
@@ -134,9 +150,23 @@ async def update_fondo(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Fondo no encontrado"
         )
+    before = FondoRead.model_validate(fondo).model_dump(mode="json")
     updated = await repo.update(fondo, body)
     await db.commit()
-    return FondoRead.model_validate(updated)
+    refreshed = FondoRead.model_validate(updated)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="fondo",
+        entity_id=str(fondo_id),
+        entity_label=refreshed.nombre,
+        summary=f"Fondo '{refreshed.nombre}' editado",
+        before=before,
+        after=refreshed.model_dump(mode="json"),
+    )
+    return refreshed
 
 
 @router.delete(
@@ -148,13 +178,28 @@ async def update_fondo(
 async def delete_fondo(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     fondo_id: int,
 ) -> Response:
     repo = FondoRepository(db)
     fondo = await repo.get(fondo_id)
     if fondo is not None:
+        before = FondoRead.model_validate(fondo).model_dump(mode="json")
+        nombre = before.get("nombre")
         await repo.delete(fondo)
         await db.commit()
+        await audit_log(
+            db,
+            request,
+            user,
+            action="delete",
+            entity_type="fondo",
+            entity_id=str(fondo_id),
+            entity_label=nombre,
+            summary=f"Fondo '{nombre}' eliminado",
+            before=before,
+            after=None,
+        )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

@@ -15,6 +15,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     status,
 )
@@ -36,6 +37,7 @@ from app.schemas.legal import (
     LegalDocumentRead,
     LegalDocumentUpdate,
 )
+from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
 
@@ -98,12 +100,26 @@ async def list_legal(
 async def create_legal(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     body: LegalDocumentCreate,
 ) -> LegalDocumentRead:
     repo = LegalRepository(db)
     doc = await repo.create(body, uploaded_by=user.sub)
     await db.commit()
-    return LegalDocumentRead.model_validate(doc)
+    created = LegalDocumentRead.model_validate(doc)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="legal_document",
+        entity_id=str(created.documento_id),
+        entity_label=created.nombre,
+        summary=f"Documento legal '{created.nombre}' creado para {body.empresa_codigo}",
+        before=None,
+        after=created.model_dump(mode="json"),
+    )
+    return created
 
 
 @router.get(
@@ -148,6 +164,7 @@ async def get_legal(
 async def update_legal(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     documento_id: int,
     body: LegalDocumentUpdate,
 ) -> LegalDocumentRead:
@@ -157,9 +174,23 @@ async def update_legal(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
         )
+    before = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
     updated = await repo.update(doc, body)
     await db.commit()
-    return LegalDocumentRead.model_validate(updated)
+    refreshed = LegalDocumentRead.model_validate(updated)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="legal_document",
+        entity_id=str(documento_id),
+        entity_label=refreshed.nombre,
+        summary=f"Documento legal '{refreshed.nombre}' editado",
+        before=before,
+        after=refreshed.model_dump(mode="json"),
+    )
+    return refreshed
 
 
 @router.delete(
@@ -171,6 +202,7 @@ async def update_legal(
 async def delete_legal(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     documento_id: int,
 ) -> Response:
     """Soft delete: pasa el documento a estado=cancelado.
@@ -181,8 +213,22 @@ async def delete_legal(
     doc = await repo.get(documento_id)
     if doc is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+    before = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
+    nombre = before.get("nombre")
     await repo.soft_delete(doc)
     await db.commit()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="delete",
+        entity_type="legal_document",
+        entity_id=str(documento_id),
+        entity_label=nombre,
+        summary=f"Documento legal '{nombre}' cancelado (soft-delete)",
+        before=before,
+        after={"estado": "cancelado"},
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -247,6 +293,7 @@ async def upload_legal(
 async def sync_legal_dropbox(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     empresa_codigo: str,
 ) -> dict:
     """Escanea `Cehta Capital/01-Empresas/{empresa}/03-Legal/` recursivamente
@@ -271,7 +318,20 @@ async def sync_legal_dropbox(
     service = DropboxSyncService(db, dbx)
     result = await service.sync_legal(empresa_codigo)
     await db.commit()
-    return result.to_dict()
+    payload = result.to_dict()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="sync",
+        entity_type="legal_batch",
+        entity_id=empresa_codigo,
+        entity_label=empresa_codigo,
+        summary=f"Sync legal desde Dropbox para {empresa_codigo}",
+        before=None,
+        after=payload,
+    )
+    return payload
 
 
 @router.get(

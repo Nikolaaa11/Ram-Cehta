@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -18,6 +18,7 @@ from app.schemas.orden_compra import (
     OrdenCompraRead,
     OrdenCompraUpdate,
 )
+from app.services.audit_service import audit_log
 from app.services.authorization_service import AuthorizationService
 
 router = APIRouter()
@@ -89,6 +90,7 @@ async def list_ocs(
 async def create_oc(
     user: Annotated[AuthenticatedUser, Depends(require_scope("oc:create"))],
     db: DBSession,
+    request: Request,
     body: OrdenCompraCreate,
 ) -> OrdenCompraRead:
     repo = OrdenCompraRepository(db)
@@ -102,6 +104,19 @@ async def create_oc(
     oc = await repo.get(oc.oc_id)  # re-fetch para cargar items via selectin
     if not oc:
         raise HTTPException(status_code=500, detail="Error al recuperar OC creada")
+    after = _to_read(user, oc).model_dump(mode="json")
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="orden_compra",
+        entity_id=str(oc.oc_id),
+        entity_label=oc.numero_oc,
+        summary=f"OC {oc.numero_oc} creada para {oc.empresa_codigo}",
+        before=None,
+        after=after,
+    )
     return _to_read(user, oc)
 
 
@@ -121,6 +136,7 @@ _OC_EDITABLE_ESTADOS = {"emitida", "parcial"}
 async def update_oc(
     user: Annotated[AuthenticatedUser, Depends(require_scope("oc:update"))],
     db: DBSession,
+    request: Request,
     oc_id: int,
     body: OrdenCompraUpdate,
 ) -> OrdenCompraRead:
@@ -134,12 +150,26 @@ async def update_oc(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo OCs en estado 'emitida' o 'parcial' son editables",
         )
+    before = _to_read(user, oc).model_dump(mode="json")
     updated = await repo.update_fields(oc, body)
     await db.commit()
     # re-fetch para refrescar items via selectin
     refreshed = await repo.get(oc_id)
     if not refreshed:  # pragma: no cover — invariant
         raise HTTPException(status_code=500, detail="Error al recuperar OC editada")
+    after = _to_read(user, refreshed).model_dump(mode="json")
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=refreshed.numero_oc,
+        summary=f"OC {refreshed.numero_oc} editada",
+        before=before,
+        after=after,
+    )
     return _to_read(user, refreshed)
 
 
@@ -147,6 +177,7 @@ async def update_oc(
 async def update_estado(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     oc_id: int,
     body: EstadoUpdateRequest,
 ) -> OrdenCompraRead:
@@ -164,6 +195,25 @@ async def update_estado(
             detail=f"No tienes permiso para cambiar estado a '{body.estado}'",
         )
 
+    estado_before = oc.estado
     updated = await repo.update_estado(oc, body.estado)
     await db.commit()
+    # `anulada` mapea a 'reject', el resto a 'approve' / 'update' según semántica.
+    audit_action = (
+        "reject" if body.estado == "anulada"
+        else "approve" if body.estado == "pagada"
+        else "update"
+    )
+    await audit_log(
+        db,
+        request,
+        user,
+        action=audit_action,
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=updated.numero_oc,
+        summary=f"OC {updated.numero_oc}: {estado_before} -> {body.estado}",
+        before={"estado": estado_before},
+        after={"estado": body.estado},
+    )
     return _to_read(user, updated)

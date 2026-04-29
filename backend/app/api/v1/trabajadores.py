@@ -15,6 +15,7 @@ from fastapi import (
     Form,
     HTTPException,
     Query,
+    Request,
     UploadFile,
     status,
 )
@@ -35,6 +36,7 @@ from app.schemas.trabajador import (
     TrabajadorRead,
     TrabajadorUpdate,
 )
+from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.trabajador_service import TrabajadorService
@@ -97,6 +99,7 @@ async def list_trabajadores(
 async def create_trabajador(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     body: TrabajadorCreate,
 ) -> TrabajadorRead:
     repo = TrabajadorRepository(db)
@@ -109,7 +112,20 @@ async def create_trabajador(
     service = await _build_service(db)
     trabajador = await service.create_with_dropbox(body)
     await db.commit()
-    return TrabajadorRead.model_validate(trabajador)
+    created = TrabajadorRead.model_validate(trabajador)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="trabajador",
+        entity_id=str(created.trabajador_id),
+        entity_label=created.nombre_completo,
+        summary=f"Trabajador {created.nombre_completo} creado en {body.empresa_codigo}",
+        before=None,
+        after=created.model_dump(mode="json"),
+    )
+    return created
 
 
 @router.get(
@@ -139,6 +155,7 @@ async def get_trabajador(
 async def update_trabajador(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     trabajador_id: int,
     body: TrabajadorUpdate,
 ) -> TrabajadorRead:
@@ -148,9 +165,23 @@ async def update_trabajador(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Trabajador no encontrado"
         )
+    before = TrabajadorRead.model_validate(trabajador).model_dump(mode="json")
     updated = await repo.update(trabajador, body)
     await db.commit()
-    return TrabajadorRead.model_validate(updated)
+    refreshed = TrabajadorRead.model_validate(updated)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="trabajador",
+        entity_id=str(trabajador_id),
+        entity_label=refreshed.nombre_completo,
+        summary=f"Trabajador {refreshed.nombre_completo} editado",
+        before=before,
+        after=refreshed.model_dump(mode="json"),
+    )
+    return refreshed
 
 
 @router.post(
@@ -190,6 +221,7 @@ async def mark_inactive(
 async def delete_trabajador(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     trabajador_id: int,
 ) -> Response:
     """Hard delete del trabajador (cascade borra documentos en DB).
@@ -199,8 +231,22 @@ async def delete_trabajador(
     trabajador = await repo.get(trabajador_id)
     if trabajador is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+    before = TrabajadorRead.model_validate(trabajador).model_dump(mode="json")
+    label = before.get("nombre_completo")
     await db.delete(trabajador)
     await db.commit()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="delete",
+        entity_type="trabajador",
+        entity_id=str(trabajador_id),
+        entity_label=label,
+        summary=f"Trabajador {label} eliminado",
+        before=before,
+        after=None,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -293,6 +339,7 @@ async def download_documento(
 async def sync_trabajadores_dropbox(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     empresa_codigo: str,
 ) -> dict:
     """Escanea `Cehta Capital/01-Empresas/{empresa}/02-Trabajadores/Activos/`
@@ -325,7 +372,20 @@ async def sync_trabajadores_dropbox(
     service = DropboxSyncService(db, dbx)
     result = await service.sync_trabajadores(empresa_codigo)
     await db.commit()
-    return result.to_dict()
+    payload = result.to_dict()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="sync",
+        entity_type="trabajador_batch",
+        entity_id=empresa_codigo,
+        entity_label=empresa_codigo,
+        summary=f"Sync trabajadores desde Dropbox para {empresa_codigo}",
+        before=None,
+        after=payload,
+    )
+    return payload
 
 
 @router.delete(

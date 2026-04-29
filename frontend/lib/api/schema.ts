@@ -391,8 +391,133 @@ export interface FondoStats {
   por_estado: Record<string, number>;
 }
 
+// ─── Notifications Inbox (V3 fase 8) ─────────────────────────────────────────
+
+export type NotificationTipo =
+  | "f29_due"
+  | "contrato_due"
+  | "oc_pending"
+  | "legal_due"
+  | "system"
+  | "mention";
+
+export type NotificationSeverity = "info" | "warning" | "critical";
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  tipo: NotificationTipo | string;
+  severity: NotificationSeverity | string;
+  title: string;
+  body: string;
+  link?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
+  read_at?: string | null;
+  created_at: string;
+}
+
+export interface UnreadCount {
+  unread: number;
+}
+
+export interface GenerateAlertsReport {
+  f29_due: number;
+  contrato_due: number;
+  oc_pending: number;
+  total: number;
+  errores: string[];
+}
+
 // ─── Catálogos ────────────────────────────────────────────────────────────────
 
 export type CatalogosResponse = components["schemas"]["CatalogosResponse"];
 export type ConceptoDetallado = components["schemas"]["ConceptoDetallado"];
 export type EmpresaCatalogo = components["schemas"]["EmpresaCatalogo"];
+
+// ─── Búsqueda global (Cmd+K) ──────────────────────────────────────────────────
+// Definidos a mano hasta el próximo `npm run gen:types`. Mantienen contrato
+// 1:1 con `app.schemas.search` (backend).
+
+export type SearchEntityType =
+  | "empresa"
+  | "orden_compra"
+  | "proveedor"
+  | "f29"
+  | "trabajador"
+  | "legal_document"
+  | "fondo"
+  | "suscripcion";
+
+export interface SearchHit {
+  entity_type: SearchEntityType;
+  entity_id: string;
+  title: string;
+  subtitle?: string | null;
+  badge?: string | null;
+  link: string;
+  score?: number;
+}
+
+export interface SearchResponse {
+  query: string;
+  total: number;
+  by_entity: Partial<Record<SearchEntityType, SearchHit[]>>;
+}
+
+// ─── Exports a Excel ──────────────────────────────────────────────────────────
+// El endpoint devuelve binary; no hay schema TS más allá del nombre de entidad.
+export type ExportEntityType =
+  | "ordenes_compra"
+  | "f29"
+  | "proveedores"
+  | "trabajadores"
+  | "legal_documents"
+  | "movimientos"
+  | "suscripciones"
+  | "fondos";
+
+// ─── Audit Log (V3 fase 8 — per-action audit trail) ──────────────────────────
+
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "approve"
+  | "reject"
+  | "sync"
+  | "upload"
+  | "other";
+
+export type AuditEntityType =
+  | "orden_compra"
+  | "f29"
+  | "f29_batch"
+  | "legal_document"
+  | "legal_batch"
+  | "trabajador"
+  | "trabajador_batch"
+  | "empresa"
+  | "suscripcion"
+  | "fondo"
+  | "proveedor"
+  | string; // tolerante a entity types nuevos sin re-deployar tipos.
+
+export interface AuditLogList {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  action: AuditAction | string;
+  entity_type: AuditEntityType;
+  entity_id: string;
+  entity_label: string | null;
+  summary: string;
+  ip: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface AuditLogRead extends AuditLogList {
+  diff_before: Record<string, unknown> | null;
+  diff_after: Record<string, unknown> | null;
+}

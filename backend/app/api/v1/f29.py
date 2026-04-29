@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from sqlalchemy import text
 
@@ -14,6 +14,7 @@ from app.infrastructure.repositories.integration_repository import (
 )
 from app.schemas.common import Page
 from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read, F29Update
+from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
 
@@ -72,6 +73,7 @@ async def list_f29(
 async def create_f29(
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
     db: DBSession,
+    request: Request,
     body: F29Create,
 ) -> F29Read:
     result = await db.execute(
@@ -103,13 +105,27 @@ async def create_f29(
             {"id": f29_id},
         )
     ).mappings().one()
-    return F29Read.model_validate(dict(row))
+    created = F29Read.model_validate(dict(row))
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="f29",
+        entity_id=str(f29_id),
+        entity_label=f"{body.empresa_codigo}/{body.periodo_tributario}",
+        summary=f"F29 {body.empresa_codigo} {body.periodo_tributario} creada",
+        before=None,
+        after=created.model_dump(mode="json"),
+    )
+    return created
 
 
 @router.patch("/{f29_id}/estado", response_model=F29Read)
 async def update_f29_estado(
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:update"))],
     db: DBSession,
+    request: Request,
     f29_id: int,
     body: F29EstadoUpdate,
 ) -> F29Read:
@@ -121,6 +137,7 @@ async def update_f29_estado(
     ).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="F29 no encontrado")
+    before = F29Read.model_validate(dict(row)).model_dump(mode="json")
 
     await db.execute(
         text("""
@@ -141,13 +158,27 @@ async def update_f29_estado(
             {"id": f29_id},
         )
     ).mappings().one()
-    return F29Read.model_validate(dict(updated))
+    refreshed = F29Read.model_validate(dict(updated))
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="f29",
+        entity_id=str(f29_id),
+        entity_label=f"{refreshed.empresa_codigo}/{refreshed.periodo_tributario}",
+        summary=f"F29 estado: {before['estado']} -> {body.estado}",
+        before=before,
+        after=refreshed.model_dump(mode="json"),
+    )
+    return refreshed
 
 
 @router.patch("/{f29_id}", response_model=F29Read)
 async def update_f29(
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:update"))],
     db: DBSession,
+    request: Request,
     f29_id: int,
     body: F29Update,
 ) -> F29Read:
@@ -167,6 +198,8 @@ async def update_f29(
         # nada que actualizar — retornar el actual
         return F29Read.model_validate(dict(row))
 
+    before = F29Read.model_validate(dict(row)).model_dump(mode="json")
+
     sets: list[str] = [f"{k} = :{k}" for k in fields]
     sets.append("updated_at = now()")
     sql = f"UPDATE core.f29_obligaciones SET {', '.join(sets)} WHERE f29_id = :id"
@@ -181,13 +214,27 @@ async def update_f29(
             {"id": f29_id},
         )
     ).mappings().one()
-    return F29Read.model_validate(dict(updated))
+    refreshed = F29Read.model_validate(dict(updated))
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="f29",
+        entity_id=str(f29_id),
+        entity_label=f"{refreshed.empresa_codigo}/{refreshed.periodo_tributario}",
+        summary=f"F29 {refreshed.empresa_codigo}/{refreshed.periodo_tributario} editado",
+        before=before,
+        after=refreshed.model_dump(mode="json"),
+    )
+    return refreshed
 
 
 @router.post("/sync-dropbox/{empresa_codigo}")
 async def sync_f29_dropbox(
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
     db: DBSession,
+    request: Request,
     empresa_codigo: str,
 ) -> dict:
     """Escanea `Cehta Capital/01-Empresas/{empresa}/03-Legal/Declaraciones SII/F29/`
@@ -218,7 +265,20 @@ async def sync_f29_dropbox(
     service = DropboxSyncService(db, dbx)
     result = await service.sync_f29(empresa_codigo)
     await db.commit()
-    return result.to_dict()
+    payload = result.to_dict()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="sync",
+        entity_type="f29_batch",
+        entity_id=empresa_codigo,
+        entity_label=empresa_codigo,
+        summary=f"Sync F29 desde Dropbox para {empresa_codigo}",
+        before=None,
+        after=payload,
+    )
+    return payload
 
 
 @router.delete(
@@ -227,9 +287,18 @@ async def sync_f29_dropbox(
 async def delete_f29(
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:delete"))],
     db: DBSession,
+    request: Request,
     f29_id: int,
 ) -> Response:
     """Hard-delete (admin only)."""
+    row = (
+        await db.execute(
+            text(f"SELECT {_F29_COLS} FROM core.f29_obligaciones WHERE f29_id = :id"),
+            {"id": f29_id},
+        )
+    ).mappings().first()
+    before = F29Read.model_validate(dict(row)).model_dump(mode="json") if row else None
+
     result = await db.execute(
         text("DELETE FROM core.f29_obligaciones WHERE f29_id = :id"),
         {"id": f29_id},
@@ -238,4 +307,21 @@ async def delete_f29(
     if rowcount == 0:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="F29 no encontrado")
     await db.commit()
+    label = (
+        f"{before['empresa_codigo']}/{before['periodo_tributario']}"
+        if before
+        else None
+    )
+    await audit_log(
+        db,
+        request,
+        user,
+        action="delete",
+        entity_type="f29",
+        entity_id=str(f29_id),
+        entity_label=label,
+        summary=f"F29 id={f29_id} eliminado",
+        before=before,
+        after=None,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -11,6 +11,7 @@ import { Cloud } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { EditButton } from "@/components/shared/edit-button";
+import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { EmpresaEditDialog } from "./EmpresaEditDialog";
 import { SyncDropboxButton } from "./SyncDropboxButton";
 
@@ -51,10 +52,14 @@ export function EmpresaActions({ codigo }: Props) {
   );
 
   const showSyncRoot = canSyncTrabajador || canSyncLegal || canSyncF29;
-  if (!canEdit && !showSyncRoot) return null;
+  const showAudit = me?.allowed_actions?.includes("audit:read") ?? false;
+  if (!canEdit && !showSyncRoot && !showAudit) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
+      {showAudit && (
+        <EntityHistoryDrawer entityType="empresa" entityId={codigo} />
+      )}
       {canEdit && (
         <EditButton onClick={() => setEditOpen(true)} label="Editar empresa" />
       )}

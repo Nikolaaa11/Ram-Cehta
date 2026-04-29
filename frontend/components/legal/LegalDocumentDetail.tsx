@@ -9,6 +9,7 @@ import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EditButton } from "@/components/shared/edit-button";
+import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { AlertBadge } from "./AlertBadge";
 import { LegalDocumentEditDialog } from "./LegalDocumentEditDialog";
 import { toCLP, toDate } from "@/lib/format";
@@ -53,6 +54,10 @@ export function LegalDocumentDetail({ documentoId, onClose }: Props) {
             Detalle de documento
           </h2>
           <div className="flex items-center gap-2">
+            <EntityHistoryDrawer
+              entityType="legal_document"
+              entityId={String(documentoId)}
+            />
             {canEdit && data && (
               <EditButton
                 size="sm"

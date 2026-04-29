@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 
 from app.api.deps import DBSession, require_scope
@@ -20,6 +20,7 @@ from app.schemas.suscripcion import (
     SuscripcionResumen,
     SuscripcionUpdate,
 )
+from app.services.audit_service import audit_log
 
 router = APIRouter()
 
@@ -46,18 +47,33 @@ async def list_suscripciones(
 async def create_suscripcion(
     user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:create"))],
     db: DBSession,
+    request: Request,
     body: SuscripcionCreate,
 ) -> SuscripcionRead:
     repo = SuscripcionRepository(db)
     obj = await repo.create(body)
     await db.commit()
-    return SuscripcionRead.model_validate(obj)
+    created = SuscripcionRead.model_validate(obj)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="suscripcion",
+        entity_id=str(created.suscripcion_id),
+        entity_label=str(created.suscripcion_id),
+        summary=f"Suscripción {created.suscripcion_id} creada",
+        before=None,
+        after=created.model_dump(mode="json"),
+    )
+    return created
 
 
 @router.patch("/{suscripcion_id}", response_model=SuscripcionRead)
 async def update_suscripcion(
     user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:update"))],
     db: DBSession,
+    request: Request,
     suscripcion_id: int,
     body: SuscripcionUpdate,
 ) -> SuscripcionRead:
@@ -69,9 +85,23 @@ async def update_suscripcion(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Suscripción no encontrada",
         )
+    before = SuscripcionRead.model_validate(obj).model_dump(mode="json")
     updated = await repo.update(obj, body)
     await db.commit()
-    return SuscripcionRead.model_validate(updated)
+    refreshed = SuscripcionRead.model_validate(updated)
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="suscripcion",
+        entity_id=str(suscripcion_id),
+        entity_label=str(suscripcion_id),
+        summary=f"Suscripción {suscripcion_id} editada",
+        before=before,
+        after=refreshed.model_dump(mode="json"),
+    )
+    return refreshed
 
 
 @router.delete(
@@ -82,13 +112,27 @@ async def update_suscripcion(
 async def delete_suscripcion(
     user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:delete"))],
     db: DBSession,
+    request: Request,
     suscripcion_id: int,
 ) -> Response:
     repo = SuscripcionRepository(db)
     obj = await repo.get(suscripcion_id)
     if obj is not None:
+        before = SuscripcionRead.model_validate(obj).model_dump(mode="json")
         await repo.delete(obj)
         await db.commit()
+        await audit_log(
+            db,
+            request,
+            user,
+            action="delete",
+            entity_type="suscripcion",
+            entity_id=str(suscripcion_id),
+            entity_label=str(suscripcion_id),
+            summary=f"Suscripción {suscripcion_id} eliminada",
+            before=before,
+            after=None,
+        )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

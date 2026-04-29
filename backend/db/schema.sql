@@ -51,6 +51,37 @@ CREATE TABLE IF NOT EXISTS audit.rejected_rows (
 CREATE INDEX IF NOT EXISTS idx_rejected_run ON audit.rejected_rows(run_id);
 
 -- =====================================================================
+-- AUDIT: action log per-action (V3 fase 8)
+-- Cada mutación API logea quién, qué entidad, antes/después, IP, UA.
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS audit.action_log (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id       UUID,
+    user_email    TEXT,
+    action        TEXT NOT NULL CHECK (action IN (
+        'create','update','delete','approve','reject','sync','upload','other'
+    )),
+    entity_type   TEXT NOT NULL,
+    entity_id     TEXT NOT NULL,
+    entity_label  TEXT,
+    summary       TEXT NOT NULL,
+    diff_before   JSONB,
+    diff_after    JSONB,
+    ip            TEXT,
+    user_agent    TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_action_log_entity
+    ON audit.action_log(entity_type, entity_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_log_user
+    ON audit.action_log(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_log_created
+    ON audit.action_log(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_action_log_action
+    ON audit.action_log(action, created_at DESC);
+
+-- =====================================================================
 -- CORE: CATÁLOGOS (hoja "Parametros" + "DATOS_OC_EMPRESAS")
 -- =====================================================================
 

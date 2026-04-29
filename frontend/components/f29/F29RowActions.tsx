@@ -11,12 +11,13 @@
  * Permisos derivados de `me.allowed_actions` (Disciplina 3).
  */
 import { useState } from "react";
-import { CheckCircle, Pencil, Trash2 } from "lucide-react";
+import { CheckCircle, History, Pencil, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
+import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { F29EditDialog } from "./F29EditDialog";
 import { MarkPaidDialog } from "./MarkPaidDialog";
 import type { F29Read } from "@/lib/api/schema";
@@ -89,6 +90,20 @@ export function F29RowActions({ f29, canUpdate, canDelete }: Props) {
 
   return (
     <div className="flex items-center justify-end gap-2">
+      <EntityHistoryDrawer
+        entityType="f29"
+        entityId={String(f29.f29_id)}
+        trigger={
+          <button
+            type="button"
+            className={ghostPill}
+            aria-label={`Historial F29 ${f29.empresa_codigo} ${f29.periodo_tributario}`}
+            title="Historial"
+          >
+            <History className="h-3.5 w-3.5" strokeWidth={1.5} />
+          </button>
+        }
+      />
       {canUpdate && (
         <button
           type="button"

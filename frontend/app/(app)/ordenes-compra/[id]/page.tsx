@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
+import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
@@ -123,11 +124,17 @@ export default async function OcDetallePage({
               </a>
             )}
           </div>
-          <OcActions
-            ocId={oc.oc_id}
-            numeroOc={oc.numero_oc}
-            allowedActions={oc.allowed_actions ?? []}
-          />
+          <div className="flex items-center gap-2">
+            <EntityHistoryDrawer
+              entityType="orden_compra"
+              entityId={String(oc.oc_id)}
+            />
+            <OcActions
+              ocId={oc.oc_id}
+              numeroOc={oc.numero_oc}
+              allowedActions={oc.allowed_actions ?? []}
+            />
+          </div>
         </div>
       </header>
 

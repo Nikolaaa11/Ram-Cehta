@@ -104,6 +104,42 @@ export const ADMIN_ENDPOINTS = {
   users: (): string => "/admin/users",
   userRole: (userId: string): string => `/admin/users/${userId}/role`,
   user: (userId: string): string => `/admin/users/${userId}`,
+  // Per-action audit trail (V3 fase 8).
+  auditActions: (params?: {
+    entity_type?: string;
+    entity_id?: string;
+    user_id?: string;
+    action?: string;
+    from_date?: string;
+    to_date?: string;
+    page?: number;
+    size?: number;
+  }): string => {
+    const sp = new URLSearchParams();
+    if (params?.entity_type) sp.set("entity_type", params.entity_type);
+    if (params?.entity_id) sp.set("entity_id", params.entity_id);
+    if (params?.user_id) sp.set("user_id", params.user_id);
+    if (params?.action) sp.set("action", params.action);
+    if (params?.from_date) sp.set("from_date", params.from_date);
+    if (params?.to_date) sp.set("to_date", params.to_date);
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.size) sp.set("size", String(params.size));
+    const qs = sp.toString();
+    return qs ? `/audit/actions?${qs}` : "/audit/actions";
+  },
+  auditAction: (id: string): string => `/audit/actions/${id}`,
+  auditEntityHistory: (
+    entityType: string,
+    entityId: string,
+    params?: { page?: number; size?: number },
+  ): string => {
+    const sp = new URLSearchParams();
+    if (params?.page) sp.set("page", String(params.page));
+    if (params?.size) sp.set("size", String(params.size));
+    const qs = sp.toString();
+    const base = `/audit/entity/${encodeURIComponent(entityType)}/${encodeURIComponent(entityId)}/history`;
+    return qs ? `${base}?${qs}` : base;
+  },
 };
 
 // ─── Helpers presentacionales ─────────────────────────────────────────────────

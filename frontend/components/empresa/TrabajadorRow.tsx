@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, FileText, Pencil, UserMinus } from "lucide-react";
+import { ChevronRight, FileText, History, Pencil, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "@/hooks/use-me";
 import { Badge } from "@/components/ui/badge";
 
 type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
+import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MarkInactiveDialog } from "./MarkInactiveDialog";
 import { TrabajadorEditDialog } from "./TrabajadorEditDialog";
 import { UploadDocumentoDialog } from "./UploadDocumentoDialog";
@@ -98,6 +99,19 @@ export function TrabajadorRow({ trabajador, empresaCodigo, onChanged }: Props) {
                 <UserMinus className="h-4 w-4" strokeWidth={1.5} />
               </button>
             )}
+            <EntityHistoryDrawer
+              entityType="trabajador"
+              entityId={String(trabajador.trabajador_id)}
+              trigger={
+                <button
+                  type="button"
+                  title="Historial"
+                  className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60"
+                >
+                  <History className="h-4 w-4" strokeWidth={1.5} />
+                </button>
+              }
+            />
             <Link
               href={`/empresa/${empresaCodigo}/trabajadores/${trabajador.trabajador_id}` as never}
               title="Ver detalle"

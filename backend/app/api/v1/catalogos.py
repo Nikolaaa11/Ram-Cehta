@@ -1,13 +1,14 @@
 """Catalogos — devuelve todas las tablas lookup para poblar formularios del frontend."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.schemas.catalogo import CatalogosResponse, ConceptoDetallado
 from app.schemas.empresa import EmpresaRead, EmpresaUpdate
+from app.services.audit_service import audit_log
 
 router = APIRouter()
 
@@ -57,21 +58,25 @@ async def get_empresa(
 async def update_empresa(
     user: CurrentUser,
     db: DBSession,
+    request: Request,
     codigo: str,
     body: EmpresaUpdate,
 ) -> EmpresaRead:
     """Actualiza datos editables de la empresa. Solo admin (`empresa:update`)."""
-    row = (
+    existing = (
         await db.execute(
-            text("SELECT codigo FROM core.empresas WHERE codigo = :codigo"),
+            text(
+                f"SELECT {_EMPRESA_COLS} FROM core.empresas WHERE codigo = :codigo"
+            ),
             {"codigo": codigo},
         )
-    ).first()
-    if not row:
+    ).mappings().first()
+    if not existing:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Empresa no encontrada: {codigo}",
         )
+    before = EmpresaRead.model_validate(dict(existing)).model_dump(mode="json")
 
     fields = body.model_dump(exclude_unset=True)
     if fields:
@@ -96,7 +101,21 @@ async def update_empresa(
             {"codigo": codigo},
         )
     ).mappings().one()
-    return EmpresaRead.model_validate(dict(updated))
+    refreshed = EmpresaRead.model_validate(dict(updated))
+    if fields:
+        await audit_log(
+            db,
+            request,
+            user,
+            action="update",
+            entity_type="empresa",
+            entity_id=codigo,
+            entity_label=refreshed.razon_social if hasattr(refreshed, "razon_social") else codigo,
+            summary=f"Empresa {codigo} editada",
+            before=before,
+            after=refreshed.model_dump(mode="json"),
+        )
+    return refreshed
 
 
 @router.get("/empresas", response_model=list[EmpresaCatalogo])
