@@ -3,6 +3,7 @@ import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { HeroKpis } from "@/components/ceo/HeroKpis";
 import { ComparadorEmpresas } from "@/components/ceo/ComparadorEmpresas";
+import { ComparativoChart } from "@/components/ceo/ComparativoChart";
 import { Heatmap } from "@/components/ceo/Heatmap";
 import { TopAlerts } from "@/components/ceo/TopAlerts";
 import { toRelative } from "@/lib/format";
@@ -67,6 +68,9 @@ export default async function CeoDashboardPage() {
           <Heatmap heatmap={report.heatmap} />
         </div>
       </div>
+
+      {/* 2.5) Comparativo overlay chart — líneas superpuestas por empresa */}
+      <ComparativoChart />
 
       {/* 4) Top Alertas + 5) Insights AI */}
       <div className="grid grid-cols-12 gap-6">
