@@ -103,6 +103,9 @@ CREATE TABLE IF NOT EXISTS core.empresas (
     updated_at      TIMESTAMPTZ DEFAULT now()
 );
 
+-- V3 fase 10: /search global por nombre de empresa.
+CREATE INDEX IF NOT EXISTS idx_empresas_razon ON core.empresas(razon_social);
+
 -- Proveedores (catálogo creciente)
 CREATE TABLE IF NOT EXISTS core.proveedores (
     proveedor_id    SERIAL PRIMARY KEY,
@@ -123,6 +126,7 @@ CREATE TABLE IF NOT EXISTS core.proveedores (
 );
 
 CREATE INDEX IF NOT EXISTS idx_proveedores_rut ON core.proveedores(rut);
+CREATE INDEX IF NOT EXISTS idx_proveedores_razon ON core.proveedores(razon_social);
 
 -- Taxonomía de conceptos (de hoja Parametros)
 CREATE TABLE IF NOT EXISTS core.concepto_general (
@@ -196,6 +200,8 @@ CREATE INDEX IF NOT EXISTS idx_mov_empresa      ON core.movimientos(empresa_codi
 CREATE INDEX IF NOT EXISTS idx_mov_proyecto     ON core.movimientos(proyecto);
 CREATE INDEX IF NOT EXISTS idx_mov_periodo      ON core.movimientos(anio, periodo);
 CREATE INDEX IF NOT EXISTS idx_mov_real_proy    ON core.movimientos(real_proyectado);
+-- V3 fase 10: composite para dashboard sums por empresa + rango de fechas.
+CREATE INDEX IF NOT EXISTS idx_mov_empresa_fecha ON core.movimientos(empresa_codigo, fecha DESC);
 
 -- =====================================================================
 -- CORE: ÓRDENES DE COMPRA
@@ -221,6 +227,16 @@ CREATE TABLE IF NOT EXISTS core.ordenes_compra (
     updated_at      TIMESTAMPTZ DEFAULT now(),
     UNIQUE (empresa_codigo, numero_oc)
 );
+
+-- V3 fase 10: índices para list paginada, alertas estancadas y búsqueda.
+CREATE INDEX IF NOT EXISTS idx_oc_empresa_fecha
+    ON core.ordenes_compra(empresa_codigo, fecha_emision DESC);
+CREATE INDEX IF NOT EXISTS idx_oc_estado_fecha
+    ON core.ordenes_compra(estado, fecha_emision);
+CREATE INDEX IF NOT EXISTS idx_oc_numero
+    ON core.ordenes_compra(numero_oc);
+CREATE INDEX IF NOT EXISTS idx_oc_proveedor
+    ON core.ordenes_compra(proveedor_id);
 
 CREATE TABLE IF NOT EXISTS core.ordenes_compra_detalle (
     detalle_id      BIGSERIAL PRIMARY KEY,
@@ -251,6 +267,12 @@ CREATE TABLE IF NOT EXISTS core.f29_obligaciones (
     UNIQUE (empresa_codigo, periodo_tributario)
 );
 
+-- V3 fase 10: list por empresa + obligaciones calendar; alertas F29 due.
+CREATE INDEX IF NOT EXISTS idx_f29_empresa_venc
+    ON core.f29_obligaciones(empresa_codigo, fecha_vencimiento);
+CREATE INDEX IF NOT EXISTS idx_f29_estado_venc
+    ON core.f29_obligaciones(estado, fecha_vencimiento);
+
 -- =====================================================================
 -- CORE: SUSCRIPCIÓN DE ACCIONES FIP CEHTA ESG
 -- =====================================================================
@@ -267,6 +289,10 @@ CREATE TABLE IF NOT EXISTS core.suscripciones_acciones (
     fecha_firma        TIMESTAMPTZ,
     created_at         TIMESTAMPTZ DEFAULT now()
 );
+
+-- V3 fase 10: calendar de suscripciones por firmar (firmado=false) por empresa.
+CREATE INDEX IF NOT EXISTS idx_susc_empresa_firmado_fecha
+    ON core.suscripciones_acciones(empresa_codigo, firmado, fecha_recibo);
 
 -- =====================================================================
 -- CORE: TRABAJADORES (HR por empresa) — V3 fase 2
