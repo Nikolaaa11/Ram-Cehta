@@ -34,6 +34,7 @@ import {
   Activity,
   Upload,
   Webhook,
+  Inbox,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -83,6 +84,11 @@ const GROUPS: NavGroup[] = [
     id: "operaciones",
     label: "Operaciones",
     items: [
+      {
+        href: "/action-center" as Route,
+        label: "Action Center",
+        icon: Inbox,
+      },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
