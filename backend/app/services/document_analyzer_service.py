@@ -1,12 +1,12 @@
-"""AI-powered document analyzer (V3 fase 7).
+"""AI-powered document analyzer (V3 fase 7 + V4 fase 1 OCR end-to-end).
 
 Pipeline:
 1. Recibimos `bytes` + `content_type` + `filename` + `tipo`.
 2. Extraemos texto plano:
-   - PDF: `pypdf` (ya estaba para indexación de KB).
-   - DOCX: `python-docx` (nueva dep; soft-fail si no está).
-   - imagen (jpeg/png): `pytesseract` (OPCIONAL; si no está, devolvemos
-     None con warning para que el endpoint avise al usuario).
+   - PDF: `pypdf` primero. Si devuelve <50 chars (señal de PDF imagen),
+     fallback a OCR vía `pdf2image` + `pytesseract` (V4 fase 1).
+   - DOCX: `python-docx` (soft-fail si no está).
+   - imagen (jpeg/png/etc): `pytesseract` directo sobre la imagen.
    - txt/md/csv: decode UTF-8 con fallback latin-1.
 3. Truncamos a 6 000 chars antes de mandar al LLM (cost-conscious; ~1.5K
    tokens). Para casos largos, los primeros 6K cubren los headers/datos
@@ -18,18 +18,29 @@ Pipeline:
    max_tokens=1000.
 6. Parseamos: extraemos el primer bloque JSON válido (Claude a veces
    pre-comenta antes del JSON aunque le pidamos lo contrario).
-7. Devolvemos `DocumentExtraction`.
+7. Devolvemos `DocumentExtraction` con `extraction_method` y `ocr_pages`.
 
 Privacy: el texto extraído NO se persiste en DB ni en structlog (solo
 loggeamos longitudes y tipos, nunca contenido).
 
 Cost: ~$0.003-0.005 por análisis (sonnet 3.5, ~3K tokens input + 500 out).
+OCR adicional: 5-10s por página, gratis (binario tesseract local).
+
+V4 fase 1 — OCR fallback:
+- DPI 200 (tradeoff calidad/velocidad).
+- Lang 'spa+eng' (cubre la mayoría de docs chilenos + nombres en inglés).
+- Cap 10 páginas defensivo (un PDF de 100 páginas escaneado tomaría
+  varios minutos y bloquearía el endpoint).
+- Soft-fail: si tesseract no está instalado a nivel sistema o la lib
+  pytesseract no se puede importar, devolvemos extraction_method='failed'
+  con warning. NUNCA crasheamos con 500.
 """
 from __future__ import annotations
 
 import io
 import json
 import re
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -44,6 +55,17 @@ log = structlog.get_logger(__name__)
 MAX_TEXT_CHARS = 6000
 MAX_RESPONSE_TOKENS = 1000
 MIN_TEXT_CHARS = 20  # bajo esto, el doc es ilegible (PDF de imágenes sin OCR, etc.)
+
+# V4 fase 1 — OCR tunables. Si pypdf devuelve menos chars que este umbral,
+# asumimos que el PDF es una imagen escaneada (la mayoría de scans dan al
+# menos algunos chars de metadata, pero <50 ya es señal clara).
+OCR_MIN_PYPDF_CHARS = 50
+# Cap de páginas para OCR (defensivo: 10 páginas a 200 DPI ya tarda 50-100s).
+OCR_MAX_PAGES = 10
+# DPI: tradeoff. 200 = sweet spot accuracy/speed. 300 mejora calidad ~10% a 2x costo.
+OCR_DPI = 200
+# Idiomas: spa cubre Chile; eng captura nombres propios y términos legales en inglés.
+OCR_LANG = "spa+eng"
 
 
 class DocumentAnalyzerNotConfigured(Exception):  # noqa: N818
@@ -114,6 +136,11 @@ SCHEMAS: dict[str, dict[str, str]] = {
 class _ExtractResult:
     text: str
     warnings: tuple[str, ...] = ()
+    # V4 fase 1: cómo se sacó el texto (pypdf | ocr | hybrid | docx | text |
+    # image_ocr | failed | unknown). El endpoint pasa esto al schema response.
+    method: str = "unknown"
+    # Páginas que pasaron por OCR (None si no aplicó).
+    ocr_pages: int | None = None
 
 
 def _decode_text(content: bytes) -> str:
@@ -124,7 +151,11 @@ def _decode_text(content: bytes) -> str:
 
 
 def extract_text_pdf(content: bytes) -> str:
-    """Extrae texto de un PDF con pypdf, tolerante a páginas corruptas."""
+    """Extrae texto de un PDF con pypdf, tolerante a páginas corruptas.
+
+    Para PDFs escaneados (sin texto extraíble) prefiera
+    `extract_text_pdf_with_fallback`, que intenta OCR si pypdf no rinde.
+    """
     from pypdf import PdfReader
 
     reader = PdfReader(io.BytesIO(content))
@@ -136,6 +167,152 @@ def extract_text_pdf(content: bytes) -> str:
             log.warning("doc_analyzer.pdf_page_failed", error=str(exc))
     out = "\n\n".join(p for p in parts if p.strip())
     return re.sub(r"\n{3,}", "\n\n", out)
+
+
+def _ocr_pdf_pages(content: bytes) -> tuple[str, int, list[str]]:
+    """OCR de un PDF página-por-página vía pdf2image + pytesseract.
+
+    Devuelve `(texto_concatenado, pages_ocr, warnings)`. Soft-fail:
+    si las libs/binarios faltan, devuelve `("", 0, [warning])` — nunca raise.
+    """
+    warnings: list[str] = []
+    try:
+        import pytesseract  # type: ignore[import-not-found]
+        from pdf2image import convert_from_bytes  # type: ignore[import-not-found]
+    except ImportError as exc:
+        warnings.append(
+            "OCR no disponible: instalá pytesseract + pdf2image + el binario "
+            f"tesseract y poppler-utils a nivel sistema ({exc})."
+        )
+        log.warning("doc_analyzer.ocr_import_failed", error=str(exc))
+        return "", 0, warnings
+
+    try:
+        images = convert_from_bytes(
+            content,
+            dpi=OCR_DPI,
+            first_page=1,
+            last_page=OCR_MAX_PAGES,
+        )
+    except Exception as exc:
+        # pdf2image lanza PDFInfoNotInstalledError, PDFPageCountError, etc.
+        # cuando poppler falta o el PDF está corrupto. Soft-fail.
+        warnings.append(
+            f"No pude convertir el PDF a imágenes para OCR (¿poppler-utils "
+            f"instalado?): {exc}"
+        )
+        log.warning("doc_analyzer.pdf2image_failed", error=str(exc))
+        return "", 0, warnings
+
+    parts: list[str] = []
+    pages_ocr = 0
+    for idx, img in enumerate(images, start=1):
+        try:
+            page_text = pytesseract.image_to_string(img, lang=OCR_LANG)
+        except Exception as exc:
+            warnings.append(f"OCR falló en página {idx}: {exc}")
+            log.warning("doc_analyzer.ocr_page_failed", page=idx, error=str(exc))
+            continue
+        if page_text and page_text.strip():
+            parts.append(page_text)
+        pages_ocr += 1
+
+    text_out = "\n\n".join(parts)
+    return re.sub(r"\n{3,}", "\n\n", text_out), pages_ocr, warnings
+
+
+def extract_text_pdf_with_fallback(content: bytes) -> tuple[str, dict[str, Any]]:
+    """Extrae texto de PDF con fallback automático a OCR si pypdf no rinde.
+
+    Estrategia (V4 fase 1):
+    1. Intenta pypdf. Si devuelve >= OCR_MIN_PYPDF_CHARS, listo (PDF digital).
+    2. Si <50 chars (PDF imagen / escaneo): convierte páginas a imágenes y
+       pasa cada una por tesseract (`spa+eng`, DPI 200, cap 10 páginas).
+    3. Si pypdf devolvió algo y OCR también: marca como 'hybrid' y queda
+       con el OCR (que típicamente es más completo).
+    4. Soft-fail: si tesseract/poppler no están, devuelve lo poco que dio
+       pypdf con method='failed' y un warning.
+
+    Returns:
+        (text, meta) donde meta tiene keys:
+          - method: 'pypdf' | 'ocr' | 'hybrid' | 'failed'
+          - pages_ocr: int (cantidad de páginas que pasaron por OCR; 0 si no)
+          - pages_total: int (cantidad total de páginas en el PDF)
+          - ocr_duration_ms: float (latencia del paso OCR; 0 si no aplicó)
+          - warnings: list[str]
+    """
+    warnings: list[str] = []
+    pypdf_text = ""
+    pages_total = 0
+
+    try:
+        from pypdf import PdfReader
+
+        reader = PdfReader(io.BytesIO(content))
+        pages_total = len(reader.pages)
+        pypdf_text = extract_text_pdf(content)
+    except Exception as exc:
+        warnings.append(f"pypdf no pudo leer el PDF: {exc}")
+        log.warning("doc_analyzer.pypdf_failed", error=str(exc))
+
+    # Caso happy path: PDF digital con texto suficiente.
+    if len(pypdf_text.strip()) >= OCR_MIN_PYPDF_CHARS:
+        log.info(
+            "doc_analyzer.pdf.pypdf_ok",
+            chars=len(pypdf_text),
+            pages_total=pages_total,
+        )
+        return pypdf_text, {
+            "method": "pypdf",
+            "pages_ocr": 0,
+            "pages_total": pages_total,
+            "ocr_duration_ms": 0.0,
+            "warnings": warnings,
+        }
+
+    # Fallback OCR. Loggeamos el motivo para observabilidad de costo.
+    log.info(
+        "doc_analyzer.pdf.ocr_fallback",
+        pypdf_chars=len(pypdf_text.strip()),
+        threshold=OCR_MIN_PYPDF_CHARS,
+        pages_total=pages_total,
+    )
+    t0 = time.perf_counter()
+    ocr_text, pages_ocr, ocr_warnings = _ocr_pdf_pages(content)
+    duration_ms = (time.perf_counter() - t0) * 1000.0
+
+    log.info(
+        "doc_analyzer.pdf.ocr_done",
+        ocr_duration_ms=round(duration_ms, 1),
+        pages_ocr=pages_ocr,
+        pages_total=pages_total,
+        ocr_chars=len(ocr_text),
+    )
+
+    warnings.extend(ocr_warnings)
+
+    if not ocr_text.strip():
+        # OCR no rindió (tesseract ausente, PDF dañado, etc.) — devolvemos
+        # lo poquito que pypdf sacó (o vacío) con method='failed'.
+        return pypdf_text, {
+            "method": "failed",
+            "pages_ocr": 0,
+            "pages_total": pages_total,
+            "ocr_duration_ms": round(duration_ms, 1),
+            "warnings": warnings,
+        }
+
+    # Si pypdf también rindió algo (caso raro: PDFs mixtos con páginas
+    # digitales + escaneadas), marcamos 'hybrid' y devolvemos el OCR (más
+    # completo). Si pypdf no dio nada, es OCR puro.
+    method = "hybrid" if pypdf_text.strip() else "ocr"
+    return ocr_text, {
+        "method": method,
+        "pages_ocr": pages_ocr,
+        "pages_total": pages_total,
+        "ocr_duration_ms": round(duration_ms, 1),
+        "warnings": warnings,
+    }
 
 
 def extract_text_docx(content: bytes) -> str:
@@ -158,29 +335,51 @@ def extract_text_docx(content: bytes) -> str:
     return "\n".join(parts)
 
 
-def extract_text_image(content: bytes) -> tuple[str | None, list[str]]:
-    """OCR con pytesseract. Soft-fail si la lib o el binario no están."""
+def extract_text_image(
+    content: bytes,
+    mime: str | None = None,
+) -> tuple[str | None, list[str]]:
+    """OCR directo sobre una imagen (jpeg/png/tiff/etc.) con pytesseract.
+
+    Soft-fail si la lib o el binario tesseract no están instalados —
+    devuelve `(None, [warning])` en lugar de crashear.
+
+    El parámetro `mime` es informativo (usado para logging); Pillow detecta
+    el formato real desde los magic bytes.
+    """
     warnings: list[str] = []
     try:
         import pytesseract  # type: ignore[import-not-found]
         from PIL import Image  # type: ignore[import-not-found]
-    except ImportError:
+    except ImportError as exc:
         warnings.append(
-            "OCR no disponible: instalá pytesseract + Pillow + el binario tesseract."
+            "OCR no disponible: instalá pytesseract + Pillow + el binario "
+            f"tesseract a nivel sistema ({exc})."
         )
+        log.warning("doc_analyzer.ocr_image_import_failed", error=str(exc))
         return None, warnings
 
+    t0 = time.perf_counter()
     try:
         img = Image.open(io.BytesIO(content))
-        text_extracted = pytesseract.image_to_string(img, lang="spa+eng")
-        if not text_extracted or not text_extracted.strip():
-            warnings.append("OCR devolvió texto vacío.")
-            return None, warnings
-        return text_extracted, warnings
+        text_extracted = pytesseract.image_to_string(img, lang=OCR_LANG)
     except Exception as exc:
-        log.warning("doc_analyzer.ocr_failed", error=str(exc))
+        log.warning("doc_analyzer.ocr_image_failed", error=str(exc), mime=mime)
         warnings.append(f"OCR falló: {exc}")
         return None, warnings
+
+    duration_ms = (time.perf_counter() - t0) * 1000.0
+    log.info(
+        "doc_analyzer.image_ocr.done",
+        ocr_duration_ms=round(duration_ms, 1),
+        ocr_chars=len(text_extracted) if text_extracted else 0,
+        mime=mime,
+    )
+
+    if not text_extracted or not text_extracted.strip():
+        warnings.append("OCR devolvió texto vacío.")
+        return None, warnings
+    return text_extracted, warnings
 
 
 def _ext_from_content_type(content_type: str, filename: str | None) -> str:
@@ -207,21 +406,43 @@ async def extract_text(
     content_type: str,
     filename: str | None = None,
 ) -> _ExtractResult:
-    """Dispatcher: elige extractor según content-type/extensión."""
+    """Dispatcher: elige extractor según content-type/extensión.
+
+    V4 fase 1:
+    - PDF usa `extract_text_pdf_with_fallback` (pypdf → OCR si <50 chars).
+    - Imágenes van directo a OCR.
+    - El `_ExtractResult` incluye `method` y `ocr_pages` para que el
+      endpoint los exponga en la respuesta y el frontend muestre el chip
+      "OCR aplicado" cuando corresponda.
+    """
     ext = _ext_from_content_type(content_type, filename)
     if ext == "pdf":
-        return _ExtractResult(text=extract_text_pdf(content))
+        text, meta = extract_text_pdf_with_fallback(content)
+        return _ExtractResult(
+            text=text,
+            warnings=tuple(meta.get("warnings") or []),
+            method=str(meta.get("method", "pypdf")),
+            ocr_pages=meta.get("pages_ocr") or None,
+        )
     if ext == "docx":
-        return _ExtractResult(text=extract_text_docx(content))
+        return _ExtractResult(text=extract_text_docx(content), method="docx")
     if ext in {"png", "jpg", "jpeg", "gif", "webp", "tif", "tiff"}:
-        text_out, warns = extract_text_image(content)
-        return _ExtractResult(text=text_out or "", warnings=tuple(warns))
+        text_out, warns = extract_text_image(content, mime=content_type)
+        # Si OCR rindió → 'image_ocr'; si soft-failed → 'failed'.
+        method = "image_ocr" if text_out else "failed"
+        return _ExtractResult(
+            text=text_out or "",
+            warnings=tuple(warns),
+            method=method,
+            ocr_pages=1 if text_out else None,
+        )
     if ext in {"txt", "md", "csv", "log", ""}:
-        return _ExtractResult(text=_decode_text(content))
+        return _ExtractResult(text=_decode_text(content), method="text")
     # Tipo desconocido — intenta como texto best-effort.
     return _ExtractResult(
         text=_decode_text(content),
         warnings=(f"Tipo de archivo no reconocido ({ext or content_type}); intenté como texto.",),
+        method="text",
     )
 
 
@@ -374,6 +595,8 @@ def _normalize_extraction(
     requested_tipo: str,
     raw_text: str,
     extraction_warnings: list[str],
+    extraction_method: str | None = None,
+    ocr_pages: int | None = None,
 ) -> DocumentExtraction:
     """Coerce el dict del LLM al shape de DocumentExtraction, con defaults seguros."""
     tipo_detectado = str(
@@ -418,6 +641,8 @@ def _normalize_extraction(
         fields=fields,
         raw_text_preview=raw_text[:500],
         warnings=warnings_combined,
+        extraction_method=extraction_method,
+        ocr_pages=ocr_pages,
     )
 
 
@@ -427,8 +652,15 @@ async def analyze_document(
     *,
     filename: str | None = None,
     extraction_warnings: list[str] | None = None,
+    extraction_method: str | None = None,
+    ocr_pages: int | None = None,
 ) -> DocumentExtraction:
-    """Llama a Claude y devuelve un `DocumentExtraction`."""
+    """Llama a Claude y devuelve un `DocumentExtraction`.
+
+    `extraction_method` y `ocr_pages` los pasa el endpoint desde el
+    `_ExtractResult` para que la respuesta lleve traza de cómo se obtuvo
+    el texto (frontend muestra chip "OCR aplicado" cuando corresponde).
+    """
     extraction_warnings = list(extraction_warnings or [])
 
     client = _anthropic_client()
@@ -480,6 +712,8 @@ async def analyze_document(
                 "Llená los campos manualmente.",
                 *extraction_warnings,
             ],
+            extraction_method=extraction_method,
+            ocr_pages=ocr_pages,
         )
 
     result = _normalize_extraction(
@@ -487,6 +721,8 @@ async def analyze_document(
         requested_tipo=tipo,
         raw_text=text,
         extraction_warnings=extraction_warnings,
+        extraction_method=extraction_method,
+        ocr_pages=ocr_pages,
     )
     log.info(
         "doc_analyzer.analyze.ok",

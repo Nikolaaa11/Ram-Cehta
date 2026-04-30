@@ -89,6 +89,8 @@ async def analyze_uploaded_document(
             tipo,
             filename=file.filename,
             extraction_warnings=list(extraction.warnings),
+            extraction_method=extraction.method,
+            ocr_pages=extraction.ocr_pages,
         )
     except DocumentAnalyzerNotConfigured as exc:
         raise HTTPException(

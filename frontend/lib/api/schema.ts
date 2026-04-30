@@ -607,6 +607,31 @@ export interface BulkUpdateResult {
   failed: BulkItemError[];
 }
 
+// ─── Document Analyzer (V3 fase 7 + V4 fase 1 OCR) ──────────────────────────
+// Definidos a mano — match con `app.schemas.document_extraction` (backend).
+// V4 fase 1 sumó `extraction_method` y `ocr_pages` para reportar al frontend
+// si el texto se extrajo con OCR (PDFs escaneados) y cuántas páginas se
+// procesaron — útil para mostrar el chip "OCR aplicado" y explicar latencia.
+
+export type DocumentExtractionMethod =
+  | "pypdf"
+  | "ocr"
+  | "hybrid"
+  | "image_ocr"
+  | "docx"
+  | "text"
+  | "failed";
+
+export interface DocumentExtraction {
+  tipo_detectado: string;
+  confidence: number;
+  fields: Record<string, unknown>;
+  raw_text_preview: string;
+  warnings: string[];
+  extraction_method?: DocumentExtractionMethod | string | null;
+  ocr_pages?: number | null;
+}
+
 // ─── Bulk CSV Import (V3 fase 11) ─────────────────────────────────────────────
 // Definidos a mano — match con `app.schemas.bulk_import` (backend).
 

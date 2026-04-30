@@ -33,12 +33,36 @@ export type AnalysisTipo =
   | "liquidacion"
   | "auto";
 
+/**
+ * Método con que se extrajo el texto del archivo (V4 fase 1).
+ * - `pypdf`: PDF digital, lectura directa.
+ * - `ocr`: PDF escaneado pasado por tesseract.
+ * - `hybrid`: PDF mixto (pypdf + OCR).
+ * - `image_ocr`: imagen jpg/png pasada directo por OCR.
+ * - `docx`: documento Word.
+ * - `text`: txt/md/csv decodificado.
+ * - `failed`: OCR intentado pero tesseract/poppler no instalado en el host
+ *   (soft-fail: el backend devuelve 200 con warning, no 500).
+ */
+export type ExtractionMethod =
+  | "pypdf"
+  | "ocr"
+  | "hybrid"
+  | "image_ocr"
+  | "docx"
+  | "text"
+  | "failed";
+
 export interface AnalysisResult {
   tipo_detectado: string;
   confidence: number;
   fields: Record<string, unknown>;
   raw_text_preview: string;
   warnings: string[];
+  /** Cómo se extrajo el texto (V4 fase 1). null si el endpoint es viejo. */
+  extraction_method?: ExtractionMethod | string | null;
+  /** Cantidad de páginas que pasaron por OCR (V4 fase 1). null si no aplicó. */
+  ocr_pages?: number | null;
 }
 
 const API_BASE =

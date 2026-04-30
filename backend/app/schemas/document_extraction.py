@@ -62,3 +62,17 @@ class DocumentExtraction(BaseModel):
         default_factory=list,
         description="Notas del LLM sobre ambigüedades o campos imputados.",
     )
+    extraction_method: str | None = Field(
+        default=None,
+        description=(
+            "Cómo se extrajo el texto: 'pypdf' (PDF digital), 'ocr' (PDF/imagen escaneado), "
+            "'hybrid' (mezcla pypdf+ocr), 'docx', 'text', 'image_ocr', 'failed' (soft-fail "
+            "cuando tesseract no está instalado en el host). Útil para que el frontend "
+            "explique al usuario por qué el análisis fue lento."
+        ),
+    )
+    ocr_pages: int | None = Field(
+        default=None,
+        ge=0,
+        description="Número de páginas que pasaron por OCR (None si no se usó OCR).",
+    )

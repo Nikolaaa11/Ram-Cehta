@@ -27,9 +27,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PORT=8000
 
+# OCR runtime deps (V4 fase 1):
+#   - tesseract-ocr + tesseract-ocr-spa: motor OCR + paquete de idioma español.
+#   - poppler-utils: provee `pdftoppm` que pdf2image usa para PDF→imagen.
+# Se instala ANTES del COPY del código para que la capa quede cacheada.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
         curl \
+        tesseract-ocr \
+        tesseract-ocr-spa \
+        poppler-utils \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/bash app
 

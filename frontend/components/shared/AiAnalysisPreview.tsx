@@ -1,6 +1,6 @@
 "use client";
 
-import { Sparkles, Loader2, AlertTriangle, Check } from "lucide-react";
+import { Sparkles, Loader2, AlertTriangle, Check, Eye } from "lucide-react";
 import type { AnalysisResult } from "@/hooks/use-document-analysis";
 
 /**
@@ -136,6 +136,15 @@ export function AiAnalysisPreview({
     ([, v]) => v !== null && v !== undefined && v !== "",
   );
 
+  // V4 fase 1: chip "OCR aplicado" cuando el backend tuvo que escanear el doc.
+  // Le explica al usuario por qué el análisis tardó más (5-10s por página) y
+  // baja expectativa de precisión (OCR sobre escaneos malos pierde datos).
+  const usedOcr =
+    result.extraction_method === "ocr" ||
+    result.extraction_method === "hybrid" ||
+    result.extraction_method === "image_ocr";
+  const ocrPages = result.ocr_pages ?? 0;
+
   return (
     <div className="space-y-2 rounded-xl border border-cehta-green/20 bg-gradient-to-br from-cehta-green/5 via-white to-cehta-green/10 px-4 py-3 transition-all duration-300 ease-apple">
       <div className="flex items-center justify-between gap-2">
@@ -153,6 +162,24 @@ export function AiAnalysisPreview({
           <span className={`text-xs font-medium ${confidenceTone}`}>
             {confidencePct}% confianza
           </span>
+          {usedOcr && (
+            <span
+              title={
+                ocrPages > 0
+                  ? `OCR aplicado a ${ocrPages} ${ocrPages === 1 ? "página" : "páginas"}`
+                  : "OCR aplicado"
+              }
+              className="inline-flex items-center gap-1 rounded-full bg-cehta-green/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-cehta-green-700"
+            >
+              <Eye className="h-3 w-3" strokeWidth={2} />
+              OCR aplicado
+              {ocrPages > 0 && (
+                <span className="font-normal normal-case opacity-75">
+                  · {ocrPages} {ocrPages === 1 ? "pág" : "págs"}
+                </span>
+              )}
+            </span>
+          )}
         </div>
         {onApply && (
           <button

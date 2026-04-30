@@ -34,13 +34,15 @@ dependencies = [
     "tiktoken>=0.8,<0.10",
     "pypdf>=5.0,<6.0",
     "python-docx>=1.1,<2.0",
-    # OCR para imágenes (V3 fase 7) — OPCIONAL. Si querés OCR de imágenes en
-    # /documents/analyze, descomentá y además instalá el binario `tesseract`
-    # en el host (apt install tesseract-ocr tesseract-ocr-spa). Sin esta dep
-    # el endpoint sigue funcionando para PDF/DOCX/txt y devuelve un warning
-    # cuando el archivo es una imagen.
-    # "pytesseract>=0.3,<0.4",
-    # "Pillow>=11.0,<12.0",
+    # OCR end-to-end (V4 fase 1) — DEPS CORE.
+    # Requiere binarios de sistema en runtime:
+    #   apt install tesseract-ocr tesseract-ocr-spa poppler-utils
+    # El Dockerfile de backend ya los instala. Si tesseract no está disponible
+    # a nivel sistema, el servicio devuelve extraction_method='failed' con
+    # warning (soft-fail, nunca crashea).
+    "pytesseract>=0.3.10,<0.4",
+    "Pillow>=10.0,<11.0",
+    "pdf2image>=1.17,<2.0",
     "resend>=2.0,<3.0",
     "openpyxl>=3.1,<4.0",
     "pandas>=2.2,<3.0",
