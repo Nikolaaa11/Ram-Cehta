@@ -7,6 +7,8 @@ import {
   ChevronRight,
   ExternalLink,
   FileText,
+  LayoutGrid,
+  ListIcon,
   Package,
   Plus,
 } from "lucide-react";
@@ -200,6 +202,20 @@ export default function OrdenesCompraPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* View toggle: Lista (current) | Kanban (sub-route) */}
+          <div className="inline-flex rounded-xl bg-ink-100/50 p-0.5 ring-1 ring-hairline">
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-ink-900 shadow-card">
+              <ListIcon className="h-4 w-4" strokeWidth={1.5} />
+              Lista
+            </span>
+            <Link
+              href={`/ordenes-compra/kanban${empresa ? `?empresa=${empresa}` : ""}`}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors hover:bg-white/60"
+            >
+              <LayoutGrid className="h-4 w-4" strokeWidth={1.5} />
+              Kanban
+            </Link>
+          </div>
           <ExportExcelButton
             entity="ordenes_compra"
             empresaCodigo={empresa || null}
