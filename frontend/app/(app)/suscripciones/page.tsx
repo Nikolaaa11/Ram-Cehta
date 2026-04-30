@@ -11,11 +11,12 @@ import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { EditButton } from "@/components/shared/edit-button";
+import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import {
   SuscripcionEditDialog,
   type SuscripcionEditable,
 } from "@/components/suscripciones/SuscripcionEditDialog";
-import { toCLP, toDate } from "@/lib/format";
+import { toDate } from "@/lib/format";
 import type { Page } from "@/lib/api/schema";
 
 interface SuscripcionRead extends SuscripcionEditable {
@@ -105,7 +106,10 @@ export default function SuscripcionesPage() {
                     })}
                   </td>
                   <td className="px-4 py-3 text-right tabular-nums text-ink-900">
-                    {toCLP(Number(s.monto_clp))}
+                    <MonedaDisplay
+                      amount={Number(s.monto_clp)}
+                      currency="CLP"
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={s.firmado ? "success" : "warning"}>

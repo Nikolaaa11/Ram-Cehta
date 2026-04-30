@@ -1,5 +1,8 @@
+"use client";
+
 import { Wallet, TrendingUp, Building2, Banknote } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { CurrencyTooltip } from "@/components/shared/CurrencyTooltip";
 import { toCLP, toPct } from "@/lib/format";
 import type { CEOConsolidatedReport } from "@/lib/api/schema";
 
@@ -19,49 +22,69 @@ export function HeroKpis({ data }: { data: CEOConsolidatedReport }) {
       className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
       aria-label="Indicadores principales del portafolio"
     >
-      <KpiCard
-        label="AUM total"
-        value={toCLP(data.aum_total)}
-        subtitle={`90d: ${toPct(data.delta_90d, { signed: true })}`}
-        icon={Wallet}
-        tone="default"
-        delta={{
-          value: toPct(data.delta_30d, { signed: true }),
-          label: "vs. 30 días",
-          direction:
-            data.delta_30d > 0 ? "up" : data.delta_30d < 0 ? "down" : "flat",
-        }}
-      />
+      <CurrencyTooltip amount={Number(data.aum_total)} currency="CLP">
+        <div>
+          <KpiCard
+            label="AUM total"
+            value={toCLP(data.aum_total)}
+            subtitle={`90d: ${toPct(data.delta_90d, { signed: true })}`}
+            icon={Wallet}
+            tone="default"
+            delta={{
+              value: toPct(data.delta_30d, { signed: true }),
+              label: "vs. 30 días",
+              direction:
+                data.delta_30d > 0
+                  ? "up"
+                  : data.delta_30d < 0
+                    ? "down"
+                    : "flat",
+            }}
+          />
+        </div>
+      </CurrencyTooltip>
 
-      <KpiCard
-        label="AUM Cehta"
-        value={toCLP(data.aum_cehta)}
-        subtitle="cuentas operativas"
-        icon={Building2}
-        tone="default"
-      />
+      <CurrencyTooltip amount={Number(data.aum_cehta)} currency="CLP">
+        <div>
+          <KpiCard
+            label="AUM Cehta"
+            value={toCLP(data.aum_cehta)}
+            subtitle="cuentas operativas"
+            icon={Building2}
+            tone="default"
+          />
+        </div>
+      </CurrencyTooltip>
 
-      <KpiCard
-        label="AUM CORFO"
-        value={toCLP(data.aum_corfo)}
-        subtitle="cuentas crédito CORFO"
-        icon={Banknote}
-        tone="default"
-      />
+      <CurrencyTooltip amount={Number(data.aum_corfo)} currency="CLP">
+        <div>
+          <KpiCard
+            label="AUM CORFO"
+            value={toCLP(data.aum_corfo)}
+            subtitle="cuentas crédito CORFO"
+            icon={Banknote}
+            tone="default"
+          />
+        </div>
+      </CurrencyTooltip>
 
-      <KpiCard
-        label="Flujo neto 30d"
-        value={toCLP(data.flujo_neto_30d)}
-        subtitle="abonos − egresos últimos 30 días"
-        icon={TrendingUp}
-        tone={
-          flujoDir === "up"
-            ? "positive"
-            : flujoDir === "down"
-              ? "negative"
-              : "default"
-        }
-      />
+      <CurrencyTooltip amount={Number(data.flujo_neto_30d)} currency="CLP">
+        <div>
+          <KpiCard
+            label="Flujo neto 30d"
+            value={toCLP(data.flujo_neto_30d)}
+            subtitle="abonos − egresos últimos 30 días"
+            icon={TrendingUp}
+            tone={
+              flujoDir === "up"
+                ? "positive"
+                : flujoDir === "down"
+                  ? "negative"
+                  : "default"
+            }
+          />
+        </div>
+      </CurrencyTooltip>
     </section>
   );
 }

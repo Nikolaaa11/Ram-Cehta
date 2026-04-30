@@ -3,6 +3,7 @@ from app.models.ai_document import AiDocument
 from app.models.ai_message import AiMessage
 from app.models.audit_log import ActionLog
 from app.models.base import Base
+from app.models.currency_rate import CurrencyRate
 from app.models.empresa import Empresa
 from app.models.etl_run import EtlRun
 from app.models.integration import Integration
@@ -23,6 +24,7 @@ __all__ = [
     "AiDocument",
     "AiMessage",
     "Base",
+    "CurrencyRate",
     "Empresa",
     "EtlRun",
     "Integration",

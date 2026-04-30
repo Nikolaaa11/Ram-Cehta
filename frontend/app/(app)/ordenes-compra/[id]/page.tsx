@@ -5,6 +5,7 @@ import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
+import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
@@ -161,7 +162,12 @@ export default async function OcDetallePage({
             Total
           </p>
           <p className="mt-1.5 text-kpi-sm font-display text-cehta-green tabular-nums">
-            {toCLP(oc.total)}
+            <MonedaDisplay
+              amount={Number(oc.total)}
+              currency={
+                oc.moneda === "UF" || oc.moneda === "USD" ? oc.moneda : "CLP"
+              }
+            />
           </p>
         </Surface>
       </section>

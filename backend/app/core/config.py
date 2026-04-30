@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # background. Default False — usualmente esto se hace via cron externo.
     generate_alerts_on_startup: bool = False
 
+    # BCN/CMF API (V4 fase 1 — currency conversion). Si no está seteada,
+    # el servicio cae a `mindicador.cl` (free, no key, formato distinto).
+    # Soft-fail: si ambas APIs fallan el endpoint devuelve None y loggea.
+    bcn_api_key: str | None = None
+
     # Email (Resend) — V3 fase 3+4. Soft-fail: si no hay api_key, los flows
     # que envían email loggean warning pero no rompen.
     resend_api_key: str | None = None

@@ -583,6 +583,40 @@ export interface SavedViewUpdate {
   is_pinned?: boolean;
 }
 
+// ─── Currency conversion (V4 fase 1 — UF/CLP/USD) ────────────────────────────
+// Definidos a mano — match con `app.schemas.currency` (backend).
+
+export type CurrencyCode = "CLP" | "UF" | "USD";
+
+export interface CurrencyRateRead {
+  currency_code: string;
+  date: string; // YYYY-MM-DD
+  rate_clp: string | number;
+  source: string;
+}
+
+export interface ConversionRequest {
+  amount: string | number;
+  from_currency: CurrencyCode;
+  to_currency: CurrencyCode;
+  date?: string | null;
+}
+
+export interface ConversionResult {
+  from_amount: string | number;
+  from_currency: string;
+  to_amount: string | number | null;
+  to_currency: string;
+  rate_used: string | number | null;
+  date_used: string | null;
+}
+
+export interface LatestRatesResponse {
+  uf_clp: string | number | null;
+  usd_clp: string | number | null;
+  date: string;
+}
+
 // ─── Bulk operations ──────────────────────────────────────────────────────────
 // Definidos a mano — match con `app.schemas.bulk` (backend).
 

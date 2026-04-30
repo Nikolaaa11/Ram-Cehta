@@ -1,3 +1,5 @@
+"use client";
+
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -6,6 +8,7 @@ import {
   Gauge,
 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
+import { CurrencyTooltip } from "@/components/shared/CurrencyTooltip";
 import { toCLP, toPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { ResumenCCKpis } from "@/lib/api/schema";
@@ -20,6 +23,9 @@ import type { ResumenCCKpis } from "@/lib/api/schema";
 interface KpiTile {
   label: string;
   value: string;
+  /** Monto numérico en CLP (si el tile representa dinero), para tooltip
+   *  con equivalencias UF/USD on-hover. */
+  clpAmount?: number;
   subtitle?: string;
   Icon: typeof ArrowDownCircle;
   tone: "default" | "negative" | "positive" | "warning";
@@ -45,18 +51,21 @@ export function KpisGrid({ kpis }: { kpis: ResumenCCKpis }) {
     {
       label: "Egresos Totales CC",
       value: toCLP(kpis.egresos_totales_cc),
+      clpAmount: Number(kpis.egresos_totales_cc),
       Icon: ArrowDownCircle,
       tone: "negative",
     },
     {
       label: "Abonos Totales CC",
       value: toCLP(kpis.abonos_totales_cc),
+      clpAmount: Number(kpis.abonos_totales_cc),
       Icon: ArrowUpCircle,
       tone: "positive",
     },
     {
       label: "Egresos Operacionales",
       value: toCLP(kpis.egresos_operacionales),
+      clpAmount: Number(kpis.egresos_operacionales),
       subtitle: "Excluye capital y reversas",
       Icon: Briefcase,
       tone: "warning",
@@ -64,6 +73,7 @@ export function KpisGrid({ kpis }: { kpis: ResumenCCKpis }) {
     {
       label: "Presupuesto CORFO",
       value: toCLP(kpis.presupuesto_corfo),
+      clpAmount: Number(kpis.presupuesto_corfo),
       subtitle: "Saldo disponible",
       Icon: Landmark,
       tone: "default",
@@ -103,9 +113,17 @@ export function KpisGrid({ kpis }: { kpis: ResumenCCKpis }) {
               </span>
             </div>
             <div className="flex flex-col gap-0.5">
-              <p className="font-display text-kpi-lg tabular-nums text-ink-900">
-                {tile.value}
-              </p>
+              {tile.clpAmount != null && Number.isFinite(tile.clpAmount) ? (
+                <CurrencyTooltip amount={tile.clpAmount} currency="CLP">
+                  <p className="font-display text-kpi-lg tabular-nums text-ink-900">
+                    {tile.value}
+                  </p>
+                </CurrencyTooltip>
+              ) : (
+                <p className="font-display text-kpi-lg tabular-nums text-ink-900">
+                  {tile.value}
+                </p>
+              )}
               {tile.subtitle && (
                 <p className="truncate text-xs tabular-nums text-ink-500">
                   {tile.subtitle}
