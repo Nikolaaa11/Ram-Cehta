@@ -25,8 +25,9 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "proveedor:read", "proveedor:create", "proveedor:update", "proveedor:delete",
         # F29
         "f29:read", "f29:create", "f29:update", "f29:delete",
-        # Movimientos
-        "movimiento:read",
+        # Movimientos — V4 fase 5: admin puede crear ajustes manuales
+        # (ETL-import sigue siendo el canal primario; manual es excepción).
+        "movimiento:read", "movimiento:create",
         # Suscripciones de acciones (FIP CEHTA ESG)
         "suscripcion:read", "suscripcion:create", "suscripcion:delete",
         # Auditoría / Data quality
@@ -63,7 +64,7 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
         "proveedor:read", "proveedor:create", "proveedor:update",
         "f29:read", "f29:create", "f29:update",
-        "movimiento:read",
+        "movimiento:read", "movimiento:create",
         "suscripcion:read", "suscripcion:create",
         # Finance puede crear y editar trabajadores pero no eliminarlos.
         "trabajador:read", "trabajador:create", "trabajador:update",

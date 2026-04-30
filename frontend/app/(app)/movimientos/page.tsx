@@ -9,10 +9,12 @@ import {
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { useMe } from "@/hooks/use-me";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { MovimientoManualDialog } from "@/components/movimientos/MovimientoManualDialog";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, MovimientoRead } from "@/lib/api/schema";
@@ -142,15 +144,18 @@ export default function MovimientosPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
-          Movimientos
-        </h1>
-        <p className="mt-1 text-sm text-ink-500">
-          {data
-            ? `${totalCount.toLocaleString("es-CL")} movimiento${totalCount !== 1 ? "s" : ""} · abonos y egresos por empresa y período`
-            : "Historial de abonos y egresos por empresa y período."}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
+            Movimientos
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            {data
+              ? `${totalCount.toLocaleString("es-CL")} movimiento${totalCount !== 1 ? "s" : ""} · abonos y egresos por empresa y período`
+              : "Historial de abonos y egresos por empresa y período."}
+          </p>
+        </div>
+        <ManualMovimientoCTA />
       </div>
 
       {/* Filters */}
@@ -372,4 +377,16 @@ export default function MovimientosPage() {
       )}
     </div>
   );
+}
+
+/**
+ * Sub-componente que rendea el CTA "Nuevo movimiento manual" solo si el
+ * user tiene scope `movimiento:create`. Disciplina 3: el frontend lee
+ * `me.allowed_actions` server-derivado, no inventa permisos.
+ */
+function ManualMovimientoCTA() {
+  const { data: me } = useMe();
+  const canCreate = me?.allowed_actions?.includes("movimiento:create") ?? false;
+  if (!canCreate) return null;
+  return <MovimientoManualDialog />;
 }
