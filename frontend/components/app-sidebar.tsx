@@ -33,6 +33,7 @@ import {
   Mail,
   Activity,
   Upload,
+  Webhook,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -147,6 +148,11 @@ const GROUPS: NavGroup[] = [
         href: "/admin/status" as Route,
         label: "Status del sistema",
         icon: Activity,
+      },
+      {
+        href: "/admin/webhooks" as Route,
+        label: "Webhooks",
+        icon: Webhook,
       },
     ],
   },

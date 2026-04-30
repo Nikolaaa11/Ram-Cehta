@@ -31,6 +31,7 @@ from app.api.v1 import (
     suscripciones,
     trabajadores,
     validate,
+    webhooks,
 )
 from app.api.v1 import (
     status as status_router,
@@ -69,3 +70,4 @@ api_router.include_router(saved_views.router, prefix="/me", tags=["saved-views"]
 api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk-import"])
 api_router.include_router(status_router.router, prefix="/admin", tags=["admin-status"])
 api_router.include_router(currency.router, prefix="/currency", tags=["currency"])
+api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
