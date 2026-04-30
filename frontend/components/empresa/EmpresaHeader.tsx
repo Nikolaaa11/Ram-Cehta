@@ -3,6 +3,7 @@ import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import type { EmpresaCatalogo } from "@/lib/api/schema";
 import { EmpresaActions } from "./EmpresaActions";
+import { PinEmpresaButton } from "./PinEmpresaButton";
 
 /**
  * Header con identidad de la empresa: razón social grande, código + RUT badges.
@@ -36,7 +37,10 @@ export function EmpresaHeader({ empresa }: { empresa: EmpresaCatalogo }) {
                 )}
               </div>
             </div>
-            <EmpresaActions codigo={empresa.codigo} />
+            <div className="flex items-center gap-2">
+              <PinEmpresaButton empresaCodigo={empresa.codigo} />
+              <EmpresaActions codigo={empresa.codigo} />
+            </div>
           </div>
         </div>
       </div>

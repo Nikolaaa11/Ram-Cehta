@@ -44,9 +44,11 @@ import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
+import { usePinnedEmpresas } from "@/hooks/use-pinned-empresas";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { RealtimeIndicator } from "@/components/realtime/RealtimeIndicator";
 import { cn } from "@/lib/utils";
+import { Pin } from "lucide-react";
 
 /**
  * V3 Sidebar — 5 grupos jerárquicos según docs/V3_VISION.md §1.
@@ -355,10 +357,16 @@ export function AppSidebar({ email }: AppSidebarProps) {
  */
 function EmpresasNav({ pathname }: { pathname: string }) {
   const { data: empresas, isLoading } = useCatalogoEmpresas();
+  const { pinned } = usePinnedEmpresas();
   const [expanded, setExpanded] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("sidebar-empresa-expanded");
   });
+
+  // Empresas pineadas, en orden de pin (más reciente al final).
+  const pinnedEmpresas = (empresas ?? []).filter((e) =>
+    pinned.includes(e.codigo),
+  );
 
   // Auto-expand si el pathname coincide con alguna empresa
   useEffect(() => {
@@ -399,6 +407,43 @@ function EmpresasNav({ pathname }: { pathname: string }) {
 
   return (
     <>
+      {/* V4 fase 5: sección "Favoritos" — empresas pineadas por el user. */}
+      {pinnedEmpresas.length > 0 && (
+        <>
+          <h3 className="mb-1.5 mt-4 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-cehta-green">
+            <Pin className="h-2.5 w-2.5 fill-cehta-green" strokeWidth={2} />
+            Favoritos
+          </h3>
+          <div className="space-y-0.5">
+            {pinnedEmpresas.map((emp) => {
+              const isActive = pathname.startsWith(`/empresa/${emp.codigo}`);
+              return (
+                <Link
+                  key={`pinned-${emp.codigo}`}
+                  href={`/empresa/${emp.codigo}` as Route}
+                  aria-current={isActive ? "page" : undefined}
+                  title={emp.razon_social}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+                    isActive
+                      ? "bg-cehta-green/15 text-cehta-green"
+                      : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green",
+                  )}
+                >
+                  <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <span className="flex-1 truncate text-left">{emp.codigo}</span>
+                  <Pin
+                    className="h-3 w-3 shrink-0 fill-cehta-green text-cehta-green"
+                    strokeWidth={2}
+                  />
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300">
         Empresas
       </h3>
