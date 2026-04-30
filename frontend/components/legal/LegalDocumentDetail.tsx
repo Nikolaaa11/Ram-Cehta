@@ -12,6 +12,7 @@ import { EditButton } from "@/components/shared/edit-button";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { AlertBadge } from "./AlertBadge";
 import { LegalDocumentEditDialog } from "./LegalDocumentEditDialog";
+import { LegalVersionsHistory } from "./LegalVersionsHistory";
 import { toCLP, toDate } from "@/lib/format";
 import type { LegalDocumentRead } from "@/lib/api/schema";
 
@@ -54,6 +55,7 @@ export function LegalDocumentDetail({ documentoId, onClose }: Props) {
             Detalle de documento
           </h2>
           <div className="flex items-center gap-2">
+            <LegalVersionsHistory documentoId={documentoId} />
             <EntityHistoryDrawer
               entityType="legal_document"
               entityId={String(documentoId)}

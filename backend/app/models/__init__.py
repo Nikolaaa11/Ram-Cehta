@@ -8,6 +8,7 @@ from app.models.empresa import Empresa
 from app.models.etl_run import EtlRun
 from app.models.integration import Integration
 from app.models.legal_document import LegalDocument
+from app.models.legal_document_version import LegalDocumentVersion
 from app.models.movimiento import Movimiento
 from app.models.notification import Notification
 from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
@@ -30,6 +31,7 @@ __all__ = [
     "EtlRun",
     "Integration",
     "LegalDocument",
+    "LegalDocumentVersion",
     "Movimiento",
     "Notification",
     "OrdenCompra",

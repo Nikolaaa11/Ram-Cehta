@@ -171,6 +171,24 @@ export interface LegalAlert {
   alerta_nivel: string;
 }
 
+// Legal Vault — version history (V4 fase 3).
+
+export interface LegalDocumentVersionRead {
+  version_id: number;
+  documento_id: number;
+  version_number: number;
+  snapshot: Record<string, unknown>;
+  changed_by?: string | null;
+  changed_at: string;
+  change_summary?: string | null;
+}
+
+export interface LegalDocumentVersionCompareResponse {
+  version_a: Record<string, unknown>;
+  version_b: Record<string, unknown>;
+  diff: Record<string, { before: unknown; after: unknown }>;
+}
+
 /** Estado del último ETL: success | failed | stale | unknown. */
 export type EtlStatus = "success" | "failed" | "stale" | "unknown" | string;
 

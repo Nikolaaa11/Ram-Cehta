@@ -21,13 +21,22 @@ from fastapi import (
 )
 from fastapi.responses import RedirectResponse, Response
 
-from app.api.deps import CurrentUser, DBSession, require_scope
+from app.api.deps import (
+    CurrentUser,
+    DBSession,
+    current_admin_with_2fa,
+    require_scope,
+)
+from app.core.logging import get_logger
 from app.infrastructure.repositories.integration_repository import (
     IntegrationRepository,
 )
 from app.infrastructure.repositories.legal_repository import (
     LegalRepository,
     compute_legal_folder,
+)
+from app.infrastructure.repositories.legal_version_repository import (
+    LegalVersionRepository,
 )
 from app.schemas.common import Page
 from app.schemas.legal import (
@@ -37,11 +46,48 @@ from app.schemas.legal import (
     LegalDocumentRead,
     LegalDocumentUpdate,
 )
+from app.schemas.legal_version import (
+    LegalDocumentVersionCompareResponse,
+    LegalDocumentVersionRead,
+)
 from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
+from app.services.legal_version_service import (
+    build_change_summary,
+    compute_diff,
+)
 
 router = APIRouter()
+log = get_logger(__name__)
+
+
+async def _try_snapshot(
+    db: DBSession,
+    *,
+    documento_id: int,
+    snapshot: dict,
+    changed_by: str | None,
+    change_summary: str | None,
+) -> None:
+    """Best-effort snapshot. Si falla, log warning y seguir — el audit log
+    igual capturó el diff, así que no perdemos data.
+
+    El caller decide cuándo commitear; acá sólo flush dentro del repo.
+    """
+    try:
+        await LegalVersionRepository(db).create_snapshot(
+            documento_id=documento_id,
+            snapshot=snapshot,
+            changed_by=changed_by,
+            change_summary=change_summary,
+        )
+    except Exception as exc:  # pragma: no cover — defensivo
+        log.warning(
+            "legal_version_snapshot_failed",
+            error=str(exc),
+            documento_id=documento_id,
+        )
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
 
@@ -105,8 +151,18 @@ async def create_legal(
 ) -> LegalDocumentRead:
     repo = LegalRepository(db)
     doc = await repo.create(body, uploaded_by=user.sub)
-    await db.commit()
+    await db.flush()
     created = LegalDocumentRead.model_validate(doc)
+    snapshot = created.model_dump(mode="json")
+    # Versión 1: snapshot inicial. Soft-fail.
+    await _try_snapshot(
+        db,
+        documento_id=created.documento_id,
+        snapshot=snapshot,
+        changed_by=user.sub,
+        change_summary=build_change_summary(None, snapshot),
+    )
+    await db.commit()
     await audit_log(
         db,
         request,
@@ -117,7 +173,7 @@ async def create_legal(
         entity_label=created.nombre,
         summary=f"Documento legal '{created.nombre}' creado para {body.empresa_codigo}",
         before=None,
-        after=created.model_dump(mode="json"),
+        after=snapshot,
     )
     return created
 
@@ -175,6 +231,19 @@ async def update_legal(
             status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
         )
     before = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
+    # Snapshot del estado ANTERIOR antes del update — versionamos el old.
+    # El change_summary describe qué se va a cambiar (más útil en el
+    # timeline que un diff entre versiones consecutivas).
+    incoming = body.model_dump(exclude_unset=True)
+    after_preview = {**before, **incoming} if incoming else before
+    summary = build_change_summary(before, after_preview)
+    await _try_snapshot(
+        db,
+        documento_id=documento_id,
+        snapshot=before,
+        changed_by=user.sub,
+        change_summary=summary,
+    )
     updated = await repo.update(doc, body)
     await db.commit()
     refreshed = LegalDocumentRead.model_validate(updated)
@@ -361,3 +430,183 @@ async def download_legal(
         )
     link = dbx.get_temporary_link(doc.dropbox_path)
     return RedirectResponse(url=link, status_code=302)
+
+
+# ---------------------------------------------------------------------------
+# Version history (V4 fase 3)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{documento_id}/versions",
+    response_model=list[LegalDocumentVersionRead],
+    dependencies=[Depends(require_scope("legal:read"))],
+)
+async def list_legal_versions(
+    user: CurrentUser,
+    db: DBSession,
+    documento_id: int,
+) -> list[LegalDocumentVersionRead]:
+    """Versiones del documento, más nueva primero."""
+    doc = await LegalRepository(db).get(documento_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
+        )
+    versions = await LegalVersionRepository(db).list_for_document(documento_id)
+    return [LegalDocumentVersionRead.model_validate(v) for v in versions]
+
+
+@router.get(
+    "/{documento_id}/versions/{version_number}",
+    response_model=LegalDocumentVersionRead,
+    dependencies=[Depends(require_scope("legal:read"))],
+)
+async def get_legal_version(
+    user: CurrentUser,
+    db: DBSession,
+    documento_id: int,
+    version_number: int,
+) -> LegalDocumentVersionRead:
+    version = await LegalVersionRepository(db).get_version(
+        documento_id, version_number
+    )
+    if version is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Versión no encontrada"
+        )
+    return LegalDocumentVersionRead.model_validate(version)
+
+
+@router.get(
+    "/{documento_id}/versions/{version_number}/compare",
+    response_model=LegalDocumentVersionCompareResponse,
+    dependencies=[Depends(require_scope("legal:read"))],
+)
+async def compare_legal_version(
+    user: CurrentUser,
+    db: DBSession,
+    documento_id: int,
+    version_number: int,
+) -> LegalDocumentVersionCompareResponse:
+    """Compara una versión histórica contra el estado actual del documento."""
+    doc = await LegalRepository(db).get(documento_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
+        )
+    version = await LegalVersionRepository(db).get_version(
+        documento_id, version_number
+    )
+    if version is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Versión no encontrada"
+        )
+    current = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
+    return LegalDocumentVersionCompareResponse(
+        version_a=version.snapshot,
+        version_b=current,
+        diff=compute_diff(version.snapshot, current),
+    )
+
+
+@router.post(
+    "/{documento_id}/versions/{version_number}/restore",
+    response_model=LegalDocumentRead,
+    dependencies=[
+        Depends(require_scope("audit:read")),
+        Depends(current_admin_with_2fa),
+    ],
+)
+async def restore_legal_version(
+    user: CurrentUser,
+    db: DBSession,
+    request: Request,
+    documento_id: int,
+    version_number: int,
+) -> LegalDocumentRead:
+    """Restaura una versión histórica como estado actual.
+
+    Forward-only: NO pisamos historia. El flujo es:
+      1. Snapshot del estado actual → nueva versión.
+      2. Aplicar valores del snapshot histórico al row actual.
+      3. Snapshot del estado restaurado → otra nueva versión
+         (para tener trazabilidad clara: "restauré a v5").
+
+    Sólo admin con 2FA habilitado (high-impact, destructivo).
+    """
+    legal_repo = LegalRepository(db)
+    version_repo = LegalVersionRepository(db)
+
+    doc = await legal_repo.get(documento_id)
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
+        )
+    target = await version_repo.get_version(documento_id, version_number)
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Versión no encontrada"
+        )
+
+    current = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
+
+    # Paso 1: snapshot del estado actual (antes del restore).
+    await _try_snapshot(
+        db,
+        documento_id=documento_id,
+        snapshot=current,
+        changed_by=user.sub,
+        change_summary=f"Pre-restore (volverá a v{version_number})",
+    )
+
+    # Paso 2: aplicar campos editables del snapshot histórico al doc actual.
+    # NO restauramos timestamps ni IDs — sólo los campos que el usuario
+    # puede editar via PATCH.
+    editable_fields = {
+        "categoria",
+        "subcategoria",
+        "nombre",
+        "descripcion",
+        "contraparte",
+        "fecha_emision",
+        "fecha_vigencia_desde",
+        "fecha_vigencia_hasta",
+        "monto",
+        "moneda",
+        "estado",
+    }
+    snap = target.snapshot or {}
+    for field in editable_fields:
+        if field in snap:
+            setattr(doc, field, snap[field])
+    await db.flush()
+    await db.refresh(doc)
+
+    refreshed = LegalDocumentRead.model_validate(doc)
+    after = refreshed.model_dump(mode="json")
+
+    # Paso 3: snapshot del estado restaurado para trazabilidad.
+    await _try_snapshot(
+        db,
+        documento_id=documento_id,
+        snapshot=after,
+        changed_by=user.sub,
+        change_summary=f"Restaurado desde v{version_number}",
+    )
+
+    await db.commit()
+
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="legal_document",
+        entity_id=str(documento_id),
+        entity_label=refreshed.nombre,
+        summary=f"Documento legal '{refreshed.nombre}' restaurado a v{version_number}",
+        before=current,
+        after=after,
+    )
+    return refreshed
