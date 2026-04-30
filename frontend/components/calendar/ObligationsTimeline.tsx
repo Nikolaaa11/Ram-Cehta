@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { cn } from "@/lib/utils";
 import type {
   ObligationItem,
@@ -241,7 +242,8 @@ function ObligationRow({
                 {TIPO_LABEL[item.tipo]}
               </span>
               {item.empresa_codigo && (
-                <span className="inline-flex shrink-0 items-center rounded-full bg-ink-100/60 px-2 py-0.5 text-[10px] font-medium text-ink-700">
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink-100/60 py-0.5 pl-1 pr-2 text-[10px] font-medium text-ink-700">
+                  <EmpresaLogo empresaCodigo={item.empresa_codigo} size={16} />
                   {item.empresa_codigo}
                 </span>
               )}

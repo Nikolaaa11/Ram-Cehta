@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Lock } from "lucide-react";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import type { OcListItem } from "@/lib/api/schema";
 import { toCLP, toDate } from "@/lib/format";
 
@@ -89,7 +90,10 @@ export function KanbanCard({ oc, draggable }: Props) {
           </span>
         </div>
 
-        <div className="text-xs text-ink-700">{oc.empresa_codigo}</div>
+        <div className="flex items-center gap-1.5 text-xs text-ink-700">
+          <EmpresaLogo empresaCodigo={oc.empresa_codigo} size={16} />
+          <span>{oc.empresa_codigo}</span>
+        </div>
 
         <div className="text-sm font-medium text-ink-900 tabular-nums">
           {oc.moneda === "CLP" ? toCLP(oc.total) : `${oc.moneda} ${oc.total}`}
