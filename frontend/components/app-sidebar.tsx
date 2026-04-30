@@ -39,6 +39,7 @@ import {
   DollarSign,
   Book,
   ClipboardList,
+  GanttChartSquare,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -94,6 +95,11 @@ const GROUPS: NavGroup[] = [
         icon: DollarSign,
       },
       { href: "/calendario" as Route, label: "Calendario", icon: CalendarDays },
+      {
+        href: "/cartas-gantt" as Route,
+        label: "Cartas Gantt",
+        icon: GanttChartSquare,
+      },
     ],
   },
   {
