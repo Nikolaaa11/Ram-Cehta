@@ -158,9 +158,9 @@ def test_create_and_drop_loops_are_symmetric(migration_source: str) -> None:
     # Tanto upgrade() como downgrade() deben iterar sobre _INDICES.
     assert "for table, name, cols in _INDICES" in migration_source
     assert "for table, name, _cols in _INDICES" in migration_source
-    # Y ambos deben usar CONCURRENTLY.
-    assert "CREATE INDEX CONCURRENTLY" in migration_source
-    assert "DROP INDEX CONCURRENTLY" in migration_source
+    # Ambos lados generan CREATE / DROP INDEX simétricos.
+    assert "CREATE INDEX" in migration_source
+    assert "DROP INDEX" in migration_source
 
 
 # ---------------------------------------------------------------------------
@@ -175,21 +175,27 @@ def test_uses_if_not_exists(migration_source: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 6. CONCURRENTLY: no bloqueamos prod.
+# 6. NOTA: previamente esta migración usaba CREATE INDEX CONCURRENTLY,
+#    pero Supabase Transaction Pooler (PgBouncer modo txn) no lo permite.
+#    Con ~5K filas máx por tabla, el lock de un CREATE INDEX normal es
+#    <100ms — irrelevante en operación. Cuando subamos escala podemos
+#    correr una 0021 con CONCURRENTLY apuntando al direct connection.
 # ---------------------------------------------------------------------------
 
 
-def test_uses_concurrently(migration_source: str) -> None:
-    # CONCURRENTLY permite crear el índice sin sacar lock exclusivo en la
-    # tabla — crítico para tablas con tráfico vivo.
-    assert "CONCURRENTLY" in migration_source
+def test_no_concurrently_in_executed_sql(migration_source: str) -> None:
+    # Defensivamente, garantizamos que NO volvamos a meter CONCURRENTLY
+    # en sentencias EJECUTADAS: el deploy via release_command corre contra
+    # el pooler y rompería. Comments / docstrings que mencionan la palabra
+    # están permitidos (referencia histórica).
+    # Buscamos op.execute(...) que contenga "CONCURRENTLY".
+    import re
 
-
-def test_concurrently_is_outside_transaction(migration_source: str) -> None:
-    # CREATE INDEX CONCURRENTLY no puede correr dentro de una transacción.
-    # El patrón de Alembic es: COMMIT, crear, BEGIN.
-    assert 'op.execute("COMMIT")' in migration_source
-    assert 'op.execute("BEGIN")' in migration_source
+    exec_calls = re.findall(r"op\.execute\([^)]+\)", migration_source)
+    for call in exec_calls:
+        assert "CONCURRENTLY" not in call, (
+            f"op.execute con CONCURRENTLY rompería el deploy via pooler: {call}"
+        )
 
 
 # ---------------------------------------------------------------------------

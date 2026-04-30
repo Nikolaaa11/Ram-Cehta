@@ -14,10 +14,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers
-revision = "0017_webhooks"
-# Tolerante a otras 0016: si el otro agente nombró su revision distinto,
-# corremos sobre HEAD generic; verificar al merge.
-down_revision = "0016_currency_rates"
+revision = "0017"
+down_revision = "0016"
 branch_labels = None
 depends_on = None
 

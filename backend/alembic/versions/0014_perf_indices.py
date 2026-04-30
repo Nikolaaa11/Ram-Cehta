@@ -103,21 +103,20 @@ _INDICES: list[tuple[str, str, str]] = [
 
 
 def upgrade() -> None:
-    # CONCURRENTLY no puede correr dentro de una transacción.
-    # Alembic abre una transacción por default; la cerramos, ejecutamos
-    # los CREATE y la reabrimos para que pueda escribir alembic_version.
-    op.execute("COMMIT")
+    # NOTE: cambiado a `CREATE INDEX` (sin CONCURRENTLY) porque el deploy
+    # corre contra Supabase Transaction Pooler (PgBouncer en modo txn) que
+    # rejecta CONCURRENTLY + raw COMMIT/BEGIN. Con ~5K filas máx por tabla
+    # en este portafolio, el lock es <100ms — no bloquea prod en serio.
+    # Cuando subamos escala, podemos correr una 0021 con CONCURRENTLY
+    # apuntando al direct connection (port 5432) en vez del pooler.
     for table, name, cols in _INDICES:
         op.execute(
-            f"CREATE INDEX CONCURRENTLY IF NOT EXISTS {name} "
+            f"CREATE INDEX IF NOT EXISTS {name} "
             f"ON {table} {cols};"
         )
-    op.execute("BEGIN")
 
 
 def downgrade() -> None:
-    op.execute("COMMIT")
     for table, name, _cols in _INDICES:
         schema = table.split(".")[0]
-        op.execute(f"DROP INDEX CONCURRENTLY IF EXISTS {schema}.{name};")
-    op.execute("BEGIN")
+        op.execute(f"DROP INDEX IF EXISTS {schema}.{name};")

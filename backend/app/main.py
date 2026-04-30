@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -93,6 +94,11 @@ app.add_middleware(
     ],
     max_age=600,
 )
+
+# Gzip — comprime respuestas >500 bytes (60-80% reducción típica en JSON
+# de dashboards / lists). Beneficio neto en latencia es mayor mientras
+# más grande la respuesta. CPU overhead despreciable a este volumen.
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 
 app.include_router(api_router)
 

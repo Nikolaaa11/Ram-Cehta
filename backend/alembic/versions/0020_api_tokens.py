@@ -16,8 +16,8 @@ from __future__ import annotations
 from alembic import op
 
 # revision identifiers
-revision = "0020_api_tokens"
-down_revision = "0019_legal_versions"
+revision = "0020"
+down_revision = "0019"
 branch_labels = None
 depends_on = None
 

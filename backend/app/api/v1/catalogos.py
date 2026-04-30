@@ -1,7 +1,7 @@
 """Catalogos — devuelve todas las tablas lookup para poblar formularios del frontend."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -11,6 +11,12 @@ from app.schemas.empresa import EmpresaRead, EmpresaUpdate
 from app.services.audit_service import audit_log
 
 router = APIRouter()
+
+# Cache de catálogos en el cliente: estos valores (empresas, conceptos,
+# bancos, proyectos) cambian rara vez. 5 min de stale-while-revalidate
+# le ahorra al frontend muchas requests redundantes en navegación
+# normal del usuario.
+_CATALOG_CACHE_HEADER = "private, max-age=300, stale-while-revalidate=60"
 
 
 class EmpresaCatalogo(BaseModel):
@@ -119,8 +125,11 @@ async def update_empresa(
 
 
 @router.get("/empresas", response_model=list[EmpresaCatalogo])
-async def list_empresas(user: CurrentUser, db: DBSession) -> list[EmpresaCatalogo]:
+async def list_empresas(
+    user: CurrentUser, db: DBSession, response: Response
+) -> list[EmpresaCatalogo]:
     """Catálogo plano de empresas activas — único source-of-truth para selects (Disciplina 1)."""
+    response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
     rows = (
         await db.execute(
             text(
@@ -136,7 +145,10 @@ async def list_empresas(user: CurrentUser, db: DBSession) -> list[EmpresaCatalog
 
 
 @router.get("", response_model=CatalogosResponse)
-async def get_catalogos(user: CurrentUser, db: DBSession) -> CatalogosResponse:
+async def get_catalogos(
+    user: CurrentUser, db: DBSession, response: Response
+) -> CatalogosResponse:
+    response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
     empresas_rows = (
         await db.execute(
             text(
