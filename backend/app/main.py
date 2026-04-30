@@ -71,11 +71,19 @@ async def lifespan(app: FastAPI) -> Any:
 app = FastAPI(
     title="Cehta Capital API",
     version="0.1.0",
-    description="Backend para la Plataforma Cehta Capital (FIP CEHTA ESG).",
+    description=(
+        "Backend para la Plataforma Cehta Capital (FIP CEHTA ESG).\n\n"
+        "Auth: Bearer JWT (Supabase) o Bearer API token (`cak_...`)."
+    ),
     lifespan=lifespan,
-    openapi_url="/openapi.json" if not settings.is_production else None,
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
+    # En producción exponemos `/openapi.json` para que el frontend pueda
+    # renderizar /admin/api-docs (V4 fase 4). El JSON describe la API
+    # surface — no contiene secretos. /docs (Swagger UI nativo) y /redoc
+    # quedan disponibles también; cualquier scrapeo del API surface es
+    # equivalente a leer este código abierto.
+    openapi_url="/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 app.state.limiter = limiter
