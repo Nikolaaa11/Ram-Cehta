@@ -36,6 +36,8 @@ import {
   Webhook,
   Inbox,
   Key,
+  DollarSign,
+  Book,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -81,6 +83,11 @@ const GROUPS: NavGroup[] = [
     label: "Ejecutivo",
     items: [
       { href: "/ceo" as Route, label: "Dashboard CEO", icon: LineChart },
+      {
+        href: "/portafolio" as Route,
+        label: "Portafolio USD",
+        icon: DollarSign,
+      },
       { href: "/calendario" as Route, label: "Calendario", icon: CalendarDays },
     ],
   },
@@ -175,6 +182,11 @@ const GROUPS: NavGroup[] = [
         href: "/admin/api-tokens" as Route,
         label: "API tokens",
         icon: Key,
+      },
+      {
+        href: "/admin/api-docs" as Route,
+        label: "API docs",
+        icon: Book,
       },
       {
         // V4 fase 2: 2FA TOTP. Visible bajo "Admin" (mismo grupo que el
