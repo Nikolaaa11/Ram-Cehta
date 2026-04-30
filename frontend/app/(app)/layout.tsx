@@ -5,6 +5,7 @@ import { CommandPaletteProvider } from "@/components/search/CommandPaletteProvid
 import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 import { RealtimeProvider } from "@/components/realtime/RealtimeProvider";
 import { TwoFactorBanner } from "@/components/auth/TwoFactorBanner";
+import { TourTrigger } from "@/components/onboarding/TourTrigger";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -32,6 +33,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {children}
       </MobileLayoutShell>
       <CommandPaletteProvider />
+      {/* V4 fase 4: tour de onboarding. Auto-disparo en first login;
+          self-managed (renderea null si el user ya completó). */}
+      <TourTrigger />
     </RealtimeProvider>
   );
 }

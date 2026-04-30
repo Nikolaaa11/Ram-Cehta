@@ -18,6 +18,7 @@ from app.models.saved_view import SavedView
 from app.models.suscripcion_accion import SuscripcionAccion
 from app.models.trabajador import Trabajador, TrabajadorDocumento
 from app.models.two_factor import TwoFactor
+from app.models.user_preference import UserPreference
 from app.models.user_role import UserRole
 
 __all__ = [
@@ -43,5 +44,6 @@ __all__ = [
     "Trabajador",
     "TrabajadorDocumento",
     "TwoFactor",
+    "UserPreference",
     "UserRole",
 ]

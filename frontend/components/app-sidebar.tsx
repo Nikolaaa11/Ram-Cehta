@@ -64,6 +64,9 @@ type NavItem = {
   href: Route;
   label: string;
   icon: LucideIcon;
+  /** V4 fase 4 — atributo data-tour para que el OnboardingTour pueda
+   * targetear este link (e.g. "action-center", "asistente"). */
+  tourId?: string;
 };
 
 type NavGroup = {
@@ -89,6 +92,7 @@ const GROUPS: NavGroup[] = [
         href: "/action-center" as Route,
         label: "Action Center",
         icon: Inbox,
+        tourId: "action-center",
       },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/proveedores", label: "Proveedores", icon: Users },
@@ -110,7 +114,12 @@ const GROUPS: NavGroup[] = [
         label: "Suscripciones FIP",
         icon: TrendingUp,
       },
-      { href: "/asistente" as Route, label: "AI Asistente", icon: Sparkles },
+      {
+        href: "/asistente" as Route,
+        label: "AI Asistente",
+        icon: Sparkles,
+        tourId: "asistente",
+      },
     ],
   },
   {
@@ -229,7 +238,11 @@ export function AppSidebar({ email }: AppSidebarProps) {
             </p>
             <p className="text-xs text-ink-500">FIP CEHTA ESG</p>
           </div>
-          <NotificationsBell />
+          {/* V4 fase 4 — data-tour anchor para el OnboardingTour. Wrappeamos
+              en un span para no tener que modificar la API de NotificationsBell. */}
+          <span data-tour="notifications-bell" className="contents">
+            <NotificationsBell />
+          </span>
           <RealtimeIndicator />
         </div>
       </div>
@@ -258,6 +271,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                     key={item.href}
                     href={item.href}
                     aria-current={isActive ? "page" : undefined}
+                    data-tour={item.tourId}
                     className={cn(
                       "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",

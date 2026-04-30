@@ -31,6 +31,7 @@ import {
   useDisable,
   useRegenerateBackupCodes,
 } from "@/hooks/use-2fa";
+import { ReplayTourButton } from "@/components/onboarding/ReplayTourButton";
 
 export default function TwoFactorPage() {
   const statusQ = use2FAStatus();
@@ -321,6 +322,24 @@ export default function TwoFactorPage() {
           </Surface>
         </>
       )}
+
+      {/* V4 fase 4 — Replay del onboarding tour. Visible siempre, no solo
+          cuando 2FA está activo. Es la sección "Otras configuraciones" del
+          perfil del usuario. */}
+      <Surface>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-base font-semibold text-ink-900">
+              Tour de onboarding
+            </p>
+            <p className="mt-0.5 text-sm text-ink-500">
+              Volvé a ver el recorrido de bienvenida con los 5 atajos más
+              útiles de la plataforma.
+            </p>
+          </div>
+          <ReplayTourButton />
+        </div>
+      </Surface>
     </div>
   );
 }

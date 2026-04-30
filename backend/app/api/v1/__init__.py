@@ -22,10 +22,12 @@ from app.api.v1 import (
     fondos,
     health,
     legal,
+    me_preferences,
     movimientos,
     notifications,
     notifications_inbox,
     ordenes_compra,
+    portfolio,
     proveedores,
     saved_views,
     search,
@@ -73,9 +75,13 @@ api_router.include_router(saved_views.router, prefix="/me", tags=["saved-views"]
 # 2FA TOTP routes also live bajo `/me` (V4 fase 2). FastAPI permite múltiples
 # routers con el mismo prefix — cada uno declara sus paths internos.
 api_router.include_router(two_factor.router, prefix="/me", tags=["two-factor"])
+# V4 fase 4: preferences key-value genérico (onboarding_tour, theme, etc.)
+api_router.include_router(me_preferences.router, prefix="/me", tags=["me-preferences"])
 api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk-import"])
 api_router.include_router(status_router.router, prefix="/admin", tags=["admin-status"])
 api_router.include_router(currency.router, prefix="/currency", tags=["currency"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(stream_router.router, prefix="/stream", tags=["stream"])
 api_router.include_router(api_tokens.router, prefix="/api-tokens", tags=["api-tokens"])
+# V4 fase 4: portfolio consolidado USD cross-empresa (LP reporting).
+api_router.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])

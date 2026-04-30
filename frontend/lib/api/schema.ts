@@ -635,6 +635,51 @@ export interface LatestRatesResponse {
   date: string;
 }
 
+// ─── Portfolio Consolidado USD (V4 fase 4) ───────────────────────────────────
+// Definidos a mano — match con `app.schemas.portfolio` (backend).
+// La vista cross-empresa que el CEO usa para LP reporting (LPs en USD).
+
+export interface EmpresaPortfolioRow {
+  empresa_codigo: string;
+  razon_social: string;
+  saldo_native: string | number;
+  currency_native: string; // "CLP" | "UF" | "USD"
+  saldo_clp: string | number;
+  saldo_usd: string | number | null;
+  percent_of_portfolio: string | number;
+}
+
+export interface CurrencyBreakdownItem {
+  currency: string; // "CLP" | "UF" | "USD"
+  total_clp: string | number;
+  percent: string | number;
+}
+
+export interface PortfolioMonthlyPoint {
+  periodo: string;
+  fecha_inicio: string; // YYYY-MM-DD
+  total_clp: string | number;
+  total_usd: string | number | null;
+}
+
+export interface PortfolioRatesUsed {
+  uf_clp: string | number | null;
+  usd_clp: string | number | null;
+  date: string;
+}
+
+export interface PortfolioConsolidated {
+  generated_at: string;
+  total_clp: string | number;
+  total_usd: string | number | null;
+  total_uf: string | number | null;
+  empresas: EmpresaPortfolioRow[];
+  currency_breakdown: CurrencyBreakdownItem[];
+  monthly_trend: PortfolioMonthlyPoint[];
+  rates_used: PortfolioRatesUsed;
+  warnings: string[];
+}
+
 // ─── Bulk operations ──────────────────────────────────────────────────────────
 // Definidos a mano — match con `app.schemas.bulk` (backend).
 
@@ -756,3 +801,30 @@ export interface TwoFactorBackupCodesResponse {
 
 // Alias requerido por el spec de la fase: nombres más cortos para uso en componentes.
 export type EnrollResponse = TwoFactorEnrollResponse;
+
+// ─── User preferences (V4 fase 4 — onboarding tour) ──────────────────────────
+// Generic key-value store per-user. Cada `key` tiene su propio shape de
+// `value` que el callsite garantiza (no validado a nivel de API).
+
+export type UserPreferenceValue =
+  | Record<string, unknown>
+  | unknown[]
+  | string
+  | number
+  | boolean
+  | null;
+
+export interface UserPreferenceRead {
+  key: string;
+  value: UserPreferenceValue;
+}
+
+export interface UserPreferenceUpdate {
+  value: UserPreferenceValue;
+}
+
+/** Shape canónico para `key=onboarding_tour`. */
+export interface TourState {
+  completed: boolean;
+  current_step: number;
+}

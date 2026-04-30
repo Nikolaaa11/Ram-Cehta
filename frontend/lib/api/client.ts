@@ -50,6 +50,9 @@ export const apiClient = {
   patch<T>(path: string, body: unknown, session: Session | null): Promise<T> {
     return coreFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }, session);
   },
+  put<T>(path: string, body: unknown, session: Session | null): Promise<T> {
+    return coreFetch<T>(path, { method: "PUT", body: JSON.stringify(body) }, session);
+  },
   delete<T>(path: string, session: Session | null): Promise<T> {
     return coreFetch<T>(path, { method: "DELETE" }, session);
   },
