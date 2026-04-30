@@ -16,8 +16,11 @@ import type {
 /**
  * useUnreadCount — bell badge.
  *
- * Refetcha cada 60s para mantener el contador fresco. Si el usuario no
- * está autenticado todavía, queda en idle.
+ * Con SSE activo (V4 fase 2), el backend pushea `notification.created` y
+ * `notification.read` que invalidan esta query inmediatamente. El polling
+ * de fallback bajó de 60s a 5min — mantiene el contador fresco si el SSE
+ * cae sin que el usuario lo note y nos protege contra eventos perdidos
+ * durante reconexión.
  */
 export function useUnreadCount() {
   const { session, loading } = useSession();
@@ -25,7 +28,7 @@ export function useUnreadCount() {
     queryKey: ["notifications", "unread-count"],
     queryFn: () => apiClient.get<UnreadCount>("/inbox/unread-count", session),
     enabled: !loading && !!session,
-    refetchInterval: 60_000,
+    refetchInterval: 5 * 60_000,
     staleTime: 30_000,
   });
 }

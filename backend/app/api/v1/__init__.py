@@ -36,6 +36,7 @@ from app.api.v1 import (
 from app.api.v1 import (
     status as status_router,
 )
+from app.api.v1 import stream as stream_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -71,3 +72,4 @@ api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk
 api_router.include_router(status_router.router, prefix="/admin", tags=["admin-status"])
 api_router.include_router(currency.router, prefix="/currency", tags=["currency"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+api_router.include_router(stream_router.router, prefix="/stream", tags=["stream"])

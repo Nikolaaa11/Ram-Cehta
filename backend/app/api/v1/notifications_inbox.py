@@ -7,6 +7,7 @@ para configurar Resend).
 """
 from __future__ import annotations
 
+import contextlib
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,6 +23,7 @@ from app.schemas.notification import (
     NotificationRead,
     UnreadCount,
 )
+from app.services.event_broadcaster import get_broadcaster
 from app.services.notification_generator_service import (
     NotificationGeneratorService,
 )
@@ -78,6 +80,21 @@ async def mark_read(
             detail="Notificación no encontrada",
         )
     await db.commit()
+    # Real-time push: avisar a otras pestañas del mismo usuario que la
+    # notif quedó leída (para que reduzcan el badge sin esperar polling).
+    # Defensivo — nunca debe romper el endpoint.
+    with contextlib.suppress(Exception):
+        await get_broadcaster().publish(
+            "notification.read",
+            {
+                "id": str(notif.id),
+                "user_id": user.sub,
+                "read_at": (
+                    notif.read_at.isoformat() if notif.read_at else None
+                ),
+            },
+            user_id=user.sub,
+        )
     return NotificationRead.model_validate(notif)
 
 

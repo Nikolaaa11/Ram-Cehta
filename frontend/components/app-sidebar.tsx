@@ -41,6 +41,7 @@ import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
+import { RealtimeIndicator } from "@/components/realtime/RealtimeIndicator";
 import { cn } from "@/lib/utils";
 
 /**
@@ -208,6 +209,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
             <p className="text-xs text-ink-500">FIP CEHTA ESG</p>
           </div>
           <NotificationsBell />
+          <RealtimeIndicator />
         </div>
       </div>
 

@@ -52,6 +52,7 @@ from app.models.empresa import Empresa
 from app.models.etl_run import EtlRun
 from app.models.rejected_row import RejectedRow
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.event_broadcaster import get_broadcaster
 
 log = structlog.get_logger(__name__)
 
@@ -998,6 +999,24 @@ class ETLService:
                 loaded=loaded,
                 rejected=len(rejected),
             )
+            # Real-time push (V4 fase 2): admins viendo /admin/etl reciben
+            # el evento sin tener que refrescar.
+            try:
+                await get_broadcaster().publish(
+                    "etl.completed",
+                    {
+                        "run_id": run_id,
+                        "status": final_status,
+                        "rows_loaded": loaded,
+                        "rows_rejected": len(rejected),
+                        "rows_extracted": len(raw_rows),
+                        "source_file": file_path,
+                        "triggered_by": triggered_by,
+                    },
+                    role="admin",
+                )
+            except Exception as pub_exc:  # pragma: no cover — defensivo
+                log.warning("etl_sse_publish_failed", error=str(pub_exc))
             return result
 
         except Exception as exc:
@@ -1018,6 +1037,19 @@ class ETLService:
                 await db.commit()
             except Exception:  # pragma: no cover — defensa contra DB rota
                 log.exception("etl.failed_to_mark_failed")
+            # Real-time push: avisar a admins que el ETL falló.
+            # Defensivo — el error de SSE no debe ocultar el error original.
+            with contextlib.suppress(Exception):
+                await get_broadcaster().publish(
+                    "etl.failed",
+                    {
+                        "run_id": run_id,
+                        "source_file": file_path,
+                        "error_message": str(exc)[:500],
+                        "triggered_by": triggered_by,
+                    },
+                    role="admin",
+                )
             return ETLResult(
                 run_id=run_id,
                 status="failed",

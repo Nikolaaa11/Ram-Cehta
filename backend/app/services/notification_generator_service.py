@@ -34,6 +34,7 @@ from app.infrastructure.repositories.notification_repository import (
     NotificationRepository,
 )
 from app.schemas.notification import GenerateAlertsReport
+from app.services.event_broadcaster import get_broadcaster
 
 log = get_logger(__name__)
 
@@ -83,7 +84,7 @@ class NotificationGeneratorService:
             )
             if existing:
                 continue
-            await self._repo.create(
+            notif = await self._repo.create(
                 user_id=uid,
                 tipo=tipo,
                 title=title,
@@ -94,6 +95,28 @@ class NotificationGeneratorService:
                 entity_id=entity_id,
             )
             created += 1
+            # Real-time push (V4 fase 2). Soft-fail: el broadcaster nunca
+            # debería raisear, pero envolvemos defensivamente igual — la
+            # alerta ya quedó persistida, no queremos romper la corrida
+            # entera por un fallo del fanout in-memory.
+            try:
+                await get_broadcaster().publish(
+                    "notification.created",
+                    {
+                        "id": str(notif.id),
+                        "user_id": uid,
+                        "tipo": tipo,
+                        "severity": severity,
+                        "title": title,
+                        "body": body,
+                        "link": link,
+                        "entity_type": entity_type,
+                        "entity_id": entity_id,
+                    },
+                    user_id=uid,
+                )
+            except Exception as exc:  # pragma: no cover — defensivo
+                log.warning("sse_publish_notification_failed", error=str(exc))
         return created
 
     # ------------------------------------------------------------------

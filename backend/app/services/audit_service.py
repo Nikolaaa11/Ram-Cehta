@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
+from app.services.event_broadcaster import get_broadcaster
 
 log = get_logger(__name__)
 
@@ -191,6 +192,25 @@ async def audit_log(
             },
         )
         await db.commit()
+
+        # Real-time push (V4 fase 2): broadcast del audit entry a admins
+        # logueados para que el feed de /admin/audit se refresque sin
+        # esperar al refetch. Soft-fail: el insert ya está commiteado.
+        try:
+            await get_broadcaster().publish(
+                "audit.action",
+                {
+                    "action": action,
+                    "entity_type": entity_type,
+                    "entity_id": str(entity_id),
+                    "entity_label": entity_label,
+                    "summary": summary,
+                    "user_email": user_email,
+                },
+                role="admin",
+            )
+        except Exception as pub_exc:  # pragma: no cover — defensivo
+            log.warning("audit_sse_publish_failed", error=str(pub_exc))
     except Exception as exc:
         # NUNCA raiseamos: la mutación ya pasó. Sólo logeamos para
         # diagnosis de incidentes de auditoría.
