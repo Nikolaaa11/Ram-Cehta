@@ -24,6 +24,7 @@ import { EventCreateDialog } from "@/components/calendar/EventCreateDialog";
 import { EventDayDrawer } from "@/components/calendar/EventDayDrawer";
 import { EventDot, TIPO_LABEL } from "@/components/calendar/EventDot";
 import { ObligationsTimeline } from "@/components/calendar/ObligationsTimeline";
+import { AgenteSecretaria } from "@/components/calendar/AgenteSecretaria";
 import { cn } from "@/lib/utils";
 import type {
   AgentRunReport,
@@ -302,6 +303,9 @@ export default function CalendarioPage() {
         </>
       )}
 
+      {/* Agente Secretaria — entregables próximos 60 días con info requerida */}
+      <AgenteSecretaria />
+
       <EventCreateDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
@@ -312,6 +316,7 @@ export default function CalendarioPage() {
       <EventDayDrawer
         day={drawerDay}
         events={events}
+        obligations={obligationsAll}
         onClose={() => setDrawerDay(null)}
       />
     </div>

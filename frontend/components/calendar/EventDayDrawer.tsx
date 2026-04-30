@@ -1,25 +1,40 @@
 "use client";
 
+import Link from "next/link";
 import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Trash2, X } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ClipboardList,
+  ExternalLink,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
 import { useMe } from "@/hooks/use-me";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { EventDot, TIPO_LABEL } from "./EventDot";
 import { Badge } from "@/components/ui/badge";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { cn } from "@/lib/utils";
-import type { CalendarEventRead } from "@/lib/api/schema";
+import type { CalendarEventRead, ObligationItem } from "@/lib/api/schema";
 
 interface Props {
   day: Date | null;
   events: CalendarEventRead[];
+  obligations?: ObligationItem[];
   onClose: () => void;
 }
 
-export function EventDayDrawer({ day, events, onClose }: Props) {
+export function EventDayDrawer({
+  day,
+  events,
+  obligations = [],
+  onClose,
+}: Props) {
   const { session } = useSession();
   const qc = useQueryClient();
   const { data: me } = useMe();
@@ -55,6 +70,10 @@ export function EventDayDrawer({ day, events, onClose }: Props) {
   const dayEvents = events.filter((ev) =>
     isSameDay(new Date(ev.fecha_inicio), day),
   );
+  const dayObligations = obligations.filter((o) =>
+    isSameDay(new Date(o.due_date + "T00:00:00"), day),
+  );
+  const totalCount = dayEvents.length + dayObligations.length;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -71,8 +90,14 @@ export function EventDayDrawer({ day, events, onClose }: Props) {
               {format(day, "EEEE d 'de' MMMM", { locale: es })}
             </h3>
             <p className="text-xs text-ink-500">
-              {dayEvents.length}{" "}
-              {dayEvents.length === 1 ? "evento" : "eventos"}
+              {totalCount}{" "}
+              {totalCount === 1 ? "compromiso" : "compromisos"}
+              {dayObligations.length > 0 && (
+                <span className="ml-2 rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold text-warning">
+                  {dayObligations.length} entregable
+                  {dayObligations.length !== 1 ? "s" : ""}
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -86,9 +111,98 @@ export function EventDayDrawer({ day, events, onClose }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {dayEvents.length === 0 ? (
-            <p className="text-sm text-ink-500">Sin eventos en este día.</p>
-          ) : (
+          {/* SECCIÓN 1: Entregables regulatorios / obligaciones del día */}
+          {dayObligations.length > 0 && (
+            <div className="mb-5">
+              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-warning">
+                <ClipboardList className="h-3 w-3" strokeWidth={2.5} />
+                Entregables / Obligaciones
+              </p>
+              <ul className="space-y-2">
+                {dayObligations.map((o) => (
+                  <li
+                    key={o.id}
+                    className={cn(
+                      "rounded-xl border p-3 transition-colors",
+                      o.severity === "critical"
+                        ? "border-negative/30 bg-negative/5"
+                        : o.severity === "warning"
+                          ? "border-warning/30 bg-warning/5"
+                          : "border-hairline",
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      {o.empresa_codigo && (
+                        <EmpresaLogo
+                          empresaCodigo={o.empresa_codigo}
+                          size={28}
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-md bg-ink-100/60 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-ink-700">
+                            {o.tipo}
+                          </span>
+                          <span
+                            className={cn(
+                              "rounded-md px-1.5 py-0.5 text-[10px] font-medium",
+                              o.severity === "critical"
+                                ? "bg-negative/15 text-negative"
+                                : o.severity === "warning"
+                                  ? "bg-warning/15 text-warning"
+                                  : "bg-info/10 text-info",
+                            )}
+                          >
+                            {o.days_until < 0
+                              ? `Vencido hace ${Math.abs(o.days_until)}d`
+                              : o.days_until === 0
+                                ? "Vence HOY"
+                                : `En ${o.days_until}d`}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-sm font-medium text-ink-900">
+                          {o.title}
+                        </p>
+                        {o.subtitle && (
+                          <p className="text-xs text-ink-600">{o.subtitle}</p>
+                        )}
+                        {o.monto != null && (
+                          <p className="mt-1 font-mono text-xs tabular-nums text-ink-700">
+                            ${Number(o.monto).toLocaleString("es-CL")}{" "}
+                            {o.moneda ?? "CLP"}
+                          </p>
+                        )}
+                        <Link
+                          href={o.link as never}
+                          onClick={onClose}
+                          className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-cehta-green hover:underline"
+                        >
+                          Ir al detalle
+                          <ArrowRight className="h-3 w-3" strokeWidth={2} />
+                        </Link>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* SECCIÓN 2: Eventos manuales del calendario */}
+          {dayEvents.length > 0 && (
+            <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+              Eventos del calendario
+            </p>
+          )}
+          {dayEvents.length === 0 && dayObligations.length === 0 ? (
+            <p className="text-sm text-ink-500">
+              Sin compromisos en este día. Click en{" "}
+              <span className="rounded bg-cehta-green/10 px-1 py-0.5 text-xs text-cehta-green">
+                + Nuevo evento
+              </span>{" "}
+              para agregar uno manualmente.
+            </p>
+          ) : dayEvents.length === 0 ? null : (
             <ul className="space-y-3">
               {dayEvents.map((ev) => (
                 <li
