@@ -351,8 +351,16 @@ def _build_app_with_user(role: str) -> FastAPI:
         )
 
     async def fake_db() -> Any:
-        # Yield a MagicMock — endpoints sólo se llaman si pasan el scope
-        yield MagicMock()
+        # AsyncMock para que `db.scalar()` (usado por el gate `current_admin_with_2fa`
+        # de V4 fase 2) sea awaitable. `scalar` retorna `None` por default,
+        # equivalente a "user no tiene fila en app.user_2fa". Para los tests
+        # de admin acá usamos `app_role='admin'` y por eso necesitamos que el
+        # gate decida basado en la query — que retorne `True` para que pase.
+        from unittest.mock import AsyncMock
+        mock = MagicMock()
+        # `True` simula admin con 2FA activo → gate pasa.
+        mock.scalar = AsyncMock(return_value=True)
+        yield mock
 
     app.dependency_overrides[current_user] = fake_user
     app.dependency_overrides[db_session] = fake_db

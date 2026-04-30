@@ -46,6 +46,9 @@ dependencies = [
     "resend>=2.0,<3.0",
     "openpyxl>=3.1,<4.0",
     "pandas>=2.2,<3.0",
+    # 2FA TOTP (V4 fase 2). RFC 6238 Time-based One-Time Password.
+    # Tests stubbean el módulo si pyotp no está instalado en CI/local.
+    "pyotp>=2.9,<3.0",
     # Server-Sent Events (V4 fase 2 — real-time updates).
     # Stream long-lived /api/v1/stream/events conexión por usuario logueado.
     # Soft-fail: si el package no está disponible o asyncio rompe, el endpoint

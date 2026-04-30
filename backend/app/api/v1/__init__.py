@@ -30,6 +30,7 @@ from app.api.v1 import (
     search,
     suscripciones,
     trabajadores,
+    two_factor,
     validate,
     webhooks,
 )
@@ -68,6 +69,9 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(exports.router, prefix="/exports", tags=["exports"])
 api_router.include_router(digest.router, prefix="/digest", tags=["digest"])
 api_router.include_router(saved_views.router, prefix="/me", tags=["saved-views"])
+# 2FA TOTP routes also live bajo `/me` (V4 fase 2). FastAPI permite múltiples
+# routers con el mismo prefix — cada uno declara sus paths internos.
+api_router.include_router(two_factor.router, prefix="/me", tags=["two-factor"])
 api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk-import"])
 api_router.include_router(status_router.router, prefix="/admin", tags=["admin-status"])
 api_router.include_router(currency.router, prefix="/currency", tags=["currency"])

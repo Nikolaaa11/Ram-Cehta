@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import text
 
-from app.api.deps import DBSession, require_scope
+from app.api.deps import DBSession, current_admin_with_2fa, require_scope
 from app.core.security import AuthenticatedUser
 from app.schemas.common import Page
 from app.schemas.webhook import (
@@ -81,6 +81,8 @@ async def list_subscriptions(
     "",
     response_model=WebhookSubscriptionWithSecret,
     status_code=status.HTTP_201_CREATED,
+    # V4 fase 2: high-impact (un webhook nuevo expone datos de Cehta).
+    dependencies=[Depends(current_admin_with_2fa)],
 )
 async def create_subscription(
     user: Annotated[AuthenticatedUser, Depends(require_scope(_SCOPE))],
@@ -170,7 +172,12 @@ async def update_subscription(
     return _row_to_read(dict(row))
 
 
-@router.delete("/{sub_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{sub_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    # V4 fase 2: high-impact (delete destructivo).
+    dependencies=[Depends(current_admin_with_2fa)],
+)
 async def delete_subscription(
     user: Annotated[AuthenticatedUser, Depends(require_scope(_SCOPE))],
     db: DBSession,

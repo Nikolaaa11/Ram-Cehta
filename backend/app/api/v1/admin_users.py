@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 
-from app.api.deps import DBSession, require_scope
+from app.api.deps import DBSession, current_admin_with_2fa, require_scope
 from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.user_role_repository import UserRoleRepository
 from app.schemas.admin_user import (
@@ -39,7 +39,14 @@ async def list_users(
     return await repo.list_with_emails()
 
 
-@router.post("/users", response_model=UserRoleRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/users",
+    response_model=UserRoleRead,
+    status_code=status.HTTP_201_CREATED,
+    # V4 fase 2: high-impact endpoint — si es admin, exige 2FA activo
+    # (gate soft-rollout, ignorado para non-admin).
+    dependencies=[Depends(current_admin_with_2fa)],
+)
 async def assign_user(
     body: UserRoleAssignRequest,
     user: Annotated[AuthenticatedUser, Depends(require_scope("user:write"))],

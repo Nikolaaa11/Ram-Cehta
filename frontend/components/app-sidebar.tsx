@@ -155,6 +155,15 @@ const GROUPS: NavGroup[] = [
         label: "Webhooks",
         icon: Webhook,
       },
+      {
+        // V4 fase 2: 2FA TOTP. Visible bajo "Admin" (mismo grupo que el
+        // resto de configuración sensible). El target page acepta a
+        // cualquier rol — la entrada está acá porque admins son quienes
+        // están bloqueados en endpoints high-impact si no activan 2FA.
+        href: "/2fa" as Route,
+        label: "Configuración 2FA",
+        icon: ShieldCheck,
+      },
     ],
   },
 ];

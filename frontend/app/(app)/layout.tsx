@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { CommandPaletteProvider } from "@/components/search/CommandPaletteProvider";
 import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 import { RealtimeProvider } from "@/components/realtime/RealtimeProvider";
+import { TwoFactorBanner } from "@/components/auth/TwoFactorBanner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -25,6 +26,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <MobileLayoutShell
         sidebar={<AppSidebar email={session.user.email ?? ""} />}
       >
+        {/* V4 fase 2: banner amarillo si admin sin 2FA. Self-managed
+            (renderea null si la condición no aplica). */}
+        <TwoFactorBanner />
         {children}
       </MobileLayoutShell>
       <CommandPaletteProvider />

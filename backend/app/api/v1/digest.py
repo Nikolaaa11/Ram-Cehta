@@ -17,7 +17,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
 
-from app.api.deps import DBSession, require_scope
+from app.api.deps import DBSession, current_admin_with_2fa, require_scope
 from app.core.config import settings
 from app.core.security import AuthenticatedUser
 from app.schemas.digest import (
@@ -63,7 +63,12 @@ async def digest_preview_html(
     return HTMLResponse(content=html, status_code=200)
 
 
-@router.post("/ceo-weekly/send-now", response_model=DigestSendResult)
+@router.post(
+    "/ceo-weekly/send-now",
+    response_model=DigestSendResult,
+    # V4 fase 2: high-impact (envío real de email).
+    dependencies=[Depends(current_admin_with_2fa)],
+)
 async def digest_send_now(
     user: Annotated[
         AuthenticatedUser, Depends(require_scope("notifications:admin"))

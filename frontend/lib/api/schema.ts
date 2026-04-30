@@ -709,3 +709,32 @@ export interface ImportResult {
   skipped: number;
   errors: ImportRowError[];
 }
+
+// ─── 2FA TOTP (V4 fase 2) ────────────────────────────────────────────────────
+// Definidos a mano — match con `app.schemas.two_factor` (backend).
+// El secret y los backup_codes solo viajan en la respuesta de `enroll` /
+// `regenerate-backup-codes` y se descartan apenas el user los copia.
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+  enabled_at: string | null;
+  backup_codes_remaining: number;
+}
+
+export interface TwoFactorEnrollResponse {
+  secret: string;
+  provisioning_uri: string;
+  qr_url: string;
+  backup_codes: string[];
+}
+
+export interface TwoFactorVerifyRequest {
+  code: string;
+}
+
+export interface TwoFactorBackupCodesResponse {
+  backup_codes: string[];
+}
+
+// Alias requerido por el spec de la fase: nombres más cortos para uso en componentes.
+export type EnrollResponse = TwoFactorEnrollResponse;
