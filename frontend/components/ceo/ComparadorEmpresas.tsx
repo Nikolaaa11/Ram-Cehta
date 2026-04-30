@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Minus, ArrowUpDown } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { toCLP } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { EmpresaCEOKPIs } from "@/lib/api/schema";
@@ -156,13 +157,22 @@ export function ComparadorEmpresas({ empresas }: Props) {
               className="transition-colors duration-150 hover:bg-ink-100/30"
             >
               <td className="px-4 py-3 font-medium text-ink-900">
-                <div className="flex items-center gap-2">
-                  {trendIcon(e.trend)}
-                  <span>{e.empresa_codigo}</span>
+                <div className="flex items-center gap-2.5">
+                  <EmpresaLogo
+                    empresaCodigo={e.empresa_codigo}
+                    size={28}
+                    className="shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      {trendIcon(e.trend)}
+                      <span className="truncate">{e.empresa_codigo}</span>
+                    </div>
+                    <span className="block truncate text-xs font-normal text-ink-500">
+                      {e.razon_social}
+                    </span>
+                  </div>
                 </div>
-                <span className="block text-xs font-normal text-ink-500">
-                  {e.razon_social}
-                </span>
               </td>
               <td className="px-4 py-3 text-right tabular-nums text-ink-900">
                 {toCLP(e.saldo_contable)}

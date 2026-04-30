@@ -1,6 +1,7 @@
 "use client";
 
 import { Surface } from "@/components/ui/surface";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { toCLP, toPct } from "@/lib/format";
 import type { EmpresaPortfolioRow } from "@/lib/api/schema";
 
@@ -72,7 +73,10 @@ export function PortfolioTable({ empresas }: Props) {
                   className="border-b border-hairline/60 hover:bg-cehta-green/5 transition-colors"
                 >
                   <td className="py-2.5 pr-4 font-medium text-ink-900">
-                    {e.empresa_codigo}
+                    <div className="flex items-center gap-2">
+                      <EmpresaLogo empresaCodigo={e.empresa_codigo} size={26} />
+                      <span>{e.empresa_codigo}</span>
+                    </div>
                   </td>
                   <td className="py-2.5 pr-4 text-ink-700 truncate max-w-[280px]">
                     {e.razon_social}

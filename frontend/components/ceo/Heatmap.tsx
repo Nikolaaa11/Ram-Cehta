@@ -1,4 +1,5 @@
 import { Surface } from "@/components/ui/surface";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { cn } from "@/lib/utils";
 import type { HeatmapCell } from "@/lib/api/schema";
 
@@ -65,7 +66,10 @@ export function Heatmap({ heatmap }: Props) {
             {empresas.map((emp) => (
               <tr key={emp} className="transition-colors duration-150 hover:bg-ink-100/30">
                 <td className="px-4 py-3 font-medium tabular-nums text-ink-900">
-                  {emp}
+                  <div className="flex items-center gap-2">
+                    <EmpresaLogo empresaCodigo={emp} size={22} />
+                    <span>{emp}</span>
+                  </div>
                 </td>
                 {KPI_ORDER.map((k) => {
                   const cell = cellMap.get(`${emp}::${k}`);
