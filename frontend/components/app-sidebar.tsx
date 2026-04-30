@@ -35,6 +35,7 @@ import {
   Upload,
   Webhook,
   Inbox,
+  Key,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -160,6 +161,11 @@ const GROUPS: NavGroup[] = [
         href: "/admin/webhooks" as Route,
         label: "Webhooks",
         icon: Webhook,
+      },
+      {
+        href: "/admin/api-tokens" as Route,
+        label: "API tokens",
+        icon: Key,
       },
       {
         // V4 fase 2: 2FA TOTP. Visible bajo "Admin" (mismo grupo que el

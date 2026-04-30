@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     admin_users,
     ai,
+    api_tokens,
     audit,
     auth,
     avance,
@@ -77,3 +78,4 @@ api_router.include_router(status_router.router, prefix="/admin", tags=["admin-st
 api_router.include_router(currency.router, prefix="/currency", tags=["currency"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(stream_router.router, prefix="/stream", tags=["stream"])
+api_router.include_router(api_tokens.router, prefix="/api-tokens", tags=["api-tokens"])
