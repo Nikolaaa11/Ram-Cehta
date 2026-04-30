@@ -5,13 +5,23 @@
  *
  * - Edit: solo admin con `empresa:update`.
  * - Sync Dropbox: dropdown con submenu de recursos (Trabajadores, Legal, F29).
+ *
+ * V4 fase 5 fix visual: el dropdown ahora usa Radix Popover (Portal) para
+ * evitar problemas de stacking context con el `backdrop-blur` del header
+ * (Surface variant=glass). Antes el menú se veía "borroso/cortado" porque
+ * vivía dentro del stacking context blurreado.
  */
 import { useState } from "react";
-import { Cloud } from "lucide-react";
+import { Cloud, ChevronDown } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { EditButton } from "@/components/shared/edit-button";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { EmpresaEditDialog } from "./EmpresaEditDialog";
 import { SyncDropboxButton } from "./SyncDropboxButton";
 
@@ -65,72 +75,71 @@ export function EmpresaActions({ codigo }: Props) {
       )}
 
       {showSyncRoot && (
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setSyncMenuOpen((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
-            aria-haspopup="menu"
-            aria-expanded={syncMenuOpen}
-          >
-            <Cloud className="h-4 w-4" strokeWidth={1.5} />
-            Sincronizar Dropbox
-          </button>
-          {syncMenuOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Cerrar menú"
-                onClick={() => setSyncMenuOpen(false)}
-                className="fixed inset-0 z-30 cursor-default"
+        <Popover open={syncMenuOpen} onOpenChange={setSyncMenuOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
+            >
+              <Cloud className="h-4 w-4" strokeWidth={1.5} />
+              Sincronizar Dropbox
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform duration-150 ease-apple ${syncMenuOpen ? "rotate-180" : ""}`}
+                strokeWidth={2}
               />
-              <div
-                role="menu"
-                className="absolute right-0 z-40 mt-2 flex min-w-[220px] flex-col gap-1 rounded-2xl border border-hairline bg-white p-2 shadow-card"
-              >
-                {canSyncTrabajador && (
-                  <SyncMenuItem
-                    label="Trabajadores"
-                    description="Activos/{rut – nombre}"
-                    onClick={() => setSyncMenuOpen(false)}
-                  >
-                    <SyncDropboxButton
-                      empresaCodigo={codigo}
-                      resource="trabajadores"
-                      variant="compact"
-                    />
-                  </SyncMenuItem>
-                )}
-                {canSyncLegal && (
-                  <SyncMenuItem
-                    label="Legal"
-                    description="03-Legal/* (recursivo)"
-                    onClick={() => setSyncMenuOpen(false)}
-                  >
-                    <SyncDropboxButton
-                      empresaCodigo={codigo}
-                      resource="legal"
-                      variant="compact"
-                    />
-                  </SyncMenuItem>
-                )}
-                {canSyncF29 && (
-                  <SyncMenuItem
-                    label="F29"
-                    description="Declaraciones SII / F29"
-                    onClick={() => setSyncMenuOpen(false)}
-                  >
-                    <SyncDropboxButton
-                      empresaCodigo={codigo}
-                      resource="f29"
-                      variant="compact"
-                    />
-                  </SyncMenuItem>
-                )}
-              </div>
-            </>
-          )}
-        </div>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            sideOffset={8}
+            className="min-w-[280px] p-2"
+          >
+            <div className="mb-1 px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+              Qué sincronizar
+            </div>
+            <div role="menu" className="flex flex-col gap-1">
+              {canSyncTrabajador && (
+                <SyncMenuItem
+                  label="Trabajadores"
+                  description="Activos/{rut – nombre}"
+                  onClick={() => setSyncMenuOpen(false)}
+                >
+                  <SyncDropboxButton
+                    empresaCodigo={codigo}
+                    resource="trabajadores"
+                    variant="compact"
+                  />
+                </SyncMenuItem>
+              )}
+              {canSyncLegal && (
+                <SyncMenuItem
+                  label="Legal"
+                  description="03-Legal/* (recursivo)"
+                  onClick={() => setSyncMenuOpen(false)}
+                >
+                  <SyncDropboxButton
+                    empresaCodigo={codigo}
+                    resource="legal"
+                    variant="compact"
+                  />
+                </SyncMenuItem>
+              )}
+              {canSyncF29 && (
+                <SyncMenuItem
+                  label="F29"
+                  description="Declaraciones SII / F29"
+                  onClick={() => setSyncMenuOpen(false)}
+                >
+                  <SyncDropboxButton
+                    empresaCodigo={codigo}
+                    resource="f29"
+                    variant="compact"
+                  />
+                </SyncMenuItem>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
 
       {empresa && (
@@ -149,23 +158,20 @@ function SyncMenuItem({
   label,
   description,
   children,
-  onClick,
 }: {
   label: string;
   description: string;
   children: React.ReactNode;
-  onClick: () => void;
+  /** Reservado: el cierre del menú lo dispara el click del SyncDropboxButton via Radix. */
+  onClick?: () => void;
 }) {
   return (
-    <div
-      className="flex items-center justify-between gap-3 rounded-xl px-2.5 py-2 hover:bg-ink-100/40"
-      onClick={onClick}
-    >
-      <div>
-        <p className="text-sm font-medium text-ink-900">{label}</p>
-        <p className="text-xs text-ink-500">{description}</p>
+    <div className="flex items-center justify-between gap-3 rounded-xl px-2.5 py-2 transition-colors duration-150 ease-apple hover:bg-ink-100/40">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium text-ink-900">{label}</p>
+        <p className="truncate text-xs text-ink-500">{description}</p>
       </div>
-      {children}
+      <div className="shrink-0">{children}</div>
     </div>
   );
 }

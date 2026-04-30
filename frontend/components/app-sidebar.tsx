@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
@@ -47,8 +47,10 @@ import { useCriticalObligationsCount } from "@/hooks/use-obligations";
 import { usePinnedEmpresas } from "@/hooks/use-pinned-empresas";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { RealtimeIndicator } from "@/components/realtime/RealtimeIndicator";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { cn } from "@/lib/utils";
 import { Pin } from "lucide-react";
+import Image from "next/image";
 
 /**
  * V3 Sidebar — 5 grupos jerárquicos según docs/V3_VISION.md §1.
@@ -243,8 +245,16 @@ export function AppSidebar({ email }: AppSidebarProps) {
       {/* Brand */}
       <div className="border-b border-hairline px-4 py-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cehta-green shadow-glass">
-            <Sparkles className="h-4 w-4 text-white" strokeWidth={1.5} />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline">
+            <Image
+              src="/logos/cehta.png"
+              alt="Cehta Capital"
+              width={40}
+              height={40}
+              className="h-full w-full object-contain p-0.5"
+              unoptimized
+              priority
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold tracking-tight text-ink-900">
@@ -362,19 +372,29 @@ function EmpresasNav({ pathname }: { pathname: string }) {
     if (typeof window === "undefined") return null;
     return localStorage.getItem("sidebar-empresa-expanded");
   });
+  // V4 fase 5 fix: trackear el último pathname aplicado para evitar que el
+  // auto-expand revierta el click manual del usuario. Antes el useEffect
+  // incluía `expanded` en deps → cuando el user clickeaba empresa B, se
+  // disparaba el effect, detectaba pathname=/empresa/A y revertía a A.
+  const lastAppliedPathRef = useRef<string | null>(null);
 
   // Empresas pineadas, en orden de pin (más reciente al final).
   const pinnedEmpresas = (empresas ?? []).filter((e) =>
     pinned.includes(e.codigo),
   );
 
-  // Auto-expand si el pathname coincide con alguna empresa
+  // Auto-expand SOLO cuando cambia el pathname a una nueva empresa.
+  // Si el user ya navegó a /empresa/CENERGY, expanded queda en CENERGY.
+  // Si después clickea RHO en el sidebar (sin navegar), `expanded` cambia
+  // a RHO pero este effect NO se re-ejecuta (pathname sigue igual).
   useEffect(() => {
+    if (lastAppliedPathRef.current === pathname) return;
+    lastAppliedPathRef.current = pathname;
     const match = /^\/empresa\/([^/]+)/.exec(pathname);
-    if (match && match[1] && expanded !== match[1]) {
+    if (match && match[1]) {
       setExpanded(match[1]);
     }
-  }, [pathname, expanded]);
+  }, [pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -431,7 +451,11 @@ function EmpresasNav({ pathname }: { pathname: string }) {
                       : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green",
                   )}
                 >
-                  <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                  <EmpresaLogo
+                    empresaCodigo={emp.codigo}
+                    size={22}
+                    className="shrink-0"
+                  />
                   <span className="flex-1 truncate text-left">{emp.codigo}</span>
                   <Pin
                     className="h-3 w-3 shrink-0 fill-cehta-green text-cehta-green"
@@ -473,7 +497,11 @@ function EmpresasNav({ pathname }: { pathname: string }) {
                   className="h-3.5 w-3.5 shrink-0 text-ink-300"
                   strokeWidth={2}
                 />
-                <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                <EmpresaLogo
+                  empresaCodigo={emp.codigo}
+                  size={22}
+                  className="shrink-0"
+                />
                 <span className="flex-1 truncate text-left">{emp.codigo}</span>
               </button>
               {isExpanded && (
