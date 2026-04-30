@@ -38,6 +38,7 @@ import {
   Key,
   DollarSign,
   Book,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -138,6 +139,11 @@ const GROUPS: NavGroup[] = [
     label: "Documentos",
     items: [
       { href: "/legal" as Route, label: "Legal", icon: Scale },
+      {
+        href: "/entregables" as Route,
+        label: "Entregables FIP",
+        icon: ClipboardList,
+      },
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
     ],
   },

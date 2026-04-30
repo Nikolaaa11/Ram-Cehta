@@ -16,6 +16,7 @@ from app.api.v1 import (
     documents,
     dropbox,
     empresa,
+    entregables,
     etl,
     exports,
     f29,
@@ -85,3 +86,5 @@ api_router.include_router(stream_router.router, prefix="/stream", tags=["stream"
 api_router.include_router(api_tokens.router, prefix="/api-tokens", tags=["api-tokens"])
 # V4 fase 4: portfolio consolidado USD cross-empresa (LP reporting).
 api_router.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
+# V4 fase 6: entregables regulatorios (CMF / CORFO / UAF / Auditorías) — compliance AFIS S.A.
+api_router.include_router(entregables.router, prefix="/entregables", tags=["entregables"])
