@@ -39,9 +39,10 @@ import {
   useEntregables,
   useEntregablesCounts,
   useReporteRegulatorio,
+  useUpdateEntregable,
 } from "@/hooks/use-entregables";
 
-type Vista = "proximos" | "mensual" | "timeline";
+type Vista = "agenda" | "proximos" | "mensual" | "timeline";
 
 const CATEGORIAS: ComboboxItem[] = [
   { value: "", label: "Todas las categorías" },
@@ -112,7 +113,7 @@ function exportarCSV(entregables: EntregableRead[]): void {
 }
 
 export default function EntregablesPage() {
-  const [vista, setVista] = useState<Vista>("proximos");
+  const [vista, setVista] = useState<Vista>("agenda");
   const [categoria, setCategoria] = useState<string>("");
   const [estado, setEstado] = useState<string>("");
   const [mesActual, setMesActual] = useState(new Date());
@@ -219,6 +220,7 @@ export default function EntregablesPage() {
       {/* Tabs de vistas */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-xl bg-ink-100/50 p-0.5 ring-1 ring-hairline">
+          <ViewTab vista={vista} target="agenda" set={setVista} Icon={ClipboardList} label="Agenda" />
           <ViewTab vista={vista} target="proximos" set={setVista} Icon={ListChecks} label="Próximos" />
           <ViewTab vista={vista} target="mensual" set={setVista} Icon={CalendarIcon} label="Mensual" />
           <ViewTab vista={vista} target="timeline" set={setVista} Icon={FileText} label="Timeline" />
@@ -263,6 +265,7 @@ export default function EntregablesPage() {
 
       {!entregablesQ.isLoading && !entregablesQ.error && (
         <>
+          {vista === "agenda" && <VistaAgenda entregables={entregables} />}
           {vista === "proximos" && <VistaProximos entregables={entregables} />}
           {vista === "mensual" && (
             <VistaMensual
@@ -465,9 +468,15 @@ function VistaMensual({
                 }`}
               >
                 {day}
+                {items.length > 0 && (
+                  <span className="ml-1 inline-flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cehta-green/15 px-1 text-[8px] font-bold text-cehta-green">
+                    {items.length}
+                  </span>
+                )}
               </p>
-              <div className="space-y-0.5">
-                {items.slice(0, 3).map((e) => (
+              {/* TODOS los entregables del día — scroll vertical si exceden el alto */}
+              <div className="max-h-[120px] space-y-0.5 overflow-y-auto pr-0.5">
+                {items.map((e) => (
                   <div
                     key={e.entregable_id}
                     title={`${e.nombre} (${e.categoria} · ${e.estado})`}
@@ -487,11 +496,6 @@ function VistaMensual({
                     {e.categoria} · {e.nombre.slice(0, 18)}
                   </div>
                 ))}
-                {items.length > 3 && (
-                  <p className="px-1 text-[9px] text-ink-400">
-                    +{items.length - 3} más
-                  </p>
-                )}
               </div>
             </div>
           );
@@ -546,7 +550,7 @@ function VistaTimeline({ entregables }: { entregables: EntregableRead[] }) {
               </span>
               <div className="flex-1">
                 <div className="flex flex-wrap gap-1">
-                  {items.slice(0, 12).map((e) => (
+                  {items.map((e) => (
                     <span
                       key={e.entregable_id}
                       title={`${e.nombre} · ${e.fecha_limite}`}
@@ -563,9 +567,6 @@ function VistaTimeline({ entregables }: { entregables: EntregableRead[] }) {
                       {e.categoria.slice(0, 1)}
                     </span>
                   ))}
-                  {items.length > 12 && (
-                    <span className="text-[10px] text-ink-400">+{items.length - 12}</span>
-                  )}
                 </div>
               </div>
               <span className="w-14 shrink-0 text-right text-xs tabular-nums text-ink-500">
@@ -582,5 +583,284 @@ function VistaTimeline({ entregables }: { entregables: EntregableRead[] }) {
         })}
       </div>
     </Surface>
+  );
+}
+
+// ─── Vista Agenda Secretaria — tabla cronológica completa por mes ───────────
+
+const ESTADO_LABEL_AGENDA: Record<string, string> = {
+  pendiente: "Pendiente",
+  en_proceso: "En proceso",
+  entregado: "Entregado",
+  no_entregado: "No entregado",
+};
+
+const ESTADO_BG_AGENDA: Record<string, string> = {
+  pendiente: "bg-ink-100/60 text-ink-700",
+  en_proceso: "bg-info/15 text-info",
+  entregado: "bg-positive/15 text-positive",
+  no_entregado: "bg-negative/15 text-negative",
+};
+
+const CATEGORIA_BG_AGENDA: Record<string, string> = {
+  CMF: "bg-purple-100 text-purple-800",
+  CORFO: "bg-cehta-green/15 text-cehta-green",
+  UAF: "bg-red-100 text-red-800",
+  SII: "bg-orange-100 text-orange-800",
+  INTERNO: "bg-blue-100 text-blue-800",
+  AUDITORIA: "bg-gray-100 text-gray-800",
+  ASAMBLEA: "bg-yellow-100 text-yellow-800",
+  OPERACIONAL: "bg-emerald-100 text-emerald-800",
+};
+
+function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
+  // Agrupados por mes para mejor lectura, pero TODOS los entregables visibles.
+  const agrupado = useMemo(() => {
+    const map = new Map<string, EntregableRead[]>();
+    for (const e of entregables) {
+      const d = new Date(e.fecha_limite + "T00:00:00");
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [entregables]);
+
+  if (entregables.length === 0) {
+    return (
+      <Surface className="py-16 text-center">
+        <p className="text-base font-semibold text-ink-900">Sin entregables</p>
+        <p className="mt-1 text-sm text-ink-500">
+          Probá ajustando los filtros para ver el resto del año.
+        </p>
+      </Surface>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-info/20 bg-info/5 p-3 text-sm text-ink-700">
+        <strong>📋 Vista Agenda</strong> — Listado cronológico completo del año.
+        Cada fila es un entregable. Click en{" "}
+        <span className="rounded bg-ink-100/60 px-1 py-0.5 font-mono text-xs">
+          Marcar ▾
+        </span>{" "}
+        para cambiar el estado rápido sin abrir el detalle.
+      </div>
+      {agrupado.map(([mesKey, items]) => {
+        const [year, month] = mesKey.split("-");
+        const mesNombre = MES_NOMBRES[parseInt(month ?? "1") - 1] ?? "";
+        return (
+          <Surface key={mesKey} padding="none">
+            <Surface.Header className="sticky top-0 z-10 border-b border-hairline bg-white/95 px-5 py-3 backdrop-blur">
+              <div className="flex items-center justify-between">
+                <Surface.Title className="capitalize">
+                  {mesNombre} {year}
+                </Surface.Title>
+                <span className="text-xs text-ink-500">
+                  {items.length} entregable{items.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </Surface.Header>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-hairline text-sm">
+                <thead className="bg-ink-50/50 text-[10px] uppercase tracking-wider text-ink-500">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Fecha</th>
+                    <th className="px-3 py-2 text-left">Categoría</th>
+                    <th className="px-3 py-2 text-left">Entregable</th>
+                    <th className="px-3 py-2 text-left">Período</th>
+                    <th className="px-3 py-2 text-left">Responsable</th>
+                    <th className="px-3 py-2 text-left">Estado</th>
+                    <th className="px-3 py-2 text-right">Días</th>
+                    <th className="px-3 py-2 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-hairline">
+                  {items.map((e) => (
+                    <AgendaRow key={e.entregable_id} entregable={e} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Surface>
+        );
+      })}
+    </div>
+  );
+}
+
+function AgendaRow({ entregable: e }: { entregable: EntregableRead }) {
+  const [showActions, setShowActions] = useState(false);
+  const updateMut = useUpdateEntregable();
+
+  const fecha = new Date(e.fecha_limite + "T00:00:00").toLocaleDateString(
+    "es-CL",
+    { day: "2-digit", month: "short" },
+  );
+
+  const handleMarcar = async (
+    estado: "entregado" | "en_proceso" | "no_entregado" | "pendiente",
+  ) => {
+    try {
+      if (estado === "no_entregado") {
+        const motivo = window.prompt(
+          "¿Por qué no se entregó? (motivo obligatorio)",
+        );
+        if (!motivo) {
+          setShowActions(false);
+          return;
+        }
+        await updateMut.mutateAsync({
+          id: e.entregable_id,
+          body: { estado, motivo_no_entrega: motivo },
+        });
+      } else if (estado === "entregado") {
+        await updateMut.mutateAsync({
+          id: e.entregable_id,
+          body: {
+            estado,
+            fecha_entrega_real: new Date().toISOString().slice(0, 10),
+          },
+        });
+      } else {
+        await updateMut.mutateAsync({
+          id: e.entregable_id,
+          body: { estado },
+        });
+      }
+    } catch {
+      // toast manejado por la mutation hook
+    }
+    setShowActions(false);
+  };
+
+  const dias = e.dias_restantes;
+  const isUrgente =
+    e.nivel_alerta === "vencido" ||
+    e.nivel_alerta === "hoy" ||
+    e.nivel_alerta === "critico";
+  const isProximo =
+    e.nivel_alerta === "urgente" || e.nivel_alerta === "proximo";
+
+  return (
+    <tr
+      className={`transition-colors hover:bg-ink-50/40 ${
+        e.estado === "entregado" ? "opacity-50" : ""
+      }`}
+    >
+      <td className="whitespace-nowrap px-3 py-2 font-medium tabular-nums text-ink-900">
+        {fecha}
+      </td>
+      <td className="px-3 py-2">
+        <span
+          className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+            CATEGORIA_BG_AGENDA[e.categoria] ?? "bg-ink-100 text-ink-700"
+          }`}
+        >
+          {e.categoria}
+        </span>
+      </td>
+      <td className="px-3 py-2 text-ink-900">
+        <p className="line-clamp-1 font-medium">{e.nombre}</p>
+        {e.referencia_normativa && (
+          <p className="line-clamp-1 text-[10px] italic text-ink-400">
+            {e.referencia_normativa}
+          </p>
+        )}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-ink-700">
+        {e.periodo}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-700">
+        {e.responsable}
+      </td>
+      <td className="px-3 py-2">
+        <span
+          className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+            ESTADO_BG_AGENDA[e.estado] ?? "bg-ink-100 text-ink-700"
+          }`}
+        >
+          {ESTADO_LABEL_AGENDA[e.estado] ?? e.estado}
+        </span>
+      </td>
+      <td
+        className={`whitespace-nowrap px-3 py-2 text-right text-xs font-medium tabular-nums ${
+          isUrgente
+            ? "text-negative"
+            : isProximo
+              ? "text-warning"
+              : "text-ink-500"
+        }`}
+      >
+        {dias === null
+          ? "—"
+          : dias < 0
+            ? `${Math.abs(dias)}d vencido`
+            : dias === 0
+              ? "HOY"
+              : `${dias}d`}
+      </td>
+      <td className="whitespace-nowrap px-3 py-2 text-right">
+        <div className="relative inline-block">
+          <button
+            type="button"
+            onClick={() => setShowActions((v) => !v)}
+            disabled={updateMut.isPending}
+            className="rounded-lg border border-hairline bg-white px-2 py-1 text-[11px] font-medium text-ink-700 transition-colors hover:bg-ink-50 disabled:opacity-50"
+          >
+            Marcar ▾
+          </button>
+          {showActions && (
+            <>
+              <button
+                type="button"
+                aria-label="Cerrar menú"
+                onClick={() => setShowActions(false)}
+                className="fixed inset-0 z-20 cursor-default"
+              />
+              <div className="absolute right-0 top-full z-30 mt-1 flex w-48 flex-col gap-0.5 rounded-xl border border-hairline bg-white p-1 shadow-card-hover">
+                {e.estado !== "entregado" && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarcar("entregado")}
+                    className="rounded-lg px-2.5 py-1.5 text-left text-xs text-positive hover:bg-positive/10"
+                  >
+                    ✓ Marcar entregado
+                  </button>
+                )}
+                {e.estado !== "en_proceso" && e.estado !== "entregado" && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarcar("en_proceso")}
+                    className="rounded-lg px-2.5 py-1.5 text-left text-xs text-info hover:bg-info/10"
+                  >
+                    ⏳ En proceso
+                  </button>
+                )}
+                {e.estado !== "no_entregado" && e.estado !== "entregado" && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarcar("no_entregado")}
+                    className="rounded-lg px-2.5 py-1.5 text-left text-xs text-negative hover:bg-negative/10"
+                  >
+                    ✗ No entregado
+                  </button>
+                )}
+                {e.estado !== "pendiente" && (
+                  <button
+                    type="button"
+                    onClick={() => handleMarcar("pendiente")}
+                    className="rounded-lg px-2.5 py-1.5 text-left text-xs text-ink-700 hover:bg-ink-100"
+                  >
+                    ↺ Volver a pendiente
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
