@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { EditButton } from "@/components/shared/edit-button";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import {
   SuscripcionEditDialog,
   type SuscripcionEditable,
@@ -94,7 +95,10 @@ export default function SuscripcionesPage() {
                   className="transition-colors duration-150 hover:bg-ink-100/30"
                 >
                   <td className="px-4 py-3 font-medium text-ink-900">
-                    {s.empresa_codigo}
+                    <div className="flex items-center gap-2">
+                      <EmpresaLogo empresaCodigo={s.empresa_codigo} size={24} />
+                      <span>{s.empresa_codigo}</span>
+                    </div>
                   </td>
                   <td className="px-4 py-3 tabular-nums text-ink-700">
                     {toDate(s.fecha_recibo)}

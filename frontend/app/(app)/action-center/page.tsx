@@ -18,6 +18,7 @@ import {
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { useObligations } from "@/hooks/use-obligations";
 import type { ObligationItem } from "@/lib/api/schema";
 
@@ -101,8 +102,16 @@ function ActionRow({ item }: { item: ObligationItem }) {
             {item.title}
           </p>
           {item.empresa_codigo && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-ink-100/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-600">
-              <Building2 className="h-2.5 w-2.5" strokeWidth={2} />
+            <span
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-ink-100/60 px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-600"
+              title={item.empresa_codigo}
+            >
+              <EmpresaLogo
+                empresaCodigo={item.empresa_codigo}
+                size={16}
+                rounded={false}
+                className="rounded"
+              />
               {item.empresa_codigo}
             </span>
           )}
@@ -262,12 +271,13 @@ export default function ActionCenterPage() {
               key={e}
               type="button"
               onClick={() => setEmpresa(e)}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors duration-150 ease-apple ${
+              className={`inline-flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 text-xs font-medium transition-colors duration-150 ease-apple ${
                 empresa === e
                   ? "bg-ink-900 text-white"
                   : "bg-ink-100/60 text-ink-700 hover:bg-ink-100"
               }`}
             >
+              <EmpresaLogo empresaCodigo={e} size={18} />
               {e}
             </button>
           ))}

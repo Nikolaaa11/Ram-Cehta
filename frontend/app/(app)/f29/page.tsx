@@ -12,6 +12,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { F29RowActions } from "@/components/f29/F29RowActions";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
 import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
@@ -406,7 +407,13 @@ export default function F29Page() {
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 font-medium text-ink-900">
-                        {f.empresa_codigo}
+                        <div className="flex items-center gap-2">
+                          <EmpresaLogo
+                            empresaCodigo={f.empresa_codigo}
+                            size={24}
+                          />
+                          <span>{f.empresa_codigo}</span>
+                        </div>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
                         <Badge variant="info">{f.periodo_tributario}</Badge>

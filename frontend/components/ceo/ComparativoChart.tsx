@@ -18,6 +18,7 @@ import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import type { FlujoMensualPoint } from "@/lib/api/schema";
 
 /**
@@ -192,10 +193,10 @@ export function ComparativoChart() {
               key={e.codigo}
               type="button"
               onClick={() => toggleEmpresa(e.codigo)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-all duration-150 ease-apple ${
+              className={`inline-flex items-center gap-1.5 rounded-full py-1 pl-1 pr-2.5 text-xs font-medium transition-all duration-150 ease-apple ${
                 isActive
                   ? "text-ink-900 ring-1 ring-hairline"
-                  : "text-ink-500 hover:bg-ink-100/40"
+                  : "text-ink-500 opacity-60 hover:opacity-100 hover:bg-ink-100/40"
               }`}
               style={
                 isActive && color
@@ -203,6 +204,7 @@ export function ComparativoChart() {
                   : undefined
               }
             >
+              <EmpresaLogo empresaCodigo={e.codigo} size={18} />
               <span
                 className="inline-block h-1.5 w-1.5 rounded-full"
                 style={{ backgroundColor: color ?? "#cbd5e1" }}

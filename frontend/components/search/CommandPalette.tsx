@@ -15,6 +15,7 @@ import {
   CornerDownLeft,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import type { SearchHit, SearchEntityType } from "@/lib/api/schema";
 
 const ICON_BY_ENTITY: Record<SearchEntityType, React.ElementType> = {
@@ -195,6 +196,22 @@ export function CommandPalette({ open, onClose }: Props) {
                           : "hover:bg-ink-100/40"
                       }`}
                     >
+                      {/* Empresas se renderean con su logo. Otras entidades
+                          con su badge si tienen empresa_codigo embebido. */}
+                      {hit.entity_type === "empresa" && (
+                        <EmpresaLogo
+                          empresaCodigo={hit.entity_id}
+                          size={28}
+                          className="shrink-0"
+                        />
+                      )}
+                      {hit.entity_type !== "empresa" && hit.badge && (
+                        <EmpresaLogo
+                          empresaCodigo={hit.badge}
+                          size={24}
+                          className="shrink-0"
+                        />
+                      )}
                       <div className="flex-1 truncate">
                         <div className="truncate text-sm font-medium text-ink-900">
                           {hit.title}

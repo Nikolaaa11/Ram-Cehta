@@ -22,6 +22,7 @@ import { toCLP, toDate } from "@/lib/format";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
 import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { useMe } from "@/hooks/use-me";
 import type { Page, OcListItem } from "@/lib/api/schema";
 
@@ -397,7 +398,13 @@ export default function OrdenesCompraPage() {
                           {oc.numero_oc}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink-700">
-                          {oc.empresa_codigo}
+                          <div className="flex items-center gap-2">
+                            <EmpresaLogo
+                              empresaCodigo={oc.empresa_codigo}
+                              size={22}
+                            />
+                            <span>{oc.empresa_codigo}</span>
+                          </div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-ink-700 tabular-nums">
                           {toDate(oc.fecha_emision)}
