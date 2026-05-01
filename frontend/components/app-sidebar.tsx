@@ -46,6 +46,7 @@ import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
+import { useCriticalEntregablesCount } from "@/hooks/use-entregables";
 import { usePinnedEmpresas } from "@/hooks/use-pinned-empresas";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { RealtimeIndicator } from "@/components/realtime/RealtimeIndicator";
@@ -251,6 +252,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const { data: unread } = useUnreadCount();
   const unreadCount = unread?.unread ?? 0;
   const criticalObligationsCount = useCriticalObligationsCount();
+  const criticalEntregablesCount = useCriticalEntregablesCount();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
@@ -302,6 +304,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showCriticalBadge =
                   String(item.href) === "/calendario" &&
                   criticalObligationsCount > 0;
+                const showEntregablesBadge =
+                  String(item.href) === "/entregables" &&
+                  criticalEntregablesCount > 0;
                 return (
                   <Link
                     key={item.href}
@@ -335,6 +340,17 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         {criticalObligationsCount > 99
                           ? "99+"
                           : criticalObligationsCount}
+                      </span>
+                    )}
+                    {showEntregablesBadge && (
+                      <span
+                        aria-label={`${criticalEntregablesCount} entregables críticos`}
+                        title={`${criticalEntregablesCount} entregables críticos (≤5 días)`}
+                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                      >
+                        {criticalEntregablesCount > 99
+                          ? "99+"
+                          : criticalEntregablesCount}
                       </span>
                     )}
                   </Link>

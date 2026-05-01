@@ -56,5 +56,6 @@ class GenerateAlertsReport(BaseModel):
     f29_due: int = 0
     contrato_due: int = 0
     oc_pending: int = 0
+    entregable_due: int = 0  # V4 fase 6: alertas de entregables regulatorios
     total: int = 0
     errores: list[str] = Field(default_factory=list)

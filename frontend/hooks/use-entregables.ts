@@ -172,6 +172,30 @@ export function useEntregablesCounts() {
   });
 }
 
+/**
+ * V4 fase 6 — Hook ligero que devuelve el COUNT de entregables críticos
+ * (alerta = vencido / hoy / crítico ≤5d) sin bajar todos los entregables.
+ *
+ * Reusa la query de useEntregables filtrada solo por only_alerta=true; el
+ * count se calcula en el cliente sumando los con nivel_alerta crítico
+ * AND estado != entregado. Bajo volumen de datos (~230 entregables max),
+ * el filter en cliente es trivial.
+ *
+ * Si querés un count exacto sin bajar nada, en V5 podemos agregar un
+ * endpoint /entregables/critical-count.
+ */
+export function useCriticalEntregablesCount(): number {
+  const { data } = useEntregables({ only_alerta: true });
+  if (!data) return 0;
+  return data.filter(
+    (e) =>
+      (e.estado === "pendiente" || e.estado === "en_proceso") &&
+      (e.nivel_alerta === "vencido" ||
+        e.nivel_alerta === "hoy" ||
+        e.nivel_alerta === "critico"),
+  ).length;
+}
+
 export function useReporteRegulatorio() {
   const { session, loading } = useSession();
   return useQuery<ReporteRegulatorio, Error>({

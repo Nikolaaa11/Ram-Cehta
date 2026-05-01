@@ -284,6 +284,79 @@ class NotificationGeneratorService:
             )
         return total
 
+    async def generate_entregable_due_alerts(self) -> int:
+        """V4 fase 6: alertas para entregables regulatorios FIP CEHTA ESG.
+
+        Criterio: estado != 'entregado' AND fecha_limite en próximos 7 días
+        AND alerta_5 = true. Severity:
+          - critical si vencido / vence hoy / ≤3 días
+          - warning si ≤7 días
+
+        Recipients: admin + finance (compliance es responsabilidad de
+        ambos roles operativos).
+        """
+        rows = await self._session.execute(
+            text(
+                """
+                SELECT entregable_id, nombre, categoria, fecha_limite,
+                       periodo, prioridad,
+                       (fecha_limite - CURRENT_DATE) AS dias
+                FROM app.entregables_regulatorios
+                WHERE estado IN ('pendiente', 'en_proceso')
+                  AND fecha_limite >= (CURRENT_DATE - INTERVAL '3 days')
+                  AND fecha_limite <= (CURRENT_DATE + INTERVAL '7 days')
+                  AND alerta_5 = TRUE
+                ORDER BY fecha_limite ASC
+                """
+            )
+        )
+        items = rows.mappings().all()
+        if not items:
+            return 0
+
+        user_ids = await self._operational_user_ids()
+        if not user_ids:
+            return 0
+
+        total = 0
+        for it in items:
+            dias = it["dias"]
+            severity = (
+                "critical" if dias <= 3 else "warning"
+            )
+            if dias < 0:
+                title = f"⚠️ Entregable VENCIDO: {it['nombre']}"
+                body = (
+                    f"Vencido hace {abs(dias)}d · {it['categoria']} · "
+                    f"período {it['periodo']}. Marcar como entregado o "
+                    f"justificar."
+                )
+            elif dias == 0:
+                title = f"🔴 Vence HOY: {it['nombre']}"
+                body = (
+                    f"{it['categoria']} · período {it['periodo']}. Acción "
+                    f"inmediata requerida."
+                )
+            else:
+                title = f"⏰ Entregable en {dias}d: {it['nombre']}"
+                body = (
+                    f"{it['categoria']} · período {it['periodo']}. Vence el "
+                    f"{it['fecha_limite'].isoformat()}."
+                )
+
+            count = await self._create_idempotent(
+                user_ids=user_ids,
+                tipo="entregable_due",
+                title=title,
+                body=body,
+                severity=severity,
+                link=f"/entregables?focus={it['entregable_id']}",
+                entity_type="entregable",
+                entity_id=str(it["entregable_id"]),
+            )
+            total += count
+        return total
+
     async def run_all(self) -> GenerateAlertsReport:
         """Ejecuta todos los generadores y devuelve un report con counts."""
         report = GenerateAlertsReport()
@@ -302,7 +375,17 @@ class NotificationGeneratorService:
         except Exception as exc:
             report.errores.append(f"oc_pending: {exc}")
             log.error("oc_pending_failed", error=str(exc))
-        report.total = report.f29_due + report.contrato_due + report.oc_pending
+        try:
+            report.entregable_due = await self.generate_entregable_due_alerts()
+        except Exception as exc:
+            report.errores.append(f"entregable_due: {exc}")
+            log.error("entregable_due_failed", error=str(exc))
+        report.total = (
+            report.f29_due
+            + report.contrato_due
+            + report.oc_pending
+            + report.entregable_due
+        )
         return report
 
 
