@@ -77,6 +77,17 @@ export function MiDiaWidget() {
     )
     .slice(0, 5);
 
+  // Stats adicionales para el header
+  const entregadosHoy = entregables.filter(
+    (e) =>
+      e.estado === "entregado" &&
+      e.fecha_entrega_real?.startsWith(todayISO),
+  ).length;
+  const totalSemana = pendientes.filter((e) => {
+    if (e.dias_restantes === null) return false;
+    return e.dias_restantes >= 0 && e.dias_restantes <= 7;
+  }).length;
+
   const totalAcciones =
     (criticalCount?.critical ?? 0) +
     (unreadCount > 0 ? 1 : 0);
@@ -130,6 +141,29 @@ export function MiDiaWidget() {
             </a>
           </div>
         </div>
+
+        {/* Mini-stats row */}
+        {(entregadosHoy > 0 || totalSemana > 0) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+            {entregadosHoy > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-positive/15 px-2 py-0.5 font-medium text-positive">
+                <CheckCircle2 className="h-3 w-3" strokeWidth={2} />
+                {entregadosHoy} entregado{entregadosHoy !== 1 ? "s" : ""} hoy
+              </span>
+            )}
+            {totalSemana > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-info/15 px-2 py-0.5 font-medium text-info">
+                <CalendarClock className="h-3 w-3" strokeWidth={2} />
+                {totalSemana} en próximos 7 días
+              </span>
+            )}
+            {pendientes.length > 0 && (
+              <span className="text-ink-500">
+                · Total pipeline: <strong>{pendientes.length}</strong>
+              </span>
+            )}
+          </div>
+        )}
       </Surface.Header>
 
       {isLoading ? (

@@ -6,11 +6,15 @@ import { cn } from "@/lib/utils";
 export interface KpiCardSmallProps {
   label: string;
   value: string;
+  /** Subtítulo bajo el valor — info contextual breve. */
+  subtitle?: string;
   icon?: LucideIcon;
   /** Color del dot junto al valor (ya semantizado por backend). */
   dot?: "positive" | "negative" | "warning" | "neutral";
   /** Color del icono container. */
   tone?: "default" | "positive" | "negative" | "warning";
+  /** Si está, envuelve la card en link clickeable. */
+  href?: string;
   className?: string;
 }
 
@@ -31,13 +35,16 @@ const dotColor: Record<NonNullable<KpiCardSmallProps["dot"]>, string> = {
 export function KpiCardSmall({
   label,
   value,
+  subtitle,
   icon: Icon,
   dot,
   tone = "default",
+  href,
   className,
 }: KpiCardSmallProps) {
-  return (
+  const inner = (
     <Surface
+      variant={href ? "interactive" : "default"}
       padding="compact"
       className={cn(
         "flex h-[88px] items-center gap-3",
@@ -71,7 +78,24 @@ export function KpiCardSmall({
             {value}
           </p>
         </div>
+        {subtitle && (
+          <p className="mt-0.5 truncate text-[11px] text-ink-500">
+            {subtitle}
+          </p>
+        )}
       </div>
     </Surface>
   );
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+      >
+        {inner}
+      </a>
+    );
+  }
+  return inner;
 }

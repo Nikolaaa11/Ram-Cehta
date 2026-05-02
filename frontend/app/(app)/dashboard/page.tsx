@@ -14,6 +14,7 @@ import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { ActivityFeedSkeleton } from "@/components/dashboard/ActivityFeedSkeleton";
 import { MiDiaWidget } from "@/components/dashboard/MiDiaWidget";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
+import { PipelineRegulatorio } from "@/components/dashboard/PipelineRegulatorio";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
@@ -75,10 +76,20 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <DashboardHeader lastEtlRun={kpis.ultimo_etl_run} etlStatus={kpis.etl_status} />
 
       <div className="space-y-6">
-        {/* V4 fase 7.7 — Widget personal "Mi día" arriba de los KPIs ejecutivos. */}
-        <ErrorBoundary>
-          <MiDiaWidget />
-        </ErrorBoundary>
+        {/* V4 fase 7.7 — Widget personal "Mi día" + V4.7.13 Pipeline Regulatorio
+            en grid 2-col en lg para combinar info diaria + estado regulatorio. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <ErrorBoundary>
+              <MiDiaWidget />
+            </ErrorBoundary>
+          </div>
+          <div className="lg:col-span-5">
+            <ErrorBoundary>
+              <PipelineRegulatorio />
+            </ErrorBoundary>
+          </div>
+        </div>
 
         <Suspense fallback={<KpiHeroSkeleton />}>
           <KpiHeroSection initialData={kpis} />

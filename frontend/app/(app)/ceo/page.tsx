@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { HeroKpis } from "@/components/ceo/HeroKpis";
@@ -6,6 +5,9 @@ import { ComparadorEmpresas } from "@/components/ceo/ComparadorEmpresas";
 import { ComparativoChart } from "@/components/ceo/ComparativoChart";
 import { Heatmap } from "@/components/ceo/Heatmap";
 import { TopAlerts } from "@/components/ceo/TopAlerts";
+import { InsightsLivePreview } from "@/components/ceo/InsightsLivePreview";
+import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
+import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { toRelative } from "@/lib/format";
 import type { CEOConsolidatedReport } from "@/lib/api/schema";
 
@@ -72,30 +74,22 @@ export default async function CeoDashboardPage() {
       {/* 2.5) Comparativo overlay chart — líneas superpuestas por empresa */}
       <ComparativoChart />
 
-      {/* 4) Top Alertas + 5) Insights AI */}
+      {/* 4) Top Alertas + 5) Insights AI Live (V4.7.13) */}
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-7">
           <TopAlerts alerts={report.top_alerts} />
         </div>
         <div className="col-span-12 lg:col-span-5">
-          <Surface className="h-full">
-            <Surface.Header>
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-cehta-green/10 text-cehta-green">
-                  <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                </span>
-                <Surface.Title>Insights AI</Surface.Title>
-              </div>
-              <Surface.Subtitle>
-                Resumen ejecutivo generado por Claude
-              </Surface.Subtitle>
-            </Surface.Header>
-            <p className="mt-4 text-sm leading-relaxed text-ink-700">
-              {report.insights_ai}
-            </p>
-          </Surface>
+          <ErrorBoundary>
+            <InsightsLivePreview fallbackText={report.insights_ai} />
+          </ErrorBoundary>
         </div>
       </div>
+
+      {/* 6) Compliance Leaderboard cross-empresa — V4.7.13 */}
+      <ErrorBoundary>
+        <ComplianceLeaderboard />
+      </ErrorBoundary>
     </div>
   );
 }

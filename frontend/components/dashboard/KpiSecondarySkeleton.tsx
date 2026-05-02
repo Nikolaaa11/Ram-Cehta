@@ -4,10 +4,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function KpiSecondarySkeleton() {
   return (
     <section
-      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+      className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6"
       aria-hidden
     >
-      {Array.from({ length: 4 }).map((_, i) => (
+      {Array.from({ length: 6 }).map((_, i) => (
         <Surface
           key={i}
           padding="compact"
