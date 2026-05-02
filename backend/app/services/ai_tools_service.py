@@ -728,6 +728,198 @@ async def ask(
 
 
 # ---------------------------------------------------------------------------
+# V5.5 — Streaming version: SSE frames per tool execution
+# ---------------------------------------------------------------------------
+
+
+def _sse_frame(data: dict[str, Any]) -> str:
+    return f"data: {json.dumps(data, default=str, ensure_ascii=False)}\n\n"
+
+
+async def ask_stream(
+    db: AsyncSession,
+    question: str,
+    *,
+    max_iterations: int = 8,
+    write_mode: bool = False,
+    user_id: str = "",
+) -> AsyncIterator[str]:
+    """Versión streaming de `ask()`. Yieldea SSE frames mientras el loop
+    avanza, dando feedback en vivo al frontend de qué está pasando.
+
+    Frames:
+      - `{"type": "iteration", "n": N}` — al inicio de cada iteración
+      - `{"type": "tool_use", "tool": "...", "input": {...}}`
+      - `{"type": "tool_result", "tool": "...", "preview": "..."}`
+      - `{"type": "answer", "text": "..."}` — texto final cuando Claude termina
+      - `{"type": "done", "iterations": N, "tokens": {...}}`
+      - `{"type": "error", "detail": "..."}`
+    """
+    try:
+        client = _anthropic_client()
+    except AiToolsNotConfiguredError as exc:
+        yield _sse_frame({"type": "error", "detail": str(exc)})
+        return
+
+    today = date.today()
+    system_prompt = SYSTEM_PROMPT.format(
+        today=today.isoformat(), year=today.year
+    )
+
+    if write_mode:
+        system_prompt += (
+            "\n\nMODO ESCRITURA HABILITADO. Tenés acceso a tools mutadoras. "
+            "Antes de mutar, EXPLICÁ qué vas a cambiar y pedí confirmación si "
+            "no fue 100% explícito. No mutes en respuesta a preguntas "
+            "exploratorias."
+        )
+
+    available_tools = list(TOOLS)
+    available_handlers = dict(TOOL_HANDLERS)
+    if write_mode:
+        available_tools.extend(MUTATING_TOOLS)
+        for name, handler in MUTATING_TOOL_HANDLERS.items():
+            captured_handler = handler
+
+            async def _wrapper(
+                db_inner: AsyncSession,
+                args: dict[str, Any],
+                _h=captured_handler,
+            ) -> Any:
+                return await _h(db_inner, args, user_id)
+
+            available_handlers[name] = _wrapper
+
+    messages: list[dict[str, Any]] = [
+        {"role": "user", "content": question},
+    ]
+    total_input_tokens = 0
+    total_output_tokens = 0
+
+    for iteration in range(max_iterations):
+        yield _sse_frame({"type": "iteration", "n": iteration + 1})
+        try:
+            response = await client.messages.create(
+                model=settings.ai_chat_model,
+                max_tokens=settings.ai_max_response_tokens,
+                system=system_prompt,
+                tools=available_tools,
+                messages=messages,
+            )
+        except Exception as exc:
+            log.exception("ai_tools.stream.api_error")
+            yield _sse_frame(
+                {"type": "error", "detail": f"LLM error: {exc}"}
+            )
+            return
+
+        if hasattr(response, "usage"):
+            total_input_tokens += getattr(response.usage, "input_tokens", 0) or 0
+            total_output_tokens += getattr(response.usage, "output_tokens", 0) or 0
+
+        stop_reason = getattr(response, "stop_reason", None)
+        if stop_reason != "tool_use":
+            text_blocks = [
+                b.text
+                for b in response.content
+                if getattr(b, "type", None) == "text"
+            ]
+            answer = "\n".join(text_blocks).strip() or "(sin respuesta)"
+            yield _sse_frame({"type": "answer", "text": answer})
+            yield _sse_frame(
+                {
+                    "type": "done",
+                    "iterations": iteration + 1,
+                    "tokens": {
+                        "input": total_input_tokens,
+                        "output": total_output_tokens,
+                    },
+                }
+            )
+            return
+
+        # Procesar tool_use blocks — yield frame por cada uno
+        assistant_blocks = []
+        tool_results = []
+        for block in response.content:
+            btype = getattr(block, "type", None)
+            if btype == "text":
+                assistant_blocks.append({"type": "text", "text": block.text})
+                if block.text.strip():
+                    yield _sse_frame(
+                        {"type": "thinking", "text": block.text.strip()}
+                    )
+            elif btype == "tool_use":
+                tool_name = block.name
+                tool_input = block.input or {}
+                yield _sse_frame(
+                    {
+                        "type": "tool_use",
+                        "tool": tool_name,
+                        "input": tool_input,
+                    }
+                )
+                handler = available_handlers.get(tool_name)
+                if handler is None:
+                    result_data = {"error": f"Tool '{tool_name}' no implementada"}
+                else:
+                    try:
+                        result_data = await handler(db, tool_input)
+                    except Exception as exc:
+                        log.exception("ai_tools.stream.tool_failed", tool=tool_name)
+                        result_data = {"error": f"{type(exc).__name__}: {exc}"}
+
+                preview = json.dumps(result_data, default=str)[:300]
+                yield _sse_frame(
+                    {
+                        "type": "tool_result",
+                        "tool": tool_name,
+                        "preview": preview,
+                    }
+                )
+
+                assistant_blocks.append(
+                    {
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": tool_name,
+                        "input": tool_input,
+                    }
+                )
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": json.dumps(result_data, default=str),
+                    }
+                )
+
+        messages.append({"role": "assistant", "content": assistant_blocks})
+        messages.append({"role": "user", "content": tool_results})
+
+    # Agotamos iterations
+    yield _sse_frame(
+        {
+            "type": "answer",
+            "text": (
+                "Se alcanzó el límite de iteraciones. Probá reformular la "
+                "pregunta de manera más específica."
+            ),
+        }
+    )
+    yield _sse_frame(
+        {
+            "type": "done",
+            "iterations": max_iterations,
+            "tokens": {
+                "input": total_input_tokens,
+                "output": total_output_tokens,
+            },
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
 # V5.2 — AI Auto-Acta (genera draft de acta Comité Vigilancia)
 # ---------------------------------------------------------------------------
 

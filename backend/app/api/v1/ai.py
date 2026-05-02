@@ -42,6 +42,7 @@ from app.services.ai_indexing_service import KB_ROOT_TEMPLATE, index_dropbox_fol
 from app.services.ai_tools_service import (
     AiToolsNotConfiguredError,
     ask,
+    ask_stream,
     generate_acta_cv_draft,
     generate_insights,
 )
@@ -101,6 +102,46 @@ async def ai_ask(
             input=result["tokens"]["input"],
             output=result["tokens"]["output"],
         ),
+    )
+
+
+@router.post(
+    "/ask/stream",
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_ask_stream(
+    user: CurrentUser,
+    db: DBSession,
+    body: AskRequest,
+) -> StreamingResponse:
+    """V5 fase 5 — Versión streaming de `/ai/ask`.
+
+    Devuelve un Server-Sent Events stream con frames por cada paso del
+    loop de tool calling:
+      - `iteration` — al inicio de cada iteración
+      - `tool_use` — Claude pide ejecutar una tool (input visible)
+      - `tool_result` — la tool devolvió su resultado (preview)
+      - `thinking` — texto intermedio que Claude escribe entre tools
+      - `answer` — texto final cuando termina
+      - `done` — cierre con tokens totales
+      - `error` — en caso de fallo
+
+    El frontend lo consume con `EventSource` o `fetch + ReadableStream` y
+    renderea cada frame en tiempo real, dando feedback visible al usuario
+    de "qué está haciendo Claude".
+    """
+    return StreamingResponse(
+        ask_stream(
+            db,
+            body.question,
+            write_mode=body.write_mode,
+            user_id=user.sub,
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # disable nginx/Fly buffering
+        },
     )
 
 
