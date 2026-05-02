@@ -143,3 +143,28 @@ class InsightsResponse(BaseModel):
     generated_at: datetime
     tokens: AskTokens = Field(default_factory=AskTokens)
     raw_response: str | None = None  # debug si JSON parse falló
+    persisted_count: int = 0
+
+
+class AiInsightRead(BaseModel):
+    """Insight persistido en BD con metadata + estado per-admin."""
+
+    insight_id: int
+    severity: str
+    title: str
+    body: str
+    recommendation: str
+    tags: list[str] = Field(default_factory=list)
+    read_at: datetime | None = None
+    dismissed_at: datetime | None = None
+    generated_at: datetime
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AiInsightUpdate(BaseModel):
+    """PATCH parcial para marcar leído / dismiss."""
+
+    read: bool | None = None
+    dismissed: bool | None = None

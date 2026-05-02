@@ -23,6 +23,8 @@ from app.models.ai_message import AiMessage
 from app.schemas.ai import (
     ActaGenerateRequest,
     ActaGenerateResponse,
+    AiInsightRead,
+    AiInsightUpdate,
     AskRequest,
     AskResponse,
     AskTokens,
@@ -38,7 +40,7 @@ from app.schemas.ai import (
 from app.services.ai_chat_service import chat_stream
 from app.services.ai_indexing_service import KB_ROOT_TEMPLATE, index_dropbox_folder
 from app.services.ai_tools_service import (
-    AiToolsNotConfigured,
+    AiToolsNotConfiguredError,
     ask,
     generate_acta_cv_draft,
     generate_insights,
@@ -78,7 +80,7 @@ async def ai_ask(
             write_mode=body.write_mode,
             user_id=user.sub,
         )
-    except AiToolsNotConfigured as exc:
+    except AiToolsNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -121,7 +123,7 @@ async def ai_generate_acta(
     """
     try:
         result = await generate_acta_cv_draft(db, empresa=body.empresa)
-    except AiToolsNotConfigured as exc:
+    except AiToolsNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
@@ -152,12 +154,140 @@ async def ai_insights_generate(
     """
     try:
         result = await generate_insights(db)
-    except AiToolsNotConfigured as exc:
+    except AiToolsNotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
     return InsightsResponse.model_validate(result)
+
+
+@router.get(
+    "/insights",
+    response_model=list[AiInsightRead],
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_insights_list(
+    user: CurrentUser,
+    db: DBSession,
+    include_dismissed: bool = Query(
+        False,
+        description="Si True, incluye los insights archivados",
+    ),
+    limit: int = Query(50, ge=1, le=200),
+) -> list[AiInsightRead]:
+    """Lista insights persistidos. Por default solo los abiertos (no dismissed).
+
+    Devuelve más recientes primero. El frontend lo muestra como inbox.
+    """
+    where = "" if include_dismissed else "WHERE dismissed_at IS NULL"
+    rows = (
+        await db.execute(
+            text(
+                f"""
+                SELECT insight_id, severity, title, body, recommendation, tags,
+                       read_at, dismissed_at, generated_at, created_at
+                FROM app.ai_insights
+                {where}
+                ORDER BY
+                  CASE severity
+                    WHEN 'critical' THEN 0
+                    WHEN 'warning' THEN 1
+                    WHEN 'info' THEN 2
+                    WHEN 'positive' THEN 3
+                    ELSE 4
+                  END,
+                  created_at DESC
+                LIMIT :lim
+                """
+            ),
+            {"lim": limit},
+        )
+    ).mappings().all()
+    return [
+        AiInsightRead(
+            insight_id=int(r["insight_id"]),
+            severity=str(r["severity"]),
+            title=str(r["title"]),
+            body=str(r["body"] or ""),
+            recommendation=str(r["recommendation"] or ""),
+            tags=list(r["tags"] or []) if isinstance(r["tags"], list) else [],
+            read_at=r["read_at"],
+            dismissed_at=r["dismissed_at"],
+            generated_at=r["generated_at"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.patch(
+    "/insights/{insight_id}",
+    response_model=AiInsightRead,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_insight_update(
+    user: CurrentUser,
+    db: DBSession,
+    insight_id: int,
+    body: AiInsightUpdate,
+) -> AiInsightRead:
+    """Marca un insight como leído o dismissed.
+
+    Idempotente: si ya está marcado, no falla. Setear `read=False` o
+    `dismissed=False` resetea el timestamp.
+    """
+    sets: list[str] = ["updated_at = now()"]
+    params: dict[str, object] = {"id": insight_id}
+
+    if body.read is not None:
+        if body.read:
+            sets.append("read_at = COALESCE(read_at, now())")
+        else:
+            sets.append("read_at = NULL")
+    if body.dismissed is not None:
+        if body.dismissed:
+            sets.append("dismissed_at = COALESCE(dismissed_at, now())")
+        else:
+            sets.append("dismissed_at = NULL")
+
+    await db.execute(
+        text(
+            f"UPDATE app.ai_insights SET {', '.join(sets)} "
+            "WHERE insight_id = :id"
+        ),
+        params,
+    )
+    await db.commit()
+
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT insight_id, severity, title, body, recommendation, tags,
+                       read_at, dismissed_at, generated_at, created_at
+                FROM app.ai_insights WHERE insight_id = :id
+                """
+            ),
+            {"id": insight_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Insight no encontrado"
+        )
+    return AiInsightRead(
+        insight_id=int(row["insight_id"]),
+        severity=str(row["severity"]),
+        title=str(row["title"]),
+        body=str(row["body"] or ""),
+        recommendation=str(row["recommendation"] or ""),
+        tags=list(row["tags"] or []) if isinstance(row["tags"], list) else [],
+        read_at=row["read_at"],
+        dismissed_at=row["dismissed_at"],
+        generated_at=row["generated_at"],
+        created_at=row["created_at"],
+    )
 
 
 # ---------------------------------------------------------------------------

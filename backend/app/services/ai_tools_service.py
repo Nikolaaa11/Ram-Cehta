@@ -25,6 +25,7 @@ Diseño:
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
 from typing import Any
 
@@ -59,13 +60,13 @@ Hoy es {today}. El año en curso es {year}.
 """
 
 
-class AiToolsNotConfigured(Exception):  # noqa: N818
+class AiToolsNotConfiguredError(Exception):
     """`ANTHROPIC_API_KEY` ausente en el entorno backend."""
 
 
 def _anthropic_client() -> Any:
     if not settings.anthropic_api_key:
-        raise AiToolsNotConfigured("ANTHROPIC_API_KEY no configurado")
+        raise AiToolsNotConfiguredError("ANTHROPIC_API_KEY no configurado")
     from anthropic import AsyncAnthropic
 
     return AsyncAnthropic(api_key=settings.anthropic_api_key)
@@ -774,7 +775,7 @@ async def generate_acta_cv_draft(
     Si `empresa` se pasa, el acta se genera scoped a esa empresa.
 
     Devuelve `{markdown, tokens, generated_at}` o lanza
-    `AiToolsNotConfigured` si Anthropic no está activado.
+    `AiToolsNotConfiguredError` si Anthropic no está activado.
     """
     client = _anthropic_client()
     today = date.today()
@@ -1254,9 +1255,47 @@ async def generate_insights(
         tokens_out=tokens_out,
     )
 
+    # Persistir en BD — idempotente vía UNIQUE constraint parcial.
+    # Si un insight (severity, title) ya está abierto (no dismissed),
+    # ON CONFLICT DO NOTHING lo skip.
+    persisted_count = 0
+    for it in insights:
+        try:
+            res = await db.execute(
+                text(
+                    """
+                    INSERT INTO app.ai_insights (
+                        severity, title, body, recommendation, tags,
+                        tokens_in, tokens_out
+                    ) VALUES (
+                        :severity, :title, :body, :recommendation,
+                        CAST(:tags AS jsonb), :tokens_in, :tokens_out
+                    )
+                    ON CONFLICT (severity, title) WHERE dismissed_at IS NULL
+                    DO NOTHING
+                    RETURNING insight_id
+                    """
+                ),
+                {
+                    "severity": it["severity"],
+                    "title": it["title"],
+                    "body": it["body"],
+                    "recommendation": it.get("recommendation", ""),
+                    "tags": json.dumps(it.get("tags") or []),
+                    "tokens_in": tokens_in,
+                    "tokens_out": tokens_out,
+                },
+            )
+            if res.first() is not None:
+                persisted_count += 1
+        except Exception as exc:
+            log.warning("ai_tools.insights.persist_fail", err=str(exc))
+    await db.commit()
+
     return {
         "insights": insights,
         "generated_at": datetime.now(UTC).isoformat(),
         "tokens": {"input": tokens_in, "output": tokens_out},
-        "raw_response": raw if not insights else None,  # debug si fail
+        "raw_response": raw if not insights else None,
+        "persisted_count": persisted_count,
     }
