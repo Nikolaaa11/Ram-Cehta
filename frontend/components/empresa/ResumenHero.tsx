@@ -1,6 +1,7 @@
 import { Receipt, CalendarClock } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
+import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import type { ResumenCC } from "@/lib/api/schema";
 
 /**
@@ -18,27 +19,33 @@ export function ResumenHero({ data, uf, usd }: ResumenHeroProps) {
   return (
     <Surface variant="glass">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-display font-semibold tracking-tight text-ink-900">
-              {data.razon_social}
-            </h2>
-            <Badge variant="info">{data.empresa_codigo}</Badge>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
-            <span className="inline-flex items-center gap-1.5 tabular-nums">
-              <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {data.transaction_count.toLocaleString("es-CL")} transacciones
-            </span>
-            {data.periodo_filtro && (
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarClock className="h-3.5 w-3.5" strokeWidth={1.5} />
-                Periodo {data.periodo_filtro}
+        <div className="flex items-center gap-4">
+          <EmpresaLogo
+            empresaCodigo={data.empresa_codigo}
+            size={56}
+          />
+          <div className="flex flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-display font-semibold tracking-tight text-ink-900">
+                {data.razon_social}
+              </h2>
+              <Badge variant="info">{data.empresa_codigo}</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-ink-500">
+              <span className="inline-flex items-center gap-1.5 tabular-nums">
+                <Receipt className="h-3.5 w-3.5" strokeWidth={1.5} />
+                {data.transaction_count.toLocaleString("es-CL")} transacciones
               </span>
-            )}
-            {data.real_proyectado_filtro && (
-              <Badge variant="neutral">{data.real_proyectado_filtro}</Badge>
-            )}
+              {data.periodo_filtro && (
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarClock className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  Periodo {data.periodo_filtro}
+                </span>
+              )}
+              {data.real_proyectado_filtro && (
+                <Badge variant="neutral">{data.real_proyectado_filtro}</Badge>
+              )}
+            </div>
           </div>
         </div>
 
