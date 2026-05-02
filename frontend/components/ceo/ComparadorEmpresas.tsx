@@ -102,8 +102,10 @@ export function ComparadorEmpresas({ empresas }: Props) {
           {empresas.length} empresas activas · scoreboard del portafolio
         </Surface.Subtitle>
       </Surface.Header>
+      {/* overflow-x-auto previene rotura de layout en mobile/tablet */}
+      <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-hairline text-sm">
-        <thead className="bg-ink-100/40 text-xs uppercase tracking-wide text-ink-500">
+        <thead className="sticky top-0 z-10 bg-ink-100/60 text-xs uppercase tracking-wide text-ink-500 backdrop-blur">
           <tr>
             <Th onClick={() => toggle("empresa_codigo")} active={sortKey === "empresa_codigo"} dir={sortDir}>
               Empresa
@@ -151,10 +153,13 @@ export function ComparadorEmpresas({ empresas }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-hairline">
-          {sorted.map((e) => (
+          {sorted.map((e, idx) => (
             <tr
               key={e.empresa_codigo}
-              className="transition-colors duration-150 hover:bg-ink-100/30"
+              className={cn(
+                "transition-colors duration-150 hover:bg-cehta-green/5",
+                idx % 2 === 1 && "bg-ink-50/30",
+              )}
             >
               <td className="px-4 py-3 font-medium text-ink-900">
                 <div className="flex items-center gap-2.5">
@@ -208,6 +213,7 @@ export function ComparadorEmpresas({ empresas }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
     </Surface>
   );
 }

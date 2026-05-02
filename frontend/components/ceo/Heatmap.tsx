@@ -15,10 +15,11 @@ const KPI_LABELS: Record<string, string> = {
 const KPI_ORDER = ["saldo", "flujo", "oc", "f29", "etl", "audit"];
 
 function colorClasses(color: string) {
-  if (color === "green") return "bg-positive/15 text-positive";
-  if (color === "yellow") return "bg-warning/15 text-warning";
-  if (color === "red") return "bg-negative/15 text-negative";
-  return "bg-ink-100 text-ink-500";
+  // Contrast WCAG AA — subimos opacity de fill + bold del text
+  if (color === "green") return "bg-positive/25 text-positive ring-1 ring-positive/30";
+  if (color === "yellow") return "bg-warning/25 text-warning ring-1 ring-warning/30";
+  if (color === "red") return "bg-negative/25 text-negative ring-1 ring-negative/30";
+  return "bg-ink-100 text-ink-500 ring-1 ring-hairline";
 }
 
 interface Props {
@@ -45,14 +46,33 @@ export function Heatmap({ heatmap }: Props) {
   return (
     <Surface padding="none">
       <Surface.Header className="border-b border-hairline px-6 py-4">
-        <Surface.Title>Heatmap del portafolio</Surface.Title>
-        <Surface.Subtitle>
-          Salud por empresa × KPI · verde ≥80, amarillo 60–79, rojo {"<"}60
-        </Surface.Subtitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <Surface.Title>Heatmap del portafolio</Surface.Title>
+            <Surface.Subtitle>
+              Salud por empresa × KPI (0-100)
+            </Surface.Subtitle>
+          </div>
+          {/* Leyenda visual con swatches en lugar de texto */}
+          <div className="flex items-center gap-2 text-[10px] text-ink-500">
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded bg-positive/25 ring-1 ring-positive/30" />
+              ≥80
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded bg-warning/25 ring-1 ring-warning/30" />
+              60–79
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-block h-3 w-3 rounded bg-negative/25 ring-1 ring-negative/30" />
+              {"<"}60
+            </span>
+          </div>
+        </div>
       </Surface.Header>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-hairline text-sm">
-          <thead className="bg-ink-100/40 text-xs uppercase tracking-wide text-ink-500">
+          <thead className="sticky top-0 z-10 bg-ink-100/60 text-xs uppercase tracking-wide text-ink-500 backdrop-blur">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Empresa</th>
               {KPI_ORDER.map((k) => (
@@ -63,8 +83,14 @@ export function Heatmap({ heatmap }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-hairline">
-            {empresas.map((emp) => (
-              <tr key={emp} className="transition-colors duration-150 hover:bg-ink-100/30">
+            {empresas.map((emp, idx) => (
+              <tr
+                key={emp}
+                className={cn(
+                  "transition-colors duration-150 hover:bg-cehta-green/5",
+                  idx % 2 === 1 && "bg-ink-50/30",
+                )}
+              >
                 <td className="px-4 py-3 font-medium tabular-nums text-ink-900">
                   <div className="flex items-center gap-2">
                     <EmpresaLogo empresaCodigo={emp} size={22} />
@@ -78,15 +104,22 @@ export function Heatmap({ heatmap }: Props) {
                       {cell ? (
                         <span
                           className={cn(
-                            "inline-flex h-9 w-12 items-center justify-center rounded-lg text-xs font-semibold tabular-nums",
+                            "inline-flex h-10 w-14 items-center justify-center rounded-lg text-sm font-bold tabular-nums",
                             colorClasses(cell.color),
                           )}
                           title={`${KPI_LABELS[k] ?? k}: ${cell.value}/100`}
+                          role="img"
+                          aria-label={`${emp} ${KPI_LABELS[k] ?? k}: ${cell.value} de 100`}
                         >
                           {cell.value}
                         </span>
                       ) : (
-                        <span className="text-ink-300">—</span>
+                        <span
+                          className="text-ink-300"
+                          aria-label="Sin datos"
+                        >
+                          —
+                        </span>
                       )}
                     </td>
                   );

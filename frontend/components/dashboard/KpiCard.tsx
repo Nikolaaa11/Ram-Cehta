@@ -66,7 +66,14 @@ export function KpiCard({
   const content = (
     <Surface
       variant={href ? "interactive" : "default"}
-      className={cn("relative flex h-[160px] flex-col justify-between", className)}
+      className={cn(
+        // Grid 3-row con tracks fijos: header (auto), value-block (1fr crece),
+        // bottom-slot (20px reservado siempre). Esto GARANTIZA que el valor
+        // central siempre queda alineado con las otras cards, tenga o no delta.
+        "relative grid h-[160px] grid-rows-[auto_1fr_20px] transition-all duration-200 ease-apple",
+        href && "hover:-translate-y-0.5 hover:shadow-card-hover",
+        className,
+      )}
     >
       <div className="flex items-start justify-between">
         <p className="text-xs font-medium uppercase tracking-wide text-ink-500">
@@ -84,18 +91,21 @@ export function KpiCard({
         )}
       </div>
 
-      <div className="flex flex-col gap-0.5">
-        <p className="font-display text-kpi-lg tabular-nums text-ink-900">{value}</p>
+      <div className="flex flex-col justify-end gap-0.5">
+        <p className="font-display text-kpi-lg tabular-nums tracking-tight text-ink-900">
+          {value}
+        </p>
         {subtitle && (
-          <p className="text-sm tabular-nums text-ink-500">{subtitle}</p>
+          <p className="line-clamp-1 text-sm tabular-nums text-ink-500">
+            {subtitle}
+          </p>
         )}
       </div>
 
-      {/* Bottom slot — altura fija (h-5) garantiza que el valor del medio
-          queda siempre en la misma posición vertical, tenga delta o no.
-          Antes: con `<span />` vacío, justify-between redistribuía y el
-          valor flotaba al centro de la card. */}
-      <div className="flex h-5 items-end justify-between gap-3">
+      {/* Bottom slot — siempre rendea con altura 20px (definida en grid-rows).
+          Si hay delta, lo muestra; si no, queda como espacio reservado para
+          que las cards de la fila tengan exactamente el mismo layout. */}
+      <div className="flex items-end justify-between gap-3">
         {delta ? (
           <div
             className={cn(
@@ -107,7 +117,9 @@ export function KpiCard({
             <span className="font-medium tabular-nums">{delta.value}</span>
             <span className="text-ink-500">{delta.label}</span>
           </div>
-        ) : null}
+        ) : (
+          <span aria-hidden className="block h-5 w-1" />
+        )}
         {sparkline && sparkline.length > 1 && (
           <Sparkline points={sparkline} tone={tone} />
         )}
