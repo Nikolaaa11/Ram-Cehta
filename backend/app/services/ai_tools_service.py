@@ -1491,3 +1491,167 @@ async def generate_insights(
         "raw_response": raw if not insights else None,
         "persisted_count": persisted_count,
     }
+
+
+# ---------------------------------------------------------------------------
+# V5.6 — Executive Summary (resumen narrativo 2 líneas para CEO Dashboard)
+# ---------------------------------------------------------------------------
+
+
+EXEC_SUMMARY_PROMPT = """Sos analista financiero senior de Cehta Capital.
+Tu tarea: producir un resumen ejecutivo MUY conciso (1-2 oraciones, máximo
+40 palabras) sobre el estado del portfolio para mostrar al CEO al inicio
+del dashboard.
+
+ESTILO:
+- Tono ejecutivo, factual, en español neutro.
+- Empezar con la observación más relevante (positiva o negativa).
+- Mencionar 1-2 empresas o métricas concretas con números.
+- Cerrar con riesgo principal o highlight, según corresponda.
+- NO inventes — solo usá datos del CONTEXTO.
+- NO uses bullets, NO uses markdown, NO uses comillas. Solo texto plano.
+
+Ejemplos de tono correcto:
+- "Portfolio creció +8.2% MoM con CENERGY liderando flujo neto en $185M.
+   Riesgo: 2 F29 vencidas en RHO."
+- "Mes estable con AUM consolidado en $1.2B. CSL bajó compliance a B-,
+   atención requerida en próximos vencimientos UAF."
+- "Sin movimientos relevantes esta semana. 3 empresas mantienen grade A
+   YTD; FIP_CEHTA pendiente de actualizar saldos."
+
+CONTEXTO:
+{context}
+"""
+
+
+async def generate_executive_summary(
+    db: AsyncSession,
+) -> dict[str, Any]:
+    """Genera un resumen narrativo de 1-2 líneas del estado del portfolio.
+
+    Pull rápido de KPIs clave + compliance + entregables → Claude resume.
+    Pensado para mostrarse en el header del CEO dashboard como "context
+    setting" antes de que el ejecutivo mire los números crudos.
+
+    Performance: respuesta ~5-8s. Idealmente cachear con TTL 1h.
+    """
+    client = _anthropic_client()
+
+    # Pull KPIs principales (mismos que /dashboard/ceo-consolidated)
+    kpis_row = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                  COALESCE(SUM(saldo_actual), 0) AS aum_total,
+                  COALESCE(SUM(CASE WHEN empresa_codigo = 'AFIS' THEN saldo_actual ELSE 0 END), 0) AS aum_afis,
+                  COUNT(DISTINCT empresa_codigo) AS empresas_count
+                FROM core.empresas_kpis
+                WHERE saldo_actual IS NOT NULL
+                """
+            )
+        )
+    ).mappings().first()
+
+    # Compliance summary
+    from app.api.v1.entregables import _compute_compliance_for_empresa
+
+    emp_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT DISTINCT
+                  COALESCE(extra->>'empresa_codigo', subcategoria) AS emp
+                FROM app.entregables_regulatorios
+                WHERE COALESCE(extra->>'empresa_codigo', subcategoria) IS NOT NULL
+                """
+            )
+        )
+    ).all()
+    grades_summary: dict[str, int] = {}
+    peor_empresa: tuple[str, str] | None = None
+    for r in emp_rows:
+        if not r[0]:
+            continue
+        try:
+            g = await _compute_compliance_for_empresa(db, r[0])
+            grades_summary[g.grade] = grades_summary.get(g.grade, 0) + 1
+            if g.grade in ("D", "F") and peor_empresa is None:
+                peor_empresa = (g.empresa_codigo, g.grade)
+        except Exception:
+            pass
+
+    # Entregables críticos
+    crit_row = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                  COUNT(*) FILTER (WHERE fecha_limite < CURRENT_DATE) AS vencidos,
+                  COUNT(*) FILTER (
+                    WHERE fecha_limite >= CURRENT_DATE
+                      AND fecha_limite <= (CURRENT_DATE + INTERVAL '5 days')
+                  ) AS criticos_5d
+                FROM app.entregables_regulatorios
+                WHERE estado IN ('pendiente','en_proceso')
+                """
+            )
+        )
+    ).mappings().first()
+
+    # Build context
+    ctx_lines: list[str] = []
+    if kpis_row is not None:
+        ctx_lines.append(f"AUM consolidado: ${int(kpis_row.get('aum_total') or 0):,}".replace(",", "."))
+        ctx_lines.append(f"Empresas en portfolio: {kpis_row.get('empresas_count') or 0}")
+    ctx_lines.append("")
+    ctx_lines.append("Compliance distribution:")
+    for grade in ("A", "B", "C", "D", "F"):
+        n = grades_summary.get(grade, 0)
+        if n > 0:
+            ctx_lines.append(f"  - Grade {grade}: {n} empresas")
+    if peor_empresa:
+        ctx_lines.append(f"Empresa con peor compliance: {peor_empresa[0]} (grade {peor_empresa[1]})")
+    if crit_row is not None:
+        venc = int(crit_row.get("vencidos") or 0)
+        crit5 = int(crit_row.get("criticos_5d") or 0)
+        ctx_lines.append("")
+        ctx_lines.append(f"Entregables vencidos sin entregar: {venc}")
+        ctx_lines.append(f"Entregables críticos próximos 5 días: {crit5}")
+
+    context_str = "\n".join(ctx_lines)
+    system_prompt = EXEC_SUMMARY_PROMPT.format(context=context_str)
+
+    response = await client.messages.create(
+        model=settings.ai_chat_model,
+        max_tokens=200,
+        system=system_prompt,
+        messages=[
+            {
+                "role": "user",
+                "content": "Generá el resumen ejecutivo de 1-2 oraciones.",
+            }
+        ],
+    )
+
+    text_blocks = [
+        b.text for b in response.content if getattr(b, "type", None) == "text"
+    ]
+    summary = "\n".join(text_blocks).strip().strip('"')
+
+    tokens_in = (
+        getattr(response.usage, "input_tokens", 0)
+        if hasattr(response, "usage")
+        else 0
+    )
+    tokens_out = (
+        getattr(response.usage, "output_tokens", 0)
+        if hasattr(response, "usage")
+        else 0
+    )
+
+    return {
+        "summary": summary,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "tokens": {"input": tokens_in, "output": tokens_out},
+    }

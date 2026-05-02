@@ -32,6 +32,7 @@ from app.schemas.ai import (
     ChatRequest,
     ConversationCreate,
     ConversationRead,
+    ExecutiveSummaryResponse,
     IndexStatus,
     IndexTriggerResponse,
     InsightsResponse,
@@ -44,6 +45,7 @@ from app.services.ai_tools_service import (
     ask,
     ask_stream,
     generate_acta_cv_draft,
+    generate_executive_summary,
     generate_insights,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
@@ -171,6 +173,33 @@ async def ai_generate_acta(
         ) from exc
 
     return ActaGenerateResponse.model_validate(result)
+
+
+@router.get(
+    "/executive-summary",
+    response_model=ExecutiveSummaryResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_executive_summary(
+    user: CurrentUser,
+    db: DBSession,
+) -> ExecutiveSummaryResponse:
+    """V5 fase 6 — Resumen narrativo de 1-2 líneas para CEO Dashboard.
+
+    Pull rápido de KPIs + compliance + entregables → Claude redacta
+    "context setting" antes de números crudos. Pensado para mostrarse
+    arriba del header del CEO dashboard.
+
+    Devuelve 503 si Anthropic no está configurado.
+    """
+    try:
+        result = await generate_executive_summary(db)
+    except AiToolsNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    return ExecutiveSummaryResponse.model_validate(result)
 
 
 @router.post(

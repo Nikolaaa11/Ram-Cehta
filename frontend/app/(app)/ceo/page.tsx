@@ -6,6 +6,8 @@ import { ComparativoChart } from "@/components/ceo/ComparativoChart";
 import { Heatmap } from "@/components/ceo/Heatmap";
 import { TopAlerts } from "@/components/ceo/TopAlerts";
 import { InsightsLivePreview } from "@/components/ceo/InsightsLivePreview";
+import { ExecutiveSummaryBanner } from "@/components/ceo/ExecutiveSummaryBanner";
+import { CeoToolbar } from "@/components/ceo/CeoToolbar";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { toRelative } from "@/lib/format";
@@ -45,37 +47,67 @@ export default async function CeoDashboardPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-6 space-y-6 print:px-0 print:py-0 print:max-w-full">
+      {/* Header con toolbar (PDF / Presentar / Período) */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
             Dashboard CEO
           </h1>
           <p className="text-sm text-ink-500">
-            Vista consolidada del portafolio · actualizado {toRelative(report.last_updated)}
+            Vista consolidada del portafolio · actualizado{" "}
+            {toRelative(report.last_updated)}
           </p>
         </div>
+        <CeoToolbar />
       </div>
 
+      {/* Header print-only */}
+      <div className="hidden print:block">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+          Cehta Capital · Dashboard CEO
+        </p>
+        <p className="text-xs text-ink-700">
+          Generado el{" "}
+          {new Date().toLocaleString("es-CL", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      </div>
+
+      {/* 0) Executive Summary banner — AI-generated context setting */}
+      <section data-presentation-section>
+        <ErrorBoundary>
+          <ExecutiveSummaryBanner />
+        </ErrorBoundary>
+      </section>
+
       {/* 1) Hero KPIs */}
-      <HeroKpis data={report} />
+      <section data-presentation-section>
+        <HeroKpis data={report} />
+      </section>
 
       {/* 2) Comparador de empresas + 3) Heatmap (lado a lado en desktop) */}
-      <div className="grid grid-cols-12 gap-6">
+      <section data-presentation-section className="grid grid-cols-12 gap-6">
         <div className="col-span-12 xl:col-span-7">
           <ComparadorEmpresas empresas={report.by_empresa} />
         </div>
         <div className="col-span-12 xl:col-span-5">
           <Heatmap heatmap={report.heatmap} />
         </div>
-      </div>
+      </section>
 
       {/* 2.5) Comparativo overlay chart — líneas superpuestas por empresa */}
-      <ComparativoChart />
+      <section data-presentation-section>
+        <ComparativoChart />
+      </section>
 
       {/* 4) Top Alertas + 5) Insights AI Live (V4.7.13) */}
-      <div className="grid grid-cols-12 gap-6">
+      <section data-presentation-section className="grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-7">
           <TopAlerts alerts={report.top_alerts} />
         </div>
@@ -84,12 +116,14 @@ export default async function CeoDashboardPage() {
             <InsightsLivePreview fallbackText={report.insights_ai} />
           </ErrorBoundary>
         </div>
-      </div>
+      </section>
 
       {/* 6) Compliance Leaderboard cross-empresa — V4.7.13 */}
-      <ErrorBoundary>
-        <ComplianceLeaderboard />
-      </ErrorBoundary>
+      <section data-presentation-section>
+        <ErrorBoundary>
+          <ComplianceLeaderboard />
+        </ErrorBoundary>
+      </section>
     </div>
   );
 }

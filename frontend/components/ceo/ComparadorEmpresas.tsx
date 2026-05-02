@@ -163,11 +163,24 @@ export function ComparadorEmpresas({ empresas }: Props) {
             >
               <td className="px-4 py-3 font-medium text-ink-900">
                 <div className="flex items-center gap-2.5">
-                  <EmpresaLogo
-                    empresaCodigo={e.empresa_codigo}
-                    size={28}
-                    className="shrink-0"
-                  />
+                  <div className="relative shrink-0">
+                    <EmpresaLogo
+                      empresaCodigo={e.empresa_codigo}
+                      size={28}
+                    />
+                    {/* Activity dot — verde pulsante si hay flujo/OCs recientes,
+                        gris si stale. Indica "live system" vs snapshot. */}
+                    {(Number(e.flujo_neto_30d) !== 0 ||
+                      e.oc_pendientes > 0) && (
+                      <span
+                        className="absolute -bottom-0.5 -right-0.5 inline-flex h-2.5 w-2.5"
+                        title="Actividad reciente (últimos 30 días)"
+                      >
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-positive/60 opacity-75" />
+                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-positive ring-2 ring-white" />
+                      </span>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">
                       {trendIcon(e.trend)}

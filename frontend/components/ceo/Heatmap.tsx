@@ -1,7 +1,26 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Surface } from "@/components/ui/surface";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { cn } from "@/lib/utils";
 import type { HeatmapCell } from "@/lib/api/schema";
+
+const KPI_DESCRIPTION: Record<string, string> = {
+  saldo: "Saldo contable consolidado de la empresa. Refleja liquidez disponible.",
+  flujo: "Flujo neto últimos 30 días (abonos − egresos). Indica salud operativa.",
+  oc: "OCs pendientes de pago. Score baja con OCs estancadas >30 días.",
+  f29: "F29 (IVA + PPM) próximos a vencer o vencidos. Score baja por vencimientos.",
+  etl: "Última sincronización ETL. Score baja si datos están stale (>24h).",
+  audit: "Auditoría: cambios sospechosos, accesos sin 2FA, anomalías recientes.",
+};
 
 const KPI_LABELS: Record<string, string> = {
   saldo: "Saldo",
@@ -33,6 +52,11 @@ interface Props {
  * valor 0-100 con tono semaforo (green ≥80, yellow 60-79, red <60).
  */
 export function Heatmap({ heatmap }: Props) {
+  const [selected, setSelected] = useState<{
+    empresa: string;
+    kpi: string;
+    cell: HeatmapCell;
+  } | null>(null);
   const empresas = Array.from(
     new Set(heatmap.map((c) => c.empresa_codigo)),
   ).sort();
@@ -42,6 +66,8 @@ export function Heatmap({ heatmap }: Props) {
   for (const c of heatmap) {
     cellMap.set(`${c.empresa_codigo}::${c.kpi}`, c);
   }
+
+  const closeModal = () => setSelected(null);
 
   return (
     <Surface padding="none">
@@ -102,17 +128,19 @@ export function Heatmap({ heatmap }: Props) {
                   return (
                     <td key={k} className="px-2 py-2 text-center">
                       {cell ? (
-                        <span
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSelected({ empresa: emp, kpi: k, cell })
+                          }
                           className={cn(
-                            "inline-flex h-10 w-14 items-center justify-center rounded-lg text-sm font-bold tabular-nums",
+                            "inline-flex h-10 w-14 items-center justify-center rounded-lg text-sm font-bold tabular-nums transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
                             colorClasses(cell.color),
                           )}
-                          title={`${KPI_LABELS[k] ?? k}: ${cell.value}/100`}
-                          role="img"
-                          aria-label={`${emp} ${KPI_LABELS[k] ?? k}: ${cell.value} de 100`}
+                          aria-label={`Ver detalle ${emp} ${KPI_LABELS[k] ?? k}: ${cell.value} de 100`}
                         >
                           {cell.value}
-                        </span>
+                        </button>
                       ) : (
                         <span
                           className="text-ink-300"
@@ -129,6 +157,66 @@ export function Heatmap({ heatmap }: Props) {
           </tbody>
         </table>
       </div>
+
+      {/* Drill-down modal */}
+      <Dialog open={selected !== null} onOpenChange={closeModal}>
+        <DialogContent className="max-w-md">
+          {selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <EmpresaLogo empresaCodigo={selected.empresa} size={32} />
+                  <span>
+                    {selected.empresa} ·{" "}
+                    {KPI_LABELS[selected.kpi] ?? selected.kpi}
+                  </span>
+                </DialogTitle>
+                <DialogDescription>
+                  {KPI_DESCRIPTION[selected.kpi] ?? "Indicador de salud."}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="mt-4 space-y-3">
+                {/* Big score */}
+                <div
+                  className={cn(
+                    "rounded-2xl p-6 text-center ring-1",
+                    colorClasses(selected.cell.color),
+                  )}
+                >
+                  <p className="text-[10px] font-semibold uppercase tracking-wider opacity-80">
+                    Score salud
+                  </p>
+                  <p className="mt-1 font-display text-5xl font-bold tabular-nums">
+                    {selected.cell.value}
+                  </p>
+                  <p className="mt-1 text-[10px] opacity-80">de 100</p>
+                </div>
+
+                {/* Interpretation */}
+                <div className="rounded-xl border border-hairline bg-white p-3 text-sm text-ink-700">
+                  <p className="font-medium">Interpretación:</p>
+                  <p className="mt-1 text-xs leading-relaxed">
+                    {selected.cell.value >= 80
+                      ? "✓ Indicador en estado óptimo. Sin acción requerida."
+                      : selected.cell.value >= 60
+                        ? "⚠ Atención recomendada. Revisar tendencia y causas."
+                        : "✗ Riesgo activo. Requiere intervención operativa."}
+                  </p>
+                </div>
+
+                {/* CTA empresa */}
+                <a
+                  href={`/empresa/${selected.empresa}`}
+                  className="block rounded-xl bg-cehta-green px-4 py-2.5 text-center text-sm font-medium text-white transition-colors hover:bg-cehta-green-700"
+                >
+                  Ver dashboard completo de {selected.empresa} →
+                </a>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </Surface>
   );
 }

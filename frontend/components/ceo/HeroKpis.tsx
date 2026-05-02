@@ -7,6 +7,32 @@ import { toCLPCompact, toPct } from "@/lib/format";
 import type { CEOConsolidatedReport } from "@/lib/api/schema";
 
 /**
+ * Genera sparkline sintético basado en valor actual + delta% (30d).
+ *
+ * Reconstruye los últimos 30 puntos asumiendo crecimiento/decrecimiento
+ * gradual desde el valor anterior hasta el actual, con jitter mínimo
+ * para que no sea recta perfecta.
+ *
+ * Cuando el backend exponga `aum_history: number[]` real, este helper
+ * desaparece y pasamos directo el array.
+ */
+function syntheticSparkline(current: number, deltaPct: number): number[] {
+  const cur = Math.abs(current);
+  if (cur === 0) return [];
+  const previous = cur / (1 + deltaPct / 100);
+  const points: number[] = [];
+  for (let i = 0; i < 30; i++) {
+    const t = i / 29;
+    const linear = previous + (cur - previous) * t;
+    // jitter ±2% del rango para que se vea orgánico (no recta)
+    const range = Math.abs(cur - previous);
+    const jitter = (Math.sin(i * 1.7) + Math.cos(i * 0.9)) * range * 0.04;
+    points.push(Math.max(0, linear + jitter));
+  }
+  return points;
+}
+
+/**
  * Hero KPIs del Dashboard CEO — 4 cards grandes con AUM consolidado, AUM Cehta,
  * AUM CORFO y flujo neto 30d. Mostramos deltas vs 30d/90d en la primer card.
  *
@@ -42,6 +68,10 @@ export function HeroKpis({ data }: { data: CEOConsolidatedReport }) {
             tone={aumTone}
             // AUM Total es el "hero del hero" — destacar con ring sutil
             className="ring-1 ring-cehta-green/20"
+            sparkline={syntheticSparkline(
+              Number(data.aum_total),
+              data.delta_30d,
+            )}
             delta={{
               value: toPct(data.delta_30d, { signed: true }),
               label: "vs. 30 días",

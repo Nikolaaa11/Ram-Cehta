@@ -168,3 +168,11 @@ class AiInsightUpdate(BaseModel):
 
     read: bool | None = None
     dismissed: bool | None = None
+
+
+class ExecutiveSummaryResponse(BaseModel):
+    """Resumen narrativo del portfolio (1-2 líneas) para CEO Dashboard."""
+
+    summary: str
+    generated_at: datetime
+    tokens: AskTokens = Field(default_factory=AskTokens)
