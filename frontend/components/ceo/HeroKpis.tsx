@@ -3,7 +3,7 @@
 import { Wallet, TrendingUp, Building2, Banknote } from "lucide-react";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { CurrencyTooltip } from "@/components/shared/CurrencyTooltip";
-import { toCLP, toPct } from "@/lib/format";
+import { toCLPCompact, toPct } from "@/lib/format";
 import type { CEOConsolidatedReport } from "@/lib/api/schema";
 
 /**
@@ -26,7 +26,7 @@ export function HeroKpis({ data }: { data: CEOConsolidatedReport }) {
         <div>
           <KpiCard
             label="AUM total"
-            value={toCLP(data.aum_total)}
+            value={toCLPCompact(data.aum_total)}
             subtitle={`90d: ${toPct(data.delta_90d, { signed: true })}`}
             icon={Wallet}
             tone="default"
@@ -48,7 +48,7 @@ export function HeroKpis({ data }: { data: CEOConsolidatedReport }) {
         <div>
           <KpiCard
             label="AUM Cehta"
-            value={toCLP(data.aum_cehta)}
+            value={toCLPCompact(data.aum_cehta)}
             subtitle="cuentas operativas"
             icon={Building2}
             tone="default"
@@ -60,7 +60,7 @@ export function HeroKpis({ data }: { data: CEOConsolidatedReport }) {
         <div>
           <KpiCard
             label="AUM CORFO"
-            value={toCLP(data.aum_corfo)}
+            value={toCLPCompact(data.aum_corfo)}
             subtitle="cuentas crédito CORFO"
             icon={Banknote}
             tone="default"
@@ -72,7 +72,7 @@ export function HeroKpis({ data }: { data: CEOConsolidatedReport }) {
         <div>
           <KpiCard
             label="Flujo neto 30d"
-            value={toCLP(data.flujo_neto_30d)}
+            value={toCLPCompact(data.flujo_neto_30d)}
             subtitle="abonos − egresos últimos 30 días"
             icon={TrendingUp}
             tone={

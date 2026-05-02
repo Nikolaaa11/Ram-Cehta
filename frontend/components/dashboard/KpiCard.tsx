@@ -91,16 +91,23 @@ export function KpiCard({
         )}
       </div>
 
-      <div className="flex items-end justify-between gap-3">
+      {/* Bottom slot — altura fija (h-5) garantiza que el valor del medio
+          queda siempre en la misma posición vertical, tenga delta o no.
+          Antes: con `<span />` vacío, justify-between redistribuía y el
+          valor flotaba al centro de la card. */}
+      <div className="flex h-5 items-end justify-between gap-3">
         {delta ? (
-          <div className={cn("flex items-center gap-1.5 text-sm", dir?.color)}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 text-sm",
+              dir?.color,
+            )}
+          >
             {DirIcon && <DirIcon className="h-3.5 w-3.5" strokeWidth={1.75} />}
             <span className="font-medium tabular-nums">{delta.value}</span>
             <span className="text-ink-500">{delta.label}</span>
           </div>
-        ) : (
-          <span />
-        )}
+        ) : null}
         {sparkline && sparkline.length > 1 && (
           <Sparkline points={sparkline} tone={tone} />
         )}
