@@ -10,7 +10,8 @@ from pydantic import BaseModel, Field
 # rechaza la request 422. Mantener sincronizado con el CHECK constraint
 # en migración 0015 y con `SavedViewPage` en frontend (schema.ts).
 SavedViewPage = Literal[
-    "oc", "f29", "trabajadores", "proveedores", "legal", "fondos"
+    "oc", "f29", "trabajadores", "proveedores", "legal", "fondos",
+    "entregables", "cartas_gantt", "suscripciones", "calendario"
 ]
 
 

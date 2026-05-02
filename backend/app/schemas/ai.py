@@ -59,3 +59,87 @@ class IndexTriggerResponse(BaseModel):
     files_processed: int
     chunks_created: int
     skipped: list[str] = Field(default_factory=list)
+
+
+# ─── V5 fase 1 — AI tools (tool calling) ────────────────────────────────
+
+
+class AskRequest(BaseModel):
+    """Una pregunta one-shot al asistente con tool calling habilitado."""
+
+    question: str = Field(min_length=1, max_length=4000)
+    write_mode: bool = Field(
+        default=False,
+        description=(
+            "Si True, Claude puede mutar datos (marcar entregables). "
+            "El frontend debe pedir confirmación explícita antes de "
+            "habilitarlo."
+        ),
+    )
+
+
+class AskToolCall(BaseModel):
+    tool: str
+    input: dict[str, object] = Field(default_factory=dict)
+    output_preview: str = ""
+
+
+class AskTokens(BaseModel):
+    input: int = 0
+    output: int = 0
+
+
+class AskResponse(BaseModel):
+    """Respuesta completa de `POST /ai/ask`."""
+
+    answer: str
+    tool_calls: list[AskToolCall] = Field(default_factory=list)
+    iterations: int = 0
+    tokens: AskTokens = Field(default_factory=AskTokens)
+
+
+# ─── V5 fase 2 — AI Auto-Acta ───────────────────────────────────────────
+
+
+class ActaGenerateRequest(BaseModel):
+    """Pide a Claude que genere un draft de acta CV."""
+
+    empresa: str | None = None  # Si null, acta general; si CSL/RHO/etc, scoped
+
+
+class ActaDataSummary(BaseModel):
+    ytd_total: int = 0
+    ytd_entregados: int = 0
+    tasa_cumplimiento: float = 0.0
+    vencidos_count: int = 0
+    proximos_30d_count: int = 0
+
+
+class ActaGenerateResponse(BaseModel):
+    """Markdown del acta + metadata para el frontend."""
+
+    markdown: str
+    generated_at: datetime
+    empresa: str | None = None
+    tokens: AskTokens = Field(default_factory=AskTokens)
+    data_summary: ActaDataSummary = Field(default_factory=ActaDataSummary)
+
+
+# ─── V5 fase 3 — AI Insights (anomaly detection) ────────────────────────
+
+
+class AiInsight(BaseModel):
+    """Un insight generado por la AI sobre patrones o anomalías."""
+
+    severity: str  # critical / warning / info / positive
+    title: str
+    body: str
+    recommendation: str = ""
+    tags: list[str] = Field(default_factory=list)
+
+
+class InsightsResponse(BaseModel):
+    insights: list[AiInsight] = Field(default_factory=list)
+    generated_at: datetime
+    tokens: AskTokens = Field(default_factory=AskTokens)
+    raw_response: str | None = None  # debug si JSON parse falló

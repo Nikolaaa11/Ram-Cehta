@@ -9,6 +9,7 @@ import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EditButton } from "@/components/shared/edit-button";
+import { FileLink } from "@/components/shared/FileLink";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { AlertBadge } from "./AlertBadge";
 import { LegalDocumentEditDialog } from "./LegalDocumentEditDialog";
@@ -193,10 +194,13 @@ export function LegalDocumentDetail({ documentoId, onClose }: Props) {
               )}
 
               {data.dropbox_path && (
-                <p className="flex items-center gap-1 text-xs text-ink-500">
-                  <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-                  <span className="truncate font-mono">{data.dropbox_path}</span>
-                </p>
+                <div className="text-xs">
+                  <FileLink
+                    url={data.dropbox_path}
+                    variant="inline"
+                    showDomain
+                  />
+                </div>
               )}
             </>
           )}

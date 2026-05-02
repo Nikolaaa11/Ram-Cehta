@@ -12,6 +12,8 @@ import { ProyectosRanking } from "@/components/dashboard/ProyectosRanking";
 import { ProyectosRankingSkeleton } from "@/components/dashboard/ProyectosRankingSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { ActivityFeedSkeleton } from "@/components/dashboard/ActivityFeedSkeleton";
+import { MiDiaWidget } from "@/components/dashboard/MiDiaWidget";
+import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
@@ -73,6 +75,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
       <DashboardHeader lastEtlRun={kpis.ultimo_etl_run} etlStatus={kpis.etl_status} />
 
       <div className="space-y-6">
+        {/* V4 fase 7.7 — Widget personal "Mi día" arriba de los KPIs ejecutivos. */}
+        <ErrorBoundary>
+          <MiDiaWidget />
+        </ErrorBoundary>
+
         <Suspense fallback={<KpiHeroSkeleton />}>
           <KpiHeroSection initialData={kpis} />
         </Suspense>
@@ -83,6 +90,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
         <ErrorBoundary>
           <ChartsGrid />
+        </ErrorBoundary>
+
+        {/* V4 fase 7.10 — Compliance leaderboard cross-empresa */}
+        <ErrorBoundary>
+          <ComplianceLeaderboard />
         </ErrorBoundary>
 
         {/* Bottom row — ranking + activity feed (5/7 split en lg, stack en mobile) */}

@@ -38,6 +38,8 @@ from app.schemas.digest import (
     DigestAlert,
     DigestSendResult,
     EmpresaDigestRow,
+    EntregableDigestRow,
+    EntregablesDigestPayload,
     MovimientoDigestRow,
 )
 from app.services.email_service import EmailService
@@ -1013,5 +1015,345 @@ class DigestService:
             sent=sent,
             failed=len(failed),
             recipients=len(targets),
+        )
+        return DigestSendResult(sent=sent, failed=failed, preview_url=None)
+
+    # ──────────────────────────────────────────────────────────────────
+    # Entregables Weekly Digest — V4 fase 7.8
+    # ──────────────────────────────────────────────────────────────────
+
+    async def build_entregables_digest(self) -> EntregablesDigestPayload:
+        """Snapshot de entregables regulatorios pendientes para el equipo.
+
+        Genera buckets vencidos / hoy / próximos 7d / próximos 30d.
+        Calcula tasa cumplimiento YTD para que vea el progreso.
+        """
+        now = datetime.now(tz=UTC)
+        today = now.date()
+
+        # Buckets — todas las queries son try-safe para no romper si la
+        # tabla no existe en algún env legacy.
+        try:
+            rows = (
+                await self._db.execute(
+                    text(
+                        """
+                        SELECT entregable_id, nombre, categoria, periodo,
+                               fecha_limite, responsable, estado,
+                               (fecha_limite - CURRENT_DATE) AS dias
+                        FROM app.entregables_regulatorios
+                        WHERE estado IN ('pendiente','en_proceso')
+                          AND fecha_limite <= (CURRENT_DATE + INTERVAL '30 days')
+                        ORDER BY fecha_limite ASC
+                        LIMIT 200
+                        """
+                    )
+                )
+            ).mappings().all()
+        except Exception as exc:
+            log.warning("entregables_digest.fetch_fail", err=str(exc))
+            rows = []
+
+        def _classify(dias: int) -> str:
+            if dias < 0:
+                return "vencido"
+            if dias == 0:
+                return "hoy"
+            if dias <= 5:
+                return "critico"
+            if dias <= 10:
+                return "urgente"
+            if dias <= 15:
+                return "proximo"
+            if dias <= 30:
+                return "en_rango"
+            return "normal"
+
+        vencidos: list[EntregableDigestRow] = []
+        hoy: list[EntregableDigestRow] = []
+        proximos_7d_full: list[EntregableDigestRow] = []
+        proximos_30d_count = 0
+
+        for r in rows:
+            dias = int(r["dias"] or 0)
+            nivel = _classify(dias)
+            row = EntregableDigestRow(
+                entregable_id=int(r["entregable_id"]),
+                nombre=str(r["nombre"]),
+                categoria=str(r["categoria"]),
+                periodo=str(r["periodo"]),
+                fecha_limite=r["fecha_limite"],
+                dias_restantes=dias,
+                responsable=str(r["responsable"]),
+                estado=str(r["estado"]),
+                nivel_alerta=nivel,
+            )
+            proximos_30d_count += 1
+            if dias < 0:
+                vencidos.append(row)
+            elif dias == 0:
+                hoy.append(row)
+            elif dias <= 7:
+                proximos_7d_full.append(row)
+
+        # Tasa de cumplimiento YTD
+        try:
+            ytd_total = (
+                await self._db.execute(
+                    text(
+                        """
+                        SELECT COUNT(*) FROM app.entregables_regulatorios
+                        WHERE fecha_limite >=
+                              make_date(EXTRACT(year FROM CURRENT_DATE)::int, 1, 1)
+                          AND fecha_limite < CURRENT_DATE
+                        """
+                    )
+                )
+            ).scalar() or 0
+            ytd_entregados = (
+                await self._db.execute(
+                    text(
+                        """
+                        SELECT COUNT(*) FROM app.entregables_regulatorios
+                        WHERE fecha_limite >=
+                              make_date(EXTRACT(year FROM CURRENT_DATE)::int, 1, 1)
+                          AND fecha_limite < CURRENT_DATE
+                          AND estado = 'entregado'
+                        """
+                    )
+                )
+            ).scalar() or 0
+            tasa = (
+                round((ytd_entregados / ytd_total * 100.0), 1)
+                if ytd_total > 0
+                else 100.0
+            )
+        except Exception:
+            tasa = 0.0
+
+        return EntregablesDigestPayload(
+            generated_at=now,
+            period_from=today,
+            period_to=today + timedelta(days=7),
+            vencidos_count=len(vencidos),
+            hoy_count=len(hoy),
+            proximos_7d_count=len(proximos_7d_full),
+            proximos_30d_count=proximos_30d_count,
+            tasa_cumplimiento_ytd=tasa,
+            vencidos=vencidos[:20],  # cap para email lectura razonable
+            hoy=hoy[:20],
+            proximos_7d=proximos_7d_full[:20],
+        )
+
+    def build_entregables_html(self, payload: EntregablesDigestPayload) -> str:
+        """HTML inline-styled del digest de entregables.
+
+        Patrón: tarjeta header → 4 KPIs → tablas vencidos/hoy/próximos.
+        """
+        def _row_html(rows: list[EntregableDigestRow], color: str) -> str:
+            if not rows:
+                return (
+                    f'<p style="margin:0;padding:8px 0;color:{_C_INK_500};'
+                    f'font-size:13px;font-style:italic;">— Ninguno —</p>'
+                )
+            cells = []
+            for r in rows:
+                fecha = r.fecha_limite.strftime("%d-%b")
+                dias_text = (
+                    f"Vencido {abs(r.dias_restantes)}d"
+                    if r.dias_restantes < 0
+                    else "HOY"
+                    if r.dias_restantes == 0
+                    else f"En {r.dias_restantes}d"
+                )
+                cells.append(
+                    f'<tr>'
+                    f'<td style="padding:6px 8px;border-bottom:1px solid {_C_INK_100};'
+                    f'font-size:12px;color:{_C_INK_700};white-space:nowrap;">{fecha}</td>'
+                    f'<td style="padding:6px 8px;border-bottom:1px solid {_C_INK_100};'
+                    f'font-size:11px;color:{color};font-weight:600;white-space:nowrap;">'
+                    f'{escape(r.categoria)}</td>'
+                    f'<td style="padding:6px 8px;border-bottom:1px solid {_C_INK_100};'
+                    f'font-size:13px;color:{_C_INK_900};">{escape(r.nombre)}</td>'
+                    f'<td style="padding:6px 8px;border-bottom:1px solid {_C_INK_100};'
+                    f'font-size:11px;color:{_C_INK_500};white-space:nowrap;">'
+                    f'{escape(r.responsable)}</td>'
+                    f'<td style="padding:6px 8px;border-bottom:1px solid {_C_INK_100};'
+                    f'font-size:11px;color:{color};font-weight:600;'
+                    f'white-space:nowrap;text-align:right;">{dias_text}</td>'
+                    f"</tr>"
+                )
+            return (
+                '<table style="width:100%;border-collapse:collapse;'
+                'margin:6px 0 12px 0;">'
+                + "".join(cells)
+                + "</table>"
+            )
+
+        vencidos_html = _row_html(payload.vencidos, _C_NEGATIVE)
+        hoy_html = _row_html(payload.hoy, _C_NEGATIVE)
+        proximos_html = _row_html(payload.proximos_7d, _C_WARNING)
+        tasa_color = (
+            _C_GREEN
+            if payload.tasa_cumplimiento_ytd >= 95
+            else _C_WARNING
+            if payload.tasa_cumplimiento_ytd >= 85
+            else _C_NEGATIVE
+        )
+
+        return f"""<!doctype html>
+<html><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Digest semanal · Entregables FIP CEHTA ESG</title>
+</head>
+<body style="margin:0;padding:0;background:{_C_BG};
+font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <div style="max-width:640px;margin:0 auto;padding:24px 16px;">
+    <p style="margin:0;font-size:11px;color:{_C_INK_500};
+text-transform:uppercase;letter-spacing:0.12em;">
+      Digest semanal · Entregables Regulatorios
+    </p>
+    <h1 style="margin:6px 0 4px 0;font-size:22px;color:{_C_INK_900};
+letter-spacing:-0.01em;">
+      FIP CEHTA ESG · AFIS S.A.
+    </h1>
+    <p style="margin:0;font-size:12px;color:{_C_INK_500};">
+      Generado el {payload.generated_at.strftime('%d %b %Y · %H:%M')}
+    </p>
+
+    <table style="width:100%;border-collapse:separate;border-spacing:8px;
+margin:16px 0;">
+      <tr>
+        <td style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:12px;width:25%;">
+          <p style="margin:0;font-size:10px;color:{_C_INK_500};
+text-transform:uppercase;letter-spacing:0.08em;">Vencidos</p>
+          <p style="margin:4px 0 0 0;font-size:24px;font-weight:700;
+color:{_C_NEGATIVE if payload.vencidos_count > 0 else _C_INK_300};">
+            {payload.vencidos_count}
+          </p>
+        </td>
+        <td style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:12px;width:25%;">
+          <p style="margin:0;font-size:10px;color:{_C_INK_500};
+text-transform:uppercase;letter-spacing:0.08em;">Hoy</p>
+          <p style="margin:4px 0 0 0;font-size:24px;font-weight:700;
+color:{_C_NEGATIVE if payload.hoy_count > 0 else _C_INK_300};">
+            {payload.hoy_count}
+          </p>
+        </td>
+        <td style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:12px;width:25%;">
+          <p style="margin:0;font-size:10px;color:{_C_INK_500};
+text-transform:uppercase;letter-spacing:0.08em;">Próx. 7d</p>
+          <p style="margin:4px 0 0 0;font-size:24px;font-weight:700;
+color:{_C_WARNING if payload.proximos_7d_count > 0 else _C_INK_300};">
+            {payload.proximos_7d_count}
+          </p>
+        </td>
+        <td style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:12px;width:25%;">
+          <p style="margin:0;font-size:10px;color:{_C_INK_500};
+text-transform:uppercase;letter-spacing:0.08em;">Tasa YTD</p>
+          <p style="margin:4px 0 0 0;font-size:24px;font-weight:700;
+color:{tasa_color};">
+            {payload.tasa_cumplimiento_ytd:.1f}%
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:16px;margin-bottom:12px;">
+      <h2 style="margin:0 0 4px 0;font-size:14px;color:{_C_NEGATIVE};">
+        🔴 Vencidos sin entregar ({payload.vencidos_count})
+      </h2>
+      <p style="margin:0 0 8px 0;font-size:11px;color:{_C_INK_500};">
+        Cada uno requiere explicación documentada para acta del Comité.
+      </p>
+      {vencidos_html}
+    </div>
+
+    <div style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:16px;margin-bottom:12px;">
+      <h2 style="margin:0 0 4px 0;font-size:14px;color:{_C_NEGATIVE};">
+        ⏰ Vencen hoy ({payload.hoy_count})
+      </h2>
+      <p style="margin:0 0 8px 0;font-size:11px;color:{_C_INK_500};">
+        Cierre del día — resolver antes que se vuelva atrasado.
+      </p>
+      {hoy_html}
+    </div>
+
+    <div style="background:#fff;border:1px solid {_C_INK_100};
+border-radius:12px;padding:16px;margin-bottom:12px;">
+      <h2 style="margin:0 0 4px 0;font-size:14px;color:{_C_WARNING};">
+        🟠 Próximos 7 días ({payload.proximos_7d_count})
+      </h2>
+      <p style="margin:0 0 8px 0;font-size:11px;color:{_C_INK_500};">
+        Empezar a preparar — semana en curso.
+      </p>
+      {proximos_html}
+    </div>
+
+    <p style="margin:24px 0 8px 0;font-size:11px;color:{_C_INK_500};
+text-align:center;">
+      Total ventana 30 días: <strong>{payload.proximos_30d_count}</strong>
+      entregables ·
+      <a href="{settings.frontend_url}/entregables"
+         style="color:{_C_GREEN};text-decoration:none;">
+        Ver módulo completo →
+      </a>
+    </p>
+    <p style="margin:0;font-size:10px;color:{_C_INK_300};text-align:center;">
+      Plataforma de gobernanza interna · FIP CEHTA ESG · AFIS S.A.
+    </p>
+  </div>
+</body></html>"""
+
+    async def send_entregables_digest(
+        self, recipients: list[str] | None = None
+    ) -> DigestSendResult:
+        """Envía el digest semanal operativo de entregables.
+
+        Mismo flujo que `send_to_ceo()`: soft-fail si Resend no está,
+        loop por recipient, audit-friendly logging.
+        """
+        targets = recipients if recipients is not None else (
+            settings.email_admin_recipients or []
+        )
+        if not targets:
+            log.warning("entregables_digest.send.no_recipients")
+            return DigestSendResult(sent=0, failed=[], preview_url=None)
+
+        payload = await self.build_entregables_digest()
+        html = self.build_entregables_html(payload)
+
+        if not self._email.enabled:
+            log.warning("entregables_digest.send.email_disabled", to=targets)
+            return DigestSendResult(
+                sent=0, failed=list(targets), preview_url=None
+            )
+
+        sent = 0
+        failed: list[str] = []
+        subject = (
+            f"Cehta — Entregables {payload.period_from.isoformat()} · "
+            f"{payload.vencidos_count} vencidos · {payload.hoy_count} hoy"
+        )
+        for r in targets:
+            result = self._email.send(to=[r], subject=subject, html=html)
+            if result is not None:
+                sent += 1
+            else:
+                failed.append(r)
+
+        log.info(
+            "entregables_digest.sent",
+            sent=sent,
+            failed=len(failed),
+            recipients=len(targets),
+            vencidos=payload.vencidos_count,
+            hoy=payload.hoy_count,
         )
         return DigestSendResult(sent=sent, failed=failed, preview_url=None)

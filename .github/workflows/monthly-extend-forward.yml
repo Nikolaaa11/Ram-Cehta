@@ -1,0 +1,56 @@
+name: monthly-extend-forward
+
+# Cron mensual que extiende automáticamente los templates recurrentes hacia
+# adelante. Se asegura de que siempre haya al menos 90 días de pipeline
+# cargado — así nunca llegamos a fin de año sin entregables del año
+# siguiente cargados.
+#
+# Schedule: 13:00 UTC del día 1 de cada mes = 10:00 Chile.
+# Idempotente — si todos los templates ya están cubiertos, no hace nada.
+
+on:
+  schedule:
+    - cron: "0 13 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  extend-forward:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Llamar /entregables/extend-forward
+        env:
+          API_URL: ${{ secrets.RAM_CEHTA_API_URL }}
+          API_TOKEN: ${{ secrets.RAM_CEHTA_ALERTS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${API_TOKEN:-}" ]; then
+            echo "::error::Faltan secrets RAM_CEHTA_API_URL o RAM_CEHTA_ALERTS_TOKEN"
+            exit 1
+          fi
+
+          echo "POST ${API_URL}/entregables/extend-forward?horizon_days=90"
+          response=$(mktemp)
+          status=$(curl -sS -o "$response" -w "%{http_code}" \
+            -X POST "${API_URL}/entregables/extend-forward?horizon_days=90" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --max-time 60)
+
+          echo "HTTP ${status}"
+          cat "$response"
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Extend-forward devolvió HTTP ${status}"
+            exit 1
+          fi
+
+          if command -v jq >/dev/null 2>&1; then
+            templates=$(jq -r '.templates_extendidos // 0' "$response")
+            instancias=$(jq -r '.instancias_creadas // 0' "$response")
+            echo "::notice::Extendidos ${templates} templates · ${instancias} instancias creadas"
+          fi

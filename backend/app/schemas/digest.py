@@ -88,3 +88,44 @@ class DigestSendResult(BaseModel):
     sent: int
     failed: list[str] = Field(default_factory=list)
     preview_url: str | None = None
+
+
+# ─── Entregables Weekly Digest (V4 fase 7.8) ──────────────────────────────
+
+
+class EntregableDigestRow(BaseModel):
+    """Una fila de entregable para el digest operativo."""
+
+    entregable_id: int
+    nombre: str
+    categoria: str
+    periodo: str
+    fecha_limite: date
+    dias_restantes: int
+    responsable: str
+    estado: str
+    nivel_alerta: str  # vencido / hoy / critico / urgente / proximo / en_rango / normal
+
+
+class EntregablesDigestPayload(BaseModel):
+    """Payload del digest semanal operativo de entregables.
+
+    Foco: lo que el equipo operativo (no el CEO) tiene que mover esta
+    semana para no atrasarse con CMF/CORFO/UAF/SII/Reglamento Interno.
+    """
+
+    generated_at: datetime
+    period_from: date
+    period_to: date
+
+    # Conteos rápidos
+    vencidos_count: int
+    hoy_count: int
+    proximos_7d_count: int
+    proximos_30d_count: int
+    tasa_cumplimiento_ytd: float
+
+    # Detalle (limitado a top N por bucket para que el email no sea kilométrico)
+    vencidos: list[EntregableDigestRow] = Field(default_factory=list)
+    hoy: list[EntregableDigestRow] = Field(default_factory=list)
+    proximos_7d: list[EntregableDigestRow] = Field(default_factory=list)

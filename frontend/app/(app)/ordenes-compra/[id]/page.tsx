@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
+import { FileLink } from "@/components/shared/FileLink";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
@@ -114,15 +115,12 @@ export default async function OcDetallePage({
           <div className="flex items-center gap-3">
             <EstadoBadge estado={oc.estado} />
             {oc.pdf_url && (
-              <a
-                href={oc.pdf_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-cehta-green hover:underline"
-              >
-                Ver PDF
-                <ExternalLink className="h-3 w-3" strokeWidth={1.5} />
-              </a>
+              <FileLink
+                url={oc.pdf_url}
+                label="Ver PDF"
+                variant="inline"
+                showDomain
+              />
             )}
           </div>
           <div className="flex items-center gap-2">

@@ -518,7 +518,8 @@ export type ExportEntityType =
   | "legal_documents"
   | "movimientos"
   | "suscripciones"
-  | "fondos";
+  | "fondos"
+  | "entregables";
 
 // ─── Audit Log (V3 fase 8 — per-action audit trail) ──────────────────────────
 
@@ -576,7 +577,11 @@ export type SavedViewPage =
   | "trabajadores"
   | "proveedores"
   | "legal"
-  | "fondos";
+  | "fondos"
+  | "entregables"
+  | "cartas_gantt"
+  | "suscripciones"
+  | "calendario";
 
 export interface SavedViewRead {
   id: string;

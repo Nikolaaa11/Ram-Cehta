@@ -32,7 +32,9 @@ import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { GanttMini } from "@/components/avance/GanttMini";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useSession } from "@/hooks/use-session";
+import { usePageShortcuts } from "@/hooks/use-page-shortcuts";
 import { apiClient } from "@/lib/api/client";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import type { ProyectoListItem, HitoRead } from "@/lib/api/schema";
 
 type ViewFilter = "todas" | "criticas" | "en_progreso";
@@ -57,6 +59,27 @@ export default function CartasGanttPage() {
   const { session } = useSession();
   const [filter, setFilter] = useState<ViewFilter>("todas");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  // V4 fase 7.8 — Keyboard shortcuts
+  usePageShortcuts({
+    Escape: () => {
+      setFilter("todas");
+      setExpanded(new Set());
+    },
+    "f t": () => setFilter("todas"),
+    "f c": () => setFilter("criticas"),
+    "f p": () => setFilter("en_progreso"),
+    e: () => {
+      // expandir/colapsar todas las empresas
+      setExpanded((prev) => {
+        if (prev.size === 0) {
+          // expandir todas — necesitamos los códigos
+          return new Set(empresas.map((emp) => emp.codigo));
+        }
+        return new Set();
+      });
+    },
+  });
 
   // Fetch en paralelo los proyectos de cada empresa
   const proyectosQueries = useQueries({
@@ -178,6 +201,14 @@ export default function CartasGanttPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <SavedViewsMenu
+              page="cartas_gantt"
+              currentFilters={{ filter }}
+              onApply={(f) => {
+                if (typeof f.filter === "string")
+                  setFilter(f.filter as ViewFilter);
+              }}
+            />
             <Filter className="h-4 w-4 text-ink-400" strokeWidth={1.75} />
             <Combobox
               items={VIEW_OPTIONS}

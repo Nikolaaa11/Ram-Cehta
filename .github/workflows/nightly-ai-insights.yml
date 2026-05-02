@@ -1,0 +1,64 @@
+name: nightly-ai-insights
+
+# Cron nightly que genera insights proactivos con Claude analizando el
+# estado regulatorio del Fondo. Identifica anomalías como:
+#   - Empresas con compliance cayendo
+#   - Concentración de vencimientos
+#   - Templates con fallas históricas repetidas
+#   - Responsables sobrecargados
+#
+# Schedule: 04:00 UTC = 01:00 Chile (mid-night, sin tráfico).
+# El resultado se loggea en el output del job; en V5.4 se persistirá en
+# `app.ai_insights` y aparecerá en /admin/insights.
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-insights:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST /ai/insights/generate
+        env:
+          API_URL: ${{ secrets.RAM_CEHTA_API_URL }}
+          API_TOKEN: ${{ secrets.RAM_CEHTA_ALERTS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${API_TOKEN:-}" ]; then
+            echo "::error::Faltan secrets RAM_CEHTA_API_URL o RAM_CEHTA_ALERTS_TOKEN"
+            exit 1
+          fi
+
+          echo "POST ${API_URL}/ai/insights/generate"
+          response=$(mktemp)
+          status=$(curl -sS -o "$response" -w "%{http_code}" \
+            -X POST "${API_URL}/ai/insights/generate" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --max-time 120)
+
+          echo "HTTP ${status}"
+          if [ "$status" = "503" ]; then
+            echo "::warning::AI no configurado (falta ANTHROPIC_API_KEY). Skipping."
+            exit 0
+          fi
+          if [ "$status" != "200" ]; then
+            cat "$response"
+            echo "::error::Insights devolvió HTTP ${status}"
+            exit 1
+          fi
+
+          if command -v jq >/dev/null 2>&1; then
+            count=$(jq -r '.insights | length' "$response")
+            tokens=$(jq -r '.tokens.input + .tokens.output' "$response")
+            echo "::notice::AI generó ${count} insights · ${tokens} tokens"
+            echo "## AI Insights · $(date -u +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            jq -r '.insights[] | "### \(.severity | ascii_upcase): \(.title)\n\(.body)\n\n**Recomendación:** \(.recommendation)\n"' "$response" >> $GITHUB_STEP_SUMMARY
+          fi

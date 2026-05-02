@@ -8,13 +8,14 @@ import {
   format,
   startOfMonth,
 } from "date-fns";
-import { CalendarDays, ListChecks, Plus, Sparkles } from "lucide-react";
+import { CalendarDays, ListChecks, Plus, Printer, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useMe } from "@/hooks/use-me";
 import { useObligations } from "@/hooks/use-obligations";
 import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { usePageShortcuts } from "@/hooks/use-page-shortcuts";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,6 +64,9 @@ export default function CalendarioPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createDate, setCreateDate] = useState<Date | null>(null);
   const [drawerDay, setDrawerDay] = useState<Date | null>(null);
+  // Filtro empresa para tab Mes (V4 fase 7.5)
+  const [mesEmpresa, setMesEmpresa] = useState<string>("");
+  const [mesTipo, setMesTipo] = useState<string>("");
 
   // Filtros tab obligaciones
   const [oblEmpresa, setOblEmpresa] = useState<string>("");
@@ -74,6 +78,52 @@ export default function CalendarioPage() {
   const [oblToDate, setOblToDate] = useState<string>(
     format(addDays(today, 90), "yyyy-MM-dd"),
   );
+  // Quick-range preset (V4 fase 7.7) — controla los date inputs en bloque
+  const [oblPreset, setOblPreset] = useState<
+    "7d" | "30d" | "90d" | "ytd" | "custom"
+  >("90d");
+  // Búsqueda libre por título de obligación
+  const [oblBusqueda, setOblBusqueda] = useState<string>("");
+
+  const aplicarPreset = (preset: typeof oblPreset) => {
+    setOblPreset(preset);
+    const t = new Date();
+    if (preset === "7d") {
+      setOblFromDate(format(t, "yyyy-MM-dd"));
+      setOblToDate(format(addDays(t, 7), "yyyy-MM-dd"));
+    } else if (preset === "30d") {
+      setOblFromDate(format(t, "yyyy-MM-dd"));
+      setOblToDate(format(addDays(t, 30), "yyyy-MM-dd"));
+    } else if (preset === "90d") {
+      setOblFromDate(format(t, "yyyy-MM-dd"));
+      setOblToDate(format(addDays(t, 90), "yyyy-MM-dd"));
+    } else if (preset === "ytd") {
+      setOblFromDate(format(t, "yyyy-MM-dd"));
+      setOblToDate(format(new Date(t.getFullYear(), 11, 31), "yyyy-MM-dd"));
+    }
+    // 'custom' deja los valores como están
+  };
+
+  const limpiarFiltrosObligaciones = () => {
+    setOblEmpresa("");
+    setOblTipos(new Set());
+    setOblBusqueda("");
+    aplicarPreset("90d");
+  };
+
+  // V4 fase 7.8 — Keyboard shortcuts
+  usePageShortcuts({
+    "g m": () => setTab("mes"),
+    "g o": () => setTab("obligaciones"),
+    Escape: () => {
+      if (tab === "obligaciones") limpiarFiltrosObligaciones();
+      else {
+        setMesEmpresa("");
+        setMesTipo("");
+      }
+    },
+    p: () => window.print(),
+  });
 
   const from = format(startOfMonth(cursor), "yyyy-MM-dd");
   const to = format(endOfMonth(cursor), "yyyy-MM-dd");
@@ -83,7 +133,12 @@ export default function CalendarioPage() {
     `/calendar/events?from=${from}&to=${to}`,
   );
 
-  const events = data ?? [];
+  const allEvents = data ?? [];
+  const events = allEvents.filter((ev) => {
+    if (mesEmpresa && ev.empresa_codigo !== mesEmpresa) return false;
+    if (mesTipo && ev.tipo !== mesTipo) return false;
+    return true;
+  });
 
   const { data: empresas } = useCatalogoEmpresas();
   const empresaItems = [
@@ -103,9 +158,15 @@ export default function CalendarioPage() {
     to_date: oblToDate,
   });
   const obligationsAll = obligationsQuery.data ?? [];
-  const obligations = oblTipos.size > 1
+  const obligationsByTipo = oblTipos.size > 1
     ? obligationsAll.filter((o) => oblTipos.has(o.tipo))
     : obligationsAll;
+  // V4 fase 7.7 — filtro búsqueda libre client-side sobre title
+  const obligations = oblBusqueda.trim()
+    ? obligationsByTipo.filter((o) =>
+        o.title.toLowerCase().includes(oblBusqueda.trim().toLowerCase()),
+      )
+    : obligationsByTipo;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["calendar"] });
 
@@ -145,12 +206,21 @@ export default function CalendarioPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            title="Imprimir mes actual / Exportar PDF"
+            className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-100/40 print:hidden"
+          >
+            <Printer className="h-4 w-4" strokeWidth={1.5} />
+            Imprimir mes
+          </button>
           {canRunAgents && (
             <button
               type="button"
               onClick={() => agentsMutation.mutate()}
               disabled={agentsMutation.isPending}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-100/40 disabled:opacity-60"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-100/40 disabled:opacity-60 print:hidden"
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.5} />
               {agentsMutation.isPending ? "Corriendo…" : "Correr agentes"}
@@ -163,7 +233,7 @@ export default function CalendarioPage() {
                 setCreateDate(null);
                 setCreateOpen(true);
               }}
-              className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors duration-150 ease-apple hover:bg-cehta-green-700"
+              className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors duration-150 ease-apple hover:bg-cehta-green-700 print:hidden"
             >
               <Plus className="h-4 w-4" strokeWidth={2} />
               Nuevo evento
@@ -172,8 +242,31 @@ export default function CalendarioPage() {
         </div>
       </div>
 
+      {/* Encabezado adicional sólo visible al imprimir */}
+      <div className="hidden print:block">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+          Calendario · FIP CEHTA ESG · AFIS S.A.
+        </p>
+        <p className="text-xs text-ink-700">
+          Mes:{" "}
+          <strong>
+            {cursor.toLocaleDateString("es-CL", {
+              month: "long",
+              year: "numeric",
+            })}
+          </strong>
+          {" · "}
+          Generado el{" "}
+          {new Date().toLocaleString("es-CL", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+      </div>
+
       {/* Tabs */}
-      <div className="flex items-center gap-1 rounded-xl bg-ink-100/40 p-1 w-fit">
+      <div className="flex items-center gap-1 rounded-xl bg-ink-100/40 p-1 w-fit print:hidden">
         <TabButton
           active={tab === "mes"}
           onClick={() => setTab("mes")}
@@ -190,6 +283,56 @@ export default function CalendarioPage() {
 
       {tab === "mes" && (
         <>
+          <Surface
+            padding="compact"
+            className="flex flex-wrap items-end gap-3"
+          >
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+                Empresa
+              </label>
+              <Combobox
+                items={empresaItems}
+                value={mesEmpresa}
+                onValueChange={setMesEmpresa}
+                placeholder="Todas"
+                triggerClassName="w-[180px]"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+                Tipo de evento
+              </label>
+              <select
+                value={mesTipo}
+                onChange={(e) => setMesTipo(e.target.value)}
+                className="rounded-xl bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+              >
+                <option value="">Todos los tipos</option>
+                {TIPOS_LEGEND.map((t) => (
+                  <option key={t} value={t}>
+                    {TIPO_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {(mesEmpresa || mesTipo) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMesEmpresa("");
+                  setMesTipo("");
+                }}
+                className="ml-auto inline-flex items-center gap-1 rounded-xl border border-hairline bg-white px-3 py-2 text-xs font-medium text-ink-600 hover:bg-ink-50"
+              >
+                Limpiar
+              </button>
+            )}
+            <span className="ml-auto text-[11px] text-ink-500">
+              {events.length} de {allEvents.length} eventos
+            </span>
+          </Surface>
+
           <Surface
             padding="compact"
             className="flex flex-wrap items-center gap-4"
@@ -227,6 +370,36 @@ export default function CalendarioPage() {
             padding="compact"
             className="flex flex-wrap items-end gap-3"
           >
+            {/* Quick-range presets — V4 fase 7.7 */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+                Rango
+              </span>
+              <div className="inline-flex rounded-xl bg-ink-100/40 p-0.5 ring-1 ring-hairline">
+                {(
+                  [
+                    { v: "7d" as const, label: "7d" },
+                    { v: "30d" as const, label: "30d" },
+                    { v: "90d" as const, label: "90d" },
+                    { v: "ytd" as const, label: "YTD" },
+                  ]
+                ).map(({ v, label }) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => aplicarPreset(v)}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all duration-150 ease-apple",
+                      oblPreset === v
+                        ? "bg-white text-ink-900 shadow-card/40"
+                        : "text-ink-600 hover:bg-white/40",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                 Empresa
@@ -241,12 +414,27 @@ export default function CalendarioPage() {
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+                Buscar
+              </label>
+              <input
+                type="text"
+                value={oblBusqueda}
+                onChange={(e) => setOblBusqueda(e.target.value)}
+                placeholder="Por título…"
+                className="w-[200px] rounded-xl bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                 Desde
               </label>
               <input
                 type="date"
                 value={oblFromDate}
-                onChange={(e) => setOblFromDate(e.target.value)}
+                onChange={(e) => {
+                  setOblFromDate(e.target.value);
+                  setOblPreset("custom");
+                }}
                 className="rounded-xl bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
             </div>
@@ -257,13 +445,28 @@ export default function CalendarioPage() {
               <input
                 type="date"
                 value={oblToDate}
-                onChange={(e) => setOblToDate(e.target.value)}
+                onChange={(e) => {
+                  setOblToDate(e.target.value);
+                  setOblPreset("custom");
+                }}
                 className="rounded-xl bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+              <span className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-ink-500">
                 Tipos
+                {(oblEmpresa ||
+                  oblTipos.size > 0 ||
+                  oblBusqueda ||
+                  oblPreset !== "90d") && (
+                  <button
+                    type="button"
+                    onClick={limpiarFiltrosObligaciones}
+                    className="ml-2 inline-flex items-center gap-0.5 rounded-md border border-hairline bg-white px-1.5 py-0.5 text-[10px] font-medium normal-case text-ink-600 hover:bg-ink-50"
+                  >
+                    Limpiar
+                  </button>
+                )}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {OBLIGATION_TIPOS.map((t) => {
@@ -298,13 +501,29 @@ export default function CalendarioPage() {
               </p>
             </Surface>
           ) : (
-            <ObligationsTimeline obligations={obligations} />
+            <>
+              <p className="px-1 text-[11px] text-ink-500">
+                {obligations.length} de {obligationsAll.length} obligaciones
+                {oblBusqueda && (
+                  <>
+                    {" · "}
+                    <span className="font-medium text-cehta-green">
+                      búsqueda: "{oblBusqueda}"
+                    </span>
+                  </>
+                )}
+              </p>
+              <ObligationsTimeline obligations={obligations} />
+            </>
           )}
         </>
       )}
 
-      {/* Agente Secretaria — entregables próximos 60 días con info requerida */}
-      <AgenteSecretaria />
+      {/* Agente Secretaria — entregables próximos 60 días con info requerida.
+          Oculto al imprimir (lo importante para el papel es el grid mensual). */}
+      <div className="print:hidden">
+        <AgenteSecretaria />
+      </div>
 
       <EventCreateDialog
         open={createOpen}

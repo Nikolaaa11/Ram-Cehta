@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   AlertTriangle,
   Calendar,
@@ -14,8 +14,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
-import { Badge } from "@/components/ui/badge";
-import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import {
   type EntregableRead,
   type EstadoEntregable,
@@ -23,6 +21,8 @@ import {
   type CategoriaEntregable,
   useUpdateEntregable,
 } from "@/hooks/use-entregables";
+import { MarcarEntregadoDialog } from "@/components/entregables/MarcarEntregadoDialog";
+import { FileLink } from "@/components/shared/FileLink";
 
 const ESTADO_LABEL: Record<EstadoEntregable, string> = {
   pendiente: "Pendiente",
@@ -89,13 +89,6 @@ const PRIORIDAD_DOT: Record<string, string> = {
   baja: "bg-ink-300",
 };
 
-const ESTADO_OPTIONS: ComboboxItem[] = [
-  { value: "pendiente", label: "Pendiente" },
-  { value: "en_proceso", label: "En proceso" },
-  { value: "entregado", label: "Entregado" },
-  { value: "no_entregado", label: "No entregado" },
-];
-
 function formatRelativo(dias: number | null): string {
   if (dias === null) return "—";
   if (dias < 0) return `Vencido hace ${Math.abs(dias)}d`;
@@ -120,11 +113,14 @@ interface Props {
   compact?: boolean;
 }
 
-export function EntregableCard({ entregable: e, compact = false }: Props) {
+function EntregableCardImpl({ entregable: e, compact = false }: Props) {
   const [editing, setEditing] = useState(false);
   const [notas, setNotas] = useState(e.notas ?? "");
   const [adjunto, setAdjunto] = useState(e.adjunto_url ?? "");
   const [motivo, setMotivo] = useState(e.motivo_no_entrega ?? "");
+  const [dialogTarget, setDialogTarget] = useState<EstadoEntregable | null>(
+    null,
+  );
   const updateMut = useUpdateEntregable();
 
   const estadoCfg = ESTADO_COLOR[e.estado];
@@ -133,24 +129,12 @@ export function EntregableCard({ entregable: e, compact = false }: Props) {
   const isUrgente =
     nivel === "vencido" || nivel === "hoy" || nivel === "critico";
 
-  const handleEstadoChange = async (nuevoEstado: string) => {
-    const estado = nuevoEstado as EstadoEntregable;
-    if (estado === "no_entregado" && !motivo.trim()) {
-      toast.error("Debes indicar el motivo de no entrega antes de marcar");
-      setEditing(true);
-      return;
-    }
+  // Quick path para "en proceso" / "pendiente" — sin modal, son cambios baratos.
+  const handleQuickEstado = async (estado: EstadoEntregable) => {
     try {
       await updateMut.mutateAsync({
         id: e.entregable_id,
-        body: {
-          estado,
-          motivo_no_entrega: estado === "no_entregado" ? motivo : null,
-          fecha_entrega_real:
-            estado === "entregado"
-              ? new Date().toISOString().slice(0, 10)
-              : null,
-        },
+        body: { estado },
       });
       toast.success(`Estado → ${ESTADO_LABEL[estado]}`);
     } catch (err) {
@@ -248,13 +232,54 @@ export function EntregableCard({ entregable: e, compact = false }: Props) {
           <EstadoIcon className="h-3.5 w-3.5" strokeWidth={2} />
           {ESTADO_LABEL[e.estado]}
         </div>
-        <Combobox
-          items={ESTADO_OPTIONS}
-          value={e.estado}
-          onValueChange={handleEstadoChange}
-          placeholder="Cambiar estado"
-          triggerClassName="h-7 text-xs min-w-[140px]"
-        />
+
+        {e.estado !== "entregado" && (
+          <button
+            type="button"
+            onClick={() => setDialogTarget("entregado")}
+            disabled={updateMut.isPending}
+            className="inline-flex h-7 items-center gap-1 rounded-lg bg-cehta-green px-2.5 text-[11px] font-medium text-white hover:bg-cehta-green-700 disabled:opacity-60"
+          >
+            <CheckCircle2 className="h-3 w-3" strokeWidth={2} />
+            Marcar entregado
+          </button>
+        )}
+
+        {e.estado === "pendiente" && (
+          <button
+            type="button"
+            onClick={() => handleQuickEstado("en_proceso")}
+            disabled={updateMut.isPending}
+            className="inline-flex h-7 items-center gap-1 rounded-lg border border-hairline bg-white px-2.5 text-[11px] font-medium text-ink-700 hover:bg-ink-50"
+          >
+            <PauseCircle className="h-3 w-3" strokeWidth={2} />
+            En proceso
+          </button>
+        )}
+
+        {e.estado !== "no_entregado" && e.estado !== "entregado" && (
+          <button
+            type="button"
+            onClick={() => setDialogTarget("no_entregado")}
+            disabled={updateMut.isPending}
+            className="inline-flex h-7 items-center gap-1 rounded-lg border border-negative/30 bg-white px-2.5 text-[11px] font-medium text-negative hover:bg-negative/5"
+          >
+            <XCircle className="h-3 w-3" strokeWidth={2} />
+            No entregado
+          </button>
+        )}
+
+        {e.estado !== "pendiente" && (
+          <button
+            type="button"
+            onClick={() => handleQuickEstado("pendiente")}
+            disabled={updateMut.isPending}
+            className="inline-flex h-7 items-center gap-1 rounded-lg border border-hairline bg-white px-2.5 text-[11px] font-medium text-ink-500 hover:bg-ink-50"
+          >
+            Reabrir
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setEditing((v) => !v)}
@@ -272,6 +297,13 @@ export function EntregableCard({ entregable: e, compact = false }: Props) {
           <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-400" />
         )}
       </div>
+
+      <MarcarEntregadoDialog
+        entregable={e}
+        estadoTarget={dialogTarget}
+        open={dialogTarget !== null}
+        onOpenChange={(o) => !o && setDialogTarget(null)}
+      />
 
       {/* Editing panel */}
       {editing && (
@@ -338,8 +370,32 @@ export function EntregableCard({ entregable: e, compact = false }: Props) {
           📝 {e.notas}
         </p>
       )}
+
+      {!editing && e.adjunto_url && (
+        <div className="mt-2">
+          <FileLink url={e.adjunto_url} variant="chip" showDomain />
+        </div>
+      )}
     </Surface>
   );
 }
+
+/**
+ * Memoizado: solo re-renderiza si la referencia del entregable cambia.
+ * En las listas largas (260+ entregables) esto evita repintar todo el
+ * grid cuando un solo ítem cambia de estado.
+ */
+export const EntregableCard = memo(EntregableCardImpl, (prev, next) => {
+  return (
+    prev.compact === next.compact &&
+    prev.entregable.entregable_id === next.entregable.entregable_id &&
+    prev.entregable.estado === next.entregable.estado &&
+    prev.entregable.fecha_limite === next.entregable.fecha_limite &&
+    prev.entregable.adjunto_url === next.entregable.adjunto_url &&
+    prev.entregable.notas === next.entregable.notas &&
+    prev.entregable.motivo_no_entrega === next.entregable.motivo_no_entrega &&
+    prev.entregable.updated_at === next.entregable.updated_at
+  );
+});
 
 export { ALERTA_BG, CATEGORIA_COLOR };

@@ -126,6 +126,41 @@ class EntregableEstadosCounts(BaseModel):
     no_entregado: int = 0
 
 
+class CriticalCount(BaseModel):
+    """Conteo ligero de entregables en alerta crítica para el badge sidebar.
+
+    Cubre: vencidos, vencen hoy, o vencen ≤5 días Y todavía no están
+    entregados. Sin payloads pesados — solo el número.
+    """
+
+    critical: int = 0
+    vencidos: int = 0
+    hoy: int = 0
+    proximos_5d: int = 0
+
+
+class ComplianceGradeEmpresa(BaseModel):
+    """Compliance grade de una empresa específica."""
+
+    empresa_codigo: str
+    total: int  # entregables YTD que ya tenían que estar entregados
+    entregados_a_tiempo: int
+    entregados_atrasados: int
+    no_entregados: int
+    pendientes: int  # aún no vence
+    tasa_cumplimiento: float  # 0-100, % entregados / total
+    tasa_a_tiempo: float  # 0-100, % entregados a tiempo / total
+    grade: str  # 'A' / 'B' / 'C' / 'D' / 'F'
+
+
+class ComplianceGradeReport(BaseModel):
+    """Snapshot consolidado del compliance grade de todas las empresas."""
+
+    generado_at: datetime
+    empresas: list[ComplianceGradeEmpresa] = Field(default_factory=list)
+    promedio_cumplimiento: float = 0.0
+
+
 class ReporteRegulatorio(BaseModel):
     """Snapshot resumido para actas del Comité de Vigilancia."""
 
@@ -171,3 +206,68 @@ class GenerarSerieResponse(BaseModel):
     instancias_creadas: int
     instancias_existentes: int  # ya existían (ON CONFLICT)
     fechas: list[date]
+
+
+class BulkUpdateRequest(BaseModel):
+    """Marca varios entregables en una sola transacción.
+
+    Útil para cierre de mes o cuando se entregan varios documentos juntos
+    (ej. todos los F29 trimestrales del año fiscal). Idempotente — si un
+    id ya está en el estado destino, se cuenta como `already_target` y
+    no se incluye en `updated_ids`.
+    """
+
+    ids: list[int] = Field(..., min_length=1, max_length=200)
+    estado: EstadoEntregable
+    fecha_entrega_real: date | None = None
+    motivo_no_entrega: str | None = Field(None, max_length=1000)
+    notas: str | None = Field(None, max_length=2000)
+    adjunto_url: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def _validate_motivo(self):
+        if self.estado == "no_entregado" and not self.motivo_no_entrega:
+            raise ValueError(
+                "Estado 'no_entregado' requiere especificar motivo_no_entrega"
+            )
+        return self
+
+
+class BulkUpdateResponse(BaseModel):
+    requested: int
+    updated_ids: list[int]
+    already_target: list[int]  # ya estaban en el estado destino
+    not_found: list[int]
+    auto_generated_next_periods: int  # próximas instancias creadas si aplica
+
+
+class BulkReassignRequest(BaseModel):
+    """Cambia el responsable de varios entregables en bloque."""
+
+    ids: list[int] = Field(..., min_length=1, max_length=500)
+    responsable: str = Field(..., min_length=1, max_length=120)
+
+
+class BulkReassignResponse(BaseModel):
+    requested: int
+    updated_ids: list[int]
+    not_found: list[int]
+
+
+class CsvImportError(BaseModel):
+    """Detalle de fila inválida durante CSV import."""
+
+    row: int  # 1-indexed (excluye header)
+    error: str
+    raw: dict[str, str] = Field(default_factory=dict)
+
+
+class CsvImportResponse(BaseModel):
+    """Resultado de un import CSV de entregables."""
+
+    rows_received: int
+    rows_imported: int
+    rows_skipped: int
+    rows_failed: int
+    errors: list[CsvImportError] = Field(default_factory=list)
+    sample_imported_ids: list[int] = Field(default_factory=list)

@@ -235,6 +235,45 @@ _ENTITY_QUERIES: dict[str, dict] = {
             LIMIT :lim
         """,
     },
+    "entregables": {
+        "headers": [
+            "ID",
+            "Template",
+            "Nombre",
+            "Categoría",
+            "Subcategoría",
+            "Período",
+            "Fecha límite",
+            "Frecuencia",
+            "Prioridad",
+            "Responsable",
+            "Estado",
+            "Fecha entrega real",
+            "Días restantes",
+            "Motivo no entrega",
+            "Notas",
+            "Adjunto URL",
+            "Referencia normativa",
+            "Empresa",
+        ],
+        "sql": """
+            SELECT entregable_id, id_template, nombre, categoria, subcategoria,
+                   periodo, fecha_limite, frecuencia, prioridad, responsable,
+                   estado, fecha_entrega_real,
+                   (fecha_limite - CURRENT_DATE) AS dias_restantes,
+                   motivo_no_entrega, notas, adjunto_url, referencia_normativa,
+                   COALESCE(extra->>'empresa_codigo', subcategoria) AS empresa
+            FROM app.entregables_regulatorios
+            WHERE (
+                :empresa::text IS NULL
+                OR subcategoria = :empresa
+                OR extra->>'empresa_codigo' = :empresa
+            )
+              AND (:estado::text IS NULL OR estado = :estado)
+            ORDER BY fecha_limite ASC
+            LIMIT :lim
+        """,
+    },
 }
 
 

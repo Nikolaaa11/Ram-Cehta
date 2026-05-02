@@ -1,0 +1,56 @@
+name: weekly-entregables-digest
+
+# Cron semanal que envía el digest operativo de entregables al equipo.
+# Resumen: vencidos / vencen hoy / próximos 7d + tabla con detalle +
+# tasa de cumplimiento YTD.
+#
+# Schedule: lunes 11:00 UTC = 08:00 Chile (UTC-3, sin DST simplificado).
+# Si Resend no está configurado, el endpoint devuelve 503 — el job
+# falla con error explícito que aparece en los runs de GitHub.
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-entregables-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: POST /digest/entregables-weekly/send-now
+        env:
+          API_URL: ${{ secrets.RAM_CEHTA_API_URL }}
+          API_TOKEN: ${{ secrets.RAM_CEHTA_ALERTS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${API_TOKEN:-}" ]; then
+            echo "::error::Faltan secrets RAM_CEHTA_API_URL o RAM_CEHTA_ALERTS_TOKEN"
+            exit 1
+          fi
+
+          echo "POST ${API_URL}/digest/entregables-weekly/send-now"
+          response=$(mktemp)
+          status=$(curl -sS -o "$response" -w "%{http_code}" \
+            -X POST "${API_URL}/digest/entregables-weekly/send-now" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --max-time 60)
+
+          echo "HTTP ${status}"
+          cat "$response"
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Digest devolvió HTTP ${status}"
+            exit 1
+          fi
+
+          if command -v jq >/dev/null 2>&1; then
+            sent=$(jq -r '.sent // 0' "$response")
+            failed=$(jq -r '.failed | length' "$response")
+            echo "::notice::Digest enviado a ${sent} destinatarios · ${failed} fallidos"
+          fi

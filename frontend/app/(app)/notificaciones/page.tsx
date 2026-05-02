@@ -20,14 +20,16 @@ import {
 } from "@/hooks/use-notifications";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
+import { NotificationPreferences } from "@/components/notifications/NotificationPreferences";
 import type { Notification } from "@/lib/api/schema";
 import { cn } from "@/lib/utils";
 
-type Tab = "todas" | "sin_leer";
+type Tab = "todas" | "sin_leer" | "preferencias";
 
 const TAB_LABEL: Record<Tab, string> = {
   todas: "Todas",
   sin_leer: "Sin leer",
+  preferencias: "Preferencias",
 };
 
 const SEVERITY_ICON: Record<string, typeof Info> = {
@@ -132,7 +134,9 @@ export default function NotificacionesPage() {
         })}
       </div>
 
-      {isLoading ? (
+      {tab === "preferencias" ? (
+        <NotificationPreferences />
+      ) : isLoading ? (
         <Surface padding="default" className="space-y-3">
           <Skeleton className="h-12 w-full rounded-xl" />
           <Skeleton className="h-12 w-full rounded-xl" />

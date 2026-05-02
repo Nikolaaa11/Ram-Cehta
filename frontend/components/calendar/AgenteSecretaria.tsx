@@ -18,7 +18,7 @@
  * - Tarjetas agrupadas por mes con expand para detalle
  * - Por cada entregable: información requerida + cómo prepararlo
  */
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CalendarClock,
@@ -27,15 +27,31 @@ import {
   ChevronRight,
   ClipboardCheck,
   FileText,
+  Search,
   Sparkles,
+  X,
 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  type CategoriaEntregable,
   type EntregableRead,
+  type EstadoEntregable,
   useEntregables,
-  useUpdateEntregable,
+  useEntregablesFacets,
 } from "@/hooks/use-entregables";
+import { MarcarEntregadoDialog } from "@/components/entregables/MarcarEntregadoDialog";
+
+const CATEGORIAS_FILTRO: { value: CategoriaEntregable; label: string }[] = [
+  { value: "CMF", label: "CMF" },
+  { value: "CORFO", label: "CORFO" },
+  { value: "UAF", label: "UAF" },
+  { value: "SII", label: "SII" },
+  { value: "INTERNO", label: "Interno" },
+  { value: "AUDITORIA", label: "Auditoría" },
+  { value: "ASAMBLEA", label: "Asamblea" },
+  { value: "OPERACIONAL", label: "Operacional" },
+];
 
 type Rango = "semana" | "mes" | "dos_meses" | "tres_meses";
 
@@ -302,6 +318,20 @@ interface Props {
 export function AgenteSecretaria({ empresaCodigo }: Props) {
   const [rango, setRango] = useState<Rango>("dos_meses");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [dialogState, setDialogState] = useState<{
+    entregable: EntregableRead | null;
+    target: EstadoEntregable | null;
+  }>({ entregable: null, target: null });
+
+  // Filtros V4 fase 7
+  const [filtroCategoria, setFiltroCategoria] = useState<
+    CategoriaEntregable | ""
+  >("");
+  const [filtroResponsable, setFiltroResponsable] = useState<string>("");
+  const [filtroEmpresa, setFiltroEmpresa] = useState<string>(
+    empresaCodigo ?? "",
+  );
+  const [busqueda, setBusqueda] = useState<string>("");
 
   const hoy = new Date();
   const hasta = new Date(hoy);
@@ -310,25 +340,40 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
   const desdeISO = hoy.toISOString().slice(0, 10);
   const hastaISO = hasta.toISOString().slice(0, 10);
 
+  // Push filtros server-side cuando aplica (más eficiente que filtrar
+  // localmente todo el rango). `empresaCodigo` prop sigue funcionando como
+  // override forzado (uso desde páginas de empresa).
   const { data: entregables = [], isLoading } = useEntregables({
     desde: desdeISO,
     hasta: hastaISO,
+    categoria: filtroCategoria || undefined,
+    responsable: filtroResponsable || undefined,
+    empresa: filtroEmpresa || empresaCodigo || undefined,
+    q: busqueda.trim() || undefined,
   });
 
-  const updateMut = useUpdateEntregable();
+  const { data: facets } = useEntregablesFacets();
 
-  // Filtrar: solo no-entregados, opcionalmente por empresa, ordenar por fecha
+  // Filtrar: solo no-entregados, ordenar por fecha. El resto se hace
+  // server-side via los filtros del query string.
   const filtered = useMemo(() => {
     return entregables
       .filter((e) => e.estado !== "entregado")
-      .filter(
-        (e) =>
-          !empresaCodigo ||
-          e.extra?.empresa_codigo === empresaCodigo ||
-          e.subcategoria === empresaCodigo,
-      )
       .sort((a, b) => a.fecha_limite.localeCompare(b.fecha_limite));
-  }, [entregables, empresaCodigo]);
+  }, [entregables]);
+
+  const hayFiltrosActivos =
+    filtroCategoria !== "" ||
+    filtroResponsable !== "" ||
+    (filtroEmpresa !== "" && filtroEmpresa !== empresaCodigo) ||
+    busqueda.trim() !== "";
+
+  const limpiarFiltros = () => {
+    setFiltroCategoria("");
+    setFiltroResponsable("");
+    setFiltroEmpresa(empresaCodigo ?? "");
+    setBusqueda("");
+  };
 
   // Agrupar por mes
   const agrupados = useMemo(() => {
@@ -358,15 +403,15 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
     return { total: filtered.length, critico, urgente };
   }, [filtered]);
 
-  const handleMarcarEntregado = async (e: EntregableRead) => {
-    if (!confirm(`¿Marcar "${e.nombre}" como entregado?`)) return;
-    await updateMut.mutateAsync({
-      id: e.entregable_id,
-      body: {
-        estado: "entregado",
-        fecha_entrega_real: new Date().toISOString().slice(0, 10),
-      },
-    });
+  const openMarcarDialog = (
+    e: EntregableRead,
+    target: EstadoEntregable = "entregado",
+  ) => {
+    setDialogState({ entregable: e, target });
+  };
+
+  const closeDialog = () => {
+    setDialogState({ entregable: null, target: null });
   };
 
   return (
@@ -423,8 +468,82 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
               días)
             </span>
           )}
+          {hayFiltrosActivos && (
+            <button
+              type="button"
+              onClick={limpiarFiltros}
+              className="ml-auto inline-flex items-center gap-1 rounded-full border border-hairline bg-white px-2.5 py-1 font-medium text-ink-600 hover:bg-ink-50"
+            >
+              <X className="h-3 w-3" strokeWidth={2} />
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+
+        {/* Filtros V4 fase 7 */}
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400"
+              strokeWidth={1.75}
+            />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre, código, ref…"
+              className="w-full rounded-xl bg-white py-1.5 pl-8 pr-2 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            />
+          </div>
+          <select
+            value={filtroCategoria}
+            onChange={(e) =>
+              setFiltroCategoria(e.target.value as CategoriaEntregable | "")
+            }
+            className="w-full rounded-xl bg-white px-2.5 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          >
+            <option value="">Todas las categorías</option>
+            {CATEGORIAS_FILTRO.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filtroResponsable}
+            onChange={(e) => setFiltroResponsable(e.target.value)}
+            className="w-full rounded-xl bg-white px-2.5 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          >
+            <option value="">Todos los responsables</option>
+            {(facets?.responsables ?? []).map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filtroEmpresa}
+            onChange={(e) => setFiltroEmpresa(e.target.value)}
+            disabled={!!empresaCodigo}
+            className="w-full rounded-xl bg-white px-2.5 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green disabled:opacity-60"
+          >
+            <option value="">Todas las empresas</option>
+            {(facets?.empresas ?? []).map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </select>
         </div>
       </Surface.Header>
+
+      {/* Dialog para marcar entregado con metadata */}
+      <MarcarEntregadoDialog
+        entregable={dialogState.entregable}
+        estadoTarget={dialogState.target}
+        open={dialogState.entregable !== null}
+        onOpenChange={(o) => !o && closeDialog()}
+      />
 
       {/* Body */}
       <div className="mt-4">
@@ -475,8 +594,7 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
                               : e.entregable_id,
                           )
                         }
-                        onMarcarEntregado={() => handleMarcarEntregado(e)}
-                        isPending={updateMut.isPending}
+                        onMarcarEntregado={() => openMarcarDialog(e, "entregado")}
                       />
                     ))}
                   </div>
@@ -490,19 +608,28 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
   );
 }
 
-function SecretariaRow({
-  entregable: e,
-  expanded,
-  onToggle,
-  onMarcarEntregado,
-  isPending,
-}: {
+interface SecretariaRowProps {
   entregable: EntregableRead;
   expanded: boolean;
   onToggle: () => void;
   onMarcarEntregado: () => void;
-  isPending: boolean;
-}) {
+}
+
+const SecretariaRow = memo(SecretariaRowImpl, (prev, next) => {
+  return (
+    prev.expanded === next.expanded &&
+    prev.entregable.entregable_id === next.entregable.entregable_id &&
+    prev.entregable.estado === next.entregable.estado &&
+    prev.entregable.updated_at === next.entregable.updated_at
+  );
+});
+
+function SecretariaRowImpl({
+  entregable: e,
+  expanded,
+  onToggle,
+  onMarcarEntregado,
+}: SecretariaRowProps) {
   const info = INFO_REQUERIDA[e.id_template] ?? INFO_DEFAULT;
   const dias = e.dias_restantes ?? 0;
   const isCritico =
@@ -612,8 +739,7 @@ function SecretariaRow({
             <button
               type="button"
               onClick={onMarcarEntregado}
-              disabled={isPending}
-              className="inline-flex items-center gap-1 rounded-lg bg-positive px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-positive/90 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-lg bg-positive px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-positive/90"
             >
               <CheckCircle2 className="h-3 w-3" strokeWidth={2} />
               Marcar entregado

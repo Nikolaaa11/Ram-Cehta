@@ -61,6 +61,10 @@ const ENTITY_OPTIONS: { value: string; label: string }[] = [
   { value: "suscripcion", label: "Suscripciones" },
   { value: "fondo", label: "Fondos" },
   { value: "proveedor", label: "Proveedores" },
+  { value: "entregable", label: "Entregables Regulatorios" },
+  { value: "entregable_serie", label: "Entregables (serie)" },
+  { value: "entregable_csv_import", label: "Entregables (CSV import)" },
+  { value: "entregable_extend_forward", label: "Entregables (auto-extend)" },
 ];
 
 const COLUMNS = [
@@ -135,9 +139,46 @@ export function AuditActionsTable() {
   const [action, setAction] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
+  const [busqueda, setBusqueda] = useState<string>("");  // V4 fase 7.9
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const SIZE = 25;
+
+  // Quick-range presets — V4 fase 7.9
+  const aplicarPreset = (preset: "hoy" | "7d" | "30d" | "ytd") => {
+    const t = new Date();
+    const toIso = (d: Date) => d.toISOString().slice(0, 10);
+    if (preset === "hoy") {
+      setFromDate(toIso(t));
+      setToDate(toIso(t));
+    } else if (preset === "7d") {
+      const d = new Date(t);
+      d.setDate(t.getDate() - 7);
+      setFromDate(toIso(d));
+      setToDate(toIso(t));
+    } else if (preset === "30d") {
+      const d = new Date(t);
+      d.setDate(t.getDate() - 30);
+      setFromDate(toIso(d));
+      setToDate(toIso(t));
+    } else if (preset === "ytd") {
+      setFromDate(`${t.getFullYear()}-01-01`);
+      setToDate(toIso(t));
+    }
+    setPage(1);
+  };
+
+  const limpiarFiltros = () => {
+    setEntityType("");
+    setAction("");
+    setFromDate("");
+    setToDate("");
+    setBusqueda("");
+    setPage(1);
+  };
+
+  const hayFiltros =
+    entityType !== "" || action !== "" || fromDate !== "" || toDate !== "" || busqueda !== "";
 
   const path = useMemo(
     () =>
@@ -166,7 +207,19 @@ export function AuditActionsTable() {
     selectedId !== null,
   );
 
-  const items = data?.items ?? [];
+  const allItems = data?.items ?? [];
+  // Búsqueda libre client-side sobre summary y entity_label.
+  const items = busqueda.trim()
+    ? allItems.filter((it) => {
+        const q = busqueda.trim().toLowerCase();
+        return (
+          (it.summary ?? "").toLowerCase().includes(q) ||
+          (it.entity_label ?? "").toLowerCase().includes(q) ||
+          (it.user_email ?? "").toLowerCase().includes(q) ||
+          String(it.entity_id ?? "").toLowerCase().includes(q)
+        );
+      })
+    : allItems;
   const isEndpointMissing =
     error instanceof ApiError && (error.status === 404 || error.status === 405);
   const isForbidden = error instanceof ApiError && error.status === 403;
@@ -264,8 +317,63 @@ export function AuditActionsTable() {
             />
           </div>
 
+          {/* Búsqueda libre */}
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="audit-busqueda"
+              className="text-xs uppercase tracking-wide text-ink-500 font-medium"
+            >
+              Búsqueda
+            </label>
+            <input
+              id="audit-busqueda"
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Por usuario, resumen, ID…"
+              className="h-9 w-[220px] rounded-xl bg-white px-3 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-100/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+            />
+          </div>
+
+          {/* Quick-range presets */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Rango rápido
+            </span>
+            <div className="inline-flex h-9 rounded-xl bg-ink-100/40 p-0.5 ring-1 ring-hairline">
+              {(
+                [
+                  { v: "hoy" as const, label: "Hoy" },
+                  { v: "7d" as const, label: "7d" },
+                  { v: "30d" as const, label: "30d" },
+                  { v: "ytd" as const, label: "YTD" },
+                ]
+              ).map(({ v, label }) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => aplicarPreset(v)}
+                  className="rounded-lg px-2.5 text-[11px] font-medium text-ink-600 transition-colors hover:bg-white hover:text-ink-900"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {hayFiltros && (
+            <button
+              type="button"
+              onClick={limpiarFiltros}
+              className="h-9 self-end rounded-xl border border-hairline bg-white px-3 text-xs font-medium text-ink-600 hover:bg-ink-50"
+            >
+              Limpiar
+            </button>
+          )}
+
           {data && (
             <div className="ml-auto text-xs text-ink-500 tabular-nums">
+              {busqueda.trim() ? `${items.length} de ` : ""}
               {data.total.toLocaleString("es-CL")} cambio
               {data.total !== 1 ? "s" : ""}
             </div>

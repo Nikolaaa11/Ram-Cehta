@@ -6,7 +6,7 @@
  * "—" en el card en vez de bloquear toda la página.
  */
 import type { Route } from "next";
-import { Database, Shield, UserCog } from "lucide-react";
+import { Database, Shield, Sparkles, UserCog } from "lucide-react";
 import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -107,6 +107,15 @@ export default async function AdminLandingPage() {
               ? "endpoint no disponible"
               : `usuario${usersCount === 1 ? "" : "s"} con rol`
           }
+        />
+        <AdminCard
+          href={"/admin/ai-insights" as Route}
+          title="AI Insights"
+          description="Anomalías detectadas por Claude. Cron nightly + on-demand."
+          icon={Sparkles}
+          metric="V5.3"
+          metricLabel="anomaly detection"
+          tone="default"
         />
       </div>
 

@@ -1,0 +1,61 @@
+name: daily-alerts
+
+# Cron diario que dispara `POST /inbox/generate-alerts` contra la API.
+# Esto mantiene frescas las alertas de F29, contratos, OCs y entregables
+# regulatorios sin que nadie tenga que hacer click. Idempotente — si ya
+# hay notificación creada en las últimas 24h por la misma combinación
+# (user, entity, tipo), el servicio la salta.
+#
+# Schedule: 12:30 UTC = 09:30 Chile (UTC-3, sin horario de verano simplificado).
+# El job es liviano (~1 SQL agregado por categoría + INSERTs) y queda dentro
+# del free tier de GitHub Actions.
+
+on:
+  schedule:
+    - cron: "30 12 * * *"
+  workflow_dispatch:
+    # Permite trigger manual desde la UI de GitHub para correrlo on-demand.
+
+permissions:
+  contents: read
+
+jobs:
+  trigger-generate-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Llamar /inbox/generate-alerts
+        env:
+          # API_URL: ej. https://api.ram-cehta.com — sin trailing slash
+          API_URL: ${{ secrets.RAM_CEHTA_API_URL }}
+          # Token de servicio con scope `notifications:admin`. Generar
+          # vía endpoint admin y guardar como secret en repo settings.
+          API_TOKEN: ${{ secrets.RAM_CEHTA_ALERTS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${API_TOKEN:-}" ]; then
+            echo "::error::Faltan secrets RAM_CEHTA_API_URL o RAM_CEHTA_ALERTS_TOKEN"
+            exit 1
+          fi
+
+          echo "POST ${API_URL}/inbox/generate-alerts"
+          response=$(mktemp)
+          status=$(curl -sS -o "$response" -w "%{http_code}" \
+            -X POST "${API_URL}/inbox/generate-alerts" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --max-time 60)
+
+          echo "HTTP ${status}"
+          cat "$response"
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::Generador de alertas devolvió HTTP ${status}"
+            exit 1
+          fi
+
+          # Resumen para el log de GitHub Actions
+          if command -v jq >/dev/null 2>&1; then
+            jq -r '. | to_entries[] | "\(.key): \(.value)"' "$response" || true
+          fi

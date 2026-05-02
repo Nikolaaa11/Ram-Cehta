@@ -61,8 +61,9 @@ export function MobileLayoutShell({
 
   return (
     <div className="flex min-h-screen bg-surface-muted">
-      {/* Header mobile (sticky top, sólo visible en pantallas <md) */}
-      <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden">
+      {/* Header mobile (sticky top, sólo visible en pantallas <md).
+          `print:hidden` para que en imprimir no aparezca el chrome. */}
+      <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden print:hidden">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -76,8 +77,8 @@ export function MobileLayoutShell({
         </p>
       </header>
 
-      {/* Sidebar desktop (md+ visible siempre) */}
-      <div className="hidden md:flex">{sidebar}</div>
+      {/* Sidebar desktop (md+ visible siempre, oculto al imprimir) */}
+      <div className="hidden md:flex print:hidden">{sidebar}</div>
 
       {/* Sidebar mobile (drawer overlay) */}
       {open && (
@@ -104,8 +105,9 @@ export function MobileLayoutShell({
         </>
       )}
 
-      {/* Main content — padding-top en mobile para que no choque con el header sticky */}
-      <main className="flex-1 overflow-auto p-4 pt-[4.5rem] md:p-8 md:pt-8">
+      {/* Main content — padding-top en mobile para que no choque con el header sticky.
+          En print quitamos el padding para aprovechar al máximo el A4. */}
+      <main className="flex-1 overflow-auto p-4 pt-[4.5rem] md:p-8 md:pt-8 print:overflow-visible print:p-0">
         {children}
       </main>
     </div>

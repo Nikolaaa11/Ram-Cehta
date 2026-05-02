@@ -46,7 +46,10 @@ import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
-import { useCriticalEntregablesCount } from "@/hooks/use-entregables";
+import {
+  useCriticalEntregablesCount,
+  useEntregablesPrefetch,
+} from "@/hooks/use-entregables";
 import { usePinnedEmpresas } from "@/hooks/use-pinned-empresas";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { RealtimeIndicator } from "@/components/realtime/RealtimeIndicator";
@@ -100,6 +103,11 @@ const GROUPS: NavGroup[] = [
         href: "/cartas-gantt" as Route,
         label: "Cartas Gantt",
         icon: GanttChartSquare,
+      },
+      {
+        href: "/compliance" as Route,
+        label: "Compliance",
+        icon: ShieldCheck,
       },
     ],
   },
@@ -253,6 +261,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const unreadCount = unread?.unread ?? 0;
   const criticalObligationsCount = useCriticalObligationsCount();
   const criticalEntregablesCount = useCriticalEntregablesCount();
+  const prefetchEntregables = useEntregablesPrefetch();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
@@ -307,10 +316,18 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showEntregablesBadge =
                   String(item.href) === "/entregables" &&
                   criticalEntregablesCount > 0;
+                // Prefetch on hover para rutas con datos pesados.
+                // V4 fase 7.5 — calienta cache TanStack antes del click.
+                const onMouseEnter =
+                  String(item.href) === "/entregables"
+                    ? prefetchEntregables
+                    : undefined;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    onMouseEnter={onMouseEnter}
+                    onFocus={onMouseEnter}
                     aria-current={isActive ? "page" : undefined}
                     data-tour={item.tourId}
                     className={cn(

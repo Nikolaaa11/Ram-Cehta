@@ -21,18 +21,143 @@ from app.infrastructure.repositories.integration_repository import IntegrationRe
 from app.models.ai_conversation import AiConversation
 from app.models.ai_message import AiMessage
 from app.schemas.ai import (
+    ActaGenerateRequest,
+    ActaGenerateResponse,
+    AskRequest,
+    AskResponse,
+    AskTokens,
+    AskToolCall,
     ChatRequest,
     ConversationCreate,
     ConversationRead,
     IndexStatus,
     IndexTriggerResponse,
+    InsightsResponse,
     MessageRead,
 )
 from app.services.ai_chat_service import chat_stream
 from app.services.ai_indexing_service import KB_ROOT_TEMPLATE, index_dropbox_folder
+from app.services.ai_tools_service import (
+    AiToolsNotConfigured,
+    ask,
+    generate_acta_cv_draft,
+    generate_insights,
+)
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 
 router = APIRouter()
+
+
+# ─── V5 fase 1 — Q&A con tool calling sobre datos estructurados ─────────
+
+
+@router.post(
+    "/ask",
+    response_model=AskResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_ask(
+    user: CurrentUser,
+    db: DBSession,
+    body: AskRequest,
+) -> AskResponse:
+    """Pregunta one-shot al AI sobre entregables / compliance / pipeline.
+
+    Usa Anthropic tool calling: el modelo decide qué tools ejecutar contra
+    la base, y devuelve una respuesta consolidada con la traza de calls.
+
+    No persiste conversación (a diferencia de `/chat`) — pensado para
+    queries puntuales tipo "qué entregables vencen esta semana?".
+
+    Devuelve 503 si `ANTHROPIC_API_KEY` no está configurado.
+    """
+    try:
+        result = await ask(
+            db,
+            body.question,
+            write_mode=body.write_mode,
+            user_id=user.sub,
+        )
+    except AiToolsNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    return AskResponse(
+        answer=result["answer"],
+        tool_calls=[
+            AskToolCall(
+                tool=tc["tool"],
+                input=tc.get("input") or {},
+                output_preview=tc.get("output_preview") or "",
+            )
+            for tc in result.get("tool_calls", [])
+        ],
+        iterations=result.get("iterations", 0),
+        tokens=AskTokens(
+            input=result["tokens"]["input"],
+            output=result["tokens"]["output"],
+        ),
+    )
+
+
+@router.post(
+    "/acta/generate",
+    response_model=ActaGenerateResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_generate_acta(
+    user: CurrentUser,
+    db: DBSession,
+    body: ActaGenerateRequest,
+) -> ActaGenerateResponse:
+    """Genera un draft de acta del Comité de Vigilancia con AI.
+
+    Pull de datos reales (vencidos, próximos, compliance) → context → Claude
+    devuelve markdown estructurado de acta lista para revisar y firmar.
+
+    Si `empresa` se pasa, el acta es scoped a esa empresa específica.
+    """
+    try:
+        result = await generate_acta_cv_draft(db, empresa=body.empresa)
+    except AiToolsNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    return ActaGenerateResponse.model_validate(result)
+
+
+@router.post(
+    "/insights/generate",
+    response_model=InsightsResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_insights_generate(
+    user: CurrentUser,
+    db: DBSession,
+) -> InsightsResponse:
+    """V5 fase 3 — Genera insights proactivos vía Claude.
+
+    Pull consolidado de compliance + workload + templates fallidos +
+    concentración → Claude identifica hasta 5 anomalías relevantes.
+
+    Pensado para correr nightly (cron) y persistirse en BD para que el
+    operador encuentre los insights en su próxima sesión. En V5.3 inicial,
+    se llama on-demand desde el frontend admin.
+
+    Devuelve 503 si `ANTHROPIC_API_KEY` no está configurado.
+    """
+    try:
+        result = await generate_insights(db)
+    except AiToolsNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    return InsightsResponse.model_validate(result)
 
 
 # ---------------------------------------------------------------------------

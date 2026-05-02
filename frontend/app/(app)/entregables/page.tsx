@@ -15,7 +15,7 @@
  *   - Sin montos USD del portafolio en pantalla
  *   - "AFIS S.A." en contextos externos (este es uso interno).
  */
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calendar as CalendarIcon,
@@ -27,11 +27,27 @@ import {
   FileText,
   Filter,
   ListChecks,
+  Upload,
+  CalendarDays,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { EntregableCard } from "@/components/entregables/EntregableCard";
+import { MarcarEntregadoDialog } from "@/components/entregables/MarcarEntregadoDialog";
+import { BulkActionBar } from "@/components/entregables/BulkActionBar";
+import { AskAiDialog } from "@/components/entregables/AskAiDialog";
+import { CsvImportDialog } from "@/components/entregables/CsvImportDialog";
+import { HeatmapYearView } from "@/components/entregables/HeatmapYearView";
+import { IcsSubscribeDialog } from "@/components/entregables/IcsSubscribeDialog";
+import { SmartInsights } from "@/components/entregables/SmartInsights";
+import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
+import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
+import {
+  KeyboardShortcutsHelp,
+  useEntregablesShortcuts,
+} from "@/components/entregables/KeyboardShortcutsHelp";
 import {
   type CategoriaEntregable,
   type EstadoEntregable,
@@ -42,7 +58,7 @@ import {
   useUpdateEntregable,
 } from "@/hooks/use-entregables";
 
-type Vista = "agenda" | "proximos" | "mensual" | "timeline";
+type Vista = "agenda" | "proximos" | "mensual" | "timeline" | "heatmap";
 
 const CATEGORIAS: ComboboxItem[] = [
   { value: "", label: "Todas las categorías" },
@@ -118,6 +134,22 @@ export default function EntregablesPage() {
   const [estado, setEstado] = useState<string>("");
   const [mesActual, setMesActual] = useState(new Date());
 
+  // V4 fase 7.6 — Keyboard shortcuts global a la página
+  useEntregablesShortcuts({
+    setVista,
+    clearFilters: () => {
+      setCategoria("");
+      setEstado("");
+    },
+  });
+
+  // V4 fase 7.7 — CSV import dialog
+  const [importOpen, setImportOpen] = useState(false);
+  // V4 fase 7.9 — ICS subscribe dialog
+  const [icsOpen, setIcsOpen] = useState(false);
+  // V5 fase 1 — Ask AI dialog
+  const [askOpen, setAskOpen] = useState(false);
+
   const filters = useMemo(
     () => ({
       categoria: (categoria || undefined) as CategoriaEntregable | undefined,
@@ -169,16 +201,72 @@ export default function EntregablesPage() {
               </div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => exportarCSV(entregables)}
-            disabled={entregables.length === 0}
-            className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-50 disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" strokeWidth={1.75} />
-            Exportar CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAskOpen(true)}
+              title="Preguntale al asistente"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green/10 px-3 py-1.5 text-xs font-medium text-cehta-green ring-1 ring-cehta-green/30 transition-colors hover:bg-cehta-green/15"
+            >
+              ✨ Preguntar AI
+            </button>
+            <KeyboardShortcutsHelp />
+            <SavedViewsMenu
+              page="entregables"
+              currentFilters={{ vista, categoria, estado }}
+              onApply={(f) => {
+                if (typeof f.vista === "string")
+                  setVista(f.vista as Vista);
+                if (typeof f.categoria === "string")
+                  setCategoria(f.categoria);
+                if (typeof f.estado === "string")
+                  setEstado(f.estado);
+              }}
+            />
+            <a
+              href="/entregables/reporte"
+              className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-50"
+            >
+              <FileText className="h-4 w-4" strokeWidth={1.75} />
+              Reporte para acta CV
+            </a>
+            <button
+              type="button"
+              onClick={() => setIcsOpen(true)}
+              title="Sincronizar con Google Calendar / Outlook"
+              className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-50"
+            >
+              <CalendarDays className="h-4 w-4" strokeWidth={1.75} />
+              Sync calendario
+            </button>
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-50"
+            >
+              <Upload className="h-4 w-4" strokeWidth={1.75} />
+              Importar CSV
+            </button>
+            <ExportExcelButton
+              entity="entregables"
+              estado={estado || null}
+              label="Excel"
+            />
+            <button
+              type="button"
+              onClick={() => exportarCSV(entregables)}
+              disabled={entregables.length === 0}
+              className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-3 py-1.5 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-50 disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" strokeWidth={1.75} />
+              CSV
+            </button>
+          </div>
         </div>
+
+        <CsvImportDialog open={importOpen} onOpenChange={setImportOpen} />
+        <IcsSubscribeDialog open={icsOpen} onOpenChange={setIcsOpen} />
+        <AskAiDialog open={askOpen} onOpenChange={setAskOpen} />
 
         {/* KPIs */}
         <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -224,6 +312,7 @@ export default function EntregablesPage() {
           <ViewTab vista={vista} target="proximos" set={setVista} Icon={ListChecks} label="Próximos" />
           <ViewTab vista={vista} target="mensual" set={setVista} Icon={CalendarIcon} label="Mensual" />
           <ViewTab vista={vista} target="timeline" set={setVista} Icon={FileText} label="Timeline" />
+          <ViewTab vista={vista} target="heatmap" set={setVista} Icon={CalendarDays} label="Heatmap" />
         </div>
 
         <div className="ml-auto flex flex-wrap items-end gap-2">
@@ -245,6 +334,13 @@ export default function EntregablesPage() {
         </div>
       </div>
 
+      {/* V4 fase 7.12 — Quick filter chips bar (categorías como tabs visuales) */}
+      <CategoriaChipsBar
+        entregables={entregables}
+        active={categoria}
+        onChange={setCategoria}
+      />
+
       {/* Vista activa */}
       {entregablesQ.isLoading && (
         <div className="space-y-3">
@@ -265,6 +361,9 @@ export default function EntregablesPage() {
 
       {!entregablesQ.isLoading && !entregablesQ.error && (
         <>
+          {/* V4 fase 7.10 — Smart Insights template-based */}
+          <SmartInsights />
+
           {vista === "agenda" && <VistaAgenda entregables={entregables} />}
           {vista === "proximos" && <VistaProximos entregables={entregables} />}
           {vista === "mensual" && (
@@ -275,6 +374,7 @@ export default function EntregablesPage() {
             />
           )}
           {vista === "timeline" && <VistaTimeline entregables={entregables} />}
+          {vista === "heatmap" && <HeatmapYearView entregables={entregables} />}
         </>
       )}
     </div>
@@ -349,14 +449,7 @@ function KpiTile({
 
 function VistaProximos({ entregables }: { entregables: EntregableRead[] }) {
   if (entregables.length === 0) {
-    return (
-      <Surface className="py-16 text-center">
-        <p className="text-base font-semibold text-ink-900">Sin entregables</p>
-        <p className="mt-1 text-sm text-ink-500">
-          Probá ajustando los filtros o agregando uno nuevo.
-        </p>
-      </Surface>
-    );
+    return <EmptyEntregables />;
   }
   return (
     <div className="space-y-3">
@@ -614,6 +707,8 @@ const CATEGORIA_BG_AGENDA: Record<string, string> = {
 };
 
 function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+
   // Agrupados por mes para mejor lectura, pero TODOS los entregables visibles.
   const agrupado = useMemo(() => {
     const map = new Map<string, EntregableRead[]>();
@@ -626,30 +721,50 @@ function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
     return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [entregables]);
 
+  const toggleId = (id: number) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleMonth = (items: EntregableRead[]) => {
+    const ids = items.map((e) => e.entregable_id);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allSelected = ids.every((id) => next.has(id));
+      if (allSelected) {
+        ids.forEach((id) => next.delete(id));
+      } else {
+        ids.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
   if (entregables.length === 0) {
-    return (
-      <Surface className="py-16 text-center">
-        <p className="text-base font-semibold text-ink-900">Sin entregables</p>
-        <p className="mt-1 text-sm text-ink-500">
-          Probá ajustando los filtros para ver el resto del año.
-        </p>
-      </Surface>
-    );
+    return <EmptyEntregables />;
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-info/20 bg-info/5 p-3 text-sm text-ink-700">
         <strong>📋 Vista Agenda</strong> — Listado cronológico completo del año.
-        Cada fila es un entregable. Click en{" "}
+        Marcá los <span className="font-mono">checkboxes</span> para hacer
+        cambios masivos (cierre de mes en segundos), o usá{" "}
         <span className="rounded bg-ink-100/60 px-1 py-0.5 font-mono text-xs">
           Marcar ▾
         </span>{" "}
-        para cambiar el estado rápido sin abrir el detalle.
+        en cada fila para una sola.
       </div>
       {agrupado.map(([mesKey, items]) => {
         const [year, month] = mesKey.split("-");
         const mesNombre = MES_NOMBRES[parseInt(month ?? "1") - 1] ?? "";
+        const ids = items.map((e) => e.entregable_id);
+        const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+        const someSelected = ids.some((id) => selected.has(id));
         return (
           <Surface key={mesKey} padding="none">
             <Surface.Header className="sticky top-0 z-10 border-b border-hairline bg-white/95 px-5 py-3 backdrop-blur">
@@ -659,6 +774,17 @@ function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
                 </Surface.Title>
                 <span className="text-xs text-ink-500">
                   {items.length} entregable{items.length !== 1 ? "s" : ""}
+                  {someSelected && (
+                    <>
+                      {" · "}
+                      <span className="font-semibold text-cehta-green">
+                        {ids.filter((id) => selected.has(id)).length} seleccionado
+                        {ids.filter((id) => selected.has(id)).length !== 1
+                          ? "s"
+                          : ""}
+                      </span>
+                    </>
+                  )}
                 </span>
               </div>
             </Surface.Header>
@@ -666,19 +792,42 @@ function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
               <table className="min-w-full divide-y divide-hairline text-sm">
                 <thead className="bg-ink-50/50 text-[10px] uppercase tracking-wider text-ink-500">
                   <tr>
+                    <th className="w-8 px-2 py-2 text-left">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = !allSelected && someSelected;
+                        }}
+                        onChange={() => toggleMonth(items)}
+                        className="h-3.5 w-3.5 cursor-pointer rounded border-ink-300 text-cehta-green focus:ring-1 focus:ring-cehta-green"
+                        aria-label={`Seleccionar todos de ${mesNombre}`}
+                      />
+                    </th>
                     <th className="px-3 py-2 text-left">Fecha</th>
                     <th className="px-3 py-2 text-left">Categoría</th>
                     <th className="px-3 py-2 text-left">Entregable</th>
-                    <th className="px-3 py-2 text-left">Período</th>
-                    <th className="px-3 py-2 text-left">Responsable</th>
-                    <th className="px-3 py-2 text-left">Estado</th>
+                    <th className="hidden px-3 py-2 text-left lg:table-cell">
+                      Período
+                    </th>
+                    <th className="hidden px-3 py-2 text-left md:table-cell">
+                      Responsable
+                    </th>
+                    <th className="hidden px-3 py-2 text-left sm:table-cell">
+                      Estado
+                    </th>
                     <th className="px-3 py-2 text-right">Días</th>
                     <th className="px-3 py-2 text-right">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline">
                   {items.map((e) => (
-                    <AgendaRow key={e.entregable_id} entregable={e} />
+                    <AgendaRow
+                      key={e.entregable_id}
+                      entregable={e}
+                      selected={selected.has(e.entregable_id)}
+                      onToggleSelect={toggleId}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -686,12 +835,34 @@ function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
           </Surface>
         );
       })}
+      <BulkActionBar
+        selectedIds={Array.from(selected)}
+        onClear={() => setSelected(new Set())}
+      />
     </div>
   );
 }
 
-function AgendaRow({ entregable: e }: { entregable: EntregableRead }) {
+interface AgendaRowProps {
+  entregable: EntregableRead;
+  selected: boolean;
+  onToggleSelect: (id: number) => void;
+}
+
+const AgendaRow = memo(
+  AgendaRowImpl,
+  (prev, next) =>
+    prev.selected === next.selected &&
+    prev.entregable.entregable_id === next.entregable.entregable_id &&
+    prev.entregable.estado === next.entregable.estado &&
+    prev.entregable.updated_at === next.entregable.updated_at,
+);
+
+function AgendaRowImpl({ entregable: e, selected, onToggleSelect }: AgendaRowProps) {
   const [showActions, setShowActions] = useState(false);
+  const [dialogTarget, setDialogTarget] = useState<EstadoEntregable | null>(
+    null,
+  );
   const updateMut = useUpdateEntregable();
 
   const fecha = new Date(e.fecha_limite + "T00:00:00").toLocaleDateString(
@@ -702,37 +873,22 @@ function AgendaRow({ entregable: e }: { entregable: EntregableRead }) {
   const handleMarcar = async (
     estado: "entregado" | "en_proceso" | "no_entregado" | "pendiente",
   ) => {
+    setShowActions(false);
+    // entregado y no_entregado abren el modal — necesitan metadata
+    // (fecha real / adjunto / motivo). en_proceso y pendiente son toggles
+    // baratos sin formulario.
+    if (estado === "entregado" || estado === "no_entregado") {
+      setDialogTarget(estado);
+      return;
+    }
     try {
-      if (estado === "no_entregado") {
-        const motivo = window.prompt(
-          "¿Por qué no se entregó? (motivo obligatorio)",
-        );
-        if (!motivo) {
-          setShowActions(false);
-          return;
-        }
-        await updateMut.mutateAsync({
-          id: e.entregable_id,
-          body: { estado, motivo_no_entrega: motivo },
-        });
-      } else if (estado === "entregado") {
-        await updateMut.mutateAsync({
-          id: e.entregable_id,
-          body: {
-            estado,
-            fecha_entrega_real: new Date().toISOString().slice(0, 10),
-          },
-        });
-      } else {
-        await updateMut.mutateAsync({
-          id: e.entregable_id,
-          body: { estado },
-        });
-      }
+      await updateMut.mutateAsync({
+        id: e.entregable_id,
+        body: { estado },
+      });
     } catch {
       // toast manejado por la mutation hook
     }
-    setShowActions(false);
   };
 
   const dias = e.dias_restantes;
@@ -747,8 +903,17 @@ function AgendaRow({ entregable: e }: { entregable: EntregableRead }) {
     <tr
       className={`transition-colors hover:bg-ink-50/40 ${
         e.estado === "entregado" ? "opacity-50" : ""
-      }`}
+      } ${selected ? "bg-cehta-green/5" : ""}`}
     >
+      <td className="px-2 py-2">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(e.entregable_id)}
+          className="h-3.5 w-3.5 cursor-pointer rounded border-ink-300 text-cehta-green focus:ring-1 focus:ring-cehta-green"
+          aria-label={`Seleccionar ${e.nombre}`}
+        />
+      </td>
       <td className="whitespace-nowrap px-3 py-2 font-medium tabular-nums text-ink-900">
         {fecha}
       </td>
@@ -762,20 +927,29 @@ function AgendaRow({ entregable: e }: { entregable: EntregableRead }) {
         </span>
       </td>
       <td className="px-3 py-2 text-ink-900">
-        <p className="line-clamp-1 font-medium">{e.nombre}</p>
+        <p className="line-clamp-2 font-medium sm:line-clamp-1">{e.nombre}</p>
+        {/* En mobile mostramos período + responsable + estado inline para
+            no perder info al ocultar las columnas. */}
+        <p className="mt-0.5 text-[10px] text-ink-500 sm:hidden">
+          <span className="font-mono">{e.periodo}</span>
+          {" · "}
+          {e.responsable}
+          {" · "}
+          <span className="capitalize">{e.estado.replace("_", " ")}</span>
+        </p>
         {e.referencia_normativa && (
-          <p className="line-clamp-1 text-[10px] italic text-ink-400">
+          <p className="mt-0.5 line-clamp-1 text-[10px] italic text-ink-400">
             {e.referencia_normativa}
           </p>
         )}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-ink-700">
+      <td className="hidden whitespace-nowrap px-3 py-2 font-mono text-xs text-ink-700 lg:table-cell">
         {e.periodo}
       </td>
-      <td className="whitespace-nowrap px-3 py-2 text-xs text-ink-700">
+      <td className="hidden whitespace-nowrap px-3 py-2 text-xs text-ink-700 md:table-cell">
         {e.responsable}
       </td>
-      <td className="px-3 py-2">
+      <td className="hidden px-3 py-2 sm:table-cell">
         <span
           className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
             ESTADO_BG_AGENDA[e.estado] ?? "bg-ink-100 text-ink-700"
@@ -860,7 +1034,165 @@ function AgendaRow({ entregable: e }: { entregable: EntregableRead }) {
             </>
           )}
         </div>
+        <MarcarEntregadoDialog
+          entregable={e}
+          estadoTarget={dialogTarget}
+          open={dialogTarget !== null}
+          onOpenChange={(o) => !o && setDialogTarget(null)}
+        />
       </td>
     </tr>
+  );
+}
+
+/**
+ * CategoriaChipsBar — V4 fase 7.12.
+ *
+ * Bar horizontal con chips por categoría regulatoria, donde cada chip
+ * muestra el badge con count de entregables pendientes de esa categoría.
+ * Click en un chip aplica/quita el filtro. "Todas" deselecciona.
+ *
+ * Filosofía: toggle de un click contra el dropdown que requiere abrir +
+ * scroll + click. Para los 8 valores de Categoria, esto es más rápido.
+ */
+const CHIP_CATEGORIAS = [
+  { value: "CMF", label: "CMF", color: "bg-purple-100 text-purple-800" },
+  { value: "CORFO", label: "CORFO", color: "bg-cehta-green/15 text-cehta-green" },
+  { value: "UAF", label: "UAF", color: "bg-red-100 text-red-800" },
+  { value: "SII", label: "SII", color: "bg-orange-100 text-orange-800" },
+  { value: "INTERNO", label: "Interno", color: "bg-blue-100 text-blue-800" },
+  { value: "AUDITORIA", label: "Auditoría", color: "bg-gray-100 text-gray-800" },
+  { value: "ASAMBLEA", label: "Asamblea", color: "bg-yellow-100 text-yellow-800" },
+  { value: "OPERACIONAL", label: "Operacional", color: "bg-emerald-100 text-emerald-800" },
+];
+
+function CategoriaChipsBar({
+  entregables,
+  active,
+  onChange,
+}: {
+  entregables: EntregableRead[];
+  active: string;
+  onChange: (next: string) => void;
+}) {
+  // Conteos por categoría (entregables que NO están entregados)
+  const counts = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const e of entregables) {
+      if (e.estado === "entregado" || e.estado === "no_entregado") continue;
+      map[e.categoria] = (map[e.categoria] ?? 0) + 1;
+    }
+    return map;
+  }, [entregables]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => onChange("")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 ease-apple ring-1",
+          active === ""
+            ? "bg-ink-900 text-white ring-ink-900"
+            : "bg-white text-ink-700 ring-hairline hover:bg-ink-50",
+        )}
+      >
+        Todas
+      </button>
+      {CHIP_CATEGORIAS.map((c) => {
+        const isActive = active === c.value;
+        const count = counts[c.value] ?? 0;
+        return (
+          <button
+            key={c.value}
+            type="button"
+            onClick={() => onChange(isActive ? "" : c.value)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors duration-150 ease-apple ring-1",
+              isActive
+                ? "bg-cehta-green text-white ring-cehta-green"
+                : "bg-white text-ink-700 ring-hairline hover:bg-cehta-green/5 hover:text-cehta-green",
+            )}
+          >
+            <span
+              className={cn(
+                "inline-flex h-1.5 w-1.5 rounded-full",
+                isActive ? "bg-white" : c.color.split(" ")[0],
+              )}
+            />
+            {c.label}
+            {count > 0 && (
+              <span
+                className={cn(
+                  "inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums",
+                  isActive
+                    ? "bg-white/20 text-white"
+                    : "bg-ink-100 text-ink-600",
+                )}
+              >
+                {count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Empty state inteligente — V4 fase 7.6.
+ *
+ * Cuando no hay resultados, ofrecemos CTAs útiles en lugar del clásico
+ * "no hay nada". El usuario operativo no debe quedarse mirando una
+ * pantalla vacía sin saber qué hacer.
+ */
+function EmptyEntregables() {
+  return (
+    <Surface className="py-12 text-center">
+      <div className="mx-auto max-w-md">
+        <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green">
+          <ClipboardList className="h-6 w-6" strokeWidth={1.5} />
+        </div>
+        <p className="text-base font-semibold text-ink-900">
+          No hay entregables que coincidan
+        </p>
+        <p className="mt-1 text-sm text-ink-500">
+          Probá quitando filtros, cambiando de vista, o usá los atajos para
+          navegar más rápido.
+        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <a
+            href="/entregables"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:bg-cehta-green-700"
+          >
+            Limpiar filtros
+          </a>
+          <a
+            href="/entregables/reporte"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:bg-ink-50"
+          >
+            <FileText className="h-3.5 w-3.5" strokeWidth={1.5} />
+            Ver reporte para acta CV
+          </a>
+          <button
+            type="button"
+            onClick={() => {
+              const evt = new KeyboardEvent("keydown", {
+                key: "?",
+                bubbles: true,
+              });
+              window.dispatchEvent(evt);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-600 hover:bg-ink-50"
+          >
+            Ver atajos de teclado
+            <kbd className="rounded border border-hairline bg-ink-50 px-1 py-0.5 font-mono text-[10px]">
+              ?
+            </kbd>
+          </button>
+        </div>
+      </div>
+    </Surface>
   );
 }

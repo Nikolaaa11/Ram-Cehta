@@ -6,6 +6,7 @@ import { KpisGrid } from "@/components/empresa/KpisGrid";
 import { ComposicionTable } from "@/components/empresa/ComposicionTable";
 import { EgresosTipoCard } from "@/components/empresa/EgresosTipoCard";
 import { EgresosProyectoSection } from "@/components/empresa/EgresosProyectoSection";
+import { EntregablesEmpresaWidget } from "@/components/empresa/EntregablesEmpresaWidget";
 import type {
   EgresoProyectoItem,
   EgresoTipoItem,
@@ -111,6 +112,8 @@ export default async function EmpresaResumenPage({
     <div className="space-y-6">
       <ResumenHero data={resumen as ResumenCC} />
       <KpisGrid kpis={(resumen as ResumenCC).kpis} />
+      {/* V4 fase 7.7 — Widget de entregables regulatorios filtrados a esta empresa */}
+      <EntregablesEmpresaWidget empresaCodigo={codigo} />
       <ComposicionTable rows={(resumen as ResumenCC).composicion} />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {isError(egresosTipo) ? (
