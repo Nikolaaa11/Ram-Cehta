@@ -6,9 +6,10 @@ import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { KpiCard } from "./KpiCard";
 import { StaggerReveal } from "./StaggerReveal";
+import { CurrencyTooltip } from "@/components/shared/CurrencyTooltip";
 import { dashboardKeys, filtersToQueryString } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
-import { toCLP, toPct } from "@/lib/format";
+import { toCLPCompact, toPct } from "@/lib/format";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
 interface Props {
@@ -56,20 +57,29 @@ export function KpiHeroSection({ initialData }: Props) {
       aria-label="Indicadores principales"
     >
       <StaggerReveal index={0}>
-        <KpiCard
-          label="Saldo consolidado"
-          value={toCLP(data.saldo_total_consolidado)}
-          subtitle={`Cehta ${toCLP(data.saldo_total_cehta)} · CORFO ${toCLP(data.saldo_total_corfo)}`}
-          icon={Wallet}
-          tone={saldoTone}
-        />
+        <CurrencyTooltip
+          amount={Number(data.saldo_total_consolidado)}
+          currency="CLP"
+        >
+          <div>
+            <KpiCard
+              label="Saldo consolidado"
+              value={toCLPCompact(data.saldo_total_consolidado)}
+              subtitle={`Cehta ${toCLPCompact(data.saldo_total_cehta)} · CORFO ${toCLPCompact(data.saldo_total_corfo)}`}
+              icon={Wallet}
+              tone={saldoTone}
+            />
+          </div>
+        </CurrencyTooltip>
       </StaggerReveal>
 
       <StaggerReveal index={1}>
-        <KpiCard
-          label="Flujo neto del mes"
-          value={toCLP(data.flujo_neto_mes)}
-          icon={TrendingUp}
+        <CurrencyTooltip amount={Number(data.flujo_neto_mes)} currency="CLP">
+          <div>
+            <KpiCard
+              label="Flujo neto del mes"
+              value={toCLPCompact(data.flujo_neto_mes)}
+              icon={TrendingUp}
           tone={
             flujoDir === "up"
               ? "positive"
@@ -87,7 +97,9 @@ export function KpiHeroSection({ initialData }: Props) {
                   ? "down"
                   : "flat",
           }}
-        />
+            />
+          </div>
+        </CurrencyTooltip>
       </StaggerReveal>
 
       <StaggerReveal index={2}>
@@ -96,7 +108,7 @@ export function KpiHeroSection({ initialData }: Props) {
           value={String(data.oc_emitidas_pendientes)}
           subtitle={
             data.oc_emitidas_pendientes > 0
-              ? `${toCLP(data.monto_oc_pendiente)} en circulación`
+              ? `${toCLPCompact(data.monto_oc_pendiente)} en circulación`
               : "Sin OCs pendientes"
           }
           icon={FileText}

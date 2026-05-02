@@ -15,7 +15,7 @@ import { KpiCardSmall } from "./KpiCardSmall";
 import { StaggerReveal } from "./StaggerReveal";
 import { dashboardKeys, filtersToQueryString } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
-import { toCLP, toRelative } from "@/lib/format";
+import { toCLPCompact, toRelative } from "@/lib/format";
 import {
   useComplianceGradeReport,
   useCriticalCount,
@@ -86,21 +86,21 @@ export function KpiSecondarySection({ initialData }: Props) {
       <StaggerReveal index={0} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="Saldo Cehta"
-          value={toCLP(data.saldo_total_cehta)}
+          value={toCLPCompact(data.saldo_total_cehta)}
           icon={Building2}
         />
       </StaggerReveal>
       <StaggerReveal index={1} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="Saldo CORFO"
-          value={toCLP(data.saldo_total_corfo)}
+          value={toCLPCompact(data.saldo_total_corfo)}
           icon={Landmark}
         />
       </StaggerReveal>
       <StaggerReveal index={2} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
           label="IVA del mes"
-          value={toCLP(data.iva_a_pagar_mes)}
+          value={toCLPCompact(data.iva_a_pagar_mes)}
           icon={Receipt}
         />
       </StaggerReveal>

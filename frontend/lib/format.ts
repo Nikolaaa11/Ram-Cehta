@@ -35,6 +35,42 @@ export const toCLP = (value: number | string | null | undefined): string => {
   if (Number.isNaN(num)) return "—";
   return CLP.format(num);
 };
+
+/**
+ * Formato CLP compacto con sufijo K/M/B para KPIs grandes que overflowan la card.
+ *
+ * Ejemplos:
+ *   1234           → "$1,2K"
+ *   1234567        → "$1,2M"
+ *   1234567890     → "$1,2B"   (B = miles de millones)
+ *   1234567890000  → "$1,2T"   (T = billones)
+ *
+ * Para montos < 1.000 muestra el número completo. Mantenemos signo (negativo).
+ * Si querés precisión exacta (UI tooltip, exports), seguí usando toCLP.
+ */
+export function toCLPCompact(
+  value: number | string | null | undefined,
+): string {
+  if (value === null || value === undefined) return "—";
+  const num = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(num)) return "—";
+  const abs = Math.abs(num);
+  const sign = num < 0 ? "-" : "";
+  if (abs < 1_000) {
+    // Sin sufijo — muestra el número entero
+    return `${sign}$${Math.round(abs).toLocaleString("es-CL")}`;
+  }
+  if (abs < 1_000_000) {
+    return `${sign}$${(abs / 1_000).toFixed(1).replace(".", ",")}K`;
+  }
+  if (abs < 1_000_000_000) {
+    return `${sign}$${(abs / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  }
+  if (abs < 1_000_000_000_000) {
+    return `${sign}$${(abs / 1_000_000_000).toFixed(1).replace(".", ",")}B`;
+  }
+  return `${sign}$${(abs / 1_000_000_000_000).toFixed(1).replace(".", ",")}T`;
+}
 export const toUF = (value: number): string => `UF ${UF.format(value)}`;
 export const toDate = (value: Date | string): string =>
   DATE.format(typeof value === "string" ? new Date(value) : value);

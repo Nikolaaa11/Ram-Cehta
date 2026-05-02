@@ -94,7 +94,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/ceo" as Route, label: "Dashboard CEO", icon: LineChart },
       {
-        href: "/portafolio" as Route,
+        href: "/reportes/portafolio" as Route,
         label: "Portafolio USD",
         icon: DollarSign,
       },
