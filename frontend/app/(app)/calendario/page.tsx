@@ -27,9 +27,11 @@ import { EventDot, TIPO_LABEL } from "@/components/calendar/EventDot";
 import { ObligationsTimeline } from "@/components/calendar/ObligationsTimeline";
 import { AgenteSecretaria } from "@/components/calendar/AgenteSecretaria";
 import { cn } from "@/lib/utils";
+import { mergeEventsWithObligations } from "@/lib/calendar/merge-events";
 import type {
   AgentRunReport,
   CalendarEventRead,
+  ObligationItem,
   ObligationTipo,
 } from "@/lib/api/schema";
 
@@ -40,6 +42,12 @@ const TIPOS_LEGEND = [
   "reporte_trimestral",
   "vencimiento",
   "otro",
+  // V4 fase 9.1: tipos sintetizados desde /obligations
+  "hito",
+  "entregable",
+  "legal",
+  "oc",
+  "suscripcion",
 ];
 
 type Tab = "mes" | "obligaciones";
@@ -136,8 +144,23 @@ export default function CalendarioPage() {
     `/calendar/events?from=${from}&to=${to}`,
   );
 
+  // V4 fase 9.1: pull paralelo de obligaciones (hitos del Gantt + entregables
+  // + F29 + legal + OC + suscripciones) para que la vista Mes muestre TODO,
+  // no solo eventos manuales. Backend ya tiene /calendar/obligations.
+  const obligationsParams = new URLSearchParams({ from_date: from, to_date: to });
+  if (mesEmpresa) obligationsParams.set("empresa_codigo", mesEmpresa);
+  const { data: obligationsData } = useApiQuery<ObligationItem[]>(
+    ["calendar-obligations", from, to, mesEmpresa],
+    `/calendar/obligations?${obligationsParams.toString()}`,
+  );
+
   const allEvents = data ?? [];
-  const events = allEvents.filter((ev) => {
+  // Mergeamos eventos manuales con obligaciones sintetizadas (sin duplicados)
+  const mergedEvents = mergeEventsWithObligations(
+    allEvents,
+    obligationsData ?? [],
+  );
+  const events = mergedEvents.filter((ev) => {
     if (mesEmpresa && ev.empresa_codigo !== mesEmpresa) return false;
     if (mesTipo && ev.tipo !== mesTipo) return false;
     return true;

@@ -9,6 +9,12 @@ const TIPO_COLOR: Record<string, string> = {
   reporte_trimestral: "bg-warning",
   vencimiento: "bg-negative",
   otro: "bg-ink-500",
+  // V4 fase 9.1: tipos virtuales sintetizados desde /obligations
+  hito: "bg-info",
+  entregable: "bg-negative",
+  legal: "bg-sf-purple",
+  oc: "bg-cehta-green",
+  suscripcion: "bg-warning",
 };
 
 export function EventDot({
@@ -40,4 +46,10 @@ export const TIPO_LABEL: Record<string, string> = {
   reporte_trimestral: "Reporte Trim.",
   vencimiento: "Vencimiento",
   otro: "Otro",
+  // V4 fase 9.1: tipos sintetizados desde /obligations
+  hito: "Hito Gantt",
+  entregable: "Entregable",
+  legal: "Legal",
+  oc: "OC",
+  suscripcion: "Suscripción",
 };

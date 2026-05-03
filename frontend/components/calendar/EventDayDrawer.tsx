@@ -245,7 +245,10 @@ export function EventDayDrawer({
                         </p>
                       )}
 
-                      {(canUpdate || canDelete) && (
+                      {/* Eventos virtuales (sintetizados desde /obligations)
+                          tienen event_id < 0 — esconder botones de mutación
+                          porque el ID no existe en core.calendar_events. */}
+                      {(canUpdate || canDelete) && ev.event_id > 0 && (
                         <div className="mt-3 flex items-center gap-2">
                           {canUpdate && !ev.completado && (
                             <button
