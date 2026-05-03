@@ -396,6 +396,163 @@ async def _query_calendar_events(
     return out
 
 
+async def _query_hitos(
+    db: AsyncSession,
+    *,
+    today: date,
+    from_date: date,
+    to_date: date,
+    empresa_codigo: str | None,
+) -> list[ObligationItem]:
+    """V4 fase 9.1: hitos del Gantt cross-portfolio.
+
+    Pull de hitos `pendiente`/`en_progreso` con `fecha_planificada` en el
+    rango. Cap defensivo de 500 — con 2.300+ hitos en producción evitamos
+    payloads gigantes. Ordenados por fecha ascendente para que las más
+    urgentes salgan primero si se trunca.
+    """
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    h.hito_id::text         AS hito_id,
+                    h.nombre                AS hito_nombre,
+                    h.fecha_planificada     AS due_date,
+                    h.estado                AS estado,
+                    h.encargado             AS encargado,
+                    h.progreso_pct          AS progreso_pct,
+                    p.proyecto_id           AS proyecto_id,
+                    p.nombre                AS proyecto_nombre,
+                    p.empresa_codigo        AS empresa_codigo
+                FROM core.hitos h
+                JOIN core.proyectos_empresa p ON h.proyecto_id = p.proyecto_id
+                WHERE h.fecha_planificada BETWEEN :from_date AND :to_date
+                  AND h.estado IN ('pendiente', 'en_progreso')
+                  AND (:empresa IS NULL OR p.empresa_codigo = :empresa)
+                ORDER BY h.fecha_planificada ASC
+                LIMIT 500
+                """
+            ),
+            {
+                "from_date": from_date,
+                "to_date": to_date,
+                "empresa": empresa_codigo,
+            },
+        )
+    ).mappings().all()
+
+    out: list[ObligationItem] = []
+    for r in rows:
+        encargado_str = (
+            f" · {r['encargado']}" if r["encargado"] else ""
+        )
+        progreso_str = (
+            f" · {r['progreso_pct']}%"
+            if r["progreso_pct"] and r["progreso_pct"] > 0
+            else ""
+        )
+        out.append(
+            _build_obligation(
+                tipo="hito",
+                entity_id=str(r["hito_id"]),
+                title=str(r["hito_nombre"])[:200],
+                subtitle=(
+                    f"{r['proyecto_nombre']}{encargado_str}{progreso_str}"
+                ),
+                empresa_codigo=r["empresa_codigo"],
+                due_date=r["due_date"],
+                today=today,
+                monto=None,
+                moneda=None,
+                link=f"/empresa/{r['empresa_codigo']}/avance",
+            )
+        )
+    return out
+
+
+async def _query_entregables(
+    db: AsyncSession,
+    *,
+    today: date,
+    from_date: date,
+    to_date: date,
+    empresa_codigo: str | None,
+) -> list[ObligationItem]:
+    """V4 fase 9.1: entregables regulatorios CMF/CORFO/UAF/etc.
+
+    Pull de `app.entregables_regulatorios` con `fecha_limite` en el rango
+    y estado != 'entregado'. La columna `empresa_codigo` puede venir en
+    `extra->>'empresa_codigo'` o en `subcategoria` (depende del template).
+    """
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    entregable_id::text     AS entregable_id,
+                    nombre                  AS nombre,
+                    descripcion             AS descripcion,
+                    categoria               AS categoria,
+                    subcategoria            AS subcategoria,
+                    fecha_limite            AS due_date,
+                    estado                  AS estado,
+                    prioridad               AS prioridad,
+                    responsable             AS responsable,
+                    periodo                 AS periodo,
+                    extra                   AS extra
+                FROM app.entregables_regulatorios
+                WHERE fecha_limite BETWEEN :from_date AND :to_date
+                  AND estado <> 'entregado'
+                  AND (
+                      :empresa IS NULL
+                      OR COALESCE(extra->>'empresa_codigo', subcategoria) = :empresa
+                  )
+                ORDER BY fecha_limite ASC
+                """
+            ),
+            {
+                "from_date": from_date,
+                "to_date": to_date,
+                "empresa": empresa_codigo,
+            },
+        )
+    ).mappings().all()
+
+    out: list[ObligationItem] = []
+    for r in rows:
+        # Resolver empresa_codigo desde extra→subcategoria
+        emp_cod = None
+        extra = r["extra"] or {}
+        if isinstance(extra, dict):
+            emp_cod = extra.get("empresa_codigo")
+        if not emp_cod:
+            emp_cod = r["subcategoria"]
+
+        subtitle_parts = [r["categoria"]]
+        if r["periodo"]:
+            subtitle_parts.append(r["periodo"])
+        if r["responsable"]:
+            subtitle_parts.append(r["responsable"])
+        subtitle = " · ".join(p for p in subtitle_parts if p)
+
+        out.append(
+            _build_obligation(
+                tipo="entregable",
+                entity_id=str(r["entregable_id"]),
+                title=str(r["nombre"])[:200],
+                subtitle=subtitle,
+                empresa_codigo=emp_cod,
+                due_date=r["due_date"],
+                today=today,
+                monto=None,
+                moneda=None,
+                link=f"/entregables?id={r['entregable_id']}",
+            )
+        )
+    return out
+
+
 @router.get(
     "/events",
     response_model=list[CalendarEventRead],
@@ -550,6 +707,11 @@ async def list_obligations(
         items.extend(await _query_suscripciones(db, **common_kwargs))
     if tipo is None or tipo == "event":
         items.extend(await _query_calendar_events(db, **common_kwargs))
+    # V4 fase 9.1: hitos del Gantt + entregables regulatorios
+    if tipo is None or tipo == "hito":
+        items.extend(await _query_hitos(db, **common_kwargs))
+    if tipo is None or tipo == "entregable":
+        items.extend(await _query_entregables(db, **common_kwargs))
 
     items.sort(key=lambda o: (o.due_date, o.tipo, o.id))
     return items

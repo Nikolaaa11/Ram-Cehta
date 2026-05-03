@@ -9,8 +9,10 @@ import {
   ArrowRight,
   CalendarClock,
   FileText,
+  GanttChart,
   Receipt,
   Scale,
+  Scroll,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -29,6 +31,8 @@ const TIPO_LABEL: Record<ObligationTipo, string> = {
   oc: "OC",
   suscripcion: "Suscripción",
   event: "Evento",
+  hito: "Hito",
+  entregable: "Entregable",
 };
 
 const TIPO_ICON: Record<ObligationTipo, typeof Receipt> = {
@@ -37,6 +41,8 @@ const TIPO_ICON: Record<ObligationTipo, typeof Receipt> = {
   oc: FileText,
   suscripcion: TrendingUp,
   event: Sparkles,
+  hito: GanttChart,
+  entregable: Scroll,
 };
 
 // Color de pill por tipo (chip pequeño con badge del tipo).
@@ -46,6 +52,8 @@ const TIPO_PILL: Record<ObligationTipo, string> = {
   oc: "bg-sf-blue/10 text-sf-blue",
   suscripcion: "bg-warning/15 text-warning",
   event: "bg-ink-100 text-ink-700",
+  hito: "bg-info/10 text-info",
+  entregable: "bg-negative/10 text-negative",
 };
 
 // Stripe lateral por severity (rayita izquierda visual).

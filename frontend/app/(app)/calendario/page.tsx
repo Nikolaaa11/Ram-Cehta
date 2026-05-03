@@ -50,6 +50,9 @@ const OBLIGATION_TIPOS: { value: ObligationTipo; label: string }[] = [
   { value: "oc", label: "OC" },
   { value: "suscripcion", label: "Suscripción" },
   { value: "event", label: "Evento" },
+  // V4 fase 9.1: hitos del Gantt + entregables regulatorios
+  { value: "hito", label: "Hito Gantt" },
+  { value: "entregable", label: "Entregable" },
 ];
 
 export default function CalendarioPage() {

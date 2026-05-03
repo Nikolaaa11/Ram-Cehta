@@ -698,7 +698,9 @@ export type ObligationTipo =
   | "legal"
   | "oc"
   | "suscripcion"
-  | "event";
+  | "event"
+  | "hito"        // V4 fase 9.1: hitos del Gantt
+  | "entregable"; // V4 fase 9.1: entregables regulatorios
 
 export type ObligationSeverity = "critical" | "warning" | "info";
 

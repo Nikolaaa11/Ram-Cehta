@@ -13,6 +13,8 @@ import {
   ChevronRight,
   Loader2,
   Inbox,
+  GanttChart,
+  Scroll,
 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,6 +41,16 @@ const TIPO_META: Record<
     label: "Eventos manuales",
     icon: CalendarClock,
     color: "text-ink-500",
+  },
+  hito: {
+    label: "Hitos del Gantt",
+    icon: GanttChart,
+    color: "text-info",
+  },
+  entregable: {
+    label: "Entregables Regulatorios",
+    icon: Scroll,
+    color: "text-negative",
   },
 };
 
@@ -153,6 +165,8 @@ export default function ActionCenterPage() {
       legal: [],
       suscripcion: [],
       event: [],
+      hito: [],
+      entregable: [],
     };
     for (const o of data ?? []) m[o.tipo].push(o);
     // Sort: critical primero, luego warning, luego info; dentro, days_until ASC

@@ -15,7 +15,15 @@ TipoEvento = Literal[
     "f29", "reporte_lp", "comite", "reporte_trimestral", "vencimiento", "otro"
 ]
 
-ObligationTipo = Literal["f29", "legal", "oc", "suscripcion", "event"]
+ObligationTipo = Literal[
+    "f29",
+    "legal",
+    "oc",
+    "suscripcion",
+    "event",
+    "hito",  # V4 fase 9.1: hitos del Gantt cross-empresa
+    "entregable",  # V4 fase 9.1: entregables regulatorios CMF/CORFO/UAF
+]
 ObligationSeverity = Literal["critical", "warning", "info"]
 
 
