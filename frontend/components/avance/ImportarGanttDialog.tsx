@@ -126,9 +126,15 @@ export function ImportarGanttDialog({
       onImported();
     },
     onError: (err) => {
-      toast.error(
-        err instanceof ApiError ? err.detail : "Error al importar el Gantt.",
-      );
+      // Mostrar el detalle real del backend para diagnosticar (migration faltante,
+      // formato, network, etc.) en vez del genérico que no ayuda.
+      let msg = "Error al importar el Gantt.";
+      if (err instanceof ApiError) {
+        msg = `[${err.status}] ${err.detail}`;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      toast.error(msg, { duration: 10_000 });
     },
   });
 

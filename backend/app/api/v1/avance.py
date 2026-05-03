@@ -13,7 +13,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.infrastructure.repositories.avance_repository import (
@@ -515,6 +515,44 @@ def _parsed_to_preview(parsed: ParsedGantt) -> GanttImportPreview:
     )
 
 
+# Cache runtime: ¿existe la columna core.hitos.encargado en este ambiente?
+# Lo detectamos al primer commit del proceso. Si la migration 0026 no
+# corrió todavía, evitamos pasar `encargado=` al INSERT y el commit funciona
+# igualmente (la columna queda implícita None hasta que se aplique migration).
+_HAS_HITO_ENCARGADO_COL: bool | None = None
+
+
+async def _hito_has_encargado_column(db) -> bool:  # type: ignore[no-untyped-def]
+    """¿La tabla `core.hitos` tiene la columna `encargado`?
+
+    Cache de proceso — solo hace la query una vez. Si la migration 0026
+    aún no corrió, devuelve False y el código de commit la skipea.
+    """
+    global _HAS_HITO_ENCARGADO_COL  # noqa: PLW0603
+    if _HAS_HITO_ENCARGADO_COL is not None:
+        return _HAS_HITO_ENCARGADO_COL
+    try:
+        row = (
+            await db.execute(
+                text(
+                    """
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = 'core'
+                      AND table_name = 'hitos'
+                      AND column_name = 'encargado'
+                    LIMIT 1
+                    """
+                )
+            )
+        ).first()
+        _HAS_HITO_ENCARGADO_COL = row is not None
+    except Exception:  # noqa: BLE001
+        # Si fallamos en la query, asumimos que NO existe (defensivo).
+        _HAS_HITO_ENCARGADO_COL = False
+    return _HAS_HITO_ENCARGADO_COL
+
+
 async def _read_upload(file: UploadFile) -> bytes:
     """Lee el upload con cap de tamaño y validación mínima."""
     content = await file.read()
@@ -544,7 +582,12 @@ async def _commit_parsed_gantt(
     Devuelve (proyectos_creados, proyectos_actualizados, hitos_creados,
     hitos_actualizados). Hace flush por proyecto pero NO commitea — el
     caller decide cuándo cerrar la transacción.
+
+    Defensivo: si la columna `core.hitos.encargado` no existe (migration
+    0026 aún no aplicada), skipea el campo en lugar de fallar.
     """
+    has_encargado_col = await _hito_has_encargado_column(db)
+
     proyectos_creados = 0
     proyectos_actualizados = 0
     hitos_creados = 0
@@ -643,23 +686,30 @@ async def _commit_parsed_gantt(
                     h.fecha_completado = parsed_hito.fecha_completado
                     changed = True
                 # V4 fase 8.2: persistir/actualizar encargado si vino del Excel
-                if parsed_hito.encargado and h.encargado != parsed_hito.encargado:
+                # — solo si la columna existe en este ambiente.
+                if (
+                    has_encargado_col
+                    and parsed_hito.encargado
+                    and h.encargado != parsed_hito.encargado
+                ):
                     h.encargado = parsed_hito.encargado
                     changed = True
                 if changed:
                     hitos_actualizados += 1
             else:
-                new_h = Hito(
-                    proyecto_id=existing.proyecto_id,
-                    nombre=parsed_hito.nombre,
-                    descripcion=parsed_hito.descripcion,
-                    fecha_planificada=parsed_hito.fecha_planificada,
-                    fecha_completado=parsed_hito.fecha_completado,
-                    estado=parsed_hito.estado,
-                    orden=parsed_hito.orden,
-                    progreso_pct=parsed_hito.progreso_pct,
-                    encargado=parsed_hito.encargado,
-                )
+                hito_kwargs: dict[str, Any] = {
+                    "proyecto_id": existing.proyecto_id,
+                    "nombre": parsed_hito.nombre,
+                    "descripcion": parsed_hito.descripcion,
+                    "fecha_planificada": parsed_hito.fecha_planificada,
+                    "fecha_completado": parsed_hito.fecha_completado,
+                    "estado": parsed_hito.estado,
+                    "orden": parsed_hito.orden,
+                    "progreso_pct": parsed_hito.progreso_pct,
+                }
+                if has_encargado_col:
+                    hito_kwargs["encargado"] = parsed_hito.encargado
+                new_h = Hito(**hito_kwargs)
                 db.add(new_h)
                 hitos_creados += 1
 
@@ -733,10 +783,29 @@ async def import_gantt_commit(
             detail="; ".join(parsed.warnings) or "Formato de Gantt no reconocido.",
         )
 
-    pc, pa, hc, ha = await _commit_parsed_gantt(
-        db, parsed, empresa_codigo, imported_from="upload"
-    )
-    await db.commit()
+    try:
+        pc, pa, hc, ha = await _commit_parsed_gantt(
+            db, parsed, empresa_codigo, imported_from="upload"
+        )
+        await db.commit()
+    except Exception as e:  # noqa: BLE001
+        await db.rollback()
+        # Mejor mensaje de error para el frontend
+        msg = str(e)
+        if "encargado" in msg.lower() or "column" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "Falta aplicar migration. Ejecutá: "
+                    "fly ssh console -a cehta-backend "
+                    "→ alembic upgrade head. "
+                    f"Detalle DB: {msg[:200]}"
+                ),
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error guardando en DB: {msg[:300]}",
+        ) from e
 
     return GanttImportResult(
         formato=parsed.formato,  # type: ignore[arg-type]
@@ -834,14 +903,31 @@ async def sync_gantt_from_dropbox(
             detail="; ".join(parsed.warnings) or "Formato no reconocido.",
         )
 
-    pc, pa, hc, ha = await _commit_parsed_gantt(
-        db,
-        parsed,
-        empresa_codigo,
-        dropbox_path=found_path,
-        imported_from="dropbox",
-    )
-    await db.commit()
+    try:
+        pc, pa, hc, ha = await _commit_parsed_gantt(
+            db,
+            parsed,
+            empresa_codigo,
+            dropbox_path=found_path,
+            imported_from="dropbox",
+        )
+        await db.commit()
+    except Exception as e:  # noqa: BLE001
+        await db.rollback()
+        msg = str(e)
+        if "encargado" in msg.lower() or "column" in msg.lower():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    "Falta aplicar migration. Ejecutá: "
+                    "fly ssh console -a cehta-backend "
+                    "→ alembic upgrade head."
+                ),
+            ) from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error guardando en DB: {msg[:300]}",
+        ) from e
 
     return GanttImportResult(
         formato=parsed.formato,  # type: ignore[arg-type]

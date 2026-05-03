@@ -63,11 +63,15 @@ export function SincronizarTodosButton({ className }: Props) {
         toast.error(
           "Dropbox no conectado. Conectalo en /admin/integraciones primero.",
         );
-      } else {
-        toast.error(
-          err instanceof ApiError ? err.detail : "Error al sincronizar.",
-        );
+        return;
       }
+      let msg = "Error al sincronizar.";
+      if (err instanceof ApiError) {
+        msg = `[${err.status}] ${err.detail}`;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      toast.error(msg, { duration: 10_000 });
     },
   });
 
