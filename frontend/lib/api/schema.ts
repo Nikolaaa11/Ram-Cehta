@@ -559,6 +559,92 @@ export interface InformeLpTrackEvent {
   valor_texto?: string;
 }
 
+export interface InformeLpListItem {
+  informe_id: number;
+  lp_id?: number | null;
+  lp_nombre?: string | null;
+  token: string;
+  titulo: string;
+  periodo?: string | null;
+  tipo: string;
+  estado: string;
+  publicado_at?: string | null;
+  veces_abierto: number;
+  veces_compartido: number;
+  created_at: string;
+}
+
+export interface InformeLpRead {
+  informe_id: number;
+  lp_id?: number | null;
+  token: string;
+  parent_token?: string | null;
+  titulo: string;
+  periodo?: string | null;
+  tipo: string;
+  hero_titulo?: string | null;
+  hero_narrativa?: string | null;
+  secciones?: Record<string, unknown> | null;
+  estado: string;
+  publicado_at?: string | null;
+  expira_at?: string | null;
+  veces_abierto: number;
+  veces_compartido: number;
+  tiempo_promedio_segundos?: number | null;
+  creado_por?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TopAdvocate {
+  lp_id: number;
+  lp_nombre: string;
+  compartio_count: number;
+  aperturas_downstream: number;
+  convertidos: number;
+  aporte_atribuible?: number | null;
+}
+
+export interface InformesAnalytics {
+  total_generados: number;
+  total_publicados: number;
+  total_aperturas: number;
+  total_compartidos: number;
+  tiempo_promedio_segundos?: number | null;
+  tasa_apertura: number;
+  tasa_share: number;
+  tasa_conversion: number;
+  tasa_viral: number;
+  top_advocates: TopAdvocate[];
+}
+
+export interface InformeLpGenerateRequest {
+  lp_id?: number | null;
+  tipo: "periodico" | "pitch_inicial" | "update_mensual" | "tear_sheet" | "memoria_anual";
+  titulo?: string | null;
+  periodo?: string | null;
+  incluir_empresas?: string[] | null;
+  tono: "ejecutivo" | "narrativo" | "tecnico";
+}
+
+export interface LpCreate {
+  nombre: string;
+  apellido?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  empresa?: string | null;
+  rol?: string | null;
+  estado?: EstadoLp;
+  perfil_inversor?: PerfilInversor | null;
+  intereses?: string[];
+  relationship_owner?: string | null;
+  aporte_total?: number | null;
+  aporte_actual?: number | null;
+  empresas_invertidas?: string[];
+  notas?: string | null;
+  primer_contacto?: string | null;
+}
+
 // ─── Calendar (V3 fase 5) ────────────────────────────────────────────────────
 
 export type TipoEvento =

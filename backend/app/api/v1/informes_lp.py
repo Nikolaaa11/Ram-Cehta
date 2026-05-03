@@ -48,9 +48,11 @@ from app.schemas.informe_lp import (
     InformeLpShareRequest,
     InformeLpShareResponse,
     InformeLpUpdate,
+    InformesAnalytics,
     LpCreate,
     LpRead,
     LpUpdate,
+    TopAdvocate,
     TrackEventRequest,
     TrackEventResponse,
 )
@@ -516,6 +518,183 @@ def _has_scope(user: Any, scope: str) -> bool:
     if not scopes:
         return False
     return scope in scopes
+
+
+@router.get(
+    "/informes-lp/admin/analytics",
+    response_model=InformesAnalytics,
+    dependencies=[Depends(require_scope("informe_lp:read"))],
+)
+async def admin_analytics(
+    user: CurrentUser,
+    db: DBSession,
+) -> InformesAnalytics:
+    """Dashboard de analytics consolidado para /admin/informes-lp.
+
+    Incluye:
+    - Métricas globales (total generados, publicados, aperturas, shares)
+    - Tasas de conversion + viral 1→N
+    - Top 5 advocates (LPs que más comparten + downstream conversions)
+    """
+    from sqlalchemy import case, distinct, literal_column
+
+    # Contadores globales
+    total_generados = (
+        await db.scalar(select(func.count(InformeLp.informe_id)))
+    ) or 0
+    total_publicados = (
+        await db.scalar(
+            select(func.count(InformeLp.informe_id)).where(
+                InformeLp.estado == "publicado"
+            )
+        )
+    ) or 0
+    total_aperturas = (
+        await db.scalar(select(func.sum(InformeLp.veces_abierto)))
+    ) or 0
+    total_compartidos = (
+        await db.scalar(select(func.sum(InformeLp.veces_compartido)))
+    ) or 0
+
+    # Tiempo promedio en informe (de eventos time_spent)
+    from app.models.informe_lp import InformeLpEvento
+
+    tiempo_promedio = await db.scalar(
+        select(func.avg(InformeLpEvento.valor_numerico))
+        .where(InformeLpEvento.tipo == "time_spent")
+        .where(InformeLpEvento.valor_numerico.isnot(None))
+    )
+
+    # Tasas
+    tasa_apertura = (
+        float(total_aperturas) / total_publicados if total_publicados > 0 else 0.0
+    )
+    tasa_share = (
+        float(total_compartidos) / total_publicados if total_publicados > 0 else 0.0
+    )
+
+    # CTAs agendar / aperturas
+    total_agendar = (
+        await db.scalar(
+            select(func.count(InformeLpEvento.evento_id)).where(
+                InformeLpEvento.tipo == "agendar_click"
+            )
+        )
+    ) or 0
+    tasa_conversion = (
+        float(total_agendar) / total_aperturas if total_aperturas > 0 else 0.0
+    )
+
+    # Tasa viral: aperturas en informes con parent_token / total aperturas
+    aperturas_downstream = (
+        await db.scalar(
+            select(func.count(InformeLpEvento.evento_id))
+            .join(InformeLp, InformeLpEvento.informe_id == InformeLp.informe_id)
+            .where(InformeLpEvento.tipo == "open")
+            .where(InformeLp.parent_token.isnot(None))
+        )
+    ) or 0
+    aperturas_originales = (
+        await db.scalar(
+            select(func.count(InformeLpEvento.evento_id))
+            .join(InformeLp, InformeLpEvento.informe_id == InformeLp.informe_id)
+            .where(InformeLpEvento.tipo == "open")
+            .where(InformeLp.parent_token.is_(None))
+        )
+    ) or 0
+    tasa_viral = (
+        float(aperturas_downstream) / aperturas_originales
+        if aperturas_originales > 0
+        else 0.0
+    )
+
+    # Top 5 advocates: LPs que generaron más downstream views
+    # Para cada LP que tiene informes publicados, contar:
+    # - cuántos shares hizo (via veces_compartido del padre)
+    # - cuántas aperturas downstream generaron sus shares (via parent_token)
+    # - cuántas conversiones (agendar_click en children)
+    advocates_q = (
+        select(
+            InformeLp.lp_id,
+            func.sum(InformeLp.veces_compartido).label("total_shares"),
+            Lp.nombre,
+            Lp.apellido,
+        )
+        .join(Lp, InformeLp.lp_id == Lp.lp_id)
+        .where(InformeLp.lp_id.isnot(None))
+        .where(InformeLp.veces_compartido > 0)
+        .group_by(InformeLp.lp_id, Lp.nombre, Lp.apellido)
+        .order_by(func.sum(InformeLp.veces_compartido).desc())
+        .limit(5)
+    )
+    advocate_rows = (await db.execute(advocates_q)).all()
+
+    top_advocates: list[TopAdvocate] = []
+    for row in advocate_rows:
+        lp_id = row[0]
+        shares = int(row[1] or 0)
+        nombre_completo = (
+            (row[2] or "") + (f" {row[3]}" if row[3] else "")
+        ).strip() or f"LP #{lp_id}"
+
+        # Aperturas downstream: opens en informes con parent_token de informes
+        # de este LP
+        downstream = (
+            await db.scalar(
+                select(func.count(InformeLpEvento.evento_id))
+                .join(
+                    InformeLp,
+                    InformeLpEvento.informe_id == InformeLp.informe_id,
+                )
+                .where(InformeLpEvento.tipo == "open")
+                .where(
+                    InformeLp.parent_token.in_(
+                        select(InformeLp.token).where(InformeLp.lp_id == lp_id)
+                    )
+                )
+            )
+        ) or 0
+
+        # Conversiones: agendar_click en informes children
+        convertidos = (
+            await db.scalar(
+                select(func.count(InformeLpEvento.evento_id))
+                .join(
+                    InformeLp,
+                    InformeLpEvento.informe_id == InformeLp.informe_id,
+                )
+                .where(InformeLpEvento.tipo == "agendar_click")
+                .where(
+                    InformeLp.parent_token.in_(
+                        select(InformeLp.token).where(InformeLp.lp_id == lp_id)
+                    )
+                )
+            )
+        ) or 0
+
+        top_advocates.append(
+            TopAdvocate(
+                lp_id=lp_id,
+                lp_nombre=nombre_completo,
+                compartio_count=shares,
+                aperturas_downstream=int(downstream),
+                convertidos=int(convertidos),
+                aporte_atribuible=None,  # Sprint 6: cálculo de attribution
+            )
+        )
+
+    return InformesAnalytics(
+        total_generados=int(total_generados),
+        total_publicados=int(total_publicados),
+        total_aperturas=int(total_aperturas),
+        total_compartidos=int(total_compartidos),
+        tiempo_promedio_segundos=int(tiempo_promedio) if tiempo_promedio else None,
+        tasa_apertura=round(tasa_apertura, 4),
+        tasa_share=round(tasa_share, 4),
+        tasa_conversion=round(tasa_conversion, 4),
+        tasa_viral=round(tasa_viral, 4),
+        top_advocates=top_advocates,
+    )
 
 
 @router.post(

@@ -11,11 +11,15 @@
  */
 import { use, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, Mail } from "lucide-react";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { ArrowDown, Mail, Share2 } from "lucide-react";
+import { ApiError } from "@/lib/api/client";
 import { HeroSection } from "@/components/informe-lp/HeroSection";
 import { PerformanceSection } from "@/components/informe-lp/PerformanceSection";
 import { OutlookSection } from "@/components/informe-lp/OutlookSection";
+import { EmpresaShowcaseGrid } from "@/components/informe-lp/EmpresaShowcase";
+import { TuPosicionSection } from "@/components/informe-lp/TuPosicionSection";
+import { ESGImpactSection } from "@/components/informe-lp/ESGImpactSection";
+import { ShareCard } from "@/components/informe-lp/ShareCard";
 import type { InformeLpPublicView } from "@/lib/api/schema";
 
 const API_BASE =
@@ -31,6 +35,7 @@ export default function InformePage({
   const [scrollMilestones, setScrollMilestones] = useState<Set<number>>(
     new Set(),
   );
+  const [shareOpen, setShareOpen] = useState(false);
 
   const query = useQuery<InformeLpPublicView, Error>({
     queryKey: ["informe", token],
@@ -133,9 +138,15 @@ export default function InformePage({
 
       <PerformanceSection informe={informe} />
 
+      <TuPosicionSection informe={informe} />
+
+      <EmpresaShowcaseGrid informe={informe} />
+
+      <ESGImpactSection informe={informe} />
+
       <OutlookSection informe={informe} />
 
-      {/* CTA section minimal — full version en Sprint 5 con ShareCard */}
+      {/* CTA section con share */}
       <section className="bg-gradient-to-b from-cehta-green-700 to-ink-900 px-6 py-20 text-white">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-display text-3xl font-semibold sm:text-4xl">
@@ -156,6 +167,20 @@ export default function InformePage({
               <Mail className="h-4 w-4" strokeWidth={2} />
               Agendar 30 min con Camilo
             </a>
+            <button
+              type="button"
+              onClick={() => {
+                setShareOpen(true);
+                void track(token, {
+                  tipo: "share_click",
+                  seccion: "cta",
+                });
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+            >
+              <Share2 className="h-4 w-4" strokeWidth={2} />
+              Pasarlo a un colega
+            </button>
           </div>
 
           {informe.is_expired && (
@@ -166,6 +191,23 @@ export default function InformePage({
           )}
         </div>
       </section>
+
+      {/* Sticky FAB de share en mobile */}
+      <button
+        type="button"
+        onClick={() => {
+          setShareOpen(true);
+          void track(token, { tipo: "share_click", seccion: "fab" });
+        }}
+        aria-label="Compartir informe"
+        className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-cehta-green text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 sm:hidden"
+      >
+        <Share2 className="h-5 w-5" strokeWidth={2} />
+      </button>
+
+      {shareOpen && (
+        <ShareCard token={token} onClose={() => setShareOpen(false)} />
+      )}
 
       {/* Footer */}
       <footer className="bg-ink-900 px-6 py-8 text-center text-xs text-white/40">
