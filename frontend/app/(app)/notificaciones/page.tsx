@@ -66,7 +66,7 @@ export default function NotificacionesPage() {
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
 
-  const items = feed?.items ?? [];
+  const items = useMemo(() => feed?.items ?? [], [feed?.items]);
   const unreadCount = unread?.unread ?? 0;
 
   const grouped = useMemo(() => {

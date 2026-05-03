@@ -13,6 +13,7 @@ import { ProyectosRankingSkeleton } from "@/components/dashboard/ProyectosRankin
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { ActivityFeedSkeleton } from "@/components/dashboard/ActivityFeedSkeleton";
 import { MiDiaWidget } from "@/components/dashboard/MiDiaWidget";
+import { MiSemanaWidget } from "@/components/dashboard/MiSemanaWidget";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { PipelineRegulatorio } from "@/components/dashboard/PipelineRegulatorio";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
@@ -101,6 +102,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
         <ErrorBoundary>
           <ChartsGrid />
+        </ErrorBoundary>
+
+        {/* V4 fase 7.15 — Mi semana: timeline horizontal 7 días */}
+        <ErrorBoundary>
+          <MiSemanaWidget />
         </ErrorBoundary>
 
         {/* V4 fase 7.10 — Compliance leaderboard cross-empresa */}

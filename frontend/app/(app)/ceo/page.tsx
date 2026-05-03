@@ -10,7 +10,7 @@ import { ExecutiveSummaryBanner } from "@/components/ceo/ExecutiveSummaryBanner"
 import { CeoToolbar } from "@/components/ceo/CeoToolbar";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
-import { toRelative } from "@/lib/format";
+import { DataFreshness } from "@/components/shared/DataFreshness";
 import type { CEOConsolidatedReport } from "@/lib/api/schema";
 
 export const metadata = {
@@ -54,9 +54,10 @@ export default async function CeoDashboardPage() {
           <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
             Dashboard CEO
           </h1>
-          <p className="text-sm text-ink-500">
-            Vista consolidada del portafolio · actualizado{" "}
-            {toRelative(report.last_updated)}
+          <p className="flex items-center gap-2 text-sm text-ink-500">
+            Vista consolidada del portafolio
+            <span aria-hidden>·</span>
+            <DataFreshness updatedAt={report.last_updated} />
           </p>
         </div>
         <CeoToolbar />

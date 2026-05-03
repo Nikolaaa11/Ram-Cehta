@@ -6,6 +6,9 @@ import { MobileLayoutShell } from "@/components/layout/MobileLayoutShell";
 import { RealtimeProvider } from "@/components/realtime/RealtimeProvider";
 import { TwoFactorBanner } from "@/components/auth/TwoFactorBanner";
 import { TourTrigger } from "@/components/onboarding/TourTrigger";
+import { QuickActionsFab } from "@/components/layout/QuickActionsFab";
+import { GlobalShortcutsHelp } from "@/components/layout/GlobalShortcutsHelp";
+import { GlobalNavShortcuts } from "@/components/layout/GlobalNavShortcuts";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -36,6 +39,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* V4 fase 4: tour de onboarding. Auto-disparo en first login;
           self-managed (renderea null si el user ya completó). */}
       <TourTrigger />
+      {/* V4 fase 7.14: FAB con quick actions globales (mobile-friendly) */}
+      <QuickActionsFab />
+      {/* V4 fase 7.14: Overlay de shortcuts globales (tecla `?`) */}
+      <GlobalShortcutsHelp />
+      {/* V4 fase 7.14: Atajos de navegación globales (g + d/c/e/r/a/p) */}
+      <GlobalNavShortcuts />
     </RealtimeProvider>
   );
 }

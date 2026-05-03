@@ -70,3 +70,144 @@
     animation: shimmer 2s linear infinite;
   }
 }
+
+/**
+ * Universal print stylesheet — V4 fase 7.15.
+ *
+ * Aplica a CUALQUIER página al hacer Ctrl+P. Las reglas:
+ *   - Sin colores de fondo (ahorra tinta + más legible)
+ *   - Tipografía serif para mejor lectura impresa
+ *   - Sin sombras, sin bordes redondeados pesados
+ *   - Tablas con borders sutiles y zebra striping mantenido
+ *   - URLs de links visibles después del texto (ej: "Ver detalle (https://...)")
+ *   - Hide tooltips, popovers, animations, hover states
+ *   - Page break sugerido entre <section data-presentation-section>
+ */
+@media print {
+  @page {
+    margin: 1.5cm 1cm;
+    size: A4;
+  }
+
+  /* Body limpio para print */
+  body {
+    background: white !important;
+    color: #1f2937 !important;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 10pt;
+    line-height: 1.45;
+  }
+
+  /* Headings con estilo notarial */
+  h1, h2, h3, h4 {
+    font-family: Georgia, serif;
+    color: #111827 !important;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  h1 { font-size: 18pt; }
+  h2 { font-size: 14pt; }
+  h3 { font-size: 12pt; }
+
+  /* Surfaces / cards: solo border simple */
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"] {
+    border-radius: 4px !important;
+    box-shadow: none !important;
+  }
+
+  /* Sin colores de fondo (excepto rojos/amarillos que dan info crítica) */
+  [class*="bg-cehta-green"],
+  [class*="bg-info"],
+  [class*="bg-positive"],
+  [class*="bg-ink-100"],
+  [class*="bg-ink-50"],
+  [class*="bg-white"] {
+    background-color: white !important;
+    background-image: none !important;
+  }
+
+  /* Mantener fills críticos: rojos (vencido), amarillos (warning) */
+  [class*="bg-negative"] {
+    background-color: #fee2e2 !important;
+  }
+  [class*="bg-warning"] {
+    background-color: #fef3c7 !important;
+  }
+
+  /* Tablas con borders sutiles */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 9pt;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 4px 6px;
+    text-align: left;
+  }
+  thead {
+    background: #f3f4f6 !important;
+    font-weight: 600;
+  }
+
+  /* Footer URL para enlaces (bookmarkable) */
+  a[href^="http"]::after,
+  a[href^="https"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8pt;
+    color: #6b7280;
+    word-break: break-all;
+  }
+  a[href^="/"]::after,
+  a[href^="#"]::after {
+    content: "";
+  }
+
+  /* Hide chrome, tooltips, animations */
+  [data-radix-popper-content-wrapper],
+  [role="tooltip"],
+  [class*="animate-"],
+  .print\\:hidden,
+  button[aria-label*="Cerrar"],
+  button[aria-label*="cerrar"] {
+    display: none !important;
+  }
+
+  /* Page break entre secciones presentables */
+  section[data-presentation-section] {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Asegurar que los charts no se rompan a la mitad */
+  .recharts-wrapper,
+  svg {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    max-width: 100% !important;
+  }
+
+  /* Reducir espacios (papel es caro) */
+  .space-y-6 > * + * { margin-top: 12px !important; }
+  .space-y-4 > * + * { margin-top: 8px !important; }
+  .gap-6 { gap: 12px !important; }
+  .gap-4 { gap: 8px !important; }
+  .py-6 { padding-top: 0 !important; padding-bottom: 0 !important; }
+  .py-4 { padding-top: 4px !important; padding-bottom: 4px !important; }
+
+  /* Forzar visibilidad de columnas hidden en mobile */
+  .hidden { display: revert !important; }
+  .sm\\:table-cell, .md\\:table-cell, .lg\\:table-cell {
+    display: table-cell !important;
+  }
+
+  /* Footer en cada página con info de la app */
+  body::after {
+    content: "Cehta Capital · Plataforma interna · Documento generado " attr(data-print-date);
+    position: running(footer);
+    font-size: 7pt;
+    color: #9ca3af;
+  }
+}

@@ -160,7 +160,11 @@ export default function EntregablesPage() {
   const entregablesQ = useEntregables(filters);
   const countsQ = useEntregablesCounts();
 
-  const entregables = entregablesQ.data ?? [];
+  // Memo de array para que useMemo de alertasActivas no re-corra en cada render
+  const entregables = useMemo(
+    () => entregablesQ.data ?? [],
+    [entregablesQ.data],
+  );
   const counts = countsQ.data ?? {
     pendiente: 0, en_proceso: 0, entregado: 0, no_entregado: 0,
   };
