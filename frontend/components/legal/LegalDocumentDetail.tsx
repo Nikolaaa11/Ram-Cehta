@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, ExternalLink, X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { useMe } from "@/hooks/use-me";

@@ -54,7 +54,6 @@ import {
   type EntregableRead,
   useEntregables,
   useEntregablesCounts,
-  useReporteRegulatorio,
   useUpdateEntregable,
 } from "@/hooks/use-entregables";
 

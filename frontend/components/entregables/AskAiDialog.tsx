@@ -34,7 +34,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSession } from "@/hooks/use-session";
-import { apiClient, ApiError } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 interface ToolCall {

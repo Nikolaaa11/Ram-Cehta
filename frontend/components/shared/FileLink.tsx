@@ -21,7 +21,6 @@
 import { useMemo } from "react";
 import {
   ExternalLink,
-  File,
   FileImage,
   FileSpreadsheet,
   FileText,

@@ -166,7 +166,7 @@ export function IcsSubscribeDialog({ open, onOpenChange }: Props) {
             title="Apple Calendar (Mac/iPhone)"
             body={
               <>
-                Click en "Abrir" arriba con el link{" "}
+                Click en &quot;Abrir&quot; arriba con el link{" "}
                 <code className="rounded bg-ink-100 px-1 py-0.5 font-mono text-[10px]">
                   webcal://
                 </code>{" "}

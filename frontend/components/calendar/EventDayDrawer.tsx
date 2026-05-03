@@ -8,7 +8,6 @@ import {
   ArrowRight,
   Check,
   ClipboardList,
-  ExternalLink,
   Trash2,
   X,
 } from "lucide-react";

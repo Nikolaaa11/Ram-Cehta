@@ -508,7 +508,7 @@ export default function CalendarioPage() {
                   <>
                     {" · "}
                     <span className="font-medium text-cehta-green">
-                      búsqueda: "{oblBusqueda}"
+                      búsqueda: &quot;{oblBusqueda}&quot;
                     </span>
                   </>
                 )}

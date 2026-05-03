@@ -10,7 +10,6 @@ import {
   ScrollText,
   Wallet,
   CalendarClock,
-  Building2,
   ChevronRight,
   Loader2,
   Inbox,

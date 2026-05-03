@@ -2,12 +2,11 @@
 
 import { use, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Users, Inbox } from "lucide-react";
+import { Plus, Inbox } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useMe } from "@/hooks/use-me";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { TrabajadorCreateDialog } from "@/components/empresa/TrabajadorCreateDialog";
 import { TrabajadorRow } from "@/components/empresa/TrabajadorRow";
 import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";

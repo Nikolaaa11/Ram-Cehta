@@ -230,7 +230,7 @@ export default function AiInsightsPage() {
             </h1>
             <p className="mt-1 text-sm text-ink-500">
               Anomalías generadas por Claude. Cron nightly a las 01:00 Chile.
-              Click "Generar ahora" para forzar análisis.
+              Click &quot;Generar ahora&quot; para forzar análisis.
             </p>
           </div>
           <div className="flex items-center gap-2">

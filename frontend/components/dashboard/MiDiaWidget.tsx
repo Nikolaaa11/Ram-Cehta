@@ -20,7 +20,6 @@ import {
   CalendarClock,
   CheckCircle2,
   ClipboardCheck,
-  ClipboardList,
   FileText,
   Sparkles,
 } from "lucide-react";

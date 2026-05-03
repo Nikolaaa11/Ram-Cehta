@@ -13,7 +13,7 @@
  * como saltadas, no fallan.
  */
 import { useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Download, FileUp, Loader2, Upload, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, FileUp, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {

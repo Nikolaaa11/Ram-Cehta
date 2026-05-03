@@ -26,7 +26,6 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
-  FileSignature,
   FileSpreadsheet,
   Printer,
   Sparkles,
@@ -51,14 +50,6 @@ const CATEGORIA_BG: Record<string, string> = {
   ASAMBLEA: "bg-yellow-100 text-yellow-800 print:bg-white",
   OPERACIONAL: "bg-emerald-100 text-emerald-800 print:bg-white",
 };
-
-function formatFecha(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString("es-CL", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function formatFechaCorta(iso: string): string {
   return new Date(iso + "T00:00:00").toLocaleDateString("es-CL", {
