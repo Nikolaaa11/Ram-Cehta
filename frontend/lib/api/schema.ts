@@ -378,6 +378,77 @@ export interface GanttSyncAllResult {
   message: string;
 }
 
+// ─── V4 fase 8.2: Upcoming Tasks (Kanban + Secretaria AI) ──────────────────
+
+export interface HitoConContexto {
+  hito_id: number;
+  nombre: string;
+  descripcion?: string | null;
+  estado: string;
+  fecha_planificada?: string | null;
+  fecha_completado?: string | null;
+  progreso_pct: number;
+  encargado?: string | null;
+  dias_hasta_vencimiento?: number | null;
+  proyecto_id: number;
+  proyecto_nombre: string;
+  empresa_codigo: string;
+  empresa_razon_social?: string | null;
+}
+
+export interface OwnerCount {
+  encargado: string;
+  pendientes_count: number;
+  vencidas_count: number;
+}
+
+export interface EmpresaCount {
+  empresa_codigo: string;
+  razon_social?: string | null;
+  total_hitos: number;
+  pendientes: number;
+  en_progreso: number;
+  completados: number;
+}
+
+export interface UpcomingStats {
+  total_hitos: number;
+  total_pendientes: number;
+  total_en_progreso: number;
+  total_completados: number;
+  vencidas_count: number;
+  completadas_ultima_semana: number;
+  completadas_semana_anterior: number;
+  owners_top: OwnerCount[];
+  empresas_top: EmpresaCount[];
+}
+
+export interface UpcomingTasksResponse {
+  vencidas: HitoConContexto[];
+  hoy: HitoConContexto[];
+  esta_semana: HitoConContexto[];
+  proximas_2_semanas: HitoConContexto[];
+  sin_fecha: HitoConContexto[];
+  stats: UpcomingStats;
+}
+
+export interface HitoQuickEdit {
+  estado?: EstadoHito;
+  progreso_pct?: number;
+  fecha_planificada?: string | null;
+  fecha_completado?: string | null;
+  encargado?: string | null;
+  descripcion?: string | null;
+}
+
+export interface SecretariaBriefResponse {
+  bullets: string[];
+  raw_text: string;
+  model: string;
+  cached: boolean;
+  generated_at: string;
+}
+
 // ─── Calendar (V3 fase 5) ────────────────────────────────────────────────────
 
 export type TipoEvento =

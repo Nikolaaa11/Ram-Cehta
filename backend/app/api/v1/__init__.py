@@ -22,6 +22,7 @@ from app.api.v1 import (
     f29,
     fondos,
     health,
+    informes_lp,
     legal,
     me_preferences,
     movimientos,
@@ -88,3 +89,7 @@ api_router.include_router(api_tokens.router, prefix="/api-tokens", tags=["api-to
 api_router.include_router(portfolio.router, prefix="/portfolio", tags=["portfolio"])
 # V4 fase 6: entregables regulatorios (CMF / CORFO / UAF / Auditorías) — compliance AFIS S.A.
 api_router.include_router(entregables.router, prefix="/entregables", tags=["entregables"])
+# V4 fase 9: Informes LP virales — pipeline LPs + reportes con tracking 1→N.
+# Router sin prefix porque expone DOS recursos siblings: /lps y /informes-lp.
+# Las rutas /informes-lp/by-token/{token}/* son PÚBLICAS (token = auth).
+api_router.include_router(informes_lp.router, tags=["informes-lp"])

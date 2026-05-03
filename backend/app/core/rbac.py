@@ -59,6 +59,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "empresa:update",
         # Suscripciones — admin puede editar (firmado, fecha_firma, contrato_ref).
         "suscripcion:update",
+        # Informes LP virales (V4 fase 9) — admin gestiona LPs e informes.
+        "lp:read", "lp:create", "lp:update", "lp:delete",
+        "informe_lp:read", "informe_lp:create", "informe_lp:update",
+        "informe_lp:publish", "informe_lp:delete",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
@@ -82,6 +86,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "document:analyze",
         # Suscripciones — finance puede editar (operativo).
         "suscripcion:update",
+        # Informes LP — finance puede generar y editar pero NO publicar
+        # (publicar = mandar email al LP, decisión del GP).
+        "lp:read", "lp:create", "lp:update",
+        "informe_lp:read", "informe_lp:create", "informe_lp:update",
     }),
     "viewer": frozenset({
         "oc:read",

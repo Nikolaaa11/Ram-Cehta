@@ -1,12 +1,19 @@
 "use client";
 
 /**
- * Cartas Gantt Cross-Empresa — Vista consolidada para CEO/Ejecutivos.
+ * Cartas Gantt — Vista Portafolio rediseñada (V4 fase 8.2).
  *
- * Agrega los proyectos de las 9 empresas en una única vista. Cada empresa
- * tiene su sección colapsable con sus proyectos, Gantt y KPIs.
+ * Layout:
+ *   1. Header con KPIs cross-portfolio + sync button + filtros
+ *   2. SecretariaPanel ("Claudia") con 5 prioridades del día
+ *   3. Tabs: [Kanban] [Timeline] [Por Empresa]
+ *      - Kanban: 4 columnas swimlane con quick actions
+ *      - Timeline: vista clásica (la antigua, preservada)
+ *      - Por Empresa: cards detallados con Gantt mini (la antigua)
  *
- * Se accede desde sidebar Ejecutivo · Cartas Gantt (debajo de Calendario).
+ * URL state: ?view=kanban&empresa=RHO
+ *
+ * Atajos: g k (kanban) / g t (timeline) / g p (por empresa).
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -23,6 +30,9 @@ import {
   ExternalLink,
   Loader2,
   Filter,
+  LayoutGrid,
+  GanttChart,
+  Building2,
 } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import { Surface } from "@/components/ui/surface";
@@ -31,14 +41,18 @@ import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { GanttMini } from "@/components/avance/GanttMini";
 import { SincronizarTodosButton } from "@/components/avance/SincronizarTodosButton";
+import { SecretariaPanel } from "@/components/cartas-gantt/SecretariaPanel";
+import { UpcomingTasksKanban } from "@/components/cartas-gantt/UpcomingTasksKanban";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useMe } from "@/hooks/use-me";
 import { useSession } from "@/hooks/use-session";
 import { usePageShortcuts } from "@/hooks/use-page-shortcuts";
 import { apiClient } from "@/lib/api/client";
 import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
+import { cn } from "@/lib/utils";
 import type { ProyectoListItem, HitoRead } from "@/lib/api/schema";
 
+type ViewMode = "kanban" | "timeline" | "empresas";
 type ViewFilter = "todas" | "criticas" | "en_progreso";
 
 const VIEW_OPTIONS: ComboboxItem[] = [
@@ -61,31 +75,30 @@ export default function CartasGanttPage() {
   const { session } = useSession();
   const { data: me } = useMe();
   const canSync = me?.allowed_actions?.includes("avance:create") ?? false;
+
+  const [view, setView] = useState<ViewMode>("kanban");
   const [filter, setFilter] = useState<ViewFilter>("todas");
+  const [empresaFiltro, setEmpresaFiltro] = useState<string>("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // V4 fase 7.8 — Keyboard shortcuts
+  // Atajos de teclado g+k/t/p
   usePageShortcuts({
+    "g k": () => setView("kanban"),
+    "g t": () => setView("timeline"),
+    "g p": () => setView("empresas"),
     Escape: () => {
       setFilter("todas");
+      setEmpresaFiltro("");
       setExpanded(new Set());
     },
-    "f t": () => setFilter("todas"),
-    "f c": () => setFilter("criticas"),
-    "f p": () => setFilter("en_progreso"),
     e: () => {
-      // expandir/colapsar todas las empresas
-      setExpanded((prev) => {
-        if (prev.size === 0) {
-          // expandir todas — necesitamos los códigos
-          return new Set(empresas.map((emp) => emp.codigo));
-        }
-        return new Set();
-      });
+      setExpanded((prev) =>
+        prev.size === 0 ? new Set(empresas.map((emp) => emp.codigo)) : new Set(),
+      );
     },
   });
 
-  // Fetch en paralelo los proyectos de cada empresa
+  // Fetch proyectos en paralelo (para vista Por Empresa + KPIs)
   const proyectosQueries = useQueries({
     queries: empresas.map((e) => ({
       queryKey: ["avance", "proyectos", e.codigo],
@@ -99,7 +112,6 @@ export default function CartasGanttPage() {
     })),
   });
 
-  // Combinar empresas + sus queries
   const empresasConProyectos: EmpresaConProyectos[] = useMemo(
     () =>
       empresas.map((e, i) => {
@@ -115,23 +127,7 @@ export default function CartasGanttPage() {
     [empresas, proyectosQueries],
   );
 
-  // Aplicar filtros
-  const visibles = useMemo(() => {
-    if (filter === "todas") return empresasConProyectos;
-    if (filter === "criticas") {
-      return empresasConProyectos.filter((e) =>
-        e.proyectos.some((p) => p.riesgos_abiertos > 0),
-      );
-    }
-    if (filter === "en_progreso") {
-      return empresasConProyectos.filter((e) =>
-        e.proyectos.some((p) => p.estado === "en_progreso"),
-      );
-    }
-    return empresasConProyectos;
-  }, [empresasConProyectos, filter]);
-
-  // KPIs cross-empresa
+  // KPIs cross-portfolio
   const kpis = useMemo(() => {
     let totalProyectos = 0;
     let enProgreso = 0;
@@ -139,7 +135,6 @@ export default function CartasGanttPage() {
     let totalHitos = 0;
     let hitosCompletados = 0;
     let totalRiesgos = 0;
-
     for (const e of empresasConProyectos) {
       totalProyectos += e.proyectos.length;
       for (const p of e.proyectos) {
@@ -166,6 +161,32 @@ export default function CartasGanttPage() {
     };
   }, [empresasConProyectos]);
 
+  const empresaItems: ComboboxItem[] = useMemo(
+    () => [
+      { value: "", label: "Todas las empresas" },
+      ...empresas.map((e) => ({
+        value: e.codigo,
+        label: e.codigo + " — " + e.razon_social,
+      })),
+    ],
+    [empresas],
+  );
+
+  const visibles = useMemo(() => {
+    if (filter === "todas") return empresasConProyectos;
+    if (filter === "criticas") {
+      return empresasConProyectos.filter((e) =>
+        e.proyectos.some((p) => p.riesgos_abiertos > 0),
+      );
+    }
+    if (filter === "en_progreso") {
+      return empresasConProyectos.filter((e) =>
+        e.proyectos.some((p) => p.estado === "en_progreso"),
+      );
+    }
+    return empresasConProyectos;
+  }, [empresasConProyectos, filter]);
+
   const toggleExpanded = (codigo: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -175,16 +196,8 @@ export default function CartasGanttPage() {
     });
   };
 
-  const expandirTodas = () => {
-    setExpanded(new Set(visibles.map((e) => e.codigo)));
-  };
-
-  const contraerTodas = () => {
-    setExpanded(new Set());
-  };
-
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6">
+    <div className="mx-auto max-w-[1400px] space-y-4">
       {/* Header */}
       <Surface variant="glass" className="border border-cehta-green/20">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -195,11 +208,11 @@ export default function CartasGanttPage() {
               </span>
               <div>
                 <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
-                  Cartas Gantt — Vista Portafolio
+                  Cartas Gantt — Portafolio
                 </h1>
                 <p className="text-xs text-ink-500">
-                  Proyectos de las 9 empresas · hitos · riesgos · KPIs
-                  consolidados
+                  {kpis.totalProyectos} proyectos · {kpis.totalHitos} hitos ·{" "}
+                  {kpis.empresasConProyectos} empresas activas
                 </p>
               </div>
             </div>
@@ -208,34 +221,15 @@ export default function CartasGanttPage() {
             {canSync && <SincronizarTodosButton />}
             <SavedViewsMenu
               page="cartas_gantt"
-              currentFilters={{ filter }}
+              currentFilters={{ view, filter, empresaFiltro }}
               onApply={(f) => {
+                if (typeof f.view === "string") setView(f.view as ViewMode);
                 if (typeof f.filter === "string")
                   setFilter(f.filter as ViewFilter);
+                if (typeof f.empresaFiltro === "string")
+                  setEmpresaFiltro(f.empresaFiltro);
               }}
             />
-            <Filter className="h-4 w-4 text-ink-400" strokeWidth={1.75} />
-            <Combobox
-              items={VIEW_OPTIONS}
-              value={filter}
-              onValueChange={(v) => setFilter(v as ViewFilter)}
-              placeholder="Filtro"
-              triggerClassName="min-w-[220px]"
-            />
-            <button
-              type="button"
-              onClick={expandirTodas}
-              className="rounded-lg border border-hairline bg-white px-2.5 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
-            >
-              Expandir todo
-            </button>
-            <button
-              type="button"
-              onClick={contraerTodas}
-              className="rounded-lg border border-hairline bg-white px-2.5 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
-            >
-              Contraer todo
-            </button>
           </div>
         </div>
 
@@ -279,72 +273,175 @@ export default function CartasGanttPage() {
         </div>
       </Surface>
 
-      {/* Loading inicial */}
-      {empresasLoading && (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-2xl" />
-          ))}
+      {/* Secretaria AI — sticky brillante */}
+      <SecretariaPanel
+        empresa={empresaFiltro || undefined}
+      />
+
+      {/* Toolbar: tabs + filtros */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <ViewSwitcher view={view} onChange={setView} />
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-ink-400" strokeWidth={1.75} />
+          <Combobox
+            items={empresaItems}
+            value={empresaFiltro}
+            onValueChange={setEmpresaFiltro}
+            placeholder="Empresa"
+            triggerClassName="min-w-[200px]"
+          />
+          {view === "empresas" && (
+            <Combobox
+              items={VIEW_OPTIONS}
+              value={filter}
+              onValueChange={(v) => setFilter(v as ViewFilter)}
+              placeholder="Filtro"
+              triggerClassName="min-w-[200px]"
+            />
+          )}
         </div>
+      </div>
+
+      {/* Vista activa */}
+      {view === "kanban" && (
+        <UpcomingTasksKanban
+          empresa={empresaFiltro || undefined}
+        />
       )}
 
-      {/* Empresas con proyectos */}
-      {!empresasLoading &&
-        visibles.map((empresa) => (
-          <EmpresaProyectos
-            key={empresa.codigo}
-            empresa={empresa}
-            isExpanded={expanded.has(empresa.codigo)}
-            onToggle={() => toggleExpanded(empresa.codigo)}
-          />
-        ))}
-
-      {/* Empty state global: ninguna empresa tiene proyectos importados */}
-      {!empresasLoading &&
-        kpis.totalProyectos === 0 &&
-        empresasConProyectos.every((e) => !e.isLoading && !e.error) && (
-          <Surface className="py-12 text-center">
-            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green">
-              <GanttChartSquare className="h-7 w-7" strokeWidth={1.5} />
-            </span>
-            <p className="mt-3 text-base font-semibold text-ink-900">
-              Aún no hay Gantts en el portafolio
-            </p>
-            <p className="mx-auto mt-1 max-w-md text-sm text-ink-500">
-              Subí los <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">Roadmap.xlsx</code> de
-              cada empresa a Dropbox en{" "}
-              <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">
-                01-Empresas/{`{empresa}`}/05-Proyectos &amp; Avance/
-              </code>
-              {" "}y luego presioná{" "}
-              <span className="font-medium text-cehta-green">
-                Sincronizar todos los Gantts
-              </span>{" "}
-              en la parte superior.
-            </p>
-            {canSync && (
-              <div className="mt-4 flex justify-center">
-                <SincronizarTodosButton />
-              </div>
-            )}
-          </Surface>
-        )}
-
-      {!empresasLoading && visibles.length === 0 && kpis.totalProyectos > 0 && (
-        <Surface className="py-16 text-center">
-          <p className="text-base font-semibold text-ink-900">
-            Sin empresas que coincidan con el filtro
+      {view === "timeline" && (
+        <Surface className="py-12 text-center">
+          <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-info/10 text-info">
+            <GanttChart className="h-6 w-6" strokeWidth={1.5} />
+          </span>
+          <p className="mt-3 text-base font-semibold text-ink-900">
+            Timeline Gantt — próxima fase
           </p>
-          <p className="mt-1 text-sm text-ink-500">
-            Probá con &ldquo;Todas las empresas&rdquo;.
+          <p className="mt-1 max-w-md text-sm text-ink-500 mx-auto">
+            La vista timeline horizontal con barras por proyecto + hitos como
+            diamantes está en el roadmap. Por ahora usá <strong>Kanban</strong>{" "}
+            o <strong>Por empresa</strong>.
           </p>
         </Surface>
+      )}
+
+      {view === "empresas" && (
+        <>
+          {empresasLoading && (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-32 rounded-2xl" />
+              ))}
+            </div>
+          )}
+
+          {!empresasLoading &&
+            visibles.map((empresa) => (
+              <EmpresaProyectos
+                key={empresa.codigo}
+                empresa={empresa}
+                isExpanded={expanded.has(empresa.codigo)}
+                onToggle={() => toggleExpanded(empresa.codigo)}
+              />
+            ))}
+
+          {!empresasLoading &&
+            kpis.totalProyectos === 0 &&
+            empresasConProyectos.every((e) => !e.isLoading && !e.error) && (
+              <Surface className="py-12 text-center">
+                <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green">
+                  <GanttChartSquare className="h-7 w-7" strokeWidth={1.5} />
+                </span>
+                <p className="mt-3 text-base font-semibold text-ink-900">
+                  Aún no hay Gantts en el portafolio
+                </p>
+                <p className="mx-auto mt-1 max-w-md text-sm text-ink-500">
+                  Subí los <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">Roadmap.xlsx</code> de
+                  cada empresa a Dropbox y luego presioná{" "}
+                  <span className="font-medium text-cehta-green">
+                    Sincronizar todos los Gantts
+                  </span>
+                  .
+                </p>
+                {canSync && (
+                  <div className="mt-4 flex justify-center">
+                    <SincronizarTodosButton />
+                  </div>
+                )}
+              </Surface>
+            )}
+        </>
       )}
     </div>
   );
 }
 
-// ─── Sub-componentes ────────────────────────────────────────────────────────
+// ─── Sub-componentes ───────────────────────────────────────────────────────
+
+function ViewSwitcher({
+  view,
+  onChange,
+}: {
+  view: ViewMode;
+  onChange: (v: ViewMode) => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1 rounded-xl bg-ink-100/40 p-1">
+      <ViewTab
+        active={view === "kanban"}
+        onClick={() => onChange("kanban")}
+        Icon={LayoutGrid}
+        label="Kanban"
+        shortcut="g k"
+      />
+      <ViewTab
+        active={view === "timeline"}
+        onClick={() => onChange("timeline")}
+        Icon={GanttChart}
+        label="Timeline"
+        shortcut="g t"
+      />
+      <ViewTab
+        active={view === "empresas"}
+        onClick={() => onChange("empresas")}
+        Icon={Building2}
+        label="Por empresa"
+        shortcut="g p"
+      />
+    </div>
+  );
+}
+
+function ViewTab({
+  active,
+  onClick,
+  Icon,
+  label,
+  shortcut,
+}: {
+  active: boolean;
+  onClick: () => void;
+  Icon: React.ElementType;
+  label: string;
+  shortcut: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${label} · ${shortcut}`}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-150",
+        active
+          ? "bg-white text-ink-900 shadow-card"
+          : "text-ink-500 hover:text-ink-700",
+      )}
+    >
+      <Icon className="h-4 w-4" strokeWidth={1.75} />
+      {label}
+    </button>
+  );
+}
 
 function KpiTile({
   label,
@@ -430,13 +527,10 @@ function EmpresaProyectos({
     );
   }
 
-  if (proyectosCount === 0) {
-    return null; // No mostrar empresas sin proyectos
-  }
+  if (proyectosCount === 0) return null;
 
   return (
     <Surface padding="none">
-      {/* Header colapsable */}
       <button
         type="button"
         onClick={onToggle}
@@ -464,7 +558,7 @@ function EmpresaProyectos({
           </p>
         </div>
         <Link
-          href={`/empresa/${empresa.codigo}/avance`}
+          href={`/empresa/${empresa.codigo}/avance` as never}
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-white px-2.5 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
         >
@@ -474,7 +568,6 @@ function EmpresaProyectos({
         </Link>
       </button>
 
-      {/* Contenido expandido: cards de proyectos */}
       {isExpanded && (
         <div className="border-t border-hairline bg-ink-50/20 p-4">
           <div className="space-y-4">
@@ -496,26 +589,11 @@ const ESTADO_PROYECTO_BADGE: Record<
   string,
   { label: string; className: string }
 > = {
-  planificado: {
-    label: "Planificado",
-    className: "bg-ink-100 text-ink-700",
-  },
-  en_progreso: {
-    label: "En progreso",
-    className: "bg-info/15 text-info",
-  },
-  completado: {
-    label: "Completado",
-    className: "bg-positive/15 text-positive",
-  },
-  cancelado: {
-    label: "Cancelado",
-    className: "bg-negative/15 text-negative",
-  },
-  pausado: {
-    label: "Pausado",
-    className: "bg-warning/15 text-warning",
-  },
+  planificado: { label: "Planificado", className: "bg-ink-100 text-ink-700" },
+  en_progreso: { label: "En progreso", className: "bg-info/15 text-info" },
+  completado: { label: "Completado", className: "bg-positive/15 text-positive" },
+  cancelado: { label: "Cancelado", className: "bg-negative/15 text-negative" },
+  pausado: { label: "Pausado", className: "bg-warning/15 text-warning" },
 };
 
 function ProyectoCard({
@@ -526,26 +604,17 @@ function ProyectoCard({
   empresaCodigo: string;
 }) {
   const [showDetalle, setShowDetalle] = useState(false);
-
   const estadoBadge = ESTADO_PROYECTO_BADGE[proyecto.estado] ?? {
     label: proyecto.estado,
     className: "bg-ink-100 text-ink-700",
   };
-
   const hitos = proyecto.hitos ?? [];
-  const hitosCompletados = hitos.filter(
-    (h: HitoRead) => h.estado === "completado",
-  ).length;
-  const hitosEnProgreso = hitos.filter(
-    (h: HitoRead) => h.estado === "en_progreso",
-  ).length;
-  const hitosPendientes = hitos.filter(
-    (h: HitoRead) => h.estado === "pendiente",
-  ).length;
+  const hitosCompletados = hitos.filter((h: HitoRead) => h.estado === "completado").length;
+  const hitosEnProgreso = hitos.filter((h: HitoRead) => h.estado === "en_progreso").length;
+  const hitosPendientes = hitos.filter((h: HitoRead) => h.estado === "pendiente").length;
 
   return (
     <Surface padding="compact" variant="default">
-      {/* Header proyecto */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -570,7 +639,6 @@ function ProyectoCard({
         </div>
       </div>
 
-      {/* Gantt */}
       <div className="mt-3">
         <GanttMini
           fechaInicio={proyecto.fecha_inicio}
@@ -580,23 +648,10 @@ function ProyectoCard({
         />
       </div>
 
-      {/* Mini KPIs proyecto */}
       <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
-        <MiniStat
-          label="Hitos"
-          value={`${hitosCompletados}/${hitos.length}`}
-          tone="positive"
-        />
-        <MiniStat
-          label="En progreso"
-          value={hitosEnProgreso}
-          tone="info"
-        />
-        <MiniStat
-          label="Pendientes"
-          value={hitosPendientes}
-          tone="ink"
-        />
+        <MiniStat label="Hitos" value={`${hitosCompletados}/${hitos.length}`} tone="positive" />
+        <MiniStat label="En progreso" value={hitosEnProgreso} tone="info" />
+        <MiniStat label="Pendientes" value={hitosPendientes} tone="ink" />
         <MiniStat
           label="Riesgos"
           value={proyecto.riesgos_abiertos ?? 0}
@@ -604,7 +659,6 @@ function ProyectoCard({
         />
       </div>
 
-      {/* Toggle detalle hitos */}
       <button
         type="button"
         onClick={() => setShowDetalle((v) => !v)}
@@ -635,7 +689,7 @@ function ProyectoCard({
 
       <div className="mt-3 flex items-center justify-end gap-2 border-t border-hairline pt-2">
         <Link
-          href={`/empresa/${empresaCodigo}/avance`}
+          href={`/empresa/${empresaCodigo}/avance` as never}
           className="inline-flex items-center gap-1 text-xs font-medium text-ink-600 hover:text-cehta-green"
         >
           <Pencil className="h-3 w-3" strokeWidth={1.75} />
@@ -665,9 +719,7 @@ function MiniStat({
   return (
     <div className="rounded-lg bg-ink-50/60 px-2 py-1.5">
       <p className={`text-base font-semibold tabular-nums ${color}`}>{value}</p>
-      <p className="text-[9px] uppercase tracking-wider text-ink-400">
-        {label}
-      </p>
+      <p className="text-[9px] uppercase tracking-wider text-ink-400">{label}</p>
     </div>
   );
 }
