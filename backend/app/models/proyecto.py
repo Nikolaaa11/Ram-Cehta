@@ -58,6 +58,9 @@ class Hito(Base):
     orden: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
     progreso_pct: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
     deliverable_url: Mapped[str | None] = mapped_column(Text)
+    # V4 fase 8.2: encargado para Secretaria AI + Kanban Upcoming Tasks.
+    # Nullable porque hitos legacy/manuales no tienen encargado registrado.
+    encargado: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

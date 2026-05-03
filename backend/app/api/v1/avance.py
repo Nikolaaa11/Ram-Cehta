@@ -9,9 +9,11 @@ devuelve 503 con mensaje accionable.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from datetime import date, timedelta
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import and_, func, select
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.infrastructure.repositories.avance_repository import (
@@ -22,17 +24,22 @@ from app.infrastructure.repositories.avance_repository import (
 from app.infrastructure.repositories.integration_repository import (
     IntegrationRepository,
 )
+from app.models.empresa import Empresa
 from app.models.proyecto import Hito, ProyectoEmpresa
 from app.schemas.avance import (
+    EmpresaCount,
     GanttHitoPreview,
     GanttImportPreview,
     GanttImportResult,
     GanttProyectoPreview,
     GanttSyncAllItem,
     GanttSyncAllResult,
+    HitoConContexto,
     HitoCreate,
+    HitoQuickEdit,
     HitoRead,
     HitoUpdate,
+    OwnerCount,
     ProyectoCreate,
     ProyectoDetail,
     ProyectoListItem,
@@ -42,6 +49,8 @@ from app.schemas.avance import (
     RiesgoRead,
     RiesgoUpdate,
     SyncRoadmapResponse,
+    UpcomingStats,
+    UpcomingTasksResponse,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.gantt_parser_service import (
@@ -633,6 +642,10 @@ async def _commit_parsed_gantt(
                 if not h.fecha_completado and parsed_hito.fecha_completado:
                     h.fecha_completado = parsed_hito.fecha_completado
                     changed = True
+                # V4 fase 8.2: persistir/actualizar encargado si vino del Excel
+                if parsed_hito.encargado and h.encargado != parsed_hito.encargado:
+                    h.encargado = parsed_hito.encargado
+                    changed = True
                 if changed:
                     hitos_actualizados += 1
             else:
@@ -645,6 +658,7 @@ async def _commit_parsed_gantt(
                     estado=parsed_hito.estado,
                     orden=parsed_hito.orden,
                     progreso_pct=parsed_hito.progreso_pct,
+                    encargado=parsed_hito.encargado,
                 )
                 db.add(new_h)
                 hitos_creados += 1
@@ -869,8 +883,6 @@ async def sync_all_gantts_from_dropbox(
 
     El endpoint devuelve un resumen agregado con detalle por empresa.
     """
-    from app.models.empresa import Empresa  # local import to avoid circular
-
     dbx = await _get_dropbox_service(db)
     if dbx is None:
         raise HTTPException(
@@ -1060,3 +1072,311 @@ async def delete_imported_proyectos(
         "proyectos_borrados": borrados,
         "message": f"Se eliminaron {borrados} proyectos importados desde Excel.",
     }
+
+
+# ---------------------------------------------------------------------------
+# V4 fase 8.2: Upcoming Tasks (Kanban + Secretaria AI feed)
+# ---------------------------------------------------------------------------
+
+
+def _bucket_de_fecha(fecha: date | None, hoy: date) -> str:
+    """Determina en qué bucket cae una fecha relativa a hoy.
+
+    Devuelve uno de: 'sin_fecha', 'vencidas', 'hoy', 'esta_semana',
+    'proximas_2_semanas', 'futuro'. El bucket 'futuro' (>2 semanas) NO
+    se devuelve en el response — solo cuenta para stats agregadas.
+
+    Fin de "esta semana" = domingo de la semana actual (lunes-domingo).
+    """
+    if fecha is None:
+        return "sin_fecha"
+    if fecha < hoy:
+        return "vencidas"
+    if fecha == hoy:
+        return "hoy"
+    # Fin de semana actual (domingo)
+    dias_hasta_domingo = 6 - hoy.weekday()  # Mon=0 ... Sun=6
+    fin_semana = hoy + timedelta(days=dias_hasta_domingo)
+    if fecha <= fin_semana:
+        return "esta_semana"
+    if fecha <= hoy + timedelta(days=14):
+        return "proximas_2_semanas"
+    return "futuro"
+
+
+def _hito_a_contexto(
+    hito: Hito,
+    proyecto: ProyectoEmpresa,
+    empresa: Empresa | None,
+    hoy: date,
+) -> HitoConContexto:
+    """Convierte (Hito, Proyecto, Empresa) tuple a HitoConContexto."""
+    dias = (
+        (hito.fecha_planificada - hoy).days
+        if hito.fecha_planificada is not None
+        else None
+    )
+    return HitoConContexto(
+        hito_id=hito.hito_id,
+        nombre=hito.nombre,
+        descripcion=hito.descripcion,
+        estado=hito.estado,
+        fecha_planificada=hito.fecha_planificada,
+        fecha_completado=hito.fecha_completado,
+        progreso_pct=hito.progreso_pct,
+        encargado=hito.encargado,
+        dias_hasta_vencimiento=dias,
+        proyecto_id=hito.proyecto_id,
+        proyecto_nombre=proyecto.nombre,
+        empresa_codigo=proyecto.empresa_codigo,
+        empresa_razon_social=empresa.razon_social if empresa else None,
+    )
+
+
+@router.get(
+    "/portfolio/upcoming-tasks",
+    response_model=UpcomingTasksResponse,
+    dependencies=[Depends(require_scope("avance:read"))],
+)
+async def upcoming_tasks(
+    user: CurrentUser,
+    db: DBSession,
+    empresa: str | None = Query(None, description="Filtrar por empresa_codigo"),
+    encargado: str | None = Query(None, description="Filtrar por encargado"),
+) -> UpcomingTasksResponse:
+    """Buckets temporales cross-empresa para Kanban + Secretaria AI.
+
+    Filtra hitos con `estado IN ('pendiente', 'en_progreso')` (las
+    completadas y canceladas no van al Kanban). Para stats de tendencia
+    incluye conteo separado de completadas última semana vs anterior.
+
+    Cap defensivo: máximo 200 hitos por bucket — si una empresa tiene
+    más se truncan (en frontend mostramos "+N más" link a la vista
+    completa de la empresa).
+
+    El response es self-contained: el frontend no necesita queries
+    adicionales para mostrar nombre de empresa/proyecto/encargado.
+    """
+    hoy = date.today()
+    inicio_semana_pasada = hoy - timedelta(days=hoy.weekday() + 7)
+    inicio_semana_actual = hoy - timedelta(days=hoy.weekday())
+
+    # Cargar empresas en un dict para lookup O(1) al armar el contexto
+    q_empresas = select(Empresa)
+    empresas_list = list((await db.scalars(q_empresas)).all())
+    empresas_by_codigo = {e.codigo: e for e in empresas_list}
+
+    # Query principal: hitos pendientes/en_progreso + join con proyecto
+    q = (
+        select(Hito, ProyectoEmpresa)
+        .join(ProyectoEmpresa, Hito.proyecto_id == ProyectoEmpresa.proyecto_id)
+        .where(Hito.estado.in_(["pendiente", "en_progreso"]))
+        .order_by(Hito.fecha_planificada.asc().nullslast(), Hito.hito_id)
+    )
+    if empresa:
+        q = q.where(ProyectoEmpresa.empresa_codigo == empresa)
+    if encargado:
+        q = q.where(Hito.encargado == encargado)
+
+    rows = (await db.execute(q)).all()
+
+    # Distribución por buckets + cap por bucket
+    BUCKET_CAP = 200
+    buckets: dict[str, list[HitoConContexto]] = {
+        "vencidas": [],
+        "hoy": [],
+        "esta_semana": [],
+        "proximas_2_semanas": [],
+        "sin_fecha": [],
+    }
+
+    # Agregadores para stats
+    total_pendientes = 0
+    total_en_progreso = 0
+    vencidas_count = 0
+    by_owner: dict[str, dict[str, int]] = {}  # email -> {pendientes, vencidas}
+    by_empresa: dict[str, dict[str, int]] = {}  # codigo -> counts
+
+    for hito, proyecto in rows:
+        empresa_obj = empresas_by_codigo.get(proyecto.empresa_codigo)
+        bucket = _bucket_de_fecha(hito.fecha_planificada, hoy)
+
+        if bucket in buckets and len(buckets[bucket]) < BUCKET_CAP:
+            buckets[bucket].append(
+                _hito_a_contexto(hito, proyecto, empresa_obj, hoy)
+            )
+
+        # Stats globales
+        if hito.estado == "pendiente":
+            total_pendientes += 1
+        elif hito.estado == "en_progreso":
+            total_en_progreso += 1
+        if bucket == "vencidas":
+            vencidas_count += 1
+
+        # Por owner
+        if hito.encargado:
+            d = by_owner.setdefault(
+                hito.encargado, {"pendientes": 0, "vencidas": 0}
+            )
+            d["pendientes"] += 1
+            if bucket == "vencidas":
+                d["vencidas"] += 1
+
+        # Por empresa
+        d_emp = by_empresa.setdefault(
+            proyecto.empresa_codigo,
+            {"total": 0, "pendientes": 0, "en_progreso": 0, "completados": 0},
+        )
+        d_emp["total"] += 1
+        if hito.estado == "pendiente":
+            d_emp["pendientes"] += 1
+        elif hito.estado == "en_progreso":
+            d_emp["en_progreso"] += 1
+
+    # Completados última semana (para tendencia en stats)
+    q_completados = (
+        select(func.count(Hito.hito_id))
+        .where(Hito.estado == "completado")
+        .where(Hito.fecha_completado >= inicio_semana_actual)
+    )
+    if empresa:
+        q_completados = q_completados.join(
+            ProyectoEmpresa, Hito.proyecto_id == ProyectoEmpresa.proyecto_id
+        ).where(ProyectoEmpresa.empresa_codigo == empresa)
+    completadas_ultima = (await db.scalar(q_completados)) or 0
+
+    q_completados_prev = (
+        select(func.count(Hito.hito_id))
+        .where(Hito.estado == "completado")
+        .where(
+            and_(
+                Hito.fecha_completado >= inicio_semana_pasada,
+                Hito.fecha_completado < inicio_semana_actual,
+            )
+        )
+    )
+    if empresa:
+        q_completados_prev = q_completados_prev.join(
+            ProyectoEmpresa, Hito.proyecto_id == ProyectoEmpresa.proyecto_id
+        ).where(ProyectoEmpresa.empresa_codigo == empresa)
+    completadas_prev = (await db.scalar(q_completados_prev)) or 0
+
+    # Total completados (lookup separado, no estaba en query principal)
+    q_total_completados = select(func.count(Hito.hito_id)).where(
+        Hito.estado == "completado"
+    )
+    if empresa:
+        q_total_completados = q_total_completados.join(
+            ProyectoEmpresa, Hito.proyecto_id == ProyectoEmpresa.proyecto_id
+        ).where(ProyectoEmpresa.empresa_codigo == empresa)
+    total_completados = (await db.scalar(q_total_completados)) or 0
+
+    # Top 5 owners (ordenados por vencidas desc, después pendientes desc)
+    owners_top = sorted(
+        [
+            OwnerCount(
+                encargado=email,
+                pendientes_count=data["pendientes"],
+                vencidas_count=data["vencidas"],
+            )
+            for email, data in by_owner.items()
+        ],
+        key=lambda o: (o.vencidas_count, o.pendientes_count),
+        reverse=True,
+    )[:5]
+
+    # Top 5 empresas por total de hitos activos
+    empresas_top = sorted(
+        [
+            EmpresaCount(
+                empresa_codigo=cod,
+                razon_social=empresas_by_codigo[cod].razon_social
+                if cod in empresas_by_codigo
+                else None,
+                total_hitos=data["total"],
+                pendientes=data["pendientes"],
+                en_progreso=data["en_progreso"],
+                completados=by_empresa.get(cod, {}).get("completados", 0),
+            )
+            for cod, data in by_empresa.items()
+        ],
+        key=lambda e: e.total_hitos,
+        reverse=True,
+    )[:5]
+
+    return UpcomingTasksResponse(
+        vencidas=buckets["vencidas"],
+        hoy=buckets["hoy"],
+        esta_semana=buckets["esta_semana"],
+        proximas_2_semanas=buckets["proximas_2_semanas"],
+        sin_fecha=buckets["sin_fecha"],
+        stats=UpcomingStats(
+            total_hitos=total_pendientes + total_en_progreso + total_completados,
+            total_pendientes=total_pendientes,
+            total_en_progreso=total_en_progreso,
+            total_completados=total_completados,
+            vencidas_count=vencidas_count,
+            completadas_ultima_semana=completadas_ultima,
+            completadas_semana_anterior=completadas_prev,
+            owners_top=owners_top,
+            empresas_top=empresas_top,
+        ),
+    )
+
+
+@router.patch(
+    "/hitos/{hito_id}/quick",
+    response_model=HitoRead,
+    dependencies=[Depends(require_scope("avance:update"))],
+)
+async def quick_edit_hito(
+    user: CurrentUser,
+    db: DBSession,
+    hito_id: int,
+    body: HitoQuickEdit,
+) -> HitoRead:
+    """Endpoint optimizado para acciones inline del Kanban.
+
+    Single endpoint que cubre los 5 quick actions del prompt maestro:
+    - ✓ Marcar completado: `{"estado": "completado"}`
+    - 📅 Reasignar fecha: `{"fecha_planificada": "2026-05-15"}`
+    - 👤 Cambiar encargado: `{"encargado": "felipe@dte.cl"}`
+    - 📝 Editar descripción: `{"descripcion": "..."}`
+    - Actualizar progreso: `{"progreso_pct": 50}`
+
+    Side effects automáticos (defensa contra estados inconsistentes):
+    - Si `estado="completado"` y no se pasó `progreso_pct`, lo seteamos a 100.
+    - Si `estado="completado"` y no se pasó `fecha_completado`, hoy.
+    - Si `progreso_pct=100` y no se pasó `estado`, lo seteamos a "completado".
+    """
+    repo = HitoRepository(db)
+    hito = await repo.get(hito_id)
+    if hito is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Hito no encontrado"
+        )
+
+    payload = body.model_dump(exclude_unset=True)
+
+    # Side effects de coherencia
+    if payload.get("estado") == "completado":
+        if "progreso_pct" not in payload:
+            payload["progreso_pct"] = 100
+        if "fecha_completado" not in payload:
+            payload["fecha_completado"] = date.today()
+    if payload.get("progreso_pct") == 100 and "estado" not in payload:
+        payload["estado"] = "completado"
+        if "fecha_completado" not in payload:
+            payload["fecha_completado"] = date.today()
+    # Si vuelven a "pendiente"/"en_progreso", limpiar fecha_completado
+    if payload.get("estado") in {"pendiente", "en_progreso"}:
+        if "fecha_completado" not in payload:
+            payload["fecha_completado"] = None
+
+    for k, v in payload.items():
+        setattr(hito, k, v)
+    await db.flush()
+    await db.refresh(hito)
+    await db.commit()
+    return HitoRead.model_validate(hito)

@@ -85,6 +85,7 @@ class HitoBase(BaseModel):
     orden: int = 0
     progreso_pct: int = Field(default=0, ge=0, le=100)
     deliverable_url: str | None = None
+    encargado: str | None = None
 
 
 class HitoCreate(HitoBase):
@@ -100,6 +101,7 @@ class HitoUpdate(BaseModel):
     orden: int | None = None
     progreso_pct: int | None = Field(default=None, ge=0, le=100)
     deliverable_url: str | None = None
+    encargado: str | None = None
 
 
 class HitoRead(BaseModel):
@@ -113,10 +115,32 @@ class HitoRead(BaseModel):
     orden: int
     progreso_pct: int
     deliverable_url: str | None = None
+    encargado: str | None = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# V4 fase 8.2: Quick edit inline (PATCH /hitos/{id}/quick)
+# ---------------------------------------------------------------------------
+
+
+class HitoQuickEdit(BaseModel):
+    """Single endpoint para todas las acciones quick del Kanban.
+
+    Cualquier campo es opcional — los que vengan se aplican.
+    Si vienen `estado="completado"` y no `progreso_pct`, lo seteamos a 100.
+    Si vienen `estado="completado"` y no `fecha_completado`, lo seteamos a hoy.
+    """
+
+    estado: EstadoHito | None = None
+    progreso_pct: int | None = Field(default=None, ge=0, le=100)
+    fecha_planificada: date | None = None
+    fecha_completado: date | None = None
+    encargado: str | None = None
+    descripcion: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -290,3 +314,68 @@ class GanttSyncAllResult(BaseModel):
     hitos_creados_total: int = 0
     hitos_actualizados_total: int = 0
     message: str
+
+
+# ---------------------------------------------------------------------------
+# V4 fase 8.2: Upcoming Tasks (Kanban swimlane + Secretaria AI feed)
+# ---------------------------------------------------------------------------
+
+
+class HitoConContexto(BaseModel):
+    """Hito con metadata del proyecto + empresa para mostrar cross-portfolio."""
+
+    hito_id: int
+    nombre: str
+    descripcion: str | None = None
+    estado: str
+    fecha_planificada: date | None = None
+    fecha_completado: date | None = None
+    progreso_pct: int
+    encargado: str | None = None
+    # Días hasta vencimiento (negativo si está vencida, 0 = hoy)
+    dias_hasta_vencimiento: int | None = None
+    # Contexto del proyecto/empresa
+    proyecto_id: int
+    proyecto_nombre: str
+    empresa_codigo: str
+    empresa_razon_social: str | None = None
+
+
+class OwnerCount(BaseModel):
+    encargado: str
+    pendientes_count: int
+    vencidas_count: int
+
+
+class EmpresaCount(BaseModel):
+    empresa_codigo: str
+    razon_social: str | None = None
+    total_hitos: int
+    pendientes: int
+    en_progreso: int
+    completados: int
+
+
+class UpcomingStats(BaseModel):
+    """Stats agregadas para el header del Kanban + input de la Secretaria AI."""
+
+    total_hitos: int
+    total_pendientes: int
+    total_en_progreso: int
+    total_completados: int
+    vencidas_count: int
+    completadas_ultima_semana: int
+    completadas_semana_anterior: int  # para calcular tendencia
+    owners_top: list[OwnerCount] = Field(default_factory=list)
+    empresas_top: list[EmpresaCount] = Field(default_factory=list)
+
+
+class UpcomingTasksResponse(BaseModel):
+    """Buckets temporales cross-empresa para Kanban + Secretaria AI."""
+
+    vencidas: list[HitoConContexto] = Field(default_factory=list)
+    hoy: list[HitoConContexto] = Field(default_factory=list)
+    esta_semana: list[HitoConContexto] = Field(default_factory=list)
+    proximas_2_semanas: list[HitoConContexto] = Field(default_factory=list)
+    sin_fecha: list[HitoConContexto] = Field(default_factory=list)
+    stats: UpcomingStats

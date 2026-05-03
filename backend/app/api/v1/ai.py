@@ -37,6 +37,7 @@ from app.schemas.ai import (
     IndexTriggerResponse,
     InsightsResponse,
     MessageRead,
+    SecretariaBriefResponse,
 )
 from app.services.ai_chat_service import chat_stream
 from app.services.ai_indexing_service import KB_ROOT_TEMPLATE, index_dropbox_folder
@@ -49,6 +50,10 @@ from app.services.ai_tools_service import (
     generate_insights,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.secretaria_ai_service import (
+    SecretariaAINotConfigured,
+    generate_secretaria_brief,
+)
 
 router = APIRouter()
 
@@ -200,6 +205,62 @@ async def ai_executive_summary(
             detail=str(exc),
         ) from exc
     return ExecutiveSummaryResponse.model_validate(result)
+
+
+@router.post(
+    "/secretaria-tareas",
+    response_model=SecretariaBriefResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ai_secretaria_tareas(
+    user: CurrentUser,
+    db: DBSession,
+    empresa: str | None = Query(None, description="Filtrar por empresa_codigo"),
+    encargado: str | None = Query(None, description="Filtrar por encargado"),
+) -> SecretariaBriefResponse:
+    """V4 fase 8.2 — Secretaria AI de Tareas ("Claudia").
+
+    Llama internamente al endpoint upcoming-tasks para obtener el feed
+    de prioridades, lo resume, y le pide a Claude que genere 5 bullets
+    accionables en tono cálido + chileno-rioplatense formal.
+
+    Cache: 30 minutos en memoria (key = hash de los IDs de hitos top).
+
+    Devuelve 503 si Anthropic no está configurado — frontend debe
+    ocultar el panel.
+    """
+    from datetime import datetime as dt
+
+    from app.api.v1.avance import upcoming_tasks
+
+    # Reusamos el endpoint upcoming-tasks invocándolo como función
+    upcoming = await upcoming_tasks(
+        user=user,
+        db=db,
+        empresa=empresa,
+        encargado=encargado,
+    )
+
+    try:
+        brief = await generate_secretaria_brief(upcoming)
+    except SecretariaAINotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Error generando brief con AI: {exc}",
+        ) from exc
+
+    return SecretariaBriefResponse(
+        bullets=brief["bullets"],
+        raw_text=brief["raw_text"],
+        model=brief["model"],
+        cached=brief["cached"],
+        generated_at=dt.utcnow(),
+    )
 
 
 @router.post(

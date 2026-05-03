@@ -176,3 +176,22 @@ class ExecutiveSummaryResponse(BaseModel):
     summary: str
     generated_at: datetime
     tokens: AskTokens = Field(default_factory=AskTokens)
+
+
+# ---------------------------------------------------------------------------
+# V4 fase 8.2 — Secretaria AI de Tareas
+# ---------------------------------------------------------------------------
+
+
+class SecretariaBriefResponse(BaseModel):
+    """Brief de la Secretaria AI: 5 bullets accionables del día.
+
+    `cached=True` indica que la respuesta vino del cache de 30min (el
+    frontend puede mostrar un indicador "actualizado hace X").
+    """
+
+    bullets: list[str] = Field(default_factory=list)
+    raw_text: str
+    model: str
+    cached: bool = False
+    generated_at: datetime
