@@ -2,6 +2,7 @@ import { Receipt, CalendarClock } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
+import { EmpresaSwitcher } from "@/components/empresa/EmpresaSwitcher";
 import type { ResumenCC } from "@/lib/api/schema";
 
 /**
@@ -49,22 +50,26 @@ export function ResumenHero({ data, uf, usd }: ResumenHeroProps) {
           </div>
         </div>
 
-        {(uf || usd) && (
-          <div className="flex items-center gap-2 text-xs">
-            {uf && (
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-ink-100/60 px-3 py-1.5 tabular-nums text-ink-700">
-                <span className="font-semibold">UF</span>
-                {uf}
-              </span>
-            )}
-            {usd && (
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-ink-100/60 px-3 py-1.5 tabular-nums text-ink-700">
-                <span className="font-semibold">USD</span>
-                {usd}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="flex flex-col items-end gap-2">
+          {/* V4 fase 7.16 — switcher para saltar entre empresas sin volver al sidebar */}
+          <EmpresaSwitcher currentCodigo={data.empresa_codigo} />
+          {(uf || usd) && (
+            <div className="flex items-center gap-2 text-xs">
+              {uf && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl bg-ink-100/60 px-3 py-1.5 tabular-nums text-ink-700">
+                  <span className="font-semibold">UF</span>
+                  {uf}
+                </span>
+              )}
+              {usd && (
+                <span className="inline-flex items-center gap-1.5 rounded-xl bg-ink-100/60 px-3 py-1.5 tabular-nums text-ink-700">
+                  <span className="font-semibold">USD</span>
+                  {usd}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </Surface>
   );

@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { useDashboardQuery } from "@/lib/dashboard/use-dashboard-query";
 import { dashboardKeys } from "@/lib/dashboard/queries";
 import { toCLP, toRelative } from "@/lib/format";
+import { ErrorState } from "@/components/shared/ErrorState";
 import type { MovimientoReciente } from "@/lib/api/schema";
 import { ActivityFeedSkeleton } from "./ActivityFeedSkeleton";
 
@@ -32,14 +33,11 @@ export function ActivityFeed() {
 
   if (query.isError) {
     return (
-      <Surface className="border border-negative/20 bg-negative/5">
-        <Surface.Header>
-          <Surface.Title className="text-negative">
-            No se pudo cargar la actividad
-          </Surface.Title>
-          <Surface.Subtitle>{query.error.message}</Surface.Subtitle>
-        </Surface.Header>
-      </Surface>
+      <ErrorState
+        title="No se pudo cargar la actividad"
+        error={query.error}
+        onRetry={() => query.refetch()}
+      />
     );
   }
 
