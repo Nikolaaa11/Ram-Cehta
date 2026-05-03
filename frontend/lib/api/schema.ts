@@ -449,6 +449,116 @@ export interface SecretariaBriefResponse {
   generated_at: string;
 }
 
+// ─── V4 fase 9: Informes LP virales ──────────────────────────────────────────
+
+export type EstadoLp = "pipeline" | "cualificado" | "activo" | "inactivo" | "declinado";
+export type PerfilInversor = "conservador" | "moderado" | "agresivo" | "esg_focused";
+export type TipoInforme = "periodico" | "pitch_inicial" | "update_mensual" | "tear_sheet" | "memoria_anual";
+export type EstadoInforme = "borrador" | "publicado" | "archivado";
+
+export interface LpRead {
+  lp_id: number;
+  nombre: string;
+  apellido?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  empresa?: string | null;
+  rol?: string | null;
+  estado: EstadoLp;
+  perfil_inversor?: PerfilInversor | null;
+  intereses: string[];
+  relationship_owner?: string | null;
+  aporte_total?: number | null;
+  aporte_actual?: number | null;
+  empresas_invertidas: string[];
+  notas?: string | null;
+  primer_contacto?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InformeLpKpiDestacado {
+  valor_numero?: number | null;
+  valor_string?: string | null;
+  label: string;
+}
+
+export interface InformeLpHero {
+  titulo: string;
+  subtitulo?: string | null;
+  kpi_destacado?: InformeLpKpiDestacado | null;
+}
+
+export interface InformeLpEmpresaShowcase {
+  headline: string;
+  parrafo: string;
+  metricas_destacadas?: { valor: string; label: string }[];
+}
+
+export interface InformeLpCta {
+  cta_principal: string;
+  cta_secundario_1?: string;
+  cta_secundario_2?: string;
+}
+
+export interface InformeLpPublicView {
+  informe_id: number;
+  titulo: string;
+  periodo?: string | null;
+  tipo: string;
+  hero_titulo?: string | null;
+  hero_narrativa?: string | null;
+  secciones?: Record<string, unknown> | null;
+  publicado_at?: string | null;
+  expira_at?: string | null;
+  is_expired: boolean;
+  lp_nombre?: string | null;
+  lp_apellido?: string | null;
+  lp_empresa?: string | null;
+  parent_lp_nombre?: string | null;
+  live_data?: {
+    generated_at?: string;
+    lp?: Record<string, unknown> | null;
+    portfolio_kpis?: {
+      aum_total_clp?: number | null;
+      empresas_count?: number | null;
+      empresas_total_catalogo?: number;
+      empresas_con_actividad?: number;
+      proyectos_total?: number;
+      proyectos_en_progreso?: number;
+      proyectos_completados?: number;
+      hitos_total?: number;
+      hitos_completados?: number;
+      pct_avance_global?: number;
+    };
+    empresas?: Record<string, unknown>;
+    hitos_proximos?: {
+      hito_id: number;
+      nombre: string;
+      fecha_planificada?: string | null;
+      proyecto: string;
+      empresa_codigo: string;
+      encargado?: string | null;
+      dias_hasta: number;
+      progreso_pct: number;
+    }[];
+    esg_impact?: {
+      mw_instalados?: number | null;
+      mwh_anuales?: number | null;
+      co2_evitado_ton_año?: number | null;
+      autos_equivalentes_año?: number | null;
+      hogares_chilenos_equivalentes?: number | null;
+    };
+  } | null;
+}
+
+export interface InformeLpTrackEvent {
+  tipo: "open" | "scroll" | "section_view" | "cta_click" | "share_click" | "pdf_download" | "video_play" | "time_spent" | "agendar_click";
+  seccion?: string;
+  valor_numerico?: number;
+  valor_texto?: string;
+}
+
 // ─── Calendar (V3 fase 5) ────────────────────────────────────────────────────
 
 export type TipoEvento =

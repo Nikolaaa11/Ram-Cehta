@@ -54,6 +54,16 @@ from app.schemas.informe_lp import (
     TrackEventRequest,
     TrackEventResponse,
 )
+from app.services.informes_lp_service import (
+    InformesLpAINotConfigured,
+    generate_full_informe_narrativa,
+)
+from app.services.portfolio_data_service import (
+    build_live_data,
+    pull_empresa_data,
+    pull_lp_context,
+    pull_portfolio_kpis,
+)
 
 router = APIRouter()
 
@@ -83,39 +93,102 @@ def _is_expired(expira_at: datetime | None) -> bool:
     return datetime.utcnow().replace(tzinfo=expira_at.tzinfo) > expira_at
 
 
-def _build_initial_secciones(
+def _resolver_empresas_destacadas(
     request: InformeLpGenerateRequest,
     lp: Lp | None,
     empresas: list[Empresa],
-) -> dict[str, Any]:
-    """Build placeholder secciones para Sprint 1.
+) -> list[str]:
+    """Resuelve qué empresas mostrar en el informe.
 
-    Sprint 2 reemplazará esto con generate_informe_narrativa() del
-    service AI. Por ahora cargamos un esqueleto vacío con la estructura
-    que el frontend va a esperar.
+    Prioridad:
+    1. Las que el LP tiene en cartera (`empresas_invertidas`)
+    2. Las que el GP pidió incluir manualmente (`request.incluir_empresas`)
+    3. Default: las primeras 5 empresas del catálogo
     """
-    nombre_lp = "Inversionista"
-    if lp:
-        nombre_lp = lp.nombre + (f" {lp.apellido}" if lp.apellido else "")
-
-    # Empresas a destacar: las que el LP invirtió + las que el GP pidió incluir
-    empresas_destacadas: list[str] = []
+    destacadas: list[str] = []
     if lp and lp.empresas_invertidas:
-        empresas_destacadas.extend(lp.empresas_invertidas)
+        destacadas.extend(lp.empresas_invertidas)
     if request.incluir_empresas:
         for cod in request.incluir_empresas:
-            if cod not in empresas_destacadas:
-                empresas_destacadas.append(cod)
-    # Default: las primeras 5 empresas con datos
-    if not empresas_destacadas:
-        empresas_destacadas = [e.codigo for e in empresas[:5]]
+            if cod not in destacadas:
+                destacadas.append(cod)
+    if not destacadas:
+        destacadas = [e.codigo for e in empresas[:5]]
+    return destacadas
 
-    return {
+
+async def _build_secciones_with_ai(
+    db,  # type: ignore[no-untyped-def]
+    request: InformeLpGenerateRequest,
+    lp: Lp | None,
+    empresas: list[Empresa],
+) -> tuple[dict[str, Any], str | None, str | None]:
+    """Genera secciones del informe usando AI + datos vivos del portafolio.
+
+    Devuelve (secciones, hero_titulo, hero_narrativa).
+
+    Si Anthropic no está configurado, usa fallback templates Jinja2-like
+    para que el sistema siga funcional aunque sin la cereza AI.
+    """
+    empresas_destacadas = _resolver_empresas_destacadas(request, lp, empresas)
+
+    # Pull de datos vivos en paralelo
+    portfolio_kpis = await pull_portfolio_kpis(db)
+    lp_ctx = await pull_lp_context(db, lp.lp_id) if lp else None
+    empresas_data: dict[str, dict[str, Any]] = {}
+    for cod in empresas_destacadas:
+        empresas_data[cod] = await pull_empresa_data(db, cod)
+
+    # Intentar generación AI
+    nombre_lp = (
+        (lp.nombre + (f" {lp.apellido}" if lp.apellido else "")).strip()
+        if lp
+        else "Inversionista"
+    )
+    hero_titulo: str | None = None
+    hero_narrativa: str | None = None
+    ai_bundle: dict[str, Any] | None = None
+
+    try:
+        ai_bundle = await generate_full_informe_narrativa(
+            lp=lp_ctx,
+            portfolio_kpis=portfolio_kpis,
+            empresas_data=empresas_data,
+            periodo=request.periodo,
+            parent_token=None,  # se setea aparte cuando viene de share
+            tipo=request.tipo,
+        )
+        hero_data = ai_bundle.get("hero", {})
+        hero_titulo = hero_data.get("titulo") or f"Hola, {nombre_lp}."
+        hero_narrativa = hero_data.get("subtitulo") or "Tu informe del trimestre."
+    except InformesLpAINotConfigured:
+        # Fallback sin AI — placeholder estructurado
+        hero_titulo = f"Hola, {nombre_lp}."
+        hero_narrativa = (
+            f"Tu portafolio tiene {portfolio_kpis.get('proyectos_total', 0)} "
+            f"proyectos activos con {portfolio_kpis.get('pct_avance_global', 0)}% "
+            "de avance global."
+        )
+    except Exception as e:  # noqa: BLE001
+        hero_titulo = f"Hola, {nombre_lp}."
+        hero_narrativa = "Tu informe del trimestre."
+        ai_bundle = {"_error": str(e)}
+
+    secciones: dict[str, Any] = {
+        "hero": {
+            "kind": "hero",
+            "payload": (ai_bundle or {}).get("hero")
+            or {
+                "titulo": hero_titulo,
+                "subtitulo": hero_narrativa,
+                "kpi_destacado": None,
+            },
+        },
         "performance": {
             "kind": "performance",
             "payload": {
-                "kpis": [],  # se completa con live data al renderizar
-                "narrativa": "TBD — completar con AI en Sprint 2",
+                "kpis_snapshot": portfolio_kpis,
+                "periodo": request.periodo,
             },
         },
         "tu_posicion": {
@@ -123,48 +196,54 @@ def _build_initial_secciones(
             "payload": {
                 "aporte_total": float(lp.aporte_total) if lp and lp.aporte_total else None,
                 "aporte_actual": float(lp.aporte_actual) if lp and lp.aporte_actual else None,
-                "empresas_invertidas": list(lp.empresas_invertidas) if lp and lp.empresas_invertidas else [],
+                "empresas_invertidas": list(lp.empresas_invertidas)
+                if lp and lp.empresas_invertidas
+                else [],
             },
         },
         "empresas": {
             "kind": "empresas_showcase",
             "payload": {
                 "destacadas": empresas_destacadas,
-                "narrativas": {},  # cod → {"headline", "parrafo", "metricas"}
+                "datos": empresas_data,
+                "narrativas": (ai_bundle or {}).get("empresas", {}),
             },
         },
         "esg_impact": {
             "kind": "esg_impact",
             "payload": {
+                # Sprint 2.5: cuando el KB tenga MW reales, los pasamos acá
                 "co2_evitado_tons": None,
                 "mw_renovables": None,
                 "hogares_equivalentes": None,
                 "empleos_creados": None,
-                "narrativa": "TBD",
+                "narrativa": "Datos ESG por confirmar con KB de empresas",
             },
         },
         "outlook": {
             "kind": "outlook",
             "payload": {
                 "horizonte_meses": 6,
-                "hitos_proximos": [],  # pull en vivo desde core.hitos
-                "narrativa": "TBD",
+                # hitos_proximos se completa con live_data al renderizar
             },
         },
         "cta": {
             "kind": "cta",
-            "payload": {
-                "primario": "Agendá café con Camilo (30min)",
-                "secundario_1": "Aumentar tu posición",
-                "secundario_2": "Compartir con un colega",
+            "payload": (ai_bundle or {}).get("cta")
+            or {
+                "cta_principal": "Agendá café con Camilo (30 min)",
+                "cta_secundario_1": "Aumentar tu posición",
+                "cta_secundario_2": "Compartir con un colega",
             },
         },
         "_meta": {
             "destinatario": nombre_lp,
             "tono": request.tono,
-            "ai_generated": False,  # Sprint 2 lo pondrá en true
+            "ai_generated": ai_bundle is not None and "_error" not in ai_bundle,
+            "empresas_destacadas": empresas_destacadas,
         },
     }
+    return secciones, hero_titulo, hero_narrativa
 
 
 # ---------------------------------------------------------------------------
@@ -322,14 +401,10 @@ async def generate_informe(
         else:
             titulo = f"Reporte {body.periodo or 'periódico'}"
 
-    secciones = _build_initial_secciones(body, lp, empresas)
-
-    # Hero placeholder — Sprint 2 lo reemplaza con AI
-    nombre_lp = "Inversionista"
-    if lp:
-        nombre_lp = lp.nombre
-    hero_titulo = f"Hola, {nombre_lp}."
-    hero_narrativa = "Estamos preparando tu informe personalizado."
+    # Sprint 2: secciones generadas con AI + live data del portafolio
+    secciones, hero_titulo, hero_narrativa = await _build_secciones_with_ai(
+        db, body, lp, empresas
+    )
 
     informe = await informe_repo.create(
         lp_id=lp.lp_id if lp else None,
@@ -443,6 +518,68 @@ def _has_scope(user: Any, scope: str) -> bool:
     return scope in scopes
 
 
+@router.post(
+    "/informes-lp/{informe_id}/regenerate-narrative",
+    response_model=InformeLpRead,
+    dependencies=[Depends(require_scope("informe_lp:update"))],
+)
+async def regenerate_narrative(
+    user: CurrentUser,
+    db: DBSession,
+    informe_id: int,
+) -> InformeLpRead:
+    """Re-genera narrativas AI del informe con datos vivos actuales.
+
+    Útil cuando:
+    - El GP editó manualmente y quiere volver al output AI
+    - Pasaron días y los KPIs cambiaron significativamente
+    - Se actualizó el KB de la empresa con datos nuevos
+
+    Limpia el cache server-side de informes_lp_service para esta combo
+    de inputs y vuelve a llamar a Claude.
+    """
+    repo = InformeLpRepository(db)
+    informe = await repo.get(informe_id)
+    if informe is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Informe no encontrado"
+        )
+
+    lp_repo = LpRepository(db)
+    lp = await lp_repo.get(informe.lp_id) if informe.lp_id else None
+
+    empresas = list((await db.scalars(select(Empresa).order_by(Empresa.codigo))).all())
+
+    # Reconstruir request from informe (uso lo que tenemos en metadata)
+    request = InformeLpGenerateRequest(
+        lp_id=informe.lp_id,
+        tipo=informe.tipo,  # type: ignore[arg-type]
+        titulo=informe.titulo,
+        periodo=informe.periodo,
+        incluir_empresas=(informe.secciones or {})
+        .get("_meta", {})
+        .get("empresas_destacadas"),
+        tono=(informe.secciones or {}).get("_meta", {}).get("tono", "ejecutivo"),
+    )
+
+    # Limpiar cache del service para esta combo
+    from app.services.informes_lp_service import clear_cache as clear_ai_cache
+
+    clear_ai_cache()
+
+    secciones, hero_titulo, hero_narrativa = await _build_secciones_with_ai(
+        db, request, lp, empresas
+    )
+
+    informe.secciones = secciones
+    informe.hero_titulo = hero_titulo
+    informe.hero_narrativa = hero_narrativa
+    await db.flush()
+    await db.refresh(informe)
+    await db.commit()
+    return InformeLpRead.model_validate(informe)
+
+
 @router.delete(
     "/informes-lp/{informe_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -521,11 +658,24 @@ async def get_informe_by_token(
             if parent_lp is not None:
                 parent_lp_nombre = parent_lp.nombre
 
-    # Live data: en Sprint 2 va a pullear KPIs + ESG en tiempo real.
-    # Por ahora dejamos placeholder vacío.
-    live_data: dict[str, Any] = {
-        "_meta": {"sprint": 1, "live_data_disponible": False},
-    }
+    # Sprint 2: live data — KPIs + hitos próximos en tiempo real.
+    empresas_destacadas = (
+        (informe.secciones or {})
+        .get("_meta", {})
+        .get("empresas_destacadas")
+    ) or []
+    try:
+        live_data = await build_live_data(
+            db,
+            lp_id=informe.lp_id,
+            empresas_destacadas=empresas_destacadas,
+            horizonte_outlook_dias=180,
+        )
+    except Exception as e:  # noqa: BLE001
+        live_data = {
+            "_error": str(e),
+            "generated_at": datetime.utcnow().isoformat(),
+        }
 
     return InformeLpPublicView(
         informe_id=informe.informe_id,
