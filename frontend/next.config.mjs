@@ -5,6 +5,18 @@ const nextConfig = {
 
   typedRoutes: true,
 
+  // Redirects a nivel edge (HTTP 308 permanente) — más confiables que
+  // `redirect()` server-component cuando hay typed routes strict.
+  async redirects() {
+    return [
+      {
+        source: "/portafolio",
+        destination: "/reportes/portafolio",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       {
