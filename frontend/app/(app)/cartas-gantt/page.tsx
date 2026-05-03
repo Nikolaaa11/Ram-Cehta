@@ -30,7 +30,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { GanttMini } from "@/components/avance/GanttMini";
+import { SincronizarTodosButton } from "@/components/avance/SincronizarTodosButton";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { useMe } from "@/hooks/use-me";
 import { useSession } from "@/hooks/use-session";
 import { usePageShortcuts } from "@/hooks/use-page-shortcuts";
 import { apiClient } from "@/lib/api/client";
@@ -57,6 +59,8 @@ export default function CartasGanttPage() {
   const { data: empresas = [], isLoading: empresasLoading } =
     useCatalogoEmpresas();
   const { session } = useSession();
+  const { data: me } = useMe();
+  const canSync = me?.allowed_actions?.includes("avance:create") ?? false;
   const [filter, setFilter] = useState<ViewFilter>("todas");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -201,6 +205,7 @@ export default function CartasGanttPage() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {canSync && <SincronizarTodosButton />}
             <SavedViewsMenu
               page="cartas_gantt"
               currentFilters={{ filter }}
@@ -294,7 +299,38 @@ export default function CartasGanttPage() {
           />
         ))}
 
-      {!empresasLoading && visibles.length === 0 && (
+      {/* Empty state global: ninguna empresa tiene proyectos importados */}
+      {!empresasLoading &&
+        kpis.totalProyectos === 0 &&
+        empresasConProyectos.every((e) => !e.isLoading && !e.error) && (
+          <Surface className="py-12 text-center">
+            <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green">
+              <GanttChartSquare className="h-7 w-7" strokeWidth={1.5} />
+            </span>
+            <p className="mt-3 text-base font-semibold text-ink-900">
+              Aún no hay Gantts en el portafolio
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-sm text-ink-500">
+              Subí los <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">Roadmap.xlsx</code> de
+              cada empresa a Dropbox en{" "}
+              <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">
+                01-Empresas/{`{empresa}`}/05-Proyectos &amp; Avance/
+              </code>
+              {" "}y luego presioná{" "}
+              <span className="font-medium text-cehta-green">
+                Sincronizar todos los Gantts
+              </span>{" "}
+              en la parte superior.
+            </p>
+            {canSync && (
+              <div className="mt-4 flex justify-center">
+                <SincronizarTodosButton />
+              </div>
+            )}
+          </Surface>
+        )}
+
+      {!empresasLoading && visibles.length === 0 && kpis.totalProyectos > 0 && (
         <Surface className="py-16 text-center">
           <p className="text-base font-semibold text-ink-900">
             Sin empresas que coincidan con el filtro

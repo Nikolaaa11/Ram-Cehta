@@ -2,7 +2,13 @@
 
 import { use, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Inbox, AlertTriangle, GanttChartSquare } from "lucide-react";
+import {
+  Plus,
+  Inbox,
+  AlertTriangle,
+  GanttChartSquare,
+  FileSpreadsheet,
+} from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useMe } from "@/hooks/use-me";
 import { Surface } from "@/components/ui/surface";
@@ -13,6 +19,7 @@ import { RiesgoTable } from "@/components/avance/RiesgoTable";
 import { CrearProyectoDialog } from "@/components/avance/CrearProyectoDialog";
 import { CrearHitoDialog } from "@/components/avance/CrearHitoDialog";
 import { CrearRiesgoDialog } from "@/components/avance/CrearRiesgoDialog";
+import { ImportarGanttDialog } from "@/components/avance/ImportarGanttDialog";
 import { cn } from "@/lib/utils";
 import type { ProyectoListItem, RiesgoRead } from "@/lib/api/schema";
 
@@ -39,6 +46,7 @@ export default function EmpresaAvancePage({
   const [tab, setTab] = useState<Tab>("proyectos");
   const [proyectoOpen, setProyectoOpen] = useState(false);
   const [riesgoOpen, setRiesgoOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [hitoTarget, setHitoTarget] = useState<number | null>(null);
   const [severidad, setSeveridad] = useState<string>("");
 
@@ -78,6 +86,17 @@ export default function EmpresaAvancePage({
             </div>
             {canCreate && (
               <div className="flex items-center gap-2">
+                {tab === "proyectos" && (
+                  <button
+                    type="button"
+                    onClick={() => setImportOpen(true)}
+                    title="Importar Carta Gantt desde Excel"
+                    className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-50"
+                  >
+                    <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} />
+                    Importar Excel
+                  </button>
+                )}
                 {tab === "proyectos" ? (
                   <button
                     type="button"
@@ -196,6 +215,12 @@ export default function EmpresaAvancePage({
         onOpenChange={(o) => !o && setHitoTarget(null)}
         proyectoId={hitoTarget}
         onCreated={refresh}
+      />
+      <ImportarGanttDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        empresaCodigo={codigo}
+        onImported={refresh}
       />
     </div>
   );

@@ -15,11 +15,12 @@ export class ApiError extends Error {
 async function coreFetch<T>(
   path: string,
   options: RequestInit,
-  session: Session | null
+  session: Session | null,
+  opts: { isFormData?: boolean } = {}
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(opts.isFormData ? {} : { "Content-Type": "application/json" }),
     ...(options.headers as Record<string, string> | undefined),
   };
   if (session?.access_token) {
@@ -46,6 +47,14 @@ export const apiClient = {
   },
   post<T>(path: string, body: unknown, session: Session | null): Promise<T> {
     return coreFetch<T>(path, { method: "POST", body: JSON.stringify(body) }, session);
+  },
+  postForm<T>(path: string, formData: FormData, session: Session | null): Promise<T> {
+    return coreFetch<T>(
+      path,
+      { method: "POST", body: formData },
+      session,
+      { isFormData: true },
+    );
   },
   patch<T>(path: string, body: unknown, session: Session | null): Promise<T> {
     return coreFetch<T>(path, { method: "PATCH", body: JSON.stringify(body) }, session);

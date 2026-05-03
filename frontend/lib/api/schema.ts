@@ -241,6 +241,13 @@ export interface RiesgoRead {
   updated_at: string;
 }
 
+export interface ProyectoMetadata {
+  /** Codigo del Excel original (RHO0001, EE.CHO.001, REVTECH0002…) si fue importado */
+  codigo_excel?: string;
+  /** Familia de Gantt detectada en la importación */
+  imported_format?: GanttFormato;
+}
+
 export interface ProyectoRead {
   proyecto_id: number;
   empresa_codigo: string;
@@ -252,6 +259,7 @@ export interface ProyectoRead {
   progreso_pct: number;
   owner_email?: string | null;
   dropbox_roadmap_path?: string | null;
+  metadata_?: ProyectoMetadata | null;
   created_at: string;
   updated_at: string;
 }
@@ -291,6 +299,83 @@ export interface RiesgoCreate {
   estado?: EstadoRiesgo;
   owner_email?: string | null;
   mitigacion?: string | null;
+}
+
+// ─── Import Excel Gantt (V4 fase 8) ──────────────────────────────────────────
+
+export type GanttFormato = "classic" | "ee" | "revtech" | "unknown";
+
+export interface GanttHitoPreview {
+  nombre: string;
+  descripcion?: string | null;
+  fecha_planificada?: string | null;
+  fecha_completado?: string | null;
+  estado: string;
+  progreso_pct: number;
+  orden: number;
+  encargado?: string | null;
+  monto_real?: number | null;
+  monto_proyectado?: number | null;
+  actividad_principal?: string | null;
+  avance_decimal?: number | null;
+}
+
+export interface GanttProyectoPreview {
+  codigo: string;
+  nombre: string;
+  descripcion?: string | null;
+  estado: string;
+  fecha_inicio?: string | null;
+  fecha_fin_estimada?: string | null;
+  progreso_pct: number;
+  hitos: GanttHitoPreview[];
+}
+
+export interface GanttImportPreview {
+  formato: GanttFormato;
+  empresa_codigo: string;
+  proyectos: GanttProyectoPreview[];
+  warnings: string[];
+  total_proyectos: number;
+  total_hitos: number;
+}
+
+export interface GanttImportResult {
+  formato: GanttFormato;
+  empresa_codigo: string;
+  proyectos_creados: number;
+  proyectos_actualizados: number;
+  hitos_creados: number;
+  hitos_actualizados: number;
+  warnings: string[];
+  message: string;
+}
+
+export type GanttSyncStatus = "ok" | "not_found" | "error" | "no_dropbox";
+
+export interface GanttSyncAllItem {
+  empresa_codigo: string;
+  status: GanttSyncStatus;
+  formato?: string | null;
+  proyectos_creados: number;
+  proyectos_actualizados: number;
+  hitos_creados: number;
+  hitos_actualizados: number;
+  message: string;
+  dropbox_path?: string | null;
+}
+
+export interface GanttSyncAllResult {
+  total_empresas: number;
+  sincronizadas: number;
+  no_encontradas: number;
+  con_error: number;
+  items: GanttSyncAllItem[];
+  proyectos_creados_total: number;
+  proyectos_actualizados_total: number;
+  hitos_creados_total: number;
+  hitos_actualizados_total: number;
+  message: string;
 }
 
 // ─── Calendar (V3 fase 5) ────────────────────────────────────────────────────

@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, AlertTriangle, Calendar } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  AlertTriangle,
+  Calendar,
+  FileSpreadsheet,
+} from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { GanttMini } from "./GanttMini";
@@ -18,6 +24,12 @@ const ESTADO_VARIANT: Record<
   completado: "success",
   pausado: "warning",
   cancelado: "danger",
+};
+
+const FORMATO_LABEL: Record<string, string> = {
+  classic: "Gantt clásico",
+  ee: "Gantt EE",
+  revtech: "Gantt REVTECH",
 };
 
 interface Props {
@@ -49,9 +61,23 @@ export function ProyectoCard({
             <ChevronRight className="h-5 w-5 text-ink-500" strokeWidth={1.5} />
           )}
           <div>
-            <h3 className="font-display text-base font-semibold text-ink-900">
-              {proyecto.nombre}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="font-display text-base font-semibold text-ink-900">
+                {proyecto.nombre}
+              </h3>
+              {proyecto.metadata_?.codigo_excel && (
+                <span
+                  title={`Importado desde ${
+                    FORMATO_LABEL[proyecto.metadata_.imported_format ?? ""] ??
+                    "Excel"
+                  } · código original: ${proyecto.metadata_.codigo_excel}`}
+                  className="inline-flex items-center gap-1 rounded-md bg-cehta-green/10 px-1.5 py-0.5 font-mono text-[10px] text-cehta-green"
+                >
+                  <FileSpreadsheet className="h-3 w-3" strokeWidth={1.75} />
+                  {proyecto.metadata_.codigo_excel}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-ink-500">
               {proyecto.fecha_inicio
                 ? `${toDate(proyecto.fecha_inicio)} → ${

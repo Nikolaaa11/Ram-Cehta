@@ -199,3 +199,94 @@ class SyncRoadmapResponse(BaseModel):
     proyectos_creados: int = 0
     hitos_creados: int = 0
     message: str
+
+
+# ---------------------------------------------------------------------------
+# Import Excel Gantt (V4 fase 8)
+# ---------------------------------------------------------------------------
+
+
+class GanttHitoPreview(BaseModel):
+    """Hito tal como salió del parser, antes de ir a DB."""
+
+    nombre: str
+    descripcion: str | None = None
+    fecha_planificada: date | None = None
+    fecha_completado: date | None = None
+    estado: str
+    progreso_pct: int
+    orden: int = 0
+    encargado: str | None = None
+    monto_real: float | None = None
+    monto_proyectado: float | None = None
+    actividad_principal: str | None = None
+    avance_decimal: float | None = None
+
+
+class GanttProyectoPreview(BaseModel):
+    """Proyecto parseado con sus hitos (modo preview o commit)."""
+
+    codigo: str
+    nombre: str
+    descripcion: str | None = None
+    estado: str
+    fecha_inicio: date | None = None
+    fecha_fin_estimada: date | None = None
+    progreso_pct: int
+    hitos: list[GanttHitoPreview] = Field(default_factory=list)
+
+
+class GanttImportPreview(BaseModel):
+    """Resultado del modo preview (sin tocar DB).
+
+    El cliente lo muestra al usuario para que confirme antes del commit.
+    """
+
+    formato: Literal["classic", "ee", "revtech", "unknown"]
+    empresa_codigo: str
+    proyectos: list[GanttProyectoPreview] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    total_proyectos: int = 0
+    total_hitos: int = 0
+
+
+class GanttImportResult(BaseModel):
+    """Resultado del modo commit — qué se creó/actualizó/saltó."""
+
+    formato: Literal["classic", "ee", "revtech", "unknown"]
+    empresa_codigo: str
+    proyectos_creados: int = 0
+    proyectos_actualizados: int = 0
+    hitos_creados: int = 0
+    hitos_actualizados: int = 0
+    warnings: list[str] = Field(default_factory=list)
+    message: str
+
+
+class GanttSyncAllItem(BaseModel):
+    """Resultado del sync por empresa dentro del bulk."""
+
+    empresa_codigo: str
+    status: Literal["ok", "not_found", "error", "no_dropbox"]
+    formato: str | None = None
+    proyectos_creados: int = 0
+    proyectos_actualizados: int = 0
+    hitos_creados: int = 0
+    hitos_actualizados: int = 0
+    message: str
+    dropbox_path: str | None = None
+
+
+class GanttSyncAllResult(BaseModel):
+    """Resultado agregado del bulk-sync de Gantts del portafolio."""
+
+    total_empresas: int
+    sincronizadas: int
+    no_encontradas: int
+    con_error: int
+    items: list[GanttSyncAllItem] = Field(default_factory=list)
+    proyectos_creados_total: int = 0
+    proyectos_actualizados_total: int = 0
+    hitos_creados_total: int = 0
+    hitos_actualizados_total: int = 0
+    message: str
