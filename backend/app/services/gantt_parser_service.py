@@ -248,7 +248,18 @@ def _to_str(value: Any) -> str | None:
 
 
 def _normalize_estado_texto(raw: str | None) -> str:
-    """Mapea texto de estado en español a enum (pendiente/en_progreso/completado/cancelado)."""
+    """[DEPRECATED] Mapeo genérico de estado para HITOS.
+
+    Devuelve uno de: pendiente / en_progreso / completado / cancelado.
+    Solo válido para Hitos (`EstadoHito`). Para proyectos usar
+    `_normalize_estado_proyecto()` que mapea a `planificado` en vez de
+    `pendiente` (los enums de DB son distintos).
+    """
+    return _normalize_estado_hito(raw)
+
+
+def _normalize_estado_hito(raw: str | None) -> str:
+    """Mapea texto de estado a enum HITO (pendiente/en_progreso/completado/cancelado)."""
     if not raw:
         return "pendiente"
     s = raw.strip().lower()
@@ -262,6 +273,35 @@ def _normalize_estado_texto(raw: str | None) -> str:
     if s in {"pendiente", "futuro", "no iniciado", "en espera", "planificado"}:
         return "pendiente"
     return "pendiente"
+
+
+def _normalize_estado_proyecto(raw: str | None) -> str:
+    """Mapea texto de estado a enum PROYECTO.
+
+    `EstadoProyecto = planificado | en_progreso | completado | cancelado | pausado`
+
+    NOTA: NO existe "pendiente" en este enum — la DB rechaza el valor
+    con check constraint `proyectos_empresa_estado_check`. Por eso
+    mapeamos "pendiente"/"futuro"/"no iniciado" → "planificado".
+    """
+    if not raw:
+        return "planificado"
+    s = raw.strip().lower()
+    if s in {"completado", "completada", "terminado", "terminada", "pagado", "finalizado"}:
+        return "completado"
+    if s in {"cancelado", "cancelada", "anulado"}:
+        return "cancelado"
+    if s in {"pausado", "pausada", "en pausa", "en espera"}:
+        return "pausado"
+    if s in {"en curso", "en_progreso", "en progreso", "en revisión", "en revision",
+             "en revisión cliente", "en revision cliente", "en proceso", "iniciado",
+             "activo"}:
+        return "en_progreso"
+    if s in {"pendiente", "futuro", "no iniciado", "planificado", "no aplica",
+             "revisión interna", "revision interna"}:
+        return "planificado"
+    # Default conservador: si no reconocemos el texto, "planificado"
+    return "planificado"
 
 
 def _avance_to_estado(avance: float | None) -> tuple[str, int]:
@@ -404,7 +444,10 @@ def _parse_classic_proyectos_catalog(
             codigo=codigo,
             nombre=nombre,
             descripcion=descripcion,
-            estado=_normalize_estado_texto(estado_raw),
+            # Catálogo del Excel define estado del PROYECTO — usar enum
+            # de proyecto (planificado/en_progreso/completado/cancelado/pausado),
+            # NO el enum de hito.
+            estado=_normalize_estado_proyecto(estado_raw),
         )
     return catalog
 
@@ -989,7 +1032,13 @@ def _enrich_proyecto_from_hitos(proy: ParsedProyecto) -> None:
         total = sum(h.progreso_pct for h in proy.hitos)
         proy.progreso_pct = total // len(proy.hitos)
 
-    # Estado: si todos los hitos completados → completado
+    # Estado: si todos los hitos completados → completado.
+    # IMPORTANTE: el enum de Proyecto NO acepta "pendiente" — usar "planificado".
+    # Defensivo: si proy.estado quedó con un valor inválido del enum proyecto,
+    # mapearlo a uno válido.
+    valid_proyecto_estados = {
+        "planificado", "en_progreso", "completado", "cancelado", "pausado"
+    }
     estados = {h.estado for h in proy.hitos}
     if estados == {"completado"}:
         proy.estado = "completado"
@@ -997,6 +1046,12 @@ def _enrich_proyecto_from_hitos(proy: ParsedProyecto) -> None:
         proy.estado = "en_progreso"
     elif estados == {"pendiente"}:
         proy.estado = "planificado"
+    elif estados == {"cancelado"}:
+        proy.estado = "cancelado"
+    # Backstop defensivo: si el estado actual no es válido para Proyecto,
+    # forzar un valor válido (esto cubre cualquier dato corrupto del catálogo).
+    if proy.estado not in valid_proyecto_estados:
+        proy.estado = _normalize_estado_proyecto(proy.estado)
 
 
 # ---------------------------------------------------------------------------
