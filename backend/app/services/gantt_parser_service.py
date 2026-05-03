@@ -147,6 +147,81 @@ def _normalize_codigo(codigo: str) -> str:
     return s.strip(".")
 
 
+def _normalize_codigo_strict(codigo: str) -> str:
+    """Normalización agresiva — además de _normalize_codigo, equivale
+    leading-zero variants después del prefijo alfa.
+
+    Ejemplos:
+      - "REVTECH004"   → "revtech.4"
+      - "REVTECH0004"  → "revtech.4"
+      - "RHO0001"      → "rho.1"
+      - "EE.PAN.001"   → "ee.pan.1"
+
+    Útil cuando un Excel mezcla padding inconsistente (algunos sheets
+    con 3 dígitos, otros con 4).
+    """
+    base = _normalize_codigo(codigo)
+    # Quitar leading zeros del último segmento numérico
+    parts = base.split(".")
+    cleaned: list[str] = []
+    for part in parts:
+        # Si el segmento es totalmente numérico, sacamos zeros leading
+        if part.isdigit():
+            cleaned.append(str(int(part)) if int(part) != 0 else "0")
+        else:
+            # Mixto (letras+números): separar la cola numérica
+            # ej: "REVTECH004" → "REVTECH" + "004"
+            i = len(part)
+            while i > 0 and part[i - 1].isdigit():
+                i -= 1
+            if i < len(part):
+                prefix = part[:i]
+                num = part[i:]
+                cleaned.append(prefix + (str(int(num)) if int(num) != 0 else "0"))
+            else:
+                cleaned.append(part)
+    return ".".join(cleaned)
+
+
+# Palabras que NO son códigos de proyecto válidos — aparecen en sub-tablas
+# del catálogo (equipo, roles) que el parser solía interpretar mal.
+_PALABRAS_NO_PROYECTO = {
+    "rol", "ceo", "coo", "cto", "cfo", "cmo", "gm", "director",
+    "directora", "gerente", "gerenta", "ingeniero", "ingeniera",
+    "administrativo", "administrativa", "asistente", "secretaria",
+    "secretario", "equipo", "team", "staff",
+}
+
+
+def _es_codigo_proyecto_valido(codigo: str | None, empresa_codigo: str) -> bool:
+    """Heurística para distinguir códigos de proyecto reales vs filas
+    de equipo/roles que aparecen en sub-tablas del catálogo.
+
+    Acepta si:
+    - Tiene al menos 3 caracteres
+    - NO está en la blacklist de palabras (ceo, rol, ingeniero, etc.)
+    - Contiene al menos un dígito O empieza con el prefijo de la empresa
+    """
+    if not codigo:
+        return False
+    s = codigo.strip()
+    if len(s) < 3:
+        return False
+    s_lower = s.lower()
+    if s_lower in _PALABRAS_NO_PROYECTO:
+        return False
+    # Acepta si contiene dígito (RHO0001, EE.CHO.001, REVTECH0007)
+    if any(c.isdigit() for c in s):
+        return True
+    # Acepta si empieza con prefijo conocido (case-insensitive)
+    empresa_lower = empresa_codigo.lower()
+    if s_lower.startswith(empresa_lower) or s_lower.startswith(
+        empresa_lower[:4]
+    ):
+        return True
+    return False
+
+
 def _to_float(value: Any) -> float | None:
     """Convierte cell value a float. Acepta None / '' / 'N/A' como None."""
     if value is None or value == "":
@@ -253,8 +328,15 @@ def _find_classic_header_row(ws: Worksheet) -> int | None:
     return None
 
 
-def _parse_classic_proyectos_catalog(ws: Worksheet) -> dict[str, ParsedProyecto]:
-    """Hoja `Proyectos` → dict[codigo → ParsedProyecto base sin hitos]."""
+def _parse_classic_proyectos_catalog(
+    ws: Worksheet, empresa_codigo: str = ""
+) -> dict[str, ParsedProyecto]:
+    """Hoja `Proyectos` → dict[codigo → ParsedProyecto base sin hitos].
+
+    Filtra filas que parecen sub-tablas (equipo, roles) usando
+    `_es_codigo_proyecto_valido`. Sin esto, REVTECH parseaba los nombres
+    del staff (CEO, COO, etc.) como si fueran proyectos.
+    """
     catalog: dict[str, ParsedProyecto] = {}
     # Header está típicamente en R2: ['', 'Proyecto', 'Codigo', 'Estado']
     header_row = None
@@ -285,11 +367,29 @@ def _parse_classic_proyectos_catalog(ws: Worksheet) -> dict[str, ParsedProyecto]
     if "codigo" not in col_map or "nombre" not in col_map:
         return catalog
 
+    # Tracker para detectar segunda tabla (equipo) — si vemos un cambio
+    # abrupto en formato de código (ej: pasa de REVTECH0007 a "Rol"),
+    # parar de leer.
+    consecutive_invalid = 0
+
     for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
         codigo = _to_str(row[col_map["codigo"]]) if col_map["codigo"] < len(row) else None
         nombre = _to_str(row[col_map["nombre"]]) if col_map["nombre"] < len(row) else None
         if not codigo or not nombre:
+            # Fila vacía: si veníamos leyendo proyectos y aparece un blanco,
+            # podría ser separador antes de sub-tabla. Reset counter.
             continue
+
+        # Validar que el código sea de proyecto (no rol/equipo)
+        if not _es_codigo_proyecto_valido(codigo, empresa_codigo):
+            consecutive_invalid += 1
+            # Si vemos 2+ filas no-proyecto consecutivas, asumimos que
+            # entramos en sub-tabla del equipo y paramos.
+            if consecutive_invalid >= 2:
+                break
+            continue
+        consecutive_invalid = 0
+
         descripcion = (
             _to_str(row[col_map["descripcion"]])
             if "descripcion" in col_map and col_map["descripcion"] < len(row)
@@ -309,17 +409,188 @@ def _parse_classic_proyectos_catalog(ws: Worksheet) -> dict[str, ParsedProyecto]
     return catalog
 
 
+# ---------------------------------------------------------------------------
+# Parser de hojas individuales por proyecto (fallback / enriquecimiento)
+# ---------------------------------------------------------------------------
+
+
+def _find_individual_sheet_for_codigo(
+    wb: Workbook, codigo: str
+) -> Worksheet | None:
+    """Busca una hoja individual cuyo nombre referencie este codigo.
+
+    Acepta variantes:
+      - Exacto: "RHO0001"
+      - Prefijo: "RHO0001 Panimávida"
+      - Sufijo: "Panimávida_RHO0001"
+      - Con/sin zeros: "TKAI005" matchea "TKAI005" y "TKAI5"
+    """
+    target_strict = _normalize_codigo_strict(codigo)
+    target_loose = _normalize_codigo(codigo)
+    for sname in wb.sheetnames:
+        s_clean = sname.strip()
+        if not s_clean:
+            continue
+        # Normalizar y comparar como prefijo/sufijo/contains
+        s_norm = _normalize_codigo(s_clean)
+        s_strict = _normalize_codigo_strict(s_clean)
+        # Match si el codigo aparece como token dentro del sheet name
+        if target_loose in s_norm or target_strict in s_strict:
+            return wb[sname]
+        # Match estricto contra cada token separado por espacio/underscore
+        for token in s_clean.replace("_", " ").split():
+            if (
+                _normalize_codigo(token) == target_loose
+                or _normalize_codigo_strict(token) == target_strict
+            ):
+                return wb[sname]
+    return None
+
+
+def _parse_individual_project_sheet(
+    ws: Worksheet,
+    *,
+    estado_default: str = "pendiente",
+) -> list[ParsedHito]:
+    """Parsea una hoja individual de proyecto con layout estándar.
+
+    Layout esperado (hojas RHO0001, TKAI005, GANTT_EE.NTR.001, etc.):
+      R1-R6: header del proyecto (nombre, área, etc.) — skipear
+      R7 o R8: cabecera de columnas con "Actividades", "Fecha de inicio",
+        "Fecha de termino"/"Fecha de término", opcional "OBSERVACIONES",
+        "ENCARGADO", "Días"/"Duración"
+      R8+ o R9+: datos de actividades
+
+    Devuelve lista de ParsedHito. Si no detecta header en filas 1-12,
+    devuelve [].
+    """
+    # Buscar fila con cabecera "Actividades"
+    header_row: int | None = None
+    col_idx: dict[str, int] = {}
+    for row_idx in range(1, min(15, ws.max_row + 1)):
+        row = [_to_str(c.value) or "" for c in ws[row_idx][:14]]
+        norm = [c.lower() for c in row]
+        for idx, c in enumerate(norm):
+            if c == "actividades" or c.startswith("actividad"):
+                col_idx["nombre"] = idx
+                header_row = row_idx
+        if header_row == row_idx:
+            # Mismo row: detectar otras columnas
+            for idx, c in enumerate(norm):
+                if c.startswith("fecha de inicio") or c == "fecha inicio":
+                    col_idx["fecha_inicio"] = idx
+                elif c.startswith("fecha de term") or c == "fecha término" or c == "fecha termino":
+                    col_idx["fecha_termino"] = idx
+                elif c == "observaciones" or c.startswith("observac"):
+                    col_idx["observaciones"] = idx
+                elif "encargado" in c:
+                    col_idx["encargado"] = idx
+                elif c == "días" or c == "dias" or "duración" in c or "duracion" in c:
+                    col_idx["duracion"] = idx
+            break
+
+    if header_row is None or "nombre" not in col_idx:
+        return []
+
+    hitos: list[ParsedHito] = []
+    orden = 0
+    # Datos arrancan después del header (saltar 1 fila por si hay sub-header)
+    for row in ws.iter_rows(min_row=header_row + 1, values_only=True):
+        if not row:
+            continue
+        nombre_idx = col_idx["nombre"]
+        if nombre_idx >= len(row):
+            continue
+        nombre = _to_str(row[nombre_idx])
+        if not nombre:
+            continue
+        # Skip si el nombre es claramente un sub-header (todas mayúsculas
+        # cortas, palabras como "FASE", "ETAPA")
+        if nombre.upper() == nombre and len(nombre) < 8:
+            continue
+
+        fecha_inicio = (
+            _to_date(row[col_idx["fecha_inicio"]])
+            if "fecha_inicio" in col_idx and col_idx["fecha_inicio"] < len(row)
+            else None
+        )
+        fecha_termino = (
+            _to_date(row[col_idx["fecha_termino"]])
+            if "fecha_termino" in col_idx and col_idx["fecha_termino"] < len(row)
+            else None
+        )
+        observaciones = (
+            _to_str(row[col_idx["observaciones"]])
+            if "observaciones" in col_idx and col_idx["observaciones"] < len(row)
+            else None
+        )
+        encargado = (
+            _to_str(row[col_idx["encargado"]])
+            if "encargado" in col_idx and col_idx["encargado"] < len(row)
+            else None
+        )
+
+        hitos.append(
+            ParsedHito(
+                nombre=nombre[:255],
+                descripcion=observaciones,
+                fecha_planificada=fecha_inicio,
+                fecha_completado=None,
+                estado=estado_default,
+                progreso_pct=0,
+                orden=orden,
+                encargado=encargado,
+                observaciones=observaciones,
+            )
+        )
+        orden += 1
+
+    return hitos
+
+
+def _enriquecer_proyecto_con_hoja_individual(
+    wb: Workbook,
+    proyecto: ParsedProyecto,
+) -> int:
+    """Si un proyecto tiene 0 hitos en el master, intenta extraer de su
+    hoja individual. Devuelve cuántos hitos se sumaron.
+    """
+    if proyecto.hitos:  # ya tiene hitos del master, no enriquecer
+        return 0
+    sheet = _find_individual_sheet_for_codigo(wb, proyecto.codigo)
+    if sheet is None:
+        return 0
+    nuevos = _parse_individual_project_sheet(sheet, estado_default=proyecto.estado)
+    if nuevos:
+        proyecto.hitos.extend(nuevos)
+    return len(nuevos)
+
+
 def _resolve_codigo(catalog: dict[str, ParsedProyecto], codigo: str) -> str | None:
     """Busca el codigo canónico en el catálogo aplicando fuzzy match.
+
+    Cascada de matching:
+    1. Match exacto
+    2. Match con _normalize_codigo (separadores normalizados)
+    3. Match con _normalize_codigo_strict (también equivale leading zeros)
 
     Devuelve la key real del catálogo si encuentra match, o None si no.
     """
     if codigo in catalog:
         return codigo
+
+    # Match con normalización de separadores
     target = _normalize_codigo(codigo)
     for key in catalog.keys():
         if _normalize_codigo(key) == target:
             return key
+
+    # Match con normalización estricta (leading zeros)
+    target_strict = _normalize_codigo_strict(codigo)
+    for key in catalog.keys():
+        if _normalize_codigo_strict(key) == target_strict:
+            return key
+
     return None
 
 
@@ -331,7 +602,7 @@ def parse_classic(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
     proyectos_ws = _find_sheet(wb, ["Proyectos"])
     catalog: dict[str, ParsedProyecto] = {}
     if proyectos_ws is not None:
-        catalog = _parse_classic_proyectos_catalog(proyectos_ws)
+        catalog = _parse_classic_proyectos_catalog(proyectos_ws, empresa_codigo)
     else:
         result.warnings.append("Hoja 'Proyectos' no encontrada — proyectos se inferirán del Gantt.")
 
@@ -418,7 +689,22 @@ def parse_classic(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
             )
         )
 
-    # 3. Calcular fecha_inicio / fecha_fin_estimada / progreso_pct por proyecto
+    # 3. Fallback: si un proyecto del catálogo NO tiene hitos en el master
+    # Gantt, intentar extraerlos de su hoja individual (RHO0001 Panimávida,
+    # TKAI005, etc.)
+    enriched_count = 0
+    for proy in catalog.values():
+        if not proy.hitos:
+            n = _enriquecer_proyecto_con_hoja_individual(wb, proy)
+            if n > 0:
+                enriched_count += n
+    if enriched_count > 0:
+        result.warnings.append(
+            f"Enriquecidos {enriched_count} hitos desde hojas individuales "
+            "para proyectos sin datos en el Gantt master."
+        )
+
+    # 4. Calcular fecha_inicio / fecha_fin_estimada / progreso_pct por proyecto
     for proy in catalog.values():
         _enrich_proyecto_from_hitos(proy)
 
@@ -440,7 +726,7 @@ def parse_ee(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
     proyectos_ws = _find_sheet(wb, ["Proyectos"])
     catalog: dict[str, ParsedProyecto] = {}
     if proyectos_ws is not None:
-        catalog = _parse_classic_proyectos_catalog(proyectos_ws)
+        catalog = _parse_classic_proyectos_catalog(proyectos_ws, empresa_codigo)
 
     # 2. Hoja PROJECT_MANAGEMENT
     pm_ws = _find_sheet(wb, ["PROJECT_MANAGEMENT"])
@@ -514,6 +800,19 @@ def parse_ee(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
             )
         )
 
+    # Fallback: enriquecer proyectos sin hitos desde hojas individuales
+    # GANTT_EE.NTR.001, GANTT_EE.CHO.001, etc.
+    enriched_count = 0
+    for proy in catalog.values():
+        if not proy.hitos:
+            n = _enriquecer_proyecto_con_hoja_individual(wb, proy)
+            if n > 0:
+                enriched_count += n
+    if enriched_count > 0:
+        result.warnings.append(
+            f"Enriquecidos {enriched_count} hitos desde hojas individuales."
+        )
+
     for proy in catalog.values():
         _enrich_proyecto_from_hitos(proy)
 
@@ -546,7 +845,7 @@ def parse_revtech(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
     proyectos_ws = _find_sheet(wb, ["Proyectos"])
     catalog: dict[str, ParsedProyecto] = {}
     if proyectos_ws is not None:
-        catalog = _parse_classic_proyectos_catalog(proyectos_ws)
+        catalog = _parse_classic_proyectos_catalog(proyectos_ws, empresa_codigo)
 
     # 2. Recorrer hojas por proyecto (Minera Tornasol_REVTECH0002, etc.)
     # Cada una tiene su propio Gantt detallado con columnas:
