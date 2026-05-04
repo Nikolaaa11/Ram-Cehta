@@ -103,7 +103,12 @@ def _infer_tipo_documento(filename: str) -> str:
 
 
 def _infer_legal_categoria(path: str) -> tuple[str, str | None]:
-    """Devuelve (categoria, subcategoria) inferidos del path Dropbox."""
+    """Devuelve (categoria, subcategoria) inferidos del path Dropbox.
+
+    Subcategorías regulatorias agregadas en V5 (2026-05) para evitar que
+    las comunicaciones CMF/UAF caigan al cajón "otro" — auditable por
+    reguladores, debe ser fácilmente filtrable en /legal.
+    """
     p = path.lower()
     # Subcategorías más específicas primero
     if "/contratos/cliente" in p:
@@ -122,6 +127,28 @@ def _infer_legal_categoria(path: str) -> tuple[str, str | None]:
         return "declaracion_sii", "f22"
     if "/declaraciones sii" in p or "/declaraciones-sii" in p:
         return "declaracion_sii", None
+    # Regulatorio CMF (Comisión Mercado Financiero) — circulares, oficios,
+    # respuestas de fiscalización, hechos esenciales reportados.
+    if "/regulatorio/cmf/circular" in p:
+        return "regulatorio", "cmf_circular"
+    if "/regulatorio/cmf/oficio" in p:
+        return "regulatorio", "cmf_oficio"
+    if "/regulatorio/cmf/hecho" in p or "/regulatorio/cmf/heche" in p:
+        return "regulatorio", "cmf_hecho_esencial"
+    if "/regulatorio/cmf" in p or "/cmf/" in p:
+        return "regulatorio", "cmf_otro"
+    # Regulatorio UAF (Unidad Análisis Financiero) — PEP, ROS, declaraciones.
+    if "/regulatorio/uaf/pep" in p:
+        return "regulatorio", "uaf_pep"
+    if "/regulatorio/uaf/ros" in p:
+        return "regulatorio", "uaf_ros"
+    if "/regulatorio/uaf" in p or "/uaf/" in p:
+        return "regulatorio", "uaf_otro"
+    # Regulatorio CORFO — convocatorias, rendiciones, contratos de cofinanciamiento.
+    if "/regulatorio/corfo/rendicion" in p:
+        return "regulatorio", "corfo_rendicion"
+    if "/regulatorio/corfo" in p or "/corfo/" in p:
+        return "regulatorio", "corfo_otro"
     if "/permiso" in p:
         return "permiso", None
     if "/poliza" in p or "/pólizas" in p or "/polizas" in p:

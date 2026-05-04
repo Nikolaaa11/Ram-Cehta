@@ -29,6 +29,7 @@ from app.api.v1 import (
     notifications,
     notifications_inbox,
     ordenes_compra,
+    policies_fondo,
     portfolio,
     proveedores,
     saved_views,
@@ -93,3 +94,8 @@ api_router.include_router(entregables.router, prefix="/entregables", tags=["entr
 # Router sin prefix porque expone DOS recursos siblings: /lps y /informes-lp.
 # Las rutas /informes-lp/by-token/{token}/* son PÚBLICAS (token = auth).
 api_router.include_router(informes_lp.router, tags=["informes-lp"])
+# V5: Políticas internas del FIP (reglamento, manual UAF, código ética, etc.).
+# Distinto de /legal (que es por empresa portfolio).
+api_router.include_router(
+    policies_fondo.router, prefix="/policies-fondo", tags=["policies-fondo"]
+)

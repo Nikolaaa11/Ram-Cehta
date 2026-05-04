@@ -170,6 +170,13 @@ const GROUPS: NavGroup[] = [
         label: "Entregables FIP",
         icon: ClipboardList,
       },
+      // V5: políticas internas del fondo (reglamento, manual UAF, código ética).
+      // Distinto de /legal que es por empresa portfolio. Auditable por CMF.
+      {
+        href: "/admin/policies-fondo" as Route,
+        label: "Políticas del fondo",
+        icon: ShieldCheck,
+      },
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
     ],
   },
