@@ -35,6 +35,7 @@ from app.infrastructure.repositories.trabajador_repository import (
     DROPBOX_ROOT_EMPRESAS,
     compute_dropbox_folder,
 )
+from app.models.empresa import Empresa
 from app.models.legal_document import LegalDocument
 from app.models.trabajador import Trabajador, TrabajadorDocumento
 from app.services.dropbox_service import DropboxService
@@ -646,9 +647,10 @@ class DropboxSyncService:
         Si el nombre del archivo no es parseable (no tiene año o es
         ambiguo), el archivo se cuenta como `skipped`.
 
-        IMPORTANTE: esta función está disponible pero NO se llama desde
-        ningún ETL todavía — el enganche al pipeline principal se hace
-        externamente (Nicolas lo conecta después de revisar).
+        Esta función se invoca per-empresa. El orquestador
+        `sync_estados_financieros_all_empresas` la llama en loop sobre
+        todas las empresas activas — corre cada hora desde
+        `scripts/etl_cron.py` y también desde `POST /etl/run`.
         """
         result = SyncResult()
         root = (
@@ -735,3 +737,39 @@ class DropboxSyncService:
                     )
 
         return result
+
+    async def sync_estados_financieros_all_empresas(self) -> SyncResult:
+        """Loop por todas las empresas activas y agrega resultados de EEFF.
+
+        Soft-fail por empresa: si Dropbox no tiene la carpeta de una empresa
+        (raíz `04-Financiero/Estados Financieros` falta) o la API tira un
+        error transitorio, se loggea en `errors[]` con el código de empresa
+        como prefijo y se continúa con la siguiente empresa.
+
+        El caller debe hacer `db.commit()` cuando esto retorna.
+        """
+        aggregated = SyncResult()
+        codigos = (
+            (
+                await self.db.execute(
+                    select(Empresa.codigo)
+                    .where(Empresa.activo.is_(True))
+                    .order_by(Empresa.codigo)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        for codigo in codigos:
+            try:
+                r = await self.sync_estados_financieros_per_empresa(codigo)
+            except Exception as exc:  # noqa: BLE001
+                aggregated.errors.append(f"[{codigo}] sync abortado: {exc}")
+                continue
+            aggregated.created_eeff += r.created_eeff
+            aggregated.skipped += r.skipped
+            for err in r.errors:
+                aggregated.errors.append(f"[{codigo}] {err}")
+
+        return aggregated

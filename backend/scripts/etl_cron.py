@@ -29,6 +29,7 @@ from app.infrastructure.repositories.integration_repository import (
     IntegrationRepository,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.etl_service import ETLService
 
 
@@ -59,6 +60,27 @@ async def main() -> int:
             return 1
 
         print(json.dumps(result.to_dict(), default=str))
+
+        # EEFF Dropbox sync — corre cada hora junto al ETL.
+        # Se ejecuta después del Excel ETL y reusa la misma sesión + Dropbox
+        # client. Errores de empresa individual no abortan el sync entero.
+        try:
+            sync_service = DropboxSyncService(db, dbx)
+            eeff_result = (
+                await sync_service.sync_estados_financieros_all_empresas()
+            )
+            await db.commit()
+        except Exception as exc:  # pragma: no cover — defensive
+            print(json.dumps({"type": "eeff_sync", "status": "failed", "error": str(exc)}))
+            # No fallar el cron entero por esto — el Excel ETL ya corrió OK.
+        else:
+            print(
+                json.dumps(
+                    {"type": "eeff_sync", **eeff_result.to_dict()},
+                    default=str,
+                )
+            )
+
         # exit 0 incluso en partial — hubo trabajo legitimo. Solo failed → 1.
         return 0 if result.status != "failed" else 1
 

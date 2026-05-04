@@ -43,6 +43,7 @@ from app.infrastructure.repositories.integration_repository import (
 )
 from app.schemas.audit import EtlRunRead
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.etl_service import ETLService
 
 log = structlog.get_logger(__name__)
@@ -82,7 +83,21 @@ async def trigger_etl(
         ) from exc
 
     result = await ETLService().run_etl(db, dbx, triggered_by=triggered_by)
-    return result.to_dict()
+    response = result.to_dict()
+
+    # EEFF Dropbox sync — añadido al flujo manual para reflejar lo que ya
+    # corre cada hora desde el cron. Campo `eeff_sync` aditivo: el frontend
+    # actual ignora keys desconocidas y no se rompe.
+    try:
+        sync_service = DropboxSyncService(db, dbx)
+        eeff_result = await sync_service.sync_estados_financieros_all_empresas()
+        await db.commit()
+        response["eeff_sync"] = eeff_result.to_dict()
+    except Exception as exc:  # pragma: no cover — defensive
+        log.exception("etl.eeff_sync_failed")
+        response["eeff_sync"] = {"status": "failed", "error": str(exc)}
+
+    return response
 
 
 @router.get("/last-run", response_model=EtlRunRead | None)
