@@ -98,6 +98,104 @@ def acumular_saldo(
     return out
 
 
+def _build_ceo_narrative(
+    *,
+    aum_total: Decimal,
+    delta_30d: float | None,
+    delta_90d: float | None,
+    flujo_neto_30d: Decimal,
+    by_empresa: list,
+    top_alerts: list,
+) -> str:
+    """Resumen ejecutivo narrativo computado desde datos reales.
+
+    Reemplaza el placeholder hardcoded del CEO Dashboard (V5). Genera 3-4
+    bullet points priorizados:
+      1. AUM + delta 30d/90d con dirección semántica
+      2. Flujo neto del último mes con magnitud relativa
+      3. Empresa con mayor crecimiento o caída en el período
+      4. Top alerta crítica si la hay
+    """
+    bullets: list[str] = []
+
+    # AUM + delta — sentence con dirección
+    aum_m = float(aum_total) / 1_000_000 if aum_total else 0
+    if delta_30d is not None:
+        direction = (
+            "subió" if delta_30d > 1 else "cayó" if delta_30d < -1 else "estable en"
+        )
+        if delta_30d > 1 or delta_30d < -1:
+            bullets.append(
+                f"AUM consolidado en ${aum_m:,.1f}M CLP — {direction} "
+                f"{abs(delta_30d):.1f}% en 30 días"
+                + (
+                    f" (90d: {delta_90d:+.1f}%)"
+                    if delta_90d is not None and abs(delta_90d) > 1
+                    else ""
+                )
+                + "."
+            )
+        else:
+            bullets.append(
+                f"AUM consolidado {direction} ${aum_m:,.1f}M CLP — sin "
+                "cambios materiales en el último mes."
+            )
+
+    # Flujo neto del mes
+    flujo_m = float(flujo_neto_30d) / 1_000_000 if flujo_neto_30d else 0
+    if abs(flujo_m) > 0.5:
+        if flujo_m > 0:
+            bullets.append(
+                f"Flujo neto positivo en 30d: +${flujo_m:,.1f}M CLP — "
+                "ingresos superan egresos operativos."
+            )
+        else:
+            bullets.append(
+                f"Flujo neto negativo en 30d: ${flujo_m:,.1f}M CLP — "
+                "revisar OCs de gran tamaño y conversión de cobros."
+            )
+
+    # Empresa con mayor delta
+    if by_empresa:
+        try:
+            ranked = sorted(
+                [
+                    e
+                    for e in by_empresa
+                    if getattr(e, "delta_30d", None) is not None
+                ],
+                key=lambda e: abs(e.delta_30d),
+                reverse=True,
+            )
+            if ranked:
+                top = ranked[0]
+                if abs(top.delta_30d) > 3:
+                    direction = "crece" if top.delta_30d > 0 else "cae"
+                    bullets.append(
+                        f"{top.empresa_codigo} {direction} "
+                        f"{abs(top.delta_30d):.1f}% en 30d — mayor variación "
+                        "del portafolio."
+                    )
+        except (AttributeError, TypeError):
+            pass  # tolerante si el shape de by_empresa cambia
+
+    # Top alerta critical
+    crit_alerts = [a for a in top_alerts if a.severity == "critical"]
+    if crit_alerts:
+        n = len(crit_alerts)
+        bullets.append(
+            f"{n} alerta{'s' if n > 1 else ''} crítica{'s' if n > 1 else ''} "
+            "requieren acción inmediata — ver bloque inferior."
+        )
+
+    if not bullets:
+        return (
+            "Portafolio sin variaciones materiales esta semana. Sin alertas "
+            "críticas. AUM y flujo netos dentro de rangos normales."
+        )
+    return " ".join(bullets)
+
+
 # =====================================================================
 # GET /dashboard — endpoint legacy (saldos + mov + OC + F29)
 # =====================================================================
@@ -1072,10 +1170,17 @@ async def ceo_consolidated(
         key=lambda a: (severity_rank.get(a.severity, 9), a.empresa_codigo or "")
     )
 
-    insights_ai = (
-        "Resumen ejecutivo automatizado próximamente: cuando el AI Asistente "
-        "esté integrado, este bloque mostrará un análisis semanal con drivers "
-        "de cambio, riesgos detectados y recomendaciones priorizadas."
+    # Narrative computado a partir de los datos reales — sin AI placeholder.
+    # 3-4 puntos editoriales priorizados por relevancia operativa.
+    # En V6 podemos enriquecer con `generate_executive_summary` si está
+    # disponible; mientras tanto este resumen ya es útil para el GP.
+    insights_ai = _build_ceo_narrative(
+        aum_total=aum_total,
+        delta_30d=delta_30d_pct,
+        delta_90d=delta_90d_pct,
+        flujo_neto_30d=flujo_neto_30d,
+        by_empresa=by_empresa,
+        top_alerts=top_alerts,
     )
 
     return CEOConsolidatedReport(

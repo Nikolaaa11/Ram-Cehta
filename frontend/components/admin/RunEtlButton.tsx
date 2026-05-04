@@ -28,6 +28,15 @@ interface ETLRunResult {
   error_message: string | null;
   snapshot_path: string | null;
   triggered_by: string;
+  // V5: eeff sync corre junto al ETL Excel. Campo opcional —
+  // backends antiguos no lo devuelven y la UI debe tolerar su ausencia.
+  eeff_sync?: {
+    status?: string;
+    created_eeff?: number;
+    skipped?: number;
+    errors?: string[];
+    error?: string;
+  };
 }
 
 export function RunEtlButton() {
@@ -52,10 +61,14 @@ export function RunEtlButton() {
         {},
         session,
       );
+      const eeffPart =
+        result.eeff_sync?.created_eeff && result.eeff_sync.created_eeff > 0
+          ? ` · EEFF Dropbox: +${result.eeff_sync.created_eeff}`
+          : "";
       const summary =
         result.status === "skipped"
-          ? "Sin cambios — el archivo no se modificó."
-          : `Cargadas: ${result.rows_loaded.toLocaleString("es-CL")} · Rechazadas: ${result.rows_rejected.toLocaleString("es-CL")}`;
+          ? `Sin cambios en Data Madre${eeffPart}`
+          : `Cargadas: ${result.rows_loaded.toLocaleString("es-CL")} · Rechazadas: ${result.rows_rejected.toLocaleString("es-CL")}${eeffPart}`;
 
       switch (result.status) {
         case "success":

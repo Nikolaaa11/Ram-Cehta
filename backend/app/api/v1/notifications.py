@@ -1,9 +1,15 @@
-"""Notifications endpoints — admin-only para configurar/probar Resend.
+"""Notifications endpoints — admin-only para configurar/probar Resend
+y para forzar el regenerado manual de alertas in-app.
 
 V3 fase 3+4: el envío real de emails (alertas legal, recordatorios F29,
 welcome, reportes mensuales) lo dispara la lógica de negocio cuando aplica.
 Estos endpoints son sólo para visibilidad operativa: ¿está conectado Resend?
 ¿podemos enviar un email de prueba?
+
+V5: agregado `POST /notifications/regenerate-alerts` — el cron hourly de
+alerts ya cubre el flujo automático, pero el admin puede forzar el refresh
+desde la UI sin esperar la próxima hora redonda (útil después de cambios
+en datos: cargar nuevos F29, marcar entregables, etc.).
 
 Soft-fail: si Resend no está configurado, `/test` devuelve 503 con detalle
 útil; los flows de producción que dependen de email loggean warning y siguen.
@@ -15,10 +21,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr
 
-from app.api.deps import require_scope
+from app.api.deps import DBSession, require_scope
 from app.core.config import settings
 from app.core.security import AuthenticatedUser
+from app.schemas.notification import GenerateAlertsReport
 from app.services.email_service import EmailService
+from app.services.notification_generator_service import (
+    NotificationGeneratorService,
+)
 
 router = APIRouter()
 
@@ -99,3 +109,31 @@ async def notifications_test(
         "to": target_email,
         "provider_response": result,
     }
+
+
+@router.post(
+    "/regenerate-alerts",
+    response_model=GenerateAlertsReport,
+)
+async def regenerate_alerts(
+    user: Annotated[
+        AuthenticatedUser, Depends(require_scope("notifications:admin"))
+    ],
+    db: DBSession,
+) -> GenerateAlertsReport:
+    """Forza el regenerado de alertas in-app + webhooks de vencimiento.
+
+    Mismo flow que `scripts/alerts_cron.py` corre cada hora pero on-demand:
+    F29 due, contratos due, OCs estancadas, entregables regulatorios.
+    El servicio es idempotente — correrlo 2 veces seguidas no spamea
+    (dedup por user+entity en últimas 24h).
+
+    Útil después de:
+      - Cargar F29 nuevos manualmente
+      - Marcar entregables como entregados
+      - Cambiar fechas de vigencia legal
+    """
+    svc = NotificationGeneratorService(db)
+    report = await svc.run_all()
+    await db.commit()
+    return report

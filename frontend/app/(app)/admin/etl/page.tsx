@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { ChevronLeft } from "lucide-react";
 import { EtlRunsTable } from "@/components/admin/EtlRunsTable";
 import { RunEtlButton } from "@/components/admin/RunEtlButton";
+import { RegenerateAlertsButton } from "@/components/admin/RegenerateAlertsButton";
 
 export default function AdminEtlPage() {
   return (
@@ -17,14 +18,42 @@ export default function AdminEtlPage() {
             Panel admin
           </Link>
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
-            ETL Runs
+            ETL & Alertas
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Histórico de cargas. Click en un run para ver el detalle y filas
-            rechazadas.
+            Sincronización Dropbox + EEFF cross-empresa + regenerado de
+            alertas. Los crons corren cada hora — los botones fuerzan el
+            refresh on-demand.
           </p>
         </div>
-        <RunEtlButton />
+        <div className="flex flex-wrap items-center gap-2">
+          <RegenerateAlertsButton />
+          <RunEtlButton />
+        </div>
+      </div>
+
+      {/* Hint editorial — qué hace cada botón */}
+      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-hairline bg-ink-50/40 p-5 sm:grid-cols-2">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+            Refrescar alertas
+          </p>
+          <p className="mt-1.5 text-xs text-ink-600">
+            Re-escanea F29 que vencen en ≤7d, contratos en ≤30d, OCs estancadas y
+            entregables regulatorios. Idempotente: no spamea si lo ejecutás 2
+            veces seguidas (dedup 24h). Ideal después de cargar datos nuevos.
+          </p>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+            Ejecutar ETL
+          </p>
+          <p className="mt-1.5 text-xs text-ink-600">
+            Pull de Data Madre.xlsx desde Dropbox + sync de Estados Financieros
+            de las 9 empresas portfolio. Si Dropbox no cambió, el ETL termina
+            en "skipped" sin tocar la DB.
+          </p>
+        </div>
       </div>
 
       <EtlRunsTable />
