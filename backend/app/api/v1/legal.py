@@ -57,6 +57,7 @@ from app.services.legal_version_service import (
     build_change_summary,
     compute_diff,
 )
+from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
 log = get_logger(__name__)
@@ -174,6 +175,24 @@ async def create_legal(
         summary=f"Documento legal '{created.nombre}' creado para {body.empresa_codigo}",
         before=None,
         after=snapshot,
+    )
+    # Webhook: legal.created — alta de documento legal en la bóveda.
+    await publish_event(
+        db,
+        "legal.created",
+        {
+            "documento_id": created.documento_id,
+            "empresa_codigo": body.empresa_codigo,
+            "categoria": created.categoria,
+            "subcategoria": created.subcategoria,
+            "nombre": created.nombre,
+            "contraparte": created.contraparte,
+            "fecha_vigencia_hasta": str(created.fecha_vigencia_hasta)
+            if created.fecha_vigencia_hasta
+            else None,
+            "estado": created.estado,
+            "created_by": str(user.sub),
+        },
     )
     return created
 

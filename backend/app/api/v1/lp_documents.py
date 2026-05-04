@@ -33,6 +33,7 @@ from app.schemas.lp_document import (
     LpDocumentTipo,
     LpDocumentUpdate,
 )
+from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
 
@@ -155,6 +156,24 @@ async def create_lp_document(
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
+    # Webhook: lp_document.created — alta de doc en vault del LP.
+    await publish_event(
+        db,
+        "lp_document.created",
+        {
+            "lp_doc_id": doc.lp_doc_id,
+            "lp_id": doc.lp_id,
+            "tipo": doc.tipo,
+            "nombre": doc.nombre,
+            "fecha_firma": str(doc.fecha_firma) if doc.fecha_firma else None,
+            "fecha_vigencia_hasta": str(doc.fecha_vigencia_hasta)
+            if doc.fecha_vigencia_hasta
+            else None,
+            "monto_clp": float(doc.monto_clp) if doc.monto_clp else None,
+            "estado": doc.estado,
+            "created_by": str(user.sub) if hasattr(user, "sub") else None,
+        },
+    )
     return _to_read(doc)
 
 

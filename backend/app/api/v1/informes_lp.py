@@ -66,6 +66,7 @@ from app.services.portfolio_data_service import (
     pull_lp_context,
     pull_portfolio_kpis,
 )
+from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
 
@@ -291,6 +292,20 @@ async def create_lp(
             )
     lp = await repo.create(body)
     await db.commit()
+    # Webhook: lp.created — alta de Limited Partner en pipeline.
+    await publish_event(
+        db,
+        "lp.created",
+        {
+            "lp_id": lp.lp_id,
+            "nombre": lp.nombre,
+            "apellido": lp.apellido,
+            "email": lp.email,
+            "estado": lp.estado,
+            "empresa": lp.empresa,
+            "created_by": str(user.sub) if hasattr(user, "sub") else None,
+        },
+    )
     return LpRead.model_validate(lp)
 
 

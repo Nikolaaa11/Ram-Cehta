@@ -124,6 +124,24 @@ async def create_f29(
         before=None,
         after=created.model_dump(mode="json"),
     )
+    # Webhook: f29.created — alta de obligación tributaria.
+    await publish_event(
+        db,
+        "f29.created",
+        {
+            "f29_id": f29_id,
+            "empresa_codigo": created.empresa_codigo,
+            "periodo_tributario": created.periodo_tributario,
+            "fecha_vencimiento": str(created.fecha_vencimiento)
+            if created.fecha_vencimiento
+            else None,
+            "monto_a_pagar": float(created.monto_a_pagar)
+            if created.monto_a_pagar
+            else None,
+            "estado": created.estado,
+            "created_by": str(user.sub),
+        },
+    )
     return created
 
 

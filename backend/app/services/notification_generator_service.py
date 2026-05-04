@@ -35,6 +35,7 @@ from app.infrastructure.repositories.notification_repository import (
 )
 from app.schemas.notification import GenerateAlertsReport
 from app.services.event_broadcaster import get_broadcaster
+from app.services.webhook_dispatcher import publish_event
 
 log = get_logger(__name__)
 
@@ -164,7 +165,7 @@ class NotificationGeneratorService:
                 f"{r['fecha_vencimiento'].isoformat()} y aún no está pagada."
             )
             link = f"/f29?empresa_codigo={r['empresa_codigo']}"
-            total += await self._create_idempotent(
+            created = await self._create_idempotent(
                 user_ids=user_ids,
                 tipo="f29_due",
                 title=title,
@@ -174,6 +175,23 @@ class NotificationGeneratorService:
                 entity_type="f29",
                 entity_id=str(r["f29_id"]),
             )
+            total += created
+            # Webhook: f29.due — emitido sólo si la alerta es nueva (al menos
+            # un user recibió notificación). Evita spam diario al subscriber.
+            if created > 0:
+                await publish_event(
+                    self._session,
+                    "f29.due",
+                    {
+                        "f29_id": str(r["f29_id"]),
+                        "empresa_codigo": r["empresa_codigo"],
+                        "periodo_tributario": r["periodo_tributario"],
+                        "fecha_vencimiento": r["fecha_vencimiento"].isoformat(),
+                        "dias_restantes": dias,
+                        "estado": r["estado"],
+                        "severity": severity,
+                    },
+                )
         return total
 
     async def generate_contrato_due_alerts(self) -> int:
@@ -220,7 +238,7 @@ class NotificationGeneratorService:
             link = (
                 f"/empresa/{r['empresa_codigo']}/legal/{r['documento_id']}"
             )
-            total += await self._create_idempotent(
+            created = await self._create_idempotent(
                 user_ids=user_ids,
                 tipo="contrato_due",
                 title=title,
@@ -230,6 +248,24 @@ class NotificationGeneratorService:
                 entity_type="legal_document",
                 entity_id=str(r["documento_id"]),
             )
+            total += created
+            # Webhook: legal.due — sólo si la alerta es nueva.
+            if created > 0:
+                await publish_event(
+                    self._session,
+                    "legal.due",
+                    {
+                        "documento_id": str(r["documento_id"]),
+                        "empresa_codigo": r["empresa_codigo"],
+                        "nombre": r["nombre"],
+                        "contraparte": r.get("contraparte"),
+                        "fecha_vigencia_hasta": r[
+                            "fecha_vigencia_hasta"
+                        ].isoformat(),
+                        "dias_restantes": dias,
+                        "severity": severity,
+                    },
+                )
         return total
 
     async def generate_oc_pending_alerts(self) -> int:
@@ -355,6 +391,22 @@ class NotificationGeneratorService:
                 entity_id=str(it["entregable_id"]),
             )
             total += count
+            # Webhook: entregable.due — sólo si la alerta es nueva.
+            if count > 0:
+                await publish_event(
+                    self._session,
+                    "entregable.due",
+                    {
+                        "entregable_id": str(it["entregable_id"]),
+                        "nombre": it["nombre"],
+                        "categoria": it["categoria"],
+                        "periodo": it["periodo"],
+                        "fecha_limite": it["fecha_limite"].isoformat(),
+                        "dias_restantes": int(dias),
+                        "prioridad": it.get("prioridad"),
+                        "severity": severity,
+                    },
+                )
         return total
 
     async def run_all(self) -> GenerateAlertsReport:

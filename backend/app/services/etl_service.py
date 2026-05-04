@@ -53,6 +53,7 @@ from app.models.etl_run import EtlRun
 from app.models.rejected_row import RejectedRow
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.event_broadcaster import get_broadcaster
+from app.services.webhook_dispatcher import publish_event
 
 log = structlog.get_logger(__name__)
 
@@ -1017,6 +1018,22 @@ class ETLService:
                 )
             except Exception as pub_exc:  # pragma: no cover — defensivo
                 log.warning("etl_sse_publish_failed", error=str(pub_exc))
+            # Webhook: etl.completed — fanout externo (Slack, n8n, etc.)
+            # Best-effort: el dispatcher no rompe el flujo si falla.
+            with contextlib.suppress(Exception):
+                await publish_event(
+                    db,
+                    "etl.completed",
+                    {
+                        "run_id": run_id,
+                        "status": final_status,
+                        "rows_loaded": loaded,
+                        "rows_rejected": len(rejected),
+                        "rows_extracted": len(raw_rows),
+                        "source_file": file_path,
+                        "triggered_by": triggered_by,
+                    },
+                )
             return result
 
         except Exception as exc:
@@ -1049,6 +1066,18 @@ class ETLService:
                         "triggered_by": triggered_by,
                     },
                     role="admin",
+                )
+            # Webhook: etl.failed — fanout externo. Best-effort.
+            with contextlib.suppress(Exception):
+                await publish_event(
+                    db,
+                    "etl.failed",
+                    {
+                        "run_id": run_id,
+                        "source_file": file_path,
+                        "error_message": str(exc)[:500],
+                        "triggered_by": triggered_by,
+                    },
                 )
             return ETLResult(
                 run_id=run_id,

@@ -40,6 +40,7 @@ from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.trabajador_service import TrabajadorService
+from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
 
@@ -124,6 +125,20 @@ async def create_trabajador(
         summary=f"Trabajador {created.nombre_completo} creado en {body.empresa_codigo}",
         before=None,
         after=created.model_dump(mode="json"),
+    )
+    # Webhook: trabajador.created — alta de empleado.
+    await publish_event(
+        db,
+        "trabajador.created",
+        {
+            "trabajador_id": created.trabajador_id,
+            "empresa_codigo": body.empresa_codigo,
+            "rut": created.rut,
+            "nombre_completo": created.nombre_completo,
+            "cargo": created.cargo,
+            "estado": created.estado,
+            "created_by": str(user.sub),
+        },
     )
     return created
 
@@ -246,6 +261,18 @@ async def delete_trabajador(
         summary=f"Trabajador {label} eliminado",
         before=before,
         after=None,
+    )
+    # Webhook: trabajador.deleted — baja de empleado.
+    await publish_event(
+        db,
+        "trabajador.deleted",
+        {
+            "trabajador_id": trabajador_id,
+            "empresa_codigo": before.get("empresa_codigo"),
+            "rut": before.get("rut"),
+            "nombre_completo": label,
+            "deleted_by": str(user.sub),
+        },
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

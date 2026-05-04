@@ -123,6 +123,21 @@ async def create_oc(
         before=None,
         after=after,
     )
+    # Webhook: oc.created — suscriptores externos reciben el alta de OC.
+    await publish_event(
+        db,
+        "oc.created",
+        {
+            "oc_id": oc.oc_id,
+            "numero_oc": oc.numero_oc,
+            "empresa_codigo": oc.empresa_codigo,
+            "proveedor_id": oc.proveedor_id,
+            "total": float(oc.total) if oc.total else None,
+            "moneda": oc.moneda,
+            "estado": oc.estado,
+            "created_by": str(user.sub),
+        },
+    )
     return _to_read(user, oc)
 
 
