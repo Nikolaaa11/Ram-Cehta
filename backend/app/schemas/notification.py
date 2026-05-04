@@ -56,6 +56,9 @@ class GenerateAlertsReport(BaseModel):
     f29_due: int = 0
     contrato_due: int = 0
     oc_pending: int = 0
-    entregable_due: int = 0  # V4 fase 6: alertas de entregables regulatorios
+    # V4 fase 6 (renombrado): alertas de entregables regulatorios CMF/CORFO/
+    # UAF/SII/INTERNO/AUDITORIA/ASAMBLEA/OPERACIONAL. Plural para alinearse
+    # con el cron output y diferenciarse del modelo singular.
+    entregables_due: int = 0
     total: int = 0
     errores: list[str] = Field(default_factory=list)

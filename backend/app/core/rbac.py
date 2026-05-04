@@ -43,7 +43,11 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         # CEO Dashboard (V3 fase 3+4) — vista consolidada del portafolio.
         "ceo:read",
         # Legal Vault (V3 fase 3+4) — bóveda de documentos legales por empresa.
-        "legal:read", "legal:create", "legal:update", "legal:delete",
+        # `legal:write` (V5) — scope agregado usado por los 4 endpoints regulatorios
+        # nuevos: policies_fondo, lp_documents, fondo_actas, estados_financieros.
+        # Equivalente a legal:create + legal:update + legal:delete para escritura
+        # en cualquier vault. Admin lo tiene full.
+        "legal:read", "legal:create", "legal:update", "legal:delete", "legal:write",
         # Notifications (V3 fase 3+4) — admin maneja Resend y emails.
         "notifications:admin",
         # Avance / Gantt (V3 fase 5) — proyectos, hitos, riesgos por empresa.
@@ -75,7 +79,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         # AI Asistente — chat full pero sin re-indexar.
         "ai:read", "ai:chat",
         # Legal Vault — operativo (subir/editar contratos) pero no eliminar.
-        "legal:read", "legal:create", "legal:update",
+        # `legal:write` (V5): finance también puede crear/editar políticas, actas,
+        # docs LP y EEFF. Borrado físico solo en lp_documents/fondo_actas/eeff
+        # (policies se derogan, no se borran — política regulatoria).
+        "legal:read", "legal:create", "legal:update", "legal:write",
         # Avance — finance crea y edita pero no elimina proyectos/hitos/riesgos.
         "avance:read", "avance:create", "avance:update",
         # Calendar — finance puede crear y editar eventos.

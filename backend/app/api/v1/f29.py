@@ -195,26 +195,31 @@ async def update_f29_estado(
         before=before,
         after=refreshed.model_dump(mode="json"),
     )
-    # Webhook: f29.pagado / f29.pendiente / f29.vencido — suscriptores externos
-    # reciben el cambio de estado tributario.
-    await publish_event(
-        db,
-        f"f29.{body.estado}",
-        {
-            "f29_id": f29_id,
-            "empresa_codigo": refreshed.empresa_codigo,
-            "periodo_tributario": refreshed.periodo_tributario,
-            "estado_before": before["estado"],
-            "estado_after": body.estado,
-            "fecha_vencimiento": str(refreshed.fecha_vencimiento)
-            if refreshed.fecha_vencimiento
-            else None,
-            "monto_a_pagar": float(refreshed.monto_a_pagar)
-            if refreshed.monto_a_pagar
-            else None,
-            "changed_by": str(user.sub),
-        },
-    )
+    # Webhook: solo dispara `f29.paid` cuando estado=pagado. Los estados
+    # pendiente/vencido no disparan desde aquí — `f29.due` lo dispara el
+    # alerts_cron cuando detecta vencimientos en los próximos 7 días.
+    if body.estado == "pagado":
+        await publish_event(
+            db,
+            "f29.paid",
+            {
+                "f29_id": f29_id,
+                "empresa_codigo": refreshed.empresa_codigo,
+                "periodo_tributario": refreshed.periodo_tributario,
+                "estado_before": before["estado"],
+                "estado_after": body.estado,
+                "fecha_vencimiento": str(refreshed.fecha_vencimiento)
+                if refreshed.fecha_vencimiento
+                else None,
+                "fecha_pago": str(refreshed.fecha_pago)
+                if refreshed.fecha_pago
+                else None,
+                "monto_a_pagar": float(refreshed.monto_a_pagar)
+                if refreshed.monto_a_pagar
+                else None,
+                "changed_by": str(user.sub),
+            },
+        )
     return refreshed
 
 

@@ -237,24 +237,32 @@ async def update_estado(
         before={"estado": estado_before},
         after={"estado": body.estado},
     )
-    # Webhook: oc.paid / oc.anulada / oc.parcial → suscriptores externos
-    # (Slack, Make.com, n8n, Notion, etc.) reciben el cambio de estado.
-    # Best-effort async — no rompe la mutación si el dispatcher falla.
-    await publish_event(
-        db,
-        f"oc.{body.estado}",
-        {
-            "oc_id": oc_id,
-            "numero_oc": updated.numero_oc,
-            "empresa_codigo": updated.empresa_codigo,
-            "estado_before": estado_before,
-            "estado_after": body.estado,
-            "total": float(updated.total) if updated.total else None,
-            "moneda": updated.moneda,
-            "proveedor_id": updated.proveedor_id,
-            "changed_by": str(user.sub),
-        },
-    )
+    # Webhook: mapea estado interno (español) → event type registrado (inglés).
+    # `pagada`/`parcial` → oc.paid (con partial_payment flag). `anulada` →
+    # oc.cancelled. Best-effort async — fallo del dispatcher no rompe la mutación.
+    _OC_EVENT_MAP = {
+        "pagada": "oc.paid",
+        "parcial": "oc.paid",
+        "anulada": "oc.cancelled",
+    }
+    _evt = _OC_EVENT_MAP.get(body.estado)
+    if _evt:
+        await publish_event(
+            db,
+            _evt,
+            {
+                "oc_id": oc_id,
+                "numero_oc": updated.numero_oc,
+                "empresa_codigo": updated.empresa_codigo,
+                "estado_before": estado_before,
+                "estado_after": body.estado,
+                "partial_payment": body.estado == "parcial",
+                "total": float(updated.total) if updated.total else None,
+                "moneda": updated.moneda,
+                "proveedor_id": updated.proveedor_id,
+                "changed_by": str(user.sub),
+            },
+        )
     return _to_read(user, updated)
 
 

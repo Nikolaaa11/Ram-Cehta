@@ -27,19 +27,37 @@ import {
   type WebhookSubscriptionWithSecret,
 } from "@/hooks/use-webhooks";
 
-const EVENT_LABELS: Record<string, string> = {
-  "oc.created": "OC creada",
-  "oc.paid": "OC pagada",
-  "oc.cancelled": "OC anulada",
-  "f29.due": "F29 vence pronto",
-  "f29.paid": "F29 pagado",
-  "legal.due": "Contrato vence pronto",
-  "trabajador.created": "Trabajador creado",
-  "etl.completed": "ETL completado",
-  "etl.failed": "ETL falló",
-  "audit.high_severity": "Cambio crítico",
-  test: "Test (manual)",
+/**
+ * Lista de event types disponibles + estado de wiring real.
+ *
+ * `wired=true` → el handler del backend dispara este event en mutaciones
+ * reales. Si está `false`, podés crear la suscripción pero nunca llegan
+ * eventos (excepto via "test" manual).
+ *
+ * Wiring verificado en commits 23c0019, 10ed75e, 24635b4.
+ */
+const EVENT_LABELS: Record<string, { label: string; wired: boolean }> = {
+  "oc.created": { label: "OC creada", wired: true },
+  "oc.paid": { label: "OC pagada (full o parcial)", wired: true },
+  "oc.cancelled": { label: "OC anulada", wired: true },
+  "f29.created": { label: "F29 creada", wired: true },
+  "f29.due": { label: "F29 vence pronto (≤7d)", wired: true },
+  "f29.paid": { label: "F29 pagado", wired: true },
+  "legal.created": { label: "Doc legal creado", wired: true },
+  "legal.due": { label: "Contrato vence pronto (≤30d)", wired: true },
+  "trabajador.created": { label: "Trabajador creado", wired: true },
+  "trabajador.deleted": { label: "Trabajador eliminado", wired: true },
+  "lp.created": { label: "LP creado", wired: true },
+  "lp_document.created": { label: "Doc de LP creado", wired: true },
+  "entregable.due": { label: "Entregable regulatorio vence (≤7d)", wired: true },
+  "etl.completed": { label: "ETL Dropbox completado", wired: true },
+  "etl.failed": { label: "ETL Dropbox falló", wired: true },
+  "audit.high_severity": { label: "Cambio crítico (auditoría)", wired: false },
+  test: { label: "Test (manual)", wired: true },
 };
+
+const eventLabel = (evt: string): string =>
+  EVENT_LABELS[evt]?.label ?? evt;
 
 interface FormState {
   name: string;
@@ -237,25 +255,43 @@ export default function WebhooksPage() {
               />
             </div>
             <div className="col-span-2">
-              <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-ink-500">
-                Eventos a escuchar
-              </label>
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <label className="block text-xs font-medium uppercase tracking-wider text-ink-500">
+                  Eventos a escuchar
+                </label>
+                <p className="flex items-center gap-1.5 text-[10px] text-ink-400">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-positive" />
+                  Live = conectado a handlers reales
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {allEvents.map((evt) => {
                   const checked = form.events.has(evt);
+                  const wired = EVENT_LABELS[evt]?.wired ?? false;
                   return (
                     <button
                       key={evt}
                       type="button"
                       onClick={() => toggleEvent(evt)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ease-apple ${
+                      title={
+                        wired
+                          ? "Live: este evento se dispara en mutaciones reales del backend"
+                          : "Declarado pero NO conectado — solo recibirás 'test' manuales"
+                      }
+                      className={`group inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-all duration-150 ease-apple ${
                         checked
                           ? "border-cehta-green bg-cehta-green/10 text-cehta-green"
                           : "border-hairline bg-white text-ink-600 hover:bg-ink-50"
                       }`}
                     >
                       {checked && <Check className="h-3 w-3" strokeWidth={2.5} />}
-                      {EVENT_LABELS[evt] ?? evt}
+                      {eventLabel(evt)}
+                      <span
+                        aria-hidden
+                        className={`inline-block h-1.5 w-1.5 rounded-full ${
+                          wired ? "bg-positive" : "bg-ink-300"
+                        }`}
+                      />
                     </button>
                   );
                 })}
@@ -335,7 +371,7 @@ export default function WebhooksPage() {
                         key={evt}
                         className="inline-flex rounded-md bg-cehta-green/10 px-1.5 py-0.5 text-[10px] font-medium text-cehta-green"
                       >
-                        {EVENT_LABELS[evt] ?? evt}
+                        {eventLabel(evt)}
                       </span>
                     ))}
                   </div>

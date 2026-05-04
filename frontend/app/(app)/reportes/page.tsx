@@ -10,7 +10,15 @@
  *
  * Server Component — cada subruta hace su propio fetch.
  */
-import { TrendingUp, PieChart, Users, FileText, Sparkles } from "lucide-react";
+import {
+  FileBarChart,
+  FileText,
+  PieChart,
+  ScrollText,
+  Sparkles,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import { ReporteCard } from "@/components/reportes/ReporteCard";
 
 export const metadata = {
@@ -45,7 +53,7 @@ export default function ReportesPage() {
             <span className="text-ink-500">comité y auditoría.</span>
           </h1>
           <p className="mt-5 max-w-2xl text-[15px] leading-relaxed text-ink-600 sm:text-base">
-            Cuatro reportes consolidados a partir de la base contable
+            Seis reportes consolidados a partir de la base contable
             integrada. Generados en tiempo real, exportables a PDF, con la
             marca y los criterios formales de Cehta Capital.
           </p>
@@ -59,8 +67,8 @@ export default function ReportesPage() {
           </div>
         </header>
 
-        {/* Grid de 4 reportes */}
-        <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-6">
+        {/* Grid de 6 reportes */}
+        <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           <ReporteCard
             number="01"
             icon={<TrendingUp className="h-5 w-5" strokeWidth={1.5} />}
@@ -91,6 +99,22 @@ export default function ReportesPage() {
             title="Compliance Tributario"
             description="F29 por empresa con vencimientos, estados de pago y comprobantes."
             href="/reportes/tributario"
+            accent="sf-teal"
+          />
+          <ReporteCard
+            number="05"
+            icon={<ScrollText className="h-5 w-5" strokeWidth={1.5} />}
+            title="Actas del Fondo"
+            description="Directorio AFIS, Comités y Asambleas de LPs con quórum y acuerdos votados."
+            href="/reportes/actas"
+            accent="sf-purple"
+          />
+          <ReporteCard
+            number="06"
+            icon={<FileBarChart className="h-5 w-5" strokeWidth={1.5} />}
+            title="Estados Financieros"
+            description="Balance, Estado de Resultados y Flujo de Caja por empresa, con auditoría."
+            href="/reportes/eeff"
             accent="sf-teal"
           />
         </div>

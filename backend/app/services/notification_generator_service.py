@@ -320,34 +320,52 @@ class NotificationGeneratorService:
             )
         return total
 
-    async def generate_entregable_due_alerts(self) -> int:
-        """V4 fase 6: alertas para entregables regulatorios FIP CEHTA ESG.
+    async def generate_entregables_due_alerts(self) -> int:
+        """Entregables regulatorios CMF/CORFO/UAF/SII/etc. con vencimiento
+        en los próximos 14 días.
 
-        Criterio: estado != 'entregado' AND fecha_limite en próximos 7 días
-        AND alerta_5 = true. Severity:
-          - critical si vencido / vence hoy / ≤3 días
-          - warning si ≤7 días
+        Política dual:
+          - **Notificación in-app**: ventana 0..14 días (más amplia para que
+            el equipo operativo tenga tiempo de reaccionar).
+          - **Webhook `entregable.due`**: sólo si `dias_hasta_vencimiento <= 7`
+            (más selectivo, evita spam a integradores externos por cosas que
+            todavía están a 2 semanas vista).
 
-        Recipients: admin + finance (compliance es responsabilidad de
-        ambos roles operativos).
+        Severity:
+          - `critical` si dias <= 0 (vence hoy o vencido — la query lo
+            permite cuando ya quedó pasado pero estado != 'entregado').
+          - `warning` si dias > 0.
+
+        Recipients: admin + finance (mismo patrón que los otros generators).
+        Idempotencia: dedup por `(user_id, entity_type, entity_id, tipo)` en
+        ventana de 24h, vía `_create_idempotent`.
         """
-        rows = await self._session.execute(
-            text(
-                """
-                SELECT entregable_id, nombre, categoria, fecha_limite,
-                       periodo, prioridad,
-                       (fecha_limite - CURRENT_DATE) AS dias
-                FROM app.entregables_regulatorios
-                WHERE estado IN ('pendiente', 'en_proceso')
-                  AND fecha_limite >= (CURRENT_DATE - INTERVAL '3 days')
-                  AND fecha_limite <= (CURRENT_DATE + INTERVAL '7 days')
-                  AND alerta_5 = TRUE
-                ORDER BY fecha_limite ASC
-                """
+        rows = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT
+                        entregable_id,
+                        nombre,
+                        categoria,
+                        subcategoria,
+                        fecha_limite,
+                        periodo,
+                        prioridad,
+                        estado,
+                        responsable,
+                        extra,
+                        (fecha_limite - CURRENT_DATE) AS dias
+                    FROM app.entregables_regulatorios
+                    WHERE estado <> 'entregado'
+                      AND fecha_limite BETWEEN CURRENT_DATE
+                          AND CURRENT_DATE + INTERVAL '14 days'
+                    ORDER BY fecha_limite ASC
+                    """
+                )
             )
-        )
-        items = rows.mappings().all()
-        if not items:
+        ).mappings().all()
+        if not rows:
             return 0
 
         user_ids = await self._operational_user_ids()
@@ -355,58 +373,69 @@ class NotificationGeneratorService:
             return 0
 
         total = 0
-        for it in items:
-            dias = it["dias"]
-            severity = (
-                "critical" if dias <= 3 else "warning"
-            )
-            if dias < 0:
-                title = f"⚠️ Entregable VENCIDO: {it['nombre']}"
-                body = (
-                    f"Vencido hace {abs(dias)}d · {it['categoria']} · "
-                    f"período {it['periodo']}. Marcar como entregado o "
-                    f"justificar."
-                )
+        for r in rows:
+            dias = int(r["dias"])
+            severity = "warning" if dias > 0 else "critical"
+
+            # Resolución de empresa_codigo replicando el patrón de
+            # `app/api/v1/calendar.py:_query_entregables` — primero
+            # `extra->>'empresa_codigo'`, fallback a `subcategoria`.
+            extra = r["extra"] or {}
+            empresa_codigo: str | None = None
+            if isinstance(extra, dict):
+                empresa_codigo = extra.get("empresa_codigo")
+            if not empresa_codigo:
+                empresa_codigo = r["subcategoria"]
+
+            if dias > 0:
+                detalle = f"Faltan {dias} días."
             elif dias == 0:
-                title = f"🔴 Vence HOY: {it['nombre']}"
-                body = (
-                    f"{it['categoria']} · período {it['periodo']}. Acción "
-                    f"inmediata requerida."
-                )
+                detalle = "Vence HOY."
             else:
-                title = f"⏰ Entregable en {dias}d: {it['nombre']}"
-                body = (
-                    f"{it['categoria']} · período {it['periodo']}. Vence el "
-                    f"{it['fecha_limite'].isoformat()}."
+                detalle = f"VENCIDO hace {abs(dias)} días."
+            title = (
+                f"Entregable {r['categoria']} próximo: {r['nombre']}"
+            )
+            body = (
+                f"Vence el {r['fecha_limite'].isoformat()}. {detalle}"
+            )
+            link = f"/entregables?id={r['entregable_id']}"
+
+            # 1) Webhook `entregable.due` — UNA sola vez por entregable, ANTES
+            #    de iterar usuarios. Solo si dias <= 7 (más selectivo que la
+            #    alerta in-app de 14d, para no spamear suscriptores externos).
+            if dias <= 7:
+                await publish_event(
+                    self._session,
+                    "entregable.due",
+                    {
+                        "entregable_id": str(r["entregable_id"]),
+                        "nombre": r["nombre"],
+                        "categoria": r["categoria"],
+                        "subcategoria": r["subcategoria"],
+                        "empresa_codigo": empresa_codigo,
+                        "fecha_limite": r["fecha_limite"].isoformat(),
+                        "dias_hasta_vencimiento": dias,
+                        "prioridad": r.get("prioridad"),
+                        "estado": r["estado"],
+                        "responsable": r.get("responsable"),
+                        "periodo": r.get("periodo"),
+                        "severity": severity,
+                    },
                 )
 
-            count = await self._create_idempotent(
+            # 2) Notificación in-app — fan-out a admin/finance, idempotente
+            #    por user en ventana 24h.
+            total += await self._create_idempotent(
                 user_ids=user_ids,
                 tipo="entregable_due",
                 title=title,
                 body=body,
                 severity=severity,
-                link=f"/entregables?focus={it['entregable_id']}",
-                entity_type="entregable",
-                entity_id=str(it["entregable_id"]),
+                link=link,
+                entity_type="entregable_regulatorio",
+                entity_id=str(r["entregable_id"]),
             )
-            total += count
-            # Webhook: entregable.due — sólo si la alerta es nueva.
-            if count > 0:
-                await publish_event(
-                    self._session,
-                    "entregable.due",
-                    {
-                        "entregable_id": str(it["entregable_id"]),
-                        "nombre": it["nombre"],
-                        "categoria": it["categoria"],
-                        "periodo": it["periodo"],
-                        "fecha_limite": it["fecha_limite"].isoformat(),
-                        "dias_restantes": int(dias),
-                        "prioridad": it.get("prioridad"),
-                        "severity": severity,
-                    },
-                )
         return total
 
     async def run_all(self) -> GenerateAlertsReport:
@@ -428,15 +457,15 @@ class NotificationGeneratorService:
             report.errores.append(f"oc_pending: {exc}")
             log.error("oc_pending_failed", error=str(exc))
         try:
-            report.entregable_due = await self.generate_entregable_due_alerts()
+            report.entregables_due = await self.generate_entregables_due_alerts()
         except Exception as exc:
-            report.errores.append(f"entregable_due: {exc}")
-            log.error("entregable_due_failed", error=str(exc))
+            report.errores.append(f"entregables_due: {exc}")
+            log.error("entregables_due_failed", error=str(exc))
         report.total = (
             report.f29_due
             + report.contrato_due
             + report.oc_pending
-            + report.entregable_due
+            + report.entregables_due
         )
         return report
 
@@ -456,20 +485,26 @@ async def generate_oc_pending_alerts(db: AsyncSession) -> int:
     return await NotificationGeneratorService(db).generate_oc_pending_alerts()
 
 
+async def generate_entregables_due_alerts(db: AsyncSession) -> int:
+    return await NotificationGeneratorService(db).generate_entregables_due_alerts()
+
+
 async def run_all(db: AsyncSession) -> dict[str, int]:
     report = await NotificationGeneratorService(db).run_all()
     return {
         "f29_due": report.f29_due,
         "contrato_due": report.contrato_due,
         "oc_pending": report.oc_pending,
+        "entregables_due": report.entregables_due,
         "total": report.total,
     }
 
 
-# Re-export for type-only imports in tests.
+# Re-export for type-only imports en tests.
 __all__ = [
     "NotificationGeneratorService",
     "generate_contrato_due_alerts",
+    "generate_entregables_due_alerts",
     "generate_f29_due_alerts",
     "generate_oc_pending_alerts",
     "run_all",

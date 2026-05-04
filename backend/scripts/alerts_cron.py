@@ -51,6 +51,7 @@ async def main() -> int:
                     "f29_due": report.f29_due,
                     "contrato_due": report.contrato_due,
                     "oc_pending": report.oc_pending,
+                    "entregables_due": report.entregables_due,
                     "total": report.total,
                 },
                 default=str,
