@@ -139,7 +139,7 @@ async def _query_f29(
                 FROM core.f29_obligaciones
                 WHERE fecha_vencimiento BETWEEN :from_date AND :to_date
                   AND estado <> 'pagado'
-                  AND (:empresa IS NULL OR empresa_codigo = :empresa)
+                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
                 """
             ),
             {
@@ -194,7 +194,7 @@ async def _query_legal(
                 FROM core.legal_documents
                 WHERE fecha_vigencia_hasta BETWEEN :from_date AND :to_date
                   AND estado = 'vigente'
-                  AND (:empresa IS NULL OR empresa_codigo = :empresa)
+                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
                 """
             ),
             {
@@ -250,7 +250,7 @@ async def _query_oc(
                     estado
                 FROM core.ordenes_compra
                 WHERE estado IN ('emitida', 'aprobada')
-                  AND (:empresa IS NULL OR empresa_codigo = :empresa)
+                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
                 """
             ),
             {"empresa": empresa_codigo},
@@ -305,7 +305,7 @@ async def _query_suscripciones(
                 WHERE firmado = false
                   AND fecha_recibo IS NOT NULL
                   AND fecha_recibo BETWEEN :from_date AND :to_date
-                  AND (:empresa IS NULL OR empresa_codigo = :empresa)
+                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
                 """
             ),
             {
@@ -364,7 +364,7 @@ async def _query_calendar_events(
                 FROM core.calendar_events
                 WHERE completado = false
                   AND fecha_inicio::date BETWEEN :from_date AND :to_date
-                  AND (:empresa IS NULL OR empresa_codigo = :empresa)
+                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
                 """
             ),
             {
@@ -429,7 +429,7 @@ async def _query_hitos(
                 JOIN core.proyectos_empresa p ON h.proyecto_id = p.proyecto_id
                 WHERE h.fecha_planificada BETWEEN :from_date AND :to_date
                   AND h.estado IN ('pendiente', 'en_progreso')
-                  AND (:empresa IS NULL OR p.empresa_codigo = :empresa)
+                  AND (CAST(:empresa AS text) IS NULL OR p.empresa_codigo = CAST(:empresa AS text))
                 ORDER BY h.fecha_planificada ASC
                 LIMIT 500
                 """
@@ -505,8 +505,8 @@ async def _query_entregables(
                 WHERE fecha_limite BETWEEN :from_date AND :to_date
                   AND estado <> 'entregado'
                   AND (
-                      :empresa IS NULL
-                      OR COALESCE(extra->>'empresa_codigo', subcategoria) = :empresa
+                      CAST(:empresa AS text) IS NULL
+                      OR COALESCE(extra->>'empresa_codigo', subcategoria) = CAST(:empresa AS text)
                   )
                 ORDER BY fecha_limite ASC
                 """
