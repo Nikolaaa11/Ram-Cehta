@@ -69,12 +69,12 @@ Set-Location $repoRoot
 Write-Host ""
 Write-Host "[5/5] Smoke test endpoints clave..." -ForegroundColor Yellow
 
-$health = (Invoke-WebRequest -Uri "https://cehta-backend.fly.dev/healthz" -UseBasicParsing -SkipHttpErrorCheck).StatusCode
+$health = (Invoke-WebRequest -Uri "https://cehta-backend.fly.dev/api/v1/health" -UseBasicParsing -SkipHttpErrorCheck).StatusCode
 if ($health -ne 200) {
-    Write-Host "ERROR: /healthz devolvio $health (esperado 200)" -ForegroundColor Red
+    Write-Host "ERROR: /api/v1/health devolvio $health (esperado 200)" -ForegroundColor Red
     exit 1
 }
-Write-Host "      OK /healthz=200" -ForegroundColor Green
+Write-Host "      OK /api/v1/health=200" -ForegroundColor Green
 
 $obligaciones = (Invoke-WebRequest -Uri "https://cehta-backend.fly.dev/api/v1/calendar/obligations" -UseBasicParsing -SkipHttpErrorCheck).StatusCode
 if ($obligaciones -eq 500) {

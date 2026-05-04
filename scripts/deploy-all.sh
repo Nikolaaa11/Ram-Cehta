@@ -50,12 +50,12 @@ cd "$REPO_ROOT"
 # 5. Smoke test
 echo
 echo "[5/5] Smoke test..."
-HEALTH=$(curl -s -o /dev/null -w "%{http_code}" https://cehta-backend.fly.dev/healthz)
+HEALTH=$(curl -s -o /dev/null -w "%{http_code}" https://cehta-backend.fly.dev/api/v1/health)
 if [[ "$HEALTH" != "200" ]]; then
-    echo "ERROR: /healthz devolvio $HEALTH (esperado 200)"
+    echo "ERROR: /api/v1/health devolvio $HEALTH (esperado 200)"
     exit 1
 fi
-echo "      OK /healthz=200"
+echo "      OK /api/v1/health=200"
 
 OBLIG=$(curl -s -o /dev/null -w "%{http_code}" https://cehta-backend.fly.dev/api/v1/calendar/obligations)
 if [[ "$OBLIG" == "500" ]]; then
