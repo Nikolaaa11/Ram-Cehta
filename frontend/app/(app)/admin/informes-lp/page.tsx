@@ -247,7 +247,11 @@ export default function AdminInformesLpPage() {
 
 function InformeRow({ informe }: { informe: InformeLpListItem }) {
   return (
-    <li className="flex items-center gap-4 rounded-xl border border-hairline bg-white px-4 py-3 transition-colors hover:bg-ink-50/40">
+    <li className="overflow-hidden rounded-xl border border-hairline bg-white transition-colors hover:bg-ink-50/40 hover:shadow-card">
+      <Link
+        href={`/admin/informes-lp/${informe.informe_id}` as never}
+        className="flex items-center gap-4 px-4 py-3"
+      >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Badge
@@ -303,6 +307,7 @@ function InformeRow({ informe }: { informe: InformeLpListItem }) {
             href={`/informe/${informe.token}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-white px-2.5 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
           >
             Ver
@@ -310,6 +315,7 @@ function InformeRow({ informe }: { informe: InformeLpListItem }) {
           </a>
         )}
       </div>
+      </Link>
     </li>
   );
 }
