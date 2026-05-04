@@ -18,6 +18,7 @@ from __future__ import annotations
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -188,11 +189,12 @@ async def update_fondo_acta(
 @router.delete(
     "/{acta_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
     dependencies=[Depends(require_scope("legal:write"))],
 )
 async def delete_fondo_acta(
     user: CurrentUser, db: DBSession, acta_id: int
-) -> None:
+) -> Response:
     a = await db.get(FondoActa, acta_id)
     if a is None:
         raise HTTPException(
@@ -201,4 +203,4 @@ async def delete_fondo_acta(
         )
     await db.delete(a)
     await db.commit()
-    return None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
