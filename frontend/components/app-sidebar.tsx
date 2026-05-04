@@ -141,6 +141,17 @@ const GROUPS: NavGroup[] = [
         label: "Suscripciones FIP",
         icon: TrendingUp,
       },
+      // V4 fase 9: Pipeline LPs + Informes LP virales
+      {
+        href: "/admin/lps" as Route,
+        label: "Inversionistas (LPs)",
+        icon: Users,
+      },
+      {
+        href: "/admin/informes-lp" as Route,
+        label: "Informes a Inversionistas",
+        icon: Sparkles,
+      },
       {
         href: "/asistente" as Route,
         label: "AI Asistente",

@@ -7,7 +7,7 @@
  * Después del submit, redirige a la vista admin del informe creado
  * para que el GP pueda revisar la narrativa AI y publicar.
  */
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, Sparkles, Loader2 } from "lucide-react";
@@ -26,11 +26,17 @@ import type {
 export default function NuevoInformePage() {
   const router = useRouter();
   const { session } = useSession();
+  const searchParams = useSearchParams();
+  // Deep-link desde /admin/lps/{id} → ?lp_id=42 pre-popula el LP
+  const initialLpId = (() => {
+    const raw = searchParams.get("lp_id");
+    return raw && /^\d+$/.test(raw) ? Number(raw) : null;
+  })();
 
   const lpsQ = useApiQuery<LpRead[]>(["lps", "list"], "/lps");
 
   const [form, setForm] = useState<InformeLpGenerateRequest>({
-    lp_id: null,
+    lp_id: initialLpId,
     tipo: "periodico",
     titulo: null,
     periodo: defaultPeriodo(),
@@ -120,7 +126,7 @@ export default function NuevoInformePage() {
                 <p className="mt-1 text-xs text-ink-500">
                   Aún no hay LPs registrados.{" "}
                   <Link
-                    href={"/admin/informes-lp/lps/nuevo" as never}
+                    href={"/admin/lps/nuevo" as never}
                     className="text-cehta-green hover:underline"
                   >
                     Crear el primero
