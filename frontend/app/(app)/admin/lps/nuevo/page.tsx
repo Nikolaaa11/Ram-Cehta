@@ -247,7 +247,7 @@ export default function NuevoLpPage() {
                   label="Relationship Manager (email)"
                   value={form.relationship_owner ?? ""}
                   onChange={(v) => setForm({ ...form, relationship_owner: v })}
-                  placeholder="camilo@cehtacapital.cl"
+                  placeholder="guido@cehtacapital.cl"
                 />
               </div>
             </Section>
@@ -350,7 +350,7 @@ export default function NuevoLpPage() {
                 value={form.notas ?? ""}
                 onChange={(e) => setForm({ ...form, notas: e.target.value })}
                 rows={3}
-                placeholder="Conoce a Camilo desde 2024. Le interesa BESS. Próximo follow-up en mayo…"
+                placeholder="Conoce a Guido desde 2024. Le interesa BESS. Próximo follow-up en mayo…"
                 className="w-full rounded-xl border-0 bg-white px-4 py-3 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
             </Section>

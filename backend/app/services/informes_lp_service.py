@@ -185,11 +185,11 @@ Si LP es "agresivo":
 
 Si LP es "conservador":
   - Principal: enfatizar estabilidad + cobertura
-  - Ej: "Validá nuestra estrategia de cobertura con Camilo"
+  - Ej: "Validá nuestra estrategia de cobertura con Guido"
 
 Si LP es nuevo (estado='pipeline'):
   - Principal: agendar primer café
-  - Ej: "Agendá 30min con Camilo para conocer el fondo"
+  - Ej: "Agendá 30min con Guido para conocer el fondo"
 
 Si LP vino via share (parent_token presente):
   - Principal: validar la introducción
@@ -206,7 +206,7 @@ ESTILO:
 
 EJEMPLOS BUENOS:
 {
-  "cta_principal": "Agendá café con Camilo (30 min)",
+  "cta_principal": "Agendá café con Guido (30 min)",
   "cta_secundario_1": "Aumentar tu posición",
   "cta_secundario_2": "Compartir con un colega que invierte",
   "razonamiento_breve": "LP activo con perfil ESG, oferta café principal y aumento como secundario."
@@ -562,7 +562,7 @@ async def generate_full_informe_narrativa(
     except Exception as e:  # noqa: BLE001
         bundle["cta"] = {
             "_error": str(e),
-            "cta_principal": "Agendá café con Camilo (30 min)",
+            "cta_principal": "Agendá café con Guido (30 min)",
             "cta_secundario_1": "Aumentar tu posición",
             "cta_secundario_2": "Compartir con un colega",
         }

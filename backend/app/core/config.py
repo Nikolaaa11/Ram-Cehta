@@ -74,14 +74,14 @@ class Settings(BaseSettings):
 
     # V4 fase 9.4: Booking URL (Cal.com / Calendly / Google appointments).
     # Si está seteada, los Informes LP muestran un botón "Agendar 30 min con
-    # Camilo" que abre un modal con iframe en vez de mailto:. Multiplica
+    # {owner}" que abre un modal con iframe en vez de mailto:. Multiplica
     # conversion porque el LP agenda con 1 click sin salir del informe.
     # Ejemplos válidos:
-    #   - https://cal.com/camilo-cehta/30min
-    #   - https://calendly.com/camilo-cehta/cafe-fip
+    #   - https://cal.com/guido-rietta/30min
+    #   - https://calendly.com/guido-cehta/cafe-fip
     #   - https://calendar.app.google/abc123
     booking_url: str | None = None
-    booking_owner_name: str = "Camilo Salazar"
+    booking_owner_name: str = "Guido Rietta"
 
     @field_validator("cors_origins", mode="before")
     @classmethod

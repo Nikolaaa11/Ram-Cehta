@@ -7,7 +7,7 @@
  * al cargar, `time_spent` al salir, `scroll` events en 25/50/75/100%.
  *
  * Soft-fail: si el endpoint no responde, mostrar página minimalista
- * con CTA para contactar a Camilo.
+ * con CTA para contactar a Guido.
  */
 import { use, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -155,7 +155,7 @@ export default function InformePage({
             ¿Querés saber más?
           </h2>
           <p className="mt-3 text-base text-white/80">
-            Agendá una conversación con Camilo Salazar (GP del fondo) y
+            Agendá una conversación con Guido Rietta (GP del fondo) y
             conversemos sobre tu posición.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -173,18 +173,18 @@ export default function InformePage({
               >
                 <Calendar className="h-4 w-4" strokeWidth={2} />
                 Agendar 30 min con{" "}
-                {informe.live_data.booking.owner_name ?? "Camilo"}
+                {informe.live_data.booking.owner_name ?? "Guido"}
               </button>
             ) : (
               <a
-                href="mailto:camilo@cehtacapital.cl?subject=Reunión sobre el FIP CEHTA ESG"
+                href="mailto:guido@cehtacapital.cl?subject=Reunión sobre el FIP CEHTA ESG"
                 onClick={() =>
                   track(token, { tipo: "agendar_click", seccion: "cta" })
                 }
                 className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-cehta-green-700 transition-colors hover:bg-white/90"
               >
                 <Mail className="h-4 w-4" strokeWidth={2} />
-                Agendar 30 min con Camilo
+                Agendar 30 min con Guido
               </a>
             )}
             <button
@@ -216,7 +216,7 @@ export default function InformePage({
 
           {informe.is_expired && (
             <p className="mt-8 text-xs text-white/60">
-              Este informe es de {informe.periodo}. Pedile a Camilo el último
+              Este informe es de {informe.periodo}. Pedile a Guido el último
               actualizado.
             </p>
           )}
@@ -324,11 +324,11 @@ function ErrorState({ error }: { error: Error }) {
             : "Intentá nuevamente en unos segundos."}
         </p>
         <a
-          href="mailto:camilo@cehtacapital.cl"
+          href="mailto:guido@cehtacapital.cl"
           className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-cehta-green-700"
         >
           <Mail className="h-4 w-4" strokeWidth={2} />
-          Contactar a Camilo
+          Contactar a Guido
         </a>
       </div>
     </div>

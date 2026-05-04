@@ -680,7 +680,7 @@ export default function InformeEditorPage({
                     updateCta({ cta_principal: e.target.value })
                   }
                   disabled={readOnly}
-                  placeholder="Agendá café con Camilo (30 min)"
+                  placeholder="Agendá café con Guido (30 min)"
                   className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm font-medium ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green disabled:bg-ink-50"
                 />
               </div>

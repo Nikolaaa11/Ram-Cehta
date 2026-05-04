@@ -107,7 +107,7 @@ export function BookingModal({
               Agendar reunión
             </p>
             <h2 className="font-display text-lg font-semibold tracking-tight text-ink-900">
-              30 min con {ownerName ?? "Camilo Salazar"}
+              30 min con {ownerName ?? "Guido Rietta"}
             </h2>
           </div>
           <button
@@ -130,7 +130,7 @@ export function BookingModal({
           </div>
           <iframe
             src={iframeUrl}
-            title={`Agendar con ${ownerName ?? "Camilo"}`}
+            title={`Agendar con ${ownerName ?? "Guido"}`}
             className="relative z-10 h-full w-full border-0"
             allow="camera; microphone; autoplay"
           />

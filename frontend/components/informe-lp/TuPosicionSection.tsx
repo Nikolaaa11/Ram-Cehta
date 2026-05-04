@@ -166,7 +166,7 @@ export function TuPosicionSection({ informe }: Props) {
                 Relationship Manager
               </p>
               <p className="mt-1 text-sm font-semibold text-ink-900">
-                Camilo Salazar
+                Guido Rietta
               </p>
               <p className="text-xs text-ink-500">GP del fondo</p>
             </div>

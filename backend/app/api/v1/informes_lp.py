@@ -233,7 +233,7 @@ async def _build_secciones_with_ai(
             "kind": "cta",
             "payload": (ai_bundle or {}).get("cta")
             or {
-                "cta_principal": "Agendá café con Camilo (30 min)",
+                "cta_principal": "Agendá café con Guido (30 min)",
                 "cta_secundario_1": "Aumentar tu posición",
                 "cta_secundario_2": "Compartir con un colega",
             },
@@ -540,7 +540,7 @@ async def dispatch_notifications(
     - Escanea eventos `open` y `agendar_click` de informes con parent_token
     - Para cada uno NO notificado todavía, envía email al LP parent:
         * 👀 "{X} abrió tu link"
-        * 🎉 "{X} agendó café con Camilo"
+        * 🎉 "{X} agendó café con Guido"
     - Idempotente vía UNIQUE(child_token, tipo) en informes_lp_notifications
     - Soft-fail si Resend no está configurado
 

@@ -4,7 +4,7 @@ Cierra el loop viral 1→N: cuando un LP comparte (parent) y el destinatario
 (child) abre/convierte, mandamos email POSITIVO al parent:
 
   - 👀 "{destinatario} abrió tu link"
-  - 🎉 "{destinatario} agendó café con Camilo"
+  - 🎉 "{destinatario} agendó café con Guido"
 
 Anti-spam: una notificación de cada tipo por child_token (UNIQUE).
 Soft-fail: si Resend no está, loggea pero no rompe.
@@ -115,7 +115,7 @@ async def dispatch_pending_notifications(
             elif event_tipo == "agendar_click":
                 noti_tipo = "convert"
                 template = "informe_lp_advocate_convert.html"
-                subject = f"🎉 {child_nombre} agendó con Camilo"
+                subject = f"🎉 {child_nombre} agendó con Guido"
             else:
                 continue
 

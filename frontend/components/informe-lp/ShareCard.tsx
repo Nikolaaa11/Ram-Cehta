@@ -7,7 +7,7 @@
  * El sistema crea un child_token con parent_token = current → cada
  * cadena se trackea y el LP recibe notificaciones positivas:
  *   - "Pablo abrió tu link 👀"
- *   - "Pablo agendó café con Camilo 🎉"
+ *   - "Pablo agendó café con Guido 🎉"
  *
  * Endpoint público: POST /informes-lp/by-token/{token}/share
  */
