@@ -24,6 +24,7 @@ from app.api.v1 import (
     health,
     informes_lp,
     legal,
+    lp_documents,
     me_preferences,
     movimientos,
     notifications,
@@ -99,3 +100,7 @@ api_router.include_router(informes_lp.router, tags=["informes-lp"])
 api_router.include_router(
     policies_fondo.router, prefix="/policies-fondo", tags=["policies-fondo"]
 )
+# V5: Vault de documentos por LP (contratos suscripción, KYC, side letters,
+# recibos aporte, W-8/W-9, pasaportes, etc.). Sin prefix porque las URLs
+# tienen `{lp_id}` adentro: /lps/{lp_id}/documents.
+api_router.include_router(lp_documents.router, tags=["lp-documents"])

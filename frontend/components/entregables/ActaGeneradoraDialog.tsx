@@ -25,6 +25,7 @@ import {
   Printer,
   Sparkles,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -271,21 +272,87 @@ export function ActaGeneradoraDialog({
               />
             </div>
 
-            {/* Markdown preview */}
-            <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-hairline bg-white">
-              <div className="sticky top-0 flex items-center justify-between border-b border-hairline bg-white/95 px-3 py-1.5 backdrop-blur">
-                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-cehta-green">
+            {/* Markdown preview — editorial render Apple-tier */}
+            <div className="relative max-h-[55vh] overflow-y-auto rounded-2xl border border-hairline bg-white shadow-card">
+              {/* Sticky header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline/60 bg-white/85 px-5 py-2.5 backdrop-blur-xl">
+                <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
                   <Sparkles className="h-3 w-3" strokeWidth={2} />
                   Borrador generado
                 </p>
-                <p className="text-[10px] text-ink-500">
+                <p className="font-mono text-[10px] tabular-nums text-ink-400">
                   {response.markdown.split(/\s+/).length} palabras ·{" "}
                   {response.tokens.input + response.tokens.output} tokens
                 </p>
               </div>
-              <pre className="whitespace-pre-wrap p-4 font-serif text-[13px] leading-relaxed text-ink-900">
-                {response.markdown}
-              </pre>
+              {/* Cuerpo: paper editorial con tipografía notarial */}
+              <article className="px-7 py-8 font-serif text-[13.5px] leading-[1.75] text-ink-800">
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 className="mb-3 mt-0 border-b border-ink-900/15 pb-2 font-display text-2xl font-semibold tracking-tight text-ink-900">
+                        {children}
+                      </h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="mb-2 mt-7 font-display text-lg font-semibold tracking-tight text-ink-900">
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({ children }) => (
+                      <h3 className="mb-1.5 mt-5 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                        {children}
+                      </h3>
+                    ),
+                    p: ({ children }) => (
+                      <p className="my-2.5 text-ink-800">{children}</p>
+                    ),
+                    strong: ({ children }) => (
+                      <strong className="font-semibold text-ink-900">
+                        {children}
+                      </strong>
+                    ),
+                    em: ({ children }) => (
+                      <em className="italic text-ink-700">{children}</em>
+                    ),
+                    blockquote: ({ children }) => (
+                      <blockquote className="my-4 border-l-2 border-cehta-green/40 bg-ink-50/40 px-4 py-2 italic text-ink-700">
+                        {children}
+                      </blockquote>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="my-2 ml-5 list-disc space-y-0.5 marker:text-cehta-green">
+                        {children}
+                      </ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="my-2 ml-5 list-decimal space-y-0.5 font-mono tabular-nums text-[12.5px] marker:font-semibold marker:text-ink-500">
+                        {children}
+                      </ol>
+                    ),
+                    li: ({ children }) => (
+                      <li className="font-serif text-[13.5px] text-ink-800">
+                        {children}
+                      </li>
+                    ),
+                    hr: () => (
+                      <hr className="my-6 border-ink-900/10" />
+                    ),
+                    code: ({ children }) => (
+                      <code className="rounded bg-ink-100 px-1 py-0.5 font-mono text-[11.5px] text-ink-800">
+                        {children}
+                      </code>
+                    ),
+                  }}
+                >
+                  {response.markdown}
+                </ReactMarkdown>
+              </article>
+              {/* Fade gradient bottom */}
+              <div
+                aria-hidden
+                className="pointer-events-none sticky bottom-0 left-0 right-0 -mt-12 h-12 bg-gradient-to-t from-white to-transparent"
+              />
             </div>
 
             <div className="rounded-xl border border-warning/20 bg-warning/5 p-3 text-[11px] text-ink-700">

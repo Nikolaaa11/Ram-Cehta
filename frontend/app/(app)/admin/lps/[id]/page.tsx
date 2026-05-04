@@ -29,8 +29,18 @@ import {
   Calendar,
   Wallet,
   Users,
+  FileText,
+  FileLock2,
+  FileCheck2,
+  FileSignature,
+  Receipt,
+  ShieldCheck,
+  IdCard,
+  ScrollText,
+  Plus,
+  X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
@@ -41,6 +51,9 @@ import { cn } from "@/lib/utils";
 import type {
   EstadoLp,
   InformeLpListItem,
+  LpDocument,
+  LpDocumentEstado,
+  LpDocumentTipo,
   LpRead,
   PerfilInversor,
 } from "@/lib/api/schema";
@@ -95,6 +108,23 @@ export default function LpDetailPage({
     ["lp-informes", id],
     `/informes-lp?lp_id=${id}`,
   );
+  const documentsQ = useApiQuery<LpDocument[]>(
+    ["lp-documents", id],
+    `/lps/${id}/documents`,
+  );
+  const [showCreateDoc, setShowCreateDoc] = useState(false);
+
+  const deleteDocMutation = useMutation({
+    mutationFn: (lpDocId: number) =>
+      apiClient.delete(`/lps/${id}/documents/${lpDocId}`, session),
+    onSuccess: () => {
+      toast.success("Documento eliminado");
+      qc.invalidateQueries({ queryKey: ["lp-documents", id] });
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.detail : "Error al eliminar");
+    },
+  });
 
   const updateMutation = useMutation({
     mutationFn: () =>
@@ -603,6 +633,133 @@ export default function LpDetailPage({
         </Surface.Body>
       </Surface>
 
+      {/* Documentos del LP */}
+      <Surface>
+        <Surface.Header divider>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <Surface.Title>Documentos del LP</Surface.Title>
+              <Surface.Subtitle>
+                {(documentsQ.data?.length ?? 0)}{" "}
+                {(documentsQ.data?.length ?? 0) === 1
+                  ? "documento"
+                  : "documentos"}{" "}
+                en el vault legal
+              </Surface.Subtitle>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowCreateDoc(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:bg-cehta-green-700"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+              Agregar documento
+            </button>
+          </div>
+        </Surface.Header>
+        <Surface.Body>
+          {documentsQ.isLoading ? (
+            <Skeleton className="h-20 rounded-xl" />
+          ) : !documentsQ.data || documentsQ.data.length === 0 ? (
+            <div className="py-8 text-center">
+              <FileText
+                className="mx-auto h-10 w-10 text-ink-300"
+                strokeWidth={1.5}
+              />
+              <p className="mt-3 text-sm text-ink-600">
+                Aún no cargaste documentos para {view.nombre}.
+              </p>
+              <p className="mt-1 text-xs text-ink-500">
+                Contrato de suscripción, KYC, side letters, recibos de aporte,
+                etc.
+              </p>
+              <button
+                type="button"
+                onClick={() => setShowCreateDoc(true)}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white hover:bg-cehta-green-700"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2} />
+                Cargar primer documento
+              </button>
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {documentsQ.data.map((doc) => {
+                const Icon = LP_DOC_TIPO_ICON[doc.tipo];
+                return (
+                  <li
+                    key={doc.lp_doc_id}
+                    className="flex items-center gap-3 rounded-xl border border-hairline bg-white px-4 py-3"
+                  >
+                    <Icon
+                      className="h-5 w-5 shrink-0 text-cehta-green"
+                      strokeWidth={1.75}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink-900">
+                        {doc.nombre}
+                      </p>
+                      <p className="text-xs text-ink-500">
+                        {LP_DOC_TIPO_LABEL[doc.tipo]}
+                        {doc.fecha_firma &&
+                          ` · firmado ${doc.fecha_firma}`}
+                        {doc.fecha_vigencia_hasta &&
+                          ` · vence ${doc.fecha_vigencia_hasta}`}
+                        {doc.monto_clp != null &&
+                          ` · CLP ${Number(doc.monto_clp).toLocaleString("es-CL")}`}
+                      </p>
+                    </div>
+                    <LpDocEstadoBadge estado={doc.estado} />
+                    {doc.dropbox_path && (
+                      <a
+                        href={`https://www.dropbox.com/home${doc.dropbox_path}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-white px-2 py-1 text-xs font-medium text-ink-700 hover:bg-ink-50"
+                      >
+                        Abrir
+                        <ExternalLink
+                          className="h-3 w-3"
+                          strokeWidth={1.75}
+                        />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `¿Eliminar el documento "${doc.nombre}"? Esta acción no se puede deshacer.`,
+                          )
+                        ) {
+                          deleteDocMutation.mutate(doc.lp_doc_id);
+                        }
+                      }}
+                      disabled={deleteDocMutation.isPending}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-400 hover:bg-negative/10 hover:text-negative disabled:opacity-60"
+                      aria-label="Eliminar documento"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Surface.Body>
+      </Surface>
+
+      {showCreateDoc && (
+        <CreateLpDocumentDialog
+          lpId={id}
+          onClose={() => setShowCreateDoc(false)}
+          onCreated={() => {
+            setShowCreateDoc(false);
+            qc.invalidateQueries({ queryKey: ["lp-documents", id] });
+          }}
+        />
+      )}
+
       {/* Borrar (zona peligrosa) */}
       <Surface className="border-negative/20 bg-negative/[0.02]">
         <div className="flex items-start justify-between gap-3">
@@ -683,4 +840,236 @@ function getInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
+
+// ─── LP Documents — vault legal por LP ──────────────────────────────────────
+
+const LP_DOC_TIPOS: { value: LpDocumentTipo; label: string }[] = [
+  { value: "contrato_suscripcion", label: "Contrato de suscripción" },
+  { value: "kyc", label: "KYC" },
+  { value: "ddq", label: "DDQ" },
+  { value: "side_letter", label: "Side letter" },
+  { value: "aml_pep", label: "AML / PEP" },
+  { value: "recibo_aporte", label: "Recibo de aporte" },
+  { value: "acta_aprobacion", label: "Acta de aprobación" },
+  { value: "w8_w9_tax", label: "Form W-8 / W-9" },
+  { value: "dni_pasaporte", label: "DNI / pasaporte" },
+  { value: "power_of_attorney", label: "Poder notarial" },
+  { value: "otro", label: "Otro" },
+];
+
+const LP_DOC_TIPO_LABEL: Record<LpDocumentTipo, string> = LP_DOC_TIPOS.reduce(
+  (acc, t) => {
+    acc[t.value] = t.label;
+    return acc;
+  },
+  {} as Record<LpDocumentTipo, string>,
+);
+
+const LP_DOC_TIPO_ICON: Record<LpDocumentTipo, React.ElementType> = {
+  contrato_suscripcion: FileSignature,
+  kyc: ShieldCheck,
+  ddq: FileCheck2,
+  side_letter: FileLock2,
+  aml_pep: ShieldCheck,
+  recibo_aporte: Receipt,
+  acta_aprobacion: ScrollText,
+  w8_w9_tax: FileText,
+  dni_pasaporte: IdCard,
+  power_of_attorney: ScrollText,
+  otro: FileText,
+};
+
+function LpDocEstadoBadge({ estado }: { estado: LpDocumentEstado }) {
+  const variant: "success" | "warning" | "neutral" | "danger" = {
+    vigente: "success" as const,
+    borrador: "warning" as const,
+    vencido: "danger" as const,
+    archivado: "neutral" as const,
+  }[estado];
+  return <Badge variant={variant}>{estado}</Badge>;
+}
+
+function CreateLpDocumentDialog({
+  lpId,
+  onClose,
+  onCreated,
+}: {
+  lpId: string;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const { session } = useSession();
+  const [tipo, setTipo] = useState<LpDocumentTipo>("contrato_suscripcion");
+  const [nombre, setNombre] = useState("");
+  const [fechaFirma, setFechaFirma] = useState("");
+  const [fechaVigenciaHasta, setFechaVigenciaHasta] = useState("");
+  const [montoClp, setMontoClp] = useState("");
+  const [dropboxPath, setDropboxPath] = useState("");
+  const [estado, setEstado] = useState<LpDocumentEstado>("vigente");
+  const [loading, setLoading] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session || loading) return;
+    if (!nombre.trim()) return;
+    setLoading(true);
+    try {
+      await apiClient.post(
+        `/lps/${lpId}/documents`,
+        {
+          tipo,
+          nombre: nombre.trim(),
+          fecha_firma: fechaFirma || null,
+          fecha_vigencia_hasta: fechaVigenciaHasta || null,
+          monto_clp: montoClp ? Number(montoClp) : null,
+          dropbox_path: dropboxPath.trim() || null,
+          estado,
+        },
+        session,
+      );
+      toast.success("Documento agregado");
+      onCreated();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.detail : "Error al crear");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-ink-100 text-ink-600 hover:bg-ink-200"
+        >
+          <X className="h-4 w-4" strokeWidth={2} />
+        </button>
+        <h2 className="font-display text-xl font-semibold tracking-tight">
+          Agregar documento
+        </h2>
+
+        <DocField label="Tipo">
+          <select
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value as LpDocumentTipo)}
+            className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          >
+            {LP_DOC_TIPOS.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </DocField>
+
+        <DocField label="Nombre" required>
+          <input
+            type="text"
+            required
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Contrato suscripción cuotas serie A"
+            className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          />
+        </DocField>
+
+        <div className="grid grid-cols-2 gap-3">
+          <DocField label="Fecha firma">
+            <input
+              type="date"
+              value={fechaFirma}
+              onChange={(e) => setFechaFirma(e.target.value)}
+              className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            />
+          </DocField>
+          <DocField label="Vigencia hasta">
+            <input
+              type="date"
+              value={fechaVigenciaHasta}
+              onChange={(e) => setFechaVigenciaHasta(e.target.value)}
+              className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            />
+          </DocField>
+        </div>
+
+        {tipo === "recibo_aporte" && (
+          <DocField label="Monto (CLP)">
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={montoClp}
+              onChange={(e) => setMontoClp(e.target.value)}
+              placeholder="50000000"
+              className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            />
+          </DocField>
+        )}
+
+        <DocField label="Path Dropbox (opcional)">
+          <input
+            type="text"
+            value={dropboxPath}
+            onChange={(e) => setDropboxPath(e.target.value)}
+            placeholder="/Cehta Capital/03-LPs/{LP}/contrato-suscripcion.pdf"
+            className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          />
+        </DocField>
+
+        <DocField label="Estado">
+          <select
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as LpDocumentEstado)}
+            className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          >
+            <option value="vigente">Vigente</option>
+            <option value="borrador">Borrador</option>
+            <option value="vencido">Vencido</option>
+            <option value="archivado">Archivado</option>
+          </select>
+        </DocField>
+
+        <button
+          type="submit"
+          disabled={loading || !nombre.trim()}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
+        >
+          {loading ? "Cargando…" : "Agregar documento"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function DocField({
+  label,
+  required = false,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+        {label}
+        {required && <span className="ml-0.5 text-negative">*</span>}
+      </label>
+      {children}
+    </div>
+  );
 }

@@ -1191,3 +1191,69 @@ export interface TourState {
   completed: boolean;
   current_step: number;
 }
+
+// ─── V5: Vault de documentos por LP (Limited Partner) ────────────────────────
+// Match con `app.schemas.lp_document` (backend). Cada LP tiene su set de
+// docs legales/operativos: contrato suscripción, KYC, DDQ, side letter,
+// recibo aporte, W-8/W-9, pasaporte, poder notarial, etc.
+
+export type LpDocumentTipo =
+  | "contrato_suscripcion"
+  | "kyc"
+  | "ddq"
+  | "side_letter"
+  | "aml_pep"
+  | "recibo_aporte"
+  | "acta_aprobacion"
+  | "w8_w9_tax"
+  | "dni_pasaporte"
+  | "power_of_attorney"
+  | "otro";
+
+export type LpDocumentEstado =
+  | "vigente"
+  | "vencido"
+  | "borrador"
+  | "archivado";
+
+export interface LpDocument {
+  lp_doc_id: number;
+  lp_id: number;
+  tipo: LpDocumentTipo;
+  nombre: string;
+  fecha_firma?: string | null;
+  fecha_vigencia_hasta?: string | null;
+  monto_clp?: number | string | null;
+  dropbox_path?: string | null;
+  hash_sha256?: string | null;
+  estado: LpDocumentEstado;
+  metadata: Record<string, unknown>;
+  uploaded_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LpDocumentCreate {
+  tipo: LpDocumentTipo;
+  nombre: string;
+  fecha_firma?: string | null;
+  fecha_vigencia_hasta?: string | null;
+  monto_clp?: number | string | null;
+  dropbox_path?: string | null;
+  hash_sha256?: string | null;
+  estado?: LpDocumentEstado;
+  metadata?: Record<string, unknown>;
+  uploaded_by?: string | null;
+}
+
+export interface LpDocumentUpdate {
+  tipo?: LpDocumentTipo;
+  nombre?: string;
+  fecha_firma?: string | null;
+  fecha_vigencia_hasta?: string | null;
+  monto_clp?: number | string | null;
+  dropbox_path?: string | null;
+  hash_sha256?: string | null;
+  estado?: LpDocumentEstado;
+  metadata?: Record<string, unknown> | null;
+}
