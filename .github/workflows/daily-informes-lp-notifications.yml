@@ -1,0 +1,66 @@
+name: daily-informes-lp-notifications
+
+# Cron diario que dispara POST /informes-lp/admin/dispatch-notifications.
+# Cierra el loop viral de Informes LP: cuando un destinatario (child token)
+# abre el informe o hace click en CTA "agendar", manda email POSITIVO al LP
+# parent que compartió:
+#   👀 "{X} abrió tu link"
+#   🎉 "{X} agendó café con Camilo"
+#
+# Anti-spam: idempotente vía UNIQUE(child_token, tipo) en
+# app.informes_lp_notifications. Si el cron corre 2 veces, la segunda no
+# duplica emails.
+#
+# Schedule: 12:35 UTC = 09:35 Chile (5 min después del daily-alerts para no
+# pisarse — operación es liviana, en realidad podrían correr al mismo tiempo).
+
+on:
+  schedule:
+    - cron: "35 12 * * *"
+  workflow_dispatch:
+    # Permite trigger manual desde la UI de GitHub para correrlo on-demand.
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-notifications:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Dispatch informes LP notifications
+        env:
+          # Reusamos los secrets ya configurados para otros workflows.
+          # API_URL: ej. https://cehta-backend.fly.dev/api/v1
+          API_URL: ${{ secrets.RAM_CEHTA_API_URL }}
+          # Token con scope informe_lp:update. Generar vía /api-tokens
+          # y guardar como secret en repo settings.
+          API_TOKEN: ${{ secrets.RAM_CEHTA_INFORMES_LP_TOKEN || secrets.RAM_CEHTA_ALERTS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${API_TOKEN:-}" ]; then
+            echo "::error::Faltan secrets RAM_CEHTA_API_URL o RAM_CEHTA_INFORMES_LP_TOKEN"
+            exit 1
+          fi
+
+          echo "POST ${API_URL}/informes-lp/admin/dispatch-notifications"
+          response=$(mktemp)
+          status=$(curl -sS -o "$response" -w "%{http_code}" \
+            -X POST "${API_URL}/informes-lp/admin/dispatch-notifications" \
+            -H "Authorization: Bearer ${API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --max-time 60)
+
+          echo "HTTP ${status}"
+          cat "$response"
+          echo
+
+          if [ "$status" != "200" ]; then
+            echo "::error::dispatch-notifications devolvió HTTP ${status}"
+            exit 1
+          fi
+
+          # Resumen para el log de GitHub Actions
+          if command -v jq >/dev/null 2>&1; then
+            jq -r '. | to_entries[] | "\(.key): \(.value)"' "$response" || true
+          fi
