@@ -22,6 +22,7 @@ from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read, F29Update
 from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
+from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
 
@@ -175,6 +176,26 @@ async def update_f29_estado(
         summary=f"F29 estado: {before['estado']} -> {body.estado}",
         before=before,
         after=refreshed.model_dump(mode="json"),
+    )
+    # Webhook: f29.pagado / f29.pendiente / f29.vencido — suscriptores externos
+    # reciben el cambio de estado tributario.
+    await publish_event(
+        db,
+        f"f29.{body.estado}",
+        {
+            "f29_id": f29_id,
+            "empresa_codigo": refreshed.empresa_codigo,
+            "periodo_tributario": refreshed.periodo_tributario,
+            "estado_before": before["estado"],
+            "estado_after": body.estado,
+            "fecha_vencimiento": str(refreshed.fecha_vencimiento)
+            if refreshed.fecha_vencimiento
+            else None,
+            "monto_a_pagar": float(refreshed.monto_a_pagar)
+            if refreshed.monto_a_pagar
+            else None,
+            "changed_by": str(user.sub),
+        },
     )
     return refreshed
 

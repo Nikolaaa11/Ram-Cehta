@@ -177,6 +177,20 @@ const GROUPS: NavGroup[] = [
         label: "Políticas del fondo",
         icon: ShieldCheck,
       },
+      // V5: actas formales del FIP (Directorio AFIS, Comité Inversión,
+      // Asamblea LPs, Comité Vigilancia). Distinto de actas portfolio.
+      {
+        href: "/admin/fondo-actas" as Route,
+        label: "Actas del fondo",
+        icon: ScrollText,
+      },
+      // V5: estados financieros cross-empresa (balance, ER, flujo caja).
+      // Sync desde Dropbox /04-Financiero/.
+      {
+        href: "/admin/estados-financieros" as Route,
+        label: "Estados financieros",
+        icon: FileBarChart,
+      },
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
     ],
   },

@@ -25,6 +25,7 @@ from app.schemas.orden_compra import (
 )
 from app.services.audit_service import audit_log
 from app.services.authorization_service import AuthorizationService
+from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
 _authz = AuthorizationService()
@@ -220,6 +221,24 @@ async def update_estado(
         summary=f"OC {updated.numero_oc}: {estado_before} -> {body.estado}",
         before={"estado": estado_before},
         after={"estado": body.estado},
+    )
+    # Webhook: oc.paid / oc.anulada / oc.parcial → suscriptores externos
+    # (Slack, Make.com, n8n, Notion, etc.) reciben el cambio de estado.
+    # Best-effort async — no rompe la mutación si el dispatcher falla.
+    await publish_event(
+        db,
+        f"oc.{body.estado}",
+        {
+            "oc_id": oc_id,
+            "numero_oc": updated.numero_oc,
+            "empresa_codigo": updated.empresa_codigo,
+            "estado_before": estado_before,
+            "estado_after": body.estado,
+            "total": float(updated.total) if updated.total else None,
+            "moneda": updated.moneda,
+            "proveedor_id": updated.proveedor_id,
+            "changed_by": str(user.sub),
+        },
     )
     return _to_read(user, updated)
 

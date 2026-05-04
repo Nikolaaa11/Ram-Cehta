@@ -1257,3 +1257,75 @@ export interface LpDocumentUpdate {
   estado?: LpDocumentEstado;
   metadata?: Record<string, unknown> | null;
 }
+
+// ─── Estados Financieros (core.estados_financieros) ──────────────────────────
+
+export type TipoEf =
+  | "balance"
+  | "estado_resultados"
+  | "flujo_caja"
+  | "cambios_patrimonio"
+  | "consolidado"
+  | "notas";
+
+export type PeriodoTipo = "mensual" | "trimestral" | "semestral" | "anual";
+
+export interface EstadoFinanciero {
+  ef_id: number;
+  empresa_codigo: string;
+  tipo_ef: TipoEf;
+  periodo_tipo: PeriodoTipo;
+  periodo: string;
+  fecha_corte: string;
+  auditado: boolean;
+  auditor: string | null;
+  aprobado_directorio: boolean;
+  fecha_aprobacion: string | null;
+  dropbox_path: string | null;
+  hash_sha256: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+// ─── Fondo Actas (V5) ─────────────────────────────────────────────────────────
+
+export type FondoActaTipo =
+  | "directorio_afis"
+  | "comite_inversion"
+  | "asamblea_lps"
+  | "comite_vigilancia"
+  | "comite_riesgo"
+  | "otro";
+
+export type FondoActaEstado = "borrador" | "aprobada" | "firmada" | "archivada";
+
+export interface Acuerdo {
+  orden_dia: string;
+  descripcion: string;
+  votos_a_favor: number;
+  votos_en_contra: number;
+  abstenciones: number;
+  aprobado: boolean;
+}
+
+export interface FondoActa {
+  acta_id: number;
+  tipo_organo: FondoActaTipo;
+  numero_acta: number;
+  fecha_reunion: string;
+  lugar: string | null;
+  quorum: number | null;
+  quorum_total: number | null;
+  presidente: string | null;
+  secretario: string | null;
+  asistentes: string[];
+  temario: string | null;
+  acuerdos: Acuerdo[];
+  dropbox_path: string | null;
+  hash_sha256: string | null;
+  estado: FondoActaEstado;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}

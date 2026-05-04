@@ -17,9 +17,11 @@ from app.api.v1 import (
     dropbox,
     empresa,
     entregables,
+    estados_financieros,
     etl,
     exports,
     f29,
+    fondo_actas,
     fondos,
     health,
     informes_lp,
@@ -104,3 +106,16 @@ api_router.include_router(
 # recibos aporte, W-8/W-9, pasaportes, etc.). Sin prefix porque las URLs
 # tienen `{lp_id}` adentro: /lps/{lp_id}/documents.
 api_router.include_router(lp_documents.router, tags=["lp-documents"])
+# V5: Actas formales del FIP — Directorio AFIS, Comité Inversión, Asamblea
+# LPs, Comité Vigilancia. Distinto de actas en legal_documents (por empresa
+# portfolio).
+api_router.include_router(
+    fondo_actas.router, prefix="/fondo-actas", tags=["fondo-actas"]
+)
+# V5: EEFF cross-empresa — balance, estado resultados, flujo caja por
+# empresa portfolio + período. Sync desde Dropbox /04-Financiero/.
+api_router.include_router(
+    estados_financieros.router,
+    prefix="/estados-financieros",
+    tags=["estados-financieros"],
+)
