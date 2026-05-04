@@ -53,20 +53,33 @@ const CATEGORIAS_FILTRO: { value: CategoriaEntregable; label: string }[] = [
   { value: "OPERACIONAL", label: "Operacional" },
 ];
 
-type Rango = "semana" | "mes" | "dos_meses" | "tres_meses";
+type Rango =
+  | "semana"
+  | "mes"
+  | "dos_meses"
+  | "tres_meses"
+  | "seis_meses"
+  | "anio"
+  | "todos";
 
 const RANGO_DIAS: Record<Rango, number> = {
   semana: 7,
   mes: 30,
   dos_meses: 60,
   tres_meses: 90,
+  seis_meses: 180,
+  anio: 365,
+  todos: 730, // 2 años — cubre entregables anuales+semestrales+bienales
 };
 
 const RANGO_LABEL: Record<Rango, string> = {
-  semana: "Próx. 7 días",
-  mes: "Próx. 30 días",
-  dos_meses: "Próx. 60 días",
-  tres_meses: "Próx. 90 días",
+  semana: "Próx. 7d",
+  mes: "Próx. 30d",
+  dos_meses: "Próx. 60d",
+  tres_meses: "Próx. 90d",
+  seis_meses: "Próx. 6m",
+  anio: "Año completo",
+  todos: "Todo (2 años)",
 };
 
 const MES_NOMBRES = [
@@ -332,6 +345,8 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
     empresaCodigo ?? "",
   );
   const [busqueda, setBusqueda] = useState<string>("");
+  // V4 fase 9.3: toggle para mostrar entregados (historial)
+  const [mostrarEntregados, setMostrarEntregados] = useState<boolean>(false);
 
   const hoy = new Date();
   const hasta = new Date(hoy);
@@ -354,13 +369,14 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
 
   const { data: facets } = useEntregablesFacets();
 
-  // Filtrar: solo no-entregados, ordenar por fecha. El resto se hace
-  // server-side via los filtros del query string.
+  // Filtrar: por default solo no-entregados. Si `mostrarEntregados=true`,
+  // muestra todo (incluyendo historial). Ordenar por fecha asc.
   const filtered = useMemo(() => {
-    return entregables
-      .filter((e) => e.estado !== "entregado")
-      .sort((a, b) => a.fecha_limite.localeCompare(b.fecha_limite));
-  }, [entregables]);
+    const arr = mostrarEntregados
+      ? entregables
+      : entregables.filter((e) => e.estado !== "entregado");
+    return arr.sort((a, b) => a.fecha_limite.localeCompare(b.fecha_limite));
+  }, [entregables, mostrarEntregados]);
 
   const hayFiltrosActivos =
     filtroCategoria !== "" ||
@@ -431,7 +447,7 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
             </div>
           </div>
           <div className="inline-flex rounded-xl bg-ink-100/50 p-0.5 ring-1 ring-hairline">
-            {(["semana", "mes", "dos_meses", "tres_meses"] as Rango[]).map(
+            {(["semana", "mes", "dos_meses", "tres_meses", "seis_meses", "anio", "todos"] as Rango[]).map(
               (r) => (
                 <button
                   key={r}
@@ -472,12 +488,25 @@ export function AgenteSecretaria({ empresaCodigo }: Props) {
             <button
               type="button"
               onClick={limpiarFiltros}
-              className="ml-auto inline-flex items-center gap-1 rounded-full border border-hairline bg-white px-2.5 py-1 font-medium text-ink-600 hover:bg-ink-50"
+              className="inline-flex items-center gap-1 rounded-full border border-hairline bg-white px-2.5 py-1 font-medium text-ink-600 hover:bg-ink-50"
             >
               <X className="h-3 w-3" strokeWidth={2} />
               Limpiar filtros
             </button>
           )}
+          {/* V4 fase 9.3: toggle mostrar entregados (historial) */}
+          <button
+            type="button"
+            onClick={() => setMostrarEntregados((v) => !v)}
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium transition-colors ${
+              mostrarEntregados
+                ? "bg-positive/10 text-positive ring-1 ring-positive/30"
+                : "border border-hairline bg-white text-ink-600 hover:bg-ink-50"
+            }`}
+          >
+            <CheckCircle2 className="h-3 w-3" strokeWidth={2} />
+            {mostrarEntregados ? "Ocultar entregados" : "Mostrar entregados"}
+          </button>
         </div>
 
         {/* Filtros V4 fase 7 */}

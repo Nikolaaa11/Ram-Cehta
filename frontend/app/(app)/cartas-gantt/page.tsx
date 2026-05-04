@@ -33,6 +33,7 @@ import {
   LayoutGrid,
   GanttChart,
   Building2,
+  CalendarDays,
 } from "lucide-react";
 import { useQueries } from "@tanstack/react-query";
 import { Surface } from "@/components/ui/surface";
@@ -43,6 +44,8 @@ import { GanttMini } from "@/components/avance/GanttMini";
 import { SincronizarTodosButton } from "@/components/avance/SincronizarTodosButton";
 import { SecretariaPanel } from "@/components/cartas-gantt/SecretariaPanel";
 import { UpcomingTasksKanban } from "@/components/cartas-gantt/UpcomingTasksKanban";
+import { TimelineGantt } from "@/components/cartas-gantt/TimelineGantt";
+import { CalendarHitos } from "@/components/cartas-gantt/CalendarHitos";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useMe } from "@/hooks/use-me";
 import { useSession } from "@/hooks/use-session";
@@ -52,7 +55,7 @@ import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import { cn } from "@/lib/utils";
 import type { ProyectoListItem, HitoRead } from "@/lib/api/schema";
 
-type ViewMode = "kanban" | "timeline" | "empresas";
+type ViewMode = "kanban" | "timeline" | "calendar" | "empresas";
 type ViewFilter = "todas" | "criticas" | "en_progreso";
 
 const VIEW_OPTIONS: ComboboxItem[] = [
@@ -85,6 +88,7 @@ export default function CartasGanttPage() {
   usePageShortcuts({
     "g k": () => setView("kanban"),
     "g t": () => setView("timeline"),
+    "g c": () => setView("calendar"),
     "g p": () => setView("empresas"),
     Escape: () => {
       setFilter("todas");
@@ -310,19 +314,22 @@ export default function CartasGanttPage() {
       )}
 
       {view === "timeline" && (
-        <Surface className="py-12 text-center">
-          <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-info/10 text-info">
-            <GanttChart className="h-6 w-6" strokeWidth={1.5} />
-          </span>
-          <p className="mt-3 text-base font-semibold text-ink-900">
-            Timeline Gantt — próxima fase
-          </p>
-          <p className="mt-1 max-w-md text-sm text-ink-500 mx-auto">
-            La vista timeline horizontal con barras por proyecto + hitos como
-            diamantes está en el roadmap. Por ahora usá <strong>Kanban</strong>{" "}
-            o <strong>Por empresa</strong>.
-          </p>
-        </Surface>
+        <TimelineGantt
+          empresas={empresasConProyectos
+            .filter((e) =>
+              empresaFiltro ? e.codigo === empresaFiltro : true,
+            )
+            .filter((e) => !e.isLoading && !e.error && e.proyectos.length > 0)
+            .map((e) => ({
+              codigo: e.codigo,
+              razon_social: e.razon_social,
+              proyectos: e.proyectos,
+            }))}
+        />
+      )}
+
+      {view === "calendar" && (
+        <CalendarHitos empresa={empresaFiltro || undefined} />
       )}
 
       {view === "empresas" && (
@@ -400,6 +407,13 @@ function ViewSwitcher({
         Icon={GanttChart}
         label="Timeline"
         shortcut="g t"
+      />
+      <ViewTab
+        active={view === "calendar"}
+        onClick={() => onChange("calendar")}
+        Icon={CalendarDays}
+        label="Calendario"
+        shortcut="g c"
       />
       <ViewTab
         active={view === "empresas"}

@@ -21,12 +21,16 @@
  */
 import { useMemo, useState } from "react";
 import { AlertTriangle, Calendar, CalendarClock, Clock, Inbox, Filter, Search } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useUpcomingTasks } from "@/hooks/use-upcoming-tasks";
+import { useSession } from "@/hooks/use-session";
+import { apiClient, ApiError } from "@/lib/api/client";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskCard } from "./TaskCard";
 import { cn } from "@/lib/utils";
-import type { HitoConContexto, UpcomingTasksResponse } from "@/lib/api/schema";
+import type { HitoConContexto, UpcomingTasksResponse, HitoRead } from "@/lib/api/schema";
 
 interface Props {
   empresa?: string;
@@ -121,6 +125,58 @@ export function UpcomingTasksKanban({ empresa, encargado }: Props) {
   const [search, setSearch] = useState("");
   const [activeBucketMobile, setActiveBucketMobile] = useState<BucketKey>("hoy");
   const query = useUpcomingTasks({ empresa, encargado });
+  const { session } = useSession();
+  const qc = useQueryClient();
+
+  // V4 fase 9.3: DnD entre columnas — mover bucket = cambiar fecha_planificada
+  const moveMutation = useMutation({
+    mutationFn: ({ hitoId, fecha }: { hitoId: number; fecha: string | null }) =>
+      apiClient.patch<HitoRead>(
+        `/avance/hitos/${hitoId}/quick`,
+        { fecha_planificada: fecha },
+        session,
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["avance"] });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError ? err.detail : "No se pudo mover la tarea.",
+      );
+    },
+  });
+
+  const handleDropHito = (hitoId: number, targetBucket: BucketKey) => {
+    // Calcular fecha apropiada para el bucket destino
+    const hoy = new Date();
+    let fecha: string | null = null;
+    if (targetBucket === "vencidas") {
+      const ayer = new Date(hoy);
+      ayer.setDate(ayer.getDate() - 1);
+      fecha = ayer.toISOString().slice(0, 10);
+    } else if (targetBucket === "hoy") {
+      fecha = hoy.toISOString().slice(0, 10);
+    } else if (targetBucket === "esta_semana") {
+      // Viernes de esta semana
+      const dayOfWeek = (hoy.getDay() + 6) % 7;
+      const viernes = new Date(hoy);
+      viernes.setDate(hoy.getDate() + (4 - dayOfWeek));
+      if (viernes < hoy) viernes.setDate(viernes.getDate() + 7);
+      fecha = viernes.toISOString().slice(0, 10);
+    } else if (targetBucket === "proximas_2_semanas") {
+      const en14 = new Date(hoy);
+      en14.setDate(en14.getDate() + 10);
+      fecha = en14.toISOString().slice(0, 10);
+    } else if (targetBucket === "sin_fecha") {
+      fecha = null;
+    }
+
+    moveMutation.mutate({ hitoId, fecha });
+    toast.success(
+      `Tarea movida a "${targetBucket.replace("_", " ")}"`,
+      { duration: 2000 },
+    );
+  };
 
   // Filtrar todas las columnas con el search
   const filtered = useMemo(() => {
@@ -250,6 +306,7 @@ export function UpcomingTasksKanban({ empresa, encargado }: Props) {
             key={b.key}
             config={b}
             hitos={filtered[b.key]}
+            onDropHito={handleDropHito}
           />
         ))}
       </div>
@@ -278,7 +335,7 @@ export function UpcomingTasksKanban({ empresa, encargado }: Props) {
           </summary>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.sin_fecha.map((h) => (
-              <TaskCard key={h.hito_id} hito={h} bucket="sin_fecha" />
+              <TaskCard key={h.hito_id} hito={h} bucket="sin_fecha" draggable />
             ))}
           </div>
         </details>
@@ -293,17 +350,38 @@ function BucketColumn({
   config,
   hitos,
   mobile,
+  onDropHito,
 }: {
   config: BucketConfig;
   hitos: HitoConContexto[];
   mobile?: boolean;
+  onDropHito?: (hitoId: number, bucket: BucketKey) => void;
 }) {
   const tone = TONE_STYLES[config.tone];
+  const [isDragOver, setIsDragOver] = useState(false);
   return (
     <div
+      onDragOver={(e) => {
+        if (!onDropHito) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setIsDragOver(true);
+      }}
+      onDragLeave={() => setIsDragOver(false)}
+      onDrop={(e) => {
+        if (!onDropHito) return;
+        e.preventDefault();
+        setIsDragOver(false);
+        const hitoIdStr = e.dataTransfer.getData("text/hito-id");
+        const hitoId = parseInt(hitoIdStr, 10);
+        if (Number.isFinite(hitoId)) {
+          onDropHito(hitoId, config.key);
+        }
+      }}
       className={cn(
-        "flex flex-col rounded-2xl border bg-white",
+        "flex flex-col rounded-2xl border bg-white transition-all",
         tone.border,
+        isDragOver && "ring-2 ring-cehta-green ring-offset-2 scale-[1.01]",
       )}
     >
       {/* Header sticky */}
@@ -360,7 +438,12 @@ function BucketColumn({
           </p>
         ) : (
           hitos.map((h) => (
-            <TaskCard key={h.hito_id} hito={h} bucket={config.key} />
+            <TaskCard
+              key={h.hito_id}
+              hito={h}
+              bucket={config.key}
+              draggable
+            />
           ))
         )}
       </div>

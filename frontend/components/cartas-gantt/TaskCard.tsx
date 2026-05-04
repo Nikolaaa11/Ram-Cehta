@@ -25,10 +25,13 @@ import type { HitoConContexto } from "@/lib/api/schema";
 interface Props {
   hito: HitoConContexto;
   bucket: "vencidas" | "hoy" | "esta_semana" | "proximas_2_semanas" | "sin_fecha";
+  draggable?: boolean;
+  onDragStart?: (hitoId: number) => void;
 }
 
-export function TaskCard({ hito, bucket }: Props) {
+export function TaskCard({ hito, bucket, draggable, onDragStart }: Props) {
   const [hover, setHover] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const empColor = EMPRESA_COLOR[hito.empresa_codigo] ?? "#94a3b8";
   const fechaRelativa = formatFechaRelativa(hito.fecha_planificada, hito.dias_hasta_vencimiento);
@@ -38,6 +41,15 @@ export function TaskCard({ hito, bucket }: Props) {
     <article
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      draggable={draggable ?? false}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        setIsDragging(true);
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/hito-id", String(hito.hito_id));
+        onDragStart?.(hito.hito_id);
+      }}
+      onDragEnd={() => setIsDragging(false)}
       className={cn(
         "group relative rounded-xl border bg-white px-3 py-2.5 transition-all",
         "hover:-translate-y-0.5 hover:shadow-md",
@@ -47,6 +59,8 @@ export function TaskCard({ hito, bucket }: Props) {
         bucket === "proximas_2_semanas" && "border-hairline",
         bucket === "sin_fecha" && "border-hairline border-dashed",
         isUrgent && "ring-2 ring-negative/20",
+        draggable && "cursor-grab active:cursor-grabbing",
+        isDragging && "opacity-50",
       )}
     >
       {/* Quick actions flotantes on hover */}

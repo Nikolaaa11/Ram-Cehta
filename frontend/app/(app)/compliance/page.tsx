@@ -22,6 +22,7 @@ import {
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
+import { CompliancePanelPro } from "@/components/compliance/CompliancePanelPro";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import {
   type ComplianceGradeEmpresa,
@@ -98,6 +99,11 @@ export default function CompliancePage() {
           <Printer className="h-4 w-4" strokeWidth={1.5} />
           Imprimir / Exportar PDF
         </button>
+      </div>
+
+      {/* V4 fase 9.3: Panel Pro — vista consolidada arriba del leaderboard */}
+      <div className="print:hidden">
+        <CompliancePanelPro />
       </div>
 
       {/* Print-only header */}
