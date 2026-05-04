@@ -520,6 +520,39 @@ def _has_scope(user: Any, scope: str) -> bool:
     return scope in scopes
 
 
+@router.post(
+    "/informes-lp/admin/dispatch-notifications",
+    dependencies=[Depends(require_scope("informe_lp:update"))],
+)
+async def dispatch_notifications(
+    user: CurrentUser,
+    db: DBSession,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """V4 fase 9.2: cron que envía notificaciones positivas a los advocates.
+
+    Llamar 1 vez al día (idealmente 9 AM Chile time vía cron en Fly):
+
+      curl -X POST https://cehta-backend.fly.dev/api/v1/informes-lp/admin/dispatch-notifications \\
+        -H "Authorization: Bearer $TOKEN"
+
+    Lógica:
+    - Escanea eventos `open` y `agendar_click` de informes con parent_token
+    - Para cada uno NO notificado todavía, envía email al LP parent:
+        * 👀 "{X} abrió tu link"
+        * 🎉 "{X} agendó café con Camilo"
+    - Idempotente vía UNIQUE(child_token, tipo) en informes_lp_notifications
+    - Soft-fail si Resend no está configurado
+
+    `dry_run=true` cuenta lo que mandaría sin enviar.
+    """
+    from app.services.informes_lp_notifications_service import (
+        dispatch_pending_notifications,
+    )
+
+    return await dispatch_pending_notifications(db, dry_run=dry_run)
+
+
 @router.get(
     "/informes-lp/admin/analytics",
     response_model=InformesAnalytics,
@@ -1029,12 +1062,56 @@ async def share_informe(
     )
     child_url = f"{frontend_origin}/informe/{child.token}"
 
+    # V4 fase 9.2: enviar email automático al destinatario via Resend.
+    # Soft-fail: si Resend no está configurado, registra error pero no
+    # rompe el endpoint (el LP igual recibe el child_token para copy-paste).
+    nombre_remitente: str = "Tu colega"
+    if parent.lp_id is not None:
+        parent_lp = await LpRepository(db).get(parent.lp_id)
+        if parent_lp is not None:
+            nombre_remitente = (
+                parent_lp.nombre
+                + (f" {parent_lp.apellido}" if parent_lp.apellido else "")
+            ).strip() or "Tu colega"
+
+    email_status: dict[str, Any] = {"resend_id": None, "error": None}
+    try:
+        from app.services.informes_lp_notifications_service import (
+            send_share_invitation,
+        )
+
+        email_status = await send_share_invitation(
+            db,
+            child_token=child.token,
+            parent_token=parent.token,
+            email_destinatario=body.email_destinatario,
+            nombre_destinatario=body.nombre_destinatario,
+            nombre_remitente=nombre_remitente,
+            mensaje_personal=body.mensaje_personal,
+            informe_url=child_url,
+        )
+        await db.commit()
+    except Exception as e:  # noqa: BLE001
+        # No rompemos el endpoint si el email falla — el child_url
+        # sigue siendo válido para que el LP copie y pegue manualmente.
+        email_status = {"resend_id": None, "error": str(e)[:200]}
+
+    # Mensaje al frontend depende de si Resend funcionó o no
+    if email_status.get("resend_id"):
+        msg = (
+            f"Informe enviado a {body.nombre_destinatario}. "
+            "Te avisamos cuando lo abra."
+        )
+    else:
+        msg = (
+            f"Link generado para {body.nombre_destinatario}. "
+            "Copialo y compartilo manualmente — el envío automático "
+            "está desactivado."
+        )
+
     return InformeLpShareResponse(
         child_token=child.token,
         child_url=child_url,
         parent_token=parent.token,
-        message=(
-            f"Informe enviado a {body.nombre_destinatario}. "
-            "Te avisamos cuando lo abra."
-        ),
+        message=msg,
     )

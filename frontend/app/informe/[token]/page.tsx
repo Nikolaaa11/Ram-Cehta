@@ -11,7 +11,7 @@
  */
 import { use, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, Mail, Share2 } from "lucide-react";
+import { ArrowDown, Download, Mail, Share2 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
 import { HeroSection } from "@/components/informe-lp/HeroSection";
 import { PerformanceSection } from "@/components/informe-lp/PerformanceSection";
@@ -181,6 +181,17 @@ export default function InformePage({
               <Share2 className="h-4 w-4" strokeWidth={2} />
               Pasarlo a un colega
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                void track(token, { tipo: "pdf_download", seccion: "cta" });
+                window.print();
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/20 print:hidden"
+            >
+              <Download className="h-4 w-4" strokeWidth={2} />
+              Descargar PDF
+            </button>
           </div>
 
           {informe.is_expired && (
@@ -192,7 +203,7 @@ export default function InformePage({
         </div>
       </section>
 
-      {/* Sticky FAB de share en mobile */}
+      {/* Sticky FAB de share en mobile — escondido en print */}
       <button
         type="button"
         onClick={() => {
@@ -200,7 +211,7 @@ export default function InformePage({
           void track(token, { tipo: "share_click", seccion: "fab" });
         }}
         aria-label="Compartir informe"
-        className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-cehta-green text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 sm:hidden"
+        className="fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-cehta-green text-white shadow-2xl transition-transform hover:scale-105 active:scale-95 sm:hidden print:hidden"
       >
         <Share2 className="h-5 w-5" strokeWidth={2} />
       </button>

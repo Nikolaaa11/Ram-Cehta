@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ destinatario_nombre }} abrió tu link</title>
+  </head>
+  <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f7f7f8;color:#1c1c1e;">
+    <div style="max-width:520px;margin:32px auto;background:#ffffff;border-radius:16px;box-shadow:0 1px 2px rgba(0,0,0,0.04);padding:32px;">
+      <p style="margin:0 0 8px;color:#9ca3af;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;">Cehta Capital</p>
+      <h1 style="margin:0 0 16px;font-size:22px;font-weight:600;letter-spacing:-0.01em;color:#0a0a0a;">
+        👀 {{ destinatario_nombre }} abrió tu link
+      </h1>
+
+      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#374151;">
+        Hola {{ remitente_nombre }}, te avisamos que{{ destinatario_nombre }} abrió el reporte de Cehta Capital
+        que le compartiste el {{ fecha_share }}.
+      </p>
+
+      <p style="margin:0 0 24px;font-size:14px;color:#6b7280;">
+        Si querés saber cómo va la conversación con esa persona, podés
+        escribirle a Camilo: <a href="mailto:camilo@cehtacapital.cl" style="color:#1d6f42;">camilo@cehtacapital.cl</a>
+      </p>
+
+      <p style="margin:32px 0 0;color:#9ca3af;font-size:11px;border-top:1px solid #e5e7eb;padding-top:16px;">
+        Si no querés recibir más estas notificaciones, decinos a Camilo y
+        las desactivamos para vos.
+      </p>
+    </div>
+  </body>
+</html>
