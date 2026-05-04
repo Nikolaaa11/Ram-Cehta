@@ -176,6 +176,16 @@ async def ai_generate_acta(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+    except Exception as exc:  # noqa: BLE001
+        # Errores de la API de Anthropic (modelo deprecated, rate limit,
+        # context overflow, etc.) caen acá. Sin este handler propagaban
+        # como 500 opaco y el frontend solo veía "Error generando acta".
+        # Devolvemos 502 con el mensaje real para diagnóstico rápido.
+        msg = str(exc) or exc.__class__.__name__
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI provider error: {msg[:300]}",
+        ) from exc
 
     return ActaGenerateResponse.model_validate(result)
 

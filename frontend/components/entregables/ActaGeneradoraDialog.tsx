@@ -86,9 +86,18 @@ export function ActaGeneradoraDialog({
         toast.error(
           "AI no configurado. Setear ANTHROPIC_API_KEY en backend.",
         );
+      } else if (err instanceof ApiError && err.status === 502) {
+        // Provider error real (modelo deprecated, rate limit, etc.) —
+        // mostramos el detail para diagnóstico inmediato en vez de
+        // ocultarlo detrás de "Error generando acta".
+        toast.error(err.detail ?? "Error del proveedor AI", {
+          duration: 8000,
+        });
       } else {
         toast.error(
-          err instanceof ApiError ? err.detail : "Error generando acta",
+          err instanceof ApiError
+            ? err.detail ?? "Error generando acta"
+            : "Error generando acta",
         );
       }
     } finally {

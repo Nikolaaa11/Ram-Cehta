@@ -44,7 +44,10 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
-    ai_chat_model: str = "claude-3-5-sonnet-20241022"
+    # Modelo activo a 2026-05. Claude 3.5 Sonnet (oct 2024) está deprecated.
+    # Sonnet 4.5 es el sweet spot calidad/velocidad/costo para actas + chat.
+    # Se puede override via env AI_CHAT_MODEL.
+    ai_chat_model: str = "claude-sonnet-4-5-20250929"
     ai_embedding_model: str = "text-embedding-3-small"
     ai_max_context_chunks: int = 10
     ai_max_response_tokens: int = 2048
