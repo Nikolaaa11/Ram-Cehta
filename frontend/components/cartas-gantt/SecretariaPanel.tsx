@@ -15,7 +15,7 @@
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, RefreshCw, Loader2, ChevronDown } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -134,7 +134,7 @@ export function SecretariaPanel({ empresa, encargado, className }: Props) {
               {!isLoading && data && data.bullets.length > 0 && (
                 <ul className="space-y-1.5">
                   {data.bullets.map((b, i) => (
-                    <BulletItem key={i} text={b} />
+                    <BulletItem key={`${b.slice(0, 20)}-${i}`} text={b} index={i} />
                   ))}
                 </ul>
               )}
@@ -175,12 +175,20 @@ export function SecretariaPanel({ empresa, encargado, className }: Props) {
   );
 }
 
-// ─── Bullet item — detecta urgentes y celebraciones ────────────────────────
+// ─── Bullet item — detecta urgentes y celebraciones + typewriter ──────────
 
-function BulletItem({ text }: { text: string }) {
+function BulletItem({ text, index }: { text: string; index: number }) {
   const isUrgent = text.startsWith("🚨");
   const isCelebration = text.startsWith("🎉");
   const cleanText = text.replace(/^(🚨|🎉)\s*/, "");
+
+  // V4 fase 9.4: typewriter effect — cada bullet aparece con stagger.
+  // Usamos useTypewriter para que el texto se "escriba" letra por letra,
+  // empezando con un delay basado en el index (cascada visual).
+  const typed = useTypewriter(cleanText, {
+    speed: 12, // ms por char
+    delay: index * 350, // stagger entre bullets
+  });
 
   return (
     <li
@@ -201,7 +209,7 @@ function BulletItem({ text }: { text: string }) {
           aria-hidden
         />
       )}
-      <span className="min-w-0 flex-1">{cleanText}</span>
+      <span className="min-w-0 flex-1">{typed}</span>
     </li>
   );
 }
@@ -217,4 +225,53 @@ function BulletsSkeleton() {
       ))}
     </ul>
   );
+}
+
+// ─── useTypewriter — animación de "escribir" letra por letra ──────────────
+
+function useTypewriter(
+  fullText: string,
+  opts: { speed?: number; delay?: number } = {},
+): string {
+  const { speed = 15, delay = 0 } = opts;
+  const [shown, setShown] = useState("");
+
+  useEffect(() => {
+    setShown(""); // reset si cambia el texto
+    if (!fullText) return;
+
+    let i = 0;
+    let cancelled = false;
+
+    const start = () => {
+      const tick = () => {
+        if (cancelled) return;
+        i++;
+        setShown(fullText.slice(0, i));
+        if (i < fullText.length) {
+          setTimeout(tick, speed);
+        }
+      };
+      tick();
+    };
+
+    const startTimer = setTimeout(start, delay);
+    return () => {
+      cancelled = true;
+      clearTimeout(startTimer);
+    };
+  }, [fullText, speed, delay]);
+
+  // Si el user prefiere reduced motion, mostrar todo de una.
+  // Detectamos via prefers-reduced-motion media query — si es true,
+  // saltamos la animación y devolvemos texto completo.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mq.matches) {
+      setShown(fullText);
+    }
+  }, [fullText]);
+
+  return shown;
 }

@@ -162,35 +162,15 @@ export function EmpresaShowcase({ empresaCodigo, informe }: Props) {
           </p>
         </div>
 
-        {/* Quote del encargado top (último hito completado como proxy) */}
+        {/* Quote estilo editorial — el último hito completado es el "evento"
+            que cuenta el encargado del proyecto */}
         {liveData.ultimo_hito_completado && (
-          <div className="rounded-2xl bg-ink-50/60 p-5">
-            <p className="text-sm leading-relaxed text-ink-700">
-              <span className="text-ink-400">Último hito cerrado:</span>{" "}
-              <span className="font-medium text-ink-900">
-                {liveData.ultimo_hito_completado.nombre}
-              </span>
-            </p>
-            <p className="mt-2 text-xs text-ink-500">
-              {liveData.ultimo_hito_completado.proyecto}
-              {liveData.ultimo_hito_completado.encargado && (
-                <> · {liveData.ultimo_hito_completado.encargado}</>
-              )}
-              {liveData.ultimo_hito_completado.fecha && (
-                <>
-                  {" "}
-                  ·{" "}
-                  {new Date(
-                    liveData.ultimo_hito_completado.fecha + "T00:00:00",
-                  ).toLocaleDateString("es-CL", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </>
-              )}
-            </p>
-          </div>
+          <CeoQuote
+            empresaCodigo={empresaCodigo}
+            empColor={empColor}
+            hito={liveData.ultimo_hito_completado}
+            encargadoTop={liveData.encargado_top}
+          />
         )}
       </div>
     </article>
@@ -245,5 +225,76 @@ export function EmpresaShowcaseGrid({ informe }: { informe: InformeLpPublicView 
         </div>
       </div>
     </section>
+  );
+}
+
+// ─── CeoQuote: quote estilo editorial con avatar + atribución ──────────────
+
+function CeoQuote({
+  empresaCodigo,
+  empColor,
+  hito,
+  encargadoTop,
+}: {
+  empresaCodigo: string;
+  empColor: string;
+  hito: NonNullable<EmpresaLiveData["ultimo_hito_completado"]>;
+  encargadoTop: string | null | undefined;
+}) {
+  // Quien es el "speaker" del quote: encargado del hito > encargado_top
+  const speaker = hito.encargado || encargadoTop || "Equipo";
+  const fechaFmt = hito.fecha
+    ? new Date(hito.fecha + "T00:00:00").toLocaleDateString("es-CL", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  // Iniciales para el avatar
+  const initials = (() => {
+    const parts = speaker.trim().split(/\s+/);
+    if (parts.length === 0) return "?";
+    if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+    return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+  })();
+
+  return (
+    <figure
+      className="relative overflow-hidden rounded-2xl border-l-4 bg-ink-50/40 p-6"
+      style={{ borderLeftColor: empColor }}
+    >
+      {/* Comilla decorativa de fondo */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-2 -top-4 select-none font-display text-[120px] font-bold leading-none opacity-10"
+        style={{ color: empColor }}
+      >
+        “
+      </span>
+
+      <blockquote className="relative z-10">
+        <p className="font-display text-lg italic leading-snug text-ink-900 sm:text-xl">
+          “Cerramos {hito.nombre}{fechaFmt ? ` en ${fechaFmt}` : ""}.”
+        </p>
+
+        {/* Atribución */}
+        <figcaption className="mt-4 flex items-center gap-3">
+          <span
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ background: empColor }}
+            aria-hidden
+          >
+            {initials}
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-ink-900">{speaker}</p>
+            <p className="text-xs text-ink-500">
+              {hito.proyecto} · {empresaCodigo}
+            </p>
+          </div>
+        </figcaption>
+      </blockquote>
+    </figure>
   );
 }

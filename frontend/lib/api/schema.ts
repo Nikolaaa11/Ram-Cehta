@@ -549,6 +549,10 @@ export interface InformeLpPublicView {
       autos_equivalentes_año?: number | null;
       hogares_chilenos_equivalentes?: number | null;
     };
+    booking?: {
+      url?: string | null;
+      owner_name?: string;
+    };
   } | null;
 }
 

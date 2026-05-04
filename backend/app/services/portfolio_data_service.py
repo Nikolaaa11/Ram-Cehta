@@ -507,4 +507,13 @@ async def build_live_data(
     # Sprint 2.5 va a leer del KB markdown los MW confirmados por empresa.
     out["esg_impact"] = estimar_esg_impact()
 
+    # V4 fase 9.4: booking_url para que el frontend embebe Cal.com / Calendly
+    # en el CTA "Agendar café". Soft-fail si no está configurado.
+    from app.core.config import settings
+
+    out["booking"] = {
+        "url": settings.booking_url,
+        "owner_name": settings.booking_owner_name,
+    }
+
     return out

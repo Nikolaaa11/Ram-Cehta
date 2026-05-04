@@ -11,7 +11,7 @@
  */
 import { use, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, Download, Mail, Share2 } from "lucide-react";
+import { ArrowDown, Calendar, Download, Mail, Share2 } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
 import { HeroSection } from "@/components/informe-lp/HeroSection";
 import { PerformanceSection } from "@/components/informe-lp/PerformanceSection";
@@ -20,6 +20,7 @@ import { EmpresaShowcaseGrid } from "@/components/informe-lp/EmpresaShowcase";
 import { TuPosicionSection } from "@/components/informe-lp/TuPosicionSection";
 import { ESGImpactSection } from "@/components/informe-lp/ESGImpactSection";
 import { ShareCard } from "@/components/informe-lp/ShareCard";
+import { BookingModal } from "@/components/informe-lp/BookingModal";
 import type { InformeLpPublicView } from "@/lib/api/schema";
 
 const API_BASE =
@@ -36,6 +37,7 @@ export default function InformePage({
     new Set(),
   );
   const [shareOpen, setShareOpen] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
 
   const query = useQuery<InformeLpPublicView, Error>({
     queryKey: ["informe", token],
@@ -157,16 +159,34 @@ export default function InformePage({
             conversemos sobre tu posición.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
-            <a
-              href="mailto:camilo@cehtacapital.cl?subject=Reunión sobre el FIP CEHTA ESG"
-              onClick={() =>
-                track(token, { tipo: "agendar_click", seccion: "cta" })
-              }
-              className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-cehta-green-700 transition-colors hover:bg-white/90"
-            >
-              <Mail className="h-4 w-4" strokeWidth={2} />
-              Agendar 30 min con Camilo
-            </a>
+            {informe.live_data?.booking?.url ? (
+              <button
+                type="button"
+                onClick={() => {
+                  void track(token, {
+                    tipo: "agendar_click",
+                    seccion: "cta",
+                  });
+                  setBookingOpen(true);
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-cehta-green-700 transition-colors hover:bg-white/90"
+              >
+                <Calendar className="h-4 w-4" strokeWidth={2} />
+                Agendar 30 min con{" "}
+                {informe.live_data.booking.owner_name ?? "Camilo"}
+              </button>
+            ) : (
+              <a
+                href="mailto:camilo@cehtacapital.cl?subject=Reunión sobre el FIP CEHTA ESG"
+                onClick={() =>
+                  track(token, { tipo: "agendar_click", seccion: "cta" })
+                }
+                className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-semibold text-cehta-green-700 transition-colors hover:bg-white/90"
+              >
+                <Mail className="h-4 w-4" strokeWidth={2} />
+                Agendar 30 min con Camilo
+              </a>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -220,6 +240,23 @@ export default function InformePage({
         <ShareCard token={token} onClose={() => setShareOpen(false)} />
       )}
 
+      {/* V4 fase 9.4: Booking modal — solo si BOOKING_URL está configurado */}
+      {bookingOpen && informe.live_data?.booking?.url && (
+        <BookingModal
+          open={bookingOpen}
+          onClose={() => setBookingOpen(false)}
+          bookingUrl={informe.live_data.booking.url}
+          ownerName={informe.live_data.booking.owner_name}
+          onBookingSuccess={() => {
+            void track(token, {
+              tipo: "agendar_click",
+              seccion: "booking_completed",
+              valor_texto: "success",
+            });
+          }}
+        />
+      )}
+
       {/* Footer */}
       <footer className="bg-ink-900 px-6 py-8 text-center text-xs text-white/40">
         <p>
@@ -246,7 +283,12 @@ export default function InformePage({
 
 async function track(
   token: string,
-  body: { tipo: string; seccion?: string; valor_numerico?: number },
+  body: {
+    tipo: string;
+    seccion?: string;
+    valor_numerico?: number;
+    valor_texto?: string;
+  },
 ): Promise<void> {
   try {
     await fetch(`${API_BASE}/informes-lp/by-token/${token}/track`, {
