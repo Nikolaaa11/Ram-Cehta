@@ -40,6 +40,7 @@ from app.api.v1 import (
     portfolio,
     proveedores,
     proyectos_contables,
+    reportes_contables,
     saved_views,
     search,
     suscripciones,
@@ -138,6 +139,9 @@ api_router.include_router(approval_rules.router, tags=["approval-rules"])
 # V5 Fase 3: Exportación a Nubox (CSV) — vouchers APPROVED → batch CSV
 # que el COO carga manualmente en Nubox + asigna folios devueltos.
 api_router.include_router(nubox_export.router, tags=["nubox-export"])
+# V5 Fase 4: Reportes contables formales — Libro Diario / Mayor /
+# P&L proyecto / P&L área / Rendición CORFO.
+api_router.include_router(reportes_contables.router, tags=["reportes-contables"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",

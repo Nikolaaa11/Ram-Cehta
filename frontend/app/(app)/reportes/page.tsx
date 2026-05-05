@@ -11,6 +11,7 @@
  * Server Component — cada subruta hace su propio fetch.
  */
 import {
+  BookOpen,
   FileBarChart,
   FileText,
   PieChart,
@@ -116,6 +117,14 @@ export default function ReportesPage() {
             description="Balance, Estado de Resultados y Flujo de Caja por empresa, con auditoría."
             href="/reportes/eeff"
             accent="sf-teal"
+          />
+          <ReporteCard
+            number="07"
+            icon={<BookOpen className="h-5 w-5" strokeWidth={1.5} />}
+            title="Reportes contables"
+            description="Libro Diario, Mayor, P&L proyecto/área y rendición CORFO. Solo asientos APPROVED+."
+            href="/reportes/contables"
+            accent="cehta-green"
           />
         </div>
 

@@ -1580,6 +1580,102 @@ export interface UserCompanyRole {
 export type NuboxBatchStatus =
   | "GENERATED" | "UPLOADED" | "CONFIRMED" | "FAILED" | "CANCELLED";
 
+// V5 Fase 4 — Reportes contables formales
+export interface LibroDiarioRow {
+  voucher_id: number;
+  voucher_codigo: string;
+  voucher_tipo: string;
+  fecha_contable: string;
+  glosa: string;
+  contraparte_nombre: string | null;
+  line_number: number;
+  cuenta_codigo: string;
+  cuenta_nombre: string;
+  proyecto_codigo: string | null;
+  area_codigo: string | null;
+  debit: number;
+  credit: number;
+  linea_descripcion: string | null;
+}
+
+export interface LibroMayorMovimiento {
+  voucher_id: number;
+  voucher_codigo: string;
+  fecha_contable: string;
+  glosa: string;
+  contraparte_nombre: string | null;
+  line_number: number;
+  linea_descripcion: string | null;
+  proyecto_codigo: string | null;
+  area_codigo: string | null;
+  debit: number;
+  credit: number;
+}
+
+export interface LibroMayorReport {
+  cuenta: { codigo: string; nombre: string; tipo: string; nivel: number } | null;
+  fecha_desde: string;
+  fecha_hasta: string;
+  saldo_apertura: number;
+  total_debe: number;
+  total_haber: number;
+  saldo_cierre: number;
+  movimientos: LibroMayorMovimiento[];
+}
+
+export interface PLProyectoRow {
+  proyecto_codigo: string;
+  proyecto_nombre: string;
+  tipo_financiamiento: string | null;
+  ingresos: number;
+  gastos: number;
+  resultado: number;
+}
+
+export interface PLAreaRow {
+  area_codigo: string;
+  area_nombre: string;
+  ingresos: number;
+  gastos: number;
+  resultado: number;
+}
+
+export interface RendicionCorfoLinea {
+  voucher_codigo: string;
+  fecha_contable: string;
+  glosa: string;
+  contraparte_nombre: string | null;
+  contraparte_rut: string | null;
+  doc_tributario_tipo: string | null;
+  doc_tributario_folio: string | null;
+  line_number: number;
+  cuenta_codigo: string;
+  cuenta_nombre: string;
+  tipo_gasto_corfo: string | null;
+  area_codigo: string | null;
+  debit: number;
+  credit: number;
+  linea_descripcion: string | null;
+}
+
+export interface RendicionCorfoReport {
+  proyecto: {
+    codigo: string;
+    empresa_codigo: string;
+    nombre: string;
+    tipo_financiamiento: string;
+    programa: string | null;
+    presupuesto_total: number | null;
+    primer_desembolso_corfo: string | null;
+    tipos_gasto_elegibles: string[];
+  } | null;
+  fecha_desde: string | null;
+  fecha_hasta: string | null;
+  lineas: RendicionCorfoLinea[];
+  desglose_por_tipo_gasto: { tipo_gasto: string; monto: number }[];
+  total: number;
+}
+
 export interface NuboxBatch {
   batch_id: number;
   empresa_codigo: string;
