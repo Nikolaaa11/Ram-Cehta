@@ -33,6 +33,7 @@ from app.api.v1 import (
     movimientos,
     notifications,
     notifications_inbox,
+    nubox_export,
     ordenes_compra,
     plan_cuentas,
     policies_fondo,
@@ -134,6 +135,9 @@ api_router.include_router(areas.router, tags=["areas"])
 # V5 Fase 2: Approval rules + user_company_roles para flujo de aprobación
 # de vouchers con firma SHA-256.
 api_router.include_router(approval_rules.router, tags=["approval-rules"])
+# V5 Fase 3: Exportación a Nubox (CSV) — vouchers APPROVED → batch CSV
+# que el COO carga manualmente en Nubox + asigna folios devueltos.
+api_router.include_router(nubox_export.router, tags=["nubox-export"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",
