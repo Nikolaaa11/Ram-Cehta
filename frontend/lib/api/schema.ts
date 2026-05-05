@@ -1492,6 +1492,31 @@ export interface VoucherListItem {
   created_at: string;
 }
 
+export type VoucherAttachmentTipo =
+  | "FACTURA" | "BOLETA" | "CONTRATO" | "COTIZACION"
+  | "TRANSFERENCIA" | "LIQUIDACION_SUELDO" | "ACTA"
+  | "RESPALDO_TECNICO" | "OTRO";
+
+export interface VoucherAttachment {
+  attachment_id: number;
+  voucher_id: number;
+  tipo: VoucherAttachmentTipo;
+  file_name: string;
+  dropbox_path: string;
+  file_hash: string | null;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  uploaded_at: string;
+}
+
+export interface VoucherAttachmentLink {
+  attachment_id: number;
+  file_name: string;
+  url: string;
+  expires_in_seconds: number;
+}
+
 export interface VoucherFull extends VoucherListItem {
   fecha_documento: string;
   fecha_ejecucion: string | null;

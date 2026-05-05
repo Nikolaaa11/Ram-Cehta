@@ -9,6 +9,11 @@ Cubre:
   POST   /vouchers/{id}/void       — anula con razón obligatoria
   DELETE /vouchers/{id}            — solo permitido si DRAFT
 
+  GET    /vouchers/{id}/attachments        — lista adjuntos
+  POST   /vouchers/{id}/attachments        — sube adjunto a Dropbox + persiste
+  GET    /vouchers/{id}/attachments/{att}/url — URL temporal Dropbox (4h)
+  DELETE /vouchers/{id}/attachments/{att}   — borra adjunto (DROPBOX + DB), solo DRAFT/PENDING
+
 Lo que NO está acá (Fase 2+):
   POST /vouchers/{id}/approve      — aprobar/firmar (Fase 2)
   POST /vouchers/{id}/reject       — rechazar (Fase 2)
@@ -17,15 +22,31 @@ Lo que NO está acá (Fase 2+):
 """
 from __future__ import annotations
 
+import asyncio
+import hashlib
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
-from sqlalchemy import select
+from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
+
+from app.infrastructure.repositories.integration_repository import (
+    IntegrationRepository,
+)
+from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -526,6 +547,348 @@ async def delete_voucher(
             ),
         )
     await db.delete(v)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# =====================================================================
+# ATTACHMENTS — adjuntos en Dropbox + metadata en DB
+# =====================================================================
+
+
+# Tipos de adjunto permitidos (espejo del CHECK de la migración 0035)
+AttachmentTipo = Literal[
+    "FACTURA", "BOLETA", "CONTRATO", "COTIZACION",
+    "TRANSFERENCIA", "LIQUIDACION_SUELDO", "ACTA",
+    "RESPALDO_TECNICO", "OTRO",
+]
+
+
+# Path Dropbox raíz para adjuntos de vouchers
+_VOUCHER_ATTACHMENTS_ROOT = "/Cehta Capital/02-Fondo (FIP CEHTA)/Vouchers"
+
+# Tamaño máximo por adjunto (50 MB) — facturas escaneadas a alta resolución
+# pueden pesar 5-15 MB; 50 MB nos da margen sin permitir abuso.
+_MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
+
+# Mime types aceptados — PDFs y scans
+_ALLOWED_MIME_PREFIXES = (
+    "application/pdf",
+    "image/jpeg", "image/png", "image/webp",
+    "application/vnd.openxmlformats-officedocument",
+    "application/vnd.ms-excel",
+    "application/msword",
+)
+
+
+class VoucherAttachmentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    attachment_id: int
+    voucher_id: int
+    tipo: AttachmentTipo
+    file_name: str
+    dropbox_path: str
+    file_hash: str | None
+    mime_type: str | None
+    size_bytes: int | None
+    uploaded_by: str | None
+    uploaded_at: datetime
+
+
+class VoucherAttachmentLink(BaseModel):
+    """URL temporal de Dropbox para descargar el adjunto (vence en 4h)."""
+
+    attachment_id: int
+    file_name: str
+    url: str
+    expires_in_seconds: int = 4 * 60 * 60
+
+
+def _voucher_dropbox_path(
+    empresa_codigo: str, anio: int, voucher_codigo: str, file_name: str
+) -> str:
+    """Path Dropbox por convención: /Vouchers/{empresa}/{año}/{codigo}/{file}."""
+    safe_file = file_name.replace("/", "_")
+    return (
+        f"{_VOUCHER_ATTACHMENTS_ROOT}/{empresa_codigo}/{anio}/"
+        f"{voucher_codigo}/{safe_file}"
+    )
+
+
+async def _get_dropbox_service(db: DBSession) -> DropboxService:
+    """Devuelve el cliente Dropbox autenticado o lanza 503 si no está conectado."""
+    integration = await IntegrationRepository(db).get_by_provider("dropbox")
+    if integration is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "Dropbox no está conectado. Conectá la cuenta en /admin/integraciones "
+                "antes de subir adjuntos."
+            ),
+        )
+    try:
+        return DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+    except DropboxNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get(
+    "/vouchers/{voucher_id}/attachments",
+    response_model=list[VoucherAttachmentRead],
+)
+async def list_voucher_attachments(
+    user: CurrentUser, db: DBSession, voucher_id: int
+) -> list[VoucherAttachmentRead]:
+    """Lista adjuntos del voucher (sin URLs temporales — esas se piden por adjunto)."""
+    if not await db.scalar(
+        text("SELECT 1 FROM core.vouchers WHERE voucher_id = :id"),
+        {"id": voucher_id},
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT attachment_id, voucher_id, tipo, file_name, dropbox_path,
+                       file_hash, mime_type, size_bytes, uploaded_by, uploaded_at
+                FROM core.voucher_attachments
+                WHERE voucher_id = :id
+                ORDER BY uploaded_at DESC
+                """
+            ),
+            {"id": voucher_id},
+        )
+    ).mappings().all()
+
+    return [VoucherAttachmentRead.model_validate(dict(r)) for r in rows]
+
+
+@router.post(
+    "/vouchers/{voucher_id}/attachments",
+    response_model=VoucherAttachmentRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def upload_voucher_attachment(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    voucher_id: int,
+    tipo: Annotated[AttachmentTipo, Form()],
+    file: UploadFile = File(..., description="Factura, boleta, contrato, etc."),
+) -> VoucherAttachmentRead:
+    """Sube un adjunto a Dropbox + persiste metadata en DB.
+
+    Path Dropbox: /Cehta Capital/02-Fondo (FIP CEHTA)/Vouchers/{empresa}/{año}/{codigo}/{file}
+    """
+    # 1. Validar voucher existe y permite adjuntos
+    row = (
+        await db.execute(
+            text(
+                "SELECT codigo, empresa_codigo, fecha_contable, status "
+                "FROM core.vouchers WHERE voucher_id = :id"
+            ),
+            {"id": voucher_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    if row["status"] in ("VOID", "CLOSED"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No se pueden adjuntar archivos a un voucher en {row['status']}",
+        )
+
+    # 2. Validar archivo
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Archivo sin nombre"
+        )
+
+    contents = await file.read()
+    if len(contents) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Archivo vacío"
+        )
+    if len(contents) > _MAX_ATTACHMENT_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"Archivo excede {_MAX_ATTACHMENT_BYTES // (1024 * 1024)} MB. "
+                "Comprimí o subí el original a Dropbox manualmente y referencialo."
+            ),
+        )
+
+    mime = file.content_type or "application/octet-stream"
+    if not any(mime.startswith(p) for p in _ALLOWED_MIME_PREFIXES):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Tipo de archivo no permitido: {mime}. Solo PDF, imágenes "
+                "(JPG/PNG/WebP), Excel y Word."
+            ),
+        )
+
+    # 3. Hash SHA-256 (para detectar duplicados / verificar integridad)
+    file_hash = hashlib.sha256(contents).hexdigest()
+
+    # 4. Subir a Dropbox (sync API en threadpool para no bloquear el event loop)
+    dbx = await _get_dropbox_service(db)
+    anio = row["fecha_contable"].year
+    target_path = _voucher_dropbox_path(
+        row["empresa_codigo"], anio, row["codigo"], file.filename
+    )
+
+    try:
+        # Crear estructura de carpetas + upload
+        await asyncio.to_thread(
+            dbx.ensure_folder,
+            f"{_VOUCHER_ATTACHMENTS_ROOT}/{row['empresa_codigo']}/{anio}/{row['codigo']}",
+        )
+        await asyncio.to_thread(dbx.upload_file, target_path, contents, overwrite=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo subir a Dropbox: {exc}",
+        ) from exc
+
+    # 5. Persistir metadata
+    result = await db.execute(
+        text(
+            """
+            INSERT INTO core.voucher_attachments (
+                voucher_id, tipo, file_name, dropbox_path, file_hash,
+                mime_type, size_bytes, uploaded_by
+            )
+            VALUES (
+                :v, :t, :n, :p, :h, :m, :s, CAST(:by AS UUID)
+            )
+            RETURNING attachment_id, voucher_id, tipo, file_name, dropbox_path,
+                      file_hash, mime_type, size_bytes, uploaded_by, uploaded_at
+            """
+        ),
+        {
+            "v": voucher_id,
+            "t": tipo,
+            "n": file.filename,
+            "p": target_path,
+            "h": file_hash,
+            "m": mime,
+            "s": len(contents),
+            "by": str(user.sub),
+        },
+    )
+    await db.commit()
+    new_row = result.mappings().one()
+    return VoucherAttachmentRead.model_validate(dict(new_row))
+
+
+@router.get(
+    "/vouchers/{voucher_id}/attachments/{attachment_id}/url",
+    response_model=VoucherAttachmentLink,
+)
+async def get_voucher_attachment_url(
+    user: CurrentUser,
+    db: DBSession,
+    voucher_id: int,
+    attachment_id: int,
+) -> VoucherAttachmentLink:
+    """Genera URL temporal de Dropbox (vence en 4h) para descargar el archivo."""
+    row = (
+        await db.execute(
+            text(
+                "SELECT a.attachment_id, a.dropbox_path, a.file_name "
+                "FROM core.voucher_attachments a "
+                "WHERE a.attachment_id = :a AND a.voucher_id = :v"
+            ),
+            {"a": attachment_id, "v": voucher_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Adjunto no encontrado"
+        )
+
+    dbx = await _get_dropbox_service(db)
+    try:
+        url = await asyncio.to_thread(dbx.get_temporary_link, row["dropbox_path"])
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo generar URL temporal: {exc}",
+        ) from exc
+
+    return VoucherAttachmentLink(
+        attachment_id=row["attachment_id"],
+        file_name=row["file_name"],
+        url=url,
+    )
+
+
+@router.delete(
+    "/vouchers/{voucher_id}/attachments/{attachment_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def delete_voucher_attachment(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    voucher_id: int,
+    attachment_id: int,
+) -> Response:
+    """Borra adjunto de Dropbox + DB. Solo permitido en DRAFT/PENDING.
+
+    Para vouchers aprobados o ejecutados, los adjuntos quedan inmutables
+    (audit). Si necesitás reemplazar, anulá y reversá.
+    """
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT a.dropbox_path, v.status
+                FROM core.voucher_attachments a
+                INNER JOIN core.vouchers v ON v.voucher_id = a.voucher_id
+                WHERE a.attachment_id = :a AND a.voucher_id = :v
+                """
+            ),
+            {"a": attachment_id, "v": voucher_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Adjunto no encontrado"
+        )
+    if row["status"] not in ("DRAFT", "PENDING"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"No se pueden borrar adjuntos de un voucher en {row['status']}. "
+                "Para corregir, anular el voucher o crear voucher de REVERSO."
+            ),
+        )
+
+    # Borrar de Dropbox (best-effort — si falla seguimos con DB delete)
+    try:
+        dbx = await _get_dropbox_service(db)
+        await asyncio.to_thread(dbx.delete, row["dropbox_path"])
+    except Exception:  # noqa: BLE001 — Dropbox down no debe bloquear cleanup DB
+        pass
+
+    await db.execute(
+        text("DELETE FROM core.voucher_attachments WHERE attachment_id = :a"),
+        {"a": attachment_id},
+    )
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

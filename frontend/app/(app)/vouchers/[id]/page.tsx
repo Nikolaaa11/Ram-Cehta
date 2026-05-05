@@ -36,6 +36,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
 import type { VoucherFull, VoucherStatus, VoucherTipo } from "@/lib/api/schema";
 
 const TIPO_LABEL: Record<VoucherTipo, string> = {
@@ -420,6 +421,13 @@ export default function VoucherDetailPage({ params }: PageProps) {
             </table>
           </div>
         </div>
+
+        {/* Adjuntos (Dropbox) */}
+        <VoucherAttachmentsCard
+          voucherId={voucher.voucher_id}
+          voucherStatus={voucher.status}
+          voucherTipo={voucher.tipo}
+        />
 
         {/* Razones de rechazo / void */}
         {voucher.rejection_reason && (
