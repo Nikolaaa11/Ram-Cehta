@@ -1329,3 +1329,190 @@ export interface FondoActa {
   created_at: string;
   updated_at: string;
 }
+
+// =====================================================================
+// V5 — Módulo Vouchers / Plan de cuentas / Proyectos contables / Áreas
+// =====================================================================
+
+export type CuentaTipo =
+  | "ACTIVO" | "PASIVO" | "PATRIMONIO"
+  | "INGRESO" | "GASTO" | "RESULTADO" | "ORDEN";
+
+export type TipoGastoCorfo =
+  | "RRHH" | "OPERACION" | "INVERSION" | "GASTOS_GENERALES" | "NO_ELEGIBLE";
+
+export type IvaTratamiento = "AFECTO" | "EXENTO" | "NO_GRAVADO" | "NA";
+
+export interface PlanCuenta {
+  codigo: string;
+  nivel: 1 | 2 | 3 | 4;
+  tipo: CuentaTipo;
+  nombre: string;
+  descripcion: string | null;
+  codigo_padre: string | null;
+  imputable: boolean;
+  iva_tratamiento: IvaTratamiento;
+  corfo_elegible: boolean;
+  tipo_gasto_corfo: TipoGastoCorfo | null;
+  nubox_code: string | null;
+  codigo_f22: number | null;
+  ajuste_14d: string | null;
+  flag_caja: boolean;
+  flag_activo_fijo: boolean;
+  flag_documento: boolean;
+  flag_control_gestion: boolean;
+  flag_partida: boolean;
+  flag_concepto: boolean;
+  flag_capital: boolean;
+  flag_activo_neto: boolean;
+  flag_marca_14d: boolean;
+  flag_percepcion: boolean;
+  activa: boolean;
+}
+
+export interface PlanCuentaTreeNode {
+  codigo: string;
+  nivel: 1 | 2 | 3 | 4;
+  tipo: CuentaTipo;
+  nombre: string;
+  imputable: boolean;
+  activa: boolean;
+  corfo_elegible: boolean;
+  children: PlanCuentaTreeNode[];
+}
+
+export interface PlanCuentaEmpresa {
+  cuenta_codigo: string;
+  empresa_codigo: string;
+  habilitada: boolean;
+  notas: string | null;
+}
+
+export interface PlanCuentasSummary {
+  total_cuentas: number;
+  cuentas_imputables: number;
+  cuentas_corfo: number;
+  habilitaciones_total: number;
+  last_imported: string | null;
+}
+
+export type TipoFinanciamiento = "CORFO" | "PRIVADO" | "INTERNO" | "FINANCIERO";
+export type ProyectoEstado = "ACTIVE" | "CLOSED" | "SUSPENDED";
+
+export interface ProyectoContable {
+  codigo: string;
+  empresa_codigo: string;
+  nombre: string;
+  tipo_financiamiento: TipoFinanciamiento;
+  programa: string | null;
+  fecha_inicio: string | null;
+  fecha_termino: string | null;
+  presupuesto_total: number | null;
+  moneda: "CLP" | "UF" | "USD" | "EUR";
+  primer_desembolso_corfo: string | null;
+  tipos_gasto_elegibles: TipoGastoCorfo[];
+  estado: ProyectoEstado;
+  gantt_proyecto_id: number | null;
+}
+
+export interface ProyectoAvance {
+  codigo: string;
+  presupuesto_total: number | null;
+  presupuesto_ejecutado: number;
+  porcentaje_ejecutado: number | null;
+  monto_disponible: number | null;
+  cantidad_vouchers: number;
+}
+
+export interface Area {
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  activa: boolean;
+}
+
+export interface AreaEmpresa {
+  area_codigo: string;
+  empresa_codigo: string;
+  aplica: boolean;
+}
+
+export interface AreaEmpresaMatrix {
+  matrix: Record<string, string[]>;
+}
+
+// Voucher types
+export type VoucherTipo =
+  | "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA"
+  | "APERTURA" | "CIERRE" | "REVERSO";
+
+export type VoucherStatus =
+  | "DRAFT" | "PENDING" | "APPROVED" | "EXECUTED"
+  | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID";
+
+export type ContraparteTipo =
+  | "PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO";
+
+export type DocTributarioTipo =
+  | "FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO"
+  | "HONORARIOS" | "NA";
+
+export type BalanceTreatment = "GASTO" | "ACTIVACION" | "NA";
+
+export interface VoucherLine {
+  line_id: number;
+  voucher_id: number;
+  line_number: number;
+  cuenta_codigo: string;
+  proyecto_codigo: string | null;
+  area_codigo: string | null;
+  debit: number;
+  credit: number;
+  descripcion: string | null;
+  iva_tratamiento: IvaTratamiento | null;
+  iva_amount: number | null;
+  neto_amount: number | null;
+  balance_treatment: BalanceTreatment;
+  created_at: string;
+}
+
+export interface VoucherListItem {
+  voucher_id: number;
+  codigo: string;
+  empresa_codigo: string;
+  tipo: VoucherTipo;
+  status: VoucherStatus;
+  fecha_contable: string;
+  glosa: string;
+  total_debit: number;
+  total_credit: number;
+  moneda: "CLP" | "UF" | "USD" | "EUR";
+  contraparte_nombre: string | null;
+  threshold_aplicado: boolean;
+  created_at: string;
+}
+
+export interface VoucherFull extends VoucherListItem {
+  fecha_documento: string;
+  fecha_ejecucion: string | null;
+  exchange_rate: number | null;
+  contraparte_rut: string | null;
+  contraparte_tipo: ContraparteTipo | null;
+  doc_tributario_tipo: DocTributarioTipo | null;
+  doc_tributario_folio: string | null;
+  doc_tributario_sii_track_id: string | null;
+  banco: string | null;
+  banco_cuenta_alias: string | null;
+  movimiento_id: number | null;
+  reversal_of: number | null;
+  reversed_by: number | null;
+  nubox_folio: string | null;
+  nubox_synced_at: string | null;
+  nubox_status: string | null;
+  rejection_reason: string | null;
+  void_reason: string | null;
+  created_by: string | null;
+  requested_by: string | null;
+  updated_at: string;
+  lines: VoucherLine[];
+}

@@ -82,7 +82,13 @@ type NavItem = {
 };
 
 type NavGroup = {
-  id: "ejecutivo" | "operaciones" | "estrategia" | "documentos" | "admin";
+  id:
+    | "ejecutivo"
+    | "operaciones"
+    | "estrategia"
+    | "documentos"
+    | "contabilidad"
+    | "admin";
   label: string;
   items: NavItem[];
 };
@@ -192,6 +198,30 @@ const GROUPS: NavGroup[] = [
         icon: FileBarChart,
       },
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
+    ],
+  },
+  // V5: Contabilidad — plan de cuentas + proyectos contables + áreas.
+  // Fundación del módulo Vouchers. Todo el flujo contable formal pasa
+  // por estos 3 catálogos antes de llegar a un voucher.
+  {
+    id: "contabilidad",
+    label: "Contabilidad",
+    items: [
+      {
+        href: "/admin/plan-cuentas" as Route,
+        label: "Plan de cuentas",
+        icon: Layers,
+      },
+      {
+        href: "/admin/proyectos-contables" as Route,
+        label: "Proyectos contables",
+        icon: FileBarChart,
+      },
+      {
+        href: "/admin/areas" as Route,
+        label: "Áreas (centros de costo)",
+        icon: Layers,
+      },
     ],
   },
   {
