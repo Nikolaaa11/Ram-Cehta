@@ -128,13 +128,19 @@ async def update_empresa(
 async def list_empresas(
     user: CurrentUser, db: DBSession, response: Response
 ) -> list[EmpresaCatalogo]:
-    """Catálogo plano de empresas activas — único source-of-truth para selects (Disciplina 1)."""
+    """Catálogo plano de empresas — único source-of-truth para selects (Disciplina 1).
+
+    Devuelve TODAS las empresas (activas e inactivas) para que los formularios
+    contables/legales puedan referenciar empresas históricas. Los endpoints
+    operativos (movimientos, OCs, alertas) son los que filtran por `activo`
+    a nivel de query si lo necesitan.
+    """
     response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
     rows = (
         await db.execute(
             text(
                 "SELECT codigo, razon_social, oc_prefix, rut "
-                "FROM core.empresas WHERE activo = true ORDER BY codigo"
+                "FROM core.empresas ORDER BY codigo"
             )
         )
     ).fetchall()
@@ -153,7 +159,7 @@ async def get_catalogos(
         await db.execute(
             text(
                 "SELECT codigo, razon_social, oc_prefix, rut "
-                "FROM core.empresas WHERE activo = true ORDER BY codigo"
+                "FROM core.empresas ORDER BY codigo"
             )
         )
     ).fetchall()

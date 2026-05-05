@@ -278,6 +278,11 @@ const GROUPS: NavGroup[] = [
         icon: Mail,
       },
       {
+        href: "/admin/mailbox" as Route,
+        label: "Inbox · contactocehta",
+        icon: Mail,
+      },
+      {
         href: "/admin/import" as Route,
         label: "Importar CSV",
         icon: Upload,

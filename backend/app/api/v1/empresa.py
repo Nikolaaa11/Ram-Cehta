@@ -21,9 +21,10 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import text
 
-from app.api.deps import DBSession, require_scope
+from app.api.deps import CurrentUser, DBSession, require_scope
 from app.api.v1.dashboard import (
     acumular_saldo,
     calc_delta_pct,
@@ -164,6 +165,72 @@ async def _get_empresa(db, codigo: str) -> tuple[str, str]:
             detail=f"Empresa no encontrada: {codigo}",
         )
     return row[0], row[1]
+
+
+# =====================================================================
+# GET /empresa  (lista plana — universal selector source-of-truth)
+# =====================================================================
+#
+# Las 12+ vistas que usan dropdown de empresa en el frontend pegan a este
+# path. Antes esta ruta no existía (solo /empresa/{codigo}/...) y los
+# selectores quedaban vacíos en silencio (404 → useQuery devuelve undefined).
+#
+# Disciplina: este endpoint devuelve TODAS las empresas (incluso las
+# inactivas) ordenadas por código. La razón: en módulos contables/legales
+# necesitamos referenciar empresas históricas aunque ya no operen. El
+# `activo` flag se respeta sólo en endpoints operativos (movimientos,
+# OCs, alertas) que filtran a nivel de query.
+#
+# Si en el futuro se necesita un selector "solo activas", agregar un
+# query param `?solo_activas=true` y NO crear endpoint paralelo.
+
+
+class EmpresaListItem(BaseModel):
+    """Forma mínima usada por todos los selects del frontend."""
+
+    codigo: str
+    razon_social: str
+    rut: str | None = None
+    oc_prefix: str | None = None
+    activo: bool = True
+
+
+@router.get("", response_model=list[EmpresaListItem])
+async def list_empresas_flat(
+    user: CurrentUser,
+    db: DBSession,
+    solo_activas: bool = False,
+) -> list[EmpresaListItem]:
+    """Lista plana de empresas para poblar selects.
+
+    Devuelve TODAS las empresas por defecto (incluidas inactivas) para que
+    los selectores en /vouchers, /reportes, /admin, etc. muestren el set
+    completo del portafolio. Pasá `?solo_activas=true` si necesitás filtrar
+    a las que están operando hoy.
+    """
+    where = "WHERE activo = TRUE" if solo_activas else ""
+    rows = (
+        await db.execute(
+            text(
+                f"""
+                SELECT codigo, razon_social, rut, oc_prefix, activo
+                FROM core.empresas
+                {where}
+                ORDER BY codigo
+                """
+            )
+        )
+    ).fetchall()
+    return [
+        EmpresaListItem(
+            codigo=r[0],
+            razon_social=r[1],
+            rut=r[2],
+            oc_prefix=r[3],
+            activo=bool(r[4]),
+        )
+        for r in rows
+    ]
 
 
 # =====================================================================

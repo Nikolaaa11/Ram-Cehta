@@ -6,7 +6,7 @@
  * "—" en el card en vez de bloquear toda la página.
  */
 import type { Route } from "next";
-import { Database, Shield, Sparkles, UserCog } from "lucide-react";
+import { Database, Mail, Shield, Sparkles, UserCog } from "lucide-react";
 import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -115,6 +115,15 @@ export default async function AdminLandingPage() {
           icon={Sparkles}
           metric="V5.3"
           metricLabel="anomaly detection"
+          tone="default"
+        />
+        <AdminCard
+          href={"/admin/mailbox" as Route}
+          title="Inbox · contactocehta@gmail.com"
+          description="IMAP poll + Claude clasifica + draft de respuesta. Nicolás aprueba antes de enviar."
+          icon={Mail}
+          metric="V5+"
+          metricLabel="email automation"
           tone="default"
         />
       </div>

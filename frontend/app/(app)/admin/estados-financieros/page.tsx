@@ -147,7 +147,7 @@ export default function EstadosFinancierosPage() {
   const { data: empresas } = useQuery<EmpresaCatalogo[]>({
     queryKey: ["empresas-catalogo"],
     queryFn: async () =>
-      apiClient.get<EmpresaCatalogo[]>("/empresas", session),
+      apiClient.get<EmpresaCatalogo[]>("/catalogos/empresas", session),
     enabled: !!session,
     staleTime: 5 * 60 * 1000,
   });

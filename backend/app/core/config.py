@@ -75,6 +75,25 @@ class Settings(BaseSettings):
         default_factory=list,
     )
 
+    # Inbox processing (V5+) — IMAP poll de contactocehta@gmail.com.
+    # Cuando un email entra:
+    #   1. El servicio lo lee via IMAP (UNSEEN)
+    #   2. Lo clasifica con Claude (factura proveedor, consulta cliente,
+    #      pago confirmado, spam, otro)
+    #   3. Genera un draft de respuesta (NO se manda — Nicolás revisa
+    #      en /admin/inbox y aprueba antes de enviar)
+    #   4. Si tiene PDF adjunto, lo guarda en Dropbox /00-Inbox/
+    #      y extrae texto para indexarlo
+    # Soft-fail: si las creds no están seteadas, /admin/inbox-process
+    # devuelve 503 sin romper boot.
+    inbox_imap_host: str = "imap.gmail.com"
+    inbox_imap_port: int = 993
+    inbox_imap_user: str | None = None  # ej: contactocehta@gmail.com
+    inbox_imap_password: str | None = None  # Gmail App Password (no la del usuario)
+    inbox_imap_folder: str = "INBOX"
+    inbox_classify_model: str = "claude-sonnet-4-5-20250929"
+    inbox_max_messages_per_run: int = 50
+
     # V4 fase 9.4: Booking URL (Cal.com / Calendly / Google appointments).
     # Si está seteada, los Informes LP muestran un botón "Agendar 30 min con
     # {owner}" que abre un modal con iframe en vez de mailto:. Multiplica

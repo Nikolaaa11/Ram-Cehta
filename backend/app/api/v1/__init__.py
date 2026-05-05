@@ -30,6 +30,7 @@ from app.api.v1 import (
     informes_lp,
     legal,
     lp_documents,
+    mailbox,
     me_preferences,
     movimientos,
     notifications,
@@ -154,3 +155,7 @@ api_router.include_router(
     prefix="/estados-financieros",
     tags=["estados-financieros"],
 )
+# V5+: Email inbox de contactocehta@gmail.com — IMAP poll + Claude clasifica
+# + draft response. Endpoints viven bajo /admin/mailbox/* (las rutas internas
+# del router ya incluyen ese prefix).
+api_router.include_router(mailbox.router, tags=["mailbox"])
