@@ -147,9 +147,9 @@ async def import_plan_cuentas(
             detail="Archivo vacío",
         )
 
-    # Parse
+    # Parse las 3 secciones (cuentas + proyectos + áreas)
     try:
-        cuentas, habilitaciones = parse_xlsx_bytes(contents)
+        payload = parse_xlsx_bytes(contents)
     except PlanCuentasParseError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -161,11 +161,11 @@ async def import_plan_cuentas(
             detail=f"No se pudo leer el .xlsx: {exc}",
         ) from exc
 
-    summary = build_summary(cuentas, habilitaciones)
+    summary = build_summary(payload)
 
-    # Apply
+    # Apply en una sola transacción
     try:
-        counters = await apply_to_db(db, cuentas, habilitaciones)
+        counters = await apply_to_db(db, payload)
         await db.commit()
     except Exception as exc:  # noqa: BLE001
         await db.rollback()

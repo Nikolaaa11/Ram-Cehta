@@ -33,18 +33,16 @@ from app.services.plan_cuentas_import_service import (
 )
 
 
-async def _run_apply(
-    cuentas: list, habilitaciones: dict
-) -> dict[str, int]:
+async def _run_apply(payload) -> dict[str, int]:  # type: ignore[no-untyped-def]
     async with SessionLocal() as db:
-        counters = await apply_to_db(db, cuentas, habilitaciones)
+        counters = await apply_to_db(db, payload)
         await db.commit()
     return counters
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Importer del Plan de Cuentas v2 a core.plan_cuentas"
+        description="Importer del Plan de Cuentas v2 (cuentas + proyectos + áreas)"
     )
     default_xlsx = Path.home() / "Downloads" / "Plan_de_cuentas_v2.xlsx"
     parser.add_argument("--xlsx", type=Path, default=default_xlsx)
@@ -57,20 +55,24 @@ def main() -> int:
 
     print(f"Leyendo {args.xlsx}...")
     try:
-        cuentas, habilitaciones = parse_xlsx_path(args.xlsx)
+        payload = parse_xlsx_path(args.xlsx)
     except PlanCuentasParseError as exc:
         print(f"ERROR de parseo: {exc}", file=sys.stderr)
         return 1
 
-    summary = build_summary(cuentas, habilitaciones)
-    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    summary = build_summary(payload)
+    print(json.dumps(summary, indent=2, ensure_ascii=False, default=str))
 
     if not args.apply:
         print("\nModo DRY-RUN. Para aplicar: agregar --apply")
         return 0
 
-    print(f"\nAplicando a la DB ({len(cuentas)} cuentas)...")
-    counters = asyncio.run(_run_apply(cuentas, habilitaciones))
+    print(
+        f"\nAplicando a la DB "
+        f"({len(payload.cuentas)} cuentas + {len(payload.proyectos)} proyectos "
+        f"+ {len(payload.areas)} áreas)..."
+    )
+    counters = asyncio.run(_run_apply(payload))
     print(json.dumps(counters, indent=2))
     return 0
 
