@@ -4,6 +4,7 @@ from app.api.v1 import (
     admin_users,
     ai,
     api_tokens,
+    approval_rules,
     areas,
     audit,
     auth,
@@ -130,6 +131,9 @@ api_router.include_router(vouchers.router, tags=["vouchers"])
 api_router.include_router(proyectos_contables.router, tags=["proyectos-contables"])
 # V5: Áreas (centros de costo). CRUD + matriz aplica por empresa.
 api_router.include_router(areas.router, tags=["areas"])
+# V5 Fase 2: Approval rules + user_company_roles para flujo de aprobación
+# de vouchers con firma SHA-256.
+api_router.include_router(approval_rules.router, tags=["approval-rules"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",

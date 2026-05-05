@@ -14,9 +14,11 @@ Cubre:
   GET    /vouchers/{id}/attachments/{att}/url — URL temporal Dropbox (4h)
   DELETE /vouchers/{id}/attachments/{att}   — borra adjunto (DROPBOX + DB), solo DRAFT/PENDING
 
-Lo que NO está acá (Fase 2+):
-  POST /vouchers/{id}/approve      — aprobar/firmar (Fase 2)
-  POST /vouchers/{id}/reject       — rechazar (Fase 2)
+  GET    /vouchers/{id}/approvals          — lista firmas + estado del flujo
+  POST   /vouchers/{id}/approve            — firma propia (rol activo en empresa)
+  POST   /vouchers/{id}/reject             — rechaza con razón obligatoria
+
+Lo que NO está acá (Fase 3+):
   POST /vouchers/{id}/execute      — marcar EXECUTED post pago bancario
   POST /vouchers/{id}/sync-nubox   — push a Nubox (Fase 3)
 """
@@ -43,8 +45,19 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+from fastapi import Request
+
 from app.infrastructure.repositories.integration_repository import (
     IntegrationRepository,
+)
+from app.services.approval_service import (
+    compute_threshold_aplicado,
+    find_matching_rule,
+    get_voucher_approvals,
+    get_voucher_balance_treatment_dominante,
+    load_active_rules,
+    load_user_roles_for_empresa,
+    record_approval_signature,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 
@@ -891,6 +904,341 @@ async def delete_voucher_attachment(
     )
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# =====================================================================
+# APROBACIONES — firma digital (Fase 2)
+# =====================================================================
+
+
+class VoucherApprovalRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    approval_id: int
+    voucher_id: int
+    approver_user_id: str
+    role: str
+    order_num: int
+    decision: Literal["APPROVED", "REJECTED"]
+    signed_at: datetime
+    signature_hash: str
+    ip_address: str | None
+    user_agent: str | None
+    comments: str | None
+
+
+class VoucherApprovalsState(BaseModel):
+    """Estado completo del flujo de aprobación de un voucher.
+
+    Devuelve la regla matcheada + roles requeridos + firmas hechas +
+    qué falta. Útil para que la UI muestre la botonera correcta.
+    """
+
+    voucher_id: int
+    voucher_codigo: str
+    voucher_status: str
+    matched_rule_id: int | None
+    matched_rule_descripcion: str | None
+    required_roles: list[str]
+    reinforced: bool
+    approvals: list[VoucherApprovalRead]
+    next_pending_role: str | None
+    next_pending_order: int | None
+    can_current_user_sign: bool
+    current_user_eligible_role: str | None
+
+
+class ApproveRequest(BaseModel):
+    """POST /vouchers/{id}/approve — firma propia con rol activo en empresa."""
+
+    role: str = Field(
+        description="Rol con el que firma (debe estar asignado al user en esa empresa)"
+    )
+    comments: str | None = Field(default=None, max_length=500)
+
+
+class RejectRequest(BaseModel):
+    """POST /vouchers/{id}/reject — rechaza con razón obligatoria."""
+
+    reason: str = Field(min_length=10, max_length=500)
+
+
+def _client_ip(request: Request) -> str | None:
+    # Fly y Vercel suelen poner la IP real en X-Forwarded-For
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return None
+
+
+@router.get(
+    "/vouchers/{voucher_id}/approvals",
+    response_model=VoucherApprovalsState,
+)
+async def get_voucher_approvals_state(
+    user: CurrentUser, db: DBSession, voucher_id: int
+) -> VoucherApprovalsState:
+    """Devuelve el estado completo del flujo de aprobación.
+
+    Calcula:
+      1. La regla que matchea (por monto + tipo + balance treatment).
+      2. Roles requeridos (en orden) y cuáles ya firmaron.
+      3. Cuál es el próximo rol pendiente.
+      4. Si el usuario actual puede firmar el siguiente paso.
+    """
+    voucher = await db.get(Voucher, voucher_id)
+    if voucher is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+
+    # Match rule
+    rules = await load_active_rules(db, voucher.empresa_codigo)
+    bt = await get_voucher_balance_treatment_dominante(db, voucher_id)
+    rule = find_matching_rule(
+        rules,
+        voucher_tipo=voucher.tipo,
+        voucher_amount=voucher.total_debit,
+        balance_treatment_dominante=bt,
+    )
+
+    required_roles = list(rule["required_roles"]) if rule else []
+    reinforced = compute_threshold_aplicado(rule)
+
+    # Approvals existentes
+    approvals_raw = await get_voucher_approvals(db, voucher_id)
+    approvals = [
+        VoucherApprovalRead.model_validate(dict(a)) for a in approvals_raw
+    ]
+    approved_orders = {a.order_num for a in approvals if a.decision == "APPROVED"}
+
+    # Próximo pendiente
+    next_pending_role: str | None = None
+    next_pending_order: int | None = None
+    for i, role in enumerate(required_roles, start=1):
+        if i not in approved_orders:
+            next_pending_role = role
+            next_pending_order = i
+            break
+
+    # Puede el user actual firmar?
+    user_roles = await load_user_roles_for_empresa(
+        db, str(user.sub), voucher.empresa_codigo
+    )
+    can_sign = bool(
+        next_pending_role
+        and voucher.status == "PENDING"
+        and next_pending_role in user_roles
+    )
+    eligible_role = next_pending_role if can_sign else None
+
+    return VoucherApprovalsState(
+        voucher_id=voucher_id,
+        voucher_codigo=voucher.codigo,
+        voucher_status=voucher.status,
+        matched_rule_id=rule["rule_id"] if rule else None,
+        matched_rule_descripcion=rule["descripcion"] if rule else None,
+        required_roles=required_roles,
+        reinforced=reinforced,
+        approvals=approvals,
+        next_pending_role=next_pending_role,
+        next_pending_order=next_pending_order,
+        can_current_user_sign=can_sign,
+        current_user_eligible_role=eligible_role,
+    )
+
+
+@router.post(
+    "/vouchers/{voucher_id}/approve",
+    response_model=VoucherApprovalsState,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def approve_voucher(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    request: Request,
+    voucher_id: int,
+    body: ApproveRequest,
+) -> VoucherApprovalsState:
+    """Firma del rol indicado.
+
+    Validaciones:
+      - Voucher existe y está en PENDING
+      - User tiene el rol declarado activo en la empresa del voucher
+      - El rol corresponde al próximo paso pendiente del flujo
+      - Una vez firmado el último paso, el voucher pasa a APPROVED
+    """
+    voucher = await db.get(Voucher, voucher_id)
+    if voucher is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    if voucher.status != "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo vouchers PENDING aceptan firmas (este está en {voucher.status})",
+        )
+
+    user_roles = await load_user_roles_for_empresa(
+        db, str(user.sub), voucher.empresa_codigo
+    )
+    if body.role not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"No tenés el rol '{body.role}' activo en empresa "
+                f"{voucher.empresa_codigo}. Roles disponibles: "
+                f"{user_roles or 'ninguno'}"
+            ),
+        )
+
+    rules = await load_active_rules(db, voucher.empresa_codigo)
+    bt = await get_voucher_balance_treatment_dominante(db, voucher_id)
+    rule = find_matching_rule(
+        rules,
+        voucher_tipo=voucher.tipo,
+        voucher_amount=voucher.total_debit,
+        balance_treatment_dominante=bt,
+    )
+    if rule is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "No hay regla de aprobación configurada para este voucher. "
+                "Configurá las reglas en /admin/approval-rules antes de aprobar."
+            ),
+        )
+
+    required_roles = list(rule["required_roles"])
+    approvals_raw = await get_voucher_approvals(db, voucher_id)
+    approved_orders = {
+        a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
+    }
+
+    # Identificar próximo paso pendiente
+    next_order: int | None = None
+    expected_role: str | None = None
+    for i, role in enumerate(required_roles, start=1):
+        if i not in approved_orders:
+            next_order = i
+            expected_role = role
+            break
+
+    if next_order is None or expected_role is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El voucher ya tiene todas las firmas requeridas",
+        )
+    if body.role != expected_role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"El próximo rol que debe firmar es '{expected_role}', "
+                f"no '{body.role}'. Las firmas son secuenciales."
+            ),
+        )
+
+    # Anti-doble-firma: el mismo user no puede firmar dos pasos del mismo voucher
+    user_already_signed = any(
+        a["approver_user_id"] == str(user.sub) for a in approvals_raw
+    )
+    if user_already_signed and len(required_roles) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Ya firmaste este voucher con otro rol. La separación de "
+                "responsabilidades exige firmas de personas distintas."
+            ),
+        )
+
+    # Firmar
+    await record_approval_signature(
+        db,
+        voucher_id=voucher_id,
+        voucher_codigo=voucher.codigo,
+        approver_user_id=str(user.sub),
+        role=body.role,
+        order_num=next_order,
+        decision="APPROVED",
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        comments=body.comments,
+    )
+
+    # Si fue la última firma, voucher → APPROVED
+    if next_order == len(required_roles):
+        voucher.status = "APPROVED"
+        voucher.threshold_aplicado = compute_threshold_aplicado(rule)
+
+    await db.commit()
+    return await get_voucher_approvals_state(user, db, voucher_id)
+
+
+@router.post(
+    "/vouchers/{voucher_id}/reject",
+    response_model=VoucherApprovalsState,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def reject_voucher(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    request: Request,
+    voucher_id: int,
+    body: RejectRequest,
+) -> VoucherApprovalsState:
+    """Rechaza el voucher con razón. Pasa a REJECTED.
+
+    Cualquier rol asignado en la empresa puede rechazar (no solo el
+    aprobador del paso actual). Esto permite que un Director frene un
+    voucher dudoso aunque no le toque firmar el siguiente paso.
+    """
+    voucher = await db.get(Voucher, voucher_id)
+    if voucher is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    if voucher.status != "PENDING":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Solo vouchers PENDING pueden rechazarse (este está en {voucher.status})",
+        )
+
+    user_roles = await load_user_roles_for_empresa(
+        db, str(user.sub), voucher.empresa_codigo
+    )
+    if not user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"No tenés rol asignado en empresa {voucher.empresa_codigo}. "
+                "El rechazo lo hace alguien con rol operativo en la empresa."
+            ),
+        )
+
+    # Registrar rechazo en approvals (orden_num = siguiente disponible)
+    approvals_raw = await get_voucher_approvals(db, voucher_id)
+    next_order = (
+        max((a["order_num"] for a in approvals_raw), default=0) + 1
+    )
+
+    await record_approval_signature(
+        db,
+        voucher_id=voucher_id,
+        voucher_codigo=voucher.codigo,
+        approver_user_id=str(user.sub),
+        role=user_roles[0],  # cualquiera de los roles activos
+        order_num=next_order,
+        decision="REJECTED",
+        ip_address=_client_ip(request),
+        user_agent=request.headers.get("user-agent"),
+        comments=body.reason,
+    )
+
+    voucher.status = "REJECTED"
+    voucher.rejection_reason = body.reason.strip()
+    await db.commit()
+    return await get_voucher_approvals_state(user, db, voucher_id)
 
 
 # Forward reference resolution para datetime no usado pero importado por
