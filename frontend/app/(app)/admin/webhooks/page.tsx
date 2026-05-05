@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Plus,
   Webhook,
@@ -10,6 +10,7 @@ import {
   Check,
   ExternalLink,
   Loader2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
@@ -25,7 +26,10 @@ import {
   useWebhookDeliveries,
   type WebhookEventType,
   type WebhookSubscriptionWithSecret,
+  type WebhookDeliveryRead,
 } from "@/hooks/use-webhooks";
+
+type DeliveryRow = WebhookDeliveryRead;
 
 /**
  * Lista de event types disponibles + estado de wiring real.
@@ -89,8 +93,37 @@ export default function WebhooksPage() {
     useState<WebhookSubscriptionWithSecret | null>(null);
   const [secretCopied, setSecretCopied] = useState(false);
   const [openDeliveries, setOpenDeliveries] = useState<string | null>(null);
+  const [openDelivery, setOpenDelivery] = useState<DeliveryRow | null>(null);
 
   const deliveriesQ = useWebhookDeliveries(openDeliveries);
+
+  // Stats agregadas: success rate, total, last delivery
+  const deliveryStats = useMemo(() => {
+    const items = deliveriesQ.data?.items ?? [];
+    const total = items.length;
+    if (total === 0) {
+      return { total: 0, success: 0, failed: 0, pending: 0, successRate: 0 };
+    }
+    let success = 0;
+    let failed = 0;
+    let pending = 0;
+    for (const d of items) {
+      if (d.status_code === null || d.status_code === undefined) {
+        pending++;
+      } else if (d.status_code >= 200 && d.status_code < 300) {
+        success++;
+      } else {
+        failed++;
+      }
+    }
+    return {
+      total,
+      success,
+      failed,
+      pending,
+      successRate: Math.round((success / total) * 100),
+    };
+  }, [deliveriesQ.data]);
 
   const allEvents = (eventsQ.data?.events ?? []) as WebhookEventType[];
 
@@ -428,9 +461,47 @@ export default function WebhooksPage() {
 
               {openDeliveries === sub.id && (
                 <div className="mt-4 border-t border-hairline pt-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    Últimas entregas
-                  </p>
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-500">
+                      Últimas entregas
+                    </p>
+                    <p className="text-[10px] text-ink-400">
+                      Click en una entrega para ver payload + respuesta
+                    </p>
+                  </div>
+
+                  {/* KPI strip — success rate + breakdown */}
+                  {deliveryStats.total > 0 && (
+                    <div className="mb-3 grid grid-cols-4 gap-2">
+                      <DeliveryStat
+                        label="Success rate"
+                        value={`${deliveryStats.successRate}%`}
+                        tone={
+                          deliveryStats.successRate >= 95
+                            ? "positive"
+                            : deliveryStats.successRate >= 80
+                              ? "warning"
+                              : "negative"
+                        }
+                      />
+                      <DeliveryStat
+                        label="Exitosas"
+                        value={String(deliveryStats.success)}
+                        tone="positive"
+                      />
+                      <DeliveryStat
+                        label="Fallidas"
+                        value={String(deliveryStats.failed)}
+                        tone={deliveryStats.failed > 0 ? "negative" : "neutral"}
+                      />
+                      <DeliveryStat
+                        label="En curso"
+                        value={String(deliveryStats.pending)}
+                        tone="neutral"
+                      />
+                    </div>
+                  )}
+
                   {deliveriesQ.isLoading ? (
                     <Skeleton className="h-20 w-full rounded-lg" />
                   ) : (deliveriesQ.data?.items ?? []).length === 0 ? (
@@ -443,15 +514,29 @@ export default function WebhooksPage() {
                       {deliveriesQ.data?.items.slice(0, 10).map((d) => {
                         const ok =
                           d.status_code !== null &&
+                          d.status_code !== undefined &&
                           d.status_code >= 200 &&
                           d.status_code < 300;
+                        const failed =
+                          d.status_code !== null &&
+                          d.status_code !== undefined &&
+                          (d.status_code < 200 || d.status_code >= 300);
                         return (
-                          <div
+                          <button
                             key={d.id}
-                            className="flex items-center gap-2 rounded-lg bg-ink-50/40 px-3 py-1.5 text-xs"
+                            type="button"
+                            onClick={() => setOpenDelivery(d)}
+                            className="flex w-full items-center gap-2 rounded-lg bg-ink-50/40 px-3 py-1.5 text-left text-xs transition-colors hover:bg-ink-50"
+                            title="Ver detalle (payload + respuesta del receiver)"
                           >
                             <span
-                              className={`inline-block h-1.5 w-1.5 rounded-full ${ok ? "bg-positive" : d.status_code === null ? "bg-warning" : "bg-negative"}`}
+                              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                                ok
+                                  ? "bg-positive"
+                                  : failed
+                                    ? "bg-negative"
+                                    : "bg-warning"
+                              }`}
                             />
                             <span className="font-mono">{d.event_type}</span>
                             <span className="text-ink-400">·</span>
@@ -463,7 +548,7 @@ export default function WebhooksPage() {
                             <span className="ml-auto text-ink-400">
                               {new Date(d.created_at).toLocaleString("es-CL")}
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -474,6 +559,194 @@ export default function WebhooksPage() {
           ))}
         </div>
       )}
+
+      {/* Modal detalle de delivery */}
+      {openDelivery && (
+        <DeliveryDetailModal
+          delivery={openDelivery}
+          onClose={() => setOpenDelivery(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeliveryStat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "positive" | "warning" | "negative" | "neutral";
+}) {
+  const colors = {
+    positive: "border-positive/20 bg-positive/5 text-positive",
+    warning: "border-warning/20 bg-warning/5 text-warning",
+    negative: "border-negative/20 bg-negative/5 text-negative",
+    neutral: "border-hairline bg-white text-ink-700",
+  }[tone];
+  return (
+    <div className={`rounded-xl border ${colors} px-3 py-2`}>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.16em] opacity-70">
+        {label}
+      </p>
+      <p className="mt-0.5 font-display text-lg font-semibold tabular-nums">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DeliveryDetailModal({
+  delivery,
+  onClose,
+}: {
+  delivery: DeliveryRow;
+  onClose: () => void;
+}) {
+  const ok =
+    delivery.status_code !== null &&
+    delivery.status_code !== undefined &&
+    delivery.status_code >= 200 &&
+    delivery.status_code < 300;
+  const failed =
+    delivery.status_code !== null &&
+    delivery.status_code !== undefined &&
+    (delivery.status_code < 200 || delivery.status_code >= 300);
+
+  const [payloadCopied, setPayloadCopied] = useState(false);
+  const copyPayload = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        JSON.stringify(delivery.payload, null, 2),
+      );
+      setPayloadCopied(true);
+      toast.success("Payload copiado al portapapeles");
+      setTimeout(() => setPayloadCopied(false), 2000);
+    } catch {
+      toast.error("No se pudo copiar — copialo manualmente");
+    }
+  };
+
+  const statusBadge = ok
+    ? { label: `${delivery.status_code} OK`, color: "bg-positive/10 text-positive ring-positive/20" }
+    : failed
+      ? { label: `${delivery.status_code} Failed`, color: "bg-negative/10 text-negative ring-negative/20" }
+      : { label: "Pending", color: "bg-warning/10 text-warning ring-warning/20" };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative flex h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+      >
+        {/* Header */}
+        <header className="flex items-start justify-between border-b border-hairline px-6 py-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
+              Webhook delivery · intento {delivery.attempt}
+            </p>
+            <h2 className="mt-1 font-display text-xl font-semibold tracking-tight text-ink-900">
+              <span className="font-mono text-base">{delivery.event_type}</span>
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-ink-500">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ring-1 ring-inset ${statusBadge.color}`}
+              >
+                {statusBadge.label}
+              </span>
+              <span>·</span>
+              <span className="font-mono tabular-nums">
+                {new Date(delivery.created_at).toLocaleString("es-CL")}
+              </span>
+              {delivery.delivered_at && delivery.delivered_at !== delivery.created_at && (
+                <>
+                  <span>·</span>
+                  <span>
+                    entregado{" "}
+                    <span className="font-mono tabular-nums">
+                      {new Date(delivery.delivered_at).toLocaleString("es-CL")}
+                    </span>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-600 transition-colors hover:bg-ink-200"
+          >
+            <X className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </header>
+
+        {/* Body scrollable: payload + response */}
+        <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+          {/* Payload */}
+          <section>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                Payload enviado
+              </p>
+              <button
+                type="button"
+                onClick={copyPayload}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-2.5 py-1 text-[11px] font-medium text-ink-600 transition-colors hover:bg-ink-50"
+              >
+                {payloadCopied ? (
+                  <>
+                    <Check className="h-3 w-3" strokeWidth={2} />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3 w-3" strokeWidth={2} />
+                    Copiar
+                  </>
+                )}
+              </button>
+            </div>
+            <pre className="overflow-x-auto rounded-2xl bg-ink-900 p-4 font-mono text-[11.5px] leading-relaxed text-emerald-300">
+              {JSON.stringify(delivery.payload, null, 2)}
+            </pre>
+          </section>
+
+          {/* Response del receiver */}
+          {(delivery.response_body || delivery.error) && (
+            <section>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                Respuesta del receiver
+              </p>
+              {delivery.error ? (
+                <div className="rounded-2xl border border-negative/20 bg-negative/5 p-4 text-[12px] text-negative">
+                  <p className="font-semibold">Error de transporte:</p>
+                  <p className="mt-1 font-mono">{delivery.error}</p>
+                </div>
+              ) : (
+                <pre className="overflow-x-auto rounded-2xl bg-ink-50 p-4 font-mono text-[11.5px] leading-relaxed text-ink-800 ring-1 ring-hairline">
+                  {delivery.response_body || "(respuesta vacía)"}
+                </pre>
+              )}
+            </section>
+          )}
+
+          {/* Hint si fue retry */}
+          {delivery.attempt > 1 && (
+            <div className="rounded-2xl border border-info/20 bg-info/5 p-3 text-[11px] text-ink-700">
+              Esta es una reintentación. El dispatcher hace hasta 3 intentos
+              con backoff exponencial 2s/4s/8s ante 5xx o timeout.
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
