@@ -38,6 +38,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
 import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
+import { VoucherReconcileCard } from "@/components/vouchers/VoucherReconcileCard";
 import type { VoucherFull, VoucherStatus, VoucherTipo } from "@/lib/api/schema";
 
 const TIPO_LABEL: Record<VoucherTipo, string> = {
@@ -435,6 +436,9 @@ export default function VoucherDetailPage({ params }: PageProps) {
             voucherStatus={voucher.status}
           />
         )}
+
+        {/* Conciliación bancaria (solo EXECUTED+) */}
+        <VoucherReconcileCard voucher={voucher} />
 
         {/* Adjuntos (Dropbox) */}
         <VoucherAttachmentsCard

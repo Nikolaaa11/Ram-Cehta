@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
 import {
+  Banknote,
   LayoutDashboard,
   Users,
   FileText,
@@ -241,6 +242,12 @@ const GROUPS: NavGroup[] = [
         href: "/admin/nubox-exports" as Route,
         label: "Exportar a Nubox",
         icon: Database,
+      },
+      // V5 Fase 5: conciliación bancaria
+      {
+        href: "/admin/conciliacion" as Route,
+        label: "Conciliación bancaria",
+        icon: Banknote,
       },
     ],
   },

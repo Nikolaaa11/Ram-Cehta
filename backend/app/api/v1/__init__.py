@@ -11,6 +11,7 @@ from app.api.v1 import (
     avance,
     bulk_import,
     calendar,
+    conciliacion,
     catalogos,
     currency,
     dashboard,
@@ -142,6 +143,8 @@ api_router.include_router(nubox_export.router, tags=["nubox-export"])
 # V5 Fase 4: Reportes contables formales — Libro Diario / Mayor /
 # P&L proyecto / P&L área / Rendición CORFO.
 api_router.include_router(reportes_contables.router, tags=["reportes-contables"])
+# V5 Fase 5: Conciliación bancaria voucher ↔ movimiento.
+api_router.include_router(conciliacion.router, tags=["conciliacion"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",

@@ -1580,6 +1580,57 @@ export interface UserCompanyRole {
 export type NuboxBatchStatus =
   | "GENERATED" | "UPLOADED" | "CONFIRMED" | "FAILED" | "CANCELLED";
 
+// V5 Fase 5 — Conciliación bancaria
+export interface ConciliacionSummary {
+  no_conciliados: number;
+  conciliados: number;
+  movimientos_huerfanos: number;
+  monto_pendiente: number;
+}
+
+export interface VoucherNoConciliado {
+  voucher_id: number;
+  codigo: string;
+  tipo: string;
+  fecha_contable: string;
+  fecha_ejecucion: string | null;
+  glosa: string;
+  contraparte_nombre: string | null;
+  contraparte_rut: string | null;
+  total_debit: number;
+  moneda: string;
+}
+
+export interface MovimientoHuerfano {
+  movimiento_id: number;
+  fecha: string;
+  descripcion: string | null;
+  monto: number;
+  banco: string | null;
+  tipo_egreso: string | null;
+  proveedor_id: number | null;
+  proveedor_nombre: string | null;
+}
+
+export interface MatchCandidate {
+  movimiento_id: number;
+  fecha: string;
+  descripcion: string | null;
+  monto: number;
+  banco: string | null;
+  tipo_egreso: string | null;
+  proveedor_id: number | null;
+  proveedor_nombre: string | null;
+}
+
+export interface AutoRunReport {
+  vouchers_evaluados: number;
+  matched_unico: number;
+  matched_ambiguo: number;
+  sin_candidatos: number;
+  matches: { voucher_id: number; movimiento_id: number; monto: number; fecha: string }[];
+}
+
 // V5 Fase 4 — Reportes contables formales
 export interface LibroDiarioRow {
   voucher_id: number;
