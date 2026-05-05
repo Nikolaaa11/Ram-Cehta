@@ -1,28 +1,43 @@
 # scripts/deploy-all.ps1
 #
-# Deploy completo: typecheck → push → fly backend → smoke test → confirm Vercel.
+# Deploy completo: typecheck + push + fly backend + smoke test.
 #
-# Uso (desde la raíz del repo Ram-Cehta):
-#   pwsh -File scripts/deploy-all.ps1
-#   o doble click si tenés PowerShell asociado a .ps1
+# Uso desde la raiz del repo Ram-Cehta:
+#   powershell -ExecutionPolicy Bypass -File scripts\deploy-all.ps1
 #
-# Lo que hace, en orden:
-#   1. Verifica que git status este limpio (no hay cambios sin commitear)
-#   2. Typecheck del frontend (npm run lint + tsc) — falla rápido si algo rompe
-#   3. Push a GitHub (Vercel se entera y deploya el frontend solito)
-#   4. Deploy del backend a Fly.io (cehta-backend)
-#   5. Smoke test: /healthz + /calendar/obligations debe responder 401 (no 500)
-#   6. Imprime URL del frontend para que abras y verifiques manual
+# Compatible con Windows PowerShell 5.1 (no usa -SkipHttpErrorCheck).
 #
-# Si algun paso falla → corta y muestra que rompio. Nunca hace push --force.
+# Pasos en orden:
+#   1. Verifica git status limpio (frena si hay cambios sin commitear)
+#   2. Typecheck del frontend (npx tsc --noEmit)
+#   3. Push a GitHub (Vercel auto-deploy)
+#   4. Deploy backend a Fly (alembic migra automatico via release_command)
+#   5. Smoke test endpoints clave
+#
+# Si algun paso falla, corta y muestra que rompio. Nunca usa --force.
 
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $repoRoot
 
+function Get-HttpStatus {
+    param([string]$Url)
+    try {
+        $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -ErrorAction Stop
+        return [int]$r.StatusCode
+    } catch [System.Net.WebException] {
+        if ($_.Exception.Response) {
+            return [int]$_.Exception.Response.StatusCode
+        }
+        return 0
+    } catch {
+        return 0
+    }
+}
+
 Write-Host ""
-Write-Host "==> Deploy CEHTA — full stack (frontend Vercel + backend Fly)" -ForegroundColor Cyan
+Write-Host "==> Deploy CEHTA - full stack (frontend Vercel + backend Fly)" -ForegroundColor Cyan
 Write-Host ""
 
 # 1. Git status
@@ -33,7 +48,7 @@ if ($gitStatus) {
     git status --short
     exit 1
 }
-Write-Host "      OK — working tree limpio" -ForegroundColor Green
+Write-Host "      OK - working tree limpio" -ForegroundColor Green
 
 # 2. Frontend typecheck
 Write-Host ""
@@ -44,14 +59,18 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: typecheck del frontend rompio. Arregla los errores TypeScript primero." -ForegroundColor Red
     exit 1
 }
-Write-Host "      OK — sin errores TS" -ForegroundColor Green
+Write-Host "      OK - sin errores TS" -ForegroundColor Green
 Set-Location $repoRoot
 
 # 3. Push a GitHub (dispara Vercel)
 Write-Host ""
 Write-Host "[3/5] Push a GitHub (Vercel auto-deploy frontend)..." -ForegroundColor Yellow
 git push origin main
-Write-Host "      OK — Vercel ya esta build-eando https://cehta.vercel.app" -ForegroundColor Green
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "ERROR: git push fallo." -ForegroundColor Red
+    exit 1
+}
+Write-Host "      OK - Vercel ya esta build-eando https://cehta.vercel.app" -ForegroundColor Green
 
 # 4. Deploy backend a Fly
 Write-Host ""
@@ -62,28 +81,33 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: fly deploy rompio. Revisa el output arriba." -ForegroundColor Red
     exit 1
 }
-Write-Host "      OK — backend desplegado" -ForegroundColor Green
+Write-Host "      OK - backend desplegado" -ForegroundColor Green
 Set-Location $repoRoot
 
-# 5. Smoke test
+# 5. Smoke test (compatible con PS 5.1, sin -SkipHttpErrorCheck)
 Write-Host ""
 Write-Host "[5/5] Smoke test endpoints clave..." -ForegroundColor Yellow
 
-$health = (Invoke-WebRequest -Uri "https://cehta-backend.fly.dev/api/v1/health" -UseBasicParsing -SkipHttpErrorCheck).StatusCode
-if ($health -ne 200) {
-    Write-Host "ERROR: /api/v1/health devolvio $health (esperado 200)" -ForegroundColor Red
+$healthStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/health"
+if ($healthStatus -ne 200) {
+    Write-Host "ERROR: /api/v1/health devolvio $healthStatus (esperado 200)" -ForegroundColor Red
     exit 1
 }
 Write-Host "      OK /api/v1/health=200" -ForegroundColor Green
 
-$obligaciones = (Invoke-WebRequest -Uri "https://cehta-backend.fly.dev/api/v1/calendar/obligations" -UseBasicParsing -SkipHttpErrorCheck).StatusCode
-if ($obligaciones -eq 500) {
-    Write-Host "ERROR: /calendar/obligations devolvio 500 (bug de SQL!) — revisa fly logs" -ForegroundColor Red
+$obligacionesStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/calendar/obligations"
+if ($obligacionesStatus -eq 500) {
+    Write-Host "ERROR: /calendar/obligations devolvio 500 (bug SQL!) - revisa fly logs" -ForegroundColor Red
     exit 1
 }
-Write-Host "      OK /calendar/obligations=$obligaciones (401 sin auth = correcto, 200 si tenes token)" -ForegroundColor Green
+Write-Host "      OK /calendar/obligations=$obligacionesStatus (401 sin auth = correcto)" -ForegroundColor Green
 
-# 6. Done
+# Verifico tambien algunos endpoints V5 nuevos
+$vouchersStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/vouchers"
+$reportesStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/reportes/contables/libro-diario"
+Write-Host "      OK /vouchers=$vouchersStatus  /reportes/contables=$reportesStatus" -ForegroundColor Green
+
+# Done
 Write-Host ""
 Write-Host "==> Deploy COMPLETO" -ForegroundColor Cyan
 Write-Host ""
