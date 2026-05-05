@@ -133,6 +133,9 @@ const GROUPS: NavGroup[] = [
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
       { href: "/f29", label: "F29 / Tributario", icon: Receipt },
+      // V5: Vouchers (comprobantes contables) — corazón del módulo contable.
+      // Imputación triple cuenta × proyecto × área con partida doble.
+      { href: "/vouchers" as Route, label: "Vouchers contables", icon: Receipt },
       { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
     ],
   },
