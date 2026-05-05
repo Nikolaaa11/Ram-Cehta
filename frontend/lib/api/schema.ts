@@ -1517,6 +1517,65 @@ export interface VoucherAttachmentLink {
   expires_in_seconds: number;
 }
 
+// V5 Fase 2 — Aprobaciones con firma
+export type CompanyRole =
+  | "GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA";
+
+export interface VoucherApproval {
+  approval_id: number;
+  voucher_id: number;
+  approver_user_id: string;
+  role: CompanyRole;
+  order_num: number;
+  decision: "APPROVED" | "REJECTED";
+  signed_at: string;
+  signature_hash: string;
+  ip_address: string | null;
+  user_agent: string | null;
+  comments: string | null;
+}
+
+export interface VoucherApprovalsState {
+  voucher_id: number;
+  voucher_codigo: string;
+  voucher_status: VoucherStatus;
+  matched_rule_id: number | null;
+  matched_rule_descripcion: string | null;
+  required_roles: CompanyRole[];
+  reinforced: boolean;
+  approvals: VoucherApproval[];
+  next_pending_role: CompanyRole | null;
+  next_pending_order: number | null;
+  can_current_user_sign: boolean;
+  current_user_eligible_role: CompanyRole | null;
+}
+
+export interface ApprovalRule {
+  rule_id: number;
+  empresa_codigo: string;
+  voucher_tipo: VoucherTipo | null;
+  min_amount: number;
+  max_amount: number | null;
+  balance_treatment: "GASTO" | "ACTIVACION" | null;
+  required_roles: CompanyRole[];
+  reinforced: boolean;
+  priority: number;
+  active: boolean;
+  descripcion: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserCompanyRole {
+  user_id: string;
+  empresa_codigo: string;
+  role: CompanyRole;
+  active: boolean;
+  assigned_at: string;
+  assigned_by: string | null;
+  notas: string | null;
+}
+
 export interface VoucherFull extends VoucherListItem {
   fecha_documento: string;
   fecha_ejecucion: string | null;

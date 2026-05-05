@@ -225,6 +225,17 @@ const GROUPS: NavGroup[] = [
         label: "Áreas (centros de costo)",
         icon: Layers,
       },
+      // V5 Fase 2: aprobaciones
+      {
+        href: "/admin/approval-rules" as Route,
+        label: "Reglas de aprobación",
+        icon: ShieldCheck,
+      },
+      {
+        href: "/admin/user-company-roles" as Route,
+        label: "Roles por empresa",
+        icon: UserCog,
+      },
     ],
   },
   {

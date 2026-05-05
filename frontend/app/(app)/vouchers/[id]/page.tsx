@@ -36,6 +36,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
 import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
 import type { VoucherFull, VoucherStatus, VoucherTipo } from "@/lib/api/schema";
 
@@ -421,6 +422,19 @@ export default function VoucherDetailPage({ params }: PageProps) {
             </table>
           </div>
         </div>
+
+        {/* Aprobaciones (firma digital) */}
+        {(voucher.status === "PENDING" ||
+          voucher.status === "APPROVED" ||
+          voucher.status === "EXECUTED" ||
+          voucher.status === "SYNCED" ||
+          voucher.status === "RECONCILED" ||
+          voucher.status === "REJECTED") && (
+          <VoucherApprovalsCard
+            voucherId={voucher.voucher_id}
+            voucherStatus={voucher.status}
+          />
+        )}
 
         {/* Adjuntos (Dropbox) */}
         <VoucherAttachmentsCard
