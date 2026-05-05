@@ -42,6 +42,7 @@ from app.api.v1 import (
     trabajadores,
     two_factor,
     validate,
+    vouchers,
     webhooks,
 )
 from app.api.v1 import (
@@ -118,6 +119,10 @@ api_router.include_router(
 # V5: Plan de cuentas + importer .xlsx — fundación del módulo Vouchers/Contabilidad.
 # Router sin prefix porque las rutas son /admin/plan-cuentas/...
 api_router.include_router(plan_cuentas.router, tags=["plan-cuentas"])
+# V5: Vouchers (comprobantes contables) — corazón del módulo. Líneas
+# debe/haber con imputación triple cuenta + proyecto + área. Partida
+# doble validada en 3 capas (Pydantic + trigger Postgres + UI).
+api_router.include_router(vouchers.router, tags=["vouchers"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",
