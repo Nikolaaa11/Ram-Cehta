@@ -49,6 +49,7 @@ from app.api.v1 import (
     two_factor,
     validate,
     vouchers,
+    vouchers_demo,
     webhooks,
 )
 from app.api.v1 import (
@@ -145,6 +146,9 @@ api_router.include_router(nubox_export.router, tags=["nubox-export"])
 api_router.include_router(reportes_contables.router, tags=["reportes-contables"])
 # V5 Fase 5: Conciliación bancaria voucher ↔ movimiento.
 api_router.include_router(conciliacion.router, tags=["conciliacion"])
+# V5: Seed/cleanup de vouchers demo para probar el dashboard sin
+# crear vouchers manualmente.
+api_router.include_router(vouchers_demo.router, tags=["vouchers-demo"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",

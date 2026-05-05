@@ -5,6 +5,7 @@ import { EtlRunsTable } from "@/components/admin/EtlRunsTable";
 import { RunEtlButton } from "@/components/admin/RunEtlButton";
 import { RegenerateAlertsButton } from "@/components/admin/RegenerateAlertsButton";
 import { ImportPlanCuentasButton } from "@/components/admin/ImportPlanCuentasButton";
+import { SeedVouchersDemoButton } from "@/components/admin/SeedVouchersDemoButton";
 
 export default function AdminEtlPage() {
   return (
@@ -29,6 +30,7 @@ export default function AdminEtlPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ImportPlanCuentasButton />
+          <SeedVouchersDemoButton />
           <RegenerateAlertsButton />
           <RunEtlButton />
         </div>
