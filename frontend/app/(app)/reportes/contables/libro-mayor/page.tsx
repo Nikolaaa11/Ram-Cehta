@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ReportShell } from "@/components/reportes/ReportShell";
@@ -53,7 +54,7 @@ export default function LibroMayorPage() {
       onChange={(e) => {
         const next = new URLSearchParams(params.toString());
         next.set("cuenta", e.target.value);
-        router.replace(`${pathname}?${next}` as any);
+        router.replace(`${pathname}?${next}` as Route);
       }}
       className="rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-xs ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green min-w-[260px]"
     >

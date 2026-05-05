@@ -7,11 +7,11 @@
  * Linkea a las páginas correspondientes para que click en el KPI
  * lleve directamente a la lista filtrada.
  */
+import type { Route } from "next";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertCircle,
-  Banknote,
   CheckCircle2,
   FileSignature,
   Send,
@@ -119,7 +119,7 @@ export function VouchersKpiStrip() {
           return (
             <Link
               key={item.label}
-              href={item.href as any}
+              href={item.href as Route}
               className={`group rounded-2xl border ${TONES[item.tone]} p-4 transition-all duration-200 ease-apple hover:-translate-y-0.5 hover:shadow-card`}
             >
               <div className="flex items-start justify-between">

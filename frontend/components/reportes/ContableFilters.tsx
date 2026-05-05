@@ -6,6 +6,7 @@
  * Maneja: empresa selector + fecha desde/hasta + opcional cuenta/proyecto.
  * Sincroniza con la URL via searchParams para que los reportes sean linkable.
  */
+import type { Route } from "next";
 import { useEffect } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -58,7 +59,7 @@ export function ContableFilters({ requireEmpresa = true, extra }: Props) {
       next.set("empresa", empresas[0]!.codigo);
       next.set("fecha_desde", fechaDesde);
       next.set("fecha_hasta", fechaHasta);
-      router.replace(`${pathname}?${next}` as any);
+      router.replace(`${pathname}?${next}` as Route);
     }
   }, [empresa, empresas, requireEmpresa, params, router, pathname, fechaDesde, fechaHasta]);
 
@@ -68,7 +69,7 @@ export function ContableFilters({ requireEmpresa = true, extra }: Props) {
     else next.delete(key);
     if (!next.get("fecha_desde")) next.set("fecha_desde", monthAgo);
     if (!next.get("fecha_hasta")) next.set("fecha_hasta", today);
-    router.replace(`${pathname}?${next}` as any);
+    router.replace(`${pathname}?${next}` as Route);
   };
 
   return (

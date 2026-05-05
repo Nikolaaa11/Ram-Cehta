@@ -225,7 +225,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
                   </div>
                   {approval?.comments && (
                     <p className="mt-1 text-xs italic text-ink-600">
-                      "{approval.comments}"
+                      &ldquo;{approval.comments}&rdquo;
                     </p>
                   )}
                   {approval?.signature_hash && (

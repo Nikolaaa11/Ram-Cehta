@@ -12,6 +12,7 @@
  *
  * Apple-tier: hero editorial + KPIs + tabla con hover + filtros sticky.
  */
+import type { Route } from "next";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
@@ -222,7 +223,7 @@ export default function VouchersListPage() {
             </p>
           </div>
           <Link
-            href={"/vouchers/nuevo" as any}
+            href={"/vouchers/nuevo" as Route}
             className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
           >
             <Plus className="h-4 w-4" strokeWidth={2.25} />

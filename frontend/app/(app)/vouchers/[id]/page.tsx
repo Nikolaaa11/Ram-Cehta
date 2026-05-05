@@ -17,6 +17,7 @@
  * Timeline mínimo: created → status actual con timestamps (placeholder
  * hasta tener tabla de approvals con datos reales).
  */
+import type { Route } from "next";
 import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -112,7 +113,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
     onSuccess: () => {
       toast.success("Voucher eliminado");
       qc.invalidateQueries({ queryKey: ["vouchers"] });
-      router.push("/vouchers" as any);
+      router.push("/vouchers" as Route);
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.detail : "No se pudo eliminar");
@@ -145,7 +146,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
       <div className="mx-auto max-w-[1280px] px-6 lg:px-10 pt-8 pb-20 space-y-6">
         {/* Breadcrumb */}
         <Link
-          href={"/vouchers" as any}
+          href={"/vouchers" as Route}
           className="group inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-400 hover:text-cehta-green"
         >
           <ArrowLeft
@@ -199,7 +200,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
               )}
               {voucher.reversed_by && (
                 <Link
-                  href={`/vouchers/${voucher.reversed_by}` as any}
+                  href={`/vouchers/${voucher.reversed_by}` as Route}
                   className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-rose-700 ring-1 ring-rose-200 hover:bg-rose-200"
                 >
                   <RotateCcw className="h-3 w-3" strokeWidth={2.5} />

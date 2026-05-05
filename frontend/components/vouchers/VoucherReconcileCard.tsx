@@ -16,18 +16,13 @@ import {
   Banknote,
   CheckCircle2,
   Link2,
-  RefreshCw,
   Search,
   Unlink,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
-import type {
-  MatchCandidate,
-  VoucherFull,
-  VoucherStatus,
-} from "@/lib/api/schema";
+import type { MatchCandidate, VoucherFull } from "@/lib/api/schema";
 
 interface Props {
   voucher: VoucherFull;

@@ -66,7 +66,7 @@ export default function AdminEtlPage() {
           <p className="mt-1.5 text-xs text-ink-600">
             Pull de Data Madre.xlsx desde Dropbox + sync de Estados Financieros
             de las 9 empresas portfolio. Si Dropbox no cambió, termina en
-            "skipped" sin tocar la DB.
+            &ldquo;skipped&rdquo; sin tocar la DB.
           </p>
         </div>
       </div>

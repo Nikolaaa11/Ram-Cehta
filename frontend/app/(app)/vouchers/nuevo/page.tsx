@@ -1,5 +1,7 @@
 "use client";
 
+import type { Route } from "next";
+
 /**
  * /vouchers/nuevo
  *
@@ -312,7 +314,7 @@ export default function NuevoVoucherPage() {
       toast.success(
         `Voucher ${result.codigo} ${targetStatus === "DRAFT" ? "guardado en borrador" : "enviado a aprobación"}`,
       );
-      router.push(`/vouchers/${result.voucher_id}` as any);
+      router.push(`/vouchers/${result.voucher_id}` as Route);
     } catch (err) {
       const msg = err instanceof ApiError ? err.detail : "Error desconocido";
       toast.error(msg, { duration: 8000 });

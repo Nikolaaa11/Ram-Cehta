@@ -80,7 +80,7 @@ export default function LibroDiarioPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">
-                {grouped.map((g, i) => (
+                {grouped.map((g) => (
                   <>
                     {g.lines.map((r, lineIdx) => (
                       <tr

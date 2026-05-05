@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
@@ -55,7 +56,7 @@ export default function RendicionCorfoPage() {
       onChange={(e) => {
         const next = new URLSearchParams(params.toString());
         next.set("proyecto", e.target.value);
-        router.replace(`${pathname}?${next}` as any);
+        router.replace(`${pathname}?${next}` as Route);
       }}
       className="rounded-lg border-0 bg-yellow-50 px-3 py-1.5 text-xs font-medium ring-1 ring-yellow-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-yellow-500 min-w-[260px]"
     >

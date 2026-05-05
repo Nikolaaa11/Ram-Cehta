@@ -514,7 +514,7 @@ function CuentaDetailDrawer({
           <Section title="Flags contables">
             <ul className="grid grid-cols-2 gap-1 text-xs">
               {flags.map((f) => {
-                const enabled = (cuenta as any)[f.key] as boolean;
+                const enabled = cuenta[f.key as keyof PlanCuenta] as boolean;
                 return (
                   <li
                     key={f.key}

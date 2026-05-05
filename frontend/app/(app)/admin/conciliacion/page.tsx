@@ -9,6 +9,7 @@
  *   - Tab 1: Vouchers EXECUTED sin movimiento bancario
  *   - Tab 2: Movimientos bancarios sin voucher apuntándoles
  */
+import type { Route } from "next";
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -16,9 +17,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  RefreshCw,
   Sparkles,
-  Wallet,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -333,7 +332,7 @@ function VouchersTable({ items }: { items: VoucherNoConciliado[] }) {
               </td>
               <td className="px-4 py-2 text-right">
                 <Link
-                  href={`/vouchers/${v.voucher_id}` as any}
+                  href={`/vouchers/${v.voucher_id}` as Route}
                   className="inline-flex items-center gap-1 rounded-lg bg-cehta-green/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-cehta-green hover:bg-cehta-green/20"
                 >
                   Conciliar
