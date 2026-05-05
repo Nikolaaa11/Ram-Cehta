@@ -1580,6 +1580,18 @@ export interface UserCompanyRole {
 export type NuboxBatchStatus =
   | "GENERATED" | "UPLOADED" | "CONFIRMED" | "FAILED" | "CANCELLED";
 
+// V5 — Vouchers KPIs para Dashboard CEO
+export interface VouchersKpis {
+  pendientes_firma: number;
+  pendientes_firma_monto: number;
+  aprobados_sin_ejecutar: number;
+  no_conciliados: number;
+  no_conciliados_monto: number;
+  batches_nubox_pendientes: number;
+  vouchers_reforzados_pendientes: number;
+  last_voucher_fecha: string | null;
+}
+
 // V5 Fase 5 — Conciliación bancaria
 export interface ConciliacionSummary {
   no_conciliados: number;

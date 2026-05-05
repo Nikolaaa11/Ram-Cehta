@@ -20,6 +20,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy import text
 
 log = logging.getLogger(__name__)
@@ -1195,4 +1196,75 @@ async def ceo_consolidated(
         top_alerts=top_alerts[:10],
         insights_ai=insights_ai,
         last_updated=datetime.now(tz=UTC),
+    )
+
+
+# =====================================================================
+# Vouchers KPIs (V5)
+# =====================================================================
+
+
+class VouchersKpisResponse(BaseModel):
+    """KPIs del módulo Vouchers para el CEO Dashboard.
+
+    Una sola query agregada que cuenta vouchers por estado + montos +
+    items urgentes. La UI consume esto y muestra cards Apple-tier en
+    el dashboard principal.
+    """
+
+    pendientes_firma: int
+    pendientes_firma_monto: Decimal
+    aprobados_sin_ejecutar: int
+    no_conciliados: int
+    no_conciliados_monto: Decimal
+    batches_nubox_pendientes: int
+    vouchers_reforzados_pendientes: int
+    last_voucher_fecha: str | None
+
+
+@router.get("/vouchers-kpis", response_model=VouchersKpisResponse)
+async def get_vouchers_kpis(
+    user: CurrentUser, db: DBSession
+) -> VouchersKpisResponse:
+    """KPIs cross-empresa del módulo Vouchers para el CEO Dashboard.
+
+    Una query consolidada en lugar de N+1 — útil para el widget de la
+    home que se carga al abrir la app.
+    """
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE status = 'PENDING')                              AS pendientes_firma,
+                    COALESCE(SUM(total_debit) FILTER (WHERE status = 'PENDING'), 0)         AS pendientes_firma_monto,
+                    COUNT(*) FILTER (WHERE status = 'APPROVED' AND movimiento_id IS NULL)   AS aprobados_sin_ejecutar,
+                    COUNT(*) FILTER (WHERE status = 'EXECUTED' AND movimiento_id IS NULL)   AS no_conciliados,
+                    COALESCE(SUM(total_debit) FILTER (WHERE status = 'EXECUTED' AND movimiento_id IS NULL), 0) AS no_conciliados_monto,
+                    COUNT(*) FILTER (WHERE threshold_aplicado = TRUE AND status = 'PENDING') AS reforzados_pendientes,
+                    MAX(fecha_contable)                                                      AS last_fecha
+                FROM core.vouchers
+                """
+            )
+        )
+    ).mappings().one()
+
+    batches_pendientes = (
+        await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.nubox_export_batches "
+                "WHERE status = 'GENERATED'"
+            )
+        )
+    ) or 0
+
+    return VouchersKpisResponse(
+        pendientes_firma=row["pendientes_firma"] or 0,
+        pendientes_firma_monto=Decimal(row["pendientes_firma_monto"] or 0),
+        aprobados_sin_ejecutar=row["aprobados_sin_ejecutar"] or 0,
+        no_conciliados=row["no_conciliados"] or 0,
+        no_conciliados_monto=Decimal(row["no_conciliados_monto"] or 0),
+        batches_nubox_pendientes=int(batches_pendientes),
+        vouchers_reforzados_pendientes=row["reforzados_pendientes"] or 0,
+        last_voucher_fecha=row["last_fecha"].isoformat() if row["last_fecha"] else None,
     )

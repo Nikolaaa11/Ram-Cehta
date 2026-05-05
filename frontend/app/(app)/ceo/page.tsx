@@ -9,6 +9,7 @@ import { InsightsLivePreview } from "@/components/ceo/InsightsLivePreview";
 import { ExecutiveSummaryBanner } from "@/components/ceo/ExecutiveSummaryBanner";
 import { CeoToolbar } from "@/components/ceo/CeoToolbar";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
+import { VouchersKpiStrip } from "@/components/dashboard/VouchersKpiStrip";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import { DataFreshness } from "@/components/shared/DataFreshness";
 import type { CEOConsolidatedReport } from "@/lib/api/schema";
@@ -90,6 +91,13 @@ export default async function CeoDashboardPage() {
       {/* 1) Hero KPIs */}
       <section data-presentation-section>
         <HeroKpis data={report} />
+      </section>
+
+      {/* 1.5) Vouchers KPIs — V5 módulo contable */}
+      <section data-presentation-section>
+        <ErrorBoundary>
+          <VouchersKpiStrip />
+        </ErrorBoundary>
       </section>
 
       {/* 2) Comparador de empresas + 3) Heatmap (lado a lado en desktop) */}
