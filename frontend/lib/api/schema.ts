@@ -1576,6 +1576,31 @@ export interface UserCompanyRole {
   notas: string | null;
 }
 
+// V5 Fase 3 — Export Nubox
+export type NuboxBatchStatus =
+  | "GENERATED" | "UPLOADED" | "CONFIRMED" | "FAILED" | "CANCELLED";
+
+export interface NuboxBatch {
+  batch_id: number;
+  empresa_codigo: string;
+  fecha_desde: string | null;
+  fecha_hasta: string | null;
+  voucher_count: number;
+  total_debit: number;
+  total_credit: number;
+  file_name: string;
+  file_format: "csv" | "xlsx" | "xml";
+  file_hash: string | null;
+  file_size_bytes: number | null;
+  status: NuboxBatchStatus;
+  generated_by: string | null;
+  generated_at: string;
+  uploaded_at: string | null;
+  confirmed_at: string | null;
+  error_message: string | null;
+  notas: string | null;
+}
+
 export interface VoucherFull extends VoucherListItem {
   fecha_documento: string;
   fecha_ejecucion: string | null;

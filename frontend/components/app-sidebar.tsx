@@ -236,6 +236,12 @@ const GROUPS: NavGroup[] = [
         label: "Roles por empresa",
         icon: UserCog,
       },
+      // V5 Fase 3: sync Nubox
+      {
+        href: "/admin/nubox-exports" as Route,
+        label: "Exportar a Nubox",
+        icon: Database,
+      },
     ],
   },
   {
