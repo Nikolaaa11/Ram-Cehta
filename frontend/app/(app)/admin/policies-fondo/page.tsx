@@ -29,6 +29,10 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import {
+  AdminEmptyState,
+  AdminFilteredEmpty,
+} from "@/components/admin/AdminEmptyState";
 
 const TIPOS = [
   { value: "reglamento_interno", label: "Reglamento interno" },
@@ -182,25 +186,25 @@ export default function PoliciesFondoPage() {
       {isLoading ? (
         <p className="text-sm text-ink-500">Cargando…</p>
       ) : !policies || policies.length === 0 ? (
-        <div className="rounded-2xl border border-hairline bg-white p-8 text-center">
-          <ShieldCheck
-            className="mx-auto h-10 w-10 text-ink-300"
-            strokeWidth={1.5}
+        tipoFilter || estadoFilter ? (
+          <AdminFilteredEmpty
+            message="Ninguna política coincide con esos filtros."
+            onClear={() => {
+              setTipoFilter("");
+              setEstadoFilter("");
+            }}
           />
-          <p className="mt-3 text-sm text-ink-600">
-            No hay políticas registradas{tipoFilter || estadoFilter ? " con esos filtros" : ""}.
-          </p>
-          {!tipoFilter && !estadoFilter && (
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white hover:bg-cehta-green-700"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2} />
-              Crear primera política
-            </button>
-          )}
-        </div>
+        ) : (
+          <AdminEmptyState
+            icon={<ShieldCheck strokeWidth={1.5} />}
+            eyebrow="Vault de políticas · FIP CEHTA"
+            title="Empezá tu compliance documental"
+            body="Subí el reglamento interno, el manual UAF, el código de ética y demás políticas internas con su versión y fecha de aprobación. CMF puede pedírtelas en cualquier auditoría."
+            ctaLabel="Crear primera política"
+            onCta={() => setShowCreate(true)}
+            hint="Cuando haya políticas próximas a vencer su revisión, aparecen acá arriba como hint."
+          />
+        )
       ) : (
         <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
           <table className="w-full text-sm">

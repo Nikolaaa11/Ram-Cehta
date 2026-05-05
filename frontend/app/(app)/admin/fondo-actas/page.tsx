@@ -34,6 +34,10 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import {
+  AdminEmptyState,
+  AdminFilteredEmpty,
+} from "@/components/admin/AdminEmptyState";
 
 const TIPOS = [
   {
@@ -208,26 +212,25 @@ export default function FondoActasPage() {
       {isLoading ? (
         <p className="text-sm text-ink-500">Cargando…</p>
       ) : !actas || actas.length === 0 ? (
-        <div className="rounded-2xl border border-hairline bg-white p-10 text-center">
-          <Gavel
-            className="mx-auto h-10 w-10 text-ink-300"
-            strokeWidth={1.5}
+        tipoFilter || estadoFilter ? (
+          <AdminFilteredEmpty
+            message="Ninguna acta coincide con esos filtros."
+            onClear={() => {
+              setTipoFilter("");
+              setEstadoFilter("");
+            }}
           />
-          <p className="mt-3 text-sm text-ink-600">
-            No hay actas registradas
-            {tipoFilter || estadoFilter ? " con esos filtros" : ""}.
-          </p>
-          {!tipoFilter && !estadoFilter && (
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white hover:bg-cehta-green-700"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2} />
-              Crear primera acta
-            </button>
-          )}
-        </div>
+        ) : (
+          <AdminEmptyState
+            icon={<Gavel strokeWidth={1.5} />}
+            eyebrow="Actas formales · FIP CEHTA"
+            title="Empezá a registrar las actas del fondo"
+            body="Directorio AFIS, Comité de Inversión, Asamblea de LPs y comités regulatorios — con número correlativo, quórum, asistentes y acuerdos votados."
+            ctaLabel="Crear primera acta"
+            onCta={() => setShowCreate(true)}
+            hint="Cada acta queda con número correlativo único por órgano (no se pueden duplicar)."
+          />
+        )
       ) : (
         <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
           <table className="w-full text-sm">

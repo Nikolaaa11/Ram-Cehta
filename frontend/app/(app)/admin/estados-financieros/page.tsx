@@ -35,6 +35,10 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import {
+  AdminEmptyState,
+  AdminFilteredEmpty,
+} from "@/components/admin/AdminEmptyState";
 import type {
   EstadoFinanciero,
   PeriodoTipo,
@@ -278,32 +282,27 @@ export default function EstadosFinancierosPage() {
       {isLoading ? (
         <p className="text-sm text-ink-500">Cargando…</p>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-hairline bg-white p-10 text-center">
-          <FileBarChart
-            className="mx-auto h-10 w-10 text-ink-300"
-            strokeWidth={1.5}
+        empresaFilter || tipoFilter || periodoTipoFilter || auditadoFilter ? (
+          <AdminFilteredEmpty
+            message="Ningún EEFF coincide con esos filtros."
+            onClear={() => {
+              setEmpresaFilter("");
+              setTipoFilter("");
+              setPeriodoTipoFilter("");
+              setAuditadoFilter(false);
+            }}
           />
-          <p className="mt-3 text-sm text-ink-600">
-            No hay EEFF registrados
-            {empresaFilter || tipoFilter || periodoTipoFilter || auditadoFilter
-              ? " con esos filtros"
-              : ""}
-            .
-          </p>
-          {!empresaFilter &&
-            !tipoFilter &&
-            !periodoTipoFilter &&
-            !auditadoFilter && (
-              <button
-                type="button"
-                onClick={() => setShowCreate(true)}
-                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white hover:bg-cehta-green-700"
-              >
-                <Plus className="h-4 w-4" strokeWidth={2} />
-                Cargar primer EEFF
-              </button>
-            )}
-        </div>
+        ) : (
+          <AdminEmptyState
+            icon={<FileBarChart strokeWidth={1.5} />}
+            eyebrow="Estados financieros · Portafolio"
+            title="Sincronizá tus EEFF desde Dropbox"
+            body="Balance, Estado de Resultados, Flujo de Caja y notas por empresa portfolio + período. El ETL hourly los importa solo desde /04-Financiero/Estados Financieros/, también podés subirlos manualmente."
+            ctaLabel="Cargar primer EEFF"
+            onCta={() => setShowCreate(true)}
+            hint="El próximo run del ETL hourly va a sincronizar los archivos que ya tengas en Dropbox."
+          />
+        )
       ) : (
         <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
           <table className="w-full text-sm">
