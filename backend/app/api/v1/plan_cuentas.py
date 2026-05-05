@@ -1,26 +1,33 @@
 """Endpoints del Plan de Cuentas (V5).
 
-Por ahora solo expone:
-  - POST /admin/plan-cuentas/import (multipart .xlsx) — admin only
-  - GET  /admin/plan-cuentas/summary — counters útiles para el botón "Importar"
+Expone:
+  - POST /admin/plan-cuentas/import   (multipart .xlsx) — legal:write
+  - GET  /admin/plan-cuentas/summary  (counters)
+  - GET  /plan-cuentas                (lista flat con filtros)
+  - GET  /plan-cuentas/tree           (árbol jerárquico 4 niveles)
+  - GET  /plan-cuentas/{codigo}       (detalle de una cuenta)
+  - PATCH /plan-cuentas/{codigo}      (activar/desactivar, marcar CORFO,
+                                        actualizar nubox_code) — legal:write
+  - GET  /plan-cuentas/{codigo}/empresas (qué empresas tienen habilitada esta cuenta)
+  - PATCH /plan-cuentas/{codigo}/empresas/{empresa} (habilitar/deshabilitar)
 
-Los CRUD completos del plan (árbol jerárquico, edición de cuenta,
-activación por empresa) van en otro router cuando construyamos la UI
-de gestión. Este archivo se enfoca en el flujo de importación.
+Los CRUD destructivos (DELETE de una cuenta del plan) NO se exponen por
+diseño — el plan se gestiona via re-import del Excel actualizado.
 """
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import (
     APIRouter,
     Depends,
     File,
     HTTPException,
+    Query,
     UploadFile,
     status,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -33,6 +40,89 @@ from app.services.plan_cuentas_import_service import (
 )
 
 router = APIRouter()
+
+
+# =====================================================================
+# Schemas para los endpoints de lectura del plan
+# =====================================================================
+
+
+CuentaTipo = Literal[
+    "ACTIVO", "PASIVO", "PATRIMONIO", "INGRESO", "GASTO", "RESULTADO", "ORDEN"
+]
+TipoGastoCorfo = Literal[
+    "RRHH", "OPERACION", "INVERSION", "GASTOS_GENERALES", "NO_ELEGIBLE"
+]
+
+
+class PlanCuentaRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    codigo: str
+    nivel: int
+    tipo: CuentaTipo
+    nombre: str
+    descripcion: str | None
+    codigo_padre: str | None
+    imputable: bool
+    iva_tratamiento: str
+    corfo_elegible: bool
+    tipo_gasto_corfo: TipoGastoCorfo | None
+    nubox_code: str | None
+    codigo_f22: int | None
+    ajuste_14d: str | None
+    flag_caja: bool
+    flag_activo_fijo: bool
+    flag_documento: bool
+    flag_control_gestion: bool
+    flag_partida: bool
+    flag_concepto: bool
+    flag_capital: bool
+    flag_activo_neto: bool
+    flag_marca_14d: bool
+    flag_percepcion: bool
+    activa: bool
+
+
+class PlanCuentaTreeNode(BaseModel):
+    """Nodo del árbol jerárquico — recursivo via children."""
+
+    codigo: str
+    nivel: int
+    tipo: CuentaTipo
+    nombre: str
+    imputable: bool
+    activa: bool
+    corfo_elegible: bool
+    children: list["PlanCuentaTreeNode"] = Field(default_factory=list)
+
+
+class PlanCuentaUpdate(BaseModel):
+    """PATCH /plan-cuentas/{codigo} — campos editables.
+
+    Estructura (codigo, nivel, padre) NO se edita — viene del Excel y se
+    actualiza via re-import. Acá solo cosas que el COO puede tocar:
+    desactivar, marcar CORFO post-hoc, actualizar nubox_code.
+    """
+
+    activa: bool | None = None
+    corfo_elegible: bool | None = None
+    tipo_gasto_corfo: TipoGastoCorfo | None = None
+    nubox_code: str | None = Field(default=None, max_length=20)
+    descripcion: str | None = Field(default=None, max_length=500)
+
+
+class PlanCuentaEmpresaUpdate(BaseModel):
+    habilitada: bool
+    notas: str | None = Field(default=None, max_length=200)
+
+
+class PlanCuentaEmpresaRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    cuenta_codigo: str
+    empresa_codigo: str
+    habilitada: bool
+    notas: str | None
 
 
 # Tamaño máximo del .xlsx (10 MB) — el plan completo pesa ~150 KB,
@@ -180,3 +270,304 @@ async def import_plan_cuentas(
         file_name=file.filename,
         file_size_bytes=len(contents),
     )
+
+
+# =====================================================================
+# GET /plan-cuentas — lista flat con filtros
+# =====================================================================
+
+
+_PLAN_COLS = (
+    "codigo, nivel, tipo, nombre, descripcion, codigo_padre, imputable, "
+    "iva_tratamiento, corfo_elegible, tipo_gasto_corfo, nubox_code, "
+    "codigo_f22, ajuste_14d, "
+    "flag_caja, flag_activo_fijo, flag_documento, flag_control_gestion, "
+    "flag_partida, flag_concepto, flag_capital, flag_activo_neto, "
+    "flag_marca_14d, flag_percepcion, activa"
+)
+
+
+@router.get("/plan-cuentas", response_model=list[PlanCuentaRead])
+async def list_plan_cuentas(
+    user: CurrentUser,
+    db: DBSession,
+    nivel: int | None = Query(default=None, ge=1, le=4),
+    tipo: CuentaTipo | None = Query(default=None),
+    imputable: bool | None = Query(default=None),
+    corfo_elegible: bool | None = Query(default=None),
+    activa: bool | None = Query(default=None),
+    empresa_codigo: str | None = Query(
+        default=None,
+        description="Si se pasa, solo devuelve cuentas habilitadas para esa empresa",
+    ),
+    search: str | None = Query(
+        default=None, max_length=100,
+        description="Busca en codigo y nombre (case-insensitive)",
+    ),
+) -> list[PlanCuentaRead]:
+    """Lista flat del plan de cuentas con filtros típicos.
+
+    Si `empresa_codigo` se pasa, JOIN con `plan_cuenta_empresa` para filtrar
+    solo las habilitadas. Útil para los selectores del form de voucher
+    (mostrar solo cuentas que aplican a la empresa del voucher).
+    """
+    where_parts: list[str] = []
+    params: dict[str, Any] = {}
+
+    if nivel is not None:
+        where_parts.append("c.nivel = :nivel")
+        params["nivel"] = nivel
+    if tipo is not None:
+        where_parts.append("c.tipo = :tipo")
+        params["tipo"] = tipo
+    if imputable is not None:
+        where_parts.append("c.imputable = :imputable")
+        params["imputable"] = imputable
+    if corfo_elegible is not None:
+        where_parts.append("c.corfo_elegible = :corfo_elegible")
+        params["corfo_elegible"] = corfo_elegible
+    if activa is not None:
+        where_parts.append("c.activa = :activa")
+        params["activa"] = activa
+    if search:
+        where_parts.append("(c.codigo ILIKE :s OR c.nombre ILIKE :s)")
+        params["s"] = f"%{search}%"
+
+    join_clause = ""
+    if empresa_codigo:
+        join_clause = (
+            " INNER JOIN core.plan_cuenta_empresa pce "
+            "   ON pce.cuenta_codigo = c.codigo "
+            "   AND pce.empresa_codigo = :empresa "
+            "   AND pce.habilitada = TRUE"
+        )
+        params["empresa"] = empresa_codigo
+
+    where_sql = " WHERE " + " AND ".join(where_parts) if where_parts else ""
+
+    rows = (
+        await db.execute(
+            text(
+                f"SELECT {_PLAN_COLS} FROM core.plan_cuentas c"
+                f"{join_clause}"
+                f"{where_sql}"
+                " ORDER BY c.codigo ASC"
+            ),
+            params,
+        )
+    ).mappings().all()
+
+    return [PlanCuentaRead.model_validate(dict(r)) for r in rows]
+
+
+# =====================================================================
+# GET /plan-cuentas/tree — árbol jerárquico 4 niveles
+# =====================================================================
+
+
+@router.get("/plan-cuentas/tree", response_model=list[PlanCuentaTreeNode])
+async def plan_cuentas_tree(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: str | None = Query(default=None),
+    only_active: bool = Query(default=True),
+) -> list[PlanCuentaTreeNode]:
+    """Devuelve el plan como árbol con 4 niveles anidados.
+
+    Útil para el componente `PlanCuentasTree` de la UI. Performance: una
+    sola query trae todas las cuentas; el armado del árbol es O(n) en
+    Python.
+    """
+    join_clause = ""
+    params: dict[str, Any] = {}
+    where_parts: list[str] = []
+    if empresa_codigo:
+        join_clause = (
+            " INNER JOIN core.plan_cuenta_empresa pce "
+            "   ON pce.cuenta_codigo = c.codigo "
+            "   AND pce.empresa_codigo = :empresa "
+            "   AND pce.habilitada = TRUE"
+        )
+        params["empresa"] = empresa_codigo
+    if only_active:
+        where_parts.append("c.activa = TRUE")
+
+    where_sql = " WHERE " + " AND ".join(where_parts) if where_parts else ""
+
+    rows = (
+        await db.execute(
+            text(
+                "SELECT c.codigo, c.nivel, c.tipo, c.nombre, c.imputable, "
+                "       c.activa, c.corfo_elegible, c.codigo_padre "
+                "FROM core.plan_cuentas c"
+                f"{join_clause}"
+                f"{where_sql}"
+                " ORDER BY c.codigo ASC"
+            ),
+            params,
+        )
+    ).mappings().all()
+
+    # Build tree
+    nodes: dict[str, PlanCuentaTreeNode] = {
+        r["codigo"]: PlanCuentaTreeNode(
+            codigo=r["codigo"],
+            nivel=r["nivel"],
+            tipo=r["tipo"],
+            nombre=r["nombre"],
+            imputable=r["imputable"],
+            activa=r["activa"],
+            corfo_elegible=r["corfo_elegible"],
+            children=[],
+        )
+        for r in rows
+    }
+
+    roots: list[PlanCuentaTreeNode] = []
+    for r in rows:
+        node = nodes[r["codigo"]]
+        if r["codigo_padre"] and r["codigo_padre"] in nodes:
+            nodes[r["codigo_padre"]].children.append(node)
+        else:
+            roots.append(node)
+
+    return roots
+
+
+# =====================================================================
+# GET /plan-cuentas/{codigo} — detalle
+# =====================================================================
+
+
+@router.get("/plan-cuentas/{codigo}", response_model=PlanCuentaRead)
+async def get_plan_cuenta(
+    user: CurrentUser, db: DBSession, codigo: str
+) -> PlanCuentaRead:
+    row = (
+        await db.execute(
+            text(f"SELECT {_PLAN_COLS} FROM core.plan_cuentas WHERE codigo = :c"),
+            {"c": codigo},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cuenta {codigo} no encontrada",
+        )
+    return PlanCuentaRead.model_validate(dict(row))
+
+
+# =====================================================================
+# PATCH /plan-cuentas/{codigo} — editar campos no estructurales
+# =====================================================================
+
+
+@router.patch(
+    "/plan-cuentas/{codigo}",
+    response_model=PlanCuentaRead,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def update_plan_cuenta(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    codigo: str,
+    body: PlanCuentaUpdate,
+) -> PlanCuentaRead:
+    update_data = body.model_dump(exclude_unset=True)
+    if not update_data:
+        # Nada que actualizar — devolver el actual
+        return await get_plan_cuenta(user, db, codigo)
+
+    set_clauses = ", ".join(f"{k} = :{k}" for k in update_data)
+    update_data["codigo"] = codigo
+    res = await db.execute(
+        text(
+            f"UPDATE core.plan_cuentas SET {set_clauses}, updated_at = now() "
+            "WHERE codigo = :codigo"
+        ),
+        update_data,
+    )
+    if res.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cuenta {codigo} no encontrada",
+        )
+    await db.commit()
+    return await get_plan_cuenta(user, db, codigo)
+
+
+# =====================================================================
+# Habilitación por empresa
+# =====================================================================
+
+
+@router.get(
+    "/plan-cuentas/{codigo}/empresas",
+    response_model=list[PlanCuentaEmpresaRead],
+)
+async def list_cuenta_empresas(
+    user: CurrentUser, db: DBSession, codigo: str
+) -> list[PlanCuentaEmpresaRead]:
+    """Lista las empresas que tienen habilitada esta cuenta."""
+    rows = (
+        await db.execute(
+            text(
+                "SELECT cuenta_codigo, empresa_codigo, habilitada, notas "
+                "FROM core.plan_cuenta_empresa "
+                "WHERE cuenta_codigo = :c "
+                "ORDER BY empresa_codigo"
+            ),
+            {"c": codigo},
+        )
+    ).mappings().all()
+    return [PlanCuentaEmpresaRead.model_validate(dict(r)) for r in rows]
+
+
+@router.patch(
+    "/plan-cuentas/{codigo}/empresas/{empresa_codigo}",
+    response_model=PlanCuentaEmpresaRead,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def toggle_cuenta_empresa(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    codigo: str,
+    empresa_codigo: str,
+    body: PlanCuentaEmpresaUpdate,
+) -> PlanCuentaEmpresaRead:
+    """Habilita o deshabilita una cuenta para una empresa específica."""
+    await db.execute(
+        text(
+            """
+            INSERT INTO core.plan_cuenta_empresa (
+                cuenta_codigo, empresa_codigo, habilitada, notas, habilitada_por
+            )
+            VALUES (:c, :e, :h, :n, CAST(:by AS UUID))
+            ON CONFLICT (cuenta_codigo, empresa_codigo) DO UPDATE
+                SET habilitada = EXCLUDED.habilitada,
+                    notas = EXCLUDED.notas,
+                    habilitada_en = now(),
+                    habilitada_por = EXCLUDED.habilitada_por
+            """
+        ),
+        {
+            "c": codigo,
+            "e": empresa_codigo,
+            "h": body.habilitada,
+            "n": body.notas,
+            "by": str(user.sub),
+        },
+    )
+    await db.commit()
+
+    row = (
+        await db.execute(
+            text(
+                "SELECT cuenta_codigo, empresa_codigo, habilitada, notas "
+                "FROM core.plan_cuenta_empresa "
+                "WHERE cuenta_codigo = :c AND empresa_codigo = :e"
+            ),
+            {"c": codigo, "e": empresa_codigo},
+        )
+    ).mappings().one()
+    return PlanCuentaEmpresaRead.model_validate(dict(row))

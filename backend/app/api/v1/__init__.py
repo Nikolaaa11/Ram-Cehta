@@ -4,6 +4,7 @@ from app.api.v1 import (
     admin_users,
     ai,
     api_tokens,
+    areas,
     audit,
     auth,
     avance,
@@ -36,6 +37,7 @@ from app.api.v1 import (
     policies_fondo,
     portfolio,
     proveedores,
+    proyectos_contables,
     saved_views,
     search,
     suscripciones,
@@ -123,6 +125,11 @@ api_router.include_router(plan_cuentas.router, tags=["plan-cuentas"])
 # debe/haber con imputación triple cuenta + proyecto + área. Partida
 # doble validada en 3 capas (Pydantic + trigger Postgres + UI).
 api_router.include_router(vouchers.router, tags=["vouchers"])
+# V5: Proyectos contables (formales para imputación, distintos de los
+# Gantts operativos). CRUD + endpoint /avance con presupuesto vs ejecutado.
+api_router.include_router(proyectos_contables.router, tags=["proyectos-contables"])
+# V5: Áreas (centros de costo). CRUD + matriz aplica por empresa.
+api_router.include_router(areas.router, tags=["areas"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",
