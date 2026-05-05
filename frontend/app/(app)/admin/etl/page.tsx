@@ -4,6 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import { EtlRunsTable } from "@/components/admin/EtlRunsTable";
 import { RunEtlButton } from "@/components/admin/RunEtlButton";
 import { RegenerateAlertsButton } from "@/components/admin/RegenerateAlertsButton";
+import { ImportPlanCuentasButton } from "@/components/admin/ImportPlanCuentasButton";
 
 export default function AdminEtlPage() {
   return (
@@ -27,13 +28,25 @@ export default function AdminEtlPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <ImportPlanCuentasButton />
           <RegenerateAlertsButton />
           <RunEtlButton />
         </div>
       </div>
 
       {/* Hint editorial — qué hace cada botón */}
-      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-hairline bg-ink-50/40 p-5 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 rounded-2xl border border-hairline bg-ink-50/40 p-5 sm:grid-cols-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+            Importar plan de cuentas
+          </p>
+          <p className="mt-1.5 text-xs text-ink-600">
+            Subí el Plan_de_cuentas_v2.xlsx para cargar/actualizar las 469
+            cuentas + habilitación por empresa. Idempotente: re-correr con el
+            mismo archivo no duplica. Hay que correrlo una vez al inicio y
+            luego cada vez que el contador externo actualice el plan.
+          </p>
+        </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
             Refrescar alertas
@@ -41,7 +54,7 @@ export default function AdminEtlPage() {
           <p className="mt-1.5 text-xs text-ink-600">
             Re-escanea F29 que vencen en ≤7d, contratos en ≤30d, OCs estancadas y
             entregables regulatorios. Idempotente: no spamea si lo ejecutás 2
-            veces seguidas (dedup 24h). Ideal después de cargar datos nuevos.
+            veces seguidas (dedup 24h).
           </p>
         </div>
         <div>
@@ -50,8 +63,8 @@ export default function AdminEtlPage() {
           </p>
           <p className="mt-1.5 text-xs text-ink-600">
             Pull de Data Madre.xlsx desde Dropbox + sync de Estados Financieros
-            de las 9 empresas portfolio. Si Dropbox no cambió, el ETL termina
-            en "skipped" sin tocar la DB.
+            de las 9 empresas portfolio. Si Dropbox no cambió, termina en
+            "skipped" sin tocar la DB.
           </p>
         </div>
       </div>

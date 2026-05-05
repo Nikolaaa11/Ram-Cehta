@@ -32,6 +32,7 @@ from app.api.v1 import (
     notifications,
     notifications_inbox,
     ordenes_compra,
+    plan_cuentas,
     policies_fondo,
     portfolio,
     proveedores,
@@ -114,6 +115,9 @@ api_router.include_router(
 )
 # V5: EEFF cross-empresa — balance, estado resultados, flujo caja por
 # empresa portfolio + período. Sync desde Dropbox /04-Financiero/.
+# V5: Plan de cuentas + importer .xlsx — fundación del módulo Vouchers/Contabilidad.
+# Router sin prefix porque las rutas son /admin/plan-cuentas/...
+api_router.include_router(plan_cuentas.router, tags=["plan-cuentas"])
 api_router.include_router(
     estados_financieros.router,
     prefix="/estados-financieros",
