@@ -311,6 +311,11 @@ const GROUPS: NavGroup[] = [
         icon: Activity,
       },
       {
+        href: "/admin/health" as Route,
+        label: "Health detallado",
+        icon: Activity,
+      },
+      {
         href: "/admin/webhooks" as Route,
         label: "Webhooks",
         icon: Webhook,

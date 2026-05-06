@@ -99,6 +99,75 @@ _VoucherScope = Literal["voucher:read", "voucher:write"]
 # =====================================================================
 
 
+@router.get("/vouchers/search", response_model=list[VoucherListItem])
+async def search_vouchers(
+    user: CurrentUser,
+    db: DBSession,
+    q: str = Query(..., min_length=2, max_length=200),
+    limit: int = Query(default=50, ge=1, le=100),
+) -> list[VoucherListItem]:
+    """Búsqueda full-text en vouchers usando Postgres tsvector + GIN.
+
+    V5++ ola V: 10-100x más rápido que ILIKE para datasets grandes.
+    Soporta stemming español ('proveedor' matchea 'provee').
+
+    Ranking: codigo (peso A) > contraparte_rut (A) > contraparte_nombre (B)
+             > doc_tributario_folio (B) > glosa (C). Ordenado por ts_rank desc.
+
+    Si la migration 0046 no se aplicó todavía, fallback a ILIKE estándar.
+    """
+    # Construir tsquery seguro — websearch_to_tsquery acepta sintaxis natural
+    # del usuario sin riesgo de inyección (Postgres parsea + sanitiza).
+    try:
+        rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT
+                        voucher_id, codigo, empresa_codigo, tipo, status,
+                        fecha_contable, glosa, total_debit, total_credit,
+                        moneda, contraparte_nombre, threshold_aplicado,
+                        created_at,
+                        ts_rank(search_tsv, websearch_to_tsquery('spanish', :q)) AS rank
+                    FROM core.vouchers
+                    WHERE search_tsv @@ websearch_to_tsquery('spanish', :q)
+                    ORDER BY rank DESC, fecha_contable DESC
+                    LIMIT :lim
+                    """
+                ),
+                {"q": q, "lim": limit},
+            )
+        ).mappings().all()
+    except Exception:
+        # Fallback ILIKE si search_tsv no existe (migration 0046 pending)
+        await db.rollback()
+        pattern = f"%{q}%"
+        rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT
+                        voucher_id, codigo, empresa_codigo, tipo, status,
+                        fecha_contable, glosa, total_debit, total_credit,
+                        moneda, contraparte_nombre, threshold_aplicado,
+                        created_at
+                    FROM core.vouchers
+                    WHERE codigo ILIKE :p
+                       OR glosa ILIKE :p
+                       OR contraparte_nombre ILIKE :p
+                       OR contraparte_rut ILIKE :p
+                       OR doc_tributario_folio ILIKE :p
+                    ORDER BY fecha_contable DESC
+                    LIMIT :lim
+                    """
+                ),
+                {"p": pattern, "lim": limit},
+            )
+        ).mappings().all()
+
+    return [VoucherListItem.model_validate(dict(r)) for r in rows]
+
+
 @router.get("/vouchers", response_model=list[VoucherListItem])
 async def list_vouchers(
     user: CurrentUser,
