@@ -70,7 +70,7 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "ERROR: git push fallo." -ForegroundColor Red
     exit 1
 }
-Write-Host "      OK - Vercel ya esta build-eando https://cehta.vercel.app" -ForegroundColor Green
+Write-Host "      OK - Vercel ya esta build-eando https://cehta-capital.vercel.app" -ForegroundColor Green
 
 # 4. Deploy backend a Fly
 Write-Host ""
@@ -117,7 +117,7 @@ Write-Host "      OK /empresa=$empresaStatus /f22=$f22Status /admin/mailbox=$mai
 Write-Host ""
 Write-Host "==> Deploy COMPLETO" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "    Frontend: https://cehta.vercel.app  (Vercel todavia puede estar build-eando ~1 min)" -ForegroundColor White
+Write-Host "    Frontend: https://cehta-capital.vercel.app  (Vercel todavia puede estar build-eando ~1 min)" -ForegroundColor White
 Write-Host "    Backend:  https://cehta-backend.fly.dev" -ForegroundColor White
 Write-Host ""
 Write-Host "    Para ver progreso de Vercel: https://vercel.com/cehta/cehta/deployments" -ForegroundColor Gray
