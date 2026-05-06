@@ -357,6 +357,14 @@ export function VouchersClientView({
               Exportar CSV
             </button>
             <Link
+              href={"/vouchers/import" as Route}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              title="Importar vouchers desde CSV (Excel chileno)"
+            >
+              <ArrowDownToLine className="h-4 w-4" strokeWidth={1.75} />
+              Importar CSV
+            </Link>
+            <Link
               href={"/vouchers/nuevo" as Route}
               className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
             >

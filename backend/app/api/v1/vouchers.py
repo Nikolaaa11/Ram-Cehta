@@ -1881,6 +1881,212 @@ async def bulk_approve_vouchers(
     )
 
 
+# =====================================================================
+# V5++ ola Y — POST /vouchers/import-csv (bulk import desde Excel chileno)
+# =====================================================================
+
+
+class ImportCsvResponse(BaseModel):
+    total_rows: int
+    total_vouchers_intended: int
+    vouchers_created_count: int
+    errors_count: int
+    vouchers_created: list[dict] = Field(default_factory=list)
+    errors: list[dict] = Field(default_factory=list)
+
+
+@router.post(
+    "/vouchers/import-csv",
+    response_model=ImportCsvResponse,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def import_vouchers_csv(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False),
+) -> ImportCsvResponse:
+    """Bulk-import de vouchers desde CSV (Excel chileno).
+
+    Formato esperado:
+        - Separador: `;`  (Excel chileno)
+        - Encoding: UTF-8 (BOM opcional)
+        - Una fila por LÍNEA del voucher; mismo `voucher_ref` agrupa
+          filas en un voucher con sus líneas.
+
+    Columnas obligatorias (case-insensitive, aliases en español OK):
+        voucher_ref, empresa_codigo, tipo, fecha_documento, fecha_contable,
+        glosa, line_number, cuenta_codigo
+
+    Columnas opcionales:
+        contraparte_rut, contraparte_nombre, doc_tributario_tipo,
+        doc_tributario_folio, proyecto_codigo, area_codigo, debit, credit,
+        descripcion
+
+    Todos los vouchers se crean en `DRAFT` (descuadre permitido). El user
+    revisa y submit manualmente, o usa /vouchers/bulk-approve después.
+
+    `dry_run=true` valida y devuelve el reporte sin insertar nada — útil
+    para previsualizar antes de commitear el import.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Archivo debe tener extensión .csv",
+        )
+
+    raw = await file.read()
+    if len(raw) > 10 * 1024 * 1024:  # 10 MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV excede 10 MB. Dividir en partes más chicas.",
+        )
+
+    from app.services.voucher_csv_import_service import parse_csv_to_vouchers
+
+    parsed_vouchers, report = parse_csv_to_vouchers(raw)
+
+    if dry_run or not parsed_vouchers:
+        return ImportCsvResponse(**report.to_dict())
+
+    # Insertar best-effort: cada voucher en su propia transacción lógica.
+    # Si uno falla por validación contra DB (cuenta no existe, empresa
+    # inactiva), seguimos con los demás.
+    for vc in parsed_vouchers:
+        try:
+            # Re-usar el handler create_voucher hubiera sido lindo pero
+            # depende de Pydantic-as-body. Replicamos la lógica esencial:
+            #
+            # 1. Empresa activa
+            from sqlalchemy import text as _text
+            empresa_activa = await db.scalar(
+                _text(
+                    "SELECT 1 FROM core.empresas WHERE codigo = :c AND activo = TRUE"
+                ),
+                {"c": vc.empresa_codigo},
+            )
+            if not empresa_activa:
+                report.errors.append(
+                    _make_csv_error(
+                        vc, f"Empresa '{vc.empresa_codigo}' inactiva o inexistente"
+                    )
+                )
+                continue
+
+            # 2. Período cerrado
+            if await is_period_locked_for(
+                db, vc.empresa_codigo, vc.fecha_contable
+            ):
+                report.errors.append(
+                    _make_csv_error(
+                        vc,
+                        f"Período {vc.fecha_contable} cerrado para {vc.empresa_codigo}",
+                    )
+                )
+                continue
+
+            # 3. Cuentas existen + imputables (validación por línea)
+            cuentas_ok = True
+            for line in vc.lines:
+                cuenta = await fetch_cuenta_metadata(db, line.cuenta_codigo)
+                if cuenta is None or not cuenta["imputable"] or not cuenta["activa"]:
+                    report.errors.append(
+                        _make_csv_error(
+                            vc,
+                            f"Cuenta '{line.cuenta_codigo}' no existe / no imputable / inactiva",
+                        )
+                    )
+                    cuentas_ok = False
+                    break
+            if not cuentas_ok:
+                continue
+
+            # 4. Generar correlativo
+            anio = vc.fecha_contable.year
+            codigo = await generate_voucher_code(
+                db, vc.empresa_codigo, anio, vc.tipo
+            )
+
+            # 5. Insertar voucher + líneas
+            from decimal import Decimal as _D
+            total_debit = sum(
+                (line.debit for line in vc.lines), start=_D("0")
+            )
+            total_credit = sum(
+                (line.credit for line in vc.lines), start=_D("0")
+            )
+
+            voucher = Voucher(
+                codigo=codigo,
+                empresa_codigo=vc.empresa_codigo,
+                tipo=vc.tipo,
+                status="DRAFT",
+                fecha_documento=vc.fecha_documento,
+                fecha_contable=vc.fecha_contable,
+                glosa=vc.glosa.strip(),
+                total_debit=total_debit,
+                total_credit=total_credit,
+                moneda=vc.moneda,
+                contraparte_rut=vc.contraparte_rut,
+                contraparte_nombre=vc.contraparte_nombre,
+                doc_tributario_tipo=vc.doc_tributario_tipo,
+                doc_tributario_folio=vc.doc_tributario_folio,
+                created_by=str(user.sub),
+                requested_by=str(user.sub),
+            )
+            db.add(voucher)
+            await db.flush()
+
+            for line_data in vc.lines:
+                line = VoucherLine(
+                    voucher_id=voucher.voucher_id,
+                    line_number=line_data.line_number,
+                    cuenta_codigo=line_data.cuenta_codigo,
+                    proyecto_codigo=line_data.proyecto_codigo,
+                    area_codigo=line_data.area_codigo,
+                    debit=line_data.debit,
+                    credit=line_data.credit,
+                    descripcion=line_data.descripcion,
+                )
+                db.add(line)
+
+            await db.flush()
+            report.vouchers_created.append({
+                "voucher_id": voucher.voucher_id,
+                "codigo": voucher.codigo,
+                "empresa_codigo": voucher.empresa_codigo,
+                "total_debit": str(total_debit),
+                "total_credit": str(total_credit),
+                "lines": len(vc.lines),
+            })
+        except Exception as exc:  # noqa: BLE001
+            await db.rollback()
+            report.errors.append(_make_csv_error(vc, f"error: {exc}"))
+
+    try:
+        await db.commit()
+    except Exception as exc:  # noqa: BLE001
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error commiteando vouchers: {exc}",
+        ) from exc
+
+    return ImportCsvResponse(**report.to_dict())
+
+
+def _make_csv_error(vc, message: str):
+    """Helper para construir CsvImportError sin imports circulares."""
+    from app.services.voucher_csv_import_service import CsvImportError
+
+    return CsvImportError(
+        voucher_ref=f"{vc.empresa_codigo}-{vc.fecha_contable}",
+        row=0,
+        field=None,
+        message=message,
+    )
+
+
 # Forward reference resolution para datetime no usado pero importado por
 # Voucher/VoucherLine schemas (ruff F401 lo flaggearía sino).
 _ = datetime
