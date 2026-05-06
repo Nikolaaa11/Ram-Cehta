@@ -3,7 +3,18 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -332,3 +343,150 @@ async def bulk_update_estado(
         succeeded=succeeded,
         failed=failed,
     )
+
+
+# =====================================================================
+# V5++ ola AA — POST /ordenes-compra/import-csv (bulk import desde Excel)
+# =====================================================================
+
+
+class OcImportCsvResponse(BaseModel):
+    total_rows: int
+    total_ocs_intended: int
+    ocs_created_count: int
+    errors_count: int
+    ocs_created: list[dict] = Field(default_factory=list)
+    errors: list[dict] = Field(default_factory=list)
+
+
+@router.post(
+    "/import-csv",
+    response_model=OcImportCsvResponse,
+    dependencies=[Depends(require_scope("oc:create"))],
+)
+async def import_ocs_csv(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:create"))],
+    db: DBSession,
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False),
+) -> OcImportCsvResponse:
+    """Bulk-import de Órdenes de Compra desde CSV (Excel chileno).
+
+    Formato esperado:
+        - Separador: `;`  (Excel chileno) o `,`
+        - Encoding: UTF-8 (BOM opcional)
+        - Una fila por ITEM de la OC; mismo `numero_oc` agrupa filas
+          en una OC con sus items. La key real para agrupar combina
+          `empresa_codigo|numero_oc`.
+
+    Columnas obligatorias (case-insensitive, aliases en español OK):
+        numero_oc, empresa_codigo, fecha_emision,
+        item, descripcion, precio_unitario, cantidad
+
+    Columnas opcionales:
+        proveedor_id, validez_dias, moneda, forma_pago, plazo_pago,
+        observaciones
+
+    El `neto` de la OC se calcula como Σ(precio_unitario * cantidad) de
+    los items. El IVA y total se calculan con la regla CLP estándar.
+
+    Todas las OCs se crean en estado `emitida`. Idempotencia: si una OC
+    con `(empresa_codigo, numero_oc)` ya existe, se reporta error y se
+    continúa con las demás (best-effort).
+
+    `dry_run=true` valida y devuelve el reporte sin insertar nada.
+    """
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Archivo debe tener extensión .csv",
+        )
+
+    raw = await file.read()
+    if len(raw) > 10 * 1024 * 1024:  # 10 MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CSV excede 10 MB. Dividir en partes más chicas.",
+        )
+
+    from app.services.oc_csv_import_service import (
+        OcCsvImportError,
+        parse_csv_to_ocs,
+    )
+
+    parsed_ocs, report = parse_csv_to_ocs(raw)
+
+    if dry_run or not parsed_ocs:
+        return OcImportCsvResponse(**report.to_dict())
+
+    repo = OrdenCompraRepository(db)
+    for oc_data in parsed_ocs:
+        try:
+            if await repo.exists_numero_oc(
+                oc_data.empresa_codigo, oc_data.numero_oc
+            ):
+                report.errors.append(
+                    OcCsvImportError(
+                        numero_oc=oc_data.numero_oc,
+                        row=0,
+                        field="numero_oc",
+                        message=(
+                            f"OC {oc_data.numero_oc} ya existe "
+                            f"para empresa {oc_data.empresa_codigo}"
+                        ),
+                    )
+                )
+                continue
+
+            oc = await repo.create(oc_data)
+            await db.flush()
+            report.ocs_created.append({
+                "oc_id": oc.oc_id,
+                "numero_oc": oc.numero_oc,
+                "empresa_codigo": oc.empresa_codigo,
+                "neto": str(oc.neto),
+                "total": str(oc.total),
+                "moneda": oc.moneda,
+                "items": len(oc_data.items),
+            })
+
+            # Webhook por OC creada (mismo patrón que create_oc individual)
+            try:
+                await publish_event(
+                    db,
+                    "oc.created",
+                    {
+                        "oc_id": oc.oc_id,
+                        "numero_oc": oc.numero_oc,
+                        "empresa_codigo": oc.empresa_codigo,
+                        "proveedor_id": oc.proveedor_id,
+                        "total": float(oc.total) if oc.total else None,
+                        "moneda": oc.moneda,
+                        "estado": oc.estado,
+                        "created_by": str(user.sub),
+                        "via_csv_import": True,
+                    },
+                )
+            except Exception:
+                pass  # soft-fail
+        except Exception as exc:  # noqa: BLE001
+            await db.rollback()
+            report.errors.append(
+                OcCsvImportError(
+                    numero_oc=oc_data.numero_oc,
+                    row=0,
+                    field=None,
+                    message=f"error: {exc}",
+                )
+            )
+
+    try:
+        await db.commit()
+    except Exception as exc:  # noqa: BLE001
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error commiteando OCs: {exc}",
+        ) from exc
+
+    return OcImportCsvResponse(**report.to_dict())
