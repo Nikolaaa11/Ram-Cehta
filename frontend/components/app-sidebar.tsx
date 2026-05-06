@@ -383,11 +383,11 @@ export function AppSidebar({ email }: AppSidebarProps) {
   useKeyboardShortcuts();
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white dark:border-ink-800 dark:bg-ink-950">
       {/* Brand */}
-      <div className="border-b border-hairline px-4 py-5">
+      <div className="border-b border-hairline px-4 py-5 dark:border-ink-800">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline dark:bg-ink-900 dark:ring-ink-700">
             <Image
               src="/logos/cehta.png"
               alt="Cehta Capital"
@@ -399,7 +399,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold tracking-tight text-ink-900">
+            <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
               Cehta Capital
             </p>
             <p className="text-xs text-ink-500">FIP CEHTA ESG</p>
@@ -417,7 +417,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2">
         {visibleGroups.map((group) => (
           <div key={group.id}>
-            <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300">
+            <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 dark:text-ink-500">
               {group.label}
             </h3>
             <div className="space-y-0.5">
@@ -462,8 +462,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
                       isActive
-                        ? "bg-cehta-green/15 text-cehta-green"
-                        : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green",
+                        ? "bg-cehta-green/15 text-cehta-green dark:bg-cehta-green/25"
+                        : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green dark:text-ink-300 dark:hover:bg-cehta-green/15 dark:hover:text-cehta-green",
                     )}
                   >
                     <Icon className="h-4 w-4" strokeWidth={1.5} />
@@ -518,10 +518,10 @@ export function AppSidebar({ email }: AppSidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="space-y-2 border-t border-hairline px-4 py-4">
+      <div className="space-y-2 border-t border-hairline px-4 py-4 dark:border-ink-800">
         <div className="flex items-center justify-between gap-2">
           <p
-            className="truncate px-2 text-xs text-ink-500 tabular-nums"
+            className="truncate px-2 text-xs text-ink-500 tabular-nums dark:text-ink-400"
             title={email}
           >
             {email}
@@ -532,8 +532,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
           <button
             type="submit"
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple",
-              "hover:bg-negative/10 hover:text-negative",
+              "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple dark:text-ink-300",
+              "hover:bg-negative/10 hover:text-negative dark:hover:bg-negative/20",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
             )}
           >

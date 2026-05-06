@@ -18,6 +18,7 @@ import {
 import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { ReplayTourButton } from "@/components/onboarding/ReplayTourButton";
 import type { Page } from "@/lib/api/schema";
 import {
   ADMIN_ENDPOINTS,
@@ -65,13 +66,16 @@ export default async function AdminLandingPage() {
   return (
     <div className="mx-auto max-w-[1200px] space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
-          Panel Admin
-        </h1>
-        <p className="mt-1 text-sm text-ink-500">
-          Auditoría ETL, calidad de datos y administración de roles.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
+            Panel Admin
+          </h1>
+          <p className="mt-1 text-sm text-ink-500">
+            Auditoría ETL, calidad de datos y administración de roles.
+          </p>
+        </div>
+        <ReplayTourButton />
       </div>
 
       {/* Cards */}
