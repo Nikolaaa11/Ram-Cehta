@@ -274,5 +274,112 @@ async def global_search(
             for r in rows
         ]
 
+    # ── Vouchers ──────────────────────────────────────────────────────────────
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT voucher_id, codigo, empresa_codigo, tipo, status,
+                       glosa, contraparte_nombre, fecha_contable
+                FROM core.vouchers
+                WHERE codigo ILIKE :p
+                   OR glosa ILIKE :p
+                   OR contraparte_nombre ILIKE :p
+                   OR contraparte_rut ILIKE :p
+                   OR doc_tributario_folio ILIKE :p
+                ORDER BY fecha_contable DESC NULLS LAST
+                LIMIT :lim
+                """
+            ),
+            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+        )
+    ).fetchall()
+    if rows:
+        by_entity["voucher"] = [
+            _hit(
+                "voucher",
+                entity_id=str(r[0]),
+                title=f"{r[1]} · {r[3]}",
+                subtitle=(
+                    f"{r[2]} · {r[5][:60]}"
+                    if r[5]
+                    else f"{r[2]} · {r[6] or 'sin contraparte'}"
+                ),
+                badge=r[4],
+                link=f"/vouchers/{r[0]}",
+            )
+            for r in rows
+        ]
+
+    # ── F22 (declaración anual) ───────────────────────────────────────────────
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT f22_id, empresa_codigo, ano_tributario, estado,
+                       monto_a_pagar, fecha_vencimiento
+                FROM core.f22_obligaciones
+                WHERE empresa_codigo ILIKE :p
+                   OR CAST(ano_tributario AS TEXT) ILIKE :p
+                   OR CAST(monto_a_pagar AS TEXT) ILIKE :p
+                ORDER BY fecha_vencimiento DESC NULLS LAST
+                LIMIT :lim
+                """
+            ),
+            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+        )
+    ).fetchall()
+    if rows:
+        by_entity["f22"] = [
+            _hit(
+                "f22",
+                entity_id=str(r[0]),
+                title=f"F22 {r[1]} año {r[2]}",
+                subtitle=(
+                    f"vence {r[5].isoformat()}" if r[5] else "sin vencimiento"
+                ),
+                badge=r[3],
+                link=f"/f22?empresa_codigo={r[1]}",
+            )
+            for r in rows
+        ]
+
+    # ── Inbox (emails procesados) ─────────────────────────────────────────────
+    # Solo permitir si tabla existe (entornos sin migration 0039 lo skipean).
+    try:
+        rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT inbox_id, from_email, from_name, subject,
+                           category, status, received_at
+                    FROM core.inbox_messages
+                    WHERE from_email ILIKE :p
+                       OR from_name ILIKE :p
+                       OR subject ILIKE :p
+                       OR ai_summary ILIKE :p
+                    ORDER BY received_at DESC
+                    LIMIT :lim
+                    """
+                ),
+                {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            )
+        ).fetchall()
+        if rows:
+            by_entity["inbox"] = [
+                _hit(
+                    "inbox",
+                    entity_id=str(r[0]),
+                    title=r[3] or "(sin asunto)",
+                    subtitle=f"{r[2] or r[1]} · {r[4] or 'sin clasificar'}",
+                    badge=r[5],
+                    link=f"/admin/mailbox?focus={r[0]}",
+                )
+                for r in rows
+            ]
+    except Exception:  # noqa: BLE001
+        # core.inbox_messages no existe (migration pendiente) — skipear silenciosamente
+        pass
+
     total = sum(len(v) for v in by_entity.values())
     return SearchResponse(query=q_clean, total=total, by_entity=by_entity)

@@ -17,7 +17,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -26,6 +26,7 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.schemas.common import Page
 from app.schemas.f22 import F22Create, F22EstadoUpdate, F22Read, F22Update
+from app.services.audit_service import audit_log
 
 router = APIRouter()
 
@@ -286,6 +287,7 @@ async def delete_f22(
 )
 async def sync_dropbox(
     empresa_codigo: str,
+    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
     db: DBSession,
 ) -> dict:
@@ -294,6 +296,9 @@ async def sync_dropbox(
 
     Idempotente: el UNIQUE (empresa, año) evita duplicados.
     Soft-fail: si Dropbox no está configurado, devuelve 503.
+
+    Auditoría: cada sync se registra en core.audit_log con `created` y
+    `errors` para trazabilidad — quién corrió el sync, cuándo, qué pasó.
 
     La lógica vive en `app.services.f22_sync_service.sync_f22_dropbox`
     para que `/empresa/{cod}/sync-all-dropbox` la reuse sin duplicar.
@@ -309,4 +314,25 @@ async def sync_dropbox(
             detail=str(exc),
         ) from exc
 
-    return await sync_f22_dropbox(db, dbx, empresa_codigo)
+    result = await sync_f22_dropbox(db, dbx, empresa_codigo)
+
+    # Audit log — solo si hubo cambios o errores (no spamear logs)
+    if result.get("created", 0) > 0 or result.get("errors"):
+        await audit_log(
+            db,
+            request,
+            user,
+            action="sync",
+            entity_type="f22",
+            entity_id=empresa_codigo,
+            entity_label=f"F22 sync {empresa_codigo}",
+            summary=(
+                f"Sync F22 desde Dropbox · {result.get('created', 0)} creados · "
+                f"{result.get('skipped', 0)} skipped · "
+                f"{len(result.get('errors', []))} errores"
+            ),
+            before=None,
+            after=result,
+        )
+
+    return result

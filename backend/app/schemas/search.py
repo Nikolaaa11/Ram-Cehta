@@ -15,10 +15,13 @@ SearchEntityType = Literal[
     "orden_compra",
     "proveedor",
     "f29",
+    "f22",  # V5+: declaración anual de renta
     "trabajador",
     "legal_document",
     "fondo",
     "suscripcion",
+    "voucher",  # V5: vouchers contables
+    "inbox",  # V5+: emails procesados de contactocehta@gmail.com
 ]
 
 
