@@ -13,6 +13,8 @@ interface ReporteCardProps {
   href: Route | string;
   /** Color de acento del icon container y la línea editorial. Default: cehta-green. */
   accent?: "cehta-green" | "sf-blue" | "sf-purple" | "sf-teal";
+  /** Etiqueta corta para reportes nuevos (ej: "V5++"). */
+  badge?: string;
 }
 
 const ACCENT_MAP: Record<NonNullable<ReporteCardProps["accent"]>, string> = {
@@ -37,6 +39,7 @@ export function ReporteCard({
   description,
   href,
   accent = "cehta-green",
+  badge,
 }: ReporteCardProps) {
   return (
     <Link
@@ -84,9 +87,16 @@ export function ReporteCard({
 
       {/* Bottom: title + description */}
       <div className="mt-10 space-y-2">
-        <h3 className="font-display text-xl font-semibold tracking-tight text-ink-900">
-          {title}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-xl font-semibold tracking-tight text-ink-900">
+            {title}
+          </h3>
+          {badge && (
+            <span className="rounded-full bg-cehta-green/10 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-cehta-green">
+              {badge}
+            </span>
+          )}
+        </div>
         <p className="text-[13.5px] leading-relaxed text-ink-500 sm:text-sm">
           {description}
         </p>

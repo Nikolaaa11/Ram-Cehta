@@ -6,9 +6,11 @@
  */
 import {
   BookOpen,
+  CalendarCheck,
   CircleDollarSign,
   FileBarChart,
   Layers,
+  Scale,
   Sparkles,
   Wallet,
 } from "lucide-react";
@@ -96,6 +98,24 @@ export default function ReportesContablesPage() {
             description="Desglose por tipo de gasto (RRHH/OPERACION/INVERSION/GG) para un proyecto CORFO específico."
             href="/reportes/contables/rendicion-corfo"
             accent="sf-purple"
+          />
+          <ReporteCard
+            number="06"
+            icon={<Scale className="h-5 w-5" strokeWidth={1.5} />}
+            title="Balance de Prueba"
+            description="Saldos por cuenta agrupados (PDF directo) — verifica Σdebe = Σhaber del período."
+            href="/reportes/contables/balance-prueba"
+            accent="sf-blue"
+            badge="V5++"
+          />
+          <ReporteCard
+            number="07"
+            icon={<CalendarCheck className="h-5 w-5" strokeWidth={1.5} />}
+            title="Cierre Mensual"
+            description="Checklist + KPIs: vouchers pendientes/firmados, F29, cartolas, movimientos. Hoja de ruta para cerrar el mes."
+            href="/reportes/contables/cierre-mensual"
+            accent="cehta-green"
+            badge="V5++"
           />
         </div>
 
