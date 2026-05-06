@@ -134,32 +134,48 @@ async def get_status(
     user: CurrentUser,
     db: DBSession,
 ) -> MailboxStatusResponse:
-    """Status agregado del inbox para /admin/integraciones."""
-    last_received = await db.scalar(
-        text("SELECT MAX(received_at) FROM core.inbox_messages")
-    )
+    """Status agregado del inbox para /admin/integraciones.
 
-    status_rows = (
-        await db.execute(
-            text("""
-                SELECT status, COUNT(*) FROM core.inbox_messages
-                GROUP BY status
-            """)
-        )
-    ).fetchall()
-    counts_by_status = {r[0]: int(r[1]) for r in status_rows}
+    Soft-fail: si la tabla `core.inbox_messages` no existe (migration 0039
+    pendiente), devuelve un status vacío con `imap_configured=false` en lugar
+    de 500. Esto permite que el frontend muestre el card "Sin configurar"
+    incluso en entornos viejos.
+    """
+    last_received = None
+    counts_by_status: dict[str, int] = {}
+    counts_by_category: dict[str, int] = {}
 
-    cat_rows = (
-        await db.execute(
-            text("""
-                SELECT category, COUNT(*) FROM core.inbox_messages
-                WHERE category IS NOT NULL
-                GROUP BY category
-                ORDER BY COUNT(*) DESC
-            """)
+    try:
+        last_received = await db.scalar(
+            text("SELECT MAX(received_at) FROM core.inbox_messages")
         )
-    ).fetchall()
-    counts_by_category = {r[0]: int(r[1]) for r in cat_rows}
+
+        status_rows = (
+            await db.execute(
+                text("""
+                    SELECT status, COUNT(*) FROM core.inbox_messages
+                    GROUP BY status
+                """)
+            )
+        ).fetchall()
+        counts_by_status = {r[0]: int(r[1]) for r in status_rows}
+
+        cat_rows = (
+            await db.execute(
+                text("""
+                    SELECT category, COUNT(*) FROM core.inbox_messages
+                    WHERE category IS NOT NULL
+                    GROUP BY category
+                    ORDER BY COUNT(*) DESC
+                """)
+            )
+        ).fetchall()
+        counts_by_category = {r[0]: int(r[1]) for r in cat_rows}
+    except Exception as exc:  # noqa: BLE001
+        # Tabla no existe (migration 0039 no aplicada todavía) o error transitorio.
+        # Loggeamos y devolvemos status vacío en lugar de 500.
+        log.warning("mailbox.status.table_unavailable", error=str(exc))
+        await db.rollback()
 
     return MailboxStatusResponse(
         imap_configured=bool(
