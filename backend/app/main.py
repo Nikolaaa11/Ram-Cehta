@@ -30,6 +30,24 @@ log.info("sentry", active=sentry_active)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 
+# V5++ ola X: rate limits específicos por endpoint costoso.
+# Cada uno se aplica como decorator @limiter.limit("X/minute") en el handler.
+# Estos son los caps internos para evitar abuso y controlar costos:
+#
+# AI endpoints (cuestan tokens Anthropic):
+#   /ai/data-qa             → 10/min  (caro, ~$0.005 cada uno)
+#   /vouchers/from-factura-pdf → 5/min  (Claude vision + análisis)
+#   /admin/mailbox/classify → 5/min  (procesa hasta 50 emails)
+#
+# Search endpoints (heavy DB query):
+#   /vouchers/search        → 30/min  (full-text con tsvector)
+#   /search                 → 30/min  (global cmd+k)
+#
+# IMAP/sync endpoints (procesos largos):
+#   /admin/mailbox/poll     → 4/min  (1 cada 15s, suficiente para retry burst)
+#   /cartolas/sync/{e}      → 6/min
+#   /cartolas/sync-all      → 2/min  (procesa 9 empresas, bajo)
+
 
 async def _run_alert_generator_on_startup() -> None:
     """Corre el generador de alertas in-app en background al startup.
