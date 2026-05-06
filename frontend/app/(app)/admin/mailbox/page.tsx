@@ -15,7 +15,7 @@
  * El IMAP poll real corre vía cron Fly cada 15min en producción. Este
  * panel es el control manual + la UI de revisión de drafts.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -137,6 +137,7 @@ export default function MailboxPage() {
       );
     },
     enabled: !!session,
+    staleTime: 30_000,
   });
 
   const { data: detail } = useQuery<MailboxDetail>({
@@ -149,10 +150,23 @@ export default function MailboxPage() {
     enabled: !!session && !!selectedId,
   });
 
-  // Sincroniza draft con el detalle cuando cambia
-  if (detail && detail.inbox_id === selectedId && draft === "") {
-    if (detail.draft_response_html) setDraft(detail.draft_response_html);
-  }
+  // Sincronizá draft con el detalle al cambiar de email seleccionado.
+  // useEffect (NO en render) — evita warning "setState durante render"
+  // y permite que el draft se resetee al abrir otro item, no se quede
+  // pegado el del anterior.
+  useEffect(() => {
+    if (detail && detail.inbox_id === selectedId) {
+      setDraft(detail.draft_response_html ?? "");
+    }
+    // intencionalmente no incluyo `draft` como dep — no queremos un loop
+  }, [detail?.inbox_id, detail?.draft_response_html, selectedId]);
+
+  // Limpiar bulk selection cuando cambian los filtros — los IDs
+  // seleccionados podrían ya no estar en la lista visible, lo que
+  // genera un archive de items invisibles al user.
+  useEffect(() => {
+    setBulkSelected(new Set());
+  }, [statusFilter, categoryFilter]);
 
   const pollMut = useMutation({
     mutationFn: () => apiClient.post("/admin/mailbox/poll", {}, session),
@@ -210,6 +224,10 @@ export default function MailboxPage() {
       toast.success("Email archivado");
       setSelectedId(null);
       qc.invalidateQueries({ queryKey: ["mailbox"] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`No se pudo archivar: ${detail}`);
     },
   });
 
@@ -270,9 +288,13 @@ export default function MailboxPage() {
         { inbox_ids: ids, reason: "archived_bulk" },
         session,
       ),
+    // Limpiar selección INMEDIATAMENTE al disparar — evita spam-click
+    // sumando el mismo bulk dos veces con los mismos IDs.
+    onMutate: () => {
+      setBulkSelected(new Set());
+    },
     onSuccess: (data: any) => {
       toast.success(`${data.archived ?? 0} emails archivados`);
-      setBulkSelected(new Set());
       qc.invalidateQueries({ queryKey: ["mailbox"] });
     },
     onError: (e: unknown) => {
@@ -717,9 +739,14 @@ export default function MailboxPage() {
                 <button
                   type="button"
                   onClick={() => archiveMut.mutate(detail.inbox_id)}
+                  disabled={archiveMut.isPending}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50"
                 >
-                  <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  {archiveMut.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  )}
                   Archivar
                 </button>
               )}

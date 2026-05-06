@@ -338,8 +338,11 @@ async def reply_email(
             detail="Este email ya tiene una respuesta enviada.",
         )
 
+    safe_subject = (subject or "").strip()
     reply_subject = body.subject_override or (
-        subject if subject.lower().startswith("re:") else f"Re: {subject}"
+        safe_subject
+        if safe_subject.lower().startswith("re:")
+        else f"Re: {safe_subject or '(sin asunto)'}"
     )
 
     svc = EmailService()
@@ -511,6 +514,8 @@ async def link_voucher(
             detail=f"Voucher {body.voucher_id} no existe",
         )
 
+    # Guard contra race: solo linkea si no estaba ya linkeado a otro voucher.
+    # Si rowcount=0 puede ser: 1) email no existe, 2) ya linkeado. Diferenciamos.
     res = await db.execute(
         text("""
             UPDATE core.inbox_messages
@@ -520,13 +525,30 @@ async def link_voucher(
                     ELSE status
                 END
             WHERE inbox_id = :id
+              AND (linked_voucher_id IS NULL OR linked_voucher_id = :vid)
         """),
         {"id": inbox_id, "vid": body.voucher_id},
     )
     if res.rowcount == 0:
+        # Verificar si existe + ya tiene link
+        existing = await db.scalar(
+            text("SELECT linked_voucher_id FROM core.inbox_messages WHERE inbox_id = :id"),
+            {"id": inbox_id},
+        )
+        if existing is None and not await db.scalar(
+            text("SELECT 1 FROM core.inbox_messages WHERE inbox_id = :id"),
+            {"id": inbox_id},
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Email {inbox_id} no encontrado",
+            )
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Email {inbox_id} no encontrado",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Email {inbox_id} ya está linkeado al voucher {existing}. "
+                f"Para cambiarlo, primero desvinculá."
+            ),
         )
     await db.commit()
     return await get_mailbox_item(inbox_id, user, db)
@@ -566,13 +588,29 @@ async def link_oc(
                     ELSE status
                 END
             WHERE inbox_id = :id
+              AND (linked_oc_id IS NULL OR linked_oc_id = :ocid)
         """),
         {"id": inbox_id, "ocid": body.oc_id},
     )
     if res.rowcount == 0:
+        existing = await db.scalar(
+            text("SELECT linked_oc_id FROM core.inbox_messages WHERE inbox_id = :id"),
+            {"id": inbox_id},
+        )
+        if not await db.scalar(
+            text("SELECT 1 FROM core.inbox_messages WHERE inbox_id = :id"),
+            {"id": inbox_id},
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Email {inbox_id} no encontrado",
+            )
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Email {inbox_id} no encontrado",
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Email {inbox_id} ya está linkeado a la OC {existing}. "
+                f"Para cambiarlo, primero desvinculá."
+            ),
         )
     await db.commit()
     return await get_mailbox_item(inbox_id, user, db)

@@ -20,6 +20,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -156,10 +157,11 @@ async def create_f22(
         ).mappings().one()
         await db.commit()
         return _row_to_read(row)
-    except Exception as exc:  # noqa: BLE001
+    except IntegrityError as exc:
+        # Detección estricta del UNIQUE constraint (no string matching frágil)
         await db.rollback()
-        msg = str(exc).lower()
-        if "unique" in msg or "f22_obligaciones_empresa_codigo" in msg:
+        constraint_name = getattr(getattr(exc.orig, "diag", None), "constraint_name", "")
+        if "f22_obligaciones" in str(constraint_name) or "unique" in str(exc).lower():
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=(
@@ -167,7 +169,10 @@ async def create_f22(
                     f"año {body.ano_tributario}"
                 ),
             ) from exc
-        raise
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error de integridad DB: {exc.orig if exc.orig else exc}",
+        ) from exc
 
 
 @router.patch("/{f22_id}", response_model=F22Read)
@@ -289,8 +294,12 @@ async def sync_dropbox(
 
     Idempotente: el UNIQUE (empresa, año) evita duplicados.
     Soft-fail: si Dropbox no está configurado, devuelve 503.
+
+    La lógica vive en `app.services.f22_sync_service.sync_f22_dropbox`
+    para que `/empresa/{cod}/sync-all-dropbox` la reuse sin duplicar.
     """
     from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+    from app.services.f22_sync_service import sync_f22_dropbox
 
     try:
         dbx = DropboxService()
@@ -300,73 +309,4 @@ async def sync_dropbox(
             detail=str(exc),
         ) from exc
 
-    root = (
-        f"/Cehta Capital/01-Empresas/{empresa_codigo}"
-        f"/03-Legal/Declaraciones SII/F22"
-    )
-    try:
-        items = dbx.list_folder(root)
-    except Exception as exc:  # noqa: BLE001
-        return {
-            "created": 0,
-            "skipped": 0,
-            "errors": [f"Listar {root}: {exc}"],
-        }
-
-    # Pre-cargar años existentes
-    existing_rows = (
-        await db.execute(
-            text(
-                "SELECT ano_tributario FROM core.f22_obligaciones "
-                "WHERE empresa_codigo = :e"
-            ),
-            {"e": empresa_codigo},
-        )
-    ).fetchall()
-    existing: set[int] = {int(r[0]) for r in existing_rows}
-
-    import re as _re
-    pat = _re.compile(r"(20\d{2})")
-
-    created = skipped = 0
-    errors: list[str] = []
-    for it in items:
-        if it.get("type") != "file":
-            continue
-        name = it.get("name") or ""
-        if not name.lower().endswith(".pdf"):
-            continue
-        m = pat.search(name)
-        if not m:
-            skipped += 1
-            continue
-        ano = int(m.group(1))
-        if ano in existing:
-            skipped += 1
-            continue
-        # Vencimiento default abril 30 del año siguiente
-        fv = date(ano + 1, 4, 30)
-        try:
-            await db.execute(
-                text("""
-                    INSERT INTO core.f22_obligaciones (
-                        empresa_codigo, ano_tributario, fecha_vencimiento,
-                        estado, dropbox_path
-                    )
-                    VALUES (:e, :a, :fv, 'pendiente', :p)
-                    ON CONFLICT (empresa_codigo, ano_tributario) DO NOTHING
-                """),
-                {
-                    "e": empresa_codigo,
-                    "a": ano,
-                    "fv": fv,
-                    "p": it.get("path"),
-                },
-            )
-            created += 1
-            existing.add(ano)
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"INSERT año {ano}: {exc}")
-
-    await db.commit()
-    return {"created": created, "skipped": skipped, "errors": errors}
+    return await sync_f22_dropbox(db, dbx, empresa_codigo)

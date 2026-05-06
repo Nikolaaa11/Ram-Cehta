@@ -81,7 +81,7 @@ function estadoTone(s: string): string {
   }
 }
 
-function fmtCLP(v: number | null | undefined): string {
+function fmtCLP(v: number | string | null | undefined): string {
   if (v == null) return "—";
   const n = typeof v === "string" ? Number(v) : v;
   if (Number.isNaN(n)) return "—";
@@ -94,19 +94,24 @@ function daysUntil(iso: string): number {
   return Math.floor((a - b) / (1000 * 60 * 60 * 24));
 }
 
+const DEFAULT_DRAFT = () => ({
+  empresa_codigo: "",
+  ano_tributario: String(new Date().getFullYear() - 1),
+  fecha_vencimiento: `${new Date().getFullYear()}-04-30`,
+  monto_a_pagar: "",
+});
+
 export default function F22Page() {
   const { session } = useSession();
   const qc = useQueryClient();
 
   const [empresaFilter, setEmpresaFilter] = useState("");
   const [estadoFilter, setEstadoFilter] = useState("");
+  const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const [draft, setDraft] = useState({
-    empresa_codigo: "",
-    ano_tributario: String(new Date().getFullYear() - 1),
-    fecha_vencimiento: `${new Date().getFullYear()}-04-30`,
-    monto_a_pagar: "",
-  });
+  const [draft, setDraft] = useState(DEFAULT_DRAFT());
+  // Track del id que está siendo marcado pagado para disabled granular
+  const [markingPaidId, setMarkingPaidId] = useState<number | null>(null);
 
   const { data: empresas } = useQuery<Empresa[]>({
     queryKey: ["empresas"],
@@ -114,16 +119,22 @@ export default function F22Page() {
     enabled: !!session,
   });
 
+  const PAGE_SIZE = 50;
   const { data, isLoading, refetch } = useQuery<PageF22>({
-    queryKey: ["f22", empresaFilter, estadoFilter],
+    queryKey: ["f22", empresaFilter, estadoFilter, page],
     queryFn: () => {
-      const qs = new URLSearchParams({ size: "100" });
+      const qs = new URLSearchParams({
+        size: String(PAGE_SIZE),
+        page: String(page),
+      });
       if (empresaFilter) qs.set("empresa_codigo", empresaFilter);
       if (estadoFilter) qs.set("estado", estadoFilter);
       return apiClient.get<PageF22>(`/f22?${qs}`, session);
     },
     enabled: !!session,
+    staleTime: 30_000,
   });
+  const totalPages = data ? Math.ceil(data.total / PAGE_SIZE) : 1;
 
   const createMut = useMutation({
     mutationFn: (body: {
@@ -135,6 +146,7 @@ export default function F22Page() {
     onSuccess: () => {
       toast.success("F22 creado");
       setShowCreate(false);
+      setDraft(DEFAULT_DRAFT()); // reset para próxima creación
       qc.invalidateQueries({ queryKey: ["f22"] });
     },
     onError: (e: unknown) => {
@@ -166,9 +178,15 @@ export default function F22Page() {
         },
         session,
       ),
+    onMutate: (id: number) => setMarkingPaidId(id),
+    onSettled: () => setMarkingPaidId(null),
     onSuccess: () => {
       toast.success("Marcado como pagado");
       qc.invalidateQueries({ queryKey: ["f22"] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`No se pudo marcar pagado: ${detail}`);
     },
   });
 
@@ -257,7 +275,11 @@ export default function F22Page() {
         <Building2 className="h-3.5 w-3.5 text-ink-400" strokeWidth={1.75} />
         <select
           value={empresaFilter}
-          onChange={(e) => setEmpresaFilter(e.target.value)}
+          onChange={(e) => {
+            setEmpresaFilter(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Filtrar por empresa"
           className="rounded-lg border-0 bg-white px-3 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
         >
           <option value="">Todas las empresas</option>
@@ -269,7 +291,11 @@ export default function F22Page() {
         </select>
         <select
           value={estadoFilter}
-          onChange={(e) => setEstadoFilter(e.target.value)}
+          onChange={(e) => {
+            setEstadoFilter(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Filtrar por estado"
           className="rounded-lg border-0 bg-white px-3 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
         >
           <option value="">Todos los estados</option>
@@ -446,7 +472,7 @@ export default function F22Page() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-right font-mono tabular-nums">
-                      {fmtCLP(it.monto_a_pagar as any)}
+                      {fmtCLP(it.monto_a_pagar)}
                     </td>
                     <td className="px-3 py-2">
                       <span
@@ -465,13 +491,19 @@ export default function F22Page() {
                         <button
                           type="button"
                           onClick={() => markPaidMut.mutate(it.f22_id)}
-                          disabled={markPaidMut.isPending}
+                          disabled={markingPaidId === it.f22_id}
                           className="inline-flex items-center gap-1 rounded-lg bg-cehta-green/10 px-2 py-1 text-[10px] font-medium text-cehta-green hover:bg-cehta-green hover:text-white disabled:opacity-50"
                         >
-                          <CheckCircle2
-                            className="h-3 w-3"
-                            strokeWidth={1.75}
-                          />
+                          {markingPaidId === it.f22_id ? (
+                            <Loader2
+                              className="h-3 w-3 animate-spin"
+                            />
+                          ) : (
+                            <CheckCircle2
+                              className="h-3 w-3"
+                              strokeWidth={1.75}
+                            />
+                          )}
                           Marcar pagado
                         </button>
                       )}
@@ -483,9 +515,35 @@ export default function F22Page() {
           </table>
         )}
       </div>
+      {/* Paginación */}
+      {data && data.total > PAGE_SIZE && (
+        <div className="flex items-center justify-between text-xs">
+          <p className="text-ink-500">
+            Página {page} de {totalPages} · {data.total} F22 totales
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-lg border border-hairline bg-white px-3 py-1 hover:bg-ink-50 disabled:opacity-50"
+            >
+              ← Anterior
+            </button>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-lg border border-hairline bg-white px-3 py-1 hover:bg-ink-50 disabled:opacity-50"
+            >
+              Siguiente →
+            </button>
+          </div>
+        </div>
+      )}
       <p className="text-[11px] italic text-ink-500">
-        {data?.items?.length ?? 0} declaraciones · sync Dropbox lee
-        /03-Legal/Declaraciones SII/F22/{`{YYYY}.pdf`}
+        Mostrando {data?.items?.length ?? 0} de {data?.total ?? 0} F22 · sync
+        Dropbox lee /03-Legal/Declaraciones SII/F22/{`{YYYY}.pdf`}
       </p>
     </div>
   );

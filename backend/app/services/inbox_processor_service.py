@@ -23,13 +23,25 @@ Seguridad:
 """
 from __future__ import annotations
 
+import asyncio
 import email
 import imaplib
 import re
+import unicodedata
 from datetime import UTC, datetime
 from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 from typing import Any
+
+# Timeout para conexiones IMAP — evita que el cron Fly se cuelgue
+# indefinidamente si Gmail no responde. 30s es suficiente para fetch
+# normal, agresivo para detectar problemas de red.
+_IMAP_TIMEOUT_SECONDS = 30
+
+# Cap concurrente para llamadas a Claude. Anthropic free tier ~50 RPM,
+# tier 1 ~1000 RPM. Con 5 paralelas dejamos margen para otros endpoints
+# que también usan Claude (chat, secretaria, document analyzer).
+_CLAUDE_MAX_CONCURRENT = 5
 
 import structlog
 from sqlalchemy import text
@@ -157,9 +169,19 @@ def safe_filename(filename: str) -> str:
 
     Dropbox prohibe `/`, `\\`, `<`, `>`, `:`, `\"`, `|`, `?`, `*`. También
     cap a 200 chars para evitar problemas con el path completo.
+
+    NFC normalize: Dropbox API rechaza algunos NFD (unicode descompuesto)
+    típico en macOS — caracteres como "é" pueden venir como "e + combining
+    accent". NFC los une en un solo codepoint que Dropbox acepta sin drama.
     """
+    # 1. Normalizar a NFC (compositional normalization)
+    cleaned = unicodedata.normalize("NFC", filename)
+    # 2. Reemplazar caracteres prohibidos
     bad_chars = '/\\<>:\"|?*'
-    cleaned = "".join("_" if c in bad_chars else c for c in filename)
+    cleaned = "".join("_" if c in bad_chars else c for c in cleaned)
+    # 3. Quitar control chars (newlines, tabs en filenames son red flag)
+    cleaned = "".join(c for c in cleaned if c.isprintable() or c == " ")
+    # 4. Strip whitespace y dots (Windows también odia trailing dot)
     cleaned = cleaned.strip(". ")
     if not cleaned:
         cleaned = "unnamed"
@@ -230,10 +252,42 @@ def _ensure_configured() -> None:
 
 
 def _imap_connect() -> imaplib.IMAP4_SSL:
-    """Devuelve conexión IMAP autenticada al folder configurado."""
+    """Devuelve conexión IMAP autenticada al folder configurado.
+
+    Maneja explícitamente:
+    - Timeout en socket (evita cron Fly colgado si Gmail no responde)
+    - imaplib.IMAP4.error con mensaje descriptivo si la auth falla.
+      Causas comunes: app password caducada, 2FA pendiente, cuenta bloqueada.
+    """
     _ensure_configured()
-    conn = imaplib.IMAP4_SSL(settings.inbox_imap_host, settings.inbox_imap_port)
-    conn.login(settings.inbox_imap_user, settings.inbox_imap_password)  # type: ignore[arg-type]
+    try:
+        conn = imaplib.IMAP4_SSL(
+            settings.inbox_imap_host,
+            settings.inbox_imap_port,
+            timeout=_IMAP_TIMEOUT_SECONDS,
+        )
+    except (TimeoutError, OSError) as exc:
+        log.error(
+            "inbox.imap_connect_timeout",
+            host=settings.inbox_imap_host,
+            error=str(exc),
+        )
+        raise InboxNotConfigured(
+            f"No se pudo conectar a {settings.inbox_imap_host}: {exc}"
+        ) from exc
+
+    try:
+        conn.login(
+            settings.inbox_imap_user,  # type: ignore[arg-type]
+            settings.inbox_imap_password,  # type: ignore[arg-type]
+        )
+    except imaplib.IMAP4.error as exc:
+        log.error("inbox.imap_login_failed", error=str(exc))
+        raise InboxNotConfigured(
+            f"Login IMAP falló: {exc}. Verificá que el App Password de "
+            f"Gmail esté vigente (myaccount.google.com/apppasswords)."
+        ) from exc
+
     conn.select(settings.inbox_imap_folder)
     return conn
 
@@ -265,6 +319,10 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
         log.warning("inbox.dropbox_init_failed", error=str(exc))
 
     seen = inserted = skipped = errors = attachments_uploaded = 0
+    # Lista de UIDs IMAP que se insertaron OK — los marcamos como `\Seen`
+    # DESPUÉS del db.commit(). Si crashea antes del commit, no se marcan
+    # leídos y el próximo poll los reintenta.
+    pending_seen: list[bytes] = []
     conn = _imap_connect()
     try:
         status_, data = conn.search(None, "UNSEEN")
@@ -387,13 +445,28 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
                     },
                 )
                 inserted += 1
-                # Marcar como leído sólo si el insert pasó
-                conn.store(num, "+FLAGS", "\\Seen")
+                # Acumular para marcar Seen DESPUÉS del commit
+                pending_seen.append(num)
             except Exception as exc:  # noqa: BLE001
                 errors += 1
                 log.exception("inbox.fetch_error", error=str(exc))
 
+        # Commit primero — si falla, los emails quedan no-leídos para reintento
         await db.commit()
+
+        # Solo después del commit OK, marcar como leídos vía IMAP
+        for num in pending_seen:
+            try:
+                conn.store(num, "+FLAGS", "\\Seen")
+            except Exception as exc:  # noqa: BLE001
+                # No-op fatal: el mail está en DB, solo no se marcó leído.
+                # Próximo poll lo va a re-fetchear (UNSEEN), pero el INSERT
+                # tiene ON CONFLICT DO NOTHING — no duplica.
+                log.warning(
+                    "inbox.imap_store_failed",
+                    num=num,
+                    error=str(exc),
+                )
     finally:
         try:
             conn.close()
@@ -441,47 +514,66 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
 
     client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
-    classified = errors = skipped = 0
-    for r in rows:
-        inbox_id, subject, from_email, body_text = r
-        try:
-            prompt = build_classifier_prompt(subject, from_email, body_text)
-            resp = await client.messages.create(
-                model=settings.inbox_classify_model,
-                max_tokens=1500,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            content = resp.content[0].text if resp.content else ""
-            parsed = _extract_json(content)
-            if not parsed:
-                errors += 1
-                continue
+    # Semáforo: evita rate limit de Anthropic si llegan 50+ emails de golpe.
+    # _CLAUDE_MAX_CONCURRENT=5 deja headroom para chat AI + secretaria + analyzer.
+    sem = asyncio.Semaphore(_CLAUDE_MAX_CONCURRENT)
 
-            await db.execute(
-                text("""
-                    UPDATE core.inbox_messages
-                    SET status = 'classified',
-                        category = :category,
-                        ai_confidence = :conf,
-                        ai_summary = :summary,
-                        ai_suggested_action = :action,
-                        draft_response_html = :draft,
-                        classified_at = NOW()
-                    WHERE inbox_id = :id
-                """),
-                {
-                    "id": inbox_id,
-                    "category": parsed.get("category"),
-                    "conf": parsed.get("confidence"),
-                    "summary": parsed.get("summary"),
-                    "action": parsed.get("suggested_action"),
-                    "draft": parsed.get("draft_response_html"),
-                },
-            )
-            classified += 1
-        except Exception as exc:  # noqa: BLE001
-            errors += 1
-            log.exception("inbox.classify_error", inbox_id=inbox_id, error=str(exc))
+    classified = errors = skipped = 0
+    db_lock = asyncio.Lock()  # Serializar UPDATEs (asyncpg no soporta concurrent writes)
+
+    async def classify_one(row: tuple) -> str:
+        """Devuelve 'classified', 'error' o 'skipped'."""
+        inbox_id, subject, from_email, body_text = row
+        async with sem:
+            try:
+                prompt = build_classifier_prompt(
+                    subject or "", from_email, body_text or ""
+                )
+                resp = await client.messages.create(
+                    model=settings.inbox_classify_model,
+                    max_tokens=1500,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                content = resp.content[0].text if resp.content else ""
+                parsed = _extract_json(content)
+                if not parsed:
+                    return "error"
+
+                async with db_lock:
+                    await db.execute(
+                        text("""
+                            UPDATE core.inbox_messages
+                            SET status = 'classified',
+                                category = :category,
+                                ai_confidence = :conf,
+                                ai_summary = :summary,
+                                ai_suggested_action = :action,
+                                draft_response_html = :draft,
+                                classified_at = NOW()
+                            WHERE inbox_id = :id AND status = 'received'
+                        """),
+                        {
+                            "id": inbox_id,
+                            "category": parsed.get("category"),
+                            "conf": parsed.get("confidence"),
+                            "summary": parsed.get("summary"),
+                            "action": parsed.get("suggested_action"),
+                            "draft": parsed.get("draft_response_html"),
+                        },
+                    )
+                return "classified"
+            except Exception as exc:  # noqa: BLE001
+                log.exception(
+                    "inbox.classify_error", inbox_id=inbox_id, error=str(exc)
+                )
+                return "error"
+
+    # Ejecutar en paralelo (limitado por semáforo)
+    results = await asyncio.gather(
+        *(classify_one(tuple(r)) for r in rows), return_exceptions=False
+    )
+    classified = sum(1 for r in results if r == "classified")
+    errors = sum(1 for r in results if r == "error")
 
     await db.commit()
     return {"classified": classified, "errors": errors, "skipped": skipped}

@@ -325,59 +325,13 @@ async def sync_all_dropbox(
     except Exception as exc:  # noqa: BLE001
         response.errors.append(f"EEFF: {exc}")
 
-    # 5. F22 (módulo independiente — invocamos la lógica acá inline para
-    # mantener este endpoint como single-stop)
+    # 5. F22 (módulo independiente — usa la misma lógica del endpoint
+    # /f22/sync-dropbox/{empresa} para no duplicar reglas de matching).
     try:
-        from datetime import date as _date
+        from app.services.f22_sync_service import sync_f22_dropbox
 
-        root = (
-            f"/Cehta Capital/01-Empresas/{empresa_codigo}"
-            f"/03-Legal/Declaraciones SII/F22"
-        )
-        items = dbx.list_folder(root)
-        existing_rows = (
-            await db.execute(
-                text(
-                    "SELECT ano_tributario FROM core.f22_obligaciones "
-                    "WHERE empresa_codigo = :e"
-                ),
-                {"e": empresa_codigo},
-            )
-        ).fetchall()
-        existing: set[int] = {int(r[0]) for r in existing_rows}
-        import re as _re
-
-        pat = _re.compile(r"(20\d{2})")
-        created = 0
-        for it in items:
-            if it.get("type") != "file" or not it.get("name", "").lower().endswith(".pdf"):
-                continue
-            m = pat.search(it["name"])
-            if not m:
-                continue
-            ano = int(m.group(1))
-            if ano in existing:
-                continue
-            await db.execute(
-                text("""
-                    INSERT INTO core.f22_obligaciones (
-                        empresa_codigo, ano_tributario, fecha_vencimiento,
-                        estado, dropbox_path
-                    )
-                    VALUES (:e, :a, :fv, 'pendiente', :p)
-                    ON CONFLICT (empresa_codigo, ano_tributario) DO NOTHING
-                """),
-                {
-                    "e": empresa_codigo,
-                    "a": ano,
-                    "fv": _date(ano + 1, 4, 30),
-                    "p": it.get("path"),
-                },
-            )
-            created += 1
-            existing.add(ano)
-        await db.commit()
-        response.f22 = {"created": created}
+        result = await sync_f22_dropbox(db, dbx, empresa_codigo)
+        response.f22 = result
     except Exception as exc:  # noqa: BLE001
         response.errors.append(f"F22: {exc}")
         await db.rollback()

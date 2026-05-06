@@ -194,9 +194,13 @@ export default function AdminEmpresasPage() {
           )}
         </div>
 
-        {/* Drawer de edición */}
+        {/* Drawer de edición.
+            `key={detail.codigo}` fuerza re-mount al cambiar empresa
+            seleccionada — sin esto, el `useState` interno mantiene el
+            `draft` anterior y el user pierde sus edits. */}
         {selectedCodigo && detail && (
           <EmpresaEditDrawer
+            key={detail.codigo}
             empresa={detail}
             onClose={() => setSelectedCodigo(null)}
             onSaved={() => {
@@ -345,13 +349,26 @@ function EmpresaEditDrawer({ empresa, onClose, onSaved }: DrawerProps) {
         <button
           type="button"
           onClick={() => {
-            // Solo enviar campos que cambiaron
-            const changes: any = {};
+            // Solo enviar campos que cambiaron.
+            // Comparación normalizada: null DB ↔ "" UI son equivalentes.
+            const changes: Partial<typeof draft> = {};
             (Object.keys(draft) as (keyof typeof draft)[]).forEach((k) => {
-              const orig =
-                (empresa as any)[k] ?? (typeof draft[k] === "string" ? "" : false);
-              if (draft[k] !== orig) {
-                changes[k] = draft[k];
+              const draftVal = draft[k];
+              const origVal = (empresa as unknown as Record<string, unknown>)[k];
+              // Booleanos (activo): comparación directa
+              if (typeof draftVal === "boolean") {
+                if (draftVal !== origVal) {
+                  (changes as Record<string, unknown>)[k] = draftVal;
+                }
+                return;
+              }
+              // Strings: normalizar null/undefined ↔ ""
+              const draftNorm = (draftVal as string) ?? "";
+              const origNorm = (origVal as string | null | undefined) ?? "";
+              if (draftNorm !== origNorm) {
+                // Mandar null si el user borró el contenido
+                (changes as Record<string, unknown>)[k] =
+                  draftNorm === "" ? null : draftNorm;
               }
             });
             if (Object.keys(changes).length === 0) {
