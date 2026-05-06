@@ -414,6 +414,30 @@ export default function CartolasRunsPage() {
         </div>
       </div>
 
+      {/* Drag-drop upload — UX hint, no upload directo (los PDFs van a Dropbox manual) */}
+      {empresaFilter && (
+        <div className="rounded-2xl border-2 border-dashed border-hairline bg-cehta-green/5 p-6 text-center">
+          <Banknote
+            className="mx-auto h-8 w-8 text-cehta-green/60"
+            strokeWidth={1.25}
+          />
+          <p className="mt-2 text-sm font-medium text-ink-700">
+            Subí los PDFs de cartolas a Dropbox antes de sync
+          </p>
+          <p className="mt-1 text-xs text-ink-500">
+            Path:{" "}
+            <code className="rounded bg-ink-100 px-1.5 py-0.5 text-[11px]">
+              /Cehta Capital/01-Empresas/{empresaFilter}/04-Financiero/Cartolas
+              Bancarias/
+            </code>
+          </p>
+          <p className="mt-2 text-xs text-ink-500">
+            Después tocá <strong>Sync cartolas · {empresaFilter}</strong>{" "}
+            arriba.
+          </p>
+        </div>
+      )}
+
       {/* Help text */}
       <div className="rounded-2xl border border-hairline bg-ink-50/40 p-4 text-xs text-ink-600">
         <p className="font-semibold mb-2">Convenciones de naming en Dropbox:</p>

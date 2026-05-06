@@ -17,6 +17,7 @@ import { MiSemanaWidget } from "@/components/dashboard/MiSemanaWidget";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { PipelineRegulatorio } from "@/components/dashboard/PipelineRegulatorio";
 import { VouchersKpiStrip } from "@/components/dashboard/VouchersKpiStrip";
+import { AiDataQAWidget } from "@/components/dashboard/AiDataQAWidget";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
@@ -104,6 +105,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         {/* V5: Vouchers KPI strip — pendientes de firma, no conciliados, batches Nubox. */}
         <ErrorBoundary>
           <VouchersKpiStrip />
+        </ErrorBoundary>
+
+        {/* V5++: Pregunta natural sobre el fondo (Claude + snapshot). */}
+        <ErrorBoundary>
+          <AiDataQAWidget />
         </ErrorBoundary>
 
         <ErrorBoundary>
