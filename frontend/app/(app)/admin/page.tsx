@@ -7,6 +7,7 @@
  */
 import type { Route } from "next";
 import {
+  Banknote,
   Building2,
   Database,
   Mail,
@@ -140,6 +141,15 @@ export default async function AdminLandingPage() {
           icon={Building2}
           metric="9"
           metricLabel="entidades"
+          tone="default"
+        />
+        <AdminCard
+          href={"/admin/cartolas-runs" as Route}
+          title="Cartolas Bancarias OCR"
+          description="Sync automático de PDFs de cartolas en Dropbox → core.movimientos. Idempotente por file_hash."
+          icon={Banknote}
+          metric="V5++"
+          metricLabel="OCR pipeline"
           tone="default"
         />
       </div>

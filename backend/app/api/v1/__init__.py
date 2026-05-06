@@ -11,6 +11,7 @@ from app.api.v1 import (
     avance,
     bulk_import,
     calendar,
+    cartolas,
     conciliacion,
     catalogos,
     currency,
@@ -73,6 +74,9 @@ api_router.include_router(f29.router, prefix="/f29", tags=["f29"])
 # V5+: F22 anual — declaración impuesto a la renta. Mismo dominio que F29
 # pero cadencia anual (vence en abril del año siguiente al período).
 api_router.include_router(f22.router, prefix="/f22", tags=["f22"])
+# V5++: Cartolas Bancarias — OCR de PDFs Dropbox a core.movimientos.
+# Sin prefix porque las rutas tienen /sync/{empresa} y /runs adentro.
+api_router.include_router(cartolas.router, tags=["cartolas"])
 api_router.include_router(suscripciones.router, prefix="/suscripciones", tags=["suscripciones"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])

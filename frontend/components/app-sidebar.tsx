@@ -266,6 +266,11 @@ const GROUPS: NavGroup[] = [
       },
       { href: "/admin/etl" as Route, label: "ETL Runs", icon: Database },
       {
+        href: "/admin/cartolas-runs" as Route,
+        label: "Cartolas OCR",
+        icon: Banknote,
+      },
+      {
         href: "/admin/audit" as Route,
         label: "Auditoría de cambios",
         icon: ScrollText,

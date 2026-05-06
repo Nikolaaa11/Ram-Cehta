@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from datetime import date, datetime
+from decimal import Decimal  # noqa: F401 — usado en endpoint from-factura-pdf
 from typing import Annotated, Literal
 
 from fastapi import (
@@ -1239,6 +1240,224 @@ async def reject_voucher(
     voucher.rejection_reason = body.reason.strip()
     await db.commit()
     return await get_voucher_approvals_state(user, db, voucher_id)
+
+
+# ============================================================================
+# AI auto-fill — V5++: crear voucher DRAFT desde factura PDF en Dropbox
+# ============================================================================
+
+
+class VoucherFromFacturaRequest(BaseModel):
+    """POST /vouchers/from-factura-pdf — crea voucher DRAFT desde factura PDF.
+
+    Usa document_analyzer_service (Claude) para extraer:
+      - proveedor_rut + proveedor_nombre
+      - numero_factura (folio)
+      - fecha
+      - monto_neto + iva + total
+      - descripcion (glosa)
+
+    Y crea un voucher tipo COMPRA en estado DRAFT con esos datos
+    pre-llenados. El user revisa, completa imputación contable
+    (cuenta + proyecto + área), y envía a aprobación.
+    """
+
+    empresa_codigo: str = Field(..., description="Empresa que recibe la factura")
+    dropbox_path: str = Field(..., description="Path en Dropbox del PDF")
+
+
+class VoucherFromFacturaResponse(BaseModel):
+    voucher_id: int
+    voucher_codigo: str
+    extracted: dict
+    warnings: list[str] = []
+
+
+@router.post(
+    "/vouchers/from-factura-pdf",
+    response_model=VoucherFromFacturaResponse,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def create_voucher_from_factura_pdf(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    body: VoucherFromFacturaRequest,
+) -> VoucherFromFacturaResponse:
+    """Crea voucher COMPRA DRAFT con datos extraídos de un PDF factura.
+
+    Flujo:
+      1. Descarga el PDF de Dropbox
+      2. Extrae texto con pypdf (fallback OCR si está configurado)
+      3. Llama Claude con schema 'factura' → obtiene proveedor, monto, fecha
+      4. Genera código voucher (next_voucher_code en DB)
+      5. INSERT voucher con líneas vacías — user completa imputación
+
+    El voucher queda en DRAFT con líneas con descripción de la factura
+    pero sin cuenta_codigo / proyecto / area (los completa el user).
+
+    Soft-fail: si Claude no está configurado o el PDF está corrupto,
+    devuelve 503/422 con detalle.
+    """
+    from app.services.document_analyzer_service import (
+        DocumentAnalyzerNotConfigured,
+        analyze_document,
+        extract_text_pdf_with_fallback,
+    )
+    from app.services.dropbox_service import (
+        DropboxNotConfigured,
+        DropboxService,
+    )
+
+    # 1. Descargar PDF
+    try:
+        dbx = DropboxService()
+    except DropboxNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        content = dbx.download_file(body.dropbox_path)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No se pudo descargar {body.dropbox_path}: {exc}",
+        ) from exc
+
+    # 2. Extraer texto
+    try:
+        text_extracted, extraction_meta = extract_text_pdf_with_fallback(content)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"No se pudo extraer texto del PDF: {exc}",
+        ) from exc
+
+    if not text_extracted or len(text_extracted.strip()) < 30:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "PDF parece escaneado y OCR no está disponible. "
+                "Convertí el PDF a digital o pegá los datos manualmente."
+            ),
+        )
+
+    # 3. Analizar con Claude
+    try:
+        extraction = await analyze_document(
+            text_extracted,
+            tipo="factura",
+            filename=body.dropbox_path.rsplit("/", 1)[-1],
+            extraction_method=extraction_meta.get("method"),
+        )
+    except DocumentAnalyzerNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    fields = extraction.fields if hasattr(extraction, "fields") else {}
+    warnings = list(getattr(extraction, "warnings", []) or [])
+
+    # 4. Validar empresa
+    empresa_existe = await db.scalar(
+        text(
+            "SELECT 1 FROM core.empresas WHERE codigo = :c"
+        ),
+        {"c": body.empresa_codigo},
+    )
+    if not empresa_existe:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Empresa '{body.empresa_codigo}' no existe",
+        )
+
+    # 5. Generar código voucher
+    fecha_str = fields.get("fecha") or date.today().isoformat()
+    try:
+        fecha_voucher = date.fromisoformat(fecha_str)
+    except (ValueError, TypeError):
+        fecha_voucher = date.today()
+        warnings.append(f"Fecha de factura inválida: {fecha_str} (usando hoy)")
+
+    codigo_row = (
+        await db.execute(
+            text(
+                "SELECT core.next_voucher_code(:emp, :anio, 'COMPRA') AS codigo"
+            ),
+            {"emp": body.empresa_codigo, "anio": fecha_voucher.year},
+        )
+    ).first()
+    voucher_codigo = codigo_row[0] if codigo_row else f"COMPRA-{body.empresa_codigo}-{fecha_voucher.year}-AUTO"
+
+    # 6. INSERT voucher DRAFT
+    proveedor_rut = fields.get("proveedor_rut")
+    proveedor_nombre = fields.get("proveedor_nombre", "")
+    numero_factura = fields.get("numero_factura")
+    glosa = (
+        fields.get("descripcion")
+        or f"Factura {numero_factura or ''} de {proveedor_nombre or 'proveedor'}"
+    )[:500]
+
+    voucher_total = (
+        Decimal(str(fields.get("total") or 0))
+        if fields.get("total")
+        else Decimal("0")
+    )
+
+    voucher_row = (
+        await db.execute(
+            text(
+                """
+                INSERT INTO core.vouchers (
+                    codigo, empresa_codigo, tipo, status,
+                    fecha_documento, fecha_contable, glosa,
+                    contraparte_tipo, contraparte_rut, contraparte_nombre,
+                    doc_tributario_tipo, doc_tributario_folio,
+                    total_debit, total_credit,
+                    created_by
+                )
+                VALUES (
+                    :codigo, :emp, 'COMPRA', 'DRAFT',
+                    :fecha, :fecha, :glosa,
+                    'PROVEEDOR', :rut, :nombre,
+                    'FACTURA', :folio,
+                    0, 0,
+                    :user
+                )
+                RETURNING voucher_id
+                """
+            ),
+            {
+                "codigo": voucher_codigo,
+                "emp": body.empresa_codigo,
+                "fecha": fecha_voucher,
+                "glosa": glosa,
+                "rut": proveedor_rut,
+                "nombre": proveedor_nombre[:255] if proveedor_nombre else None,
+                "folio": str(numero_factura) if numero_factura else None,
+                "user": str(user.sub),
+            },
+        )
+    ).first()
+    voucher_id = int(voucher_row[0]) if voucher_row else 0
+    await db.commit()
+
+    return VoucherFromFacturaResponse(
+        voucher_id=voucher_id,
+        voucher_codigo=voucher_codigo,
+        extracted={
+            "proveedor_rut": proveedor_rut,
+            "proveedor_nombre": proveedor_nombre,
+            "numero_factura": numero_factura,
+            "fecha": fecha_str,
+            "monto_neto": fields.get("monto_neto"),
+            "iva": fields.get("iva"),
+            "total": fields.get("total"),
+        },
+        warnings=warnings,
+    )
 
 
 # ============================================================================
