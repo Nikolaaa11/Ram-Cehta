@@ -130,7 +130,8 @@ export default function AdminEmpresasPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
         <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
           {isLoading ? (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-ink-50/60 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
                   <th className="px-3 py-2">Código</th>
@@ -152,12 +153,14 @@ export default function AdminEmpresasPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : !empresas?.length ? (
             <p className="p-8 text-sm text-ink-500">
               Sin empresas. Algo está mal en la DB.
             </p>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
               <thead className="bg-ink-50/60 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
                   <th className="px-3 py-2">Código</th>
@@ -215,6 +218,7 @@ export default function AdminEmpresasPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
 

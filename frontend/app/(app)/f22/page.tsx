@@ -441,8 +441,9 @@ export default function F22Page() {
 
       {/* Tabla */}
       <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
+       <div className="overflow-x-auto">
         {isLoading ? (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-ink-50/60 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-500">
               <tr>
                 <th className="px-3 py-2">Empresa</th>
@@ -478,7 +479,7 @@ export default function F22Page() {
             </p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-ink-50/60 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-500">
               <tr>
                 <th className="px-3 py-2">Empresa</th>
@@ -563,6 +564,7 @@ export default function F22Page() {
             </tbody>
           </table>
         )}
+       </div>
       </div>
       {/* Paginación */}
       {data && data.total > PAGE_SIZE && (
