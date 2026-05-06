@@ -51,7 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
   if (fetchError || !kpis) {
     return (
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-6">
+      <div className="mx-auto max-w-[1440px] px-3 sm:px-6 lg:px-10 py-4 sm:py-6">
         <Surface className="border border-negative/20 bg-negative/5 ring-1 ring-negative/20">
           <Surface.Header>
             <Surface.Title className="text-negative">
@@ -67,7 +67,7 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   // ETL nunca corrió → estado vacío de bienvenida.
   if (kpis.ultimo_etl_run === null) {
     return (
-      <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-6">
+      <div className="mx-auto max-w-[1440px] px-3 sm:px-6 lg:px-10 py-4 sm:py-6">
         <DashboardHeader lastEtlRun={null} etlStatus={kpis.etl_status} />
         <DashboardEmptyState />
       </div>
@@ -75,13 +75,13 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-6">
+    <div className="mx-auto max-w-[1440px] px-3 sm:px-6 lg:px-10 py-4 sm:py-6">
       <DashboardHeader lastEtlRun={kpis.ultimo_etl_run} etlStatus={kpis.etl_status} />
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         {/* V4 fase 7.7 — Widget personal "Mi día" + V4.7.13 Pipeline Regulatorio
             en grid 2-col en lg para combinar info diaria + estado regulatorio. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-12">
           <div className="lg:col-span-7">
             <ErrorBoundary>
               <MiDiaWidget />

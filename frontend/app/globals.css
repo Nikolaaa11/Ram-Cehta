@@ -257,3 +257,15 @@
   }
 }
 
+/* V5++ ola Z — FAB QuickActions: en mobile se ubica encima del MobileBottomNav.
+   Default (mobile): bottom = bottom-nav (3.5rem) + safe-area + 0.5rem gap.
+   Desktop (md+): la regla `md:bottom-6` de Tailwind sobrescribe esto. */
+.fab-container {
+  bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .fab-container {
+    bottom: 1.5rem;
+  }
+}
+

@@ -118,7 +118,9 @@ export function QuickActionsFab() {
         />
       )}
 
-      <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 print:hidden md:bottom-6 md:right-6">
+      <div
+        className="fab-container fixed right-4 z-40 flex flex-col items-end gap-2 print:hidden md:right-6 md:bottom-6"
+      >
         {/* Action buttons revealed cuando open */}
         {open &&
           ACTIONS.map((action, idx) => {

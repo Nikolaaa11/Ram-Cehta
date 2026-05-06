@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 /**
  * Wrapper responsive que envuelve el sidebar + main content del layout
@@ -60,19 +61,23 @@ export function MobileLayoutShell({
   }, [open]);
 
   return (
-    <div className="flex min-h-screen bg-surface-muted">
+    <div className="flex min-h-screen bg-surface-muted dark:bg-ink-950">
       {/* Header mobile (sticky top, sólo visible en pantallas <md).
-          `print:hidden` para que en imprimir no aparezca el chrome. */}
-      <header className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden print:hidden">
+          `print:hidden` para que en imprimir no aparezca el chrome.
+          V5++ ola Z: dark mode + safe-area-inset-top para iPhone notch. */}
+      <header
+        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden print:hidden dark:border-ink-800 dark:bg-ink-950/95"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Abrir menú"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-100/40"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-100/40 dark:text-ink-300 dark:hover:bg-ink-800/40"
         >
           <Menu className="h-5 w-5" strokeWidth={1.75} />
         </button>
-        <p className="text-sm font-semibold tracking-tight text-ink-900">
+        <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
           {brandLabel}
         </p>
       </header>
@@ -106,10 +111,15 @@ export function MobileLayoutShell({
       )}
 
       {/* Main content — padding-top en mobile para que no choque con el header sticky.
-          En print quitamos el padding para aprovechar al máximo el A4. */}
-      <main className="flex-1 overflow-auto p-4 pt-[4.5rem] md:p-8 md:pt-8 print:overflow-visible print:p-0">
+          padding-bottom para que el contenido no quede atrás de la MobileBottomNav.
+          En print quitamos el padding para aprovechar al máximo el A4.
+          V5++ ola Z: pb-[5.5rem] reserva espacio para el bottom nav (≈3.5rem + safe area). */}
+      <main className="flex-1 overflow-auto p-4 pt-[4.5rem] pb-[5.5rem] md:p-8 md:pt-8 md:pb-8 print:overflow-visible print:p-0">
         {children}
       </main>
+
+      {/* V5++ ola Z: Bottom nav primario en mobile. */}
+      <MobileBottomNav />
     </div>
   );
 }
