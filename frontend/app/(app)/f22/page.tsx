@@ -455,7 +455,7 @@ export default function F22Page() {
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-hairline">
+            <tbody className="divide-y divide-hairline" data-virtualized>
               {Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   <td className="px-3 py-2"><Skeleton className="h-3 w-16" /></td>
@@ -491,7 +491,7 @@ export default function F22Page() {
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-hairline">
+            <tbody className="divide-y divide-hairline" data-virtualized>
               {data.items.map((it) => {
                 const days = daysUntil(it.fecha_vencimiento);
                 const overdue = it.estado === "pendiente" && days < 0;

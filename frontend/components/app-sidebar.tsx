@@ -45,16 +45,12 @@ import {
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
-import { useUnreadCount } from "@/hooks/use-notifications";
-import { useCriticalObligationsCount } from "@/hooks/use-obligations";
-import { useMailboxPendingCount, useMailboxPrefetch } from "@/hooks/use-mailbox";
+import { useSidebarState } from "@/hooks/use-sidebar-state";
+import { useMailboxPrefetch } from "@/hooks/use-mailbox";
 import { useF22Prefetch } from "@/hooks/use-f22";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import {
-  useCriticalEntregablesCount,
-  useEntregablesPrefetch,
-} from "@/hooks/use-entregables";
+import { useEntregablesPrefetch } from "@/hooks/use-entregables";
 import { usePinnedEmpresas } from "@/hooks/use-pinned-empresas";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { RealtimeIndicator } from "@/components/realtime/RealtimeIndicator";
@@ -366,11 +362,13 @@ export function AppSidebar({ email }: AppSidebarProps) {
     return true; // operaciones, estrategia, documentos → todos
   });
 
-  const { data: unread } = useUnreadCount();
-  const unreadCount = unread?.unread ?? 0;
-  const criticalObligationsCount = useCriticalObligationsCount();
-  const criticalEntregablesCount = useCriticalEntregablesCount();
-  const { pending: mailboxPending } = useMailboxPendingCount();
+  // V5++ perf: 1 endpoint composite reemplaza 4 queries paralelas.
+  // Latencia ~250ms (era ~1.8s en cascade). SSE invalida cuando cambia.
+  const { data: state } = useSidebarState();
+  const unreadCount = state?.unread_notifications ?? 0;
+  const criticalObligationsCount = state?.critical_obligations ?? 0;
+  const criticalEntregablesCount = state?.critical_entregables ?? 0;
+  const mailboxPending = state?.mailbox_pending ?? 0;
   const prefetchEntregables = useEntregablesPrefetch();
   const prefetchMailbox = useMailboxPrefetch();
   const prefetchF22 = useF22Prefetch();

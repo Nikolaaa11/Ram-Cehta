@@ -307,7 +307,7 @@ export default function CartolasRunsPage() {
                   <th className="px-3 py-2">Cuándo</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-hairline">
+              <tbody className="divide-y divide-hairline" data-virtualized>
                 {runs.map((r) => {
                   const fileName = r.dropbox_path.split("/").pop() ?? "";
                   return (

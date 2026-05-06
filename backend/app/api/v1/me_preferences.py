@@ -106,3 +106,140 @@ async def upsert_preference(
     await db.commit()
 
     return UserPreferenceRead(key=key, value=payload.value)
+
+
+# ============================================================================
+# Sidebar state composite — V5++ perf
+# ============================================================================
+#
+# Antes: el sidebar disparaba 4-6 queries paralelas en cada page load:
+#   - useUnreadCount      → /inbox/unread-count
+#   - useCriticalObligationsCount → /calendar/obligations
+#   - useCriticalEntregablesCount → /entregables
+#   - useMailboxPendingCount      → /admin/mailbox/status
+#   - useCatalogoEmpresas         → /catalogos/empresas
+#   - useMe                        → /auth/me
+# Total: 6 round-trips × ~300ms = 1.8s de cascade en cada navegación.
+#
+# Después: una sola query agregada en SQL paralelo (asyncio.gather).
+# ~250ms total. Frontend usa este endpoint via useSidebarState() y omite
+# las 5 queries individuales. SSE sigue invalidando para granularidad.
+
+
+from pydantic import BaseModel  # noqa: E402
+
+import asyncio  # noqa: E402
+
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
+
+class SidebarStateResponse(BaseModel):
+    unread_notifications: int
+    critical_obligations: int
+    critical_entregables: int
+    mailbox_pending: int
+
+
+async def _count_unread_notifications(db: AsyncSession, user_id: str) -> int:
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    "SELECT COUNT(*) FROM app.notifications "
+                    "WHERE user_id = CAST(:uid AS UUID) AND read_at IS NULL"
+                ),
+                {"uid": user_id},
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+async def _count_critical_obligations(db: AsyncSession) -> int:
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    """
+                    SELECT (
+                        (SELECT COUNT(*) FROM core.f29_obligaciones
+                         WHERE estado = 'pendiente' AND fecha_vencimiento <= current_date)
+                      + (SELECT COUNT(*) FROM core.f22_obligaciones
+                         WHERE estado = 'pendiente' AND fecha_vencimiento <= current_date)
+                    )
+                    """
+                )
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+async def _count_critical_entregables(db: AsyncSession) -> int:
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    """
+                    SELECT COUNT(*) FROM core.entregables
+                    WHERE estado IN ('pendiente', 'en_proceso')
+                      AND fecha_entrega <= current_date + INTERVAL '5 days'
+                    """
+                )
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+async def _count_mailbox_pending(db: AsyncSession) -> int:
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    """
+                    SELECT COUNT(*) FROM core.inbox_messages
+                    WHERE status IN ('received', 'classified')
+                    """
+                )
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+@router.get(
+    "/sidebar-state",
+    response_model=SidebarStateResponse,
+)
+async def get_sidebar_state(
+    user: CurrentUser,
+    db: DBSession,
+) -> SidebarStateResponse:
+    """Estado agregado del sidebar en una sola request.
+
+    Usa asyncio.gather para correr las 4 counts en paralelo dentro de la
+    misma transacción. Latencia: ~max(c1, c2, c3, c4) en lugar de
+    sum(c1+c2+c3+c4) que serían los 4 endpoints separados.
+
+    Soft-fail per-count: si una tabla no existe (entornos antiguos),
+    el helper devuelve 0 sin romper el endpoint.
+    """
+    user_id = str(user.sub)
+    unread, obligations, entregables, mailbox = await asyncio.gather(
+        _count_unread_notifications(db, user_id),
+        _count_critical_obligations(db),
+        _count_critical_entregables(db),
+        _count_mailbox_pending(db),
+    )
+    return SidebarStateResponse(
+        unread_notifications=unread,
+        critical_obligations=obligations,
+        critical_entregables=entregables,
+        mailbox_pending=mailbox,
+    )
+

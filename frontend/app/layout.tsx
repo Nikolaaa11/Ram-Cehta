@@ -30,6 +30,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // V5++ perf: preconnect al backend ahorra ~200-500ms en el primer fetch
+  // (TLS handshake + DNS resolution se hacen mientras el HTML aún está
+  // parseando, en paralelo). Sin esto, el browser espera hasta que React
+  // monta para empezar a conectar.
+  const apiOrigin = (
+    process.env.NEXT_PUBLIC_API_URL ?? "https://cehta-backend.fly.dev/api/v1"
+  ).replace(/\/api\/v1\/?$/, "");
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
@@ -48,6 +55,9 @@ export default function RootLayout({
             })();`,
           }}
         />
+        {/* V5++ perf: warmup de TCP/TLS al backend antes que React monte. */}
+        <link rel="preconnect" href={apiOrigin} crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href={apiOrigin} />
       </head>
       <body>
         <Providers>{children}</Providers>

@@ -459,7 +459,7 @@ export default function VouchersListPage() {
                   <th className="px-4 py-3">Estado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-hairline">
+              <tbody className="divide-y divide-hairline" data-virtualized>
                 {filteredVouchers.map((v) => {
                   const meta = TIPO_META[v.tipo];
                   const Icon = meta.icon;

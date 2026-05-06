@@ -56,13 +56,19 @@ else:
     # Modo rápido — connection pool de SQLAlchemy reusa conexiones,
     # asyncpg cachea prepared statements, eliminamos ~50-100ms por
     # request de overhead de TCP handshake + parsing.
+    #
+    # V5++ perf tuning: pool_size aumentado a 20 para soportar el sidebar
+    # composite endpoint + workers=2 sin contención. max_overflow=10 para
+    # picos (deploy events, bulk approve, etc.). pool_timeout=30 para que
+    # un request mal no bloquee toda la app si el pool se llena.
     engine = create_async_engine(
         _db_url,
         echo=False,
-        pool_size=10,           # 10 conexiones live
-        max_overflow=5,         # +5 burst hasta 15 totales
+        pool_size=20,           # 20 conexiones live (era 10)
+        max_overflow=10,        # +10 burst hasta 30 totales (era 5)
         pool_pre_ping=True,     # detect dead connections
         pool_recycle=1800,      # reciclar a los 30min para evitar idle drops
+        pool_timeout=30,        # max espera por conexión del pool
     )
 
 SessionLocal = async_sessionmaker(

@@ -468,7 +468,7 @@ export default function MailboxPage() {
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-hairline">
+            <ul className="divide-y divide-hairline" data-virtualized>
               {items.map((it) => (
                 <li
                   key={it.inbox_id}
