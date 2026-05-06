@@ -398,6 +398,129 @@ def render_balance_prueba_html(
     return _wrap_page(body, f"Balance Prueba {empresa_codigo}")
 
 
+def render_voucher_html(
+    *,
+    voucher: dict,
+    lines: list[dict],
+    approvals: list[dict] | None = None,
+) -> str:
+    """Voucher individual imprimible con líneas + firmas (si APPROVED+).
+
+    Útil para imprimir un asiento contable formal. Diseño notarial:
+    código + empresa + tipo + status badge + tabla de líneas con
+    imputación triple + firmas SHA-256 (si las hay) en el footer.
+    """
+    badge_class = {
+        "DRAFT": "badge-gray",
+        "PENDING": "badge-amber",
+        "APPROVED": "badge-green",
+        "EXECUTED": "badge-green",
+        "SYNCED": "badge-green",
+        "RECONCILED": "badge-green",
+        "REJECTED": "badge-red",
+        "VOID": "badge-red",
+        "REVERSO": "badge-red",
+    }.get(voucher.get("status", ""), "badge-gray")
+
+    total_debit = sum(Decimal(str(l.get("debit", 0))) for l in lines)
+    total_credit = sum(Decimal(str(l.get("credit", 0))) for l in lines)
+    is_balanced = total_debit == total_credit
+
+    lines_html = ""
+    for ln in lines:
+        debit = Decimal(str(ln.get("debit", 0)))
+        credit = Decimal(str(ln.get("credit", 0)))
+        lines_html += f"""<tr>
+          <td class="num">{_esc(ln.get('line_number', ''))}</td>
+          <td class="mono">{_esc(ln.get('cuenta_codigo', ''))}</td>
+          <td>{_esc(ln.get('cuenta_nombre', ''))}</td>
+          <td class="mono">{_esc(ln.get('proyecto_codigo') or '—')}</td>
+          <td class="mono">{_esc(ln.get('area_codigo') or '—')}</td>
+          <td>{_esc(ln.get('descripcion', ''))}</td>
+          <td class="num">{_fmt_clp(debit) if debit > 0 else '—'}</td>
+          <td class="num">{_fmt_clp(credit) if credit > 0 else '—'}</td>
+        </tr>"""
+
+    approvals_html = ""
+    if approvals:
+        approvals_html = """
+        <h3 style="margin-top: 2em;">Firmas digitales</h3>
+        <table>
+          <thead><tr>
+            <th>Orden</th><th>Rol</th><th>Decisión</th>
+            <th>Aprobador (user_id)</th><th>Fecha</th><th>Hash SHA-256</th>
+          </tr></thead><tbody>"""
+        for a in approvals:
+            approvals_html += f"""<tr>
+              <td class="num">{_esc(a.get('order_num', ''))}</td>
+              <td>{_esc(a.get('role', ''))}</td>
+              <td><span class="badge {'badge-green' if a.get('decision') == 'APPROVED' else 'badge-red'}">{_esc(a.get('decision', ''))}</span></td>
+              <td class="mono" style="font-size: 7pt">{_esc(a.get('approver_user_id', ''))[:8]}…</td>
+              <td>{_esc(a.get('signed_at', ''))}</td>
+              <td class="mono" style="font-size: 7pt">{_esc(a.get('signature_hash', ''))[:16]}…</td>
+            </tr>"""
+        approvals_html += "</tbody></table>"
+
+    body = (
+        _render_header(
+            f"Voucher {voucher.get('codigo', '')}",
+            f"{_esc(voucher.get('tipo', '')).upper()} · {voucher.get('empresa_codigo', '')}",
+            f"{_esc(voucher.get('glosa', ''))[:200]}",
+        )
+        + f"""
+        <div style="display: flex; gap: 1em; margin-bottom: 1em; flex-wrap: wrap">
+          <span class="badge {badge_class}">{_esc(voucher.get('status', ''))}</span>
+          <span class="subtle">Fecha contable: <code>{_esc(voucher.get('fecha_contable', ''))}</code></span>
+          <span class="subtle">Doc: <code>{_esc(voucher.get('doc_tributario_tipo') or '—')} {_esc(voucher.get('doc_tributario_folio') or '')}</code></span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin: 1em 0">
+          <div style="padding: .8em; background: #fafafa; border-radius: 4px">
+            <p class="label" style="font-size: 8pt; text-transform: uppercase; font-weight: 600">Contraparte</p>
+            <p style="margin: .2em 0">{_esc(voucher.get('contraparte_nombre') or '—')}</p>
+            <p class="mono subtle">{_esc(voucher.get('contraparte_rut') or '—')}</p>
+          </div>
+          <div style="padding: .8em; background: #fafafa; border-radius: 4px">
+            <p class="label" style="font-size: 8pt; text-transform: uppercase; font-weight: 600">Banco</p>
+            <p style="margin: .2em 0">{_esc(voucher.get('banco') or '—')}</p>
+            <p class="mono subtle">{_esc(voucher.get('banco_cuenta_alias') or '')}</p>
+          </div>
+        </div>
+
+        <h3>Imputación contable</h3>
+        <table>
+          <thead><tr>
+            <th class="num">#</th>
+            <th>Cuenta</th>
+            <th>Nombre</th>
+            <th>Proyecto</th>
+            <th>Área</th>
+            <th>Descripción</th>
+            <th class="num">Debe</th>
+            <th class="num">Haber</th>
+          </tr></thead>
+          <tbody>{lines_html}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="6" style="text-align:right">Totales</td>
+              <td class="num">{_fmt_clp(total_debit)}</td>
+              <td class="num">{_fmt_clp(total_credit)}</td>
+            </tr>
+            <tr>
+              <td colspan="8" style="text-align:right; font-style:italic">
+                {'Σ debe = Σ haber ✓ (cuadrado)' if is_balanced else 'Σ debe ≠ Σ haber ⚠ (descuadrado)'}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        {approvals_html}
+        """
+        + _render_footer(f"voucher-{voucher.get('codigo', '')}")
+    )
+    return _wrap_page(body, f"Voucher {voucher.get('codigo', '')}")
+
+
 def render_cashflow_mensual_html(
     *,
     empresa_codigo: str,

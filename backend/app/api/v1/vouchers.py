@@ -159,6 +159,91 @@ async def get_voucher(
     return VoucherRead.model_validate(v)
 
 
+@router.get("/vouchers/{voucher_id}.html")
+async def get_voucher_html(
+    user: CurrentUser,
+    db: DBSession,
+    voucher_id: int,
+):
+    """V5++ HTML imprimible del voucher individual.
+
+    Server-side render notarial con líneas + firmas SHA-256 (si APPROVED+).
+    El user abre en pestaña nueva → Ctrl+P → guarda como PDF formal.
+    """
+    from fastapi.responses import HTMLResponse
+
+    from app.services.report_renderer_service import render_voucher_html
+
+    stmt = (
+        select(Voucher)
+        .options(selectinload(Voucher.lines))
+        .where(Voucher.voucher_id == voucher_id)
+    )
+    v = (await db.execute(stmt)).scalar_one_or_none()
+    if v is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+
+    # Cargar nombres de cuentas (JOIN con plan_cuentas)
+    line_dicts = []
+    for ln in sorted(v.lines, key=lambda x: x.line_number):
+        cuenta_nombre = await db.scalar(
+            text("SELECT nombre FROM core.plan_cuentas WHERE codigo = :c"),
+            {"c": ln.cuenta_codigo},
+        )
+        line_dicts.append({
+            "line_number": ln.line_number,
+            "cuenta_codigo": ln.cuenta_codigo,
+            "cuenta_nombre": cuenta_nombre or "",
+            "proyecto_codigo": ln.proyecto_codigo,
+            "area_codigo": ln.area_codigo,
+            "descripcion": ln.descripcion or "",
+            "debit": ln.debit,
+            "credit": ln.credit,
+        })
+
+    # Cargar approvals si existen
+    approvals_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT order_num, role, decision, approver_user_id,
+                       signed_at::text AS signed_at, signature_hash
+                FROM core.voucher_approvals
+                WHERE voucher_id = :id
+                ORDER BY order_num
+                """
+            ),
+            {"id": voucher_id},
+        )
+    ).mappings().all()
+    approvals = [dict(a) for a in approvals_rows]
+
+    voucher_dict = {
+        "voucher_id": v.voucher_id,
+        "codigo": v.codigo,
+        "empresa_codigo": v.empresa_codigo,
+        "tipo": v.tipo,
+        "status": v.status,
+        "fecha_contable": v.fecha_contable.isoformat() if v.fecha_contable else "",
+        "glosa": v.glosa or "",
+        "contraparte_nombre": v.contraparte_nombre,
+        "contraparte_rut": v.contraparte_rut,
+        "doc_tributario_tipo": v.doc_tributario_tipo,
+        "doc_tributario_folio": v.doc_tributario_folio,
+        "banco": v.banco,
+        "banco_cuenta_alias": v.banco_cuenta_alias,
+    }
+
+    html = render_voucher_html(
+        voucher=voucher_dict,
+        lines=line_dicts,
+        approvals=approvals,
+    )
+    return HTMLResponse(content=html)
+
+
 # =====================================================================
 # POST /vouchers — crear con líneas en una transacción
 # =====================================================================

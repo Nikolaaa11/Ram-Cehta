@@ -10,6 +10,7 @@ import {
   CircleDollarSign,
   FileBarChart,
   Layers,
+  LineChart,
   Scale,
   Sparkles,
   Wallet,
@@ -115,6 +116,15 @@ export default function ReportesContablesPage() {
             description="Checklist + KPIs: vouchers pendientes/firmados, F29, cartolas, movimientos. Hoja de ruta para cerrar el mes."
             href="/reportes/contables/cierre-mensual"
             accent="cehta-green"
+            badge="V5++"
+          />
+          <ReporteCard
+            number="08"
+            icon={<LineChart className="h-5 w-5" strokeWidth={1.5} />}
+            title="Cashflow Mensual"
+            description="Entradas vs salidas mes a mes del año + saldo acumulado corriente. Útil para detectar meses negativos."
+            href="/reportes/contables/cashflow-mensual"
+            accent="sf-teal"
             badge="V5++"
           />
         </div>
