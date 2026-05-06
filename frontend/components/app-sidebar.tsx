@@ -50,6 +50,7 @@ import { useCriticalObligationsCount } from "@/hooks/use-obligations";
 import { useMailboxPendingCount, useMailboxPrefetch } from "@/hooks/use-mailbox";
 import { useF22Prefetch } from "@/hooks/use-f22";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   useCriticalEntregablesCount,
   useEntregablesPrefetch,
@@ -513,12 +514,15 @@ export function AppSidebar({ email }: AppSidebarProps) {
 
       {/* Footer */}
       <div className="space-y-2 border-t border-hairline px-4 py-4">
-        <p
-          className="truncate px-2 text-xs text-ink-500 tabular-nums"
-          title={email}
-        >
-          {email}
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p
+            className="truncate px-2 text-xs text-ink-500 tabular-nums"
+            title={email}
+          >
+            {email}
+          </p>
+          <ThemeToggle />
+        </div>
         <form action="/logout" method="POST">
           <button
             type="submit"

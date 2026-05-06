@@ -21,7 +21,7 @@ Los endpoints API la sirven con `Content-Type: text/html`.
 from __future__ import annotations
 
 import html as html_lib
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -184,7 +184,7 @@ def _render_header(title: str, eyebrow: str, subtitle: str = "") -> str:
 
 def _render_footer(report_id: str, generated_at: datetime | None = None) -> str:
     """Footer notarial común."""
-    when = (generated_at or datetime.utcnow()).strftime("%Y-%m-%d %H:%M:%S UTC")
+    when = (generated_at or datetime.now(UTC)).strftime("%Y-%m-%d %H:%M:%S UTC")
     return f"""
     <footer class="footer">
       <div>

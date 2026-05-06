@@ -1,0 +1,47 @@
+{
+  "name": "Cehta Capital — Plataforma Interna",
+  "short_name": "Cehta",
+  "description": "Plataforma operativa Cehta Capital: vouchers contables, OCs, vencimientos, inbox.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1d6f42",
+  "lang": "es-CL",
+  "categories": ["business", "finance", "productivity"],
+  "icons": [
+    {
+      "src": "/logos/cehta.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/cehta.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Vouchers",
+      "short_name": "Vouchers",
+      "url": "/vouchers",
+      "description": "Vouchers contables del portafolio"
+    },
+    {
+      "name": "Inbox",
+      "short_name": "Inbox",
+      "url": "/admin/mailbox",
+      "description": "Emails procesados de contactocehta@gmail.com"
+    },
+    {
+      "name": "Calendario",
+      "short_name": "Calendario",
+      "url": "/calendario",
+      "description": "Vencimientos y obligaciones"
+    }
+  ]
+}

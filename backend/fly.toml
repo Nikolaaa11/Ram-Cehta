@@ -36,6 +36,9 @@ kill_timeout = "10s"
   # Configurar schedule: `fly machine update <id> --schedule "*/15 * * * *"`
   # Sin INBOX_IMAP_USER/PASSWORD, soft-fails y termina exit 0.
   inbox_cron = "python -m scripts.inbox_cron"
+  # Backup DB diario → Dropbox /99-Backups/. V5++.
+  # Configurar schedule: `fly machine update <id> --schedule daily`
+  backup_cron = "python -m scripts.backup_db"
 
 [http_service]
   internal_port = 8000

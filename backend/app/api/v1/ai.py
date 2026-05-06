@@ -643,3 +643,62 @@ async def folder_hint(
 ) -> dict[str, str]:
     """Devuelve la ruta canónica de la KB en Dropbox (utility para frontend)."""
     return {"folder_path": KB_ROOT_TEMPLATE.format(empresa=empresa_codigo)}
+
+
+# ============================================================================
+# Data Q&A — preguntas naturales sobre el snapshot del fondo (V5++)
+# ============================================================================
+
+
+from pydantic import BaseModel, Field  # noqa: E402
+
+from app.services.ai_data_qa_service import (  # noqa: E402
+    AiDataQANotConfigured,
+    answer_question,
+)
+
+
+class DataQARequest(BaseModel):
+    question: str = Field(..., min_length=3, max_length=500)
+    empresa_codigo: str | None = None
+
+
+class DataQAResponse(BaseModel):
+    answer: str
+    snapshot: dict
+    model: str
+    tokens_input: int
+    tokens_output: int
+
+
+@router.post(
+    "/data-qa",
+    response_model=DataQAResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
+async def ask_data_qa(
+    user: CurrentUser,
+    db: DBSession,
+    body: DataQARequest,
+) -> DataQAResponse:
+    """Responde una pregunta sobre el estado financiero usando un snapshot
+    pre-computado. NO ejecuta SQL arbitrario — solo lee counts/totales
+    seguros y deja a Claude razonar sobre el JSON.
+
+    Uso típico: el dashboard tiene un input "Pregunta a Claudia Data" y
+    Nicolás escribe "¿cuántos vouchers PENDING tiene TRONGKAI?" → Claude
+    responde citando el número exacto del snapshot.
+    """
+    try:
+        result = await answer_question(
+            db,
+            question=body.question,
+            empresa_codigo=body.empresa_codigo,
+        )
+    except AiDataQANotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    return DataQAResponse(**result)
+
