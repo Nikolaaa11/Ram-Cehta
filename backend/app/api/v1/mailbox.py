@@ -18,10 +18,12 @@ from typing import Annotated
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.config import settings
 from app.core.security import AuthenticatedUser
 from app.services.email_service import EmailService
 from app.services.inbox_processor_service import (
@@ -44,12 +46,26 @@ class MailboxPollResponse(BaseModel):
     inserted: int
     skipped: int
     errors: int
+    attachments_uploaded: int = 0
 
 
 class MailboxClassifyResponse(BaseModel):
     classified: int
     errors: int
     skipped: int
+
+
+class MailboxStatusResponse(BaseModel):
+    """Status para mostrar en /admin/integraciones."""
+
+    imap_configured: bool
+    imap_user: str | None
+    anthropic_enabled: bool
+    resend_enabled: bool
+    dropbox_enabled: bool
+    last_received_at: datetime | None
+    counts_by_status: dict[str, int]
+    counts_by_category: dict[str, int]
 
 
 class MailboxItem(BaseModel):
@@ -87,9 +103,76 @@ class ArchiveRequest(BaseModel):
     reason: str = Field(default="archived_manual")
 
 
+class LinkVoucherRequest(BaseModel):
+    voucher_id: int = Field(..., gt=0)
+
+
+class LinkOcRequest(BaseModel):
+    oc_id: int = Field(..., gt=0)
+
+
+class BulkArchiveRequest(BaseModel):
+    inbox_ids: list[int] = Field(..., min_length=1, max_length=200)
+    reason: str = Field(default="archived_bulk")
+
+
+class BulkArchiveResponse(BaseModel):
+    archived: int
+    skipped: int
+
+
 # --------------------------------------------------------------------------
 # Endpoints
 # --------------------------------------------------------------------------
+
+
+@router.get(
+    "/admin/mailbox/status",
+    response_model=MailboxStatusResponse,
+)
+async def get_status(
+    user: CurrentUser,
+    db: DBSession,
+) -> MailboxStatusResponse:
+    """Status agregado del inbox para /admin/integraciones."""
+    last_received = await db.scalar(
+        text("SELECT MAX(received_at) FROM core.inbox_messages")
+    )
+
+    status_rows = (
+        await db.execute(
+            text("""
+                SELECT status, COUNT(*) FROM core.inbox_messages
+                GROUP BY status
+            """)
+        )
+    ).fetchall()
+    counts_by_status = {r[0]: int(r[1]) for r in status_rows}
+
+    cat_rows = (
+        await db.execute(
+            text("""
+                SELECT category, COUNT(*) FROM core.inbox_messages
+                WHERE category IS NOT NULL
+                GROUP BY category
+                ORDER BY COUNT(*) DESC
+            """)
+        )
+    ).fetchall()
+    counts_by_category = {r[0]: int(r[1]) for r in cat_rows}
+
+    return MailboxStatusResponse(
+        imap_configured=bool(
+            settings.inbox_imap_user and settings.inbox_imap_password
+        ),
+        imap_user=settings.inbox_imap_user,
+        anthropic_enabled=bool(settings.anthropic_api_key),
+        resend_enabled=bool(settings.resend_api_key),
+        dropbox_enabled=bool(settings.dropbox_refresh_token),
+        last_received_at=last_received,
+        counts_by_status=counts_by_status,
+        counts_by_category=counts_by_category,
+    )
 
 
 @router.post(
@@ -289,15 +372,56 @@ async def reply_email(
 
 
 @router.post(
+    "/admin/mailbox/{inbox_id}/restore",
+    response_model=MailboxDetail,
+)
+async def restore_email(
+    inbox_id: int,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
+    db: DBSession,
+) -> MailboxDetail:
+    """Des-archiva un email (vuelve a 'classified' o 'received').
+
+    Útil si Nicolás archivó un email por error o cambia de opinión sobre
+    spam clasificado por la AI.
+
+    Restaura a 'classified' si tenía categoría AI, sino a 'received' para
+    que pueda ser re-clasificado.
+    """
+    res = await db.execute(
+        text("""
+            UPDATE core.inbox_messages
+            SET status = CASE
+                    WHEN category IS NOT NULL THEN 'classified'
+                    ELSE 'received'
+                END,
+                archived_at = NULL,
+                archived_reason = NULL
+            WHERE inbox_id = :id
+              AND status = 'archived'
+        """),
+        {"id": inbox_id},
+    )
+    await db.commit()
+    if res.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Email {inbox_id} no existe o no está archivado",
+        )
+    return await get_mailbox_item(inbox_id, user, db)
+
+
+@router.post(
     "/admin/mailbox/{inbox_id}/archive",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
 )
 async def archive_email(
     inbox_id: int,
     body: ArchiveRequest,
     user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
     db: DBSession,
-) -> None:
+) -> Response:
     """Archiva sin responder (spam, info, etc.)."""
     res = await db.execute(
         text("""
@@ -316,3 +440,139 @@ async def archive_email(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Email {inbox_id} no existe o ya está archivado/respondido",
         )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------------------------------
+# Linking — asociar email con artefactos creados (voucher, OC, movimiento)
+# --------------------------------------------------------------------------
+
+
+@router.post(
+    "/admin/mailbox/bulk-archive",
+    response_model=BulkArchiveResponse,
+)
+async def bulk_archive(
+    body: BulkArchiveRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
+    db: DBSession,
+) -> BulkArchiveResponse:
+    """Archiva varios emails en una operación. Útil para limpiar spam masivo.
+
+    Ignora los que ya están en status 'replied' o 'archived' (skipped).
+    Idempotente — re-llamarlo no hace nada.
+    """
+    res = await db.execute(
+        text("""
+            UPDATE core.inbox_messages
+            SET status = 'archived',
+                archived_at = NOW(),
+                archived_reason = :reason
+            WHERE inbox_id = ANY(CAST(:ids AS BIGINT[]))
+              AND status NOT IN ('replied', 'archived')
+        """),
+        {
+            "ids": "{" + ",".join(str(i) for i in body.inbox_ids) + "}",
+            "reason": body.reason,
+        },
+    )
+    archived = res.rowcount or 0
+    await db.commit()
+    return BulkArchiveResponse(
+        archived=archived,
+        skipped=len(body.inbox_ids) - archived,
+    )
+
+
+@router.post(
+    "/admin/mailbox/{inbox_id}/link-voucher",
+    response_model=MailboxDetail,
+)
+async def link_voucher(
+    inbox_id: int,
+    body: LinkVoucherRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
+    db: DBSession,
+) -> MailboxDetail:
+    """Asocia un email con un voucher ya creado.
+
+    Caso típico: el inbox recibe una factura proveedor, Nicolás crea el
+    voucher tipo COMPRA en /vouchers/nuevo, copia el ID y vuelve acá para
+    linkearlo. Después el detalle del email muestra el link al voucher.
+    """
+    # Validar que el voucher exista
+    exists = await db.scalar(
+        text("SELECT 1 FROM core.vouchers WHERE voucher_id = :id"),
+        {"id": body.voucher_id},
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Voucher {body.voucher_id} no existe",
+        )
+
+    res = await db.execute(
+        text("""
+            UPDATE core.inbox_messages
+            SET linked_voucher_id = :vid,
+                status = CASE
+                    WHEN status IN ('received', 'classified') THEN 'reviewed'
+                    ELSE status
+                END
+            WHERE inbox_id = :id
+        """),
+        {"id": inbox_id, "vid": body.voucher_id},
+    )
+    if res.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Email {inbox_id} no encontrado",
+        )
+    await db.commit()
+    return await get_mailbox_item(inbox_id, user, db)
+
+
+@router.post(
+    "/admin/mailbox/{inbox_id}/link-oc",
+    response_model=MailboxDetail,
+)
+async def link_oc(
+    inbox_id: int,
+    body: LinkOcRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
+    db: DBSession,
+) -> MailboxDetail:
+    """Asocia un email con una orden de compra existente.
+
+    Caso típico: el proveedor responde al pedido y Nicolás linkea el
+    email con la OC para que toda la conversación quede trazada.
+    """
+    exists = await db.scalar(
+        text("SELECT 1 FROM core.ordenes_compra WHERE oc_id = :id"),
+        {"id": body.oc_id},
+    )
+    if not exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Orden de compra {body.oc_id} no existe",
+        )
+
+    res = await db.execute(
+        text("""
+            UPDATE core.inbox_messages
+            SET linked_oc_id = :ocid,
+                status = CASE
+                    WHEN status IN ('received', 'classified') THEN 'reviewed'
+                    ELSE status
+                END
+            WHERE inbox_id = :id
+        """),
+        {"id": inbox_id, "ocid": body.oc_id},
+    )
+    if res.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Email {inbox_id} no encontrado",
+        )
+    await db.commit()
+    return await get_mailbox_item(inbox_id, user, db)

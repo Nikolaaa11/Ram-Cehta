@@ -30,6 +30,9 @@ import {
   Tag,
   Paperclip,
   Loader2,
+  Link as LinkIcon,
+  Receipt,
+  FileText,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -111,6 +114,16 @@ export default function MailboxPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<string>("");
+  const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
+
+  const toggleBulk = (id: number) => {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const { data: items, isLoading, refetch } = useQuery<MailboxItem[]>({
     queryKey: ["mailbox", statusFilter, categoryFilter],
@@ -200,6 +213,74 @@ export default function MailboxPage() {
     },
   });
 
+  const restoreMut = useMutation({
+    mutationFn: (id: number) =>
+      apiClient.post(`/admin/mailbox/${id}/restore`, {}, session),
+    onSuccess: () => {
+      toast.success("Email restaurado");
+      qc.invalidateQueries({ queryKey: ["mailbox"] });
+      qc.invalidateQueries({ queryKey: ["mailbox-detail", selectedId] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`No se pudo restaurar: ${detail}`);
+    },
+  });
+
+  const linkVoucherMut = useMutation({
+    mutationFn: (vid: number) =>
+      apiClient.post(
+        `/admin/mailbox/${selectedId}/link-voucher`,
+        { voucher_id: vid },
+        session,
+      ),
+    onSuccess: () => {
+      toast.success("Voucher linkeado");
+      qc.invalidateQueries({ queryKey: ["mailbox"] });
+      qc.invalidateQueries({ queryKey: ["mailbox-detail", selectedId] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`No se pudo linkear: ${detail}`);
+    },
+  });
+
+  const linkOcMut = useMutation({
+    mutationFn: (oid: number) =>
+      apiClient.post(
+        `/admin/mailbox/${selectedId}/link-oc`,
+        { oc_id: oid },
+        session,
+      ),
+    onSuccess: () => {
+      toast.success("OC linkeada");
+      qc.invalidateQueries({ queryKey: ["mailbox"] });
+      qc.invalidateQueries({ queryKey: ["mailbox-detail", selectedId] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`No se pudo linkear: ${detail}`);
+    },
+  });
+
+  const bulkArchiveMut = useMutation({
+    mutationFn: (ids: number[]) =>
+      apiClient.post(
+        "/admin/mailbox/bulk-archive",
+        { inbox_ids: ids, reason: "archived_bulk" },
+        session,
+      ),
+    onSuccess: (data: any) => {
+      toast.success(`${data.archived ?? 0} emails archivados`);
+      setBulkSelected(new Set());
+      qc.invalidateQueries({ queryKey: ["mailbox"] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`Bulk archive falló: ${detail}`);
+    },
+  });
+
   return (
     <div className="mx-auto max-w-[1400px] space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -249,7 +330,7 @@ export default function MailboxPage() {
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros + bulk bar */}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-ink-50/30 px-4 py-3">
         <Tag className="h-3.5 w-3.5 text-ink-400" strokeWidth={1.75} />
         <select
@@ -276,6 +357,35 @@ export default function MailboxPage() {
             </option>
           ))}
         </select>
+        {bulkSelected.size > 0 && (
+          <div className="ml-auto flex items-center gap-2 rounded-lg bg-cehta-green/10 px-3 py-1.5 text-xs text-cehta-green">
+            <span className="font-semibold">
+              {bulkSelected.size} seleccionados
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                bulkArchiveMut.mutate(Array.from(bulkSelected))
+              }
+              disabled={bulkArchiveMut.isPending}
+              className="inline-flex items-center gap-1 rounded-lg bg-cehta-green px-2.5 py-1 font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {bulkArchiveMut.isPending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Archive className="h-3 w-3" strokeWidth={1.75} />
+              )}
+              Archivar selección
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkSelected(new Set())}
+              className="text-cehta-green/70 hover:text-cehta-green"
+            >
+              Limpiar
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Lista + drawer */}
@@ -301,13 +411,20 @@ export default function MailboxPage() {
                   key={it.inbox_id}
                   className={`cursor-pointer p-4 transition-colors hover:bg-ink-50/40 ${
                     selectedId === it.inbox_id ? "bg-ink-50/60" : ""
-                  }`}
+                  } ${bulkSelected.has(it.inbox_id) ? "bg-cehta-green/5" : ""}`}
                   onClick={() => {
                     setSelectedId(it.inbox_id);
                     setDraft("");
                   }}
                 >
                   <div className="flex items-start justify-between gap-3">
+                    <input
+                      type="checkbox"
+                      checked={bulkSelected.has(it.inbox_id)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => toggleBulk(it.inbox_id)}
+                      className="mt-1 h-3.5 w-3.5 shrink-0 rounded border-hairline text-cehta-green focus:ring-cehta-green"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <Mail
@@ -448,6 +565,121 @@ export default function MailboxPage() {
               />
             </div>
 
+            {/* Sugerencias por categoría — atajos contextuales */}
+            {detail.category &&
+              ["factura_proveedor", "boleta_honorarios"].includes(
+                detail.category,
+              ) && (
+                <div className="mt-3">
+                  <Link
+                    href={
+                      `/vouchers/nuevo?tipo=COMPRA&from_email=${detail.inbox_id}&glosa=${encodeURIComponent(
+                        detail.subject,
+                      )}` as Route
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cehta-green/40 bg-cehta-green/5 px-3 py-1.5 text-xs font-medium text-cehta-green hover:bg-cehta-green hover:text-white"
+                  >
+                    <Receipt className="h-3.5 w-3.5" strokeWidth={1.75} />
+                    Crear voucher COMPRA desde este email →
+                  </Link>
+                </div>
+              )}
+            {detail.category === "pago_confirmado" && (
+              <div className="mt-3">
+                <Link
+                  href={"/ordenes-compra?estado=aprobada" as Route}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100"
+                >
+                  <FileText className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Buscar OC para marcar como pagada →
+                </Link>
+              </div>
+            )}
+
+            {/* Linkeo con artefactos */}
+            <div className="mt-4 rounded-xl border border-hairline p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                Linkear con artefactos
+              </p>
+              {detail.linked_voucher_id || detail.linked_oc_id ? (
+                <div className="mt-2 space-y-1 text-xs">
+                  {detail.linked_voucher_id && (
+                    <p className="flex items-center gap-1.5 text-ink-700">
+                      <Receipt
+                        className="h-3 w-3 text-cehta-green"
+                        strokeWidth={1.75}
+                      />
+                      Voucher #{detail.linked_voucher_id}{" "}
+                      <Link
+                        href={
+                          `/vouchers/${detail.linked_voucher_id}` as Route
+                        }
+                        className="text-cehta-green hover:underline"
+                      >
+                        Abrir →
+                      </Link>
+                    </p>
+                  )}
+                  {detail.linked_oc_id && (
+                    <p className="flex items-center gap-1.5 text-ink-700">
+                      <FileText
+                        className="h-3 w-3 text-cehta-green"
+                        strokeWidth={1.75}
+                      />
+                      OC #{detail.linked_oc_id}{" "}
+                      <Link
+                        href={
+                          `/ordenes-compra/${detail.linked_oc_id}` as Route
+                        }
+                        className="text-cehta-green hover:underline"
+                      >
+                        Abrir →
+                      </Link>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-1 text-[11px] italic text-ink-500">
+                  Sin artefactos linkeados.
+                </p>
+              )}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="ID voucher"
+                  min={1}
+                  className="w-28 rounded-lg border-0 bg-ink-50 px-2 py-1 text-xs ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const v = Number((e.target as HTMLInputElement).value);
+                      if (v > 0) {
+                        linkVoucherMut.mutate(v);
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                />
+                <input
+                  type="number"
+                  placeholder="ID OC"
+                  min={1}
+                  className="w-28 rounded-lg border-0 bg-ink-50 px-2 py-1 text-xs ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      const v = Number((e.target as HTMLInputElement).value);
+                      if (v > 0) {
+                        linkOcMut.mutate(v);
+                        (e.target as HTMLInputElement).value = "";
+                      }
+                    }
+                  }}
+                />
+                <span className="text-[10px] italic text-ink-400">
+                  Enter para linkear
+                </span>
+              </div>
+            </div>
+
             {/* Acciones */}
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
@@ -467,15 +699,30 @@ export default function MailboxPage() {
                 )}
                 Enviar respuesta
               </button>
-              <button
-                type="button"
-                onClick={() => archiveMut.mutate(detail.inbox_id)}
-                disabled={detail.status === "archived"}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50"
-              >
-                <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
-                Archivar
-              </button>
+              {detail.status === "archived" ? (
+                <button
+                  type="button"
+                  onClick={() => restoreMut.mutate(detail.inbox_id)}
+                  disabled={restoreMut.isPending}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-600 hover:border-cehta-green/40 hover:text-cehta-green disabled:opacity-50"
+                >
+                  {restoreMut.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  )}
+                  Restaurar
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => archiveMut.mutate(detail.inbox_id)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-600 hover:border-red-300 hover:text-red-600 disabled:opacity-50"
+                >
+                  <Archive className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Archivar
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {

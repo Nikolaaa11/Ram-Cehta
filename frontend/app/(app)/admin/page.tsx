@@ -6,7 +6,14 @@
  * "—" en el card en vez de bloquear toda la página.
  */
 import type { Route } from "next";
-import { Database, Mail, Shield, Sparkles, UserCog } from "lucide-react";
+import {
+  Building2,
+  Database,
+  Mail,
+  Shield,
+  Sparkles,
+  UserCog,
+} from "lucide-react";
 import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -124,6 +131,15 @@ export default async function AdminLandingPage() {
           icon={Mail}
           metric="V5+"
           metricLabel="email automation"
+          tone="default"
+        />
+        <AdminCard
+          href={"/admin/empresas" as Route}
+          title="Empresas portfolio"
+          description="Editá datos fiscales, contacto, OC prefix y toggle activo/inactivo de las 9 entidades del portafolio."
+          icon={Building2}
+          metric="9"
+          metricLabel="entidades"
           tone="default"
         />
       </div>

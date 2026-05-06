@@ -28,6 +28,7 @@ import {
   CheckCircle2,
   Clock,
   FileSignature,
+  Printer,
   RotateCcw,
   Send,
   Sparkles,
@@ -143,11 +144,11 @@ export default function VoucherDetailPage({ params }: PageProps) {
         }}
       />
 
-      <div className="mx-auto max-w-[1280px] px-6 lg:px-10 pt-8 pb-20 space-y-6">
+      <div className="mx-auto max-w-[1280px] px-6 lg:px-10 pt-8 pb-20 space-y-6 print:max-w-full print:px-0 print:py-0">
         {/* Breadcrumb */}
         <Link
           href={"/vouchers" as Route}
-          className="group inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-400 hover:text-cehta-green"
+          className="group inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-400 hover:text-cehta-green print:hidden"
         >
           <ArrowLeft
             className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5"
@@ -211,7 +212,17 @@ export default function VoucherDetailPage({ params }: PageProps) {
           </div>
 
           {/* Acciones según status */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 print:hidden">
+            {/* Imprimir / PDF — disponible siempre, también en DRAFT */}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
+              title="Imprimir / Guardar como PDF (Ctrl+P)"
+            >
+              <Printer className="h-4 w-4" strokeWidth={1.75} />
+              Imprimir / PDF
+            </button>
             {voucher.status === "DRAFT" && (
               <>
                 <button

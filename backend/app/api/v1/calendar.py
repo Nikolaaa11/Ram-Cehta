@@ -171,6 +171,60 @@ async def _query_f29(
     return out
 
 
+async def _query_f22(
+    db: AsyncSession,
+    *,
+    today: date,
+    from_date: date,
+    to_date: date,
+    empresa_codigo: str | None,
+) -> list[ObligationItem]:
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    f22_id::text       AS f22_id,
+                    empresa_codigo,
+                    ano_tributario,
+                    fecha_vencimiento,
+                    monto_a_pagar,
+                    estado
+                FROM core.f22_obligaciones
+                WHERE fecha_vencimiento BETWEEN :from_date AND :to_date
+                  AND estado <> 'pagado'
+                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                """
+            ),
+            {
+                "from_date": from_date,
+                "to_date": to_date,
+                "empresa": empresa_codigo,
+            },
+        )
+    ).mappings().all()
+
+    out: list[ObligationItem] = []
+    for r in rows:
+        out.append(
+            _build_obligation(
+                tipo="f22",
+                entity_id=str(r["f22_id"]),
+                title=(
+                    f"F22 {r['empresa_codigo']} año {r['ano_tributario']}"
+                ),
+                subtitle=f"Renta anual · {r['estado']}",
+                empresa_codigo=r["empresa_codigo"],
+                due_date=r["fecha_vencimiento"],
+                today=today,
+                monto=r["monto_a_pagar"],
+                moneda="CLP",
+                link=f"/f22?empresa_codigo={r['empresa_codigo']}",
+            )
+        )
+    return out
+
+
 async def _query_legal(
     db: AsyncSession,
     *,
@@ -699,6 +753,8 @@ async def list_obligations(
     }
     if tipo is None or tipo == "f29":
         items.extend(await _query_f29(db, **common_kwargs))
+    if tipo is None or tipo == "f22":
+        items.extend(await _query_f22(db, **common_kwargs))
     if tipo is None or tipo == "legal":
         items.extend(await _query_legal(db, **common_kwargs))
     if tipo is None or tipo == "oc":

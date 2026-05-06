@@ -110,8 +110,13 @@ def extract_body(msg: Message) -> tuple[str | None, str | None]:
     return text_body, html_body
 
 
-def extract_attachments_meta(msg: Message) -> list[dict[str, Any]]:
-    """Lista metadata de adjuntos (filename, content_type, size). Sin guardar bytes."""
+def extract_attachments(msg: Message) -> list[dict[str, Any]]:
+    """Devuelve metadata + bytes de cada adjunto.
+
+    El bytes va en la key `_payload` (no se persiste en DB, solo se usa para
+    subir a Dropbox dentro del mismo flujo). Después de subir, se setea
+    `dropbox_path` y se borra `_payload` antes de hacer JSON dump.
+    """
     out: list[dict[str, Any]] = []
     if not msg.is_multipart():
         return out
@@ -122,20 +127,57 @@ def extract_attachments_meta(msg: Message) -> list[dict[str, Any]]:
         filename = part.get_filename() or "unnamed"
         content_type = part.get_content_type()
         try:
-            payload = part.get_payload(decode=True)
-            size = len(payload) if payload else 0
+            payload = part.get_payload(decode=True) or b""
+            size = len(payload)
         except (TypeError, ValueError):
+            payload = b""
             size = 0
         out.append({
             "filename": filename,
             "content_type": content_type,
             "size_bytes": size,
-            # dropbox_path y extracted_text se llenan después en la fase
-            # de procesamiento (fuera del scope del poll).
             "dropbox_path": None,
             "extracted_text": None,
+            "_payload": payload,  # NO se persiste — uso interno
         })
     return out
+
+
+# Alias retro-compat
+def extract_attachments_meta(msg: Message) -> list[dict[str, Any]]:
+    """Backwards-compat: solo metadata, sin bytes. Usar `extract_attachments`."""
+    items = extract_attachments(msg)
+    for it in items:
+        it.pop("_payload", None)
+    return items
+
+
+def safe_filename(filename: str) -> str:
+    """Sanitiza un filename para que sea válido en Dropbox.
+
+    Dropbox prohibe `/`, `\\`, `<`, `>`, `:`, `\"`, `|`, `?`, `*`. También
+    cap a 200 chars para evitar problemas con el path completo.
+    """
+    bad_chars = '/\\<>:\"|?*'
+    cleaned = "".join("_" if c in bad_chars else c for c in filename)
+    cleaned = cleaned.strip(". ")
+    if not cleaned:
+        cleaned = "unnamed"
+    return cleaned[:200]
+
+
+def inbox_dropbox_path(received_at: datetime, filename: str) -> str:
+    """Construye el path Dropbox donde guardar un adjunto del inbox.
+
+    Estructura: /Cehta Capital/00-Inbox/{año}/{mes}/{filename_sanitizado}
+
+    El timestamp del recibido determina año/mes. Si dos archivos tienen el
+    mismo nombre el `overwrite=True` del upload los pisa — para preservar
+    ambos, el caller puede prefijar el filename con el inbox_id.
+    """
+    year = received_at.strftime("%Y")
+    month = received_at.strftime("%m")
+    return f"/Cehta Capital/00-Inbox/{year}/{month}/{safe_filename(filename)}"
 
 
 def build_classifier_prompt(subject: str, from_email: str, body_text: str) -> str:
@@ -199,13 +241,30 @@ def _imap_connect() -> imaplib.IMAP4_SSL:
 async def poll_inbox(db: AsyncSession) -> dict[str, int]:
     """Lee mails UNSEEN, los inserta en core.inbox_messages.
 
-    Devuelve `{seen, inserted, skipped, errors}`. Marca como `\\Seen` solo
-    los que se insertaron OK — si falla el insert, queda no-leído para
-    re-intentar en el próximo poll.
+    Adicional: si el mail tiene adjuntos y Dropbox está configurado, sube
+    cada adjunto a `/Cehta Capital/00-Inbox/{año}/{mes}/{filename}` y
+    persiste el path en `attachments_meta.dropbox_path`.
+
+    Devuelve `{seen, inserted, skipped, errors, attachments_uploaded}`.
+    Marca como `\\Seen` solo los que se insertaron OK — si falla el insert,
+    queda no-leído para re-intentar en el próximo poll.
     """
     _ensure_configured()
 
-    seen = inserted = skipped = errors = 0
+    # Intentar inicializar Dropbox — soft-fail si no está configurado.
+    dbx_service = None
+    try:
+        from app.services.dropbox_service import (
+            DropboxNotConfigured,
+            DropboxService,
+        )
+        dbx_service = DropboxService()
+    except DropboxNotConfigured:
+        log.info("inbox.dropbox_disabled")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("inbox.dropbox_init_failed", error=str(exc))
+
+    seen = inserted = skipped = errors = attachments_uploaded = 0
     conn = _imap_connect()
     try:
         status_, data = conn.search(None, "UNSEEN")
@@ -253,7 +312,39 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
                 thread_id = (msg.get("References") or "").split()[0].strip("<>") if msg.get("References") else None
 
                 body_text, body_html = extract_body(msg)
-                attachments = extract_attachments_meta(msg)
+                attachments = extract_attachments(msg)  # incluye _payload bytes
+
+                # Subir adjuntos a Dropbox /Cehta Capital/00-Inbox/{año}/{mes}/
+                # Si Dropbox no está configurado o falla, persistimos los meta
+                # sin dropbox_path y registramos error individual.
+                if dbx_service is not None and attachments:
+                    for att in attachments:
+                        payload = att.pop("_payload", b"")
+                        if not payload:
+                            continue
+                        # Prefijar filename con timestamp para evitar colisiones
+                        ts_prefix = received_at.strftime("%Y%m%d-%H%M%S")
+                        prefixed_name = f"{ts_prefix}_{safe_filename(att['filename'])}"
+                        dropbox_path = inbox_dropbox_path(received_at, prefixed_name)
+                        try:
+                            # Crear carpeta padre si no existe (idempotente)
+                            parent = "/".join(dropbox_path.split("/")[:-1])
+                            dbx_service.ensure_folder_path(parent)
+                            dbx_service.upload_file(
+                                dropbox_path, payload, overwrite=False
+                            )
+                            att["dropbox_path"] = dropbox_path
+                            attachments_uploaded += 1
+                        except Exception as exc:  # noqa: BLE001
+                            log.warning(
+                                "inbox.dropbox_upload_failed",
+                                filename=att["filename"],
+                                error=str(exc),
+                            )
+                else:
+                    # Limpiar _payload si no se subió (no persistir bytes en DB)
+                    for att in attachments:
+                        att.pop("_payload", None)
 
                 # INSERT idempotente por message_id
                 await db.execute(
@@ -309,7 +400,13 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
         finally:
             conn.logout()
 
-    return {"seen": seen, "inserted": inserted, "skipped": skipped, "errors": errors}
+    return {
+        "seen": seen,
+        "inserted": inserted,
+        "skipped": skipped,
+        "errors": errors,
+        "attachments_uploaded": attachments_uploaded,
+    }
 
 
 # --------------------------------------------------------------------------

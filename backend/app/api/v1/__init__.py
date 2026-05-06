@@ -23,6 +23,7 @@ from app.api.v1 import (
     estados_financieros,
     etl,
     exports,
+    f22,
     f29,
     fondo_actas,
     fondos,
@@ -69,6 +70,9 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboar
 api_router.include_router(ordenes_compra.router, prefix="/ordenes-compra", tags=["ordenes-compra"])
 api_router.include_router(movimientos.router, prefix="/movimientos", tags=["movimientos"])
 api_router.include_router(f29.router, prefix="/f29", tags=["f29"])
+# V5+: F22 anual — declaración impuesto a la renta. Mismo dominio que F29
+# pero cadencia anual (vence en abril del año siguiente al período).
+api_router.include_router(f22.router, prefix="/f22", tags=["f22"])
 api_router.include_router(suscripciones.router, prefix="/suscripciones", tags=["suscripciones"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])

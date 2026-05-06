@@ -47,6 +47,7 @@ import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
+import { useMailboxPendingCount } from "@/hooks/use-mailbox";
 import {
   useCriticalEntregablesCount,
   useEntregablesPrefetch,
@@ -133,7 +134,8 @@ const GROUPS: NavGroup[] = [
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
-      { href: "/f29", label: "F29 / Tributario", icon: Receipt },
+      { href: "/f29", label: "F29 / Mensual", icon: Receipt },
+      { href: "/f22" as Route, label: "F22 / Anual", icon: Receipt },
       // V5: Vouchers (comprobantes contables) — corazón del módulo contable.
       // Imputación triple cuenta × proyecto × área con partida doble.
       { href: "/vouchers" as Route, label: "Vouchers contables", icon: Receipt },
@@ -256,6 +258,11 @@ const GROUPS: NavGroup[] = [
     label: "Admin",
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
+      {
+        href: "/admin/empresas" as Route,
+        label: "Empresas portfolio",
+        icon: Building2,
+      },
       { href: "/admin/etl" as Route, label: "ETL Runs", icon: Database },
       {
         href: "/admin/audit" as Route,
@@ -355,6 +362,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const unreadCount = unread?.unread ?? 0;
   const criticalObligationsCount = useCriticalObligationsCount();
   const criticalEntregablesCount = useCriticalEntregablesCount();
+  const { pending: mailboxPending } = useMailboxPendingCount();
   const prefetchEntregables = useEntregablesPrefetch();
 
   return (
@@ -410,6 +418,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showEntregablesBadge =
                   String(item.href) === "/entregables" &&
                   criticalEntregablesCount > 0;
+                const showMailboxBadge =
+                  String(item.href) === "/admin/mailbox" &&
+                  mailboxPending > 0;
                 // Prefetch on hover para rutas con datos pesados.
                 // V4 fase 7.5 — calienta cache TanStack antes del click.
                 const onMouseEnter =
@@ -462,6 +473,15 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         {criticalEntregablesCount > 99
                           ? "99+"
                           : criticalEntregablesCount}
+                      </span>
+                    )}
+                    {showMailboxBadge && (
+                      <span
+                        aria-label={`${mailboxPending} emails pendientes`}
+                        title={`${mailboxPending} emails pendientes de revisión`}
+                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-cehta-green px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                      >
+                        {mailboxPending > 99 ? "99+" : mailboxPending}
                       </span>
                     )}
                   </Link>

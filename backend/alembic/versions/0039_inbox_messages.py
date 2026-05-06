@@ -76,7 +76,7 @@ def upgrade() -> None:
 
             -- Linking opcional con artefactos generados desde este email
             linked_voucher_id   BIGINT REFERENCES core.vouchers(voucher_id),
-            linked_oc_id        BIGINT,
+            linked_oc_id        INT REFERENCES core.ordenes_compra(oc_id),
             linked_movimiento_id BIGINT,
 
             -- Estado del flujo

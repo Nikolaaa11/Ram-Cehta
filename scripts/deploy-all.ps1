@@ -107,6 +107,12 @@ $vouchersStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/vouc
 $reportesStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/reportes/contables/libro-diario"
 Write-Host "      OK /vouchers=$vouchersStatus  /reportes/contables=$reportesStatus" -ForegroundColor Green
 
+# V5+ endpoints recien agregados
+$empresaStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/empresa"
+$f22Status = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/f22"
+$mailboxStatus = Get-HttpStatus -Url "https://cehta-backend.fly.dev/api/v1/admin/mailbox"
+Write-Host "      OK /empresa=$empresaStatus /f22=$f22Status /admin/mailbox=$mailboxStatus (401 sin auth = OK)" -ForegroundColor Green
+
 # Done
 Write-Host ""
 Write-Host "==> Deploy COMPLETO" -ForegroundColor Cyan

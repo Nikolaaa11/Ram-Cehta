@@ -32,6 +32,10 @@ kill_timeout = "10s"
   app = "uvicorn app.main:app --host 0.0.0.0 --port 8000"
   etl_cron = "python -m scripts.etl_cron"
   alerts_cron = "python -m scripts.alerts_cron"
+  # Inbox poll de contactocehta@gmail.com — cada 15min.
+  # Configurar schedule: `fly machine update <id> --schedule "*/15 * * * *"`
+  # Sin INBOX_IMAP_USER/PASSWORD, soft-fails y termina exit 0.
+  inbox_cron = "python -m scripts.inbox_cron"
 
 [http_service]
   internal_port = 8000
@@ -62,5 +66,8 @@ kill_timeout = "10s"
 # SUPABASE_JWT_SECRET
 # SECRET_KEY
 # CORS_ORIGINS  (e.g. https://cehta.vercel.app)
-# ANTHROPIC_API_KEY   (opcional)
-# DROPBOX_REFRESH_TOKEN  (opcional)
+# ANTHROPIC_API_KEY   (opcional — habilita AI chat + inbox classifier)
+# RESEND_API_KEY      (opcional — habilita envío de emails outbound)
+# DROPBOX_REFRESH_TOKEN  (opcional — habilita sync Dropbox + inbox attachments)
+# INBOX_IMAP_USER     (ej: contactocehta@gmail.com)
+# INBOX_IMAP_PASSWORD (Gmail App Password 16 chars — NO la del usuario humano)

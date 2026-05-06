@@ -16,6 +16,7 @@ import { MiDiaWidget } from "@/components/dashboard/MiDiaWidget";
 import { MiSemanaWidget } from "@/components/dashboard/MiSemanaWidget";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { PipelineRegulatorio } from "@/components/dashboard/PipelineRegulatorio";
+import { VouchersKpiStrip } from "@/components/dashboard/VouchersKpiStrip";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
@@ -99,6 +100,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         <Suspense fallback={<KpiSecondarySkeleton />}>
           <KpiSecondarySection initialData={kpis} />
         </Suspense>
+
+        {/* V5: Vouchers KPI strip — pendientes de firma, no conciliados, batches Nubox. */}
+        <ErrorBoundary>
+          <VouchersKpiStrip />
+        </ErrorBoundary>
 
         <ErrorBoundary>
           <ChartsGrid />

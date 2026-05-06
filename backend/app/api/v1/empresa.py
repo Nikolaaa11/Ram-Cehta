@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -199,6 +199,7 @@ class EmpresaListItem(BaseModel):
 async def list_empresas_flat(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
     solo_activas: bool = False,
 ) -> list[EmpresaListItem]:
     """Lista plana de empresas para poblar selects.
@@ -207,7 +208,13 @@ async def list_empresas_flat(
     los selectores en /vouchers, /reportes, /admin, etc. muestren el set
     completo del portafolio. Pasá `?solo_activas=true` si necesitás filtrar
     a las que están operando hoy.
+
+    Cache: 5min stale-while-revalidate. Las empresas cambian rara vez —
+    esto reduce ~30 requests/sesión a 1.
     """
+    response.headers["Cache-Control"] = (
+        "private, max-age=300, stale-while-revalidate=60"
+    )
     where = "WHERE activo = TRUE" if solo_activas else ""
     rows = (
         await db.execute(
@@ -231,6 +238,151 @@ async def list_empresas_flat(
         )
         for r in rows
     ]
+
+
+# =====================================================================
+# POST /empresa/{codigo}/sync-all-dropbox  — sync compuesto
+# =====================================================================
+#
+# Botón "una sola tecla" para Nicolás: corre los 5 syncs disponibles para
+# una empresa en secuencia. Cada uno es soft-fail individual — si Dropbox
+# no está conectado para uno, lo skipea y sigue con el resto.
+
+
+class SyncAllDropboxResponse(BaseModel):
+    trabajadores: dict | None = None
+    legal: dict | None = None
+    f29: dict | None = None
+    f22: dict | None = None
+    estados_financieros: dict | None = None
+    errors: list[str] = []
+
+
+@router.post(
+    "/{empresa_codigo}/sync-all-dropbox",
+    response_model=SyncAllDropboxResponse,
+)
+async def sync_all_dropbox(
+    empresa_codigo: str,
+    user: Annotated[
+        AuthenticatedUser, Depends(require_scope("integration:write"))
+    ],
+    db: DBSession,
+) -> SyncAllDropboxResponse:
+    """Corre todos los syncs Dropbox de la empresa en una transacción.
+
+    Cada sub-sync atrapa sus errores y los acumula en `errors[]` sin
+    abortar los demás. Idempotente — si re-corres no duplica nada.
+    """
+    # Validar empresa
+    await _get_empresa(db, empresa_codigo)
+
+    response = SyncAllDropboxResponse()
+
+    # Importar perezosamente para evitar circular dependencies
+    try:
+        from app.services.dropbox_service import (
+            DropboxNotConfigured,
+            DropboxService,
+        )
+        from app.services.dropbox_sync_service import DropboxSyncService
+
+        dbx = DropboxService()
+        svc = DropboxSyncService(db, dbx)
+    except DropboxNotConfigured as exc:
+        response.errors.append(f"Dropbox no configurado: {exc}")
+        return response
+    except Exception as exc:  # noqa: BLE001
+        response.errors.append(f"Init Dropbox: {exc}")
+        return response
+
+    # 1. Trabajadores
+    try:
+        result = await svc.sync_trabajadores(empresa_codigo)
+        response.trabajadores = result.to_dict()
+    except Exception as exc:  # noqa: BLE001
+        response.errors.append(f"Trabajadores: {exc}")
+
+    # 2. Legal
+    try:
+        result = await svc.sync_legal(empresa_codigo)
+        response.legal = result.to_dict()
+    except Exception as exc:  # noqa: BLE001
+        response.errors.append(f"Legal: {exc}")
+
+    # 3. F29
+    try:
+        result = await svc.sync_f29(empresa_codigo)
+        response.f29 = result.to_dict()
+    except Exception as exc:  # noqa: BLE001
+        response.errors.append(f"F29: {exc}")
+
+    # 4. Estados Financieros
+    try:
+        if hasattr(svc, "sync_estados_financieros"):
+            result = await svc.sync_estados_financieros(empresa_codigo)
+            response.estados_financieros = result.to_dict()
+    except Exception as exc:  # noqa: BLE001
+        response.errors.append(f"EEFF: {exc}")
+
+    # 5. F22 (módulo independiente — invocamos la lógica acá inline para
+    # mantener este endpoint como single-stop)
+    try:
+        from datetime import date as _date
+
+        root = (
+            f"/Cehta Capital/01-Empresas/{empresa_codigo}"
+            f"/03-Legal/Declaraciones SII/F22"
+        )
+        items = dbx.list_folder(root)
+        existing_rows = (
+            await db.execute(
+                text(
+                    "SELECT ano_tributario FROM core.f22_obligaciones "
+                    "WHERE empresa_codigo = :e"
+                ),
+                {"e": empresa_codigo},
+            )
+        ).fetchall()
+        existing: set[int] = {int(r[0]) for r in existing_rows}
+        import re as _re
+
+        pat = _re.compile(r"(20\d{2})")
+        created = 0
+        for it in items:
+            if it.get("type") != "file" or not it.get("name", "").lower().endswith(".pdf"):
+                continue
+            m = pat.search(it["name"])
+            if not m:
+                continue
+            ano = int(m.group(1))
+            if ano in existing:
+                continue
+            await db.execute(
+                text("""
+                    INSERT INTO core.f22_obligaciones (
+                        empresa_codigo, ano_tributario, fecha_vencimiento,
+                        estado, dropbox_path
+                    )
+                    VALUES (:e, :a, :fv, 'pendiente', :p)
+                    ON CONFLICT (empresa_codigo, ano_tributario) DO NOTHING
+                """),
+                {
+                    "e": empresa_codigo,
+                    "a": ano,
+                    "fv": _date(ano + 1, 4, 30),
+                    "p": it.get("path"),
+                },
+            )
+            created += 1
+            existing.add(ano)
+        await db.commit()
+        response.f22 = {"created": created}
+    except Exception as exc:  # noqa: BLE001
+        response.errors.append(f"F22: {exc}")
+        await db.rollback()
+
+    return response
 
 
 # =====================================================================

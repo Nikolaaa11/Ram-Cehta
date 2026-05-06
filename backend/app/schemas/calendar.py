@@ -17,6 +17,7 @@ TipoEvento = Literal[
 
 ObligationTipo = Literal[
     "f29",
+    "f22",  # V5+: declaración anual de impuesto a la renta (vence abril)
     "legal",
     "oc",
     "suscripcion",

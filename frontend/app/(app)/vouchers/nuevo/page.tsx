@@ -27,7 +27,7 @@ import type { Route } from "next";
  * Si enviás directamente a PENDING, el backend rechaza con error legible.
  */
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -89,14 +89,20 @@ const newLine = (): LineDraft => ({
 export default function NuevoVoucherPage() {
   const { session } = useSession();
   const router = useRouter();
+  const params = useSearchParams();
+
+  // Pre-fill desde URL params (caso típico: deeplink desde /admin/mailbox)
+  const initialTipo = (params.get("tipo") as VoucherTipo) ?? "EGRESO";
+  const initialGlosa = params.get("glosa") ?? "";
+  const fromEmailId = params.get("from_email");
 
   // Header state
-  const [tipo, setTipo] = useState<VoucherTipo>("EGRESO");
+  const [tipo, setTipo] = useState<VoucherTipo>(initialTipo);
   const [empresaCodigo, setEmpresaCodigo] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const [fechaDocumento, setFechaDocumento] = useState(today);
   const [fechaContable, setFechaContable] = useState(today);
-  const [glosa, setGlosa] = useState("");
+  const [glosa, setGlosa] = useState(initialGlosa);
   const [contraparteRut, setContraparteRut] = useState("");
   const [contraparteNombre, setContraparteNombre] = useState("");
   const [contraparteTipo, setContraparteTipo] = useState<ContraparteTipo>("PROVEEDOR");
@@ -352,6 +358,15 @@ export default function NuevoVoucherPage() {
             Encabezado + N líneas con imputación triple. La partida doble se
             valida en vivo — no podés enviar a aprobación con descuadre.
           </p>
+          {fromEmailId && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-cehta-green/30 bg-cehta-green/5 px-3 py-2 text-xs text-cehta-green">
+              <Send className="h-3.5 w-3.5" strokeWidth={1.75} />
+              <span>
+                Pre-llenado desde inbox · email #{fromEmailId} · al guardar
+                queda DRAFT. Linkealo desde el inbox cuando termines.
+              </span>
+            </div>
+          )}
         </div>
 
         <form onSubmit={(e) => submit("PENDING", e)} className="space-y-6">
