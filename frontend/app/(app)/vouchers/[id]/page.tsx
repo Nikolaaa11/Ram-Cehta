@@ -490,6 +490,52 @@ export default function VoucherDetailPage({ params }: PageProps) {
             }}
           />
         )}
+
+        {/* Footer notarial — solo visible al imprimir.
+            Refuerza la trazabilidad legal del PDF generado. */}
+        <div className="hidden print:block mt-8 border-t border-ink-300 pt-4 text-[9pt]">
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <p className="font-semibold uppercase tracking-wider mb-1">
+                Documento contable formal
+              </p>
+              <p className="text-ink-600">
+                Voucher código:{" "}
+                <span className="font-mono font-semibold">{voucher.codigo}</span>
+              </p>
+              <p className="text-ink-600">
+                Empresa:{" "}
+                <span className="font-mono font-semibold">
+                  {voucher.empresa_codigo}
+                </span>
+              </p>
+              <p className="text-ink-600">
+                Estado:{" "}
+                <span className="font-semibold">{voucher.status}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-semibold uppercase tracking-wider mb-1">
+                Verificación de integridad
+              </p>
+              <p className="text-ink-600 break-all">
+                Generado:{" "}
+                <span className="font-mono">
+                  {new Date().toISOString().slice(0, 19)}Z
+                </span>
+              </p>
+              <p className="text-ink-600">
+                URL canonical:
+              </p>
+              <p className="font-mono text-[8pt] text-ink-500">
+                cehta-capital.vercel.app/vouchers/{voucher.voucher_id}
+              </p>
+              <p className="mt-2 italic text-ink-500">
+                Firmas SHA-256 disponibles en el sistema.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

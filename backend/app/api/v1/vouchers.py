@@ -1241,6 +1241,200 @@ async def reject_voucher(
     return await get_voucher_approvals_state(user, db, voucher_id)
 
 
+# ============================================================================
+# Bulk approve — V5+: firma múltiples vouchers PENDING con un solo rol
+# ============================================================================
+
+
+class BulkApproveRequest(BaseModel):
+    """POST /vouchers/bulk-approve — firma N vouchers con el mismo rol.
+
+    Caso de uso: el COO (Nicolás) revisa la cola de vouchers PENDING
+    al final del día y firma todos los que ya validó técnicamente.
+    Cada voucher se valida individualmente — si uno falla, no aborta
+    el resto.
+    """
+
+    voucher_ids: list[int] = Field(..., min_length=1, max_length=100)
+    role: str = Field(description="Rol con el que firma (debe estar activo en cada empresa)")
+
+
+class BulkApproveItemResult(BaseModel):
+    voucher_id: int
+    success: bool
+    error: str | None = None
+    new_status: str | None = None
+
+
+class BulkApproveResponse(BaseModel):
+    total: int
+    succeeded: int
+    failed: int
+    items: list[BulkApproveItemResult]
+
+
+@router.post(
+    "/vouchers/bulk-approve",
+    response_model=BulkApproveResponse,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def bulk_approve_vouchers(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    request: Request,
+    body: BulkApproveRequest,
+) -> BulkApproveResponse:
+    """Firma múltiples vouchers con el rol indicado. Operación best-effort:
+    cada voucher se procesa en su propia transacción; los que fallan no
+    abortan los exitosos.
+
+    Validaciones por voucher (mismas que /approve individual):
+    - Voucher existe y está en PENDING
+    - User tiene el rol activo en la empresa del voucher
+    - El rol corresponde al próximo paso pendiente del flujo
+    - Una vez firmado el último paso, el voucher pasa a APPROVED
+
+    Idempotente: si un voucher ya fue firmado por este user con este rol,
+    no falla — devuelve success=True con su status actual.
+    """
+    items: list[BulkApproveItemResult] = []
+
+    # Pre-cargar user_id real una sola vez
+    user_sub = str(user.sub)
+
+    for vid in body.voucher_ids:
+        try:
+            voucher = await db.get(Voucher, vid)
+            if voucher is None:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error="Voucher no encontrado",
+                ))
+                continue
+            if voucher.status != "PENDING":
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error=f"Status {voucher.status} (solo PENDING acepta firmas)",
+                    new_status=voucher.status,
+                ))
+                continue
+
+            user_roles = await load_user_roles_for_empresa(
+                db, user_sub, voucher.empresa_codigo
+            )
+            if body.role not in user_roles:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error=(
+                        f"Sin rol '{body.role}' en {voucher.empresa_codigo}"
+                    ),
+                ))
+                continue
+
+            rules = await load_active_rules(db, voucher.empresa_codigo)
+            bt = await get_voucher_balance_treatment_dominante(db, vid)
+            rule = find_matching_rule(
+                rules,
+                voucher_tipo=voucher.tipo,
+                voucher_amount=voucher.total_debit,
+                balance_treatment_dominante=bt,
+            )
+            if rule is None:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error="Sin regla de aprobación configurada",
+                ))
+                continue
+
+            required_roles = list(rule["required_roles"])
+            approvals_raw = await get_voucher_approvals(db, vid)
+            approved_orders = {
+                a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
+            }
+
+            # Próximo paso pendiente
+            next_order = None
+            expected_role = None
+            for i, role in enumerate(required_roles, start=1):
+                if i not in approved_orders:
+                    next_order = i
+                    expected_role = role
+                    break
+
+            if next_order is None:
+                # Ya tiene todas las firmas — no debería estar PENDING
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=True,
+                    new_status=voucher.status,
+                    error="Ya tenía todas las firmas (no-op)",
+                ))
+                continue
+
+            if expected_role != body.role:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error=(
+                        f"Próximo rol esperado: '{expected_role}', "
+                        f"vos firmás como '{body.role}'"
+                    ),
+                ))
+                continue
+
+            # Anti-doble-firma: si flow tiene múltiples roles, mismo user
+            # no puede firmar dos pasos. Skipear este voucher.
+            user_already_signed = any(
+                a["approver_user_id"] == user_sub for a in approvals_raw
+            )
+            if user_already_signed and len(required_roles) > 1:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error=(
+                        "Ya firmaste este voucher con otro rol "
+                        "(separación de responsabilidades)"
+                    ),
+                ))
+                continue
+
+            # Firmar (mismo flow que /approve individual)
+            await record_approval_signature(
+                db,
+                voucher_id=vid,
+                voucher_codigo=voucher.codigo,
+                approver_user_id=user_sub,
+                role=body.role,
+                order_num=next_order,
+                decision="APPROVED",
+                ip_address=_client_ip(request),
+                user_agent=request.headers.get("user-agent"),
+                comments=None,
+            )
+
+            # Si firmó el último paso → APPROVED
+            if next_order == len(required_roles):
+                voucher.status = "APPROVED"
+                voucher.threshold_aplicado = compute_threshold_aplicado(rule)
+
+            items.append(BulkApproveItemResult(
+                voucher_id=vid, success=True,
+                new_status=voucher.status,
+            ))
+        except Exception as exc:  # noqa: BLE001
+            items.append(BulkApproveItemResult(
+                voucher_id=vid, success=False,
+                error=f"Error inesperado: {exc}",
+            ))
+
+    await db.commit()
+
+    succeeded = sum(1 for r in items if r.success)
+    return BulkApproveResponse(
+        total=len(body.voucher_ids),
+        succeeded=succeeded,
+        failed=len(body.voucher_ids) - succeeded,
+        items=items,
+    )
+
+
 # Forward reference resolution para datetime no usado pero importado por
 # Voucher/VoucherLine schemas (ruff F401 lo flaggearía sino).
 _ = datetime

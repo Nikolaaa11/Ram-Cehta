@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient } from "@/lib/api/client";
 
@@ -46,5 +46,28 @@ export function useMailboxPendingCount() {
     pending,
     imapConfigured: data?.imap_configured ?? false,
     isLoading: query.isLoading,
+  };
+}
+
+/**
+ * useMailboxPrefetch — calienta cache TanStack al hacer hover/focus en
+ * el link del sidebar. Cuando el user clickea, la lista ya está lista.
+ *
+ * Idempotente: si ya hay datos frescos en cache, no hace nada.
+ */
+export function useMailboxPrefetch() {
+  const { session } = useSession();
+  const qc = useQueryClient();
+  return () => {
+    qc.prefetchQuery({
+      queryKey: ["mailbox", "", ""],
+      queryFn: () => apiClient.get("/admin/mailbox", session),
+      staleTime: 30_000,
+    });
+    qc.prefetchQuery({
+      queryKey: ["mailbox", "status"],
+      queryFn: () => apiClient.get("/admin/mailbox/status", session),
+      staleTime: 30_000,
+    });
   };
 }

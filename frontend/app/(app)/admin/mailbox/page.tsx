@@ -221,12 +221,34 @@ export default function MailboxPage() {
         { reason: "archived_manual" },
         session,
       ),
+    // Optimistic: UI cambia status='archived' INSTANTÁNEAMENTE.
+    // Si falla, restauramos en onError.
+    onMutate: async (id: number) => {
+      await qc.cancelQueries({ queryKey: ["mailbox"] });
+      const prevSnapshots = qc.getQueriesData<MailboxItem[]>({
+        queryKey: ["mailbox"],
+      });
+      qc.setQueriesData<MailboxItem[]>(
+        { queryKey: ["mailbox"] },
+        (old) =>
+          old?.map((it) =>
+            it.inbox_id === id ? { ...it, status: "archived" } : it,
+          ),
+      );
+      return { prevSnapshots };
+    },
     onSuccess: () => {
       toast.success("Email archivado");
       setSelectedId(null);
       qc.invalidateQueries({ queryKey: ["mailbox"] });
     },
-    onError: (e: unknown) => {
+    onError: (e: unknown, _id, ctx) => {
+      // Rollback al snapshot pre-mutation
+      if (ctx?.prevSnapshots) {
+        ctx.prevSnapshots.forEach(([key, data]) => {
+          qc.setQueryData(key, data);
+        });
+      }
       const detail = e instanceof ApiError ? e.detail : "Error desconocido";
       toast.error(`No se pudo archivar: ${detail}`);
     },

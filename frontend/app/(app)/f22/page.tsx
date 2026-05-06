@@ -179,13 +179,36 @@ export default function F22Page() {
         },
         session,
       ),
-    onMutate: (id: number) => setMarkingPaidId(id),
+    // Optimistic update — UI muestra "pagado" instante; rollback si falla.
+    onMutate: async (id: number) => {
+      setMarkingPaidId(id);
+      await qc.cancelQueries({ queryKey: ["f22"] });
+      const prev = qc.getQueriesData<PageF22>({ queryKey: ["f22"] });
+      const today = new Date().toISOString().slice(0, 10);
+      qc.setQueriesData<PageF22>({ queryKey: ["f22"] }, (old) =>
+        old
+          ? {
+              ...old,
+              items: old.items.map((it) =>
+                it.f22_id === id
+                  ? { ...it, estado: "pagado", fecha_pago: today }
+                  : it,
+              ),
+            }
+          : old,
+      );
+      return { prev };
+    },
     onSettled: () => setMarkingPaidId(null),
     onSuccess: () => {
       toast.success("Marcado como pagado");
       qc.invalidateQueries({ queryKey: ["f22"] });
     },
-    onError: (e: unknown) => {
+    onError: (e: unknown, _id, ctx) => {
+      // Rollback
+      if (ctx?.prev) {
+        ctx.prev.forEach(([key, data]) => qc.setQueryData(key, data));
+      }
       const detail = e instanceof ApiError ? e.detail : "Error desconocido";
       toast.error(`No se pudo marcar pagado: ${detail}`);
     },

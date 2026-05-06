@@ -47,7 +47,8 @@ import { useMe } from "@/hooks/use-me";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
-import { useMailboxPendingCount } from "@/hooks/use-mailbox";
+import { useMailboxPendingCount, useMailboxPrefetch } from "@/hooks/use-mailbox";
+import { useF22Prefetch } from "@/hooks/use-f22";
 import {
   useCriticalEntregablesCount,
   useEntregablesPrefetch,
@@ -364,6 +365,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const criticalEntregablesCount = useCriticalEntregablesCount();
   const { pending: mailboxPending } = useMailboxPendingCount();
   const prefetchEntregables = useEntregablesPrefetch();
+  const prefetchMailbox = useMailboxPrefetch();
+  const prefetchF22 = useF22Prefetch();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
@@ -423,10 +426,16 @@ export function AppSidebar({ email }: AppSidebarProps) {
                   mailboxPending > 0;
                 // Prefetch on hover para rutas con datos pesados.
                 // V4 fase 7.5 — calienta cache TanStack antes del click.
+                // V5+ extendido a /admin/mailbox y /f22 (lists costosas).
+                const hrefStr = String(item.href);
                 const onMouseEnter =
-                  String(item.href) === "/entregables"
+                  hrefStr === "/entregables"
                     ? prefetchEntregables
-                    : undefined;
+                    : hrefStr === "/admin/mailbox"
+                      ? prefetchMailbox
+                      : hrefStr === "/f22"
+                        ? prefetchF22
+                        : undefined;
                 return (
                   <Link
                     key={item.href}

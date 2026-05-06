@@ -29,6 +29,7 @@ import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { extractMontoFromText, extractRutFromText } from "@/lib/extract";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -116,6 +117,67 @@ export default function NuevoVoucherPage() {
     { ...newLine() },
     { ...newLine() },
   ]);
+
+  // V5+ AI auto-fill: si vino con `?from_email=ID`, fetcheamos el email
+  // y pre-llenamos contraparte (RUT/nombre), monto sugerido, glosa.
+  // El user revisa y confirma — nunca enviamos a aprobación automático.
+  const { data: emailData } = useQuery<{
+    from_email: string;
+    from_name: string | null;
+    subject: string;
+    body_text: string | null;
+    ai_summary: string | null;
+    ai_suggested_action: string | null;
+  }>({
+    queryKey: ["mailbox-detail-for-voucher", fromEmailId],
+    queryFn: () =>
+      apiClient.get(`/admin/mailbox/${fromEmailId}`, session),
+    enabled: !!session && !!fromEmailId,
+    staleTime: 5 * 60_000,
+  });
+
+  // Cuando llegan los datos del email, auto-llenar campos vacíos.
+  // Solo llenamos si el campo está vacío para no pisar lo que el user editó.
+  useEffect(() => {
+    if (!emailData) return;
+
+    const haystack = [
+      emailData.subject,
+      emailData.body_text ?? "",
+      emailData.ai_summary ?? "",
+    ].join("\n");
+
+    // Glosa: usar resumen AI si existe, sino subject
+    if (!glosa) {
+      setGlosa(emailData.ai_summary?.slice(0, 200) ?? emailData.subject);
+    }
+
+    // Contraparte: nombre del remitente
+    if (!contraparteNombre && emailData.from_name) {
+      setContraparteNombre(emailData.from_name);
+    }
+
+    // RUT detectado en el cuerpo
+    if (!contraparteRut) {
+      const rutFound = extractRutFromText(haystack);
+      if (rutFound) setContraparteRut(rutFound);
+    }
+
+    // Monto detectado → pre-llenar como CRÉDITO en la primera línea
+    // (porque tipo COMPRA/EGRESO típicamente debita gastos y acredita
+    // proveedor). El user ajusta si no aplica.
+    const montoFound = extractMontoFromText(haystack);
+    if (montoFound && lines.length >= 1 && !lines[0]!.credit && !lines[0]!.debit) {
+      setLines((prev) => {
+        const next = [...prev];
+        next[0] = { ...next[0]!, credit: String(montoFound) };
+        return next;
+      });
+    }
+    // intencional: solo corre cuando llega emailData; no incluir lines/etc
+    // porque queremos que el user pueda editar sin que se sobrescriba.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emailData?.subject]);
 
   const [submitting, setSubmitting] = useState(false);
 
