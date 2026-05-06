@@ -23,6 +23,7 @@ migración 0042. Por ahora con BTREE compuesto sub-ms es suficiente.
 from __future__ import annotations
 
 from alembic import op
+from sqlalchemy import text
 
 revision: str = "0041"
 down_revision: str | None = "0040"
@@ -30,6 +31,11 @@ branch_labels = None
 depends_on = None
 
 
+# NOTA: Los índices se crean DEFENSIVAMENTE con IF NOT EXISTS y nombres
+# nuevos para no chocar con índices preexistentes de migrations 0035 (que
+# ya creó algunos en voucher_lines). Si una tabla/columna no existe en el
+# entorno (ej: migration aún no aplicada), el índice individual falla y
+# pasamos al siguiente — el upgrade NO aborta por uno solo.
 _INDICES: list[tuple[str, str]] = [
     # Vouchers — hot path: list filtrado por empresa + status + fecha
     (
@@ -43,27 +49,8 @@ _INDICES: list[tuple[str, str]] = [
         "CREATE INDEX IF NOT EXISTS ix_vouchers_fecha_contable "
         "ON core.vouchers(fecha_contable DESC) WHERE status IN ('APPROVED','EXECUTED','SYNCED')",
     ),
-    # Voucher lines — JOIN frecuente con vouchers + filter cuenta_codigo
-    (
-        "ix_voucher_lines_voucher",
-        "CREATE INDEX IF NOT EXISTS ix_voucher_lines_voucher "
-        "ON core.voucher_lines(voucher_id, line_number)",
-    ),
-    (
-        "ix_voucher_lines_cuenta",
-        "CREATE INDEX IF NOT EXISTS ix_voucher_lines_cuenta "
-        "ON core.voucher_lines(cuenta_codigo)",
-    ),
-    (
-        "ix_voucher_lines_proyecto",
-        "CREATE INDEX IF NOT EXISTS ix_voucher_lines_proyecto "
-        "ON core.voucher_lines(proyecto_codigo) WHERE proyecto_codigo IS NOT NULL",
-    ),
-    (
-        "ix_voucher_lines_area",
-        "CREATE INDEX IF NOT EXISTS ix_voucher_lines_area "
-        "ON core.voucher_lines(area_codigo) WHERE area_codigo IS NOT NULL",
-    ),
+    # NOTA: ix_voucher_lines_cuenta / _proyecto / _area ya existen desde
+    # migration 0035 (vouchers_core). No los re-creamos.
     # Voucher approvals — flujo de firma + audit
     (
         "ix_voucher_approvals_voucher",
@@ -86,11 +73,13 @@ _INDICES: list[tuple[str, str]] = [
         "CREATE INDEX IF NOT EXISTS ix_inbox_linked_oc "
         "ON core.inbox_messages(linked_oc_id) WHERE linked_oc_id IS NOT NULL",
     ),
-    # Movimientos — conciliación bancaria busca por monto+fecha+empresa
+    # Movimientos — conciliación bancaria busca por empresa + fecha.
+    # Columnas reales: `abono`, `egreso` (no `monto`). El reconcile
+    # filtra por fecha+empresa y matchea monto en código.
     (
-        "ix_movimientos_empresa_fecha_monto",
-        "CREATE INDEX IF NOT EXISTS ix_movimientos_empresa_fecha_monto "
-        "ON core.movimientos(empresa_codigo, fecha, monto)",
+        "ix_movimientos_empresa_fecha",
+        "CREATE INDEX IF NOT EXISTS ix_movimientos_empresa_fecha "
+        "ON core.movimientos(empresa_codigo, fecha DESC)",
     ),
     # F29 — list filtrado por empresa + estado + vencimiento
     (
@@ -106,7 +95,7 @@ _INDICES: list[tuple[str, str]] = [
         "ON core.plan_cuenta_empresa(empresa_codigo, habilitada) "
         "WHERE habilitada = TRUE",
     ),
-    # Approval rules — buscar regla matching por (empresa, balance_treatment, monto)
+    # Approval rules — buscar regla matching por (empresa, activa).
     (
         "ix_approval_rules_empresa_active",
         "CREATE INDEX IF NOT EXISTS ix_approval_rules_empresa_active "
@@ -123,12 +112,39 @@ _INDICES: list[tuple[str, str]] = [
 
 
 def upgrade() -> None:
+    """Crea índices de performance V5+. Defensivo: si una tabla/columna no
+    existe (entorno con migration anterior pendiente), ese índice se skipea
+    y continuamos con el resto. Cada CREATE INDEX en su propia "transacción"
+    (autocommit) — necesario para CONCURRENTLY.
+    """
+    import logging
+
+    log = logging.getLogger("alembic")
+
     # Cerrar la transacción de Alembic para CONCURRENTLY
     op.execute("COMMIT")
-    for _name, ddl in _INDICES:
+    bind = op.get_bind()
+
+    for name, ddl in _INDICES:
         # Reemplazamos CREATE INDEX por CREATE INDEX CONCURRENTLY
         ddl_concurrent = ddl.replace("CREATE INDEX ", "CREATE INDEX CONCURRENTLY ")
-        op.execute(ddl_concurrent)
+        try:
+            bind.execute(text(ddl_concurrent))
+        except Exception as exc:
+            # Tabla/columna no existe → skip; cualquier otro error → re-raise.
+            msg = str(exc).lower()
+            if "does not exist" in msg or "undefined" in msg:
+                log.warning(
+                    "0041: skipping index %s (schema mismatch): %s", name, exc
+                )
+                # Asegurar que la conexión vuelve a estado limpio
+                try:
+                    bind.execute(text("ROLLBACK"))
+                except Exception:
+                    pass
+            else:
+                raise
+
     # Reabrir para que Alembic pueda escribir en alembic_version
     op.execute("BEGIN")
 
