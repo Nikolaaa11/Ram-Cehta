@@ -7,6 +7,7 @@
  */
 import type { Route } from "next";
 import {
+  Activity,
   Banknote,
   Building2,
   Database,
@@ -154,6 +155,15 @@ export default async function AdminLandingPage() {
           icon={Banknote}
           metric="V5++"
           metricLabel="OCR pipeline"
+          tone="default"
+        />
+        <AdminCard
+          href={"/admin/health" as Route}
+          title="Health del sistema"
+          description="Status DB + servicios externos (IMAP/Claude/Dropbox/Resend) + counts operativos. Polling 30s."
+          icon={Activity}
+          metric="Live"
+          metricLabel="auto-refresh"
           tone="default"
         />
       </div>
