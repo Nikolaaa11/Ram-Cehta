@@ -105,6 +105,43 @@ function actionVariant(
   }
 }
 
+/**
+ * V5++ ola T: badge color por entity_type para visual scanning rápido
+ * en /admin/audit. Cada familia de entidad tiene un tono distinto.
+ */
+function entityTypeColor(entityType: string): string {
+  // Vouchers/contabilidad — verde Cehta (core del producto V5)
+  if (entityType.startsWith("voucher")) {
+    return "bg-cehta-green/10 text-cehta-green";
+  }
+  // Tributario — ámbar (alertas naturales)
+  if (entityType.startsWith("f29") || entityType.startsWith("f22")) {
+    return "bg-amber-100 text-amber-700";
+  }
+  // V5+/V5++ inbox + cartolas — púrpura
+  if (entityType === "inbox_message" || entityType.startsWith("cartola")) {
+    return "bg-purple-100 text-purple-700";
+  }
+  // Operativo OCs — azul
+  if (entityType.startsWith("orden_compra") || entityType === "proveedor") {
+    return "bg-blue-100 text-blue-700";
+  }
+  // Personas — rosa
+  if (entityType.startsWith("trabajador") || entityType === "empresa") {
+    return "bg-rose-100 text-rose-700";
+  }
+  // Legal — gris oscuro
+  if (entityType.startsWith("legal")) {
+    return "bg-ink-200 text-ink-800";
+  }
+  // Entregables regulatorios — teal
+  if (entityType.startsWith("entregable")) {
+    return "bg-teal-100 text-teal-700";
+  }
+  // Default neutral
+  return "bg-ink-100 text-ink-700";
+}
+
 function TableSkeleton() {
   return (
     <Surface padding="none" className="overflow-hidden">
@@ -489,7 +526,11 @@ export function AuditActionsTable() {
                       </Badge>
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-ink-700">
-                      <span className="font-medium">{it.entity_type}</span>
+                      <span
+                        className={`inline-block rounded-md px-2 py-0.5 text-[11px] font-medium ${entityTypeColor(it.entity_type)}`}
+                      >
+                        {it.entity_type}
+                      </span>
                       {it.entity_label && (
                         <span className="ml-1.5 text-ink-500">
                           · {it.entity_label}

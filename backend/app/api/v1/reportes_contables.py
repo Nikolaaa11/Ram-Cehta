@@ -780,3 +780,117 @@ async def get_consolidado_fondo_html(
     )
     return HTMLResponse(content=html)
 
+
+
+@router.get(
+    "/reportes/contables/index",
+    response_model=list[dict],
+)
+async def get_reportes_index(
+    user: CurrentUser,
+    db: DBSession,
+) -> list[dict]:
+    """Lista los 12 reportes contables disponibles con metadata.
+
+    Útil para integraciones externas (ej: API tokens) que quieran descubrir
+    los reportes accesibles. También sirve como sitemap interno.
+    """
+    return [
+        {
+            "id": "libro-diario",
+            "title": "Libro Diario",
+            "description": "Asientos cronológicos voucher_lines APPROVED+",
+            "html_endpoint": "/api/v1/reportes/contables/libro-diario.html",
+            "params": ["empresa_codigo", "fecha_desde", "fecha_hasta"],
+            "uso_tipico": "SII / Contador externo",
+        },
+        {
+            "id": "balance-prueba",
+            "title": "Balance de Prueba",
+            "description": "Saldos por cuenta + verificación Σdebe=Σhaber",
+            "html_endpoint": "/api/v1/reportes/contables/balance-prueba.html",
+            "params": ["empresa_codigo", "fecha_desde", "fecha_hasta"],
+            "uso_tipico": "Cuadre contable",
+        },
+        {
+            "id": "cierre-mensual",
+            "title": "Cierre Mensual",
+            "description": "Checklist + KPIs operativos del mes",
+            "html_endpoint": "/api/v1/reportes/contables/cierre-mensual.html",
+            "params": ["empresa_codigo", "anio", "mes"],
+            "uso_tipico": "Cierre operativo mensual",
+        },
+        {
+            "id": "cashflow-mensual",
+            "title": "Cashflow Mensual",
+            "description": "Entradas vs salidas mes a mes + saldo acumulado",
+            "html_endpoint": "/api/v1/reportes/contables/cashflow-mensual.html",
+            "params": ["empresa_codigo", "anio"],
+            "uso_tipico": "Análisis de flujo",
+        },
+        {
+            "id": "pl-mensual",
+            "title": "P&L Mensual",
+            "description": "Ingresos (4-*) vs Gastos (5-*) por mes + margen",
+            "html_endpoint": "/api/v1/reportes/contables/pl-mensual.html",
+            "params": ["empresa_codigo", "anio"],
+            "uso_tipico": "Margen mes a mes",
+        },
+        {
+            "id": "estado-resultados",
+            "title": "Estado de Resultados",
+            "description": "ER anual jerárquico + resultado del ejercicio",
+            "html_endpoint": "/api/v1/reportes/contables/estado-resultados.html",
+            "params": ["empresa_codigo", "anio"],
+            "uso_tipico": "F22 SII / cierre anual",
+        },
+        {
+            "id": "balance-general",
+            "title": "Balance General",
+            "description": "Activo / Pasivo / Patrimonio a fecha de corte",
+            "html_endpoint": "/api/v1/reportes/contables/balance-general.html",
+            "params": ["empresa_codigo", "fecha_corte"],
+            "uso_tipico": "Análisis patrimonial",
+        },
+        {
+            "id": "consolidado-fondo",
+            "title": "Consolidado del Fondo",
+            "description": "Agregado de las 9 empresas del portafolio",
+            "html_endpoint": "/api/v1/reportes/contables/consolidado-fondo.html",
+            "params": ["anio"],
+            "uso_tipico": "Reportería al fondo / comité",
+        },
+        {
+            "id": "libro-mayor-json",
+            "title": "Libro Mayor (JSON legacy)",
+            "description": "Movimientos cuenta x cuenta + saldos apertura/cierre",
+            "json_endpoint": "/api/v1/reportes/contables/libro-mayor",
+            "params": ["empresa", "cuenta", "fecha_desde", "fecha_hasta"],
+            "uso_tipico": "Análisis de cuenta específica",
+        },
+        {
+            "id": "pl-proyecto-json",
+            "title": "P&L por Proyecto (JSON)",
+            "description": "Rentabilidad por proyecto contable",
+            "json_endpoint": "/api/v1/reportes/contables/pl-proyecto",
+            "params": ["empresa", "fecha_desde", "fecha_hasta"],
+            "uso_tipico": "Análisis por proyecto",
+        },
+        {
+            "id": "pl-area-json",
+            "title": "P&L por Área (JSON)",
+            "description": "Rentabilidad por centro de costo",
+            "json_endpoint": "/api/v1/reportes/contables/pl-area",
+            "params": ["empresa", "fecha_desde", "fecha_hasta"],
+            "uso_tipico": "Centros de costo",
+        },
+        {
+            "id": "rendicion-corfo-json",
+            "title": "Rendición CORFO (JSON)",
+            "description": "Desglose por tipo de gasto para proyecto CORFO",
+            "json_endpoint": "/api/v1/reportes/contables/rendicion-corfo",
+            "params": ["proyecto", "fecha_desde", "fecha_hasta"],
+            "uso_tipico": "Subsidios I+D",
+        },
+    ]
+
