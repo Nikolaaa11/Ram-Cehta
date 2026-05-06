@@ -15,13 +15,15 @@
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
+  FileSignature,
   FileText,
+  Loader2,
   Plus,
   Receipt,
   RotateCcw,
@@ -29,8 +31,9 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { apiClient } from "@/lib/api/client";
+import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import type {
   VoucherListItem,
@@ -130,12 +133,57 @@ const fmt = (v: number, moneda: string) =>
 
 export default function VouchersListPage() {
   const { session } = useSession();
+  const qc = useQueryClient();
   const [empresaFilter, setEmpresaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState<VoucherTipo | "">("");
   const [estadoFilter, setEstadoFilter] = useState<VoucherStatus | "">("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [search, setSearch] = useState("");
+  // Bulk approve state — solo aparece cuando estado=PENDING está seleccionado
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkRole, setBulkRole] = useState<string>("CONTADOR");
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const bulkApproveMut = useMutation({
+    mutationFn: (payload: { voucher_ids: number[]; role: string }) =>
+      apiClient.post<{
+        total: number;
+        succeeded: number;
+        failed: number;
+        items: { voucher_id: number; success: boolean; error: string | null }[];
+      }>("/vouchers/bulk-approve", payload, session),
+    onSuccess: (data) => {
+      if (data.failed === 0) {
+        toast.success(
+          `${data.succeeded}/${data.total} vouchers firmados como ${bulkRole}`,
+        );
+      } else {
+        toast.success(
+          `${data.succeeded} firmados · ${data.failed} fallaron — revisar detalles en consola`,
+        );
+        // Mostramos los errores en consola para debug
+        const errors = data.items.filter((i) => !i.success);
+        // eslint-disable-next-line no-console
+        console.warn("Bulk approve errors:", errors);
+      }
+      setSelectedIds(new Set());
+      qc.invalidateQueries({ queryKey: ["vouchers"] });
+      qc.invalidateQueries({ queryKey: ["vouchers-kpis"] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
+      toast.error(`Bulk approve falló: ${detail}`);
+    },
+  });
 
   const { data: empresas } = useQuery<Empresa[]>({
     queryKey: ["empresas"],
@@ -343,9 +391,66 @@ export default function VouchersListPage() {
           </p>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
+            {/* Bulk approve toolbar — aparece cuando hay seleccionados.
+                El checkbox por fila solo aparece cuando estadoFilter="PENDING". */}
+            {estadoFilter === "PENDING" && selectedIds.size > 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-b border-cehta-green/30 bg-cehta-green/5 px-4 py-3">
+                <FileSignature
+                  className="h-4 w-4 text-cehta-green"
+                  strokeWidth={1.75}
+                />
+                <span className="text-sm font-semibold text-cehta-green">
+                  {selectedIds.size} vouchers seleccionados
+                </span>
+                <span className="text-xs text-ink-500">
+                  · Firmar como rol:
+                </span>
+                <select
+                  value={bulkRole}
+                  onChange={(e) => setBulkRole(e.target.value)}
+                  className="rounded-lg border-0 bg-white px-3 py-1 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                >
+                  <option value="CONTADOR">CONTADOR</option>
+                  <option value="COO">COO</option>
+                  <option value="CEO">CEO</option>
+                  <option value="GP">GP (Director)</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() =>
+                    bulkApproveMut.mutate({
+                      voucher_ids: Array.from(selectedIds),
+                      role: bulkRole,
+                    })
+                  }
+                  disabled={bulkApproveMut.isPending}
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {bulkApproveMut.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2
+                      className="h-3.5 w-3.5"
+                      strokeWidth={1.75}
+                    />
+                  )}
+                  Firmar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-cehta-green/70 hover:text-cehta-green"
+                >
+                  Limpiar
+                </button>
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead className="bg-ink-50/60 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
+                  {estadoFilter === "PENDING" && (
+                    <th className="w-8 px-3 py-3"></th>
+                  )}
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Fecha</th>
@@ -362,11 +467,27 @@ export default function VouchersListPage() {
                   return (
                     <tr
                       key={v.voucher_id}
-                      className="cursor-pointer transition-colors hover:bg-ink-50/40"
+                      className={`cursor-pointer transition-colors hover:bg-ink-50/40 ${
+                        selectedIds.has(v.voucher_id)
+                          ? "bg-cehta-green/5"
+                          : ""
+                      }`}
                       onClick={() => {
                         window.location.href = `/vouchers/${v.voucher_id}`;
                       }}
                     >
+                      {estadoFilter === "PENDING" && (
+                        <td className="w-8 px-3 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(v.voucher_id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => toggleSelect(v.voucher_id)}
+                            aria-label={`Seleccionar voucher ${v.codigo}`}
+                            className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <code className="font-mono text-xs tabular-nums text-ink-700">
                           {v.codigo}
