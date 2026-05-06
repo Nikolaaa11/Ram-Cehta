@@ -13,6 +13,8 @@ import {
   Wallet,
   Loader2,
   CornerDownLeft,
+  Mail,
+  CalendarClock,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
@@ -23,28 +25,37 @@ const ICON_BY_ENTITY: Record<SearchEntityType, React.ElementType> = {
   orden_compra: FileText,
   proveedor: Briefcase,
   f29: Receipt,
+  f22: CalendarClock,
   trabajador: Users,
   legal_document: FileText,
   fondo: PieChart,
   suscripcion: Wallet,
+  voucher: Receipt,
+  inbox: Mail,
 };
 
 const LABEL_BY_ENTITY: Record<SearchEntityType, string> = {
   empresa: "Empresas",
   orden_compra: "Órdenes de compra",
   proveedor: "Proveedores",
-  f29: "F29",
+  f29: "F29 mensual",
+  f22: "F22 anual",
   trabajador: "Trabajadores",
   legal_document: "Legal",
   fondo: "Fondos",
   suscripcion: "Suscripciones",
+  voucher: "Vouchers contables",
+  inbox: "Inbox emails",
 };
 
 const ENTITY_ORDER: SearchEntityType[] = [
   "empresa",
+  "voucher",
   "orden_compra",
   "trabajador",
   "f29",
+  "f22",
+  "inbox",
   "legal_document",
   "proveedor",
   "fondo",
@@ -142,7 +153,7 @@ export function CommandPalette({ open, onClose }: Props) {
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar empresas, OCs, trabajadores, F29, fondos…"
+            placeholder="Buscar empresas, vouchers, OCs, F29/F22, emails…"
             className="flex-1 bg-transparent text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none"
           />
           {isLoading && (

@@ -845,10 +845,13 @@ export type SearchEntityType =
   | "orden_compra"
   | "proveedor"
   | "f29"
+  | "f22"
   | "trabajador"
   | "legal_document"
   | "fondo"
-  | "suscripcion";
+  | "suscripcion"
+  | "voucher"
+  | "inbox";
 
 export interface SearchHit {
   entity_type: SearchEntityType;

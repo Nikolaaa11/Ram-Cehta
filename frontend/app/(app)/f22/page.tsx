@@ -30,6 +30,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface F22Item {
   f22_id: number;
@@ -418,7 +419,32 @@ export default function F22Page() {
       {/* Tabla */}
       <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
         {isLoading ? (
-          <p className="p-8 text-sm text-ink-500">Cargando F22…</p>
+          <table className="w-full text-sm">
+            <thead className="bg-ink-50/60 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+              <tr>
+                <th className="px-3 py-2">Empresa</th>
+                <th className="px-3 py-2">Año</th>
+                <th className="px-3 py-2">Vencimiento</th>
+                <th className="px-3 py-2 text-right">Monto</th>
+                <th className="px-3 py-2">Estado</th>
+                <th className="px-3 py-2">Pago</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-3 py-2"><Skeleton className="h-3 w-16" /></td>
+                  <td className="px-3 py-2"><Skeleton className="h-3 w-12" /></td>
+                  <td className="px-3 py-2"><Skeleton className="h-3 w-24" /></td>
+                  <td className="px-3 py-2"><Skeleton className="ml-auto h-3 w-20" /></td>
+                  <td className="px-3 py-2"><Skeleton className="h-4 w-20 rounded-full" /></td>
+                  <td className="px-3 py-2"><Skeleton className="h-3 w-20" /></td>
+                  <td className="px-3 py-2 text-right"><Skeleton className="ml-auto h-5 w-24" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : !data?.items?.length ? (
           <div className="flex flex-col items-center gap-3 p-12 text-center">
             <Calendar className="h-10 w-10 text-ink-300" strokeWidth={1.25} />

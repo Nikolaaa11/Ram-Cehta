@@ -37,6 +37,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface MailboxItem {
   inbox_id: number;
@@ -414,7 +415,25 @@ export default function MailboxPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_minmax(0,420px)]">
         <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
           {isLoading ? (
-            <p className="p-8 text-sm text-ink-500">Cargando inbox…</p>
+            <ul className="divide-y divide-hairline">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <li key={i} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <Skeleton className="mt-1 h-3.5 w-3.5 shrink-0 rounded" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-3 w-2/3" />
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                      <Skeleton className="h-4 w-12 rounded-full" />
+                      <Skeleton className="h-2 w-14" />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           ) : !items || items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 p-12 text-center">
               <Inbox

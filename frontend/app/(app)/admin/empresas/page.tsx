@@ -38,6 +38,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { isValidRut, formatRut } from "@/lib/rut";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface EmpresaRead {
   empresa_id: number;
@@ -129,7 +130,28 @@ export default function AdminEmpresasPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,520px)]">
         <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
           {isLoading ? (
-            <p className="p-8 text-sm text-ink-500">Cargando empresas…</p>
+            <table className="w-full text-sm">
+              <thead className="bg-ink-50/60 text-left text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                <tr>
+                  <th className="px-3 py-2">Código</th>
+                  <th className="px-3 py-2">Razón social</th>
+                  <th className="px-3 py-2">RUT</th>
+                  <th className="px-3 py-2">OC prefix</th>
+                  <th className="px-3 py-2"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2"><Skeleton className="h-3 w-16" /></td>
+                    <td className="px-3 py-2"><Skeleton className="h-3 w-48" /></td>
+                    <td className="px-3 py-2"><Skeleton className="h-3 w-24" /></td>
+                    <td className="px-3 py-2"><Skeleton className="h-3 w-12" /></td>
+                    <td className="px-3 py-2 text-right"><Skeleton className="h-5 w-12 ml-auto" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : !empresas?.length ? (
             <p className="p-8 text-sm text-ink-500">
               Sin empresas. Algo está mal en la DB.
