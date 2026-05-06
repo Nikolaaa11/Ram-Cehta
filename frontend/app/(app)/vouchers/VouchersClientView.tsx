@@ -21,6 +21,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
+  Download,
   FileSignature,
   FileText,
   Loader2,
@@ -34,6 +35,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { exportCsv, csvFilename } from "@/lib/csv-export";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import type {
   VoucherListItem,
@@ -292,13 +294,59 @@ export function VouchersClientView({
               hay forma de guardar descuadrado fuera de borrador.
             </p>
           </div>
-          <Link
-            href={"/vouchers/nuevo" as Route}
-            className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.25} />
-            Nuevo voucher
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (!filteredVouchers.length) {
+                  toast.error("Sin vouchers para exportar");
+                  return;
+                }
+                exportCsv({
+                  filename: csvFilename(
+                    `vouchers_${empresaFilter || "all"}`,
+                  ),
+                  headers: [
+                    "Código",
+                    "Empresa",
+                    "Tipo",
+                    "Fecha contable",
+                    "Glosa",
+                    "Contraparte",
+                    "Total débito",
+                    "Total crédito",
+                    "Moneda",
+                    "Estado",
+                  ],
+                  rows: filteredVouchers.map((v) => [
+                    v.codigo,
+                    v.empresa_codigo,
+                    v.tipo,
+                    v.fecha_contable,
+                    v.glosa,
+                    v.contraparte_nombre ?? "",
+                    v.total_debit,
+                    v.total_credit,
+                    v.moneda,
+                    v.status,
+                  ]),
+                });
+                toast.success(`${filteredVouchers.length} vouchers exportados`);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
+              title="Exportar CSV (Excel chileno con BOM UTF-8)"
+            >
+              <Download className="h-4 w-4" strokeWidth={1.75} />
+              Exportar CSV
+            </button>
+            <Link
+              href={"/vouchers/nuevo" as Route}
+              className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.25} />
+              Nuevo voucher
+            </Link>
+          </div>
         </header>
 
         {/* KPIs */}

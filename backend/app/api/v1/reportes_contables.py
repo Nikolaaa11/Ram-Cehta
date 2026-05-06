@@ -264,6 +264,7 @@ from fastapi.responses import HTMLResponse  # noqa: E402
 
 from app.services.report_renderer_service import (  # noqa: E402
     render_balance_prueba_html,
+    render_cashflow_mensual_html,
     render_cierre_mensual_html,
     render_libro_diario_html,
 )
@@ -473,6 +474,66 @@ async def get_cierre_mensual_html(
         movimientos_inserted=movimientos_inserted,
         vouchers_pending=pending,
         vouchers_approved=approved,
+    )
+    return HTMLResponse(content=html)
+
+
+
+@router.get(
+    "/reportes/contables/cashflow-mensual.html",
+    response_class=HTMLResponse,
+)
+async def get_cashflow_mensual_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    anio: Annotated[int, Query(ge=2020, le=2100)],
+) -> HTMLResponse:
+    """Cashflow mensual — entradas vs salidas mes a mes del año.
+
+    Agrega abonos/egresos de core.movimientos por mes + saldo acumulado
+    corrido desde enero.
+    """
+    from sqlalchemy import text
+
+    rows_db = (
+        await db.execute(
+            text(
+                """
+                WITH meses AS (
+                    SELECT generate_series(1, 12) AS mes
+                ),
+                aggregated AS (
+                    SELECT
+                        EXTRACT(month FROM fecha)::int AS mes,
+                        COALESCE(SUM(abono), 0) AS abonos,
+                        COALESCE(SUM(egreso), 0) AS egresos
+                    FROM core.movimientos
+                    WHERE empresa_codigo = :emp
+                      AND EXTRACT(year FROM fecha) = :anio
+                    GROUP BY EXTRACT(month FROM fecha)
+                )
+                SELECT
+                    m.mes,
+                    COALESCE(a.abonos, 0) AS abonos,
+                    COALESCE(a.egresos, 0) AS egresos,
+                    SUM(COALESCE(a.abonos, 0) - COALESCE(a.egresos, 0))
+                        OVER (ORDER BY m.mes ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+                        AS saldo_acumulado
+                FROM meses m
+                LEFT JOIN aggregated a ON a.mes = m.mes
+                ORDER BY m.mes
+                """
+            ),
+            {"emp": empresa_codigo, "anio": anio},
+        )
+    ).mappings().all()
+
+    rows = [dict(r) for r in rows_db]
+    html = render_cashflow_mensual_html(
+        empresa_codigo=empresa_codigo,
+        anio=anio,
+        rows_by_month=rows,
     )
     return HTMLResponse(content=html)
 

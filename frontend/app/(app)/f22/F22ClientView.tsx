@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   Calendar,
   CircleDollarSign,
+  Download,
   Plus,
   RefreshCw,
   CheckCircle2,
@@ -31,6 +32,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { exportCsv, csvFilename } from "@/lib/csv-export";
 
 interface F22Item {
   f22_id: number;
@@ -269,6 +271,42 @@ export function F22ClientView({ initialEmpresas, initialF22Page }: Props) {
               Sync Dropbox · {empresaFilter}
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => {
+              const items = data?.items ?? [];
+              if (!items.length) {
+                toast.error("Sin F22 para exportar");
+                return;
+              }
+              exportCsv({
+                filename: csvFilename(`f22_${empresaFilter || "all"}`),
+                headers: [
+                  "Empresa",
+                  "Año",
+                  "Vencimiento",
+                  "Monto",
+                  "Estado",
+                  "Fecha pago",
+                  "Comprobante",
+                ],
+                rows: items.map((it) => [
+                  it.empresa_codigo,
+                  it.ano_tributario,
+                  it.fecha_vencimiento,
+                  it.monto_a_pagar ?? "",
+                  it.estado,
+                  it.fecha_pago ?? "",
+                  it.comprobante_url ?? "",
+                ]),
+              });
+              toast.success(`${items.length} F22 exportados`);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
+          >
+            <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+            CSV
+          </button>
           <button
             type="button"
             onClick={() => setShowCreate((v) => !v)}

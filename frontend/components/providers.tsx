@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toast";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -25,6 +25,32 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+
+  // V5++ Service Worker — registro silencioso en producción para offline-read.
+  // En dev no registra (evita conflictos con HMR). Soft-fail si el browser
+  // no soporta SW o el script da 404.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "production") return;
+    if (typeof window === "undefined") return;
+    if (!("serviceWorker" in navigator)) return;
+
+    const register = async () => {
+      try {
+        await navigator.serviceWorker.register("/sw.js", {
+          scope: "/",
+          updateViaCache: "none", // siempre check del SW al revalidar
+        });
+      } catch {
+        // SW falló — no rompe la app, solo no hay offline-read
+      }
+    };
+    // Defer para no competir con la hidratación inicial
+    if (document.readyState === "complete") {
+      register();
+    } else {
+      window.addEventListener("load", register, { once: true });
+    }
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

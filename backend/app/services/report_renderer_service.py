@@ -398,6 +398,89 @@ def render_balance_prueba_html(
     return _wrap_page(body, f"Balance Prueba {empresa_codigo}")
 
 
+def render_cashflow_mensual_html(
+    *,
+    empresa_codigo: str,
+    anio: int,
+    rows_by_month: list[dict],
+) -> str:
+    """Reporte Cashflow Mensual — entradas vs salidas mes a mes del año.
+
+    Cada fila de `rows_by_month` tiene:
+        mes (1-12), abonos, egresos, neto, saldo_acumulado
+    """
+    if not rows_by_month:
+        body = (
+            _render_header(
+                f"Cashflow Mensual {anio}",
+                f"Empresa {empresa_codigo}",
+                "Sin movimientos en el período.",
+            )
+            + _render_footer(f"cashflow-{empresa_codigo}-{anio}")
+        )
+        return _wrap_page(body, f"Cashflow {anio} {empresa_codigo}")
+
+    meses_str = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    ]
+    rows_html = ""
+    total_abono = total_egreso = Decimal("0")
+    for r in rows_by_month:
+        mes_idx = int(r.get("mes", 0))
+        mes_label = meses_str[mes_idx - 1] if 1 <= mes_idx <= 12 else "—"
+        abonos = Decimal(str(r.get("abonos", 0)))
+        egresos = Decimal(str(r.get("egresos", 0)))
+        neto = abonos - egresos
+        saldo = Decimal(str(r.get("saldo_acumulado", 0)))
+        total_abono += abonos
+        total_egreso += egresos
+        neto_class = "badge-green" if neto >= 0 else "badge-red"
+        rows_html += f"""<tr>
+          <td>{_esc(mes_label)}</td>
+          <td class="num">{_fmt_clp(abonos)}</td>
+          <td class="num">{_fmt_clp(egresos)}</td>
+          <td class="num">
+            <span class="badge {neto_class}">{_fmt_clp(neto)}</span>
+          </td>
+          <td class="num">{_fmt_clp(saldo)}</td>
+        </tr>"""
+
+    neto_total = total_abono - total_egreso
+    body = (
+        _render_header(
+            f"Cashflow Mensual {anio}",
+            f"Empresa {empresa_codigo}",
+            f"Entradas vs salidas mes a mes — desde core.movimientos",
+        )
+        + f"""<table>
+          <thead><tr>
+            <th>Mes</th>
+            <th class="num">Entradas (abonos)</th>
+            <th class="num">Salidas (egresos)</th>
+            <th class="num">Neto</th>
+            <th class="num">Saldo acumulado</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+          <tfoot>
+            <tr>
+              <td>Totales {anio}</td>
+              <td class="num">{_fmt_clp(total_abono)}</td>
+              <td class="num">{_fmt_clp(total_egreso)}</td>
+              <td class="num">{_fmt_clp(neto_total)}</td>
+              <td class="num">—</td>
+            </tr>
+          </tfoot>
+        </table>
+        <p class="subtle" style="margin-top: 1em;">
+          Neto positivo = ingresos &gt; egresos en el mes. Saldo acumulado
+          es la suma neta corrida desde enero.
+        </p>"""
+        + _render_footer(f"cashflow-{empresa_codigo}-{anio}")
+    )
+    return _wrap_page(body, f"Cashflow {anio} {empresa_codigo}")
+
+
 def render_cierre_mensual_html(
     *,
     empresa_codigo: str,
