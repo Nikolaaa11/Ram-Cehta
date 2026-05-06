@@ -539,6 +539,9 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                 if not parsed:
                     return "error"
 
+                category = parsed.get("category")
+                summary = parsed.get("summary") or ""
+
                 async with db_lock:
                     await db.execute(
                         text("""
@@ -554,13 +557,27 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                         """),
                         {
                             "id": inbox_id,
-                            "category": parsed.get("category"),
+                            "category": category,
                             "conf": parsed.get("confidence"),
-                            "summary": parsed.get("summary"),
+                            "summary": summary,
                             "action": parsed.get("suggested_action"),
                             "draft": parsed.get("draft_response_html"),
                         },
                     )
+
+                    # Notificación in-app si el email es CRÍTICO.
+                    # Categorías que ameritan ping inmediato a Nicolás:
+                    #   - notif_sii (multas, citaciones, alertas tributarias)
+                    #   - pago_confirmado (cierre del loop OC → marcar pagado)
+                    #   - notif_banco (cobranza, sobregiros, alertas crédito)
+                    if category in ("notif_sii", "pago_confirmado", "notif_banco"):
+                        await _create_inbox_alert_notification(
+                            db,
+                            inbox_id=inbox_id,
+                            category=category,
+                            summary=summary,
+                            from_email=from_email or "",
+                        )
                 return "classified"
             except Exception as exc:  # noqa: BLE001
                 log.exception(
@@ -588,6 +605,89 @@ def _json_dump(obj: Any) -> str:
     import json as _json
 
     return _json.dumps(obj, ensure_ascii=False)
+
+
+async def _create_inbox_alert_notification(
+    db: AsyncSession,
+    *,
+    inbox_id: int,
+    category: str,
+    summary: str,
+    from_email: str,
+) -> None:
+    """Crea notificaciones in-app para emails críticos.
+
+    Una notificación por cada admin/finance user activo. La idea: cuando
+    llega un email del SII o una confirmación de pago, Nicolás (y quien
+    corresponda) lo ve en su bell instantáneamente sin tener que abrir
+    /admin/mailbox manual.
+
+    Soft-fail: si la tabla de notificaciones tiene schema distinto o no
+    está disponible, log warning y continúa — no rompe el classify.
+    """
+    category_labels = {
+        "notif_sii": "Notificación SII",
+        "pago_confirmado": "Pago confirmado",
+        "notif_banco": "Notificación banco",
+    }
+    label = category_labels.get(category, category)
+    title = f"[{label}] {from_email}"
+    body = (summary or "")[:500]
+
+    try:
+        # Targetear admin + finance — usuarios que pueden actuar sobre el email.
+        # Tabla canónica: core.user_roles con columna app_role.
+        users_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT user_id
+                    FROM core.user_roles
+                    WHERE app_role IN ('admin', 'finance')
+                    """
+                )
+            )
+        ).fetchall()
+        target_user_ids = [str(r[0]) for r in users_rows]
+        if not target_user_ids:
+            log.info("inbox.alert.no_targets", category=category)
+            return
+
+        # Map a tipos válidos según CHECK constraint de app.notifications.
+        # CHECK permite: f29_due, contrato_due, oc_pending, legal_due, system, mention.
+        # Para inbox críticos usamos 'system' (no hay tipo dedicado).
+        # Severity 'critical' lo marca visualmente en el bell.
+        for uid in target_user_ids:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO app.notifications (
+                        user_id, tipo, severity, title, body, link,
+                        entity_type, entity_id, created_at
+                    )
+                    VALUES (
+                        CAST(:uid AS UUID), 'system', :severity,
+                        :title, :body, :link,
+                        :entity_type, :entity_id, NOW()
+                    )
+                    """
+                ),
+                {
+                    "uid": uid,
+                    "severity": "critical" if category == "notif_sii" else "warning",
+                    "title": title[:200],
+                    "body": body,
+                    "link": f"/admin/mailbox?focus={inbox_id}",
+                    "entity_type": "inbox_message",
+                    "entity_id": str(inbox_id),
+                },
+            )
+    except Exception as exc:  # noqa: BLE001
+        log.warning(
+            "inbox.alert.create_failed",
+            inbox_id=inbox_id,
+            error=str(exc),
+        )
 
 
 def _extract_json(text_in: str) -> dict[str, Any] | None:
