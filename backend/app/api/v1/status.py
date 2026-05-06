@@ -243,6 +243,62 @@ async def _build_metrics(db) -> list[OperationalMetric]:
     except Exception:
         pass
 
+    # V5: Vouchers contables — total + pendientes firma
+    try:
+        total = await db.scalar(text("SELECT COUNT(*) FROM core.vouchers"))
+        pending = await db.scalar(
+            text("SELECT COUNT(*) FROM core.vouchers WHERE status = 'PENDING'")
+        )
+        metrics.append(
+            OperationalMetric(
+                label="Vouchers en BD",
+                value=str(total or 0),
+                hint=f"{pending or 0} pendientes de firma",
+            )
+        )
+    except Exception:
+        pass
+
+    # V5+: Inbox emails — total + sin clasificar
+    try:
+        total = await db.scalar(
+            text("SELECT COUNT(*) FROM core.inbox_messages")
+        )
+        pendientes = await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.inbox_messages "
+                "WHERE status IN ('received', 'classified')"
+            )
+        )
+        metrics.append(
+            OperationalMetric(
+                label="Emails inbox",
+                value=str(total or 0),
+                hint=f"{pendientes or 0} pendientes de revisión",
+            )
+        )
+    except Exception:
+        pass
+
+    # V5+: F22 — pendientes próximos 60 días
+    try:
+        n = await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.f22_obligaciones "
+                "WHERE estado = 'pendiente' "
+                "AND fecha_vencimiento <= current_date + interval '60 days'"
+            )
+        )
+        metrics.append(
+            OperationalMetric(
+                label="F22 vence ≤60d",
+                value=str(n or 0),
+                hint="declaraciones anuales próximas",
+            )
+        )
+    except Exception:
+        pass
+
     return metrics
 
 
