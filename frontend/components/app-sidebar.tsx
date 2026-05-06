@@ -49,6 +49,7 @@ import { useUnreadCount } from "@/hooks/use-notifications";
 import { useCriticalObligationsCount } from "@/hooks/use-obligations";
 import { useMailboxPendingCount, useMailboxPrefetch } from "@/hooks/use-mailbox";
 import { useF22Prefetch } from "@/hooks/use-f22";
+import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import {
   useCriticalEntregablesCount,
   useEntregablesPrefetch,
@@ -372,6 +373,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const prefetchEntregables = useEntregablesPrefetch();
   const prefetchMailbox = useMailboxPrefetch();
   const prefetchF22 = useF22Prefetch();
+  // Atajos teclado globales (gd → dashboard, gv → vouchers, etc.)
+  useKeyboardShortcuts();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">

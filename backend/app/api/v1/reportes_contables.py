@@ -245,3 +245,234 @@ async def get_rendicion_corfo(
         fecha_hasta=fecha_hasta,
     )
     return RendicionCorfoReport.model_validate(data)
+
+
+# ============================================================================
+# Reportes HTML/PDF — server-side render con CSS print embedido
+# ============================================================================
+#
+# Endpoints que devuelven HTML self-contained imprimible. El user abre el
+# link en su browser → Ctrl+P → "Guardar como PDF" → archivo formal.
+#
+# Si la URL incluye `?print=1`, el HTML auto-dispara window.print() al cargar.
+#
+# Estos endpoints son alternativos a los GET JSON existentes — el frontend
+# los puede linkear como "Descargar PDF" y abrir en nueva tab.
+
+
+from fastapi.responses import HTMLResponse  # noqa: E402
+
+from app.services.report_renderer_service import (  # noqa: E402
+    render_balance_prueba_html,
+    render_cierre_mensual_html,
+    render_libro_diario_html,
+)
+
+
+@router.get(
+    "/reportes/contables/libro-diario.html",
+    response_class=HTMLResponse,
+)
+async def get_libro_diario_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    fecha_desde: Annotated[date, Query()],
+    fecha_hasta: Annotated[date, Query()],
+) -> HTMLResponse:
+    """Renderea el libro diario como HTML imprimible (Ctrl+P → PDF)."""
+    rows_raw = await libro_diario(
+        db,
+        empresa_codigo=empresa_codigo,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+    )
+    rows = [
+        {
+            "voucher_codigo": r.voucher_codigo,
+            "fecha_contable": r.fecha_contable,
+            "glosa": r.glosa or "",
+            "line_number": r.line_number,
+            "cuenta_codigo": r.cuenta_codigo,
+            "cuenta_nombre": r.cuenta_nombre,
+            "debit": r.debit,
+            "credit": r.credit,
+            "descripcion": r.linea_descripcion or "",
+        }
+        for r in rows_raw
+    ]
+    html = render_libro_diario_html(
+        empresa_codigo=empresa_codigo,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        rows=rows,
+    )
+    return HTMLResponse(content=html)
+
+
+@router.get(
+    "/reportes/contables/balance-prueba.html",
+    response_class=HTMLResponse,
+)
+async def get_balance_prueba_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    fecha_desde: Annotated[date, Query()],
+    fecha_hasta: Annotated[date, Query()],
+) -> HTMLResponse:
+    """Balance de prueba: saldos por cuenta agrupados.
+
+    Computado con SQL agregado de voucher_lines en el rango. Solo cuentas
+    con movimiento. Cuadrado (Σ debe = Σ haber).
+    """
+    from sqlalchemy import text
+
+    rows_db = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    vl.cuenta_codigo,
+                    pc.nombre AS cuenta_nombre,
+                    SUM(vl.debit) AS suma_debe,
+                    SUM(vl.credit) AS suma_haber,
+                    SUM(vl.debit - vl.credit) AS saldo
+                FROM core.voucher_lines vl
+                JOIN core.vouchers v USING (voucher_id)
+                LEFT JOIN core.plan_cuentas pc ON pc.codigo = vl.cuenta_codigo
+                WHERE v.empresa_codigo = :emp
+                  AND v.fecha_contable BETWEEN :desde AND :hasta
+                  AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                GROUP BY vl.cuenta_codigo, pc.nombre
+                HAVING SUM(vl.debit + vl.credit) > 0
+                ORDER BY vl.cuenta_codigo
+                """
+            ),
+            {
+                "emp": empresa_codigo,
+                "desde": fecha_desde,
+                "hasta": fecha_hasta,
+            },
+        )
+    ).mappings().all()
+
+    rows = [dict(r) for r in rows_db]
+
+    html = render_balance_prueba_html(
+        empresa_codigo=empresa_codigo,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        rows=rows,
+    )
+    return HTMLResponse(content=html)
+
+
+@router.get(
+    "/reportes/contables/cierre-mensual.html",
+    response_class=HTMLResponse,
+)
+async def get_cierre_mensual_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    anio: Annotated[int, Query(ge=2020, le=2100)],
+    mes: Annotated[int, Query(ge=1, le=12)],
+) -> HTMLResponse:
+    """Reporte de cierre mensual con checklist + KPIs.
+
+    Agrega: counts de vouchers (pending/approved), F29 status, cartolas
+    importadas, movimientos cargados. Sirve como hoja de ruta para
+    cerrar el mes y generar export Nubox.
+    """
+    from sqlalchemy import text
+
+    # Counts vouchers del mes
+    counts = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    COUNT(*) AS total,
+                    COUNT(*) FILTER (WHERE status = 'PENDING') AS pending,
+                    COUNT(*) FILTER (WHERE status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')) AS approved
+                FROM core.vouchers
+                WHERE empresa_codigo = :emp
+                  AND EXTRACT(year FROM fecha_contable) = :anio
+                  AND EXTRACT(month FROM fecha_contable) = :mes
+                """
+            ),
+            {"emp": empresa_codigo, "anio": anio, "mes": mes},
+        )
+    ).first()
+    total, pending, approved = (
+        (int(counts[0] or 0), int(counts[1] or 0), int(counts[2] or 0))
+        if counts else (0, 0, 0)
+    )
+
+    # F29 del período
+    periodo_f29 = f"{mes:02d}_{str(anio)[-2:]}"
+    f29_row = (
+        await db.execute(
+            text(
+                """
+                SELECT estado, fecha_vencimiento::text AS fecha_vencimiento,
+                       monto_a_pagar, fecha_pago::text AS fecha_pago
+                FROM core.f29_obligaciones
+                WHERE empresa_codigo = :emp AND periodo_tributario = :p
+                LIMIT 1
+                """
+            ),
+            {"emp": empresa_codigo, "p": periodo_f29},
+        )
+    ).mappings().first()
+    f29_status = dict(f29_row) if f29_row else None
+
+    # Cartolas y movimientos del mes
+    try:
+        cartolas_row = (
+            await db.execute(
+                text(
+                    """
+                    SELECT COUNT(*) FROM core.cartolas_runs
+                    WHERE empresa_codigo = :emp
+                      AND EXTRACT(year FROM triggered_at) = :anio
+                      AND EXTRACT(month FROM triggered_at) = :mes
+                      AND status = 'imported'
+                    """
+                ),
+                {"emp": empresa_codigo, "anio": anio, "mes": mes},
+            )
+        ).first()
+        cartolas_imported = int(cartolas_row[0] or 0) if cartolas_row else 0
+    except Exception:
+        cartolas_imported = 0
+
+    movs_row = (
+        await db.execute(
+            text(
+                """
+                SELECT COUNT(*) FROM core.movimientos
+                WHERE empresa_codigo = :emp
+                  AND EXTRACT(year FROM fecha) = :anio
+                  AND EXTRACT(month FROM fecha) = :mes
+                """
+            ),
+            {"emp": empresa_codigo, "anio": anio, "mes": mes},
+        )
+    ).first()
+    movimientos_inserted = int(movs_row[0] or 0) if movs_row else 0
+
+    html = render_cierre_mensual_html(
+        empresa_codigo=empresa_codigo,
+        anio=anio,
+        mes=mes,
+        voucher_count=total,
+        f29_status=f29_status,
+        cartolas_imported=cartolas_imported,
+        movimientos_inserted=movimientos_inserted,
+        vouchers_pending=pending,
+        vouchers_approved=approved,
+    )
+    return HTMLResponse(content=html)
+

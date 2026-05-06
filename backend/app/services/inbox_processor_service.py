@@ -447,6 +447,23 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
                 inserted += 1
                 # Acumular para marcar Seen DESPUÉS del commit
                 pending_seen.append(num)
+                # Publicar evento SSE — frontend actualiza badge sin polling
+                try:
+                    from app.services.event_broadcaster import get_broadcaster
+
+                    broadcaster = get_broadcaster()
+                    await broadcaster.publish(
+                        "mailbox.received",
+                        {
+                            "from_email": from_email,
+                            "subject": subject[:200] if subject else "",
+                            "received_at": received_at.isoformat()
+                            if received_at else None,
+                        },
+                        role="admin",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    log.debug("inbox.sse_publish_skipped", error=str(exc))
             except Exception as exc:  # noqa: BLE001
                 errors += 1
                 log.exception("inbox.fetch_error", error=str(exc))
@@ -564,6 +581,26 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                             "draft": parsed.get("draft_response_html"),
                         },
                     )
+
+                    # Publicar evento SSE post-classify
+                    try:
+                        from app.services.event_broadcaster import (
+                            get_broadcaster,
+                        )
+
+                        await get_broadcaster().publish(
+                            "mailbox.classified",
+                            {
+                                "inbox_id": inbox_id,
+                                "category": category,
+                                "summary": summary[:200],
+                            },
+                            role="admin",
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        log.debug(
+                            "inbox.sse_classify_skipped", error=str(exc)
+                        )
 
                     # Notificación in-app si el email es CRÍTICO.
                     # Categorías que ameritan ping inmediato a Nicolás:

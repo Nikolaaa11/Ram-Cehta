@@ -132,14 +132,83 @@ async def sync_cartolas_for_empresa(
         result = parse_cartola_pdf(content)
 
         if result.is_scanned:
-            await _update_run_status(
-                db, run_id,
-                status="failed_ocr_required",
-                error="PDF escaneado — requiere OCR (Claude vision pendiente)",
-                banco=result.banco,
-            )
-            stats["files_failed_ocr_required"] += 1
-            continue
+            # Fallback Claude Vision: intenta OCR via Sonnet 4.5.
+            # Si pdf2image no está instalado o ANTHROPIC_API_KEY falta,
+            # marcamos failed_ocr_required (igual que antes).
+            try:
+                from app.services.claude_vision_ocr_service import (
+                    ClaudeVisionNotAvailable,
+                    extract_text_with_claude_vision,
+                )
+                from app.services.cartolas_parser_service import (
+                    _extract_periodo,
+                    _parse_filas_genericas,
+                    detect_banco,
+                )
+
+                ocr_text, ocr_meta = await extract_text_with_claude_vision(
+                    content, document_type="cartola"
+                )
+                if ocr_text and len(ocr_text) > 50:
+                    # Re-parse con el texto extraído por vision
+                    banco_v = detect_banco(ocr_text)
+                    pd_v, ph_v = _extract_periodo(ocr_text)
+                    rows_v = _parse_filas_genericas(ocr_text)
+
+                    if rows_v:
+                        # Promote a "imported" via vision
+                        result.banco = banco_v
+                        result.periodo_desde = pd_v
+                        result.periodo_hasta = ph_v
+                        result.rows = rows_v
+                        result.is_scanned = False
+                        log.info(
+                            "cartola.vision_recovered",
+                            run_id=run_id,
+                            rows=len(rows_v),
+                            tokens=ocr_meta.get("tokens_input", 0)
+                            + ocr_meta.get("tokens_output", 0),
+                        )
+                        # NO continue — caemos al flow de import normal abajo
+                    else:
+                        await _update_run_status(
+                            db, run_id,
+                            status="failed_ocr_required",
+                            error=(
+                                "Vision OCR no encontró movimientos parseables. "
+                                "Verificá si el PDF realmente es una cartola."
+                            ),
+                            banco=banco_v,
+                        )
+                        stats["files_failed_ocr_required"] += 1
+                        continue
+                else:
+                    await _update_run_status(
+                        db, run_id,
+                        status="failed_ocr_required",
+                        error="Vision OCR devolvió texto vacío",
+                        banco=result.banco,
+                    )
+                    stats["files_failed_ocr_required"] += 1
+                    continue
+            except ClaudeVisionNotAvailable as exc:
+                await _update_run_status(
+                    db, run_id,
+                    status="failed_ocr_required",
+                    error=f"Vision no disponible: {exc}",
+                    banco=result.banco,
+                )
+                stats["files_failed_ocr_required"] += 1
+                continue
+            except Exception as exc:  # noqa: BLE001
+                await _update_run_status(
+                    db, run_id,
+                    status="failed_ocr_required",
+                    error=f"Vision OCR falló: {exc}",
+                    banco=result.banco,
+                )
+                stats["files_failed_ocr_required"] += 1
+                continue
 
         if result.error:
             await _update_run_status(

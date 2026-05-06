@@ -156,6 +156,23 @@ export function useEventStream(): UseEventStreamResult {
             });
             break;
           }
+          case "mailbox.received": {
+            // Email nuevo — invalidar lista + status (badge sidebar)
+            qc.invalidateQueries({ queryKey: ["mailbox"] });
+            const d = data as { from_email?: string; subject?: string } | null;
+            if (d?.subject) {
+              toast.info("Email nuevo en inbox", {
+                description: `${d.from_email} · ${d.subject.slice(0, 60)}`,
+              });
+            }
+            break;
+          }
+          case "mailbox.classified": {
+            // Email clasificado — refresh detalle si el user lo está viendo
+            qc.invalidateQueries({ queryKey: ["mailbox"] });
+            qc.invalidateQueries({ queryKey: ["mailbox-detail"] });
+            break;
+          }
           case "system.connected":
           case "system.heartbeat":
           default:
@@ -170,6 +187,8 @@ export function useEventStream(): UseEventStreamResult {
         "audit.action",
         "etl.completed",
         "etl.failed",
+        "mailbox.received",
+        "mailbox.classified",
         "system.connected",
         "system.heartbeat",
       ] as const;

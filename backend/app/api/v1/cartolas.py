@@ -54,6 +54,65 @@ class CartolaRunRead(BaseModel):
 
 
 @router.post(
+    "/cartolas/sync-all",
+    response_model=dict,
+)
+async def sync_all_empresas(
+    user: Annotated[
+        AuthenticatedUser, Depends(require_scope("integration:write"))
+    ],
+    db: DBSession,
+) -> dict:
+    """Procesa cartolas de TODAS las empresas activas en una sola llamada.
+
+    Útil para el cierre mensual: subís todos los PDFs de todas las
+    empresas a Dropbox y disparás esto. Idempotente, hashes existentes
+    se skipean.
+
+    Devuelve dict por empresa con sus stats individuales + agregado.
+    """
+    from sqlalchemy import text as _text
+
+    from app.services.cartolas_sync_service import sync_cartolas_for_empresa
+
+    empresas = (
+        await db.execute(
+            _text(
+                "SELECT codigo FROM core.empresas WHERE activo = TRUE ORDER BY codigo"
+            )
+        )
+    ).fetchall()
+
+    by_empresa: dict = {}
+    agg = {
+        "files_imported": 0,
+        "files_skipped": 0,
+        "files_failed": 0,
+        "movimientos_inserted": 0,
+        "errors_count": 0,
+    }
+    for (codigo,) in empresas:
+        try:
+            stats = await sync_cartolas_for_empresa(
+                db, codigo, triggered_by=str(user.sub)
+            )
+            by_empresa[codigo] = stats
+            agg["files_imported"] += stats.get("files_imported", 0)
+            agg["files_skipped"] += stats.get("files_skipped", 0)
+            agg["files_failed"] += (
+                stats.get("files_failed_parse", 0)
+                + stats.get("files_failed_ocr_required", 0)
+            )
+            agg["movimientos_inserted"] += stats.get("movimientos_inserted", 0)
+            agg["errors_count"] += len(stats.get("errors", []))
+        except Exception as exc:  # noqa: BLE001
+            by_empresa[codigo] = {"error": str(exc)}
+            agg["errors_count"] += 1
+
+    return {"by_empresa": by_empresa, "aggregate": agg}
+
+
+@router.post(
     "/cartolas/sync/{empresa_codigo}",
     response_model=CartolasSyncResponse,
 )
