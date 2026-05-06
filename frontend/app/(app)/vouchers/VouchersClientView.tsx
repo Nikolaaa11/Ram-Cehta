@@ -240,8 +240,25 @@ export function VouchersClientView({
     enabled: !!session,
   });
 
-  // Filtro local por search (codigo + glosa + contraparte)
+  // V5++ ola V: full-text search server-side cuando el query tiene 3+ chars.
+  // Para queries cortos o sin search, usamos el filtro local sobre la lista
+  // ya cargada (rápido, sin round-trip).
+  const useServerSearch = search.trim().length >= 3;
+  const { data: searchResults } = useQuery<VoucherListItem[]>({
+    queryKey: ["vouchers-search", search.trim()],
+    queryFn: () =>
+      apiClient.get<VoucherListItem[]>(
+        `/vouchers/search?q=${encodeURIComponent(search.trim())}&limit=100`,
+        session,
+      ),
+    enabled: !!session && useServerSearch,
+    staleTime: 30_000,
+  });
+
+  // Filtro: si search >= 3 chars usa server (full-text Postgres tsvector
+  // con stemming español + ranking por relevancia), si no, filtro local.
   const filteredVouchers = useMemo(() => {
+    if (useServerSearch) return searchResults ?? [];
     if (!vouchers) return [];
     if (!search.trim()) return vouchers;
     const q = search.toLowerCase();
@@ -251,7 +268,7 @@ export function VouchersClientView({
         v.glosa.toLowerCase().includes(q) ||
         (v.contraparte_nombre ?? "").toLowerCase().includes(q),
     );
-  }, [vouchers, search]);
+  }, [vouchers, search, useServerSearch, searchResults]);
 
   // KPIs derivados
   const kpis = (vouchers ?? []).reduce(
