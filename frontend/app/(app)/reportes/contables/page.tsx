@@ -157,6 +157,15 @@ export default function ReportesContablesPage() {
             accent="sf-purple"
             badge="V5++"
           />
+          <ReporteCard
+            number="12"
+            icon={<BookOpen className="h-5 w-5" strokeWidth={1.5} />}
+            title="Consolidado del Fondo"
+            description="Agregado de las 9 empresas portfolio FIP CEHTA: Ingresos/Gastos/Resultado por empresa + totales + Top 3 contribuyentes."
+            href="/reportes/contables/consolidado-fondo"
+            accent="cehta-green"
+            badge="V5++"
+          />
         </div>
 
         <footer className="mt-20 flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-6 text-[11px] text-ink-400">

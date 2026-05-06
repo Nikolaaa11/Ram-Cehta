@@ -267,6 +267,7 @@ from app.services.report_renderer_service import (  # noqa: E402
     render_balance_prueba_html,
     render_cashflow_mensual_html,
     render_cierre_mensual_html,
+    render_consolidado_fondo_html,
     render_estado_resultados_html,
     render_libro_diario_html,
     render_pl_mensual_html,
@@ -717,6 +718,65 @@ async def get_balance_general_html(
         empresa_codigo=empresa_codigo,
         fecha_corte=fecha_corte,
         rows=rows,
+    )
+    return HTMLResponse(content=html)
+
+
+
+@router.get(
+    "/reportes/contables/consolidado-fondo.html",
+    response_class=HTMLResponse,
+)
+async def get_consolidado_fondo_html(
+    user: CurrentUser,
+    db: DBSession,
+    anio: Annotated[int, Query(ge=2020, le=2100)],
+) -> HTMLResponse:
+    """Reporte consolidado del fondo — todas las empresas activas del portafolio."""
+    from sqlalchemy import text
+
+    rows_db = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    e.codigo AS empresa_codigo,
+                    e.razon_social,
+                    COALESCE(SUM(
+                        CASE WHEN LEFT(vl.cuenta_codigo, 1) = '4'
+                        THEN vl.credit - vl.debit ELSE 0 END
+                    ), 0) AS ingresos,
+                    COALESCE(SUM(
+                        CASE WHEN LEFT(vl.cuenta_codigo, 1) = '5'
+                        THEN vl.debit - vl.credit ELSE 0 END
+                    ), 0) AS gastos,
+                    COUNT(DISTINCT v.voucher_id) AS vouchers_count,
+                    COALESCE((
+                        SELECT COUNT(*) FROM core.ordenes_compra oc
+                        WHERE oc.empresa_codigo = e.codigo
+                          AND EXTRACT(year FROM oc.fecha_emision) = :anio
+                    ), 0) AS ocs_count
+                FROM core.empresas e
+                LEFT JOIN core.vouchers v ON v.empresa_codigo = e.codigo
+                    AND EXTRACT(year FROM v.fecha_contable) = :anio
+                    AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                LEFT JOIN core.voucher_lines vl ON vl.voucher_id = v.voucher_id
+                WHERE e.activo = TRUE
+                GROUP BY e.codigo, e.razon_social
+                ORDER BY e.codigo
+                """
+            ),
+            {"anio": anio},
+        )
+    ).mappings().all()
+
+    empresas_data = [dict(r) for r in rows_db]
+    empresas_data.append({"empresa_codigo": "_dummy", "ingresos": 0, "gastos": 0, "vouchers_count": 0})  # forzar render incluso con todas en 0
+    empresas_data = [r for r in empresas_data if r["empresa_codigo"] != "_dummy"]
+
+    html = render_consolidado_fondo_html(
+        anio=anio,
+        empresas_data=empresas_data,
     )
     return HTMLResponse(content=html)
 

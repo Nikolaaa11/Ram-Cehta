@@ -516,6 +516,171 @@ def render_pl_mensual_html(
     return _wrap_page(body, f"P&L {anio} {empresa_codigo}")
 
 
+def render_consolidado_fondo_html(
+    *,
+    anio: int,
+    empresas_data: list[dict],
+) -> str:
+    """Reporte Consolidado del Fondo — agregado de las 9 empresas portfolio.
+
+    Cada `row` en `empresas_data` tiene:
+      empresa_codigo, razon_social, ingresos, gastos, resultado,
+      vouchers_count, ocs_count
+
+    Output:
+      - Header consolidado del fondo (totales del año)
+      - Tabla por empresa con sus números
+      - Top contribuyentes (mejores 3 resultados)
+      - Empresas con resultado negativo destacadas
+
+    Útil para reportería al fondo (AFIS-LP) y comité de inversión.
+    """
+    if not empresas_data:
+        body = (
+            _render_header(
+                f"Consolidado Fondo {anio}",
+                "FIP CEHTA ESG",
+                "Sin movimientos contabilizados.",
+            )
+            + _render_footer(f"consolidado-{anio}")
+        )
+        return _wrap_page(body, f"Consolidado {anio}")
+
+    total_ingresos = sum(
+        Decimal(str(r.get("ingresos", 0))) for r in empresas_data
+    )
+    total_gastos = sum(
+        Decimal(str(r.get("gastos", 0))) for r in empresas_data
+    )
+    resultado_total = total_ingresos - total_gastos
+    margen_total = (
+        (resultado_total / total_ingresos * 100)
+        if total_ingresos > 0
+        else Decimal("0")
+    )
+    total_vouchers = sum(int(r.get("vouchers_count", 0)) for r in empresas_data)
+    total_ocs = sum(int(r.get("ocs_count", 0)) for r in empresas_data)
+
+    sorted_by_resultado = sorted(
+        empresas_data,
+        key=lambda r: Decimal(str(r.get("resultado", 0))),
+        reverse=True,
+    )
+    rows_html = ""
+    for r in sorted_by_resultado:
+        ingresos = Decimal(str(r.get("ingresos", 0)))
+        gastos = Decimal(str(r.get("gastos", 0)))
+        resultado = ingresos - gastos
+        margen = (
+            (resultado / ingresos * 100) if ingresos > 0 else Decimal("0")
+        )
+        cls = "badge-green" if resultado >= 0 else "badge-red"
+        rows_html += f"""<tr>
+          <td class="mono">{_esc(r.get('empresa_codigo', ''))}</td>
+          <td>{_esc(r.get('razon_social', ''))}</td>
+          <td class="num">{r.get('vouchers_count', 0)}</td>
+          <td class="num">{_fmt_clp(ingresos)}</td>
+          <td class="num">{_fmt_clp(gastos)}</td>
+          <td class="num">
+            <span class="badge {cls}">{_fmt_clp(resultado)}</span>
+          </td>
+          <td class="num">{margen:.1f}%</td>
+        </tr>"""
+
+    top_3 = sorted_by_resultado[:3]
+    top_3_html = ""
+    for r in top_3:
+        resultado = Decimal(str(r.get("ingresos", 0))) - Decimal(
+            str(r.get("gastos", 0))
+        )
+        top_3_html += f"""
+        <div style="padding: 1em; background: #f0fdf4; border-radius: 8px; flex: 1">
+          <p class="label">{_esc(r.get('empresa_codigo', ''))}</p>
+          <p style="font-size: 12pt; font-weight: 600; margin: .3em 0">
+            {_fmt_clp(resultado)}
+          </p>
+          <p class="subtle">{_esc(r.get('razon_social', ''))}</p>
+        </div>"""
+
+    body = (
+        _render_header(
+            f"Consolidado Fondo {anio}",
+            "FIP CEHTA ESG",
+            f"Reporte agregado de las {len(empresas_data)} empresas del portafolio · "
+            f"{total_vouchers} vouchers · {total_ocs} OCs",
+        )
+        + f"""
+        <h3 style="margin-top: 0">Resumen consolidado</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1em; margin-bottom: 2em">
+          <div style="padding: 1em; background: #eff6ff; border-radius: 8px">
+            <p class="label">Ingresos totales</p>
+            <p style="font-size: 14pt; font-weight: 700">{_fmt_clp(total_ingresos)}</p>
+          </div>
+          <div style="padding: 1em; background: #fef2f2; border-radius: 8px">
+            <p class="label">Gastos totales</p>
+            <p style="font-size: 14pt; font-weight: 700">{_fmt_clp(total_gastos)}</p>
+          </div>
+          <div style="padding: 1em; background: #1d6f42; color: white; border-radius: 8px">
+            <p class="label">Resultado consolidado</p>
+            <p style="font-size: 14pt; font-weight: 700">{_fmt_clp(resultado_total)}</p>
+          </div>
+          <div style="padding: 1em; background: #f3f4f6; border-radius: 8px">
+            <p class="label">Margen consolidado</p>
+            <p style="font-size: 14pt; font-weight: 700">{margen_total:.1f}%</p>
+          </div>
+        </div>
+
+        <h3>Top 3 contribuyentes</h3>
+        <div style="display: flex; gap: 1em; margin-bottom: 2em">
+          {top_3_html}
+        </div>
+
+        <h3>Detalle por empresa</h3>
+        <table>
+          <thead><tr>
+            <th>Código</th>
+            <th>Razón social</th>
+            <th class="num">Vouchers</th>
+            <th class="num">Ingresos</th>
+            <th class="num">Gastos</th>
+            <th class="num">Resultado</th>
+            <th class="num">Margen</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+          <tfoot>
+            <tr style="background: #1d6f42; color: white">
+              <td colspan="2" style="text-align: right; font-weight: 700; padding: 12px 8px">
+                Total Fondo {anio}
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {total_vouchers}
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(total_ingresos)}
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(total_gastos)}
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(resultado_total)}
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {margen_total:.1f}%
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="subtle" style="margin-top: 1em">
+          NO incluye eliminaciones de transacciones inter-company (a futuro).
+          Cifras son la suma simple de cuentas 4-* (ingresos) y 5-* (gastos)
+          de cada empresa por separado.
+        </p>"""
+        + _render_footer(f"consolidado-fondo-{anio}")
+    )
+    return _wrap_page(body, f"Consolidado FIP CEHTA {anio}")
+
+
 def render_estado_resultados_html(
     *,
     empresa_codigo: str,

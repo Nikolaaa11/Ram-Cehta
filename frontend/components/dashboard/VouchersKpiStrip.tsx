@@ -91,11 +91,11 @@ export function VouchersKpiStrip() {
   ];
 
   const TONES = {
-    ink: "border-hairline bg-white text-ink-900",
-    warning: "border-warning/30 bg-warning/5 text-warning",
-    negative: "border-negative/30 bg-negative/5 text-negative",
-    cehta: "border-cehta-green/30 bg-cehta-green/5 text-cehta-green",
-    positive: "border-positive/30 bg-positive/5 text-positive",
+    ink: "border-hairline bg-white text-ink-900 dark:border-ink-800 dark:bg-ink-900 dark:text-ink-100",
+    warning: "border-warning/30 bg-warning/5 text-warning dark:bg-warning/10",
+    negative: "border-negative/30 bg-negative/5 text-negative dark:bg-negative/10",
+    cehta: "border-cehta-green/30 bg-cehta-green/5 text-cehta-green dark:bg-cehta-green/10",
+    positive: "border-positive/30 bg-positive/5 text-positive dark:bg-positive/10",
   } as const;
 
   return (
