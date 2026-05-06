@@ -50,6 +50,14 @@ const ACTION_OPTIONS: { value: string; label: string }[] = [
 
 const ENTITY_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "Todas" },
+  // V5 — vouchers contables
+  { value: "voucher", label: "Vouchers" },
+  { value: "voucher_approval", label: "Vouchers (firmas)" },
+  // V5+/V5++ — F22 + inbox + cartolas
+  { value: "f22", label: "F22 anual" },
+  { value: "inbox_message", label: "Inbox emails" },
+  { value: "cartola_run", label: "Cartolas OCR" },
+  // V3+ — operativo cotidiano
   { value: "orden_compra", label: "Órdenes de Compra" },
   { value: "f29", label: "F29" },
   { value: "f29_batch", label: "F29 (sync)" },

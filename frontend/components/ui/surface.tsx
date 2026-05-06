@@ -15,16 +15,16 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const surfaceVariants = cva(
-  "rounded-2xl bg-white ring-1 ring-hairline shadow-card",
+  "rounded-2xl bg-white ring-1 ring-hairline shadow-card dark:bg-ink-900 dark:ring-ink-800",
   {
     variants: {
       variant: {
         default: "",
         elevated: "shadow-card-hover",
         interactive:
-          "transition-all duration-200 ease-apple hover:shadow-card-hover hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+          "transition-all duration-200 ease-apple hover:shadow-card-hover hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green dark:hover:ring-cehta-green/40",
         glass:
-          "bg-white/70 backdrop-blur-xl shadow-glass ring-1 ring-hairline",
+          "bg-white/70 backdrop-blur-xl shadow-glass ring-1 ring-hairline dark:bg-ink-900/70 dark:ring-ink-800",
       },
       padding: {
         none: "",

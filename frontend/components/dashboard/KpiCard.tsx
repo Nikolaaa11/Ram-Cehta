@@ -92,11 +92,11 @@ export function KpiCard({
       </div>
 
       <div className="flex flex-col justify-end gap-0.5">
-        <p className="font-display text-kpi-lg tabular-nums tracking-tight text-ink-900">
+        <p className="font-display text-kpi-lg tabular-nums tracking-tight text-ink-900 dark:text-ink-100">
           {value}
         </p>
         {subtitle && (
-          <p className="line-clamp-1 text-sm tabular-nums text-ink-500">
+          <p className="line-clamp-1 text-sm tabular-nums text-ink-500 dark:text-ink-400">
             {subtitle}
           </p>
         )}
