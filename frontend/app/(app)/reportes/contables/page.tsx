@@ -13,6 +13,7 @@ import {
   LineChart,
   Scale,
   Sparkles,
+  TrendingUp,
   Wallet,
 } from "lucide-react";
 import { ReporteCard } from "@/components/reportes/ReporteCard";
@@ -125,6 +126,15 @@ export default function ReportesContablesPage() {
             description="Entradas vs salidas mes a mes del año + saldo acumulado corriente. Útil para detectar meses negativos."
             href="/reportes/contables/cashflow-mensual"
             accent="sf-teal"
+            badge="V5++"
+          />
+          <ReporteCard
+            number="09"
+            icon={<TrendingUp className="h-5 w-5" strokeWidth={1.5} />}
+            title="P&L Mensual"
+            description="Ingresos (4-*) vs Gastos (5-*) mes a mes del año + margen porcentual + mejor/peor mes."
+            href="/reportes/contables/pl-mensual"
+            accent="cehta-green"
             badge="V5++"
           />
         </div>

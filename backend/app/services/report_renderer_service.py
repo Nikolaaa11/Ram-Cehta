@@ -398,6 +398,124 @@ def render_balance_prueba_html(
     return _wrap_page(body, f"Balance Prueba {empresa_codigo}")
 
 
+def render_pl_mensual_html(
+    *,
+    empresa_codigo: str,
+    anio: int,
+    rows_by_month: list[dict],
+) -> str:
+    """P&L mensual — ingresos vs gastos por mes del año.
+
+    Cada fila tiene: mes (1-12), ingresos (cuentas 4-*), gastos (cuentas
+    5-*), resultado (ingresos - gastos), margen_pct.
+
+    Datos vienen de voucher_lines aprobados/ejecutados/sincronizados,
+    agregados por mes según el primer dígito del cuenta_codigo (plan
+    chileno: 4-XX = ingresos, 5-XX = gastos).
+    """
+    if not rows_by_month:
+        body = (
+            _render_header(
+                f"P&L Mensual {anio}",
+                f"Empresa {empresa_codigo}",
+                "Sin movimientos contabilizados.",
+            )
+            + _render_footer(f"pl-mensual-{empresa_codigo}-{anio}")
+        )
+        return _wrap_page(body, f"P&L {anio} {empresa_codigo}")
+
+    meses_str = [
+        "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+    ]
+    rows_html = ""
+    total_ingresos = total_gastos = Decimal("0")
+    best_month = (None, Decimal("-Infinity"))
+    worst_month = (None, Decimal("Infinity"))
+
+    for r in rows_by_month:
+        mes_idx = int(r.get("mes", 0))
+        mes_label = meses_str[mes_idx - 1] if 1 <= mes_idx <= 12 else "—"
+        ingresos = Decimal(str(r.get("ingresos", 0)))
+        gastos = Decimal(str(r.get("gastos", 0)))
+        resultado = ingresos - gastos
+        total_ingresos += ingresos
+        total_gastos += gastos
+
+        if resultado > best_month[1]:
+            best_month = (mes_label, resultado)
+        if resultado < worst_month[1]:
+            worst_month = (mes_label, resultado)
+
+        margen_pct = (
+            (resultado / ingresos * 100) if ingresos > 0 else Decimal("0")
+        )
+        cls = "badge-green" if resultado >= 0 else "badge-red"
+        rows_html += f"""<tr>
+          <td>{_esc(mes_label)}</td>
+          <td class="num">{_fmt_clp(ingresos)}</td>
+          <td class="num">{_fmt_clp(gastos)}</td>
+          <td class="num"><span class="badge {cls}">{_fmt_clp(resultado)}</span></td>
+          <td class="num">{margen_pct:.1f}%</td>
+        </tr>"""
+
+    resultado_total = total_ingresos - total_gastos
+    margen_total = (
+        (resultado_total / total_ingresos * 100)
+        if total_ingresos > 0
+        else Decimal("0")
+    )
+
+    body = (
+        _render_header(
+            f"P&L Mensual {anio}",
+            f"Empresa {empresa_codigo}",
+            "Ingresos (4-*) vs Gastos (5-*) por mes desde voucher_lines APPROVED+",
+        )
+        + f"""
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin-bottom: 1.5em">
+          <div style="padding: .8em; background: #f0fdf4; border-radius: 4px">
+            <p class="label">Mejor mes</p>
+            <p style="font-size: 14pt; font-weight: 600">{_esc(best_month[0]) if best_month[0] else '—'}</p>
+            <p class="subtle">{_fmt_clp(best_month[1]) if best_month[0] else ''}</p>
+          </div>
+          <div style="padding: .8em; background: #fef2f2; border-radius: 4px">
+            <p class="label">Peor mes</p>
+            <p style="font-size: 14pt; font-weight: 600">{_esc(worst_month[0]) if worst_month[0] else '—'}</p>
+            <p class="subtle">{_fmt_clp(worst_month[1]) if worst_month[0] else ''}</p>
+          </div>
+        </div>
+
+        <table>
+          <thead><tr>
+            <th>Mes</th>
+            <th class="num">Ingresos</th>
+            <th class="num">Gastos</th>
+            <th class="num">Resultado</th>
+            <th class="num">Margen</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+          <tfoot>
+            <tr>
+              <td>Total {anio}</td>
+              <td class="num">{_fmt_clp(total_ingresos)}</td>
+              <td class="num">{_fmt_clp(total_gastos)}</td>
+              <td class="num">{_fmt_clp(resultado_total)}</td>
+              <td class="num">{margen_total:.1f}%</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="subtle" style="margin-top: 1em">
+          Plan de cuentas chileno: cuentas <code>4-XX-XX-XX</code> = ingresos
+          (ventas, ingresos financieros, otros). Cuentas <code>5-XX-XX-XX</code>
+          = gastos. Margen = resultado / ingresos × 100.
+        </p>"""
+        + _render_footer(f"pl-mensual-{empresa_codigo}-{anio}")
+    )
+    return _wrap_page(body, f"P&L {anio} {empresa_codigo}")
+
+
 def render_voucher_html(
     *,
     voucher: dict,

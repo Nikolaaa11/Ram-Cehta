@@ -1253,11 +1253,47 @@ async def approve_voucher(
     )
 
     # Si fue la última firma, voucher → APPROVED
+    just_approved = False
     if next_order == len(required_roles):
         voucher.status = "APPROVED"
         voucher.threshold_aplicado = compute_threshold_aplicado(rule)
+        just_approved = True
 
     await db.commit()
+
+    # V5++ ola N: webhook saliente voucher.approved → sistemas externos.
+    # Soft-fail: si nadie está suscripto, no hace nada. Ejecuta async
+    # en background para no demorar la response del approve.
+    if just_approved:
+        try:
+            from app.services.webhook_dispatcher import publish_event
+
+            await publish_event(
+                db,
+                "voucher.approved",
+                {
+                    "voucher_id": voucher.voucher_id,
+                    "voucher_codigo": voucher.codigo,
+                    "empresa_codigo": voucher.empresa_codigo,
+                    "tipo": voucher.tipo,
+                    "total_debit": str(voucher.total_debit),
+                    "fecha_contable": voucher.fecha_contable.isoformat()
+                    if voucher.fecha_contable
+                    else None,
+                    "approved_by": str(user.sub),
+                    "approved_at": datetime.utcnow().isoformat(),
+                },
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Webhook no crítico — no romper la firma del voucher
+            import structlog
+
+            structlog.get_logger(__name__).warning(
+                "voucher.approved.webhook_failed",
+                voucher_id=voucher.voucher_id,
+                error=str(exc),
+            )
+
     return await get_voucher_approvals_state(user, db, voucher_id)
 
 
@@ -1714,14 +1750,37 @@ async def bulk_approve_vouchers(
             )
 
             # Si firmó el último paso → APPROVED
+            just_approved = False
             if next_order == len(required_roles):
                 voucher.status = "APPROVED"
                 voucher.threshold_aplicado = compute_threshold_aplicado(rule)
+                just_approved = True
 
             items.append(BulkApproveItemResult(
                 voucher_id=vid, success=True,
                 new_status=voucher.status,
             ))
+
+            # V5++ ola N: webhook por cada voucher recién aprobado en el bulk
+            if just_approved:
+                try:
+                    from app.services.webhook_dispatcher import publish_event
+
+                    await publish_event(
+                        db,
+                        "voucher.approved",
+                        {
+                            "voucher_id": voucher.voucher_id,
+                            "voucher_codigo": voucher.codigo,
+                            "empresa_codigo": voucher.empresa_codigo,
+                            "tipo": voucher.tipo,
+                            "total_debit": str(voucher.total_debit),
+                            "approved_by": user_sub,
+                            "via_bulk_approve": True,
+                        },
+                    )
+                except Exception:
+                    pass  # Soft-fail
         except Exception as exc:  # noqa: BLE001
             items.append(BulkApproveItemResult(
                 voucher_id=vid, success=False,

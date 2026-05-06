@@ -267,6 +267,7 @@ from app.services.report_renderer_service import (  # noqa: E402
     render_cashflow_mensual_html,
     render_cierre_mensual_html,
     render_libro_diario_html,
+    render_pl_mensual_html,
 )
 
 
@@ -531,6 +532,70 @@ async def get_cashflow_mensual_html(
 
     rows = [dict(r) for r in rows_db]
     html = render_cashflow_mensual_html(
+        empresa_codigo=empresa_codigo,
+        anio=anio,
+        rows_by_month=rows,
+    )
+    return HTMLResponse(content=html)
+
+
+
+@router.get(
+    "/reportes/contables/pl-mensual.html",
+    response_class=HTMLResponse,
+)
+async def get_pl_mensual_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    anio: Annotated[int, Query(ge=2020, le=2100)],
+) -> HTMLResponse:
+    """P&L mensual — ingresos (cuentas 4-*) vs gastos (cuentas 5-*) por mes.
+
+    Solo voucher_lines aprobados+ (APPROVED, EXECUTED, SYNCED, RECONCILED).
+    Plan de cuentas chileno estándar.
+    """
+    from sqlalchemy import text
+
+    rows_db = (
+        await db.execute(
+            text(
+                """
+                WITH meses AS (
+                    SELECT generate_series(1, 12) AS mes
+                ),
+                aggregated AS (
+                    SELECT
+                        EXTRACT(month FROM v.fecha_contable)::int AS mes,
+                        COALESCE(SUM(
+                            CASE WHEN LEFT(vl.cuenta_codigo, 1) = '4'
+                            THEN vl.credit - vl.debit ELSE 0 END
+                        ), 0) AS ingresos,
+                        COALESCE(SUM(
+                            CASE WHEN LEFT(vl.cuenta_codigo, 1) = '5'
+                            THEN vl.debit - vl.credit ELSE 0 END
+                        ), 0) AS gastos
+                    FROM core.voucher_lines vl
+                    JOIN core.vouchers v USING (voucher_id)
+                    WHERE v.empresa_codigo = :emp
+                      AND EXTRACT(year FROM v.fecha_contable) = :anio
+                      AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                    GROUP BY EXTRACT(month FROM v.fecha_contable)
+                )
+                SELECT m.mes,
+                       COALESCE(a.ingresos, 0) AS ingresos,
+                       COALESCE(a.gastos, 0) AS gastos
+                FROM meses m
+                LEFT JOIN aggregated a ON a.mes = m.mes
+                ORDER BY m.mes
+                """
+            ),
+            {"emp": empresa_codigo, "anio": anio},
+        )
+    ).mappings().all()
+
+    rows = [dict(r) for r in rows_db]
+    html = render_pl_mensual_html(
         empresa_codigo=empresa_codigo,
         anio=anio,
         rows_by_month=rows,
