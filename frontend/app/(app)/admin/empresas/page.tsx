@@ -32,10 +32,12 @@ import {
   CheckCircle2,
   XCircle,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { isValidRut, formatRut } from "@/lib/rut";
 
 interface EmpresaRead {
   empresa_id: number;
@@ -290,21 +292,52 @@ function EmpresaEditDrawer({ empresa, onClose, onSaved }: DrawerProps) {
             ["email_firmante", "Email firmante (vouchers)"],
             ["oc_prefix", "OC prefix"],
           ] as const
-        ).map(([key, label]) => (
-          <div key={key}>
-            <label className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
-              {label}
-            </label>
-            <input
-              type="text"
-              value={(draft[key] as string) ?? ""}
-              onChange={(e) =>
-                setDraft({ ...draft, [key]: e.target.value })
-              }
-              className="mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
-            />
-          </div>
-        ))}
+        ).map(([key, label]) => {
+          const value = (draft[key] as string) ?? "";
+          const isRut = key === "rut";
+          // Validar RUT solo si tiene >2 chars (suficiente para tener DV)
+          const rutInvalid =
+            isRut && value.length > 2 && !isValidRut(value);
+          const rutValid = isRut && value.length > 2 && isValidRut(value);
+          return (
+            <div key={key}>
+              <label className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                {label}
+                {isRut && rutValid && (
+                  <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] text-cehta-green">
+                    <CheckCircle2 className="h-2.5 w-2.5" />
+                    válido
+                  </span>
+                )}
+                {isRut && rutInvalid && (
+                  <span className="ml-1 inline-flex items-center gap-0.5 text-[9px] text-amber-600">
+                    <AlertTriangle className="h-2.5 w-2.5" />
+                    DV incorrecto
+                  </span>
+                )}
+              </label>
+              <input
+                type="text"
+                value={value}
+                onChange={(e) =>
+                  setDraft({ ...draft, [key]: e.target.value })
+                }
+                onBlur={(e) => {
+                  // Auto-formatear RUT al desfoco si es válido
+                  if (isRut && isValidRut(e.target.value)) {
+                    setDraft((d) => ({ ...d, rut: formatRut(e.target.value) }));
+                  }
+                }}
+                className={`mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 focus:bg-white focus:outline-none focus:ring-2 ${
+                  rutInvalid
+                    ? "ring-amber-300 focus:ring-amber-500"
+                    : "ring-hairline focus:ring-cehta-green"
+                }`}
+                placeholder={isRut ? "12.345.678-9" : undefined}
+              />
+            </div>
+          );
+        })}
       </div>
 
       {/* Toggle activo */}
