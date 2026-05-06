@@ -94,6 +94,16 @@ class Settings(BaseSettings):
     inbox_classify_model: str = "claude-sonnet-4-5-20250929"
     inbox_max_messages_per_run: int = 50
 
+    # V5++ ola O: Slack notifications opcional. Si está seteado, eventos
+    # críticos (voucher.approved con monto >X, notif_sii del SII, F29
+    # vencido) se envían también a un canal Slack via incoming webhook.
+    # URL formato: https://hooks.slack.com/services/T.../B.../xxx
+    # Soft-fail: sin URL, no se envía nada (no rompe).
+    slack_webhook_url: str | None = None
+    # Threshold en CLP — solo notificar vouchers aprobados sobre este monto.
+    # Si 0, todos los voucher.approved disparan ping. Default $5M.
+    slack_voucher_min_amount: int = 5_000_000
+
     # V4 fase 9.4: Booking URL (Cal.com / Calendly / Google appointments).
     # Si está seteada, los Informes LP muestran un botón "Agendar 30 min con
     # {owner}" que abre un modal con iframe en vez de mailto:. Multiplica

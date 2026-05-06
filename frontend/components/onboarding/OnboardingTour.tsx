@@ -75,6 +75,40 @@ const STEPS: TourStep[] = [
       "Preguntale lo que sea sobre tus empresas. Por ejemplo: \"¿Cuál fue el saldo de CENERGY en marzo?\"",
     position: "right",
   },
+  // V5++ steps — features nuevos (vouchers contables + inbox + cartolas OCR)
+  {
+    id: "vouchers",
+    target: '[data-tour="vouchers"]',
+    title: "Vouchers Contables",
+    body:
+      "Asientos formales con partida doble, imputación triple (cuenta + proyecto + área) y firma SHA-256. Crea uno desde un email del inbox o una factura PDF con un click.",
+    position: "right",
+  },
+  {
+    id: "mailbox",
+    target: '[data-tour="mailbox"]',
+    title: "Inbox · contactocehta@gmail.com",
+    body:
+      "Cada email entrante se clasifica con AI y genera un draft de respuesta. Vos revisas y aprobás antes de enviar. Atajos teclado: `gi` para abrir.",
+    position: "right",
+  },
+  {
+    id: "cartolas-ocr",
+    target: '[data-tour="cartolas"]',
+    title: "Cartolas Bancarias OCR",
+    body:
+      "Subí PDFs de cartolas a Dropbox y el sistema parsea automáticamente los movimientos para conciliación. Soporta 10 bancos chilenos.",
+    position: "right",
+  },
+  {
+    id: "shortcuts",
+    target: null,
+    title: "Atajos de teclado",
+    body:
+      "g + letra para navegar rápido: gd (dashboard), gv (vouchers), ge (empresas), gi (inbox), gf (F29), gt (F22), gc (cartolas), ga (admin), go (OCs), gr (reportes). `/` abre búsqueda.",
+    position: "center",
+    ctaLabel: "Listo",
+  },
 ];
 
 const TOOLTIP_WIDTH = 340;

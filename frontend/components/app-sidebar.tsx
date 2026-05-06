@@ -137,7 +137,12 @@ const GROUPS: NavGroup[] = [
       { href: "/f22" as Route, label: "F22 / Anual", icon: Receipt },
       // V5: Vouchers (comprobantes contables) — corazón del módulo contable.
       // Imputación triple cuenta × proyecto × área con partida doble.
-      { href: "/vouchers" as Route, label: "Vouchers contables", icon: Receipt },
+      {
+        href: "/vouchers" as Route,
+        label: "Vouchers contables",
+        icon: Receipt,
+        tourId: "vouchers",
+      },
       { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
     ],
   },
@@ -267,6 +272,7 @@ const GROUPS: NavGroup[] = [
         href: "/admin/cartolas-runs" as Route,
         label: "Cartolas OCR",
         icon: Banknote,
+        tourId: "cartolas",
       },
       {
         href: "/admin/audit" as Route,
@@ -292,6 +298,7 @@ const GROUPS: NavGroup[] = [
         href: "/admin/mailbox" as Route,
         label: "Inbox · contactocehta",
         icon: Mail,
+        tourId: "mailbox",
       },
       {
         href: "/admin/import" as Route,

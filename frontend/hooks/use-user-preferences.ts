@@ -24,7 +24,8 @@ import type { TourState, UserPreferenceRead } from "@/lib/api/schema";
 const PREF_KEY_PREFIX = ["user-preferences"] as const;
 
 export const TOUR_PREFERENCE_KEY = "onboarding_tour";
-export const TOUR_TOTAL_STEPS = 5;
+// V5++: 5 pasos originales + 4 V5++ (vouchers/mailbox/cartolas/shortcuts)
+export const TOUR_TOTAL_STEPS = 9;
 
 export function useUserPreference<T>(key: string, defaultValue: T) {
   const { session, loading } = useSession();

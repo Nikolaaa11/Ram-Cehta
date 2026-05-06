@@ -1294,6 +1294,20 @@ async def approve_voucher(
                 error=str(exc),
             )
 
+        # V5++ ola O: Slack ping si el monto supera threshold
+        try:
+            from app.services.slack_service import notify_voucher_approved
+
+            await notify_voucher_approved(
+                voucher_codigo=voucher.codigo,
+                empresa_codigo=voucher.empresa_codigo,
+                tipo=voucher.tipo,
+                total_clp=int(voucher.total_debit),
+                approved_by=str(user.sub),
+            )
+        except Exception:
+            pass  # Soft-fail
+
     return await get_voucher_approvals_state(user, db, voucher_id)
 
 

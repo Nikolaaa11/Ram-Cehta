@@ -602,6 +602,21 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                             "inbox.sse_classify_skipped", error=str(exc)
                         )
 
+                    # V5++ ola O: Slack ping para emails del SII (alta prioridad)
+                    if category == "notif_sii":
+                        try:
+                            from app.services.slack_service import (
+                                notify_sii_email,
+                            )
+
+                            await notify_sii_email(
+                                from_email=from_email or "",
+                                subject=subject or "(sin asunto)",
+                                summary=summary,
+                            )
+                        except Exception:
+                            pass  # Soft-fail
+
                     # Notificación in-app si el email es CRÍTICO.
                     # Categorías que ameritan ping inmediato a Nicolás:
                     #   - notif_sii (multas, citaciones, alertas tributarias)
