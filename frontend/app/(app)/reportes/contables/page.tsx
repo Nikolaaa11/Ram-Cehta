@@ -5,10 +5,12 @@
  * /reportes con cards numeradas y mesh gradient sutil.
  */
 import {
+  Banknote,
   BookOpen,
   CalendarCheck,
   CircleDollarSign,
   FileBarChart,
+  FileText,
   Layers,
   LineChart,
   Scale,
@@ -135,6 +137,24 @@ export default function ReportesContablesPage() {
             description="Ingresos (4-*) vs Gastos (5-*) mes a mes del año + margen porcentual + mejor/peor mes."
             href="/reportes/contables/pl-mensual"
             accent="cehta-green"
+            badge="V5++"
+          />
+          <ReporteCard
+            number="10"
+            icon={<FileText className="h-5 w-5" strokeWidth={1.5} />}
+            title="Estado de Resultados"
+            description="ER anual jerárquico con cuentas (4-* y 5-*). Resultado del ejercicio + margen. Formato chileno formal — útil para SII/F22."
+            href="/reportes/contables/estado-resultados"
+            accent="sf-blue"
+            badge="V5++"
+          />
+          <ReporteCard
+            number="11"
+            icon={<Banknote className="h-5 w-5" strokeWidth={1.5} />}
+            title="Balance General"
+            description="Activo / Pasivo / Patrimonio a fecha de corte. Verifica ecuación contable. Saldos acumulados desde inicio."
+            href="/reportes/contables/balance-general"
+            accent="sf-purple"
             badge="V5++"
           />
         </div>

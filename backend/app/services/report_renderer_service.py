@@ -516,6 +516,275 @@ def render_pl_mensual_html(
     return _wrap_page(body, f"P&L {anio} {empresa_codigo}")
 
 
+def render_estado_resultados_html(
+    *,
+    empresa_codigo: str,
+    anio: int,
+    rows: list[dict],
+) -> str:
+    """Estado de Resultados anual jerárquico (formato chileno).
+
+    Cada `row` tiene:
+      cuenta_codigo, cuenta_nombre, nivel (1-4), tipo, monto, es_total
+
+    Estructura típica chilena (cuenta nivel 1 → categoría):
+      4 - Ingresos
+        4-01 - Ingresos por ventas
+        4-02 - Ingresos financieros
+      5 - Gastos
+        5-01 - Costos directos
+        5-02 - Gastos administración
+        5-03 - Gastos comercialización
+      = Resultado del ejercicio (4 - 5)
+
+    Solo voucher_lines APPROVED+. Plan de cuentas chileno X-XX-XX-XX.
+    """
+    if not rows:
+        body = (
+            _render_header(
+                f"Estado de Resultados {anio}",
+                f"Empresa {empresa_codigo}",
+                "Sin movimientos contabilizados.",
+            )
+            + _render_footer(f"er-{empresa_codigo}-{anio}")
+        )
+        return _wrap_page(body, f"Estado Resultados {anio} {empresa_codigo}")
+
+    # Agrupar por categoría top-level (primer dígito)
+    rows_html = ""
+    total_ingresos = Decimal("0")
+    total_gastos = Decimal("0")
+
+    for r in rows:
+        codigo = r.get("cuenta_codigo", "")
+        nombre = r.get("cuenta_nombre", "")
+        nivel = int(r.get("nivel", 1))
+        monto = Decimal(str(r.get("monto", 0)))
+        es_total = bool(r.get("es_total", False))
+
+        # Nivel 1 = categoría top, indentación 0
+        # Nivel 2 = sub-categoría, indentación 20px
+        # Nivel 3+ = detalle, indentación 40px
+        indent_px = (nivel - 1) * 20
+
+        # Identificar si es ingreso o gasto por primer dígito
+        first_digit = codigo[:1] if codigo else ""
+        if first_digit == "4":
+            total_ingresos += monto if not es_total else Decimal("0")
+            row_class = "background: #f0fdf4" if es_total else ""
+        elif first_digit == "5":
+            total_gastos += monto if not es_total else Decimal("0")
+            row_class = "background: #fef2f2" if es_total else ""
+        else:
+            row_class = ""
+
+        weight = "600" if (nivel <= 1 or es_total) else "400"
+        rows_html += f"""<tr style="{row_class}">
+          <td class="mono" style="padding-left: {indent_px}px; font-weight: {weight}">
+            {_esc(codigo)}
+          </td>
+          <td style="font-weight: {weight}">{_esc(nombre)}</td>
+          <td class="num" style="font-weight: {weight}">{_fmt_clp(monto)}</td>
+        </tr>"""
+
+    resultado = total_ingresos - total_gastos
+    margen = (
+        (resultado / total_ingresos * 100) if total_ingresos > 0 else Decimal("0")
+    )
+
+    body = (
+        _render_header(
+            f"Estado de Resultados {anio}",
+            f"Empresa {empresa_codigo}",
+            f"Año {anio} · Plan de cuentas chileno X-XX-XX-XX",
+        )
+        + f"""
+        <table>
+          <thead><tr>
+            <th style="width: 130px">Cuenta</th>
+            <th>Nombre</th>
+            <th class="num">Monto</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+          <tfoot>
+            <tr style="background: #f3f4f6">
+              <td colspan="2" style="text-align: right; font-weight: 700">
+                Total Ingresos (4-*)
+              </td>
+              <td class="num" style="font-weight: 700">{_fmt_clp(total_ingresos)}</td>
+            </tr>
+            <tr style="background: #f3f4f6">
+              <td colspan="2" style="text-align: right; font-weight: 700">
+                Total Gastos (5-*)
+              </td>
+              <td class="num" style="font-weight: 700">{_fmt_clp(total_gastos)}</td>
+            </tr>
+            <tr style="background: #1d6f42; color: white">
+              <td colspan="2" style="text-align: right; font-weight: 700; padding: 12px 8px">
+                Resultado del ejercicio
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(resultado)}
+              </td>
+            </tr>
+            <tr>
+              <td colspan="2" style="text-align: right; font-style: italic">
+                Margen sobre ingresos
+              </td>
+              <td class="num" style="font-style: italic">{margen:.1f}%</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="subtle" style="margin-top: 1em">
+          Cuentas con nivel 1 (X) son categorías top. Sub-totales destacados
+          en color. Sólo vouchers status ∈ {{APPROVED, EXECUTED, SYNCED, RECONCILED}}.
+        </p>"""
+        + _render_footer(f"er-{empresa_codigo}-{anio}")
+    )
+    return _wrap_page(body, f"ER {anio} {empresa_codigo}")
+
+
+def render_balance_general_html(
+    *,
+    empresa_codigo: str,
+    fecha_corte: date,
+    rows: list[dict],
+) -> str:
+    """Balance General (Activo / Pasivo / Patrimonio) a fecha de corte.
+
+    Cada `row` tiene:
+      cuenta_codigo, cuenta_nombre, nivel, saldo, es_total
+
+    Estructura chilena:
+      1 - Activo (debe acumulado - haber acumulado)
+        1-01 - Activo corriente
+        1-02 - Activo no corriente
+      2 - Pasivo (haber acumulado - debe acumulado)
+        2-01 - Pasivo corriente
+        2-02 - Pasivo no corriente
+      3 - Patrimonio
+        3-01 - Capital
+        3-02 - Resultados acumulados
+
+    Ecuación contable: Activo = Pasivo + Patrimonio (debe cuadrar).
+    """
+    if not rows:
+        body = (
+            _render_header(
+                "Balance General",
+                f"Empresa {empresa_codigo}",
+                f"Al {fecha_corte}",
+            )
+            + '<p style="text-align:center;padding:4em;color:#6b7280">Sin movimientos.</p>'
+            + _render_footer(f"bg-{empresa_codigo}-{fecha_corte}")
+        )
+        return _wrap_page(body, f"Balance General {empresa_codigo}")
+
+    activo = pasivo = patrimonio = Decimal("0")
+    rows_html = ""
+
+    for r in rows:
+        codigo = r.get("cuenta_codigo", "")
+        nombre = r.get("cuenta_nombre", "")
+        nivel = int(r.get("nivel", 1))
+        saldo = Decimal(str(r.get("saldo", 0)))
+        es_total = bool(r.get("es_total", False))
+
+        first_digit = codigo[:1] if codigo else ""
+        if first_digit == "1" and not es_total:
+            activo += saldo
+        elif first_digit == "2" and not es_total:
+            pasivo += saldo
+        elif first_digit == "3" and not es_total:
+            patrimonio += saldo
+
+        indent_px = (nivel - 1) * 20
+        weight = "600" if (nivel <= 1 or es_total) else "400"
+        bg = ""
+        if first_digit == "1":
+            bg = "background: #eff6ff"
+        elif first_digit == "2":
+            bg = "background: #fef2f2"
+        elif first_digit == "3":
+            bg = "background: #f0fdf4"
+
+        rows_html += f"""<tr style="{bg if es_total else ''}">
+          <td class="mono" style="padding-left: {indent_px}px; font-weight: {weight}">
+            {_esc(codigo)}
+          </td>
+          <td style="font-weight: {weight}">{_esc(nombre)}</td>
+          <td class="num" style="font-weight: {weight}">{_fmt_clp(saldo)}</td>
+        </tr>"""
+
+    pasivo_patrimonio = pasivo + patrimonio
+    diferencia = activo - pasivo_patrimonio
+    cuadrado = abs(diferencia) < Decimal("1")  # tolerancia $1 por redondeos
+
+    body = (
+        _render_header(
+            "Balance General",
+            f"Empresa {empresa_codigo}",
+            f"Al {fecha_corte} · Plan de cuentas chileno",
+        )
+        + f"""
+        <table>
+          <thead><tr>
+            <th style="width: 130px">Cuenta</th>
+            <th>Nombre</th>
+            <th class="num">Saldo</th>
+          </tr></thead>
+          <tbody>{rows_html}</tbody>
+          <tfoot>
+            <tr style="background: #1d6f42; color: white">
+              <td colspan="2" style="text-align: right; font-weight: 700; padding: 12px 8px">
+                Total Activo (1-*)
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(activo)}
+              </td>
+            </tr>
+            <tr style="background: #b91c1c; color: white">
+              <td colspan="2" style="text-align: right; font-weight: 700; padding: 12px 8px">
+                Total Pasivo (2-*)
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(pasivo)}
+              </td>
+            </tr>
+            <tr style="background: #1d6f42; color: white">
+              <td colspan="2" style="text-align: right; font-weight: 700; padding: 12px 8px">
+                Total Patrimonio (3-*)
+              </td>
+              <td class="num" style="font-weight: 700; padding: 12px 8px">
+                {_fmt_clp(patrimonio)}
+              </td>
+            </tr>
+            <tr style="background: #f3f4f6">
+              <td colspan="2" style="text-align: right; font-weight: 700">
+                Pasivo + Patrimonio
+              </td>
+              <td class="num" style="font-weight: 700">{_fmt_clp(pasivo_patrimonio)}</td>
+            </tr>
+            <tr>
+              <td colspan="2" style="text-align: right; font-style: italic">
+                Diferencia ({'cuadrado' if cuadrado else 'descuadrado ⚠'})
+              </td>
+              <td class="num" style="font-style: italic">{_fmt_clp(diferencia)}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p class="subtle" style="margin-top: 1em">
+          Ecuación contable: <strong>Activo = Pasivo + Patrimonio</strong>.
+          Si hay diferencia, revisar asientos sin contraparte completa.
+          Saldos calculados como Σ(debe) - Σ(haber) acumulado hasta {fecha_corte}.
+        </p>"""
+        + _render_footer(f"bg-{empresa_codigo}-{fecha_corte}")
+    )
+    return _wrap_page(body, f"Balance General {empresa_codigo}")
+
+
 def render_voucher_html(
     *,
     voucher: dict,

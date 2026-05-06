@@ -263,9 +263,11 @@ async def get_rendicion_corfo(
 from fastapi.responses import HTMLResponse  # noqa: E402
 
 from app.services.report_renderer_service import (  # noqa: E402
+    render_balance_general_html,
     render_balance_prueba_html,
     render_cashflow_mensual_html,
     render_cierre_mensual_html,
+    render_estado_resultados_html,
     render_libro_diario_html,
     render_pl_mensual_html,
 )
@@ -599,6 +601,122 @@ async def get_pl_mensual_html(
         empresa_codigo=empresa_codigo,
         anio=anio,
         rows_by_month=rows,
+    )
+    return HTMLResponse(content=html)
+
+
+
+@router.get(
+    "/reportes/contables/estado-resultados.html",
+    response_class=HTMLResponse,
+)
+async def get_estado_resultados_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    anio: Annotated[int, Query(ge=2020, le=2100)],
+) -> HTMLResponse:
+    """Estado de Resultados anual jerárquico (cuentas 4-* y 5-*)."""
+    from sqlalchemy import text
+
+    rows_db = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    pc.codigo AS cuenta_codigo,
+                    pc.nombre AS cuenta_nombre,
+                    pc.nivel,
+                    CASE
+                        WHEN LEFT(pc.codigo, 1) = '4' THEN
+                            COALESCE(SUM(vl.credit - vl.debit), 0)
+                        WHEN LEFT(pc.codigo, 1) = '5' THEN
+                            COALESCE(SUM(vl.debit - vl.credit), 0)
+                        ELSE 0
+                    END AS monto,
+                    FALSE AS es_total
+                FROM core.plan_cuentas pc
+                LEFT JOIN core.voucher_lines vl ON vl.cuenta_codigo = pc.codigo
+                LEFT JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
+                    AND v.empresa_codigo = :emp
+                    AND EXTRACT(year FROM v.fecha_contable) = :anio
+                    AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                WHERE LEFT(pc.codigo, 1) IN ('4', '5')
+                GROUP BY pc.codigo, pc.nombre, pc.nivel
+                HAVING (
+                    LEFT(pc.codigo, 1) = '4'
+                    AND COALESCE(SUM(vl.credit - vl.debit), 0) <> 0
+                ) OR (
+                    LEFT(pc.codigo, 1) = '5'
+                    AND COALESCE(SUM(vl.debit - vl.credit), 0) <> 0
+                )
+                ORDER BY pc.codigo
+                """
+            ),
+            {"emp": empresa_codigo, "anio": anio},
+        )
+    ).mappings().all()
+
+    rows = [dict(r) for r in rows_db]
+    html = render_estado_resultados_html(
+        empresa_codigo=empresa_codigo,
+        anio=anio,
+        rows=rows,
+    )
+    return HTMLResponse(content=html)
+
+
+@router.get(
+    "/reportes/contables/balance-general.html",
+    response_class=HTMLResponse,
+)
+async def get_balance_general_html(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
+    fecha_corte: Annotated[date, Query()],
+) -> HTMLResponse:
+    """Balance General (Activo / Pasivo / Patrimonio) a fecha de corte."""
+    from sqlalchemy import text
+
+    rows_db = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    pc.codigo AS cuenta_codigo,
+                    pc.nombre AS cuenta_nombre,
+                    pc.nivel,
+                    CASE
+                        WHEN LEFT(pc.codigo, 1) = '1' THEN
+                            COALESCE(SUM(vl.debit - vl.credit), 0)
+                        WHEN LEFT(pc.codigo, 1) IN ('2', '3') THEN
+                            COALESCE(SUM(vl.credit - vl.debit), 0)
+                        ELSE 0
+                    END AS saldo,
+                    FALSE AS es_total
+                FROM core.plan_cuentas pc
+                LEFT JOIN core.voucher_lines vl ON vl.cuenta_codigo = pc.codigo
+                LEFT JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
+                    AND v.empresa_codigo = :emp
+                    AND v.fecha_contable <= :fecha
+                    AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                WHERE LEFT(pc.codigo, 1) IN ('1', '2', '3')
+                GROUP BY pc.codigo, pc.nombre, pc.nivel
+                HAVING ABS(COALESCE(SUM(vl.debit - vl.credit), 0)) > 0
+                    OR ABS(COALESCE(SUM(vl.credit - vl.debit), 0)) > 0
+                ORDER BY pc.codigo
+                """
+            ),
+            {"emp": empresa_codigo, "fecha": fecha_corte},
+        )
+    ).mappings().all()
+
+    rows = [dict(r) for r in rows_db]
+    html = render_balance_general_html(
+        empresa_codigo=empresa_codigo,
+        fecha_corte=fecha_corte,
+        rows=rows,
     )
     return HTMLResponse(content=html)
 
