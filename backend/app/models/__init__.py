@@ -20,6 +20,7 @@ from app.models.trabajador import Trabajador, TrabajadorDocumento
 from app.models.two_factor import TwoFactor
 from app.models.user_preference import UserPreference
 from app.models.user_role import UserRole
+from app.models.voucher_template import VoucherTemplate
 
 __all__ = [
     "ActionLog",
@@ -46,4 +47,5 @@ __all__ = [
     "TwoFactor",
     "UserPreference",
     "UserRole",
+    "VoucherTemplate",
 ]

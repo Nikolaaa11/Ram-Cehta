@@ -223,6 +223,40 @@ export default function VoucherDetailPage({ params }: PageProps) {
               <Printer className="h-4 w-4" strokeWidth={1.75} />
               Imprimir / PDF
             </button>
+            {/* V5++ ola AB: Guardar como plantilla — útil para vouchers
+                recurrentes (sueldos, arriendos, servicios mensuales). */}
+            <button
+              type="button"
+              onClick={async () => {
+                const codigo = prompt(
+                  "Código de la plantilla (ej: TPL-FONDO-SUELDO-CEO):",
+                  `TPL-${voucher.empresa_codigo}-${voucher.tipo}-${voucher.voucher_id}`,
+                );
+                if (!codigo) return;
+                const nombre = prompt(
+                  "Nombre descriptivo de la plantilla:",
+                  voucher.glosa.slice(0, 80),
+                );
+                if (!nombre) return;
+                try {
+                  const params = new URLSearchParams({ codigo, nombre });
+                  await apiClient.post(
+                    `/vouchers/templates/from-voucher/${voucher.voucher_id}?${params}`,
+                    {},
+                    session,
+                  );
+                  toast.success(`Plantilla "${nombre}" creada`);
+                } catch (err) {
+                  const msg = err instanceof ApiError ? err.detail : "Error";
+                  toast.error(`Error: ${msg}`);
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              title="Guardar como plantilla para reusar en el futuro"
+            >
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+              Guardar plantilla
+            </button>
             {voucher.status === "DRAFT" && (
               <>
                 <button

@@ -51,6 +51,7 @@ from app.api.v1 import (
     trabajadores,
     two_factor,
     validate,
+    voucher_templates,
     vouchers,
     vouchers_demo,
     webhooks,
@@ -139,6 +140,9 @@ api_router.include_router(plan_cuentas.router, tags=["plan-cuentas"])
 # debe/haber con imputación triple cuenta + proyecto + área. Partida
 # doble validada en 3 capas (Pydantic + trigger Postgres + UI).
 api_router.include_router(vouchers.router, tags=["vouchers"])
+# V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
+# arriendos, servicios mensuales). save-as-template + use-template flow.
+api_router.include_router(voucher_templates.router, tags=["voucher-templates"])
 # V5: Proyectos contables (formales para imputación, distintos de los
 # Gantts operativos). CRUD + endpoint /avance con presupuesto vs ejecutado.
 api_router.include_router(proyectos_contables.router, tags=["proyectos-contables"])
