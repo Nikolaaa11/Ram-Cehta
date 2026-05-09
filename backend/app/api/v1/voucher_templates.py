@@ -23,6 +23,7 @@ from decimal import Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy import desc, select, text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -331,13 +332,14 @@ async def update_template(
 @router.delete(
     "/vouchers/templates/{template_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
     dependencies=[Depends(require_scope("legal:write"))],
 )
 async def delete_template(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
     template_id: int,
-) -> None:
+) -> Response:
     """Soft delete: marca activo=false. La plantilla deja de aparecer en list
     default pero queda preservada para auditoría."""
     tpl = await db.get(VoucherTemplate, template_id)
@@ -349,6 +351,7 @@ async def delete_template(
     tpl.activo = False
     tpl.updated_at = datetime.utcnow()
     await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # =====================================================================
