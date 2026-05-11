@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useDebounce } from "@/hooks/use-debounce";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 
@@ -71,6 +72,9 @@ export default function BitacoraPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // V5++ ola BE: debounce 400ms — evita request en cada keystroke del filter
+  const debouncedEmail = useDebounce(userEmailFilter, 400);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -78,7 +82,7 @@ export default function BitacoraPage() {
         since_hours: String(windowHours),
         limit: "300",
       });
-      if (userEmailFilter) params.set("user_email", userEmailFilter);
+      if (debouncedEmail) params.set("user_email", debouncedEmail);
 
       const tl = await apiClient.get<{ items: TimelineItem[] }>(
         `/bitacora/timeline?${params}`,
@@ -104,7 +108,7 @@ export default function BitacoraPage() {
   useEffect(() => {
     if (session) fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session, windowHours]);
+  }, [session, windowHours, debouncedEmail]);
 
   // Filtro client-side por empresa (texto contiene)
   const filteredItems = useMemo(() => {
@@ -264,10 +268,9 @@ export default function BitacoraPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
             type="text"
-            placeholder="Email del usuario (ej. grietta@cehtacapital.com)"
+            placeholder="Email del usuario (filtra al tipear)"
             value={userEmailFilter}
             onChange={(e) => setUserEmailFilter(e.target.value)}
-            onBlur={fetchData}
             className="px-3 py-2 rounded-lg border border-hairline text-sm bg-white dark:bg-ink-900 dark:text-ink-100"
           />
           <input
