@@ -244,14 +244,17 @@ async def ensure_empresa_cehta(session: AsyncSession) -> None:
         print("✓ Empresa CEHTA ya existe")
         return
     print("→ Creando empresa CEHTA (Cehta Capital — staff operativo)...")
+    # RUT NULL porque AFIS (77.423.556-6) ya tiene el RUT legal del grupo
+    # CEHTA es una agrupación operativa interna, no una entidad jurídica nueva.
+    # Si después querés vincularla a un RUT, editás desde /admin/empresas.
     await session.execute(
         text(
             """
             INSERT INTO core.empresas (codigo, razon_social, rut, activo, direccion, ciudad)
             VALUES (
                 'CEHTA',
-                'Cehta Capital — Operación interna',
-                '77.423.556-6',
+                'Cehta Capital — Staff operativo',
+                NULL,
                 TRUE,
                 'Av. del Parque 4680-A of. 302',
                 'Huechuraba'
