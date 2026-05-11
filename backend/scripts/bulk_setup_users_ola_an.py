@@ -170,15 +170,29 @@ USERS_CONFIG: list[dict] = [
 
 
 def generate_password(email: str) -> str:
-    """Genera password única, legible. Pattern: Cehta-{ShortName}-{4digits}.
+    """Genera password DETERMINÍSTICA (siempre la misma para el mismo email).
+
+    Pattern: Cehta-{ShortName}-{4digits}.
+
+    Ventaja: si perdés el CSV, podés regenerar la password sabiendo el email.
+    Mantiene una semilla `CEHTA-2026` en el hash para que cambiar el año
+    invalide passwords vieja si querés rotar (cambiar la semilla acá).
 
     Ejemplo:
         jiprieto@evoquenergy.com → Cehta-Jiprie-4823
         contactocehta@gmail.com  → Cehta-Contac-9012
     """
+    import hashlib
+
+    SEED = "CEHTA-2026-v1"  # cambiar para forzar rotación de passwords
     short = email.split("@")[0][:6].capitalize()
     short = "".join(c for c in short if c.isalnum())
-    digits = "".join(secrets.choice("0123456789") for _ in range(4))
+    # Hash determinista del email + seed
+    h = hashlib.sha256(f"{SEED}:{email.lower().strip()}".encode()).hexdigest()
+    # Tomar los primeros 4 dígitos del hash
+    digits = "".join(c for c in h if c.isdigit())[:4]
+    if len(digits) < 4:
+        digits = (digits + "0000")[:4]
     return f"Cehta-{short}-{digits}"
 
 
