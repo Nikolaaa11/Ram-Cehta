@@ -26,30 +26,28 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
 
-  // V5++ Service Worker — registro silencioso en producción para offline-read.
-  // En dev no registra (evita conflictos con HMR). Soft-fail si el browser
-  // no soporta SW o el script da 404.
+  // V5++ HOTFIX: SW deshabilitado (estaba causando flash de pantalla negra
+  // cada ~3s en producción). En vez de registrar, UNREGISTRA cualquier SW
+  // existente y limpia caches. Cuando esté arreglado el bug, se re-habilita.
   useEffect(() => {
-    if (process.env.NODE_ENV !== "production") return;
     if (typeof window === "undefined") return;
     if (!("serviceWorker" in navigator)) return;
 
-    const register = async () => {
+    const cleanup = async () => {
       try {
-        await navigator.serviceWorker.register("/sw.js", {
-          scope: "/",
-          updateViaCache: "none", // siempre check del SW al revalidar
-        });
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const r of registrations) {
+          await r.unregister();
+        }
+        if ("caches" in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
       } catch {
-        // SW falló — no rompe la app, solo no hay offline-read
+        // ignore
       }
     };
-    // Defer para no competir con la hidratación inicial
-    if (document.readyState === "complete") {
-      register();
-    } else {
-      window.addEventListener("load", register, { once: true });
-    }
+    cleanup();
   }, []);
 
   return (
