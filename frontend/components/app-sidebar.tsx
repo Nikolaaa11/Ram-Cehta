@@ -280,6 +280,11 @@ const GROUPS: NavGroup[] = [
         icon: ScrollText,
       },
       {
+        href: "/admin/http-trail" as Route,
+        label: "Audit trail HTTP",
+        icon: ScrollText,
+      },
+      {
         href: "/admin/data-quality" as Route,
         label: "Data Quality",
         icon: ShieldCheck,

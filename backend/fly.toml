@@ -47,6 +47,10 @@ kill_timeout = "10s"
   # Configurar schedule: `fly machine update <id> --schedule weekly`
   # Si pg_restore --list falla, exit != 0 alerta vía Sentry/cron.
   verify_backup_cron = "python -m scripts.verify_backup"
+  # V5++ ola AJ: limpieza weekly de audit.http_mutations > 90 días.
+  # Configurar: `fly machine update <id> --schedule weekly`
+  # Tunable: env var AUDIT_RETENTION_DAYS (default 90).
+  audit_retention_cron = "python -m scripts.audit_retention_cleanup"
 
 [http_service]
   internal_port = 8000

@@ -243,3 +243,68 @@ async def get_sidebar_state(
         mailbox_pending=mailbox,
     )
 
+
+# =====================================================================
+# V5++ ola AI — GET /me/empresas
+# =====================================================================
+
+
+@router.get("/empresas")
+async def list_my_empresas(
+    user: CurrentUser,
+    db: DBSession,
+) -> dict:
+    """V5++ ola AI: empresas a las que el current user tiene acceso.
+
+    Útil para el frontend:
+      - Pre-seleccionar empresa default al crear voucher (si tiene solo 1)
+      - Limitar selector de empresa al universo permitido
+      - Mostrar "Mis Empresas" widget en dashboard
+
+    Devuelve [{ codigo, razon_social, roles: [...] }, ...] o todas si admin.
+    """
+    if user.is_admin:
+        # Admin global → devuelve TODAS las empresas activas con rol 'admin'
+        rows = (await db.execute(
+            text(
+                """
+                SELECT codigo, razon_social, rut, activo
+                FROM core.empresas
+                WHERE activo = TRUE
+                ORDER BY codigo
+                """
+            )
+        )).mappings().all()
+        return {
+            "is_admin": True,
+            "empresas": [
+                {**dict(r), "roles": ["admin"]} for r in rows
+            ],
+        }
+
+    # User scoped → solo empresas en core.user_company_roles
+    rows = (await db.execute(
+        text(
+            """
+            SELECT
+                e.codigo,
+                e.razon_social,
+                e.rut,
+                e.activo,
+                ARRAY_AGG(ucr.role ORDER BY ucr.role) as roles
+            FROM core.empresas e
+            JOIN core.user_company_roles ucr
+                ON ucr.empresa_codigo = e.codigo AND ucr.active = TRUE
+            WHERE ucr.user_id = :uid AND e.activo = TRUE
+            GROUP BY e.codigo, e.razon_social, e.rut, e.activo
+            ORDER BY e.codigo
+            """
+        ),
+        {"uid": str(user.sub)},
+    )).mappings().all()
+
+    return {
+        "is_admin": False,
+        "empresas": [dict(r) for r in rows],
+    }
+
