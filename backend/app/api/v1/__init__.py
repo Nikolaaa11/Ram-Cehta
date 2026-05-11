@@ -31,6 +31,7 @@ from app.api.v1 import (
     health,
     informes_lp,
     legal,
+    lp_contratos,
     lp_documents,
     mailbox,
     me_preferences,
@@ -79,6 +80,8 @@ api_router.include_router(f22.router, prefix="/f22", tags=["f22"])
 # Sin prefix porque las rutas tienen /sync/{empresa} y /runs adentro.
 api_router.include_router(cartolas.router, tags=["cartolas"])
 api_router.include_router(suscripciones.router, prefix="/suscripciones", tags=["suscripciones"])
+# V5++ ola AL — LP contratos FIP CEHTA ESG (promesas + definitivos).
+api_router.include_router(lp_contratos.router, prefix="/lp-contratos", tags=["lp-contratos"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
