@@ -60,6 +60,7 @@ from app.services.approval_service import (
     load_user_roles_for_empresa,
     record_approval_signature,
 )
+from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.empresa_scope_service import (
     EmpresaScopeDep,
@@ -457,6 +458,7 @@ async def get_voucher_html(
 async def create_voucher(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    request: Request,
     body: VoucherCreate,
 ) -> VoucherRead:
     """Crea voucher + líneas en una sola transacción.
@@ -656,8 +658,44 @@ async def create_voucher(
             detail=f"Error guardando voucher: {exc}",
         ) from exc
 
+    # V5++ ola BL — Audit log de creación para Bitácora
+    try:
+        await audit_log(
+            db, request, user,
+            action="create",
+            entity_type="voucher",
+            entity_id=str(voucher.voucher_id),
+            entity_label=voucher.codigo,
+            summary=(
+                f"Voucher {voucher.codigo} creado: "
+                f"{voucher.empresa_codigo} · {voucher.tipo} · "
+                f"${voucher.total_debit:,.0f} · {len(body.lines)} líneas"
+            ),
+            before=None,
+            after={
+                "voucher_id": voucher.voucher_id,
+                "codigo": voucher.codigo,
+                "empresa_codigo": voucher.empresa_codigo,
+                "tipo": voucher.tipo,
+                "status": voucher.status,
+                "total_debit": str(voucher.total_debit),
+                "glosa": voucher.glosa,
+                "contraparte_nombre": voucher.contraparte_nombre,
+                "lines_count": len(body.lines),
+            },
+        )
+    except Exception:
+        pass
+
     # Re-fetch con líneas cargadas
-    return await get_voucher(user, db, voucher.voucher_id)
+    # NOTE: get_voucher requires scope dep — bypass with None as we already validated
+    stmt = (
+        select(Voucher)
+        .options(selectinload(Voucher.lines))
+        .where(Voucher.voucher_id == voucher.voucher_id)
+    )
+    v_full = (await db.execute(stmt)).scalar_one()
+    return VoucherRead.model_validate(v_full)
 
 
 # =====================================================================
@@ -718,6 +756,7 @@ class SubmitResponse(BaseModel):
 async def submit_voucher(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    request: Request,
     voucher_id: int,
 ) -> SubmitResponse:
     """Pasa el voucher de DRAFT a PENDING (esperando aprobación).
@@ -769,6 +808,24 @@ async def submit_voucher(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"DB rechazó el cambio: {exc.orig}",
         ) from exc
+
+    # V5++ ola BL — Audit log de submit
+    try:
+        await audit_log(
+            db, request, user,
+            action="submit",
+            entity_type="voucher",
+            entity_id=str(v.voucher_id),
+            entity_label=v.codigo,
+            summary=(
+                f"Voucher {v.codigo} enviado a aprobación "
+                f"({v.empresa_codigo} · {v.tipo} · ${v.total_debit:,.0f})"
+            ),
+            before={"status": "DRAFT"},
+            after={"status": "PENDING", "requested_by": str(user.sub)},
+        )
+    except Exception:
+        pass
 
     return SubmitResponse(
         voucher_id=voucher_id,
@@ -1463,6 +1520,34 @@ async def approve_voucher(
 
     await db.commit()
 
+    # V5++ ola BL — Audit log de la firma para la Bitácora
+    try:
+        await audit_log(
+            db, request, user,
+            action="approve",
+            entity_type="voucher",
+            entity_id=str(voucher.voucher_id),
+            entity_label=voucher.codigo,
+            summary=(
+                f"Voucher {voucher.codigo} firmado como {body.role} "
+                f"({next_order}/{len(required_roles)}) "
+                f"— {voucher.empresa_codigo} — "
+                f"${voucher.total_debit:,.0f}"
+                + (" → APPROVED ✓" if just_approved else "")
+            ),
+            before=None,
+            after={
+                "voucher_id": voucher.voucher_id,
+                "role_signed": body.role,
+                "step": f"{next_order}/{len(required_roles)}",
+                "new_status": voucher.status,
+                "just_approved": just_approved,
+                "comments": body.comments,
+            },
+        )
+    except Exception:
+        pass
+
     # V5++ ola N: webhook saliente voucher.approved → sistemas externos.
     # Soft-fail: si nadie está suscripto, no hace nada. Ejecuta async
     # en background para no demorar la response del approve.
@@ -1576,6 +1661,29 @@ async def reject_voucher(
     voucher.status = "REJECTED"
     voucher.rejection_reason = body.reason.strip()
     await db.commit()
+
+    # V5++ ola BL — Audit log de rechazo para la Bitácora
+    try:
+        await audit_log(
+            db, request, user,
+            action="reject",
+            entity_type="voucher",
+            entity_id=str(voucher.voucher_id),
+            entity_label=voucher.codigo,
+            summary=(
+                f"Voucher {voucher.codigo} RECHAZADO por {user.email} — "
+                f"razón: {body.reason[:80]}"
+            ),
+            before={"status": "PENDING"},
+            after={
+                "status": "REJECTED",
+                "rejection_reason": body.reason,
+                "rejected_by_role": user_roles[0],
+            },
+        )
+    except Exception:
+        pass
+
     return await get_voucher_approvals_state(user, db, voucher_id)
 
 
@@ -2006,6 +2114,31 @@ async def bulk_approve_vouchers(
     await db.commit()
 
     succeeded = sum(1 for r in items if r.success)
+
+    # V5++ ola BL — Audit log del bulk approve
+    try:
+        await audit_log(
+            db, request, user,
+            action="bulk_approve",
+            entity_type="voucher_bulk",
+            entity_id=f"bulk_{len(body.voucher_ids)}",
+            entity_label=f"Bulk approve {body.role}: {succeeded}/{len(body.voucher_ids)}",
+            summary=(
+                f"Bulk approve como {body.role}: "
+                f"{succeeded} OK · {len(body.voucher_ids) - succeeded} fallaron · "
+                f"total {len(body.voucher_ids)}"
+            ),
+            before=None,
+            after={
+                "role": body.role,
+                "requested_ids": body.voucher_ids[:50],
+                "succeeded": succeeded,
+                "failed": len(body.voucher_ids) - succeeded,
+            },
+        )
+    except Exception:
+        pass
+
     return BulkApproveResponse(
         total=len(body.voucher_ids),
         succeeded=succeeded,

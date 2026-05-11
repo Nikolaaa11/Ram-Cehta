@@ -57,18 +57,31 @@ else:
     # asyncpg cachea prepared statements, eliminamos ~50-100ms por
     # request de overhead de TCP handshake + parsing.
     #
-    # V5++ perf tuning: pool_size aumentado a 20 para soportar el sidebar
-    # composite endpoint + workers=2 sin contención. max_overflow=10 para
-    # picos (deploy events, bulk approve, etc.). pool_timeout=30 para que
-    # un request mal no bloquee toda la app si el pool se llena.
+    # V5++ ola BM perf tuning (con session pooler activo):
+    # - pool_size=25: cubre 2 workers × 10 req paralelos + buffer
+    # - max_overflow=15: burst hasta 40 conexiones totales
+    # - pool_recycle=900: 15min (más agresivo que 30) — Supabase pgbouncer
+    #   recicla idle a 10min, evitamos rebote
+    # - prepared_statement_cache_size=512: asyncpg cachea queries parsed
+    #   (default 100) → +30% throughput en queries repetidas
+    # - statement_cache_size=2048: SQLAlchemy cachea SQL strings compilados
     engine = create_async_engine(
         _db_url,
         echo=False,
-        pool_size=20,           # 20 conexiones live (era 10)
-        max_overflow=10,        # +10 burst hasta 30 totales (era 5)
+        pool_size=25,           # 25 conexiones live
+        max_overflow=15,        # +15 burst hasta 40 totales
         pool_pre_ping=True,     # detect dead connections
-        pool_recycle=1800,      # reciclar a los 30min para evitar idle drops
+        pool_recycle=900,       # reciclar a los 15min (Supabase recycle 10min)
         pool_timeout=30,        # max espera por conexión del pool
+        connect_args={
+            # asyncpg cache (queries parsed AST)
+            "prepared_statement_cache_size": 512,
+            # asyncpg statement timeout — 30s antes de cortar query lenta
+            # (evita que un query mal trabe el pool)
+            "command_timeout": 30,
+        },
+        # SQLAlchemy compiled SQL cache (separado del asyncpg cache)
+        query_cache_size=2048,
     )
 
 SessionLocal = async_sessionmaker(

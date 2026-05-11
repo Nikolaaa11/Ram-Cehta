@@ -117,10 +117,13 @@ async def health_detailed(session: DBSession) -> DetailedHealthResponse:
 class PerfResponse(BaseModel):
     db_pool_mode: str
     db_pool_size: int | None
+    db_max_overflow: int | None = None
+    db_pool_recycle_sec: int | None = None
     db_url_redacted: str
     gzip_min_size: int
     gzip_level: int
     workers: int | None
+    cache_features: list[str] = []
     recommendations: list[str]
 
 
@@ -166,9 +169,19 @@ async def perf_health(session: DBSession) -> PerfResponse:
     return PerfResponse(
         db_pool_mode=pool_mode,
         db_pool_size=pool_size,
+        db_max_overflow=15 if not _is_transaction_pooler else 0,
+        db_pool_recycle_sec=900 if not _is_transaction_pooler else None,
         db_url_redacted=redacted,
         gzip_min_size=300,
         gzip_level=4,
         workers=2,
+        cache_features=[
+            "asyncpg prepared_statement_cache: 512",
+            "SQLAlchemy query_cache_size: 2048",
+            "Empresa metadata cache TTL: 5min (in-process)",
+            "Empresa scope cache TTL: 60s (in-process, LRU 1024)",
+            "/me/empresas Cache-Control: 5min",
+            "/catalogos/* Cache-Control: 5min stale-while-revalidate 60s",
+        ],
         recommendations=recs,
     )
