@@ -53,9 +53,17 @@ log = structlog.get_logger(__name__)
 # Configuración de usuarios (los 43)
 # =====================================================================
 
-# Empresas válidas (la 7ma CEHTA se crea si falta)
-EMPRESAS_VALIDAS = {"CEHTA", "EVOQUE", "CSL", "REVTECH", "RHO", "TRONGKAI", "DTE"}
-TODAS = sorted(EMPRESAS_VALIDAS)
+# Empresas operativas (las 7 que Nico envió) + admin entities (3 más)
+# CEHTA se crea si falta (NEW). AFIS, FIP_CEHTA, CENERGY ya existen en DB.
+EMPRESAS_OPERATIVAS = ["CEHTA", "EVOQUE", "CSL", "REVTECH", "RHO", "TRONGKAI", "DTE"]
+EMPRESAS_ADMIN = ["AFIS", "FIP_CEHTA", "CENERGY"]  # solo admin opera acá
+EMPRESAS_VALIDAS = set(EMPRESAS_OPERATIVAS) | set(EMPRESAS_ADMIN)
+
+# Para contactocehta (admin) → DIRECTOR en TODAS las 10
+TODAS_LAS_EMPRESAS = sorted(EMPRESAS_VALIDAS)
+
+# Para grietta (Director financiero) → DIRECTOR solo en las 7 operativas
+TODAS_OPERATIVAS = sorted(EMPRESAS_OPERATIVAS)
 
 
 def _u(email: str, empresas: list[str], rol: str, app_role: str | None = None) -> dict:
@@ -70,13 +78,23 @@ def _u(email: str, empresas: list[str], rol: str, app_role: str | None = None) -
 
 USERS_CONFIG: list[dict] = [
     # =========================================================
-    # ADMIN GLOBAL — acceso total + Director (firma final)
+    # ADMIN GLOBAL — único admin, ve TODO, DIRECTOR en 10 empresas
     # =========================================================
-    _u("contactocehta@gmail.com",      TODAS, "DIRECTOR", app_role="admin"),
-    _u("grietta@cehtacapital.com",     TODAS, "DIRECTOR", app_role="admin"),
+    _u("contactocehta@gmail.com",      TODAS_LAS_EMPRESAS, "DIRECTOR", app_role="admin"),
 
     # =========================================================
-    # CEHTA — 6 usuarios CONTADOR
+    # GUIDO — Director financiero. DIRECTOR en 7 operativas (CEHTA + 6 portfolio)
+    # NO es admin (solo aprueba final, ve sus empresas)
+    # =========================================================
+    _u("grietta@cehtacapital.com",     TODAS_OPERATIVAS, "DIRECTOR"),
+
+    # =========================================================
+    # CENERGY — solo Nicolas
+    # =========================================================
+    _u("nicolas@cenergy.cl",           ["CENERGY"], "CONTADOR"),
+
+    # =========================================================
+    # CEHTA — 6 usuarios staff CONTADOR (empresa NEW, se crea en seed)
     # =========================================================
     _u("contacto@cehtacapital.com",    ["CEHTA"], "CONTADOR"),
     _u("esaez@cehtacapital.com",       ["CEHTA"], "CONTADOR"),
@@ -213,21 +231,26 @@ async def supabase_create_user(
 
 
 async def ensure_empresa_cehta(session: AsyncSession) -> None:
-    """Crea empresa CEHTA si no existe (la 7ma)."""
+    """Crea empresa CEHTA si no existe (la 10ma — staff operativo Cehta Capital).
+
+    NO toca AFIS, FIP_CEHTA ni CENERGY (que ya existen en DB).
+    CEHTA es una nueva empresa donde residen los 6 staff de @cehtacapital.com
+    que generan/manejan vouchers internos de la operación Cehta Capital.
+    """
     exists = await session.scalar(
         text("SELECT 1 FROM core.empresas WHERE codigo = 'CEHTA'")
     )
     if exists:
         print("✓ Empresa CEHTA ya existe")
         return
-    print("→ Creando empresa CEHTA (Cehta Capital — AFIS)...")
+    print("→ Creando empresa CEHTA (Cehta Capital — staff operativo)...")
     await session.execute(
         text(
             """
             INSERT INTO core.empresas (codigo, razon_social, rut, activo, direccion, ciudad)
             VALUES (
                 'CEHTA',
-                'AFIS — Administradora de Fondos de la Industria Sostenible S.A.',
+                'Cehta Capital — Operación interna',
                 '77.423.556-6',
                 TRUE,
                 'Av. del Parque 4680-A of. 302',

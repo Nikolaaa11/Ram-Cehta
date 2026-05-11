@@ -9,6 +9,7 @@ from app.api.v1 import (
     audit,
     auth,
     avance,
+    bitacora,
     bulk_import,
     calendar,
     cartolas,
@@ -84,6 +85,10 @@ api_router.include_router(suscripciones.router, prefix="/suscripciones", tags=["
 # V5++ ola AL — LP contratos FIP CEHTA ESG (promesas + definitivos).
 api_router.include_router(lp_contratos.router, prefix="/lp-contratos", tags=["lp-contratos"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
+# V5++ ola AO — Bitácora: vista unificada de actividad por usuario.
+# Combina action_log (entity diffs) + http_mutations (cada request) en
+# endpoints amigables para UI: /user/{email}, /empresa/{codigo}, /timeline.
+api_router.include_router(bitacora.router, prefix="/bitacora", tags=["bitacora"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
 api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["trabajadores"])

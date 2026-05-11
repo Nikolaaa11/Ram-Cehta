@@ -275,6 +275,11 @@ const GROUPS: NavGroup[] = [
         tourId: "cartolas",
       },
       {
+        href: "/admin/bitacora" as Route,
+        label: "Bitácora (actividad)",
+        icon: ScrollText,
+      },
+      {
         href: "/admin/audit" as Route,
         label: "Auditoría de cambios",
         icon: ScrollText,
