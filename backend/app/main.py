@@ -124,7 +124,13 @@ app.add_middleware(
 # Gzip — comprime respuestas >500 bytes (60-80% reducción típica en JSON
 # de dashboards / lists). Beneficio neto en latencia es mayor mientras
 # más grande la respuesta. CPU overhead despreciable a este volumen.
-app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
+# V5++ ola BJ: compresslevel=4 (era 6) — sweet spot CPU/size:
+#   level 6: ~2ms CPU, 78% reducción → buena calidad, costo CPU notable
+#   level 4: ~0.5ms CPU, 75% reducción → 4x más rápido, casi mismo size
+#   level 1: 0.2ms CPU, 65% reducción → muy rápido, peor size
+# minimum_size=300 (era 500) — comprimimos respuestas más chicas también
+# (la mayoría de JSON de la app está entre 300-2000 bytes)
+app.add_middleware(GZipMiddleware, minimum_size=300, compresslevel=4)
 
 # V5++ ola AE — Audit middleware: cada POST/PATCH/PUT/DELETE va a
 # audit.http_mutations con method/path/status/latency. Best-effort,

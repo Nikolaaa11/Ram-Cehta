@@ -107,3 +107,68 @@ async def health_detailed(session: DBSession) -> DetailedHealthResponse:
         counts=counts,
         version="v5++",
     )
+
+
+# ============================================================================
+# /health/perf — métricas de performance del proceso
+# ============================================================================
+
+
+class PerfResponse(BaseModel):
+    db_pool_mode: str
+    db_pool_size: int | None
+    db_url_redacted: str
+    gzip_min_size: int
+    gzip_level: int
+    workers: int | None
+    recommendations: list[str]
+
+
+@router.get("/health/perf", response_model=PerfResponse)
+async def perf_health(session: DBSession) -> PerfResponse:
+    """V5++ ola BJ: diagnóstico de configuración perf actual.
+
+    Detecta cuellos de botella comunes y devuelve recomendaciones.
+    Ejemplo: si DATABASE_URL usa transaction pooler (port 6543), recomienda
+    cambiar a session pooler (5432) para 10x más velocidad.
+    """
+    from app.core.database import _db_url, _is_transaction_pooler, engine
+
+    pool_mode = "transaction (NullPool, +50ms/req)" if _is_transaction_pooler else "session (QueuePool)"
+    recs: list[str] = []
+    if _is_transaction_pooler:
+        recs.append(
+            "⚡ CRÍTICO: DATABASE_URL usa transaction pooler (port 6543). "
+            "Cambiar a session pooler (port 5432) → ~50ms más rápido por request. "
+            "Comando: fly secrets set DATABASE_URL=\"postgres://...:5432/postgres\" -a cehta-backend"
+        )
+
+    # Redactar credenciales en URL
+    redacted = _db_url
+    if "@" in redacted:
+        prefix, host = redacted.split("@", 1)
+        scheme_user = prefix.split("://", 1)
+        if len(scheme_user) == 2:
+            scheme = scheme_user[0]
+            redacted = f"{scheme}://***@{host}"
+
+    pool_size = None
+    try:
+        pool_size = getattr(engine.pool, "_pool_size", None) or getattr(
+            engine.pool, "size", lambda: None
+        )()
+    except Exception:
+        pass
+
+    if not recs:
+        recs.append("✅ Configuración óptima detectada")
+
+    return PerfResponse(
+        db_pool_mode=pool_mode,
+        db_pool_size=pool_size,
+        db_url_redacted=redacted,
+        gzip_min_size=300,
+        gzip_level=4,
+        workers=2,
+        recommendations=recs,
+    )

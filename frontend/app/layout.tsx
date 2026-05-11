@@ -58,6 +58,16 @@ export default function RootLayout({
         {/* V5++ perf: warmup de TCP/TLS al backend antes que React monte. */}
         <link rel="preconnect" href={apiOrigin} crossOrigin="anonymous" />
         <link rel="dns-prefetch" href={apiOrigin} />
+        {/* V5++ ola BG — preconnect a Supabase Auth (login JWT verify) */}
+        <link
+          rel="preconnect"
+          href="https://supabase.co"
+          crossOrigin="anonymous"
+        />
+        <link rel="dns-prefetch" href="https://supabase.co" />
+        {/* V5++ ola BG — Resource hints adicionales */}
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="color-scheme" content="light dark" />
       </head>
       <body>
         <Providers>{children}</Providers>
