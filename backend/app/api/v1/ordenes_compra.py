@@ -36,6 +36,10 @@ from app.schemas.orden_compra import (
 )
 from app.services.audit_service import audit_log
 from app.services.authorization_service import AuthorizationService
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
@@ -86,14 +90,28 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
 async def list_ocs(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 20,
     empresa_codigo: str | None = None,
     estado: str | None = None,
 ) -> Page[OrdenCompraListItem]:
+    """V5++ ola AD: auto-filtra por empresas a las que el user tiene rol."""
     repo = OrdenCompraRepository(db)
+
+    # Multi-tenant scope
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    # Si scope retornó 1 código, usamos empresa_codigo. Si retornó lista, usamos in.
+    if scoped_codes is not None and len(scoped_codes) == 1:
+        empresa_codigo = scoped_codes[0]
+        scoped_codes = None
+
     items, total = await repo.list(
-        page=page, size=size, empresa_codigo=empresa_codigo, estado=estado
+        page=page,
+        size=size,
+        empresa_codigo=empresa_codigo,
+        estado=estado,
+        empresa_codigos_in=scoped_codes,
     )
     return Page.build(
         items=[_to_list_item(user, oc) for oc in items],
@@ -110,6 +128,9 @@ async def create_oc(
     request: Request,
     body: OrdenCompraCreate,
 ) -> OrdenCompraRead:
+    # V5++ ola AD: validar acceso a empresa
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
     repo = OrdenCompraRepository(db)
     if await repo.exists_numero_oc(body.empresa_codigo, body.numero_oc):
         raise HTTPException(
@@ -153,11 +174,19 @@ async def create_oc(
 
 
 @router.get("/{oc_id}", response_model=OrdenCompraRead)
-async def get_oc(user: CurrentUser, db: DBSession, oc_id: int) -> OrdenCompraRead:
+async def get_oc(
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep, oc_id: int
+) -> OrdenCompraRead:
     repo = OrdenCompraRepository(db)
     oc = await repo.get(oc_id)
     if not oc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
+    # V5++ ola AD: scope check
+    if not scope.can_access(oc.empresa_codigo):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sin acceso a OCs de empresa '{oc.empresa_codigo}'",
+        )
     return _to_read(user, oc)
 
 

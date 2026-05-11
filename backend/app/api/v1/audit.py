@@ -333,3 +333,161 @@ async def entity_history(
     ).mappings().all()
     items = [AuditLogList.model_validate(dict(r)) for r in rows]
     return Page.build(items=items, total=total, page=page, size=size)
+
+
+# =====================================================================
+# V5++ ola AE — HTTP mutations trail (forense low-level)
+# =====================================================================
+
+
+@router.get("/http-mutations")
+async def list_http_mutations(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("audit:read"))],
+    db: DBSession,
+    page: Annotated[int, Query(ge=1)] = 1,
+    size: Annotated[int, Query(ge=1, le=200)] = 50,
+    user_email: str | None = Query(default=None),
+    method: str | None = Query(default=None, pattern="^(POST|PATCH|PUT|DELETE)$"),
+    status_code_min: int | None = Query(default=None, ge=100, le=599),
+    path_prefix: str | None = Query(default=None),
+    only_errors: bool = Query(default=False, description="Solo 4xx/5xx"),
+    only_slow: bool = Query(default=False, description="Solo latencia >1000ms"),
+    since_hours: int = Query(default=24, ge=1, le=720),
+) -> dict:
+    """V5++ ola AE: trail HTTP coarse-grained de toda mutación.
+
+    Filtros combinables. Default últimas 24h. Para forense de un user
+    específico, pasá `user_email`. Para detectar abuso, `only_slow` o
+    `only_errors`. Resultados ordenados por timestamp DESC.
+    """
+    wheres = ["timestamp > now() - (:hours || ' hours')::INTERVAL"]
+    params: dict = {"hours": str(since_hours)}
+
+    if user_email:
+        wheres.append("user_email = :user_email")
+        params["user_email"] = user_email
+    if method:
+        wheres.append("method = :method")
+        params["method"] = method
+    if status_code_min:
+        wheres.append("status_code >= :status_code_min")
+        params["status_code_min"] = status_code_min
+    if path_prefix:
+        wheres.append("path LIKE :path_prefix")
+        params["path_prefix"] = f"{path_prefix}%"
+    if only_errors:
+        wheres.append("status_code >= 400")
+    if only_slow:
+        wheres.append("latency_ms > 1000")
+
+    where_clause = " AND ".join(wheres)
+
+    # Count total
+    count_sql = f"SELECT COUNT(*) FROM audit.http_mutations WHERE {where_clause}"  # noqa: S608
+    total = await db.scalar(text(count_sql), params) or 0
+
+    # Page
+    params["limit"] = size
+    params["offset"] = (page - 1) * size
+    rows_sql = (
+        "SELECT id, method, path, status_code, latency_ms, "
+        "user_email, ip, timestamp "
+        f"FROM audit.http_mutations WHERE {where_clause} "  # noqa: S608
+        "ORDER BY timestamp DESC LIMIT :limit OFFSET :offset"
+    )
+    rows = (await db.execute(text(rows_sql), params)).mappings().all()
+
+    return {
+        "total": total,
+        "page": page,
+        "size": size,
+        "items": [dict(r) for r in rows],
+    }
+
+
+@router.get("/http-mutations/summary")
+async def http_mutations_summary(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("audit:read"))],
+    db: DBSession,
+    since_hours: int = Query(default=24, ge=1, le=720),
+) -> dict:
+    """V5++ ola AE: estadísticas agregadas del trail HTTP.
+
+    Devuelve top users, top endpoints, top errores, percentiles latencia.
+    Útil para dashboard "¿quién hizo qué en las últimas 24h?".
+    """
+    params = {"hours": str(since_hours)}
+
+    # Top users por volumen
+    top_users = (await db.execute(
+        text(
+            """
+            SELECT user_email, COUNT(*) as n
+            FROM audit.http_mutations
+            WHERE timestamp > now() - (:hours || ' hours')::INTERVAL
+              AND user_email IS NOT NULL
+            GROUP BY user_email
+            ORDER BY n DESC
+            LIMIT 10
+            """
+        ),
+        params,
+    )).mappings().all()
+
+    # Top endpoints (paths) por volumen
+    top_paths = (await db.execute(
+        text(
+            """
+            SELECT path, COUNT(*) as n, ROUND(AVG(latency_ms)) as avg_ms
+            FROM audit.http_mutations
+            WHERE timestamp > now() - (:hours || ' hours')::INTERVAL
+            GROUP BY path
+            ORDER BY n DESC
+            LIMIT 15
+            """
+        ),
+        params,
+    )).mappings().all()
+
+    # Top errors (4xx/5xx)
+    top_errors = (await db.execute(
+        text(
+            """
+            SELECT path, status_code, COUNT(*) as n
+            FROM audit.http_mutations
+            WHERE timestamp > now() - (:hours || ' hours')::INTERVAL
+              AND status_code >= 400
+            GROUP BY path, status_code
+            ORDER BY n DESC
+            LIMIT 10
+            """
+        ),
+        params,
+    )).mappings().all()
+
+    # Counters globales
+    counters = (await db.execute(
+        text(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE TRUE) as total,
+                COUNT(*) FILTER (WHERE status_code < 400) as ok,
+                COUNT(*) FILTER (WHERE status_code BETWEEN 400 AND 499) as client_errors,
+                COUNT(*) FILTER (WHERE status_code >= 500) as server_errors,
+                COUNT(*) FILTER (WHERE latency_ms > 1000) as slow,
+                ROUND(AVG(latency_ms)) as avg_latency_ms,
+                MAX(latency_ms) as max_latency_ms
+            FROM audit.http_mutations
+            WHERE timestamp > now() - (:hours || ' hours')::INTERVAL
+            """
+        ),
+        params,
+    )).mappings().first()
+
+    return {
+        "window_hours": since_hours,
+        "counters": dict(counters) if counters else {},
+        "top_users": [dict(r) for r in top_users],
+        "top_paths": [dict(r) for r in top_paths],
+        "top_errors": [dict(r) for r in top_errors],
+    }

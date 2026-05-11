@@ -126,6 +126,12 @@ app.add_middleware(
 # más grande la respuesta. CPU overhead despreciable a este volumen.
 app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 
+# V5++ ola AE — Audit middleware: cada POST/PATCH/PUT/DELETE va a
+# audit.http_mutations con method/path/status/latency. Best-effort,
+# nunca bloquea ni rompe response al cliente.
+from app.core.audit_middleware import HttpMutationAuditMiddleware
+app.add_middleware(HttpMutationAuditMiddleware)
+
 app.include_router(api_router)
 
 

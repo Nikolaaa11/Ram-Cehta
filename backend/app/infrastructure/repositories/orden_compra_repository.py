@@ -17,10 +17,16 @@ class OrdenCompraRepository:
         size: int = 20,
         empresa_codigo: str | None = None,
         estado: str | None = None,
+        empresa_codigos_in: list[str] | None = None,
     ) -> tuple[list[OrdenCompra], int]:
+        """V5++ ola AD: `empresa_codigos_in` permite filtrar por una lista
+        (multi-tenant scope). Si se pasa junto con empresa_codigo, gana
+        empresa_codigo (más restrictivo)."""
         q = select(OrdenCompra)
         if empresa_codigo:
             q = q.where(OrdenCompra.empresa_codigo == empresa_codigo)
+        elif empresa_codigos_in is not None:
+            q = q.where(OrdenCompra.empresa_codigo.in_(empresa_codigos_in))
         if estado:
             q = q.where(OrdenCompra.estado == estado)
         q = q.order_by(OrdenCompra.fecha_emision.desc())

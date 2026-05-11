@@ -61,6 +61,10 @@ from app.services.approval_service import (
     record_approval_signature,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -172,6 +176,7 @@ async def search_vouchers(
 async def list_vouchers(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = Query(default=None),
     tipo: VoucherTipo | None = Query(default=None),
     voucher_status: VoucherStatus | None = Query(default=None, alias="status"),
@@ -182,12 +187,16 @@ async def list_vouchers(
 ) -> list[VoucherListItem]:
     """Lista vouchers con filtros. Order by fecha_contable DESC.
 
-    Por ahora sin paginación cursor (limit fijo); cuando crezca se
-    agregará paginación tipo `Page[VoucherListItem]`.
+    V5++ ola AD: auto-filtra por empresas a las que el user tiene rol.
+    Admin global ve todo. User con scope EVOQUE+CSL ve solo esas dos.
     """
     stmt = select(Voucher)
-    if empresa_codigo:
-        stmt = stmt.where(Voucher.empresa_codigo == empresa_codigo)
+
+    # V5++ ola AD — Multi-tenant scope: filtra por las empresas permitidas
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        stmt = stmt.where(Voucher.empresa_codigo.in_(scoped_codes))
+
     if tipo:
         stmt = stmt.where(Voucher.tipo == tipo)
     if voucher_status:
@@ -207,13 +216,128 @@ async def list_vouchers(
 
 
 # =====================================================================
+# V5++ ola AG — GET /vouchers/paginated (cursor + total count)
+# =====================================================================
+
+
+class PaginatedVouchersResponse(BaseModel):
+    items: list[VoucherListItem]
+    total: int
+    page: int
+    size: int
+    has_more: bool
+
+
+@router.get("/vouchers/paginated", response_model=PaginatedVouchersResponse)
+async def list_vouchers_paginated(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    page: int = Query(default=1, ge=1),
+    size: int = Query(default=50, ge=1, le=200),
+    empresa_codigo: str | None = Query(default=None),
+    tipo: VoucherTipo | None = Query(default=None),
+    voucher_status: VoucherStatus | None = Query(default=None, alias="status"),
+    fecha_desde: date | None = Query(default=None),
+    fecha_hasta: date | None = Query(default=None),
+    contraparte_rut: str | None = Query(default=None),
+) -> PaginatedVouchersResponse:
+    """V5++ ola AG: lista paginada con total count.
+
+    Mejor que /vouchers (limit fijo) para listados largos:
+      - Devuelve `total` para mostrar contador "X de Y vouchers"
+      - `has_more` indica si hay más páginas
+      - Ordenado por fecha_contable DESC para consistencia con UI
+
+    Usa los índices de Ola AF para que el COUNT sea <50ms incluso con 100k rows.
+    """
+    from sqlalchemy import func as sql_func
+
+    # Construir filtros como lista para reutilizarlos en count + select
+    wheres = []
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        wheres.append(Voucher.empresa_codigo.in_(scoped_codes))
+    if tipo:
+        wheres.append(Voucher.tipo == tipo)
+    if voucher_status:
+        wheres.append(Voucher.status == voucher_status)
+    if fecha_desde:
+        wheres.append(Voucher.fecha_contable >= fecha_desde)
+    if fecha_hasta:
+        wheres.append(Voucher.fecha_contable <= fecha_hasta)
+    if contraparte_rut:
+        wheres.append(Voucher.contraparte_rut == contraparte_rut)
+
+    # Count total
+    count_stmt = select(sql_func.count()).select_from(Voucher)
+    for w in wheres:
+        count_stmt = count_stmt.where(w)
+    total = await db.scalar(count_stmt) or 0
+
+    # Página
+    offset = (page - 1) * size
+    page_stmt = select(Voucher)
+    for w in wheres:
+        page_stmt = page_stmt.where(w)
+    page_stmt = (
+        page_stmt
+        .order_by(Voucher.fecha_contable.desc(), Voucher.voucher_id.desc())
+        .offset(offset)
+        .limit(size)
+    )
+
+    result = await db.execute(page_stmt)
+    items = [VoucherListItem.model_validate(v) for v in result.scalars().all()]
+
+    return PaginatedVouchersResponse(
+        items=items,
+        total=total,
+        page=page,
+        size=size,
+        has_more=(offset + len(items)) < total,
+    )
+
+
+# =====================================================================
+# V5++ ola AG — GET /vouchers/counts (dashboard kpi strip)
+# =====================================================================
+
+
+@router.get("/vouchers/counts")
+async def vouchers_counts(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    empresa_codigo: str | None = Query(default=None),
+) -> dict:
+    """V5++ ola AG: counts agrupados por status para dashboard.
+
+    Devuelve: {DRAFT: n, PENDING: n, APPROVED: n, EXECUTED: n, ...}
+    Filtra por las empresas del user scope. Un solo query SQL agregado.
+    """
+    from sqlalchemy import func as sql_func
+
+    scoped_codes = scope.filter_codes(empresa_codigo)
+
+    stmt = select(Voucher.status, sql_func.count().label("n")).group_by(Voucher.status)
+    if scoped_codes is not None:
+        stmt = stmt.where(Voucher.empresa_codigo.in_(scoped_codes))
+
+    rows = (await db.execute(stmt)).all()
+    counts = {row.status: row.n for row in rows}
+    total = sum(counts.values())
+    return {"total": total, "by_status": counts}
+
+
+# =====================================================================
 # GET /vouchers/{id} — detalle con líneas
 # =====================================================================
 
 
 @router.get("/vouchers/{voucher_id}", response_model=VoucherRead)
 async def get_voucher(
-    user: CurrentUser, db: DBSession, voucher_id: int
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep, voucher_id: int
 ) -> VoucherRead:
     stmt = (
         select(Voucher)
@@ -224,6 +348,12 @@ async def get_voucher(
     if v is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    # V5++ ola AD — Validar que el user tenga acceso a la empresa del voucher
+    if not scope.can_access(v.empresa_codigo):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sin acceso a vouchers de empresa '{v.empresa_codigo}'",
         )
     return VoucherRead.model_validate(v)
 
@@ -344,6 +474,9 @@ async def create_voucher(
       8. Genera código correlativo via core.next_voucher_code().
       9. INSERT voucher + lines en commit atómico.
     """
+    # V5++ ola AD — Validar acceso del user a esta empresa (403 si no)
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
     # 2. Empresa existe + activa
     empresa_activa = await db.scalar(
         select(1).select_from(  # type: ignore[arg-type]
