@@ -1,0 +1,451 @@
+"""V5++ ola AM — Vouchers Nubox-style form.
+
+Implementa exactamente el form del Excel "documento para claude boucher":
+
+Header Nubox (13 campos):
+    1. ID de Gasto          — auto-generado (bloqueado)
+    2. Proveedor            — combo de core.proveedores
+    3. Tipo Documento       — FACTURA / BOLETA / NC / ND / HONORARIOS / NA
+    4. Número Documento     — int (folio)
+    5. Documento            — file upload (se sube a Dropbox)
+    6. Razón social receptor — bloqueado, viene de empresa
+    7. Comuna receptor      — bloqueado, viene de empresa
+    8. Dirección receptor   — bloqueado, viene de empresa
+    9. Forma de pago        — combo TRANSFERENCIA / CHEQUE / CONTADO / CRÉDITO 30D...
+    10. Fecha documento     — calendar
+    11. Fecha vencimiento   — calendar
+    12. Aprobador 1         — bloqueado (del approval_rules por empresa)
+    13. Aprobador 2         — bloqueado (idem)
+
+Información Contable (N líneas):
+    Comentario / Cuenta / Total de línea (DEBE)
+    Estas líneas afectan el resultado contable (gasto).
+
+Información Financiera (N líneas):
+    Comentario / Cuenta / Total de línea (HABER)
+    Estas líneas afectan el flujo financiero (cuenta por pagar / banco).
+
+Σ Contable = Σ Financiera = total del voucher (doble partida cuadrada).
+
+Endpoints:
+    GET  /vouchers/form-metadata          — todo lo que el form necesita
+    GET  /vouchers/form-metadata/{empresa} — empresa-specific (aprobadores)
+    POST /vouchers/nubox-form              — crea voucher desde el form
+"""
+from __future__ import annotations
+
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Annotated, Literal
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import text
+
+from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.security import AuthenticatedUser
+from app.models.voucher import Voucher, VoucherLine
+from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import assert_empresa_access
+from app.services.voucher_service import generate_voucher_code
+
+router = APIRouter()
+
+
+FORMA_PAGO_OPCIONES = [
+    "TRANSFERENCIA",
+    "CHEQUE",
+    "CONTADO",
+    "EFECTIVO",
+    "CREDITO_30D",
+    "CREDITO_60D",
+    "CREDITO_90D",
+    "TARJETA_CREDITO",
+    "TARJETA_DEBITO",
+    "OTRO",
+]
+
+TIPO_DOCUMENTO_OPCIONES = [
+    "FACTURA",
+    "BOLETA",
+    "NOTA_CREDITO",
+    "NOTA_DEBITO",
+    "HONORARIOS",
+    "NA",
+]
+
+
+# =====================================================================
+# Schemas
+# =====================================================================
+
+
+class NuboxFormLine(BaseModel):
+    """Una línea del form: Comentario + Cuenta + Total."""
+
+    comentario: str = Field(min_length=1, max_length=500)
+    cuenta_codigo: str = Field(min_length=1, max_length=20)
+    total: Decimal = Field(gt=0, description="Monto > 0")
+    proyecto_codigo: str | None = None
+    area_codigo: str | None = None
+
+
+class NuboxFormCreate(BaseModel):
+    """Body del form Nubox-style."""
+
+    # Header obligatorio
+    empresa_codigo: str = Field(min_length=2, max_length=20)
+    proveedor_rut: str = Field(min_length=8, max_length=20)
+    proveedor_nombre: str = Field(min_length=1, max_length=200)
+    tipo_documento: Literal[
+        "FACTURA", "BOLETA", "NOTA_CREDITO", "NOTA_DEBITO", "HONORARIOS", "NA"
+    ]
+    numero_documento: str = Field(min_length=1, max_length=50)
+    forma_pago: Literal[
+        "TRANSFERENCIA", "CHEQUE", "CONTADO", "EFECTIVO",
+        "CREDITO_30D", "CREDITO_60D", "CREDITO_90D",
+        "TARJETA_CREDITO", "TARJETA_DEBITO", "OTRO",
+    ]
+    fecha_documento: date
+    fecha_vencimiento: date | None = None
+    documento_dropbox_path: str | None = None
+
+    # Header opcional (se pueden omitir, default empty)
+    glosa: str | None = None
+
+    # Las 2 listas de líneas
+    informacion_contable: list[NuboxFormLine] = Field(min_length=1)
+    informacion_financiera: list[NuboxFormLine] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_partida_doble(self) -> "NuboxFormCreate":
+        """Σ Contable debe ser igual a Σ Financiera (partida doble)."""
+        total_contable = sum(l.total for l in self.informacion_contable)
+        total_financiera = sum(l.total for l in self.informacion_financiera)
+        if total_contable != total_financiera:
+            raise ValueError(
+                f"Partida doble descuadrada: Información Contable suma "
+                f"${total_contable:,} pero Información Financiera suma "
+                f"${total_financiera:,}. La diferencia es ${total_contable - total_financiera:,}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_vencimiento(self) -> "NuboxFormCreate":
+        if (
+            self.fecha_vencimiento is not None
+            and self.fecha_vencimiento < self.fecha_documento
+        ):
+            raise ValueError(
+                "fecha_vencimiento no puede ser anterior a fecha_documento"
+            )
+        return self
+
+
+class NuboxFormResponse(BaseModel):
+    voucher_id: int
+    codigo: str
+    status: str
+    empresa_codigo: str
+    total_contable: Decimal
+    total_financiera: Decimal
+    lines_count: int
+    proxima_accion: str
+
+
+class EmpresaMetadata(BaseModel):
+    codigo: str
+    razon_social: str
+    rut: str
+    direccion: str | None = None
+    comuna: str | None = None
+    aprobadores: list[dict]  # [{role: 'GG', emails: [...]}, ...]
+
+
+class FormMetadataResponse(BaseModel):
+    formas_pago: list[str]
+    tipos_documento: list[str]
+    cuentas_contables_sample: list[dict]  # primeras N cuentas imputables
+    empresas: list[EmpresaMetadata]
+
+
+# =====================================================================
+# GET /vouchers/form-metadata
+# =====================================================================
+
+
+@router.get("/form-metadata", response_model=FormMetadataResponse)
+async def get_form_metadata(
+    user: CurrentUser, db: DBSession
+) -> FormMetadataResponse:
+    """Devuelve TODO lo que el form Nubox necesita para llenar selectores:
+
+    - Listas estáticas (formas_pago, tipos_documento)
+    - Muestra de cuentas contables imputables (primeras 200)
+    - Empresas con su razón social/RUT/comuna/dirección + aprobadores
+      (matching de approval_rules + user_company_roles)
+
+    El frontend cachea este endpoint con stale-while-revalidate 5min.
+    """
+    # Cuentas imputables (sample para autocompletado inicial)
+    cuentas_rows = (await db.execute(
+        text(
+            """
+            SELECT codigo, nombre, nivel, activa, imputable
+            FROM core.plan_cuentas
+            WHERE imputable = TRUE AND activa = TRUE
+            ORDER BY codigo
+            LIMIT 200
+            """
+        )
+    )).mappings().all()
+
+    # Empresas con datos del receptor. core.empresas usa 'ciudad' como
+    # equivalente a "comuna" en el Excel.
+    empresas_rows = (await db.execute(
+        text(
+            """
+            SELECT codigo, razon_social, COALESCE(rut, '') as rut,
+                   COALESCE(direccion, '') as direccion,
+                   COALESCE(ciudad, '') as comuna
+            FROM core.empresas
+            WHERE activo = TRUE
+            ORDER BY codigo
+            """
+        )
+    )).mappings().all()
+
+    empresas_list = []
+    for er in empresas_rows:
+        # Aprobadores: roles en user_company_roles + matching de approval_rules
+        approvers_by_role = (await db.execute(
+            text(
+                """
+                SELECT ucr.role,
+                       ARRAY_AGG(au.email ORDER BY au.email) as emails
+                FROM core.user_company_roles ucr
+                LEFT JOIN auth.users au ON au.id::TEXT = ucr.user_id::TEXT
+                WHERE ucr.empresa_codigo = :empresa
+                  AND ucr.active = TRUE
+                GROUP BY ucr.role
+                """
+            ),
+            {"empresa": er["codigo"]},
+        )).mappings().all()
+
+        aprobadores = [
+            {"role": a["role"], "emails": a["emails"] or []}
+            for a in approvers_by_role
+        ]
+
+        empresas_list.append(
+            EmpresaMetadata(
+                codigo=er["codigo"],
+                razon_social=er["razon_social"],
+                rut=er["rut"],
+                direccion=er.get("direccion") or "",
+                comuna=er.get("comuna") or "",
+                aprobadores=aprobadores,
+            )
+        )
+
+    return FormMetadataResponse(
+        formas_pago=FORMA_PAGO_OPCIONES,
+        tipos_documento=TIPO_DOCUMENTO_OPCIONES,
+        cuentas_contables_sample=[dict(c) for c in cuentas_rows],
+        empresas=empresas_list,
+    )
+
+
+# =====================================================================
+# POST /vouchers/nubox-form
+# =====================================================================
+
+
+@router.post(
+    "/nubox-form",
+    response_model=NuboxFormResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def create_voucher_nubox_form(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    body: NuboxFormCreate,
+) -> NuboxFormResponse:
+    """Crea un voucher desde el form Nubox-style del Excel.
+
+    Mapeo:
+      empresa_codigo         -> voucher.empresa_codigo
+      proveedor_rut+nombre   -> voucher.contraparte_rut + contraparte_nombre
+      tipo_documento         -> voucher.doc_tributario_tipo
+      numero_documento       -> voucher.doc_tributario_folio
+      forma_pago             -> voucher.forma_pago (nuevo en 0052)
+      fecha_documento        -> voucher.fecha_documento
+      fecha_vencimiento      -> voucher.fecha_vencimiento (nuevo)
+      documento_dropbox_path -> voucher.documento_dropbox_path (nuevo)
+      informacion_contable[] -> voucher_lines con DEBE + tipo_imputacion=CONTABLE
+      informacion_financiera[] -> voucher_lines con HABER + tipo_imputacion=FINANCIERA
+
+    Tipo de voucher = COMPRA (porque viene de factura proveedor).
+    Glosa autogenerada si no se pasa: "Compra a {proveedor} folio {n}"
+
+    Status inicial: DRAFT (lo aprueban Líder + Director después).
+    """
+    # 1. Scope check
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
+    # 2. Empresa existe + activa
+    empresa_ok = await db.scalar(
+        text("SELECT 1 FROM core.empresas WHERE codigo = :c AND activo = TRUE"),
+        {"c": body.empresa_codigo},
+    )
+    if not empresa_ok:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Empresa '{body.empresa_codigo}' no existe o está inactiva",
+        )
+
+    # 3. Validar cuentas (todas imputables)
+    todas_cuentas = (
+        [l.cuenta_codigo for l in body.informacion_contable]
+        + [l.cuenta_codigo for l in body.informacion_financiera]
+    )
+    cuentas_check = (await db.execute(
+        text(
+            """
+            SELECT codigo, imputable, activa
+            FROM core.plan_cuentas
+            WHERE codigo = ANY(:codes)
+            """
+        ),
+        {"codes": list(set(todas_cuentas))},
+    )).mappings().all()
+    cuentas_map = {c["codigo"]: c for c in cuentas_check}
+
+    for codigo in todas_cuentas:
+        c = cuentas_map.get(codigo)
+        if not c:
+            raise HTTPException(400, detail=f"Cuenta '{codigo}' no existe")
+        if not c["imputable"]:
+            raise HTTPException(
+                400, detail=f"Cuenta '{codigo}' no es imputable (solo nivel 4)"
+            )
+        if not c["activa"]:
+            raise HTTPException(400, detail=f"Cuenta '{codigo}' está inactiva")
+
+    # 4. Total y glosa
+    total_contable = sum(l.total for l in body.informacion_contable)
+    total_financiera = sum(l.total for l in body.informacion_financiera)
+    # Ya validado en Pydantic que son iguales
+
+    glosa = body.glosa or (
+        f"Compra a {body.proveedor_nombre} — "
+        f"{body.tipo_documento} folio {body.numero_documento}"
+    )
+
+    # 5. Generar código
+    codigo = await generate_voucher_code(
+        db, body.empresa_codigo, body.fecha_documento.year, "COMPRA"
+    )
+
+    # 6. Crear voucher
+    voucher = Voucher(
+        codigo=codigo,
+        empresa_codigo=body.empresa_codigo,
+        tipo="COMPRA",
+        status="DRAFT",
+        fecha_documento=body.fecha_documento,
+        fecha_contable=body.fecha_documento,
+        glosa=glosa[:500],
+        total_debit=total_contable,
+        total_credit=total_financiera,
+        moneda="CLP",
+        contraparte_rut=body.proveedor_rut,
+        contraparte_nombre=body.proveedor_nombre,
+        contraparte_tipo="PROVEEDOR",
+        doc_tributario_tipo=body.tipo_documento,
+        doc_tributario_folio=body.numero_documento,
+        forma_pago=body.forma_pago,
+        fecha_vencimiento=body.fecha_vencimiento,
+        documento_dropbox_path=body.documento_dropbox_path,
+        created_by=str(user.sub),
+        requested_by=str(user.sub),
+    )
+    db.add(voucher)
+    await db.flush()
+
+    # 7. Líneas — Contables (DEBE)
+    line_num = 1
+    for line in body.informacion_contable:
+        vl = VoucherLine(
+            voucher_id=voucher.voucher_id,
+            line_number=line_num,
+            cuenta_codigo=line.cuenta_codigo,
+            proyecto_codigo=line.proyecto_codigo,
+            area_codigo=line.area_codigo,
+            debit=line.total,
+            credit=Decimal("0"),
+            descripcion=line.comentario,
+            tipo_imputacion="CONTABLE",
+        )
+        db.add(vl)
+        line_num += 1
+
+    # 8. Líneas — Financieras (HABER)
+    for line in body.informacion_financiera:
+        vl = VoucherLine(
+            voucher_id=voucher.voucher_id,
+            line_number=line_num,
+            cuenta_codigo=line.cuenta_codigo,
+            proyecto_codigo=line.proyecto_codigo,
+            area_codigo=line.area_codigo,
+            debit=Decimal("0"),
+            credit=line.total,
+            descripcion=line.comentario,
+            tipo_imputacion="FINANCIERA",
+        )
+        db.add(vl)
+        line_num += 1
+
+    await db.commit()
+
+    # 9. Audit log
+    try:
+        await audit_log(
+            db, None, user,
+            action="create_nubox_form",
+            entity_type="voucher",
+            entity_id=str(voucher.voucher_id),
+            entity_label=codigo,
+            summary=(
+                f"Voucher COMPRA Nubox-form creado: {body.proveedor_nombre} — "
+                f"{body.tipo_documento} folio {body.numero_documento} — "
+                f"${total_contable:,.0f} CLP"
+            ),
+            before=None,
+            after={
+                "codigo": codigo,
+                "forma_pago": body.forma_pago,
+                "tipo_documento": body.tipo_documento,
+                "total": str(total_contable),
+                "lineas_contables": len(body.informacion_contable),
+                "lineas_financieras": len(body.informacion_financiera),
+            },
+        )
+    except Exception:
+        pass  # audit es best-effort
+
+    return NuboxFormResponse(
+        voucher_id=voucher.voucher_id,
+        codigo=codigo,
+        status="DRAFT",
+        empresa_codigo=body.empresa_codigo,
+        total_contable=total_contable,
+        total_financiera=total_financiera,
+        lines_count=line_num - 1,
+        proxima_accion=(
+            "El voucher está en DRAFT. Click 'Enviar a aprobación' para "
+            "que pase a PENDING y los aprobadores firmen."
+        ),
+    )

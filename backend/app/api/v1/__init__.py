@@ -55,6 +55,7 @@ from app.api.v1 import (
     voucher_templates,
     vouchers,
     vouchers_demo,
+    vouchers_nubox_form,
     webhooks,
 )
 from app.api.v1 import (
@@ -146,6 +147,12 @@ api_router.include_router(vouchers.router, tags=["vouchers"])
 # V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
 # arriendos, servicios mensuales). save-as-template + use-template flow.
 api_router.include_router(voucher_templates.router, tags=["voucher-templates"])
+# V5++ ola AM: Form Nubox-style (header + Información Contable + Financiera)
+# que matchea el Excel "documento para claude boucher". GET form-metadata
+# + POST nubox-form. Crea voucher COMPRA con partida doble cuadrada.
+api_router.include_router(
+    vouchers_nubox_form.router, prefix="/vouchers", tags=["vouchers-nubox-form"]
+)
 # V5: Proyectos contables (formales para imputación, distintos de los
 # Gantts operativos). CRUD + endpoint /avance con presupuesto vs ejecutado.
 api_router.include_router(proyectos_contables.router, tags=["proyectos-contables"])
