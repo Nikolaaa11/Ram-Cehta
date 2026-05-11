@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
@@ -138,6 +138,10 @@ class SidebarStateResponse(BaseModel):
     critical_obligations: int
     critical_entregables: int
     mailbox_pending: int
+    # V5++ ola AT — vouchers pending para que cada user vea cuántos esperan
+    # su acción (DRAFT propios + PENDING en empresas que aprueba)
+    voucher_drafts_mine: int = 0
+    voucher_pending_approvals: int = 0
 
 
 async def _count_unread_notifications(db: AsyncSession, user_id: str) -> int:
@@ -212,6 +216,64 @@ async def _count_mailbox_pending(db: AsyncSession) -> int:
         return 0
 
 
+async def _count_voucher_drafts_mine(db: AsyncSession, user_id: str) -> int:
+    """V5++ ola AT: cuántos vouchers DRAFT creó este user (debe completarlos)."""
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    """
+                    SELECT COUNT(*) FROM core.vouchers
+                    WHERE status = 'DRAFT'
+                      AND created_by = CAST(:uid AS UUID)
+                    """
+                ),
+                {"uid": user_id},
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
+async def _count_voucher_pending_approvals(db: AsyncSession, user_id: str) -> int:
+    """V5++ ola AT: vouchers PENDING en empresas donde el user tiene rol
+    aprobador (GG o DIRECTOR). Solo cuenta los que el user NO firmó todavía.
+
+    Pseudo-lógica:
+        vouchers WHERE status='PENDING'
+          AND empresa_codigo IN (empresas donde user tiene GG o DIRECTOR)
+          AND voucher_id NOT IN (los que el user ya firmó como GG o DIRECTOR)
+    """
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    """
+                    SELECT COUNT(DISTINCT v.voucher_id)
+                    FROM core.vouchers v
+                    JOIN core.user_company_roles ucr
+                        ON ucr.empresa_codigo = v.empresa_codigo
+                       AND ucr.user_id = CAST(:uid AS UUID)
+                       AND ucr.active = TRUE
+                       AND ucr.role IN ('GG', 'DIRECTOR')
+                    WHERE v.status = 'PENDING'
+                      AND NOT EXISTS (
+                          SELECT 1 FROM core.voucher_approvals va
+                          WHERE va.voucher_id = v.voucher_id
+                            AND va.approver_user_id = CAST(:uid AS UUID)
+                            AND va.decision = 'APPROVED'
+                      )
+                    """
+                ),
+                {"uid": user_id},
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
 @router.get(
     "/sidebar-state",
     response_model=SidebarStateResponse,
@@ -230,17 +292,28 @@ async def get_sidebar_state(
     el helper devuelve 0 sin romper el endpoint.
     """
     user_id = str(user.sub)
-    unread, obligations, entregables, mailbox = await asyncio.gather(
+    (
+        unread,
+        obligations,
+        entregables,
+        mailbox,
+        drafts_mine,
+        pending_approvals,
+    ) = await asyncio.gather(
         _count_unread_notifications(db, user_id),
         _count_critical_obligations(db),
         _count_critical_entregables(db),
         _count_mailbox_pending(db),
+        _count_voucher_drafts_mine(db, user_id),
+        _count_voucher_pending_approvals(db, user_id),
     )
     return SidebarStateResponse(
         unread_notifications=unread,
         critical_obligations=obligations,
         critical_entregables=entregables,
         mailbox_pending=mailbox,
+        voucher_drafts_mine=drafts_mine,
+        voucher_pending_approvals=pending_approvals,
     )
 
 
@@ -253,6 +326,7 @@ async def get_sidebar_state(
 async def list_my_empresas(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
 ) -> dict:
     """V5++ ola AI: empresas a las que el current user tiene acceso.
 
@@ -261,8 +335,12 @@ async def list_my_empresas(
       - Limitar selector de empresa al universo permitido
       - Mostrar "Mis Empresas" widget en dashboard
 
+    V5++ ola AR: Cache 5min stale-while-revalidate 60s. Los roles cambian
+    rara vez, y el scope cache TTL ya es 60s en backend.
+
     Devuelve [{ codigo, razon_social, roles: [...] }, ...] o todas si admin.
     """
+    response.headers["Cache-Control"] = "private, max-age=300, stale-while-revalidate=60"
     if user.is_admin:
         # Admin global → devuelve TODAS las empresas activas con rol 'admin'
         rows = (await db.execute(

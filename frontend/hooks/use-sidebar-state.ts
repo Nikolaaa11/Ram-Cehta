@@ -9,6 +9,9 @@ interface SidebarStateResponse {
   critical_obligations: number;
   critical_entregables: number;
   mailbox_pending: number;
+  // V5++ ola AT — vouchers pending por user
+  voucher_drafts_mine?: number;
+  voucher_pending_approvals?: number;
 }
 
 /**
@@ -38,6 +41,8 @@ export function useSidebarState() {
       critical_obligations: 0,
       critical_entregables: 0,
       mailbox_pending: 0,
+      voucher_drafts_mine: 0,
+      voucher_pending_approvals: 0,
     }),
   });
 }

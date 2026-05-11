@@ -391,6 +391,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const criticalObligationsCount = state?.critical_obligations ?? 0;
   const criticalEntregablesCount = state?.critical_entregables ?? 0;
   const mailboxPending = state?.mailbox_pending ?? 0;
+  // V5++ ola AT — counters de vouchers para el usuario
+  const voucherDraftsMine = state?.voucher_drafts_mine ?? 0;
+  const voucherPendingApprovals = state?.voucher_pending_approvals ?? 0;
   const prefetchEntregables = useEntregablesPrefetch();
   const prefetchMailbox = useMailboxPrefetch();
   const prefetchF22 = useF22Prefetch();
@@ -453,6 +456,11 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showMailboxBadge =
                   String(item.href) === "/admin/mailbox" &&
                   mailboxPending > 0;
+                // V5++ ola AT — badge en /vouchers: total de pending + drafts
+                const voucherBadgeTotal =
+                  voucherDraftsMine + voucherPendingApprovals;
+                const showVoucherBadge =
+                  String(item.href) === "/vouchers" && voucherBadgeTotal > 0;
                 // Prefetch on hover para rutas con datos pesados.
                 // V4 fase 7.5 — calienta cache TanStack antes del click.
                 // V5+ extendido a /admin/mailbox y /f22 (lists costosas).
@@ -520,6 +528,23 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-cehta-green px-1.5 text-[10px] font-semibold text-white tabular-nums"
                       >
                         {mailboxPending > 99 ? "99+" : mailboxPending}
+                      </span>
+                    )}
+                    {showVoucherBadge && (
+                      <span
+                        aria-label={`${voucherBadgeTotal} vouchers requieren tu acción`}
+                        title={
+                          `${voucherDraftsMine} borradores propios + ` +
+                          `${voucherPendingApprovals} pendientes de tu firma`
+                        }
+                        className={cn(
+                          "inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold text-white tabular-nums",
+                          voucherPendingApprovals > 0
+                            ? "bg-amber-500"
+                            : "bg-cehta-green",
+                        )}
+                      >
+                        {voucherBadgeTotal > 99 ? "99+" : voucherBadgeTotal}
                       </span>
                     )}
                   </Link>
