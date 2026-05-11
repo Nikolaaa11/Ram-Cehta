@@ -19,6 +19,10 @@ from sqlalchemy import text
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.services.cartolas_sync_service import sync_cartolas_for_empresa
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -130,7 +134,10 @@ async def sync_cartolas(
 
     El servicio inserta filas en core.movimientos con `fuente='cartola_pdf'`
     para distinguirlas del ETL de Excel madre.
+
+    V5++ ola AP: scope check — solo admin o user con rol en esa empresa.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     result = await sync_cartolas_for_empresa(
         db, empresa_codigo, triggered_by=str(user.sub)
     )
@@ -144,18 +151,29 @@ async def sync_cartolas(
 async def list_cartolas_runs(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     status_filter: str | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[CartolaRunRead]:
     """Lista los runs de cartolas. Útil para auditar qué PDFs se procesaron
     y cuáles fallaron (PDF escaneado, banco desconocido, etc.).
+
+    V5++ ola AP: scope multi-tenant aplicado.
     """
     where: list[str] = []
     params: dict = {"lim": limit}
-    if empresa_codigo:
-        where.append("empresa_codigo = :emp")
-        params["emp"] = empresa_codigo
+
+    # Aplicar scope automático
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        if len(scoped_codes) == 1:
+            where.append("empresa_codigo = :emp")
+            params["emp"] = scoped_codes[0]
+        else:
+            where.append("empresa_codigo = ANY(:emps)")
+            params["emps"] = scoped_codes
+
     if status_filter:
         where.append("status = :st")
         params["st"] = status_filter

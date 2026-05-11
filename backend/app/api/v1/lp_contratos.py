@@ -41,6 +41,10 @@ from app.core.security import AuthenticatedUser
 from app.models.lp_contrato import LpContrato
 from app.models.voucher import Voucher, VoucherLine
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.services.voucher_service import generate_voucher_code
 
 router = APIRouter()
@@ -171,14 +175,22 @@ class PagarResponse(BaseModel):
 async def list_contratos(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     estado: EstadoContrato | None = Query(default=None),
     serie: SerieType | None = Query(default=None),
     tipo: TipoContrato | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[LpContratoRead]:
+    """V5++ ola AP: scope multi-tenant aplicado sobre fondo_codigo."""
     stmt = select(LpContrato).order_by(
         LpContrato.fecha_contrato.desc(), LpContrato.contrato_id.desc()
     )
+    # Multi-tenant scope: filter por fondo_codigo en empresas del user
+    if not scope.is_global:
+        allowed = list(scope.allowed_codes or [])
+        if not allowed:
+            return []
+        stmt = stmt.where(LpContrato.fondo_codigo.in_(allowed))
     if estado:
         stmt = stmt.where(LpContrato.estado == estado)
     if serie:
@@ -234,6 +246,7 @@ async def contratos_summary(
 async def get_contrato(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     contrato_id: int,
 ) -> LpContratoRead:
     c = await db.get(LpContrato, contrato_id)
@@ -241,6 +254,12 @@ async def get_contrato(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Contrato {contrato_id} no encontrado",
+        )
+    # V5++ ola AP: scope check
+    if not scope.can_access(c.fondo_codigo):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sin acceso a contratos del fondo '{c.fondo_codigo}'",
         )
     return LpContratoRead.model_validate(c)
 
@@ -257,6 +276,8 @@ async def create_contrato(
     request: Request,
     body: LpContratoCreate,
 ) -> LpContratoRead:
+    # V5++ ola AP: scope check
+    await assert_empresa_access(user, db, body.fondo_codigo)
     c = LpContrato(**body.model_dump(), created_by=str(user.sub))
     db.add(c)
     await db.commit()
@@ -340,6 +361,9 @@ async def pagar_contrato(
     c = await db.get(LpContrato, contrato_id)
     if c is None:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
+
+    # V5++ ola AP: scope check
+    await assert_empresa_access(user, db, c.fondo_codigo)
 
     if c.estado == "PAGADO" and c.voucher_id is not None:
         raise HTTPException(

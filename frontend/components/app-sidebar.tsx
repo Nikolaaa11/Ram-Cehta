@@ -129,6 +129,8 @@ const GROUPS: NavGroup[] = [
         tourId: "action-center",
       },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      // V5++ ola AV — Bandeja personal: vouchers que requieren tu acción
+      { href: "/mis-pendientes" as Route, label: "Mis pendientes", icon: Inbox },
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },

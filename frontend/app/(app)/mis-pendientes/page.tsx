@@ -1,0 +1,313 @@
+"use client";
+
+/**
+ * /mis-pendientes — V5++ ola AV
+ *
+ * Página personal "bandeja de entrada" que muestra todo lo que requiere
+ * acción del usuario actual:
+ *   - Vouchers en DRAFT que él creó (debe completarlos y submit)
+ *   - Vouchers PENDING en sus empresas que esperan SU firma (GG/DIRECTOR)
+ *   - Empresas a las que tiene acceso
+ *
+ * Es la primera página que un líder/director debe abrir al loguear.
+ */
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileEdit,
+  PenTool,
+  Building2,
+  Inbox,
+  ArrowRight,
+} from "lucide-react";
+import { apiClient, ApiError } from "@/lib/api/client";
+import { useSession } from "@/hooks/use-session";
+import { useSidebarState } from "@/hooks/use-sidebar-state";
+import { Surface } from "@/components/ui/surface";
+
+interface Voucher {
+  voucher_id: number;
+  codigo: string;
+  empresa_codigo: string;
+  tipo: string;
+  status: string;
+  glosa: string;
+  total_debit: number | string;
+  contraparte_nombre: string | null;
+  fecha_contable: string;
+}
+
+interface MyEmpresa {
+  codigo: string;
+  razon_social: string;
+  roles: string[];
+}
+
+export default function MisPendientesPage() {
+  const { session } = useSession();
+  const { data: state } = useSidebarState();
+  const [drafts, setDrafts] = useState<Voucher[]>([]);
+  const [pending, setPending] = useState<Voucher[]>([]);
+  const [empresas, setEmpresas] = useState<MyEmpresa[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!session) return;
+    const load = async () => {
+      try {
+        // Drafts propios (status=DRAFT created by me)
+        const draftRes = await apiClient.get<Voucher[]>(
+          "/vouchers?status=DRAFT&limit=100",
+          session,
+        );
+        setDrafts(draftRes);
+
+        // Pendientes de aprobación (status=PENDING en mis empresas)
+        const pendingRes = await apiClient.get<Voucher[]>(
+          "/vouchers?status=PENDING&limit=100",
+          session,
+        );
+        setPending(pendingRes);
+
+        // Mis empresas
+        const empResp = await apiClient.get<{ empresas: MyEmpresa[] }>(
+          "/me/empresas",
+          session,
+        );
+        setEmpresas(empResp.empresas || []);
+      } catch (err) {
+        // silenced
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [session]);
+
+  const draftsCount = state?.voucher_drafts_mine ?? drafts.length;
+  const pendingCount = state?.voucher_pending_approvals ?? pending.length;
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+          Mis pendientes
+        </h1>
+        <p className="text-sm text-ink-500 mt-1">
+          Todo lo que requiere tu acción ahora. Actualizado en vivo.
+        </p>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Card
+          icon={<FileEdit className="size-5 text-amber-500" />}
+          label="Borradores propios"
+          value={draftsCount}
+          subtitle="Vouchers que vos creaste y debés completar"
+          tone="warn"
+        />
+        <Card
+          icon={<PenTool className="size-5 text-blue-500" />}
+          label="Esperan tu firma"
+          value={pendingCount}
+          subtitle="Vouchers PENDING en empresas que aprobás"
+          tone="info"
+        />
+        <Card
+          icon={<Building2 className="size-5 text-cehta-green" />}
+          label="Tus empresas"
+          value={empresas.length}
+          subtitle="Empresas donde podés trabajar"
+        />
+      </div>
+
+      {/* Vouchers PENDING (priority) */}
+      {pending.length > 0 && (
+        <Surface className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <PenTool className="size-5 text-blue-500" />
+              <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+                Esperan tu firma ({pending.length})
+              </h2>
+            </div>
+            <Link
+              href={"/vouchers?status=PENDING" as Route}
+              className="text-sm text-cehta-green hover:underline flex items-center gap-1"
+            >
+              Ver todos <ArrowRight className="size-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {pending.slice(0, 10).map((v) => (
+              <VoucherRow key={v.voucher_id} v={v} />
+            ))}
+          </div>
+        </Surface>
+      )}
+
+      {/* Vouchers DRAFT */}
+      {drafts.length > 0 && (
+        <Surface className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <FileEdit className="size-5 text-amber-500" />
+              <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+                Tus borradores ({drafts.length})
+              </h2>
+            </div>
+            <Link
+              href={"/vouchers?status=DRAFT" as Route}
+              className="text-sm text-cehta-green hover:underline flex items-center gap-1"
+            >
+              Ver todos <ArrowRight className="size-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {drafts.slice(0, 10).map((v) => (
+              <VoucherRow key={v.voucher_id} v={v} />
+            ))}
+          </div>
+        </Surface>
+      )}
+
+      {/* Empty state */}
+      {pending.length === 0 && drafts.length === 0 && !loading && (
+        <Surface className="p-12 text-center">
+          <CheckCircle2 className="size-12 text-cehta-green mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-ink-900 dark:text-ink-100 mb-1">
+            ¡Todo al día!
+          </h3>
+          <p className="text-sm text-ink-500">
+            No tenés borradores pendientes ni vouchers esperando tu firma.
+          </p>
+        </Surface>
+      )}
+
+      {/* Mis empresas */}
+      <Surface className="p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Building2 className="size-5 text-cehta-green" />
+          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+            Tus empresas ({empresas.length})
+          </h2>
+        </div>
+        {empresas.length === 0 ? (
+          <p className="text-sm text-ink-500">
+            No tenés empresas asignadas. Contactá al admin.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {empresas.map((e) => (
+              <Link
+                key={e.codigo}
+                href={`/vouchers?empresa_codigo=${e.codigo}` as Route}
+                className="block rounded-lg border border-hairline p-3 hover:border-cehta-green/40 hover:bg-cehta-green/5 transition-colors dark:bg-ink-900"
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-xs bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">
+                    {e.codigo}
+                  </span>
+                  {e.roles.map((r) => (
+                    <span
+                      key={r}
+                      className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                        r === "admin" || r === "DIRECTOR"
+                          ? "bg-purple-100 text-purple-700"
+                          : r === "GG"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-ink-100 text-ink-600"
+                      }`}
+                    >
+                      {r}
+                    </span>
+                  ))}
+                </div>
+                <div className="text-sm text-ink-900 dark:text-ink-100 font-medium truncate">
+                  {e.razon_social}
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Surface>
+    </div>
+  );
+}
+
+function Card({
+  icon,
+  label,
+  value,
+  subtitle,
+  tone = "neutral",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  subtitle: string;
+  tone?: "neutral" | "warn" | "info";
+}) {
+  const colorClass =
+    tone === "warn"
+      ? "text-amber-500"
+      : tone === "info"
+        ? "text-blue-500"
+        : "text-ink-900 dark:text-ink-100";
+  return (
+    <Surface className="p-4">
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-sm font-medium text-ink-700 dark:text-ink-300">
+          {label}
+        </span>
+      </div>
+      <div className={`text-3xl font-semibold mb-1 ${colorClass}`}>{value}</div>
+      <div className="text-xs text-ink-500">{subtitle}</div>
+    </Surface>
+  );
+}
+
+function VoucherRow({ v }: { v: Voucher }) {
+  const total =
+    typeof v.total_debit === "string"
+      ? parseFloat(v.total_debit)
+      : v.total_debit;
+  return (
+    <Link
+      href={`/vouchers/${v.voucher_id}` as Route}
+      className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-900/40 transition-colors group"
+    >
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="font-mono text-xs bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">
+            {v.codigo}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-cehta-green/10 text-cehta-green font-medium">
+            {v.empresa_codigo}
+          </span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium">
+            {v.tipo}
+          </span>
+        </div>
+        <div className="text-sm text-ink-900 dark:text-ink-100 truncate">
+          {v.glosa}
+        </div>
+        <div className="text-xs text-ink-500">
+          {v.contraparte_nombre && `${v.contraparte_nombre} · `}
+          {v.fecha_contable}
+        </div>
+      </div>
+      <div className="text-right">
+        <div className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+          ${total.toLocaleString("es-CL")}
+        </div>
+        <ArrowRight className="size-4 text-ink-400 group-hover:text-cehta-green ml-auto mt-1" />
+      </div>
+    </Link>
+  );
+}
