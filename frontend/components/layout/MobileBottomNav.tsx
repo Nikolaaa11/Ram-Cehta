@@ -17,8 +17,9 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Inbox, ShoppingCart, Receipt } from "lucide-react";
+import { LayoutDashboard, FileText, Inbox, Receipt, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSidebarState } from "@/hooks/use-sidebar-state";
 
 interface NavItem {
   href: Route;
@@ -26,9 +27,22 @@ interface NavItem {
   icon: typeof LayoutDashboard;
   /** Match prefix p.ej. /vouchers/123 → /vouchers activo. */
   matchPrefix: string;
+  /** Si está presente, lee este campo del sidebar-state para badge */
+  badgeKey?:
+    | "voucher_pending_approvals"
+    | "voucher_drafts_mine"
+    | "mailbox_pending"
+    | "voucher_total";
 }
 
 const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/mis-pendientes" as Route,
+    label: "Pendientes",
+    icon: Bell,
+    matchPrefix: "/mis-pendientes",
+    badgeKey: "voucher_total", // drafts + pending
+  },
   {
     href: "/dashboard" as Route,
     label: "Dashboard",
@@ -46,12 +60,7 @@ const NAV_ITEMS: NavItem[] = [
     label: "Mailbox",
     icon: Inbox,
     matchPrefix: "/admin/mailbox",
-  },
-  {
-    href: "/ordenes-compra" as Route,
-    label: "OC",
-    icon: ShoppingCart,
-    matchPrefix: "/ordenes-compra",
+    badgeKey: "mailbox_pending",
   },
   {
     href: "/f22" as Route,
@@ -63,6 +72,18 @@ const NAV_ITEMS: NavItem[] = [
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const { data: state } = useSidebarState();
+
+  const getBadge = (key?: NavItem["badgeKey"]): number => {
+    if (!state || !key) return 0;
+    if (key === "voucher_total") {
+      return (
+        (state.voucher_drafts_mine ?? 0) +
+        (state.voucher_pending_approvals ?? 0)
+      );
+    }
+    return (state[key] as number) ?? 0;
+  };
 
   return (
     <nav
@@ -81,12 +102,13 @@ export function MobileBottomNav() {
           const active =
             pathname === item.matchPrefix ||
             pathname.startsWith(`${item.matchPrefix}/`);
+          const badge = getBadge(item.badgeKey);
           return (
             <li key={item.href}>
               <Link
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
+                  "relative flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-medium transition-colors",
                   "min-h-[3rem]",  // touch target ≥48px
                   active
                     ? "text-cehta-green"
@@ -94,10 +116,20 @@ export function MobileBottomNav() {
                 )}
                 aria-current={active ? "page" : undefined}
               >
-                <Icon
-                  className="h-5 w-5"
-                  strokeWidth={active ? 2.25 : 1.75}
-                />
+                <div className="relative">
+                  <Icon
+                    className="h-5 w-5"
+                    strokeWidth={active ? 2.25 : 1.75}
+                  />
+                  {badge > 0 && (
+                    <span
+                      className="absolute -top-1.5 -right-2 inline-flex min-w-[16px] items-center justify-center rounded-full bg-cehta-green px-1 text-[9px] font-semibold text-white tabular-nums leading-tight"
+                      aria-label={`${badge} pendientes`}
+                    >
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </div>
                 <span className="tracking-tight">{item.label}</span>
               </Link>
             </li>

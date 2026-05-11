@@ -18,6 +18,7 @@ import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderbo
 import { PipelineRegulatorio } from "@/components/dashboard/PipelineRegulatorio";
 import { VouchersKpiStrip } from "@/components/dashboard/VouchersKpiStrip";
 import { AiDataQAWidget } from "@/components/dashboard/AiDataQAWidget";
+import { WelcomeBanner } from "@/components/dashboard/WelcomeBanner";
 import { ErrorBoundary } from "@/components/shared/error-boundary";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
@@ -77,6 +78,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto max-w-[1440px] px-3 sm:px-6 lg:px-10 py-4 sm:py-6">
       <DashboardHeader lastEtlRun={kpis.ultimo_etl_run} etlStatus={kpis.etl_status} />
+
+      {/* V5++ ola BD — Banner contextual de bienvenida/acción */}
+      <ErrorBoundary>
+        <WelcomeBanner />
+      </ErrorBoundary>
 
       <div className="space-y-4 sm:space-y-6">
         {/* V4 fase 7.7 — Widget personal "Mi día" + V4.7.13 Pipeline Regulatorio
