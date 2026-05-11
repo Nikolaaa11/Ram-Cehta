@@ -22,6 +22,10 @@ from app.schemas.f29 import F29Create, F29EstadoUpdate, F29Read, F29Update
 from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.services.webhook_dispatcher import publish_event
 
 router = APIRouter()
@@ -36,16 +40,26 @@ _F29_COLS = (
 async def list_f29(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 50,
     empresa_codigo: str | None = None,
     estado: str | None = None,
 ) -> Page[F29Read]:
+    """V5++ ola AK: scope multi-tenant aplicado."""
     conditions = []
     params: dict = {}
-    if empresa_codigo:
-        conditions.append("empresa_codigo = :empresa")
-        params["empresa"] = empresa_codigo
+
+    # Aplicar scope automático
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        if len(scoped_codes) == 1:
+            conditions.append("empresa_codigo = :empresa")
+            params["empresa"] = scoped_codes[0]
+        else:
+            conditions.append("empresa_codigo = ANY(:empresas)")
+            params["empresas"] = scoped_codes
+
     if estado:
         conditions.append("estado = :estado")
         params["estado"] = estado
@@ -82,6 +96,8 @@ async def create_f29(
     request: Request,
     body: F29Create,
 ) -> F29Read:
+    # V5++ ola AK: scope check
+    await assert_empresa_access(user, db, body.empresa_codigo)
     result = await db.execute(
         text("""
             INSERT INTO core.f29_obligaciones

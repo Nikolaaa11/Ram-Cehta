@@ -27,6 +27,10 @@ from app.core.security import AuthenticatedUser
 from app.schemas.common import Page
 from app.schemas.f22 import F22Create, F22EstadoUpdate, F22Read, F22Update
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -45,17 +49,27 @@ def _row_to_read(row: dict) -> F22Read:
 async def list_f22(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 50,
     empresa_codigo: str | None = None,
     estado: str | None = None,
     ano_tributario: int | None = None,
 ) -> Page[F22Read]:
+    """V5++ ola AK: scope multi-tenant aplicado."""
     conditions: list[str] = []
     params: dict = {}
-    if empresa_codigo:
-        conditions.append("empresa_codigo = :empresa")
-        params["empresa"] = empresa_codigo
+
+    # Aplicar scope automático
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        if len(scoped_codes) == 1:
+            conditions.append("empresa_codigo = :empresa")
+            params["empresa"] = scoped_codes[0]
+        else:
+            conditions.append("empresa_codigo = ANY(:empresas)")
+            params["empresas"] = scoped_codes
+
     if estado:
         conditions.append("estado = :estado")
         params["estado"] = estado
@@ -98,6 +112,7 @@ async def get_f22(
     f22_id: int,
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
 ) -> F22Read:
     row = (
         await db.execute(
@@ -109,6 +124,12 @@ async def get_f22(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"F22 {f22_id} no encontrado",
+        )
+    # V5++ ola AK: scope check
+    if not scope.can_access(row["empresa_codigo"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sin acceso a F22 de empresa '{row['empresa_codigo']}'",
         )
     return _row_to_read(row)
 
@@ -124,6 +145,8 @@ async def create_f22(
     db: DBSession,
 ) -> F22Read:
     """Crea un F22. Reusa el scope `f29:create` (mismo dominio tributario)."""
+    # V5++ ola AK: scope check multi-tenant
+    await assert_empresa_access(user, db, body.empresa_codigo)
     # Validar empresa
     exists = await db.scalar(
         text("SELECT 1 FROM core.empresas WHERE codigo = :c"),
