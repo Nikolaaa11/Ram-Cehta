@@ -298,7 +298,9 @@ async def main() -> int:
     print("Ola AN — Bulk setup de 43 usuarios + roles + credenciales")
     print("=" * 70)
 
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    # SQLAlchemy create_async_engine espera str, no PostgresDsn (pydantic v2)
+    db_url = str(settings.database_url)
+    engine = create_async_engine(db_url, pool_pre_ping=True)
 
     credentials: list[dict] = []
     stats = {
