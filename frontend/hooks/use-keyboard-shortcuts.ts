@@ -8,13 +8,17 @@ import { useRouter } from "next/navigation";
  *
  * Atajos:
  *   - g d   → /dashboard
+ *   - g p   → /mis-pendientes (V5++ ola AW)
  *   - g v   → /vouchers
  *   - g e   → /admin/empresas
  *   - g i   → /admin/mailbox (Inbox)
  *   - g f   → /f29
  *   - g t   → /f22 (tax 22)
  *   - g c   → /admin/cartolas-runs
+ *   - g b   → /admin/bitacora (V5++ ola AW)
  *   - g a   → /admin
+ *   - g o   → /ordenes-compra
+ *   - g r   → /reportes
  *   - ?     → Mostrar overlay con todos los shortcuts (futuro)
  *   - /     → Focus search palette
  *
@@ -78,12 +82,14 @@ export function useKeyboardShortcuts() {
         firstKey = null;
         const routes: Record<string, string> = {
           d: "/dashboard",
+          p: "/mis-pendientes",     // V5++ ola AW
           v: "/vouchers",
           e: "/admin/empresas",
           i: "/admin/mailbox",
           f: "/f29",
           t: "/f22",
           c: "/admin/cartolas-runs",
+          b: "/admin/bitacora",     // V5++ ola AW
           a: "/admin",
           o: "/ordenes-compra",
           r: "/reportes",

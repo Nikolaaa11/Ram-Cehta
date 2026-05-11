@@ -90,6 +90,42 @@ export default function MisPendientesPage() {
   const draftsCount = state?.voucher_drafts_mine ?? drafts.length;
   const pendingCount = state?.voucher_pending_approvals ?? pending.length;
 
+  // V5++ ola AX: skeleton mientras carga
+  if (loading && pending.length === 0 && drafts.length === 0) {
+    return (
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <div>
+          <div className="h-8 w-48 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-2" />
+          <div className="h-4 w-80 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Surface key={i} className="p-4">
+              <div className="h-5 w-32 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-3" />
+              <div className="h-9 w-16 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-2" />
+              <div className="h-3 w-48 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
+            </Surface>
+          ))}
+        </div>
+        <Surface className="p-6">
+          <div className="h-6 w-64 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-4" />
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="flex justify-between items-center p-3 mb-2 border-b border-ink-100 dark:border-ink-800"
+            >
+              <div className="space-y-2">
+                <div className="h-4 w-40 bg-ink-200 dark:bg-ink-800 rounded animate-pulse" />
+                <div className="h-3 w-64 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
+              </div>
+              <div className="h-5 w-20 bg-ink-200 dark:bg-ink-800 rounded animate-pulse" />
+            </div>
+          ))}
+        </Surface>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div>
@@ -97,7 +133,7 @@ export default function MisPendientesPage() {
           Mis pendientes
         </h1>
         <p className="text-sm text-ink-500 mt-1">
-          Todo lo que requiere tu acción ahora. Actualizado en vivo.
+          Todo lo que requiere tu acción ahora. Actualizado en vivo. Atajo: <kbd className="text-xs px-1.5 py-0.5 bg-ink-100 dark:bg-ink-800 rounded font-mono">g p</kbd>
         </p>
       </div>
 
