@@ -13,6 +13,10 @@ from app.models.movimiento import Movimiento
 from app.schemas.common import Page
 from app.schemas.movimiento import MovimientoManualCreate, MovimientoRead
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -21,6 +25,7 @@ router = APIRouter()
 async def list_movimientos(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=200)] = 50,
     empresa_codigo: str | None = None,
@@ -29,9 +34,12 @@ async def list_movimientos(
     real_proyectado: str | None = None,
     proyecto: str | None = None,
 ) -> Page[MovimientoRead]:
+    """V5++ ola AP: scope multi-tenant aplicado."""
     q = select(Movimiento)
-    if empresa_codigo:
-        q = q.where(Movimiento.empresa_codigo == empresa_codigo)
+    # Aplicar scope automático
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        q = q.where(Movimiento.empresa_codigo.in_(scoped_codes))
     if anio:
         q = q.where(Movimiento.anio == anio)
     if periodo:
@@ -74,7 +82,10 @@ async def create_manual_movimiento(
 
     `natural_key` se prefijo `manual_` + 12 chars random — esto evita
     chocar con keys del ETL (que usa formato Hipervinculo + idx).
+
+    V5++ ola AP: scope check multi-tenant — solo crea en empresa del user.
     """
+    await assert_empresa_access(user, db, body.empresa_codigo)
     natural_key = f"manual_{secrets.token_urlsafe(8)}"
     mov = Movimiento(
         natural_key=natural_key,

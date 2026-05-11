@@ -25,6 +25,7 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
 from app.schemas.search import SearchEntityType, SearchHit, SearchResponse
+from app.services.empresa_scope_service import EmpresaScopeDep
 
 router = APIRouter()
 
@@ -40,12 +41,15 @@ def _hit(entity_type: SearchEntityType, **kwargs: object) -> SearchHit:
 async def global_search(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     q: Annotated[str, Query(min_length=0, max_length=200)] = "",
 ) -> SearchResponse:
     """Cmd+K. Recibe `q` y devuelve hits agrupados por entidad.
 
-    Si `q` < 2 chars devolvemos respuesta vacía pero válida (200), para que el
-    frontend pueda llamar en cada keystroke sin manejar errores especiales.
+    V5++ ola AP: scope multi-tenant aplicado. Cada user solo ve hits de
+    sus empresas. Admin ve todo.
+
+    Si `q` < 2 chars devolvemos respuesta vacía pero válida (200).
     """
     q_clean = q.strip()
     if len(q_clean) < _MIN_QUERY_LEN:
@@ -54,20 +58,35 @@ async def global_search(
     pattern = f"%{q_clean}%"
     by_entity: dict[SearchEntityType, list[SearchHit]] = {}
 
+    # V5++ ola AP — Resolver empresas permitidas para todas las queries
+    # que filtran por empresa_codigo. None = admin global.
+    allowed_emps = list(scope.allowed_codes) if scope.allowed_codes is not None else None
+    emp_filter_sql = (
+        "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+
     # ── Empresas ──────────────────────────────────────────────────────────────
+    empresa_extra_filter = (
+        "AND codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_empresa = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_empresa["allowed"] = allowed_emps
+
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT codigo, razon_social, rut
                 FROM core.empresas
                 WHERE activo = true
                   AND (codigo ILIKE :p OR razon_social ILIKE :p OR rut ILIKE :p)
+                  {empresa_extra_filter}
                 ORDER BY codigo
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_empresa,
         )
     ).fetchall()
     if rows:
@@ -84,22 +103,29 @@ async def global_search(
         ]
 
     # ── OCs ───────────────────────────────────────────────────────────────────
+    oc_emp_filter = (
+        "AND oc.empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_oc = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_oc["allowed"] = allowed_emps
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT oc.oc_id, oc.numero_oc, oc.empresa_codigo, oc.estado,
                        oc.total, oc.moneda, p.razon_social
                 FROM core.ordenes_compra oc
                 LEFT JOIN core.proveedores p ON p.proveedor_id = oc.proveedor_id
-                WHERE oc.numero_oc ILIKE :p
+                WHERE (oc.numero_oc ILIKE :p
                    OR oc.empresa_codigo ILIKE :p
-                   OR p.razon_social ILIKE :p
+                   OR p.razon_social ILIKE :p)
+                   {oc_emp_filter}
                 ORDER BY oc.fecha_emision DESC NULLS LAST
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_oc,
         )
     ).fetchall()
     if rows:
@@ -147,21 +173,28 @@ async def global_search(
         ]
 
     # ── F29 ───────────────────────────────────────────────────────────────────
+    f29_emp_filter = (
+        "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_f29 = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_f29["allowed"] = allowed_emps
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT f29_id, empresa_codigo, periodo_tributario, estado,
                        monto_a_pagar, fecha_vencimiento
                 FROM core.f29_obligaciones
-                WHERE empresa_codigo ILIKE :p
+                WHERE (empresa_codigo ILIKE :p
                    OR periodo_tributario ILIKE :p
-                   OR CAST(monto_a_pagar AS TEXT) ILIKE :p
+                   OR CAST(monto_a_pagar AS TEXT) ILIKE :p)
+                   {f29_emp_filter}
                 ORDER BY fecha_vencimiento DESC NULLS LAST
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_f29,
         )
     ).fetchall()
     if rows:
@@ -180,18 +213,25 @@ async def global_search(
         ]
 
     # ── Trabajadores ──────────────────────────────────────────────────────────
+    trab_emp_filter = (
+        "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_trab = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_trab["allowed"] = allowed_emps
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT trabajador_id, empresa_codigo, nombre_completo, rut, cargo
                 FROM core.trabajadores
-                WHERE nombre_completo ILIKE :p OR rut ILIKE :p OR cargo ILIKE :p
+                WHERE (nombre_completo ILIKE :p OR rut ILIKE :p OR cargo ILIKE :p)
+                  {trab_emp_filter}
                 ORDER BY nombre_completo
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_trab,
         )
     ).fetchall()
     if rows:
@@ -208,21 +248,28 @@ async def global_search(
         ]
 
     # ── Documentos legales ────────────────────────────────────────────────────
+    legal_emp_filter = (
+        "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_legal = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_legal["allowed"] = allowed_emps
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT documento_id, empresa_codigo, nombre, categoria,
                        contraparte
                 FROM core.legal_documents
-                WHERE nombre ILIKE :p
+                WHERE (nombre ILIKE :p
                    OR contraparte ILIKE :p
-                   OR descripcion ILIKE :p
+                   OR descripcion ILIKE :p)
+                   {legal_emp_filter}
                 ORDER BY uploaded_at DESC
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_legal,
         )
     ).fetchall()
     if rows:
@@ -275,23 +322,30 @@ async def global_search(
         ]
 
     # ── Vouchers ──────────────────────────────────────────────────────────────
+    vch_emp_filter = (
+        "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_vch = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_vch["allowed"] = allowed_emps
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT voucher_id, codigo, empresa_codigo, tipo, status,
                        glosa, contraparte_nombre, fecha_contable
                 FROM core.vouchers
-                WHERE codigo ILIKE :p
+                WHERE (codigo ILIKE :p
                    OR glosa ILIKE :p
                    OR contraparte_nombre ILIKE :p
                    OR contraparte_rut ILIKE :p
-                   OR doc_tributario_folio ILIKE :p
+                   OR doc_tributario_folio ILIKE :p)
+                   {vch_emp_filter}
                 ORDER BY fecha_contable DESC NULLS LAST
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_vch,
         )
     ).fetchall()
     if rows:
@@ -312,21 +366,28 @@ async def global_search(
         ]
 
     # ── F22 (declaración anual) ───────────────────────────────────────────────
+    f22_emp_filter = (
+        "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+    )
+    params_f22 = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+    if allowed_emps is not None:
+        params_f22["allowed"] = allowed_emps
     rows = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT f22_id, empresa_codigo, ano_tributario, estado,
                        monto_a_pagar, fecha_vencimiento
                 FROM core.f22_obligaciones
-                WHERE empresa_codigo ILIKE :p
+                WHERE (empresa_codigo ILIKE :p
                    OR CAST(ano_tributario AS TEXT) ILIKE :p
-                   OR CAST(monto_a_pagar AS TEXT) ILIKE :p
+                   OR CAST(monto_a_pagar AS TEXT) ILIKE :p)
+                   {f22_emp_filter}
                 ORDER BY fecha_vencimiento DESC NULLS LAST
                 LIMIT :lim
-                """
+                """  # noqa: S608
             ),
-            {"p": pattern, "lim": _PER_ENTITY_LIMIT},
+            params_f22,
         )
     ).fetchall()
     if rows:

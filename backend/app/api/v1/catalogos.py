@@ -9,6 +9,7 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.schemas.catalogo import CatalogosResponse, ConceptoDetallado
 from app.schemas.empresa import EmpresaRead, EmpresaUpdate
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import EmpresaScopeDep
 
 router = APIRouter()
 
@@ -126,22 +127,35 @@ async def update_empresa(
 
 @router.get("/empresas", response_model=list[EmpresaCatalogo])
 async def list_empresas(
-    user: CurrentUser, db: DBSession, response: Response
+    user: CurrentUser, db: DBSession, response: Response,
+    scope: EmpresaScopeDep,
 ) -> list[EmpresaCatalogo]:
-    """Catálogo plano de empresas — único source-of-truth para selects (Disciplina 1).
+    """Catálogo plano de empresas — único source-of-truth para selects.
 
-    Devuelve TODAS las empresas (activas e inactivas) para que los formularios
-    contables/legales puedan referenciar empresas históricas. Los endpoints
-    operativos (movimientos, OCs, alertas) son los que filtran por `activo`
-    a nivel de query si lo necesitan.
+    V5++ ola AP: filtra por las empresas que el user puede ver.
+    - Admin → ve todas (activas e inactivas, para histórico)
+    - Scoped users → solo las de su user_company_roles
     """
     response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
+
+    # Aplicar scope multi-tenant
+    if scope.is_global:
+        sql_filter = ""
+        params: dict = {}
+    else:
+        allowed = list(scope.allowed_codes or [])
+        if not allowed:
+            return []  # user sin empresas → lista vacía
+        sql_filter = "WHERE codigo = ANY(:allowed)"
+        params = {"allowed": allowed}
+
     rows = (
         await db.execute(
             text(
-                "SELECT codigo, razon_social, oc_prefix, rut "
-                "FROM core.empresas ORDER BY codigo"
-            )
+                f"SELECT codigo, razon_social, oc_prefix, rut "
+                f"FROM core.empresas {sql_filter} ORDER BY codigo"  # noqa: S608
+            ),
+            params,
         )
     ).fetchall()
     return [
@@ -152,15 +166,31 @@ async def list_empresas(
 
 @router.get("", response_model=CatalogosResponse)
 async def get_catalogos(
-    user: CurrentUser, db: DBSession, response: Response
+    user: CurrentUser, db: DBSession, response: Response,
+    scope: EmpresaScopeDep,
 ) -> CatalogosResponse:
+    """V5++ ola AP: empresas en el catalogo filtradas por scope del user."""
     response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
+
+    if scope.is_global:
+        empresa_filter = ""
+        empresa_params: dict = {}
+    else:
+        allowed_list = list(scope.allowed_codes or [])
+        if not allowed_list:
+            empresa_filter = "WHERE FALSE"
+            empresa_params = {}
+        else:
+            empresa_filter = "WHERE codigo = ANY(:allowed)"
+            empresa_params = {"allowed": allowed_list}
+
     empresas_rows = (
         await db.execute(
             text(
-                "SELECT codigo, razon_social, oc_prefix, rut "
-                "FROM core.empresas ORDER BY codigo"
-            )
+                f"SELECT codigo, razon_social, oc_prefix, rut "
+                f"FROM core.empresas {empresa_filter} ORDER BY codigo"  # noqa: S608
+            ),
+            empresa_params,
         )
     ).fetchall()
 
