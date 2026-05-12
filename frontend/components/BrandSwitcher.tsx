@@ -154,9 +154,19 @@ export function BrandSwitcher({
         >
           {/* Header sutil del dropdown */}
           <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl border-b border-hairline px-3 py-2 dark:bg-ink-900/95 dark:border-ink-800">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
-              Cambiar empresa · {empresas.length}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                Cambiar empresa · {empresas.length}
+              </p>
+              {myEmpresas?.is_admin && (
+                <span
+                  title="Sos admin global — tenés acceso a todas las empresas"
+                  className="inline-flex items-center gap-1 rounded-full bg-cehta-green/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cehta-green ring-1 ring-cehta-green/20"
+                >
+                  ★ Admin
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Option: Cehta Capital default */}

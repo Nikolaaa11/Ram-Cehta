@@ -7,6 +7,7 @@ import { RefreshCw } from "lucide-react";
 import { EmpresaFilter } from "./EmpresaFilter";
 import { PeriodoFilter } from "./PeriodoFilter";
 import { EtlStatusBadge } from "./EtlStatusBadge";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { dashboardKeys } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
 import { SimpleTooltip } from "@/components/ui/tooltip";
@@ -61,13 +62,16 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
         }}
       />
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4 px-6 lg:px-10">
-        <div className="flex flex-col">
-          <h1 className="font-display text-xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
-            Dashboard
-          </h1>
-          <p className="text-xs text-ink-500 tabular-nums">
-            {periodoSubtitle(filters.from, filters.to)}
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="flex flex-col">
+            <h1 className="font-display text-xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+              Dashboard
+            </h1>
+            <p className="text-xs text-ink-500 tabular-nums">
+              {periodoSubtitle(filters.from, filters.to)}
+            </p>
+          </div>
+          <ScopeIndicator />
         </div>
         <div className="flex items-center gap-2">
           <EmpresaFilter />
