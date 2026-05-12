@@ -19,6 +19,7 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.infrastructure.repositories.calendar_repository import (
     CalendarRepository,
 )
+from app.services.empresa_scope_service import EmpresaScopeDep
 from app.schemas.calendar import (
     AgentRunReport,
     CalendarEventCreate,
@@ -123,7 +124,7 @@ async def _query_f29(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     rows = (
         await db.execute(
@@ -139,13 +140,13 @@ async def _query_f29(
                 FROM core.f29_obligaciones
                 WHERE fecha_vencimiento BETWEEN :from_date AND :to_date
                   AND estado <> 'pagado'
-                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 """
             ),
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -177,7 +178,7 @@ async def _query_f22(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     rows = (
         await db.execute(
@@ -193,13 +194,13 @@ async def _query_f22(
                 FROM core.f22_obligaciones
                 WHERE fecha_vencimiento BETWEEN :from_date AND :to_date
                   AND estado <> 'pagado'
-                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 """
             ),
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -231,7 +232,7 @@ async def _query_legal(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     rows = (
         await db.execute(
@@ -248,13 +249,13 @@ async def _query_legal(
                 FROM core.legal_documents
                 WHERE fecha_vigencia_hasta BETWEEN :from_date AND :to_date
                   AND estado = 'vigente'
-                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 """
             ),
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -287,7 +288,7 @@ async def _query_oc(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     rows = (
         await db.execute(
@@ -304,10 +305,10 @@ async def _query_oc(
                     estado
                 FROM core.ordenes_compra
                 WHERE estado IN ('emitida', 'aprobada')
-                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 """
             ),
-            {"empresa": empresa_codigo},
+            {"empresa_codes": empresa_codes},
         )
     ).mappings().all()
 
@@ -343,7 +344,7 @@ async def _query_suscripciones(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     rows = (
         await db.execute(
@@ -359,13 +360,13 @@ async def _query_suscripciones(
                 WHERE firmado = false
                   AND fecha_recibo IS NOT NULL
                   AND fecha_recibo BETWEEN :from_date AND :to_date
-                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 """
             ),
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -402,7 +403,7 @@ async def _query_calendar_events(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     rows = (
         await db.execute(
@@ -418,13 +419,13 @@ async def _query_calendar_events(
                 FROM core.calendar_events
                 WHERE completado = false
                   AND fecha_inicio::date BETWEEN :from_date AND :to_date
-                  AND (CAST(:empresa AS text) IS NULL OR empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 """
             ),
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -456,7 +457,7 @@ async def _query_hitos(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     """V4 fase 9.1: hitos del Gantt cross-portfolio.
 
@@ -483,7 +484,7 @@ async def _query_hitos(
                 JOIN core.proyectos_empresa p ON h.proyecto_id = p.proyecto_id
                 WHERE h.fecha_planificada BETWEEN :from_date AND :to_date
                   AND h.estado IN ('pendiente', 'en_progreso')
-                  AND (CAST(:empresa AS text) IS NULL OR p.empresa_codigo = CAST(:empresa AS text))
+                  AND (CAST(:empresa_codes AS text[]) IS NULL OR p.empresa_codigo = ANY(CAST(:empresa_codes AS text[])))
                 ORDER BY h.fecha_planificada ASC
                 LIMIT 500
                 """
@@ -491,7 +492,7 @@ async def _query_hitos(
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -531,7 +532,7 @@ async def _query_entregables(
     today: date,
     from_date: date,
     to_date: date,
-    empresa_codigo: str | None,
+    empresa_codes: list[str] | None,
 ) -> list[ObligationItem]:
     """V4 fase 9.1: entregables regulatorios CMF/CORFO/UAF/etc.
 
@@ -559,8 +560,8 @@ async def _query_entregables(
                 WHERE fecha_limite BETWEEN :from_date AND :to_date
                   AND estado <> 'entregado'
                   AND (
-                      CAST(:empresa AS text) IS NULL
-                      OR COALESCE(extra->>'empresa_codigo', subcategoria) = CAST(:empresa AS text)
+                      CAST(:empresa_codes AS text[]) IS NULL
+                      OR COALESCE(extra->>'empresa_codigo', subcategoria) = ANY(CAST(:empresa_codes AS text[]))
                   )
                 ORDER BY fecha_limite ASC
                 """
@@ -568,7 +569,7 @@ async def _query_entregables(
             {
                 "from_date": from_date,
                 "to_date": to_date,
-                "empresa": empresa_codigo,
+                "empresa_codes": empresa_codes,
             },
         )
     ).mappings().all()
@@ -714,6 +715,7 @@ async def complete_event(
 async def list_obligations(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     from_date: date | None = Query(default=None),
     to_date: date | None = Query(default=None),
     empresa_codigo: str | None = Query(default=None),
@@ -732,8 +734,10 @@ async def list_obligations(
     Defaults: `from_date=today`, `to_date=today + 90 días`. Permite filtrar
     por `empresa_codigo` y por `tipo` (uno solo).
 
-    Auth: cualquier usuario autenticado (sin scope adicional). El backend
-    ya filtra a registros del portafolio operativo.
+    V5++ ola CB: multi-tenant scoping.
+      * Admin global → sin restricción
+      * User scoped → SOLO ve obligaciones de empresas en `user_company_roles`
+      * Si pasa `empresa_codigo` no permitido → 403
     """
     today = date.today()
     eff_from = from_date or today
@@ -744,12 +748,17 @@ async def list_obligations(
             detail="`to_date` debe ser >= `from_date`",
         )
 
+    # Resolver scope multi-tenant: si user es global, codes=None (sin filtro).
+    # Si user es scoped, codes=lista de empresas permitidas (intersección con
+    # `empresa_codigo` si vino del query).
+    empresa_codes = scope.filter_codes(empresa_codigo)
+
     items: list[ObligationItem] = []
     common_kwargs = {
         "today": today,
         "from_date": eff_from,
         "to_date": eff_to,
-        "empresa_codigo": empresa_codigo,
+        "empresa_codes": empresa_codes,
     }
     if tipo is None or tipo == "f29":
         items.extend(await _query_f29(db, **common_kwargs))

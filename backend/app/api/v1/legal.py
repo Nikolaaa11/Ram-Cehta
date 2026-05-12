@@ -52,6 +52,10 @@ from app.schemas.legal_version import (
 )
 from app.services.audit_service import audit_log
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.legal_version_service import (
     build_change_summary,
@@ -119,6 +123,7 @@ async def _get_dropbox_service(db: DBSession) -> DropboxService | None:
 async def list_legal(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: Annotated[str | None, Query(min_length=1, max_length=64)] = None,
     categoria: str | None = None,
     estado: str | None = None,
@@ -126,9 +131,17 @@ async def list_legal(
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> Page[LegalDocumentListItem]:
+    """V5++ ola CB: scope multi-tenant aplicado.
+
+    - Admin global → ve todo
+    - User scoped → SOLO documentos de sus empresas
+    - Si pasa empresa_codigo fuera de su scope → 403
+    """
+    empresa_codes_scope = scope.filter_codes(empresa_codigo)
     repo = LegalRepository(db)
     items, total = await repo.list_with_alerts(
-        empresa_codigo, categoria, estado, search, page, size
+        empresa_codigo, categoria, estado, search, page, size,
+        empresa_codes_scope=empresa_codes_scope,
     )
     return Page.build(
         items=[LegalDocumentListItem.model_validate(i) for i in items],
@@ -150,6 +163,8 @@ async def create_legal(
     request: Request,
     body: LegalDocumentCreate,
 ) -> LegalDocumentRead:
+    # V5++ ola CB: user solo puede crear documentos para empresas en su scope
+    await assert_empresa_access(user, db, body.empresa_codigo)
     repo = LegalRepository(db)
     doc = await repo.create(body, uploaded_by=user.sub)
     await db.flush()
@@ -205,11 +220,14 @@ async def create_legal(
 async def alerts_legal(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     dias: Annotated[int, Query(ge=0, le=365)] = 90,
 ) -> list[LegalAlert]:
+    """V5++ ola CB: filtra alertas por empresas en scope del user."""
+    empresa_codes = scope.filter_codes(empresa_codigo)
     repo = LegalRepository(db)
-    rows = await repo.alerts(empresa_codigo, dias)
+    rows = await repo.alerts(empresa_codigo, dias, empresa_codes_scope=empresa_codes)
     return [LegalAlert(**r) for r in rows]
 
 
@@ -228,6 +246,8 @@ async def get_legal(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
         )
+    # V5++ ola CB: verificar acceso al documento por su empresa
+    await assert_empresa_access(user, db, doc.empresa_codigo)
     return LegalDocumentRead.model_validate(doc)
 
 
@@ -249,6 +269,8 @@ async def update_legal(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
         )
+    # V5++ ola CB: verificar acceso a la empresa del documento
+    await assert_empresa_access(user, db, doc.empresa_codigo)
     before = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
     # Snapshot del estado ANTERIOR antes del update — versionamos el old.
     # El change_summary describe qué se va a cambiar (más útil en el
@@ -301,6 +323,8 @@ async def delete_legal(
     doc = await repo.get(documento_id)
     if doc is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+    # V5++ ola CB: verificar acceso a la empresa
+    await assert_empresa_access(user, db, doc.empresa_codigo)
     before = LegalDocumentRead.model_validate(doc).model_dump(mode="json")
     nombre = before.get("nombre")
     await repo.soft_delete(doc)
@@ -343,6 +367,8 @@ async def upload_legal(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
         )
+    # V5++ ola CB: verificar acceso a la empresa antes de upload
+    await assert_empresa_access(user, db, doc.empresa_codigo)
 
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
@@ -396,7 +422,10 @@ async def sync_legal_dropbox(
       Pólizas             → poliza
 
     Idempotente: match por `dropbox_path`.
+
+    V5++ ola CB: solo usuarios con acceso a la empresa pueden sync.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     dbx = await _get_dropbox_service(db)
     if dbx is None:
         raise HTTPException(

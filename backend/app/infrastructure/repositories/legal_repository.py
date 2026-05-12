@@ -114,18 +114,28 @@ class LegalRepository:
     # -----------------------------------------------------------------
 
     async def alerts(
-        self, empresa_codigo: str | None, dias_max: int
+        self,
+        empresa_codigo: str | None,
+        dias_max: int,
+        empresa_codes_scope: list[str] | None = None,
     ) -> list[dict]:
         """Devuelve filas de `core.v_legal_alerts` filtradas por empresa.
 
         `dias_max` filtra por `dias_para_vencer <= dias_max` (incluye vencidos
         si negativos). Default razonable: 90.
+
+        V5++ ola CB: `empresa_codes_scope` enforce multi-tenant. None=admin
+        (sin filtro). Lista = filtra a `IN (...)`.
         """
         params: dict = {"dias": dias_max}
-        where_empresa = ""
+        where_clauses = []
+        if empresa_codes_scope is not None:
+            where_clauses.append("empresa_codigo = ANY(CAST(:scope_codes AS text[]))")
+            params["scope_codes"] = empresa_codes_scope
         if empresa_codigo:
-            where_empresa = "AND empresa_codigo = :empresa"
+            where_clauses.append("empresa_codigo = :empresa")
             params["empresa"] = empresa_codigo
+        where_empresa = " AND " + " AND ".join(where_clauses) if where_clauses else ""
         sql = f"""
             SELECT documento_id, empresa_codigo, categoria, nombre,
                    contraparte, fecha_vigencia_hasta::text,
@@ -159,17 +169,26 @@ class LegalRepository:
         search: str | None,
         page: int,
         size: int,
+        empresa_codes_scope: list[str] | None = None,
     ) -> tuple[list[dict], int]:
         """Listado para la tabla del frontend con `dias_para_vencer` ya calculado.
 
         Devuelve dicts (no models) — los alimentamos con LEFT JOIN a la vista
         de alertas para evitar N+1 en el frontend.
+
+        V5++ ola CB: `empresa_codes_scope` enforce multi-tenant scope. Si es
+        None significa admin (sin restricción). Lista vacía/con códigos filtra
+        a `IN (...)`.
         """
         params: dict = {
             "limit": size,
             "offset": (page - 1) * size,
         }
         where: list[str] = []
+        # Scope multi-tenant: si user es scoped, restringir a sus empresas
+        if empresa_codes_scope is not None:
+            where.append("ld.empresa_codigo = ANY(CAST(:scope_codes AS text[]))")
+            params["scope_codes"] = empresa_codes_scope
         if empresa_codigo:
             where.append("ld.empresa_codigo = :empresa")
             params["empresa"] = empresa_codigo
