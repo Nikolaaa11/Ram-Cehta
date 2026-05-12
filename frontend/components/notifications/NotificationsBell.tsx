@@ -89,24 +89,40 @@ export function NotificationsBell() {
             unreadCount > 0 ? ` (${unreadCount} sin leer)` : ""
           }`}
           className={cn(
-            "relative flex h-9 w-9 items-center justify-center rounded-xl",
+            "group relative flex h-9 w-9 items-center justify-center rounded-xl",
             "ring-1 ring-hairline bg-white/90 backdrop-blur",
-            "transition-colors duration-150 ease-apple",
-            "hover:bg-cehta-green/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+            "transition-all duration-200 ease-apple",
+            "hover:bg-cehta-green/5 hover:ring-cehta-green/30 hover:-translate-y-0.5 hover:shadow-glow-green",
+            "active:scale-95",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+            "dark:bg-ink-900/80 dark:ring-ink-700",
           )}
         >
-          <Bell className="h-4 w-4 text-ink-700" strokeWidth={1.5} />
+          <Bell
+            className={cn(
+              "h-4 w-4 text-ink-700 transition-all duration-300 ease-apple group-hover:text-cehta-green dark:text-ink-300",
+              unreadCount > 0 && "animate-bounce-soft",
+            )}
+            strokeWidth={1.5}
+          />
           {unreadCount > 0 && (
-            <span
-              aria-hidden
-              className={cn(
-                "absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center",
-                "rounded-full bg-negative px-1 text-[10px] font-semibold text-white",
-                "ring-2 ring-white",
-              )}
-            >
-              {badgeText}
-            </span>
+            <>
+              {/* Pulse ring detrás del badge */}
+              <span
+                aria-hidden
+                className="absolute -right-1 -top-1 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full bg-negative/40 animate-pulse-ring"
+              />
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center",
+                  "rounded-full bg-gradient-to-br from-red-500 via-negative to-red-600 px-1 text-[10px] font-semibold text-white",
+                  "ring-2 ring-white dark:ring-ink-900 shadow-sm",
+                )}
+              >
+                {badgeText}
+              </span>
+            </>
           )}
         </button>
       </PopoverTrigger>
@@ -114,15 +130,24 @@ export function NotificationsBell() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[360px] p-0 ring-hairline bg-white/95 backdrop-blur"
+        className="w-[380px] p-0 ring-hairline bg-white/95 backdrop-blur-2xl shadow-elevated-lg animate-slide-down-fade dark:bg-ink-900/95 dark:ring-ink-700"
       >
-        <div className="flex items-center justify-between border-b border-hairline px-4 py-3">
-          <div>
-            <h3 className="text-sm font-semibold tracking-tight text-ink-900">
+        {/* Header con gradient mesh sutil */}
+        <div className="relative flex items-center justify-between border-b border-hairline px-4 py-3 dark:border-ink-800 overflow-hidden">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-50"
+            style={{
+              backgroundImage:
+                "radial-gradient(at 0% 0%, hsla(155, 60%, 35%, 0.10) 0px, transparent 50%)",
+            }}
+          />
+          <div className="relative">
+            <h3 className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
               Notificaciones
             </h3>
-            <p className="text-[11px] text-ink-500">
-              {unreadCount} sin leer
+            <p className="text-[11px] text-ink-500 dark:text-ink-400 tabular-nums">
+              {unreadCount > 0 ? `${unreadCount} sin leer` : "Todo al día"}
             </p>
           </div>
           <button
@@ -130,10 +155,11 @@ export function NotificationsBell() {
             onClick={() => markAll.mutate()}
             disabled={markAll.isPending || unreadCount === 0}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium",
-              "text-ink-700 transition-colors duration-150 ease-apple",
-              "hover:bg-cehta-green/10 hover:text-cehta-green",
+              "relative inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium",
+              "text-ink-700 transition-all duration-200 ease-apple",
+              "hover:bg-cehta-green/10 hover:text-cehta-green hover:scale-105",
               "disabled:cursor-not-allowed disabled:opacity-40",
+              "dark:text-ink-300",
             )}
           >
             <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -152,33 +178,53 @@ export function NotificationsBell() {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <div className="px-4 py-10 text-center">
-              <p className="text-sm text-ink-500">No tenés notificaciones.</p>
+            <div className="relative px-4 py-12 text-center overflow-hidden">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 -z-10 opacity-40 gradient-mesh"
+              />
+              <div className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cehta-green/10 ring-1 ring-cehta-green/20 mb-3 float-slow">
+                <Bell className="h-5 w-5 text-cehta-green" strokeWidth={1.5} />
+              </div>
+              <p className="text-sm font-medium text-ink-700 dark:text-ink-300">
+                ¡Todo al día!
+              </p>
+              <p className="text-xs text-ink-500 dark:text-ink-400 mt-0.5">
+                No tenés notificaciones pendientes.
+              </p>
             </div>
           ) : (
-            <ul className="divide-y divide-hairline">
-              {items.map((n) => (
-                <NotificationItem
+            <ul className="divide-y divide-hairline dark:divide-ink-800">
+              {items.map((n, i) => (
+                <li
                   key={n.id}
-                  notification={n}
-                  onClick={() => handleItemClick(n)}
-                />
+                  className="animate-slide-up-fade"
+                  style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}
+                >
+                  <NotificationItem
+                    notification={n}
+                    onClick={() => handleItemClick(n)}
+                  />
+                </li>
               ))}
             </ul>
           )}
         </div>
 
-        <div className="border-t border-hairline px-3 py-2">
+        <div className="border-t border-hairline px-3 py-2 dark:border-ink-800">
           <Link
             href={"/notificaciones" as never}
             onClick={() => setOpen(false)}
             className={cn(
-              "block w-full rounded-lg px-3 py-1.5 text-center text-[12px] font-medium",
-              "text-cehta-green transition-colors duration-150 ease-apple",
+              "group block w-full rounded-lg px-3 py-1.5 text-center text-[12px] font-medium",
+              "text-cehta-green transition-all duration-200 ease-apple",
               "hover:bg-cehta-green/10",
             )}
           >
             Ver todas
+            <span className="inline-block transition-transform duration-200 group-hover:translate-x-1 ml-1">
+              →
+            </span>
           </Link>
         </div>
       </PopoverContent>
@@ -200,25 +246,25 @@ function NotificationItem({
   const inner = (
     <div
       className={cn(
-        "flex gap-3 px-4 py-3 transition-colors duration-150 ease-apple",
-        "hover:bg-cehta-green/5",
-        isUnread && "bg-cehta-green/[0.025]",
+        "group/notif flex gap-3 px-4 py-3 transition-all duration-200 ease-apple",
+        "hover:bg-gradient-to-r hover:from-cehta-green/8 hover:to-transparent",
+        isUnread && "bg-cehta-green/[0.04] dark:bg-cehta-green/10",
       )}
     >
       <div
         className={cn(
-          "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ring-1",
+          "relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 transition-transform duration-200 ease-apple group-hover/notif:scale-110",
           sev.ring,
-          "bg-white",
+          "bg-white dark:bg-ink-900",
         )}
       >
-        <Icon className={cn("h-3.5 w-3.5", sev.iconClass)} strokeWidth={2} />
+        <Icon className={cn("h-4 w-4", sev.iconClass)} strokeWidth={2} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <p
             className={cn(
-              "text-[13px] leading-snug text-ink-900",
+              "text-[13px] leading-snug text-ink-900 dark:text-ink-100",
               isUnread ? "font-semibold" : "font-medium",
             )}
           >
@@ -227,16 +273,16 @@ function NotificationItem({
           {isUnread && (
             <span
               aria-hidden
-              className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cehta-green"
+              className="mt-1 h-2 w-2 shrink-0 rounded-full bg-cehta-green pulse-glow"
             />
           )}
         </div>
         {notification.body && (
-          <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-500">
+          <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-500 dark:text-ink-400">
             {notification.body}
           </p>
         )}
-        <p className="mt-1 text-[11px] text-ink-300 tabular-nums">
+        <p className="mt-1 text-[11px] text-ink-300 tabular-nums dark:text-ink-500">
           {formatRelative(notification.created_at)}
         </p>
       </div>
@@ -245,27 +291,23 @@ function NotificationItem({
 
   if (notification.link) {
     return (
-      <li>
-        <Link
-          href={{ pathname: notification.link }}
-          onClick={onClick}
-          className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
-        >
-          {inner}
-        </Link>
-      </li>
+      <Link
+        href={{ pathname: notification.link }}
+        onClick={onClick}
+        className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+      >
+        {inner}
+      </Link>
     );
   }
 
   return (
-    <li>
-      <button
-        type="button"
-        onClick={onClick}
-        className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
-      >
-        {inner}
-      </button>
-    </li>
+    <button
+      type="button"
+      onClick={onClick}
+      className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+    >
+      {inner}
+    </button>
   );
 }

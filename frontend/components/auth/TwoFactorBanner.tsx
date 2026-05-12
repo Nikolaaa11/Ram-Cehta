@@ -1,20 +1,13 @@
 "use client";
 
 /**
- * TwoFactorBanner — V4 fase 2.
+ * TwoFactorBanner — V4 fase 2 (V5++ ola CA premium upgrade).
  *
- * Renderea un banner amarillo SOLO si:
+ * Banner amber con gradient mesh + pulse-glow icon + magnetic CTA.
+ *
+ * Renderea solo si:
  *   - el usuario logueado tiene `app_role === "admin"`, Y
  *   - todavía no activó 2FA (status.enabled === false).
- *
- * Si cualquier condición falla, retorna null (no rendera nada).
- *
- * Diseño: el banner empuja el contenido hacia abajo en el layout,
- * con tipografía clara y un CTA directo a `/2fa/setup`. Apple polish:
- * borde suave, padding generoso, transición de hover en el CTA.
- *
- * Soft-rollout: el banner es UI hint puro — el enforcement real está en
- * 4 endpoints high-impact del backend (`current_admin_with_2fa`).
  */
 
 import Link from "next/link";
@@ -34,27 +27,41 @@ export function TwoFactorBanner() {
   return (
     <div
       role="alert"
-      className="border-b border-warning/30 bg-warning/10 px-4 py-2.5"
+      className="relative overflow-hidden border-b border-warning/30 bg-gradient-to-r from-warning/5 via-warning/10 to-amber-100/30 px-4 py-3 dark:from-warning/10 dark:via-warning/15 dark:to-amber-900/15"
     >
-      <div className="mx-auto flex max-w-[1400px] items-center gap-3">
-        <ShieldAlert
-          className="h-4 w-4 shrink-0 text-warning"
-          strokeWidth={1.75}
-          aria-hidden
-        />
-        <p className="flex-1 text-sm text-ink-900">
-          <span className="font-medium">Como admin, debes activar 2FA.</span>{" "}
-          <span className="text-ink-700">
+      {/* Decorative blob */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-20 -top-12 h-32 w-32 rounded-full bg-warning/15 blur-3xl"
+      />
+      <div className="relative mx-auto flex max-w-[1400px] items-center gap-3">
+        <span className="relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-warning/15 ring-2 ring-warning/30">
+          <span
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-warning/30 animate-pulse-ring"
+          />
+          <ShieldAlert
+            className="relative h-4 w-4 text-warning"
+            strokeWidth={2}
+            aria-hidden
+          />
+        </span>
+        <p className="flex-1 text-sm text-ink-900 dark:text-ink-100">
+          <span className="font-semibold">Como admin, debés activar 2FA.</span>{" "}
+          <span className="text-ink-700 dark:text-ink-300">
             Algunas acciones críticas (crear usuarios, webhooks, enviar digest)
             requieren autenticación de dos factores.
           </span>
         </p>
         <Link
           href="/2fa/setup"
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-warning px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors duration-150 ease-apple hover:bg-warning/90"
+          className="group inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-br from-warning to-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-glow-gold transition-all duration-200 ease-apple hover:-translate-y-0.5 hover:shadow-elevated-lg active:scale-[0.97]"
         >
           Activar ahora
-          <ArrowRight className="h-3 w-3" strokeWidth={2} />
+          <ArrowRight
+            className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-1"
+            strokeWidth={2}
+          />
         </Link>
       </div>
     </div>

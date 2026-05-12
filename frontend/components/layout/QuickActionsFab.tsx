@@ -176,20 +176,43 @@ export function QuickActionsFab() {
             );
           })}
 
-        {/* FAB principal */}
+        {/* FAB principal — premium con glow + ripple-style pulse cuando idle */}
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Cerrar acciones rápidas" : "Acciones rápidas"}
           aria-expanded={open}
           className={cn(
-            "inline-flex h-14 w-14 items-center justify-center rounded-full bg-cehta-green text-white shadow-card-hover transition-all duration-200 ease-apple hover:scale-105 hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2",
+            "group relative inline-flex h-14 w-14 items-center justify-center rounded-full overflow-hidden",
+            "bg-gradient-to-br from-cehta-green via-emerald-600 to-cehta-green-700",
+            "text-white shadow-glow-green",
+            "transition-all duration-300 ease-apple",
+            "hover:scale-110 hover:shadow-elevated-lg active:scale-95",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2",
           )}
         >
+          {/* Pulse ring sutil cuando idle (closed) */}
+          {!open && (
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-full bg-cehta-green/30 animate-pulse-ring"
+            />
+          )}
+          {/* Shimmer sweep on hover */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 ease-apple group-hover:translate-x-full"
+          />
           {open ? (
-            <X className="h-6 w-6" strokeWidth={2} />
+            <X
+              className="relative h-6 w-6 transition-transform duration-300 ease-apple rotate-0"
+              strokeWidth={2.5}
+            />
           ) : (
-            <Plus className="h-6 w-6" strokeWidth={2} />
+            <Plus
+              className="relative h-6 w-6 transition-transform duration-300 ease-apple group-hover:rotate-90"
+              strokeWidth={2.5}
+            />
           )}
         </button>
       </div>

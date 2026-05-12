@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatRing } from "@/components/ui/stat-ring";
 import { ComplianceLeaderboard } from "@/components/dashboard/ComplianceLeaderboard";
 import { CompliancePanelPro } from "@/components/compliance/CompliancePanelPro";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
@@ -100,6 +101,84 @@ export default function CompliancePage() {
           Imprimir / Exportar PDF
         </button>
       </div>
+
+      {/* V5++ ola CA: Hero ring visual del cumplimiento global */}
+      {!isLoading && data && data.empresas.length > 0 && (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-emerald-50/40 ring-1 ring-cehta-green/15 p-8 print:hidden dark:from-ink-900 dark:via-cehta-green/10 dark:to-cehta-green/5">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cehta-green/10 blur-3xl"
+          />
+          <div className="relative flex flex-col items-center justify-between gap-6 md:flex-row">
+            <div className="flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cehta-green">
+                Compliance YTD
+              </p>
+              <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+                Cumplimiento global del portfolio
+              </h2>
+              <p className="mt-2 text-sm text-ink-500 dark:text-ink-400 max-w-md">
+                Promedio ponderado de cumplimiento regulatorio entre las{" "}
+                <strong className="text-ink-900 dark:text-ink-100 tabular-nums">
+                  {data.empresas.length}
+                </strong>{" "}
+                empresas del portfolio. Verde &ge;95%, ámbar &ge;70%, rojo &lt;70%.
+              </p>
+              <div className="mt-4 flex items-center gap-4">
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                    Total entregables
+                  </p>
+                  <p className="font-display text-xl font-semibold tabular-nums">
+                    {stats.totalEntregables}
+                  </p>
+                </div>
+                <div className="h-8 w-px bg-hairline" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                    A tiempo
+                  </p>
+                  <p className="font-display text-xl font-semibold tabular-nums text-positive">
+                    {stats.totalATiempo}
+                  </p>
+                </div>
+                <div className="h-8 w-px bg-hairline" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                    Con riesgo
+                  </p>
+                  <p
+                    className={cn(
+                      "font-display text-xl font-semibold tabular-nums",
+                      stats.empresasConRiesgo > 0
+                        ? "text-warning"
+                        : "text-positive",
+                    )}
+                  >
+                    {stats.empresasConRiesgo}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <StatRing
+              value={stats.promedio}
+              max={100}
+              size={180}
+              stroke={14}
+              tone={
+                stats.promedio >= 95
+                  ? "positive"
+                  : stats.promedio >= 70
+                    ? "warning"
+                    : "negative"
+              }
+              label="Promedio"
+              suffix="%"
+              decimals={1}
+            />
+          </div>
+        </div>
+      )}
 
       {/* V4 fase 9.3: Panel Pro — vista consolidada arriba del leaderboard */}
       <div className="print:hidden">
