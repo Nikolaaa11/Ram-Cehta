@@ -21,9 +21,18 @@ export interface MyEmpresa {
   roles: string[];
 }
 
+export interface ScopeSummary {
+  total: number;
+  is_global: boolean;
+  roles_summary: string[];
+  display_label: string;
+}
+
 interface MyEmpresasResponse {
   is_admin: boolean;
   empresas: MyEmpresa[];
+  /** V5++ ola CB: meta info para UI scope-aware. Opcional para back-compat. */
+  scope_summary?: ScopeSummary;
 }
 
 export function useMyEmpresas() {

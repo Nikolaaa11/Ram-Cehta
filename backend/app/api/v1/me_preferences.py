@@ -328,17 +328,21 @@ async def list_my_empresas(
     db: DBSession,
     response: Response,
 ) -> dict:
-    """V5++ ola AI: empresas a las que el current user tiene acceso.
+    """V5++ ola AI + CB: empresas a las que el current user tiene acceso.
 
     Útil para el frontend:
       - Pre-seleccionar empresa default al crear voucher (si tiene solo 1)
       - Limitar selector de empresa al universo permitido
       - Mostrar "Mis Empresas" widget en dashboard
+      - Mostrar scope info (admin badge, count, etc.)
 
     V5++ ola AR: Cache 5min stale-while-revalidate 60s. Los roles cambian
     rara vez, y el scope cache TTL ya es 60s en backend.
 
-    Devuelve [{ codigo, razon_social, roles: [...] }, ...] o todas si admin.
+    V5++ ola CB: agrega `scope_summary` con info estructurada para UI:
+      - total: count de empresas accesibles
+      - is_global: alias de is_admin
+      - roles_summary: agregación de roles únicos del user
     """
     response.headers["Cache-Control"] = "private, max-age=300, stale-while-revalidate=60"
     if user.is_admin:
@@ -353,11 +357,20 @@ async def list_my_empresas(
                 """
             )
         )).mappings().all()
+        empresas = [{**dict(r), "roles": ["admin"]} for r in rows]
         return {
             "is_admin": True,
-            "empresas": [
-                {**dict(r), "roles": ["admin"]} for r in rows
-            ],
+            "empresas": empresas,
+            "scope_summary": {
+                "total": len(empresas),
+                "is_global": True,
+                "roles_summary": ["admin"],
+                "display_label": (
+                    "Admin global · acceso a todas las empresas"
+                    if len(empresas) > 0
+                    else "Sin empresas activas"
+                ),
+            },
         }
 
     # User scoped → solo empresas en core.user_company_roles
@@ -380,9 +393,35 @@ async def list_my_empresas(
         ),
         {"uid": str(user.sub)},
     )).mappings().all()
+    empresas = [dict(r) for r in rows]
+
+    # Construir summary de roles únicos en todas las empresas
+    all_roles: set[str] = set()
+    for e in empresas:
+        for r in (e.get("roles") or []):
+            all_roles.add(r)
+
+    display_label: str
+    if len(empresas) == 0:
+        display_label = "Sin empresas asignadas — contactá al admin"
+    elif len(empresas) == 1:
+        display_label = (
+            f"{empresas[0]['codigo']} · "
+            f"{', '.join(empresas[0].get('roles') or [])}"
+        )
+    else:
+        codes = ", ".join(e["codigo"] for e in empresas[:3])
+        suffix = f" (+{len(empresas) - 3} más)" if len(empresas) > 3 else ""
+        display_label = f"{codes}{suffix}"
 
     return {
         "is_admin": False,
-        "empresas": [dict(r) for r in rows],
+        "empresas": empresas,
+        "scope_summary": {
+            "total": len(empresas),
+            "is_global": False,
+            "roles_summary": sorted(all_roles),
+            "display_label": display_label,
+        },
     }
 
