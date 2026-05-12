@@ -207,8 +207,14 @@ export default function NuboxFormPage() {
       const resp = await apiClient.post<{
         voucher_id: number;
         codigo: string;
+        proveedor_creado_automatico: boolean;
+        proveedor_rut_canonical: string;
       }>("/vouchers/nubox-form", payload, session);
-      toast.success(`Voucher ${resp.codigo} creado en DRAFT`);
+      toast.success(
+        resp.proveedor_creado_automatico
+          ? `Voucher ${resp.codigo} creado · Proveedor "${proveedorNombre.trim()}" agregado al catálogo`
+          : `Voucher ${resp.codigo} creado en DRAFT`,
+      );
       window.location.href = `/vouchers/${resp.voucher_id}`;
     } catch (err) {
       toast.error(

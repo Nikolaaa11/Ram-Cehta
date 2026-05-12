@@ -5,15 +5,32 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
+from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
 from app.schemas.common import Page
 from app.schemas.proveedor import ProveedorCreate, ProveedorRead, ProveedorUpdate
 from app.services.audit_service import audit_log
 
 router = APIRouter()
+
+
+class ProveedorSearchResult(BaseModel):
+    """Respuesta de busqueda por RUT para autocompletado en formularios.
+
+    Pensado para que el FE muestre estados claros mientras el user tipea:
+      - rut_valid=False  -> "RUT invalido (digito verificador)"
+      - exists=True       -> precarga datos del proveedor existente
+      - exists=False      -> "Proveedor no existe, se creara automaticamente"
+    """
+
+    rut_valid: bool
+    rut_canonical: str | None = None
+    exists: bool
+    proveedor: ProveedorRead | None = None
 
 
 @router.get("", response_model=Page[ProveedorRead])
@@ -65,6 +82,35 @@ async def create_proveedor(
         after=created.model_dump(mode="json"),
     )
     return created
+
+
+@router.get("/search-by-rut", response_model=ProveedorSearchResult)
+async def search_by_rut(
+    user: CurrentUser,
+    db: DBSession,
+    rut: Annotated[str, Query(min_length=2, max_length=20)],
+) -> ProveedorSearchResult:
+    """Busca un proveedor por RUT en cualquier formato. Pensado para autocompletado.
+
+    Valida con modulo 11. Si el RUT es invalido, devuelve `rut_valid=False`
+    para que el FE muestre el error sin pegarle 400 al endpoint en cada keystroke.
+    Si es valido, normaliza al formato canonico ('12.345.678-9') y busca match
+    exacto en core.proveedores.
+
+    IMPORTANTE: esta ruta DEBE estar declarada antes de GET /{proveedor_id}
+    porque sino FastAPI intenta parsear "search-by-rut" como int y devuelve 422.
+    """
+    if not validate_rut(rut):
+        return ProveedorSearchResult(rut_valid=False, exists=False)
+    canonical = format_rut(rut)
+    repo = ProveedorRepository(db)
+    existing = await repo.get_by_rut(canonical)
+    return ProveedorSearchResult(
+        rut_valid=True,
+        rut_canonical=canonical,
+        exists=existing is not None,
+        proveedor=ProveedorRead.model_validate(existing) if existing else None,
+    )
 
 
 @router.get("/{proveedor_id}", response_model=ProveedorRead)

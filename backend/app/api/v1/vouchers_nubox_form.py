@@ -44,7 +44,10 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.domain.value_objects.rut import format_rut, validate_rut
+from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
 from app.models.voucher import Voucher, VoucherLine
+from app.schemas.proveedor import ProveedorCreate
 from app.services.audit_service import audit_log
 from app.services.empresa_scope_service import assert_empresa_access
 from app.services.voucher_service import generate_voucher_code
@@ -151,6 +154,9 @@ class NuboxFormResponse(BaseModel):
     total_financiera: Decimal
     lines_count: int
     proxima_accion: str
+    proveedor_id: int
+    proveedor_creado_automatico: bool
+    proveedor_rut_canonical: str
 
 
 class EmpresaMetadata(BaseModel):
@@ -306,6 +312,31 @@ async def create_voucher_nubox_form(
             detail=f"Empresa '{body.empresa_codigo}' no existe o está inactiva",
         )
 
+    # 2.5 Validar RUT proveedor (modulo 11) y auto-crear en catalogo si no existe.
+    # Esto evita que el catalogo core.proveedores quede desactualizado cuando
+    # operativamente se tipea un proveedor nuevo en el form. La proxima vez que
+    # se use el mismo RUT, search-by-rut lo va a encontrar y precargar.
+    if not validate_rut(body.proveedor_rut):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"RUT proveedor '{body.proveedor_rut}' inválido "
+                "(dígito verificador incorrecto). Revisá el dato antes de continuar."
+            ),
+        )
+    proveedor_rut_canonical = format_rut(body.proveedor_rut)
+    prov_repo = ProveedorRepository(db)
+    proveedor = await prov_repo.get_by_rut(proveedor_rut_canonical)
+    proveedor_creado_automatico = False
+    if proveedor is None:
+        proveedor = await prov_repo.create(
+            ProveedorCreate(
+                rut=proveedor_rut_canonical,
+                razon_social=body.proveedor_nombre.strip(),
+            )
+        )
+        proveedor_creado_automatico = True
+
     # 3. Validar cuentas (todas imputables)
     todas_cuentas = (
         [l.cuenta_codigo for l in body.informacion_contable]
@@ -361,8 +392,8 @@ async def create_voucher_nubox_form(
         total_debit=total_contable,
         total_credit=total_financiera,
         moneda="CLP",
-        contraparte_rut=body.proveedor_rut,
-        contraparte_nombre=body.proveedor_nombre,
+        contraparte_rut=proveedor_rut_canonical,
+        contraparte_nombre=body.proveedor_nombre.strip(),
         contraparte_tipo="PROVEEDOR",
         doc_tributario_tipo=body.tipo_documento,
         doc_tributario_folio=body.numero_documento,
@@ -448,4 +479,7 @@ async def create_voucher_nubox_form(
             "El voucher está en DRAFT. Click 'Enviar a aprobación' para "
             "que pase a PENDING y los aprobadores firmen."
         ),
+        proveedor_id=proveedor.proveedor_id,
+        proveedor_creado_automatico=proveedor_creado_automatico,
+        proveedor_rut_canonical=proveedor_rut_canonical,
     )

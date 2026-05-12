@@ -3,6 +3,7 @@ from __future__ import annotations
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.value_objects.rut import format_rut, validate_rut
 from app.models.proveedor import Proveedor
 from app.schemas.proveedor import ProveedorCreate, ProveedorUpdate
 
@@ -37,8 +38,18 @@ class ProveedorRepository:
         return await self._session.get(Proveedor, proveedor_id)
 
     async def get_by_rut(self, rut: str) -> Proveedor | None:
+        """Busca proveedor por RUT, normalizando el input al formato canonico.
+
+        Acepta cualquier formato de entrada ('76.123.456-7', '761234567',
+        '76123456-7') y busca por la forma canonica '76.123.456-7' que es
+        como ProveedorCreate normaliza al insertar. Si el RUT es invalido
+        (checksum), devuelve None sin lanzar.
+        """
+        if not rut or not validate_rut(rut):
+            return None
+        canonical = format_rut(rut)
         result = await self._session.scalars(
-            select(Proveedor).where(Proveedor.rut == rut)
+            select(Proveedor).where(Proveedor.rut == canonical)
         )
         return result.first()
 
