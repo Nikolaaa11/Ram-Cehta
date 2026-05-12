@@ -506,19 +506,32 @@ export function AppSidebar({ email }: AppSidebarProps) {
                     aria-current={isActive ? "page" : undefined}
                     data-tour={item.tourId}
                     className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
+                      "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ease-apple",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
                       isActive
-                        ? "bg-cehta-green/15 text-cehta-green dark:bg-cehta-green/25"
-                        : "text-ink-700 hover:bg-cehta-green/10 hover:text-cehta-green dark:text-ink-300 dark:hover:bg-cehta-green/15 dark:hover:text-cehta-green",
+                        ? "bg-gradient-to-r from-cehta-green/15 via-cehta-green/10 to-transparent text-cehta-green dark:from-cehta-green/25 dark:via-cehta-green/15"
+                        : "text-ink-700 hover:bg-cehta-green/[0.06] hover:text-cehta-green hover:translate-x-0.5 dark:text-ink-300 dark:hover:bg-cehta-green/15 dark:hover:text-cehta-green",
                     )}
                   >
-                    <Icon className="h-4 w-4" strokeWidth={1.5} />
+                    {/* Active indicator — barra vertical izquierda */}
+                    {isActive && (
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-cehta-green shadow-glow-green"
+                      />
+                    )}
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 transition-transform duration-200 ease-apple",
+                        isActive ? "scale-110" : "group-hover:scale-110",
+                      )}
+                      strokeWidth={isActive ? 2 : 1.5}
+                    />
                     <span className="flex-1">{item.label}</span>
                     {showUnreadBadge && (
                       <span
                         aria-label={`${unreadCount} sin leer`}
-                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                        className="relative inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums shadow-sm pulse-glow-red"
                       >
                         {unreadCount > 99 ? "99+" : unreadCount}
                       </span>
@@ -527,7 +540,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       <span
                         aria-label={`${criticalObligationsCount} obligaciones vencidas`}
                         title={`${criticalObligationsCount} obligaciones vencidas`}
-                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                        className="relative inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums shadow-sm pulse-glow-red"
                       >
                         {criticalObligationsCount > 99
                           ? "99+"
@@ -538,7 +551,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       <span
                         aria-label={`${criticalEntregablesCount} entregables críticos`}
                         title={`${criticalEntregablesCount} entregables críticos (≤5 días)`}
-                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                        className="relative inline-flex min-w-[20px] items-center justify-center rounded-full bg-negative px-1.5 text-[10px] font-semibold text-white tabular-nums shadow-sm pulse-glow-red"
                       >
                         {criticalEntregablesCount > 99
                           ? "99+"
@@ -549,7 +562,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       <span
                         aria-label={`${mailboxPending} emails pendientes`}
                         title={`${mailboxPending} emails pendientes de revisión`}
-                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-cehta-green px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                        className="relative inline-flex min-w-[20px] items-center justify-center rounded-full bg-cehta-green px-1.5 text-[10px] font-semibold text-white tabular-nums shadow-sm pulse-glow"
                       >
                         {mailboxPending > 99 ? "99+" : mailboxPending}
                       </span>
