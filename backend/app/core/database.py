@@ -52,32 +52,24 @@ if _is_transaction_pooler:
             "prepared_statement_cache_size": 0,
         },
     )
-else:
-    # Modo rápido — connection pool de SQLAlchemy reusa conexiones,
-    # asyncpg cachea prepared statements, eliminamos ~50-100ms por
-    # request de overhead de TCP handshake + parsing.
-    #
-    # V5++ ola BM perf tuning (con session pooler activo):
-    # - pool_size=25: cubre 2 workers × 10 req paralelos + buffer
-    # - max_overflow=15: burst hasta 40 conexiones totales
-    # - pool_recycle=900: 15min (más agresivo que 30) — Supabase pgbouncer
-    #   recicla idle a 10min, evitamos rebote
-    # - prepared_statement_cache_size=512: asyncpg cachea queries parsed
-    #   (default 100) → +30% throughput en queries repetidas
-    # - statement_cache_size=2048: SQLAlchemy cachea SQL strings compilados
+    # V5++ ola BS HOTFIX: pool reducido para fit en Supabase session pooler
+    # Supabase Free tier: 15 clients en session mode
+    # Supabase Pro:       60 clients en session mode
+    # Conservador: 8+4=12 por app machine. Con 1 release machine durante
+    # deploy → 13-14 total, fits en Free tier sin saturar.
+    # Si necesitás más concurrencia, hay que subir el tier en Supabase.
     engine = create_async_engine(
         _db_url,
         echo=False,
-        pool_size=25,           # 25 conexiones live
-        max_overflow=15,        # +15 burst hasta 40 totales
+        pool_size=8,            # 8 conexiones live (era 25)
+        max_overflow=4,         # +4 burst hasta 12 totales (era 15)
         pool_pre_ping=True,     # detect dead connections
-        pool_recycle=900,       # reciclar a los 15min (Supabase recycle 10min)
+        pool_recycle=900,       # reciclar a los 15min
         pool_timeout=30,        # max espera por conexión del pool
         connect_args={
             # asyncpg cache (queries parsed AST)
             "prepared_statement_cache_size": 512,
             # asyncpg statement timeout — 30s antes de cortar query lenta
-            # (evita que un query mal trabe el pool)
             "command_timeout": 30,
         },
         # SQLAlchemy compiled SQL cache (separado del asyncpg cache)

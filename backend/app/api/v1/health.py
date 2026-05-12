@@ -169,7 +169,7 @@ async def perf_health(session: DBSession) -> PerfResponse:
     return PerfResponse(
         db_pool_mode=pool_mode,
         db_pool_size=pool_size,
-        db_max_overflow=15 if not _is_transaction_pooler else 0,
+        db_max_overflow=4 if not _is_transaction_pooler else 0,
         db_pool_recycle_sec=900 if not _is_transaction_pooler else None,
         db_url_redacted=redacted,
         gzip_min_size=300,
