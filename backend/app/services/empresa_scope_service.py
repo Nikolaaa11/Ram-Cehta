@@ -89,6 +89,54 @@ def get_cache_stats() -> dict:
     }
 
 
+async def _record_violation(
+    db: AsyncSession,
+    user: AuthenticatedUser,
+    attempted_empresa: str,
+    allowed_empresas: list[str],
+    via: str = "unknown",
+) -> None:
+    """V5++ ola CB: persiste tentativa cross-tenant a `audit.scope_violations`.
+
+    Soft-fail: si la tabla no existe (migration 0054 no aplicada) o falla
+    el insert, simplemente loguea y sigue. No queremos romper el endpoint
+    por un problema de auditoría.
+
+    NOTA: usa SAVEPOINT para no afectar la transacción principal si falla.
+    """
+    try:
+        await db.execute(
+            text(
+                """
+                INSERT INTO audit.scope_violations (
+                    user_id, user_email, user_role,
+                    attempted_empresa, allowed_empresas, via
+                ) VALUES (
+                    :uid, :email, :role,
+                    :attempted, CAST(:allowed AS TEXT[]), :via
+                )
+                """
+            ),
+            {
+                "uid": str(user.sub),
+                "email": user.email,
+                "role": user.app_role,
+                "attempted": attempted_empresa,
+                "allowed": allowed_empresas,
+                "via": via,
+            },
+        )
+        await db.commit()
+    except Exception as exc:  # noqa: BLE001
+        # Soft-fail. El log warning de scope.cross_tenant_attempt ya
+        # cubrió el evento. Esta tabla es bonus.
+        try:
+            await db.rollback()
+        except Exception:
+            pass
+        log.debug("scope.violation_persist_failed: %s", exc)
+
+
 async def get_allowed_empresa_codes(
     user: AuthenticatedUser, db: AsyncSession
 ) -> frozenset[str] | None:
@@ -142,6 +190,7 @@ async def assert_empresa_access(
     if allowed is None:  # admin
         return
     if empresa_codigo not in allowed:
+        allowed_list = sorted(allowed) if allowed else []
         # SECURITY LOG: tentativa cross-tenant detectada
         log.warning(
             "scope.cross_tenant_attempt",
@@ -150,14 +199,19 @@ async def assert_empresa_access(
                 "user_email": user.email,
                 "user_role": user.app_role,
                 "attempted_empresa": empresa_codigo,
-                "allowed_empresas": sorted(allowed) if allowed else [],
+                "allowed_empresas": allowed_list,
+                "via": "path_or_body",
             },
+        )
+        # Persistir a audit.scope_violations (soft-fail)
+        await _record_violation(
+            db, user, empresa_codigo, allowed_list, via="path_or_body"
         )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
                 f"Sin acceso a empresa '{empresa_codigo}'. "
-                f"Tus empresas permitidas: {sorted(allowed) if allowed else 'ninguna'}"
+                f"Tus empresas permitidas: {allowed_list if allowed_list else 'ninguna'}"
             ),
         )
 

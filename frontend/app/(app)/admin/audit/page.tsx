@@ -12,12 +12,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { ChevronLeft, ListChecks, Database } from "lucide-react";
+import { ChevronLeft, ListChecks, Database, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuditActionsTable } from "@/components/audit/AuditActionsTable";
 import { EtlRunsTable } from "@/components/admin/EtlRunsTable";
+import { ScopeViolationsTable } from "@/components/audit/ScopeViolationsTable";
 
-type Tab = "cambios" | "etl";
+type Tab = "cambios" | "etl" | "violations";
 
 export default function AdminAuditPage() {
   const [tab, setTab] = useState<Tab>("cambios");
@@ -60,10 +61,17 @@ export default function AdminAuditPage() {
           icon={<Database className="h-3.5 w-3.5" strokeWidth={1.5} />}
           label="ETL Runs"
         />
+        <TabButton
+          active={tab === "violations"}
+          onClick={() => setTab("violations")}
+          icon={<ShieldAlert className="h-3.5 w-3.5" strokeWidth={1.5} />}
+          label="Security · Scope"
+        />
       </div>
 
       {tab === "cambios" && <AuditActionsTable />}
       {tab === "etl" && <EtlRunsTable />}
+      {tab === "violations" && <ScopeViolationsTable />}
     </div>
   );
 }

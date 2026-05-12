@@ -938,15 +938,34 @@ async def reporte_cv_xlsx(
 # ---------------------------------------------------------------------------
 @router.get("/reporte-regulatorio", response_model=ReporteRegulatorio)
 async def reporte_regulatorio(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> ReporteRegulatorio:
-    """Snapshot ejecutivo: counts + próximos 30d + vencidos + tasa cumplimiento."""
+    """Snapshot ejecutivo: counts + próximos 30d + vencidos + tasa cumplimiento.
+
+    V5++ ola CB: filtra por scope del user (solo sus empresas).
+    """
+    scope_params: dict = {}
+    scope_clause = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_clause = (
+            "AND (subcategoria = ANY(CAST(:scope_codes AS text[])) "
+            "OR extra->>'empresa_codigo' = ANY(CAST(:scope_codes AS text[])))"
+        )
+
+    # Counts por estado con scope
+    where_counts = ""
+    if scope_clause:
+        # Para una query sin WHERE base, necesitamos WHERE en lugar de AND
+        where_counts = "WHERE " + scope_clause.removeprefix("AND ")
     counts_rows = (
         await db.execute(
             text(
-                "SELECT estado, COUNT(*) AS n FROM app.entregables_regulatorios "
-                "GROUP BY estado"
-            )
+                f"SELECT estado, COUNT(*) AS n FROM app.entregables_regulatorios "
+                f"{where_counts} GROUP BY estado"
+            ),
+            scope_params,
         )
     ).mappings().all()
     counts = EntregableEstadosCounts()
@@ -961,8 +980,10 @@ async def reporte_regulatorio(
                 "WHERE estado IN ('pendiente','en_proceso') "
                 "AND fecha_limite >= CURRENT_DATE "
                 "AND fecha_limite <= (CURRENT_DATE + INTERVAL '30 days') "
+                f"{scope_clause} "
                 "ORDER BY fecha_limite ASC"
-            )
+            ),
+            scope_params,
         )
     ).mappings().all()
 
@@ -972,30 +993,36 @@ async def reporte_regulatorio(
                 f"SELECT {_FIELDS} FROM app.entregables_regulatorios "
                 "WHERE estado IN ('pendiente','en_proceso') "
                 "AND fecha_limite < CURRENT_DATE "
+                f"{scope_clause} "
                 "ORDER BY fecha_limite ASC"
-            )
+            ),
+            scope_params,
         )
     ).mappings().all()
 
-    # Tasa de cumplimiento YTD: del 1 enero del año actual hasta hoy.
+    # Tasa de cumplimiento YTD con scope
     today = date.today()
     ytd_total_row = (
         await db.execute(
             text(
-                "SELECT COUNT(*) AS n FROM app.entregables_regulatorios "
+                f"SELECT COUNT(*) AS n FROM app.entregables_regulatorios "
                 "WHERE fecha_limite >= make_date(EXTRACT(year FROM CURRENT_DATE)::int, 1, 1) "
-                "AND fecha_limite < CURRENT_DATE"
-            )
+                "AND fecha_limite < CURRENT_DATE "
+                f"{scope_clause}"
+            ),
+            scope_params,
         )
     ).first()
     ytd_entregados_row = (
         await db.execute(
             text(
-                "SELECT COUNT(*) AS n FROM app.entregables_regulatorios "
+                f"SELECT COUNT(*) AS n FROM app.entregables_regulatorios "
                 "WHERE fecha_limite >= make_date(EXTRACT(year FROM CURRENT_DATE)::int, 1, 1) "
                 "AND fecha_limite < CURRENT_DATE "
-                "AND estado = 'entregado'"
-            )
+                "AND estado = 'entregado' "
+                f"{scope_clause}"
+            ),
+            scope_params,
         )
     ).first()
 

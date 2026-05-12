@@ -491,3 +491,117 @@ async def http_mutations_summary(
         "top_paths": [dict(r) for r in top_paths],
         "top_errors": [dict(r) for r in top_errors],
     }
+
+
+# =============================================================================
+# V5++ ola CB: tentativas cross-tenant detectadas (security audit)
+# =============================================================================
+
+
+@router.get("/scope-violations")
+async def list_scope_violations(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("audit:read"))],
+    db: DBSession,
+    page: Annotated[int, Query(ge=1)] = 1,
+    size: Annotated[int, Query(ge=1, le=200)] = 50,
+    user_id: str | None = Query(default=None, description="Filtrar por user_id"),
+    attempted_empresa: str | None = Query(
+        default=None, description="Filtrar por empresa intentada"
+    ),
+    since_days: int = Query(default=30, ge=1, le=365),
+) -> dict:
+    """V5++ ola CB: lista tentativas cross-tenant detectadas.
+
+    Cuando un user no-admin intenta acceder a una empresa fuera de su
+    `core.user_company_roles`, se guarda en `audit.scope_violations`.
+
+    Útil para:
+    - Detectar usuarios con configuración incorrecta (un rol mal asignado
+      y la persona reintenta varias veces).
+    - Detectar tentativas maliciosas (mismo user reintenta a 5 empresas
+      distintas en 1 minuto → sospechoso).
+    - Auditoría regulatoria (evidencia que el scope funciona).
+
+    Solo admin (`audit:read` scope).
+    """
+    conds: list[str] = ["occurred_at > now() - (:days || ' days')::INTERVAL"]
+    params: dict = {"days": str(since_days)}
+    if user_id:
+        conds.append("user_id = CAST(:uid AS UUID)")
+        params["uid"] = user_id
+    if attempted_empresa:
+        conds.append("attempted_empresa = :emp")
+        params["emp"] = attempted_empresa
+    where = "WHERE " + " AND ".join(conds)
+
+    params["limit"] = size
+    params["offset"] = (page - 1) * size
+
+    # Soft-fail: si la tabla no existe (migration 0054 no aplicada), devolver 0
+    try:
+        total = (
+            await db.scalar(
+                text(f"SELECT COUNT(*) FROM audit.scope_violations {where}"),  # noqa: S608
+                params,
+            )
+        ) or 0
+
+        items = (
+            await db.execute(
+                text(
+                    f"""
+                    SELECT
+                        id, occurred_at, user_id, user_email, user_role,
+                        attempted_empresa, allowed_empresas, via,
+                        endpoint_path
+                    FROM audit.scope_violations
+                    {where}
+                    ORDER BY occurred_at DESC
+                    LIMIT :limit OFFSET :offset
+                    """  # noqa: S608
+                ),
+                params,
+            )
+        ).mappings().all()
+
+        # Aggregations útiles para review
+        top_users = (
+            await db.execute(
+                text(
+                    f"""
+                    SELECT user_email, user_role,
+                           COUNT(*) as attempt_count,
+                           COUNT(DISTINCT attempted_empresa) as empresas_distintas
+                    FROM audit.scope_violations
+                    {where}
+                    GROUP BY user_email, user_role
+                    ORDER BY attempt_count DESC
+                    LIMIT 10
+                    """  # noqa: S608
+                ),
+                params,
+            )
+        ).mappings().all()
+    except Exception:
+        # Migration 0054 no aplicada → tabla no existe → 0 violations
+        total = 0
+        items = []
+        top_users = []
+
+    return {
+        "window_days": since_days,
+        "total": total,
+        "page": page,
+        "size": size,
+        "items": [
+            {
+                **dict(r),
+                "occurred_at": (
+                    r["occurred_at"].isoformat() if r["occurred_at"] else None
+                ),
+                "user_id": str(r["user_id"]) if r["user_id"] else None,
+            }
+            for r in items
+        ],
+        "top_users": [dict(r) for r in top_users],
+    }
