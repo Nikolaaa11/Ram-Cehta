@@ -23,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { AlertBadge } from "@/components/legal/AlertBadge";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { EMPRESA_COLOR } from "@/components/cartas-gantt/empresa-colors";
 import { toDate } from "@/lib/format";
 import type { LegalDocumentListItem, Page } from "@/lib/api/schema";
@@ -141,9 +142,12 @@ export default function LegalPortafolioPage() {
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cehta-green">
           Legal vault · Portafolio
         </p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
-          Documentos legales del portafolio
-        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
+            Documentos legales del portafolio
+          </h1>
+          <ScopeIndicator />
+        </div>
         <p className="max-w-2xl text-base text-ink-500">
           Contratos, actas, pólizas y permisos de todas las empresas del portafolio
           con alertas de vencimiento y trazabilidad por categoría.

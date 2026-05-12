@@ -34,6 +34,7 @@ import { cn } from "@/lib/utils";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { EntregableCard } from "@/components/entregables/EntregableCard";
 import { MarcarEntregadoDialog } from "@/components/entregables/MarcarEntregadoDialog";
 import { BulkActionBar } from "@/components/entregables/BulkActionBar";
@@ -194,9 +195,12 @@ export default function EntregablesPage() {
                 <ClipboardList className="h-5 w-5" strokeWidth={1.75} />
               </span>
               <div>
-                <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
-                  Calendario de Entregables
-                </h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
+                    Calendario de Entregables
+                  </h1>
+                  <ScopeIndicator compact />
+                </div>
                 <p className="text-xs text-ink-500">
                   AFIS S.A. · RUT 77.423.556-6 · FIP CEHTA ESG ·{" "}
                   Compliance Regulatorio

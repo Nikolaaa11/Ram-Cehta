@@ -28,6 +28,7 @@ import { ObligationsTimeline } from "@/components/calendar/ObligationsTimeline";
 import { AgenteSecretaria } from "@/components/calendar/AgenteSecretaria";
 import { cn } from "@/lib/utils";
 import { mergeEventsWithObligations } from "@/lib/calendar/merge-events";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import type {
   AgentRunReport,
   CalendarEventRead,
@@ -223,9 +224,12 @@ export default function CalendarioPage() {
     <div className="mx-auto max-w-[1280px] space-y-6 px-6 py-6 lg:px-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
-            Calendario
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
+              Calendario
+            </h1>
+            <ScopeIndicator />
+          </div>
           <p className="mt-1 text-sm text-ink-500">
             F29, reportes a LPs, comités, vencimientos legales y OCs
             pendientes — todo en un solo lugar.
