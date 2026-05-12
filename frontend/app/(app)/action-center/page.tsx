@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { useObligations } from "@/hooks/use-obligations";
 import type { ObligationItem } from "@/lib/api/schema";
+import { cn } from "@/lib/utils";
 
 type Tipo = ObligationItem["tipo"];
 
@@ -201,46 +202,76 @@ export default function ActionCenterPage() {
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
-            Action Center
-          </h1>
-          <p className="text-sm text-ink-500">
-            Todo lo que requiere tu atención hoy — F29, OCs, contratos,
-            suscripciones, eventos. Agrupado por tipo, ordenado por urgencia.
-          </p>
-        </div>
-        {isLoading && (
-          <Loader2 className="h-5 w-5 animate-spin text-ink-400" />
+      {/* Header premium con gradient mesh */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-amber-50/30 ring-1 ring-cehta-green/15 p-6 dark:from-ink-900 dark:via-cehta-green/10 dark:to-amber-950/20">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-300/15 blur-3xl"
+        />
+        {counts.critical > 0 && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -left-12 -bottom-12 h-40 w-40 rounded-full bg-negative/15 blur-3xl"
+          />
         )}
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
+              <span className="relative inline-flex h-1.5 w-1.5">
+                <span className="absolute h-full w-full rounded-full bg-cehta-green/50 animate-pulse-ring" />
+                <span className="relative h-1.5 w-1.5 rounded-full bg-cehta-green" />
+              </span>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                Bandeja unificada
+              </p>
+            </div>
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+              Action Center
+            </h1>
+            <p className="mt-1 text-sm text-ink-500 dark:text-ink-400 max-w-2xl">
+              Todo lo que requiere tu atención hoy — F29, OCs, contratos,
+              suscripciones, eventos. Agrupado por tipo, ordenado por urgencia.
+            </p>
+          </div>
+          {isLoading && (
+            <Loader2 className="h-5 w-5 animate-spin text-cehta-green shrink-0" />
+          )}
+        </div>
       </div>
 
-      {/* Stats tiles */}
+      {/* Stats tiles premium con gradients + sparkles */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Surface padding="compact" className="text-center">
+        <Surface padding="compact" className="relative overflow-hidden text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
           <p className="text-[11px] uppercase tracking-wider text-ink-400">
             Total
           </p>
-          <p className="mt-1 text-3xl font-semibold tabular-nums text-ink-900">
+          <p className="mt-1 text-3xl font-semibold tabular-nums text-ink-900 dark:text-ink-100">
             {counts.total}
           </p>
         </Surface>
         <Surface
           padding="compact"
-          className="bg-negative/5 text-center ring-1 ring-negative/20"
+          className={cn(
+            "relative overflow-hidden bg-gradient-to-br from-red-50 via-red-50/60 to-orange-50/40 text-center ring-1 ring-negative/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-red dark:from-red-950/30 dark:via-red-950/15 dark:to-orange-950/20",
+            counts.critical > 0 && "shadow-glow-red",
+          )}
         >
-          <p className="text-[11px] uppercase tracking-wider text-negative">
+          {counts.critical > 0 && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full bg-negative/20 blur-2xl"
+            />
+          )}
+          <p className="relative text-[11px] uppercase tracking-wider text-negative">
             Vencido / Urgente
           </p>
-          <p className="mt-1 text-3xl font-semibold tabular-nums text-negative">
+          <p className="relative mt-1 text-3xl font-semibold tabular-nums text-negative">
             {counts.critical}
           </p>
         </Surface>
         <Surface
           padding="compact"
-          className="bg-warning/5 text-center ring-1 ring-warning/20"
+          className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-amber-50/60 to-yellow-50/40 text-center ring-1 ring-warning/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-gold dark:from-amber-950/30 dark:via-amber-950/15 dark:to-yellow-950/20"
         >
           <p className="text-[11px] uppercase tracking-wider text-warning">
             Esta semana
