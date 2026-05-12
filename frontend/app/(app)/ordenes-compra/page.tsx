@@ -18,6 +18,7 @@ import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { toCLP, toDate } from "@/lib/format";
@@ -195,9 +196,12 @@ export default function OrdenesCompraPage() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
-            Órdenes de Compra
-          </h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
+              Órdenes de Compra
+            </h1>
+            <ScopeIndicator />
+          </div>
           <p className="mt-1 text-sm text-ink-500">
             {data
               ? `${data.total} orden${data.total !== 1 ? "es" : ""} en total`

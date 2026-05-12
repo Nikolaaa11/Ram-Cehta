@@ -37,6 +37,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { exportCsv, csvFilename } from "@/lib/csv-export";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import type {
   VoucherListItem,
   VoucherStatus,
@@ -301,9 +302,12 @@ export function VouchersClientView({
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cehta-green">
               Vouchers · Comprobantes contables
             </p>
-            <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-ink-900 sm:text-[40px] sm:leading-[1.1]">
-              Asientos contables del portafolio
-            </h1>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900 sm:text-[40px] sm:leading-[1.1]">
+                Asientos contables del portafolio
+              </h1>
+              <ScopeIndicator />
+            </div>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
               Registro debe/haber de cada operación con imputación triple{" "}
               <span className="font-mono">cuenta × proyecto × área</span>. La

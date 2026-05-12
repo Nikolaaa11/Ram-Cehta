@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { MovimientoManualDialog } from "@/components/movimientos/MovimientoManualDialog";
+import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Page, MovimientoRead } from "@/lib/api/schema";
@@ -146,9 +147,12 @@ export default function MovimientosPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
-            Movimientos
-          </h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900">
+              Movimientos
+            </h1>
+            <ScopeIndicator />
+          </div>
           <p className="mt-1 text-sm text-ink-500">
             {data
               ? `${totalCount.toLocaleString("es-CL")} movimiento${totalCount !== 1 ? "s" : ""} · abonos y egresos por empresa y período`
