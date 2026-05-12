@@ -52,28 +52,19 @@ if _is_transaction_pooler:
             "prepared_statement_cache_size": 0,
         },
     )
-    # V5++ ola BS HOTFIX: pool reducido para fit en Supabase session pooler
-    # Supabase Free tier: 15 clients en session mode
-    # Supabase Pro:       60 clients en session mode
-    # Conservador: 8+4=12 por app machine. Con 1 release machine durante
-    # deploy → 13-14 total, fits en Free tier sin saturar.
-    # Si necesitás más concurrencia, hay que subir el tier en Supabase.
+    # V5++ ola BS HOTFIX: pool reducido + connect_args removidos.
+    # Supabase Free tier: 15 clients en session mode.
+    # Conservador: 8+4=12 por app machine. Fits Free tier.
+    # connect_args removidos porque pueden incompatibilidad con asyncpg
+    # detrás de pgbouncer session mode (prepared_statement_cache_size).
     engine = create_async_engine(
         _db_url,
         echo=False,
-        pool_size=8,            # 8 conexiones live (era 25)
-        max_overflow=4,         # +4 burst hasta 12 totales (era 15)
+        pool_size=8,            # 8 conexiones live
+        max_overflow=4,         # +4 burst hasta 12 totales
         pool_pre_ping=True,     # detect dead connections
         pool_recycle=900,       # reciclar a los 15min
-        pool_timeout=30,        # max espera por conexión del pool
-        connect_args={
-            # asyncpg cache (queries parsed AST)
-            "prepared_statement_cache_size": 512,
-            # asyncpg statement timeout — 30s antes de cortar query lenta
-            "command_timeout": 30,
-        },
-        # SQLAlchemy compiled SQL cache (separado del asyncpg cache)
-        query_cache_size=2048,
+        pool_timeout=30,
     )
 
 SessionLocal = async_sessionmaker(
