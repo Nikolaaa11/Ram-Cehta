@@ -19,7 +19,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -342,9 +342,18 @@ async def get_dashboard(
 # =====================================================================
 @router.get("/kpis", response_model=DashboardKPIs)
 async def get_kpis(
-    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    response: Response,
 ) -> DashboardKPIs:
-    """V5++ ola CB: KPIs solo de empresas en scope del user."""
+    """V5++ ola CB+CC: KPIs solo de empresas en scope del user.
+
+    Cache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan
+    ser frescos al segundo. El browser/CDN devuelve cached por 60s y
+    revalida en background.
+    """
+    response.headers["Cache-Control"] = "private, max-age=60, stale-while-revalidate=30"
     periodo = current_periodo()
     periodo_anterior = shift_periodo(periodo, -1)
 
@@ -490,10 +499,12 @@ async def get_cashflow(
     user: CurrentUser,
     db: DBSession,
     scope: EmpresaScopeDep,
+    response: Response,
     empresa_codigo: str | None = None,
     meses: Annotated[int, Query(ge=1, le=36)] = 12,
 ) -> CashflowResponse:
-    """V5++ ola CB: cashflow filtrado por scope del user."""
+    """V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min."""
+    response.headers["Cache-Control"] = "private, max-age=120, stale-while-revalidate=60"
     empresa_codes = scope.filter_codes(empresa_codigo)
     where_empresa = ""
     params: dict = {"meses": meses}
@@ -650,9 +661,10 @@ async def get_egresos_por_concepto(
 # =====================================================================
 @router.get("/saldos-por-empresa", response_model=list[SaldoEmpresaDetalle])
 async def get_saldos_por_empresa(
-    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep, response: Response,
 ) -> list[SaldoEmpresaDetalle]:
-    """V5++ ola CB: saldos por empresa, solo de empresas en scope."""
+    """V5++ ola CB+CC: saldos por empresa, solo de empresas en scope. Cache 60s."""
+    response.headers["Cache-Control"] = "private, max-age=60, stale-while-revalidate=30"
     scope_params: dict = {}
     scope_filter_e = ""
     if not scope.is_global:
