@@ -50,6 +50,7 @@ import {
   LOGO_MAP,
 } from "@/hooks/use-my-empresas";
 import { useActiveEmpresa } from "@/hooks/use-active-empresa";
+import { BrandSwitcher } from "@/components/BrandSwitcher";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { useMailboxPrefetch } from "@/hooks/use-mailbox";
@@ -436,26 +437,15 @@ export function AppSidebar({ email }: AppSidebarProps) {
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white dark:border-ink-800 dark:bg-ink-950">
-      {/* Brand */}
+      {/* Brand — V5++ ola BS: clickeable para cambiar empresa */}
       <div className="border-b border-hairline px-4 py-5 dark:border-ink-800">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline dark:bg-ink-900 dark:ring-ink-700">
-            <Image
-              src={brandLogo}
-              alt={brandName}
-              width={40}
-              height={40}
-              className="h-full w-full object-contain p-0.5"
-              unoptimized
-              priority
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100 truncate" title={brandName}>
-              {brandName}
-            </p>
-            <p className="text-xs text-ink-500 truncate" title={brandSubtitle}>{brandSubtitle}</p>
-          </div>
+          <BrandSwitcher
+            currentLogo={brandLogo}
+            currentName={brandName}
+            currentSubtitle={brandSubtitle}
+            activeCodigo={activeEmpresaCodigo}
+          />
           {/* V4 fase 4 — data-tour anchor para el OnboardingTour. Wrappeamos
               en un span para no tener que modificar la API de NotificationsBell. */}
           <span data-tour="notifications-bell" className="contents">

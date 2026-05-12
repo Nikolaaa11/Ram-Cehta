@@ -7,6 +7,7 @@ from app.api.v1 import (
     approval_rules,
     areas,
     audit,
+    audit_integrity,
     auth,
     avance,
     bitacora,
@@ -85,6 +86,11 @@ api_router.include_router(suscripciones.router, prefix="/suscripciones", tags=["
 # V5++ ola AL — LP contratos FIP CEHTA ESG (promesas + definitivos).
 api_router.include_router(lp_contratos.router, prefix="/lp-contratos", tags=["lp-contratos"])
 api_router.include_router(audit.router, prefix="/audit", tags=["audit"])
+# V5++ ola BS — Audit integrity: chequeo de salud estructural del sistema
+# (users sin rol, empresas sin reglas, vouchers huérfanos, gaps en bitácora).
+api_router.include_router(
+    audit_integrity.router, prefix="/audit", tags=["audit-integrity"]
+)
 # V5++ ola AO — Bitácora: vista unificada de actividad por usuario.
 # Combina action_log (entity diffs) + http_mutations (cada request) en
 # endpoints amigables para UI: /user/{email}, /empresa/{codigo}, /timeline.
