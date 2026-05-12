@@ -15,18 +15,47 @@
 
 $ErrorActionPreference = "Continue"
 
-# Detectar Dropbox
-$dropbox = "$env:USERPROFILE\Dropbox"
-if (-not (Test-Path $dropbox)) {
-    Write-Host "Dropbox no detectado en $dropbox" -ForegroundColor Yellow
-    $dropbox = Read-Host "Pegá la ruta de tu Dropbox (o presiona ENTER para usar Documents\backup-pc-viejo)"
-    if (-not $dropbox) {
-        $dropbox = "$env:USERPROFILE\Documents\backup-pc-viejo"
-        New-Item -ItemType Directory -Path $dropbox -Force | Out-Null
+# ─── Detectar servicio de cloud (Dropbox, Drive, OneDrive) ──────────────────
+$candidates = @(
+    @{ Path = "$env:USERPROFILE\Dropbox"; Name = "Dropbox" },
+    @{ Path = "$env:USERPROFILE\Google Drive"; Name = "Google Drive (clásico)" },
+    @{ Path = "$env:USERPROFILE\My Drive"; Name = "Google Drive (Mi unidad)" },
+    @{ Path = "G:\Mi unidad"; Name = "Google Drive for Desktop (G:)" },
+    @{ Path = "G:\My Drive"; Name = "Google Drive for Desktop (G:)" },
+    @{ Path = "H:\Mi unidad"; Name = "Google Drive for Desktop (H:)" },
+    @{ Path = "H:\My Drive"; Name = "Google Drive for Desktop (H:)" },
+    @{ Path = "$env:USERPROFILE\OneDrive"; Name = "OneDrive" }
+)
+
+$detected = @()
+foreach ($c in $candidates) {
+    if (Test-Path $c.Path) {
+        $detected += $c
     }
 }
 
-$backupRoot = "$dropbox\cehta-backup-pc-viejo"
+if ($detected.Count -eq 0) {
+    Write-Host "No detecté ningún servicio de cloud (Dropbox, Drive, OneDrive)." -ForegroundColor Yellow
+    $cloudPath = Read-Host "Pegá la ruta donde guardar el backup (o ENTER para Documents\backup-pc-viejo)"
+    if (-not $cloudPath) {
+        $cloudPath = "$env:USERPROFILE\Documents\backup-pc-viejo"
+        New-Item -ItemType Directory -Path $cloudPath -Force | Out-Null
+    }
+} elseif ($detected.Count -eq 1) {
+    $cloudPath = $detected[0].Path
+    Write-Host "✅ Detecté: $($detected[0].Name) en $cloudPath" -ForegroundColor Green
+} else {
+    Write-Host "Servicios detectados:" -ForegroundColor Cyan
+    for ($i = 0; $i -lt $detected.Count; $i++) {
+        Write-Host ("  [{0}] {1,-30} {2}" -f ($i + 1), $detected[$i].Name, $detected[$i].Path)
+    }
+    do {
+        $choice = Read-Host "Elegí cuál usar (1-$($detected.Count))"
+    } while ($choice -notmatch "^\d+$" -or [int]$choice -lt 1 -or [int]$choice -gt $detected.Count)
+    $cloudPath = $detected[[int]$choice - 1].Path
+}
+
+$backupRoot = "$cloudPath\cehta-backup-pc-viejo"
 New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
 
 Write-Host ""
@@ -88,10 +117,17 @@ Get-ChildItem $backupRoot -Directory | ForEach-Object {
 
 Write-Host ""
 Write-Host "Próximos pasos:" -ForegroundColor Cyan
-Write-Host "  1. Verificar que Dropbox sincronizó (puede tardar unos minutos)"
-Write-Host "  2. En el PC nuevo, abrir Dropbox y verificar que se vea $backupRoot"
-Write-Host "  3. En el PC nuevo, restaurar con:"
+Write-Host "  1. Verificar que el cloud sincronizó (drive.google.com / dropbox.com / onedrive.live.com)"
+Write-Host "     Puede tardar 5-15 min en subir todo a la nube."
+Write-Host "  2. En el PC nuevo: instalar el mismo servicio de cloud, login con tu cuenta."
+Write-Host "  3. Esperar que sincronice y la carpeta cehta-backup-pc-viejo aparezca."
+Write-Host "  4. En el PC nuevo, restaurar (ajustá la ruta según el cloud que uses):"
 Write-Host ""
+Write-Host "     # Si es Google Drive for Desktop:" -ForegroundColor Gray
+Write-Host '     robocopy "G:\Mi unidad\cehta-backup-pc-viejo\.claude" "$env:USERPROFILE\.claude" /E /Z' -ForegroundColor White
+Write-Host '     robocopy "G:\Mi unidad\cehta-backup-pc-viejo\nikolaya" "$env:USERPROFILE\Documents\nikolaya" /E /Z' -ForegroundColor White
+Write-Host ""
+Write-Host "     # Si es Dropbox:" -ForegroundColor Gray
 Write-Host '     robocopy "$env:USERPROFILE\Dropbox\cehta-backup-pc-viejo\.claude" "$env:USERPROFILE\.claude" /E /Z' -ForegroundColor White
 Write-Host '     robocopy "$env:USERPROFILE\Dropbox\cehta-backup-pc-viejo\nikolaya" "$env:USERPROFILE\Documents\nikolaya" /E /Z' -ForegroundColor White
 Write-Host ""
