@@ -24,6 +24,10 @@ from sqlalchemy import select
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.models.empresa import Empresa
 from app.models.estado_financiero import EstadoFinanciero
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.schemas.estado_financiero import (
     EstadoFinancieroCreate,
     EstadoFinancieroRead,
@@ -74,6 +78,7 @@ async def _empresa_exists(db, empresa_codigo: str) -> bool:
 async def list_estados_financieros(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = Query(default=None),
     tipo_ef: TipoEf | None = Query(default=None),
     periodo_tipo: PeriodoTipo | None = Query(default=None),
@@ -81,11 +86,12 @@ async def list_estados_financieros(
     fecha_desde: date | None = Query(default=None),
     fecha_hasta: date | None = Query(default=None),
 ) -> list[EstadoFinancieroRead]:
-    """Lista EEFF cross-empresa, ordenados por `fecha_corte` DESC
-    (último cierre primero). Todos los filtros son opcionales.
-    """
+    """V5++ ola CB: EEFF filtrados por empresas en scope del user."""
+    empresa_codes = scope.filter_codes(empresa_codigo)
     stmt = select(EstadoFinanciero)
-    if empresa_codigo is not None:
+    if empresa_codes is not None:
+        stmt = stmt.where(EstadoFinanciero.empresa_codigo.in_(empresa_codes))
+    elif empresa_codigo is not None:
         stmt = stmt.where(EstadoFinanciero.empresa_codigo == empresa_codigo)
     if tipo_ef is not None:
         stmt = stmt.where(EstadoFinanciero.tipo_ef == tipo_ef)
@@ -112,6 +118,7 @@ async def get_estado_financiero(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Estado financiero no encontrado",
         )
+    await assert_empresa_access(user, db, ef.empresa_codigo)
     return _to_read(ef)
 
 
@@ -124,6 +131,8 @@ async def get_estado_financiero(
 async def create_estado_financiero(
     user: CurrentUser, db: DBSession, body: EstadoFinancieroCreate
 ) -> EstadoFinancieroRead:
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, body.empresa_codigo)
     if not await _empresa_exists(db, body.empresa_codigo):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -177,6 +186,7 @@ async def update_estado_financiero(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Estado financiero no encontrado",
         )
+    await assert_empresa_access(user, db, ef.empresa_codigo)
     update_data = body.model_dump(exclude_unset=True)
     if "metadata" in update_data:
         update_data["metadata_"] = update_data.pop("metadata")
@@ -217,6 +227,7 @@ async def delete_estado_financiero(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Estado financiero no encontrado",
         )
+    await assert_empresa_access(user, db, ef.empresa_codigo)
     await db.delete(ef)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

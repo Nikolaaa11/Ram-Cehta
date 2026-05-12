@@ -227,11 +227,14 @@ async def bitacora_per_empresa(
     codigo: str,
     since_days: int = Query(default=30, ge=1, le=180),
 ) -> dict:
-    """V5++ ola AO: actividad sobre una empresa específica.
+    """V5++ ola AO + CB: actividad sobre una empresa específica con scope check.
 
     Útil para revisión por empresa: "¿qué se hizo en EVOQUE este mes?"
     Busca en entity_label o en el diff JSONB un match con la empresa.
     """
+    # V5++ ola CB: scope check (además del audit:read rol-based)
+    from app.services.empresa_scope_service import assert_empresa_access
+    await assert_empresa_access(user, db, codigo)
     params = {"codigo": codigo, "days": str(since_days)}
 
     # action_log filtrando por menciones de la empresa

@@ -20,6 +20,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, DBSession
+from app.services.empresa_scope_service import assert_empresa_access
 from app.services.reportes_contables_service import (
     libro_diario,
     libro_mayor,
@@ -156,6 +157,8 @@ async def get_libro_diario(
     fecha_desde: Annotated[date, Query()],
     fecha_hasta: Annotated[date, Query()],
 ) -> list[LibroDiarioRow]:
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, empresa)
     rows = await libro_diario(
         db,
         empresa_codigo=empresa,
@@ -177,6 +180,7 @@ async def get_libro_mayor(
     fecha_desde: Annotated[date, Query()],
     fecha_hasta: Annotated[date, Query()],
 ) -> LibroMayorReport:
+    await assert_empresa_access(user, db, empresa)
     data = await libro_mayor(
         db,
         empresa_codigo=empresa,
@@ -198,6 +202,7 @@ async def get_pl_proyecto(
     fecha_desde: Annotated[date, Query()],
     fecha_hasta: Annotated[date, Query()],
 ) -> list[PLProyectoRow]:
+    await assert_empresa_access(user, db, empresa)
     rows = await pl_por_proyecto(
         db,
         empresa_codigo=empresa,
@@ -218,6 +223,7 @@ async def get_pl_area(
     fecha_desde: Annotated[date, Query()],
     fecha_hasta: Annotated[date, Query()],
 ) -> list[PLAreaRow]:
+    await assert_empresa_access(user, db, empresa)
     rows = await pl_por_area(
         db,
         empresa_codigo=empresa,
@@ -286,6 +292,7 @@ async def get_libro_diario_html(
     fecha_hasta: Annotated[date, Query()],
 ) -> HTMLResponse:
     """Renderea el libro diario como HTML imprimible (Ctrl+P → PDF)."""
+    await assert_empresa_access(user, db, empresa_codigo)
     rows_raw = await libro_diario(
         db,
         empresa_codigo=empresa_codigo,
@@ -331,6 +338,7 @@ async def get_balance_prueba_html(
     Computado con SQL agregado de voucher_lines en el rango. Solo cuentas
     con movimiento. Cuadrado (Σ debe = Σ haber).
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     from sqlalchemy import text
 
     rows_db = (
@@ -384,12 +392,8 @@ async def get_cierre_mensual_html(
     anio: Annotated[int, Query(ge=2020, le=2100)],
     mes: Annotated[int, Query(ge=1, le=12)],
 ) -> HTMLResponse:
-    """Reporte de cierre mensual con checklist + KPIs.
-
-    Agrega: counts de vouchers (pending/approved), F29 status, cartolas
-    importadas, movimientos cargados. Sirve como hoja de ruta para
-    cerrar el mes y generar export Nubox.
-    """
+    """Reporte de cierre mensual con checklist + KPIs."""
+    await assert_empresa_access(user, db, empresa_codigo)
     from sqlalchemy import text
 
     # Counts vouchers del mes
@@ -493,11 +497,8 @@ async def get_cashflow_mensual_html(
     empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
     anio: Annotated[int, Query(ge=2020, le=2100)],
 ) -> HTMLResponse:
-    """Cashflow mensual — entradas vs salidas mes a mes del año.
-
-    Agrega abonos/egresos de core.movimientos por mes + saldo acumulado
-    corrido desde enero.
-    """
+    """Cashflow mensual — entradas vs salidas mes a mes del año."""
+    await assert_empresa_access(user, db, empresa_codigo)
     from sqlalchemy import text
 
     rows_db = (
@@ -553,11 +554,8 @@ async def get_pl_mensual_html(
     empresa_codigo: Annotated[str, Query(min_length=2, max_length=20)],
     anio: Annotated[int, Query(ge=2020, le=2100)],
 ) -> HTMLResponse:
-    """P&L mensual — ingresos (cuentas 4-*) vs gastos (cuentas 5-*) por mes.
-
-    Solo voucher_lines aprobados+ (APPROVED, EXECUTED, SYNCED, RECONCILED).
-    Plan de cuentas chileno estándar.
-    """
+    """P&L mensual — ingresos (cuentas 4-*) vs gastos (cuentas 5-*) por mes."""
+    await assert_empresa_access(user, db, empresa_codigo)
     from sqlalchemy import text
 
     rows_db = (
@@ -618,6 +616,7 @@ async def get_estado_resultados_html(
     anio: Annotated[int, Query(ge=2020, le=2100)],
 ) -> HTMLResponse:
     """Estado de Resultados anual jerárquico (cuentas 4-* y 5-*)."""
+    await assert_empresa_access(user, db, empresa_codigo)
     from sqlalchemy import text
 
     rows_db = (
@@ -678,6 +677,7 @@ async def get_balance_general_html(
     fecha_corte: Annotated[date, Query()],
 ) -> HTMLResponse:
     """Balance General (Activo / Pasivo / Patrimonio) a fecha de corte."""
+    await assert_empresa_access(user, db, empresa_codigo)
     from sqlalchemy import text
 
     rows_db = (
@@ -732,7 +732,16 @@ async def get_consolidado_fondo_html(
     db: DBSession,
     anio: Annotated[int, Query(ge=2020, le=2100)],
 ) -> HTMLResponse:
-    """Reporte consolidado del fondo — todas las empresas activas del portafolio."""
+    """Reporte consolidado del fondo — todas las empresas activas del portafolio.
+
+    V5++ ola CB: SOLO ADMIN. Reporte cross-empresa restringido.
+    """
+    if not user.is_admin:
+        from fastapi import HTTPException, status as st
+        raise HTTPException(
+            status_code=st.HTTP_403_FORBIDDEN,
+            detail="Reporte consolidado del fondo solo está disponible para admins.",
+        )
     from sqlalchemy import text
 
     rows_db = (

@@ -36,6 +36,27 @@ class SuscripcionRepository:
         )
         return items, total
 
+    async def list_for_codes(
+        self,
+        empresa_codes: builtins.list[str],
+        page: int = 1,
+        size: int = 20,
+    ) -> tuple[builtins.list[SuscripcionAccion], int]:
+        """V5++ ola CB: list filtrado a varias empresas (scope multi-tenant)."""
+        if not empresa_codes:
+            return [], 0
+        q = select(SuscripcionAccion).where(
+            SuscripcionAccion.empresa_codigo.in_(empresa_codes)
+        )
+        q = q.order_by(SuscripcionAccion.fecha_recibo.desc())
+
+        count_q = select(func.count()).select_from(q.subquery())
+        total = await self._session.scalar(count_q) or 0
+        items = list(
+            (await self._session.scalars(q.offset((page - 1) * size).limit(size))).all()
+        )
+        return items, total
+
     async def get(self, suscripcion_id: int) -> SuscripcionAccion | None:
         return await self._session.get(SuscripcionAccion, suscripcion_id)
 

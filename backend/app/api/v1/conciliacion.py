@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import assert_empresa_access
 from app.services.conciliacion_service import (
     auto_reconcile,
     find_match_candidates,
@@ -117,6 +118,7 @@ async def conciliacion_summary(
     db: DBSession,
     empresa: Annotated[str, Query(min_length=2, max_length=20)],
 ) -> ConciliacionSummary:
+    await assert_empresa_access(user, db, empresa)
     return ConciliacionSummary.model_validate(
         await get_summary(db, empresa_codigo=empresa)
     )
@@ -134,6 +136,7 @@ async def get_no_conciliados(
     fecha_hasta: date | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[VoucherNoConciliado]:
+    await assert_empresa_access(user, db, empresa)
     rows = await list_no_conciliados(
         db,
         empresa_codigo=empresa,
@@ -156,6 +159,7 @@ async def get_movimientos_huerfanos(
     fecha_hasta: date | None = Query(default=None),
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[MovimientoHuerfano]:
+    await assert_empresa_access(user, db, empresa)
     rows = await list_movimientos_huerfanos(
         db,
         empresa_codigo=empresa,
@@ -176,11 +180,9 @@ async def auto_run_conciliacion(
     db: DBSession,
     body: AutoRunRequest,
 ) -> AutoRunReport:
-    """Corre el algoritmo de match automático sobre vouchers EXECUTED.
-
-    Vouchers con 1 candidato exacto se conciliam automáticamente.
-    Vouchers con 0 o >1 candidatos quedan para revisión manual.
-    """
+    """Corre el algoritmo de match automático sobre vouchers EXECUTED."""
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, body.empresa_codigo)
     report = await auto_reconcile(
         db,
         empresa_codigo=body.empresa_codigo,

@@ -12,6 +12,10 @@ from fastapi.responses import Response
 
 from app.api.deps import DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.infrastructure.repositories.suscripcion_repository import SuscripcionRepository
 from app.schemas.common import Page
 from app.schemas.suscripcion import (
@@ -29,12 +33,22 @@ router = APIRouter()
 async def list_suscripciones(
     user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:read"))],
     db: DBSession,
+    scope: EmpresaScopeDep,
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 20,
     empresa_codigo: str | None = None,
 ) -> Page[SuscripcionRead]:
+    """V5++ ola CB: suscripciones filtradas por empresas en scope."""
+    empresa_codes = scope.filter_codes(empresa_codigo)
     repo = SuscripcionRepository(db)
-    items, total = await repo.list(empresa_codigo=empresa_codigo, page=page, size=size)
+    # Si admin y no especificó, retornar todo (None se trata como sin filtro)
+    if empresa_codes is None:
+        items, total = await repo.list(empresa_codigo=None, page=page, size=size)
+    else:
+        # Scoped: filtrar por lista. Si vino empresa_codigo en query, ya se validó.
+        items, total = await repo.list_for_codes(
+            empresa_codes=list(empresa_codes), page=page, size=size,
+        )
     return Page.build(
         items=[SuscripcionRead.model_validate(s) for s in items],
         total=total,
@@ -50,6 +64,9 @@ async def create_suscripcion(
     request: Request,
     body: SuscripcionCreate,
 ) -> SuscripcionRead:
+    # V5++ ola CB: solo crear en empresa en scope
+    if body.empresa_codigo:
+        await assert_empresa_access(user, db, body.empresa_codigo)
     repo = SuscripcionRepository(db)
     obj = await repo.create(body)
     await db.commit()
@@ -85,6 +102,9 @@ async def update_suscripcion(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Suscripción no encontrada",
         )
+    # V5++ ola CB: scope check
+    if obj.empresa_codigo:
+        await assert_empresa_access(user, db, obj.empresa_codigo)
     before = SuscripcionRead.model_validate(obj).model_dump(mode="json")
     updated = await repo.update(obj, body)
     await db.commit()
