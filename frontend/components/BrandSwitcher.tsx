@@ -61,7 +61,7 @@ export function BrandSwitcher({
     // Layout simple sin botón clickeable
     return (
       <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline dark:bg-ink-900 dark:ring-ink-700">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline">
           <Image
             src={currentLogo}
             alt={currentName}
@@ -74,7 +74,7 @@ export function BrandSwitcher({
         </div>
         <div className="min-w-0 flex-1">
           <p
-            className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100 truncate"
+            className="text-sm font-semibold tracking-tight text-ink-900 truncate"
             title={currentName}
           >
             {currentName}
@@ -101,7 +101,7 @@ export function BrandSwitcher({
         aria-expanded={open}
         title="Cambiar empresa"
       >
-        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline transition-all duration-300 ease-apple group-hover:ring-cehta-green/40 group-hover:shadow-glow-green dark:bg-ink-900 dark:ring-ink-700">
+        <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline transition-all duration-300 ease-apple group-hover:ring-cehta-green/40 group-hover:shadow-glow-green">
           <Image
             src={currentLogo}
             alt={currentName}
@@ -118,13 +118,13 @@ export function BrandSwitcher({
               className="absolute -bottom-0.5 -right-0.5 inline-flex h-2.5 w-2.5 items-center justify-center"
             >
               <span className="absolute h-full w-full rounded-full bg-cehta-green/40 animate-pulse-ring" />
-              <span className="relative h-2 w-2 rounded-full bg-cehta-green ring-2 ring-white dark:ring-ink-900" />
+              <span className="relative h-2 w-2 rounded-full bg-cehta-green ring-2 ring-white" />
             </span>
           )}
         </div>
         <div className="min-w-0 flex-1 text-left">
           <p
-            className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100 truncate transition-colors group-hover:text-cehta-green"
+            className="text-sm font-semibold tracking-tight text-ink-900 truncate transition-colors group-hover:text-cehta-green"
             title={currentName}
           >
             {currentName}

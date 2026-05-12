@@ -31,7 +31,7 @@ export default function AsistentePickerPage() {
   return (
     <div className="mx-auto max-w-[1440px] space-y-8 px-6 py-6 lg:px-10">
       {/* Hero editorial premium con gradient mesh */}
-      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-emerald-50/30 ring-1 ring-cehta-green/15 p-8 dark:from-ink-900 dark:via-cehta-green/10 dark:to-cehta-green/5">
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-emerald-50/40 ring-1 ring-cehta-green/15 p-8 shadow-card">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 -z-10 gradient-mesh opacity-60"
@@ -58,7 +58,7 @@ export default function AsistentePickerPage() {
           <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
             Tu <span className="text-gradient">copiloto</span> del portafolio
           </h1>
-          <p className="max-w-2xl text-base text-ink-500 dark:text-ink-400">
+          <p className="max-w-2xl text-base text-ink-500">
             Tu Asistente AI tiene contexto financiero, legal y operativo de cada
             empresa. Elegí una para empezar la conversación.
           </p>
@@ -71,10 +71,10 @@ export default function AsistentePickerPage() {
           <Sparkles className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <div>
-          <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
+          <p className="text-sm font-medium text-ink-900">
             Contexto por empresa
           </p>
-          <p className="mt-0.5 text-sm text-ink-500 dark:text-ink-400">
+          <p className="mt-0.5 text-sm text-ink-500">
             Cada asistente tiene memoria de movimientos, OCs, F29 y documentos
             legales de su empresa. Verificá decisiones financieras antes de
             actuar.

@@ -128,7 +128,7 @@ export default function MisPendientesPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-blue-50/30 ring-1 ring-cehta-green/15 p-6 dark:from-ink-900 dark:via-cehta-green/10 dark:to-blue-950/20">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
         <div
           aria-hidden
           className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cehta-green/15 blur-3xl"
@@ -140,12 +140,12 @@ export default function MisPendientesPage() {
               Tu bandeja personal
             </p>
           </div>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
             Mis pendientes
           </h1>
-          <p className="text-sm text-ink-500 dark:text-ink-400 mt-1">
+          <p className="text-sm text-ink-500 mt-1">
             Todo lo que requiere tu acción ahora. Actualizado en vivo.
-            Atajo: <kbd className="text-xs px-1.5 py-0.5 bg-ink-100 dark:bg-ink-800 rounded font-mono">g p</kbd>
+            Atajo: <kbd className="text-xs px-1.5 py-0.5 bg-ink-100 rounded font-mono">g p</kbd>
           </p>
         </div>
       </div>

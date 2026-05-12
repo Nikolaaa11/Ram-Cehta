@@ -40,18 +40,20 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        {/* Anti-FOUC: aplica dark class antes de hidratar React.
-            V5++ ola CA fix: Default = LIGHT mode. Dark mode SOLO si el user
-            lo elige explícitamente ('dark' en localStorage). 'system' y
-            ausencia → light (evita inconsistencia con OS dark settings que
-            rompen el diseño Apple-tier). */}
+        {/* V5++ ola CA hotfix 2: LIGHT MODE FORZADO PERMANENTE.
+            Migración: limpia cualquier preference 'dark' previa en
+            localStorage de TODOS los users. La plataforma está diseñada
+            light-first (verde Cehta sobre blanco). Si en el futuro se
+            quiere restaurar dark mode con toggle, remover el migration
+            flag y la línea `removeItem`. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function() {
               try {
-                var t = localStorage.getItem('cehta-theme');
-                // Solo aplicamos dark si el user explícitamente eligió 'dark'.
-                if (t === 'dark') document.documentElement.classList.add('dark');
+                // Limpieza forzada — borra cualquier value 'dark' previo
+                localStorage.removeItem('cehta-theme');
+                // Garantiza que html.dark NO esté nunca presente
+                document.documentElement.classList.remove('dark');
               } catch (_) {}
             })();`,
           }}

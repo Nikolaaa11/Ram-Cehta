@@ -15,25 +15,25 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const surfaceVariants = cva(
-  "rounded-2xl bg-white ring-1 ring-hairline shadow-card dark:bg-ink-900 dark:ring-ink-800",
+  "rounded-2xl bg-white ring-1 ring-hairline shadow-card",
   {
     variants: {
       variant: {
         default: "",
         elevated: "shadow-card-hover",
         interactive:
-          "transition-all duration-200 ease-apple hover:shadow-card-hover hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green dark:hover:ring-cehta-green/40",
+          "transition-all duration-200 ease-apple hover:shadow-card-hover hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
         glass:
-          "bg-white/70 backdrop-blur-xl shadow-glass ring-1 ring-hairline dark:bg-ink-900/70 dark:ring-ink-800",
-        // V5++ ola CA — Premium variants
+          "bg-white/70 backdrop-blur-xl shadow-glass ring-1 ring-hairline",
+        // V5++ ola CA — Premium variants (light-only)
         glow:
           "glow-on-hover transition-all duration-300 ease-apple hover:shadow-card-hover hover:-translate-y-0.5",
         premium:
           "gradient-border relative overflow-hidden transition-all duration-300 ease-apple hover:shadow-card-hover hover:-translate-y-0.5",
         gradient:
-          "bg-gradient-to-br from-white via-white to-cehta-green/[0.04] ring-1 ring-cehta-green/15 shadow-card dark:from-ink-900 dark:via-ink-900 dark:to-cehta-green/10 dark:ring-cehta-green/30",
+          "bg-gradient-to-br from-white via-white to-cehta-green/[0.04] ring-1 ring-cehta-green/15 shadow-card",
         gold:
-          "bg-gradient-to-br from-white via-white to-amber-50/40 ring-1 ring-amber-300/30 shadow-card dark:from-ink-900 dark:via-ink-900 dark:to-amber-900/10",
+          "bg-gradient-to-br from-white via-white to-amber-50/40 ring-1 ring-amber-300/30 shadow-card",
         spotlight:
           "spotlight transition-all duration-300 ease-apple hover:shadow-card-hover overflow-hidden",
       },

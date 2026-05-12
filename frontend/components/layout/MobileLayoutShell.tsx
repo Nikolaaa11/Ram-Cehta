@@ -62,7 +62,7 @@ export function MobileLayoutShell({
   }, [open]);
 
   return (
-    <div className="flex min-h-screen bg-surface-muted dark:bg-ink-950">
+    <div className="flex min-h-screen bg-surface-muted">
       {/* Header mobile (sticky top, sólo visible en pantallas <md).
           `print:hidden` para que en imprimir no aparezca el chrome.
           V5++ ola Z: dark mode + safe-area-inset-top para iPhone notch. */}

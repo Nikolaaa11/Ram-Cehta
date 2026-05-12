@@ -104,7 +104,7 @@ export default function CompliancePage() {
 
       {/* V5++ ola CA: Hero ring visual del cumplimiento global */}
       {!isLoading && data && data.empresas.length > 0 && (
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-emerald-50/40 ring-1 ring-cehta-green/15 p-8 print:hidden dark:from-ink-900 dark:via-cehta-green/10 dark:to-cehta-green/5">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-emerald-50/40 ring-1 ring-cehta-green/15 p-8 shadow-card print:hidden">
           <div
             aria-hidden
             className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cehta-green/10 blur-3xl"
@@ -114,12 +114,12 @@ export default function CompliancePage() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cehta-green">
                 Compliance YTD
               </p>
-              <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+              <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight text-ink-900">
                 Cumplimiento global del portfolio
               </h2>
-              <p className="mt-2 text-sm text-ink-500 dark:text-ink-400 max-w-md">
+              <p className="mt-2 text-sm text-ink-500 max-w-md">
                 Promedio ponderado de cumplimiento regulatorio entre las{" "}
-                <strong className="text-ink-900 dark:text-ink-100 tabular-nums">
+                <strong className="text-ink-900 tabular-nums">
                   {data.empresas.length}
                 </strong>{" "}
                 empresas del portfolio. Verde &ge;95%, ámbar &ge;70%, rojo &lt;70%.

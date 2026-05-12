@@ -436,9 +436,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
     : "FIP CEHTA ESG";
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white dark:border-ink-800 dark:bg-ink-950">
+    <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white">
       {/* Brand — V5++ ola BS: clickeable para cambiar empresa */}
-      <div className="border-b border-hairline px-4 py-5 dark:border-ink-800">
+      <div className="border-b border-hairline px-4 py-5">
         <div className="flex items-center gap-3">
           <BrandSwitcher
             currentLogo={brandLogo}

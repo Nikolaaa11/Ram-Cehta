@@ -202,11 +202,11 @@ export default function ActionCenterPage() {
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6">
-      {/* Header premium con gradient mesh */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-amber-50/30 ring-1 ring-cehta-green/15 p-6 dark:from-ink-900 dark:via-cehta-green/10 dark:to-amber-950/20">
+      {/* Header premium con gradient mesh — light mode only (Apple-tier) */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-emerald-50/40 ring-1 ring-cehta-green/15 p-6 shadow-card">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-amber-300/15 blur-3xl"
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cehta-green/10 blur-3xl"
         />
         {counts.critical > 0 && (
           <div
@@ -225,10 +225,10 @@ export default function ActionCenterPage() {
                 Bandeja unificada
               </p>
             </div>
-            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+            <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
               Action Center
             </h1>
-            <p className="mt-1 text-sm text-ink-500 dark:text-ink-400 max-w-2xl">
+            <p className="mt-1 text-sm text-ink-500 max-w-2xl">
               Todo lo que requiere tu atención hoy — F29, OCs, contratos,
               suscripciones, eventos. Agrupado por tipo, ordenado por urgencia.
             </p>
@@ -239,20 +239,20 @@ export default function ActionCenterPage() {
         </div>
       </div>
 
-      {/* Stats tiles premium con gradients + sparkles */}
+      {/* Stats tiles premium con gradients + sparkles (light-only) */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Surface padding="compact" className="relative overflow-hidden text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover">
           <p className="text-[11px] uppercase tracking-wider text-ink-400">
             Total
           </p>
-          <p className="mt-1 text-3xl font-semibold tabular-nums text-ink-900 dark:text-ink-100">
+          <p className="mt-1 text-3xl font-semibold tabular-nums text-ink-900">
             {counts.total}
           </p>
         </Surface>
         <Surface
           padding="compact"
           className={cn(
-            "relative overflow-hidden bg-gradient-to-br from-red-50 via-red-50/60 to-orange-50/40 text-center ring-1 ring-negative/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-red dark:from-red-950/30 dark:via-red-950/15 dark:to-orange-950/20",
+            "relative overflow-hidden !bg-gradient-to-br from-red-50 via-red-50/60 to-orange-50/40 text-center ring-1 ring-negative/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-red",
             counts.critical > 0 && "shadow-glow-red",
           )}
         >
@@ -271,7 +271,7 @@ export default function ActionCenterPage() {
         </Surface>
         <Surface
           padding="compact"
-          className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-amber-50/60 to-yellow-50/40 text-center ring-1 ring-warning/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-gold dark:from-amber-950/30 dark:via-amber-950/15 dark:to-yellow-950/20"
+          className="relative overflow-hidden !bg-gradient-to-br from-amber-50 via-amber-50/60 to-yellow-50/40 text-center ring-1 ring-warning/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-gold"
         >
           <p className="text-[11px] uppercase tracking-wider text-warning">
             Esta semana
@@ -282,7 +282,7 @@ export default function ActionCenterPage() {
         </Surface>
         <Surface
           padding="compact"
-          className="bg-cehta-green/5 text-center ring-1 ring-cehta-green/20"
+          className="relative overflow-hidden !bg-gradient-to-br from-cehta-green/5 via-emerald-50/50 to-teal-50/30 text-center ring-1 ring-cehta-green/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-glow-green"
         >
           <p className="text-[11px] uppercase tracking-wider text-cehta-green">
             Próximo

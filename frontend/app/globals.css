@@ -53,12 +53,10 @@
     font-feature-settings: "ss01", "cv11";
   }
 
-  /* V5++ ola Q: dark mode global. Aplica cuando html.dark está activo
-     via useTheme hook + anti-FOUC inline script en root layout. */
-  html.dark body {
-    background-color: #0a0a0a;
-    color: #e5e5e5;
-  }
+  /* V5++ ola CA: dark mode disabled. La plataforma está diseñada light-only
+     con palette Apple verde sobre blanco. Si se quiere restaurar dark mode,
+     re-habilitar este selector + agregar dark: variants en componentes. */
+  /* html.dark body { background-color: #0a0a0a; color: #e5e5e5; } */
 
   .tabular-nums {
     font-variant-numeric: tabular-nums;
