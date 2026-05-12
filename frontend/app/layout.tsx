@@ -41,16 +41,17 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <head>
         {/* Anti-FOUC: aplica dark class antes de hidratar React.
-            Sin esto, en SSR se renderea light y al hidratar
-            cambia → flash blanco→negro fea. */}
+            V5++ ola CA fix: Default = LIGHT mode. Dark mode SOLO si el user
+            lo elige explícitamente ('dark' en localStorage). 'system' y
+            ausencia → light (evita inconsistencia con OS dark settings que
+            rompen el diseño Apple-tier). */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function() {
               try {
                 var t = localStorage.getItem('cehta-theme');
-                var prefers = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                var dark = t === 'dark' || (t === 'system' && prefers) || (!t && prefers);
-                if (dark) document.documentElement.classList.add('dark');
+                // Solo aplicamos dark si el user explícitamente eligió 'dark'.
+                if (t === 'dark') document.documentElement.classList.add('dark');
               } catch (_) {}
             })();`,
           }}
@@ -67,7 +68,9 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://supabase.co" />
         {/* V5++ ola BG — Resource hints adicionales */}
         <meta name="format-detection" content="telephone=no" />
-        <meta name="color-scheme" content="light dark" />
+        {/* V5++ ola CA fix: forzar color-scheme=light por default para que
+            inputs/scrollbars no se pinten dark automáticamente. */}
+        <meta name="color-scheme" content="light" />
       </head>
       <body>
         <Providers>{children}</Providers>

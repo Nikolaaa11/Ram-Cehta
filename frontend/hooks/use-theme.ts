@@ -5,36 +5,31 @@ import { useEffect, useState } from "react";
 /**
  * useTheme — toggle dark/light mode persistente.
  *
- * Estrategia:
- *   1. Lee `localStorage.theme` al mount
- *   2. Si no está, usa `prefers-color-scheme` del OS
- *   3. Aplica/remueve `class="dark"` en `document.documentElement`
- *      → Tailwind `darkMode: 'class'` aplica los estilos `dark:*`
+ * V5++ ola CA fix: DEFAULT = LIGHT MODE.
+ *   - Si no hay nada en localStorage → light (no más auto-dark por OS)
+ *   - Solo cambia a dark si el user explícitamente lo elige
+ *   - Persiste la elección en localStorage
  *
- * Persiste en localStorage. Funciona offline, no requiere server.
+ * Razón: la plataforma está diseñada con palette Apple light-first
+ * (verde Cehta sobre blanco). El dark mode forzado por OS rompía la
+ * estética premium y causaba contrastes ilegibles.
  */
 
-type Theme = "light" | "dark" | "system";
+type Theme = "light" | "dark";
 
 const STORAGE_KEY = "cehta-theme";
 
 function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "system";
-  const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-  if (stored === "light" || stored === "dark" || stored === "system") {
-    return stored;
-  }
-  return "system";
+  if (typeof window === "undefined") return "light";
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (stored === "dark") return "dark";
+  return "light";
 }
 
 function applyTheme(theme: Theme): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
-  const isDark =
-    theme === "dark" ||
-    (theme === "system" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-  if (isDark) {
+  if (theme === "dark") {
     root.classList.add("dark");
   } else {
     root.classList.remove("dark");
@@ -42,21 +37,13 @@ function applyTheme(theme: Theme): void {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>("system");
+  const [theme, setThemeState] = useState<Theme>("light");
 
-  // Aplicar al mount + cuando cambie
+  // Aplicar al mount
   useEffect(() => {
     const initial = getInitialTheme();
     setThemeState(initial);
     applyTheme(initial);
-
-    // Listener para cambios del OS (si theme === 'system')
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      if (getInitialTheme() === "system") applyTheme("system");
-    };
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
   }, []);
 
   const setTheme = (next: Theme) => {

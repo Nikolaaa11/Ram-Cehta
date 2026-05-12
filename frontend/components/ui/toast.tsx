@@ -23,7 +23,7 @@ export function Toaster() {
       position="top-right"
       richColors={false}
       closeButton
-      theme="system"
+      theme="light"
       offset={16}
       expand
       visibleToasts={5}

@@ -17,6 +17,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { toCLP, toDate } from "@/lib/format";
@@ -324,28 +325,17 @@ export default function OrdenesCompraPage() {
       {data && !isLoading && (
         <>
           {data.items.length === 0 ? (
-            <Surface className="py-16">
-              <div className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
-                  <Package
-                    className="h-6 w-6 text-ink-300"
-                    strokeWidth={1.5}
-                  />
-                </div>
-                <p className="text-base font-semibold text-ink-900">
-                  Sin órdenes con los filtros seleccionados
-                </p>
-                <p className="mt-1 text-sm text-ink-500">
-                  Probá ajustar los filtros o creá una nueva OC.
-                </p>
-                <Link
-                  href="/ordenes-compra/nueva"
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2"
-                >
-                  <Plus className="h-4 w-4" strokeWidth={1.5} />
-                  Nueva OC
-                </Link>
-              </div>
+            <Surface padding="none" className="overflow-hidden">
+              <EmptyState
+                icon={Package}
+                title="Sin órdenes con los filtros seleccionados"
+                description="Probá ajustar los filtros o creá una nueva OC para empezar."
+                action={{
+                  label: "Nueva OC",
+                  href: "/ordenes-compra/nueva",
+                }}
+                compact
+              />
             </Surface>
           ) : (
             <Surface padding="none" className="overflow-hidden">
