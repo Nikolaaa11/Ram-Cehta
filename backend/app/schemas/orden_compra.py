@@ -97,6 +97,23 @@ class EstadoUpdateRequest(BaseModel):
     estado: Literal["emitida", "pagada", "anulada", "parcial"]
 
 
+class DuplicateOcRequest(BaseModel):
+    """Body de POST /ordenes-compra/{oc_id}/duplicate.
+
+    Solo se piden los campos que TIENEN que ser distintos del original:
+    - numero_oc obligatorio (no auto-generamos para no inventar correlativos)
+    - fecha_emision opcional (default = hoy en la zona del backend)
+    - observaciones opcional (si querés pisar las del original)
+
+    Todo lo demas (proveedor, items, montos, moneda, forma_pago, plazo_pago,
+    validez_dias) se copia tal cual desde la OC original.
+    """
+
+    numero_oc: str = Field(..., min_length=1, max_length=50)
+    fecha_emision: date | None = None
+    observaciones: str | None = None
+
+
 class OrdenCompraUpdate(BaseModel):
     """PATCH /ordenes-compra/{id} — edición de campos no-críticos.
 

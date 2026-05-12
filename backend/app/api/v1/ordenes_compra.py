@@ -1,6 +1,7 @@
 """CRUD Órdenes de Compra — Session 2.5."""
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated
 
 from fastapi import (
@@ -27,7 +28,9 @@ from app.schemas.bulk import (
 )
 from app.schemas.common import Page
 from app.schemas.orden_compra import (
+    DuplicateOcRequest,
     EstadoUpdateRequest,
+    OCDetalleCreate,
     OCDetalleRead,
     OrdenCompraCreate,
     OrdenCompraListItem,
@@ -191,6 +194,102 @@ async def get_oc(
 
 
 _OC_EDITABLE_ESTADOS = {"emitida", "parcial"}
+
+
+@router.post(
+    "/{oc_id}/duplicate",
+    response_model=OrdenCompraRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def duplicate_oc(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:create"))],
+    db: DBSession,
+    request: Request,
+    oc_id: int,
+    body: DuplicateOcRequest,
+) -> OrdenCompraRead:
+    """Duplica una OC existente. Copia proveedor, items, montos, moneda, forma_pago.
+
+    El user pasa el numero_oc nuevo (obligatorio, no auto-generamos para no
+    pisar correlativos manuales). Opcionalmente puede sobrescribir fecha_emision
+    y observaciones; el resto se hereda del original.
+
+    La OC duplicada arranca en estado 'emitida' sin pdf_url (se generara cuando
+    el flujo de export lo dispare).
+    """
+    repo = OrdenCompraRepository(db)
+    original = await repo.get(oc_id)
+    if not original:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
+    # Scope check sobre la empresa del original (el duplicado vive en la misma).
+    await assert_empresa_access(user, db, original.empresa_codigo)
+    # Numero unico por empresa: si el nuevo ya existe, 409 sin tocar nada.
+    if await repo.exists_numero_oc(original.empresa_codigo, body.numero_oc):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"OC {body.numero_oc} ya existe para empresa {original.empresa_codigo}",
+        )
+    # Construir el OrdenCompraCreate copiando los campos del original. El IVA
+    # se recalcula automaticamente en repo.create() segun moneda + neto, asi
+    # que no hay riesgo de inconsistencia.
+    duplicate_payload = OrdenCompraCreate(
+        numero_oc=body.numero_oc,
+        empresa_codigo=original.empresa_codigo,
+        proveedor_id=original.proveedor_id,
+        fecha_emision=body.fecha_emision or date.today(),
+        validez_dias=original.validez_dias,
+        moneda=original.moneda,  # type: ignore[arg-type]
+        neto=original.neto,
+        forma_pago=original.forma_pago,
+        plazo_pago=original.plazo_pago,
+        observaciones=body.observaciones if body.observaciones is not None else original.observaciones,
+        items=[
+            OCDetalleCreate(
+                item=d.item,
+                descripcion=d.descripcion,
+                precio_unitario=d.precio_unitario,
+                cantidad=d.cantidad,
+            )
+            for d in (original.items or [])
+        ],
+    )
+    new_oc = await repo.create(duplicate_payload)
+    await db.commit()
+    new_oc = await repo.get(new_oc.oc_id)
+    if not new_oc:  # pragma: no cover — invariant
+        raise HTTPException(status_code=500, detail="Error al recuperar OC duplicada")
+    after = _to_read(user, new_oc).model_dump(mode="json")
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="orden_compra",
+        entity_id=str(new_oc.oc_id),
+        entity_label=new_oc.numero_oc,
+        summary=(
+            f"OC {new_oc.numero_oc} duplicada desde {original.numero_oc} "
+            f"({original.empresa_codigo})"
+        ),
+        before=None,
+        after=after,
+    )
+    await publish_event(
+        db,
+        "oc.created",
+        {
+            "oc_id": new_oc.oc_id,
+            "numero_oc": new_oc.numero_oc,
+            "empresa_codigo": new_oc.empresa_codigo,
+            "proveedor_id": new_oc.proveedor_id,
+            "total": float(new_oc.total) if new_oc.total else None,
+            "moneda": new_oc.moneda,
+            "estado": new_oc.estado,
+            "created_by": str(user.sub),
+            "duplicated_from_oc_id": original.oc_id,
+        },
+    )
+    return _to_read(user, new_oc)
 
 
 @router.patch("/{oc_id}", response_model=OrdenCompraRead)

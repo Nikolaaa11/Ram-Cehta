@@ -8,12 +8,13 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle, Edit, XCircle } from "lucide-react";
+import { CheckCircle, Copy, Edit, XCircle } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
+import { DuplicateOcDialog } from "@/components/ordenes-compra/DuplicateOcDialog";
 
 interface Props {
   ocId: number;
@@ -36,6 +37,9 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
   const canEdit = allowedActions.includes("update");
   const canCancel = allowedActions.includes("cancel");
   const canMarkPaid = allowedActions.includes("mark_paid");
+  // Si el user puede editar esta OC, asumimos que tambien puede crear OCs en
+  // esta empresa — el endpoint backend valida igualmente con require_scope.
+  const canDuplicate = canEdit;
 
   const estadoMutation = useMutation({
     mutationFn: (estado: "pagada" | "anulada") =>
@@ -65,7 +69,7 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
     },
   });
 
-  if (!canEdit && !canCancel && !canMarkPaid) return null;
+  if (!canEdit && !canCancel && !canMarkPaid && !canDuplicate) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -78,6 +82,22 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
           <Edit className="h-4 w-4" strokeWidth={1.5} />
           Editar
         </Link>
+      )}
+      {canDuplicate && (
+        <DuplicateOcDialog
+          ocId={ocId}
+          numeroOcOriginal={numeroOc}
+          trigger={
+            <button
+              type="button"
+              className={linkBtn}
+              aria-label={`Duplicar OC ${numeroOc}`}
+            >
+              <Copy className="h-4 w-4" strokeWidth={1.5} />
+              Duplicar
+            </button>
+          }
+        />
       )}
       {canMarkPaid && (
         <button
