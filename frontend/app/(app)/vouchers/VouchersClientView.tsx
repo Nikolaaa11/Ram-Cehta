@@ -134,6 +134,48 @@ const STATUS_META: Record<VoucherStatus, { label: string; color: string }> = {
 const fmt = (v: number, moneda: string) =>
   `${moneda === "CLP" ? "$" : moneda + " "}${v.toLocaleString("es-CL")}`;
 
+const SOURCE_BADGES: Record<string, { label: string; color: string; title: string }> = {
+  ai_import: {
+    label: "IA",
+    color: "bg-sf-purple/15 text-sf-purple ring-sf-purple/30",
+    title: "Importado con IA desde imagen/PDF/PPT",
+  },
+  factura_pdf: {
+    label: "PDF",
+    color: "bg-sf-blue/15 text-sf-blue ring-sf-blue/30",
+    title: "Extraído de factura PDF (flujo Dropbox)",
+  },
+  csv_bulk: {
+    label: "CSV",
+    color: "bg-cehta-green/15 text-cehta-green ring-cehta-green/30",
+    title: "Importado desde CSV bulk",
+  },
+  template: {
+    label: "Tpl",
+    color: "bg-warning/15 text-warning ring-warning/30",
+    title: "Creado desde plantilla recurrente",
+  },
+  nubox_form: {
+    label: "Form",
+    color: "bg-ink-200 text-ink-700 ring-hairline",
+    title: "Creado en el form Nubox",
+  },
+};
+
+function renderSourceBadge(source: string | null | undefined) {
+  if (!source) return null;
+  const meta = SOURCE_BADGES[source];
+  if (!meta) return null;
+  return (
+    <span
+      title={meta.title}
+      className={`ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ring-1 ring-inset ${meta.color}`}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 interface Props {
   initialEmpresas?: Empresa[];
   initialVouchers?: VoucherListItem[];
@@ -626,6 +668,7 @@ export function VouchersClientView({
                             />
                           </span>
                         )}
+                        {renderSourceBadge((v as VoucherListItem & { source?: string | null }).source)}
                         <p className="mt-0.5 text-[10px] text-ink-400">
                           {v.empresa_codigo}
                         </p>
