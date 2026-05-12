@@ -15,6 +15,11 @@ Diseño:
 Performance: 1 query SELECT por request (~1ms). Cachado in-memory por
 60s a nivel proceso para usuarios activos (LRU 1024 entries) — el
 TTL corto evita stale data si se asigna/revoca un rol.
+
+V5++ ola CB: agrega logging estructurado de tentativas cross-tenant.
+Cuando un user intenta acceder a una empresa fuera de su scope, se loguea
+un warning estructurado que sale en Sentry + Fly logs. Útil para detectar
+attacks o usuarios mal configurados.
 """
 from __future__ import annotations
 
@@ -26,7 +31,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import CurrentUser, DBSession
+from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
+
+log = get_logger(__name__)
 
 
 # Cache in-memory por proceso. Key = user_id (UUID), Value = (timestamp, set[str]).
@@ -107,11 +115,24 @@ async def assert_empresa_access(
 
     Uso típico:
         await assert_empresa_access(user, db, body.empresa_codigo)
+
+    V5++ ola CB: loguea tentativas cross-tenant para auditoría/security.
     """
     allowed = await get_allowed_empresa_codes(user, db)
     if allowed is None:  # admin
         return
     if empresa_codigo not in allowed:
+        # SECURITY LOG: tentativa cross-tenant detectada
+        log.warning(
+            "scope.cross_tenant_attempt",
+            extra={
+                "user_id": str(user.sub),
+                "user_email": user.email,
+                "user_role": user.app_role,
+                "attempted_empresa": empresa_codigo,
+                "allowed_empresas": sorted(allowed) if allowed else [],
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=(
@@ -173,6 +194,18 @@ class EmpresaScope:
         allowed = self.allowed_codes or frozenset()
         if requested:
             if requested not in allowed:
+                # SECURITY LOG: tentativa cross-tenant via query param
+                log.warning(
+                    "scope.cross_tenant_attempt",
+                    extra={
+                        "user_id": str(self.user.sub),
+                        "user_email": self.user.email,
+                        "user_role": self.user.app_role,
+                        "attempted_empresa": requested,
+                        "allowed_empresas": sorted(allowed),
+                        "via": "query_param",
+                    },
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=f"Sin acceso a empresa '{requested}'",
