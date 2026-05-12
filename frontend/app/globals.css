@@ -53,10 +53,23 @@
     font-feature-settings: "ss01", "cv11";
   }
 
-  /* V5++ ola CA: dark mode disabled. La plataforma está diseñada light-only
-     con palette Apple verde sobre blanco. Si se quiere restaurar dark mode,
-     re-habilitar este selector + agregar dark: variants en componentes. */
-  /* html.dark body { background-color: #0a0a0a; color: #e5e5e5; } */
+  /* V5++ ola CA hotfix 3: LIGHT MODE LOCKED — forzar blanco a nivel raíz.
+     Independientemente de cualquier dark mode toggle, prefers-color-scheme,
+     localStorage o estado cacheado: body siempre blanco. La plataforma es
+     light-only por diseño (Apple-tier verde Cehta sobre blanco). */
+  html, body {
+    background-color: #ffffff !important;
+    color: #1d1d1f !important;
+    color-scheme: light !important;
+  }
+  /* Override de cualquier .dark class accidental: forzar contenedores claves
+     a quedarse blancos. Esto es defensa en profundidad: el script anti-FOUC
+     ya remueve .dark al cargar, pero si algo lo añade después, esto lo
+     contrarresta. */
+  html.dark, html.dark body {
+    background-color: #ffffff !important;
+    color: #1d1d1f !important;
+  }
 
   .tabular-nums {
     font-variant-numeric: tabular-nums;

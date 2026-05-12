@@ -46,8 +46,6 @@ import {
 import { useMe } from "@/hooks/use-me";
 import {
   useMyEmpresas,
-  pickPrimaryEmpresa,
-  LOGO_MAP,
 } from "@/hooks/use-my-empresas";
 import { useActiveEmpresa } from "@/hooks/use-active-empresa";
 import { BrandSwitcher } from "@/components/BrandSwitcher";
@@ -414,25 +412,19 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const { data: myEmpresas } = useMyEmpresas();
   const { active: activeEmpresaCodigo } = useActiveEmpresa();
 
-  // Resolver empresa para el brand
-  const brandEmpresa = activeEmpresaCodigo
+  // V5++ ola CA hotfix 3: el brand del sidebar SIEMPRE muestra Cehta
+  // Capital + logo. La empresa activa se ve solo en el subtitle (código)
+  // y en el dropdown del BrandSwitcher para cambiar contexto.
+  const activeEmpresa = activeEmpresaCodigo
     ? (myEmpresas?.empresas.find((e) => e.codigo === activeEmpresaCodigo) ??
-       // Admin tiene acceso pero no aparece en myEmpresas con razón social
-       // → construir un objeto mínimo
        { codigo: activeEmpresaCodigo, razon_social: activeEmpresaCodigo,
          rut: null, activo: true, roles: ["admin"] })
-    : pickPrimaryEmpresa(myEmpresas);
+    : null;
 
-  const brandLogo = brandEmpresa
-    ? LOGO_MAP[brandEmpresa.codigo] ?? "/logos/cehta.png"
-    : "/logos/cehta.png";
-  const brandName = brandEmpresa
-    ? brandEmpresa.razon_social.length > 26
-      ? brandEmpresa.razon_social.slice(0, 24) + "…"
-      : brandEmpresa.razon_social
-    : "Cehta Capital";
-  const brandSubtitle = brandEmpresa
-    ? brandEmpresa.codigo
+  const brandLogo = "/logos/cehta.png";
+  const brandName = "Cehta Capital";
+  const brandSubtitle = activeEmpresa
+    ? `Empresa activa: ${activeEmpresa.codigo}`
     : "FIP CEHTA ESG";
 
   return (
