@@ -116,12 +116,41 @@ const config: Config = {
           "0 4px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06)",
         glass:
           "0 1px 0 rgba(255,255,255,0.6) inset, 0 1px 2px rgba(0,0,0,0.04)",
+        // V5++ ola CA — premium shadow system
+        "glow-green":
+          "0 0 0 1px rgba(29,111,66,0.15), 0 6px 24px -8px rgba(29,111,66,0.35)",
+        "glow-gold":
+          "0 0 0 1px rgba(212,175,55,0.20), 0 6px 24px -8px rgba(212,175,55,0.45)",
+        "glow-blue":
+          "0 0 0 1px rgba(10,132,255,0.15), 0 6px 24px -8px rgba(10,132,255,0.35)",
+        "glow-red":
+          "0 0 0 1px rgba(255,59,48,0.15), 0 6px 24px -8px rgba(255,59,48,0.35)",
+        "inner-glow":
+          "inset 0 0 0 1px rgba(255,255,255,0.7), 0 1px 3px rgba(0,0,0,0.06)",
+        "elevated-lg":
+          "0 20px 40px -12px rgba(0,0,0,0.10), 0 8px 16px -8px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.04)",
       },
       backdropBlur: {
         xl: "24px",
+        "2xl": "40px",
+      },
+      backgroundImage: {
+        // V5++ ola CA — premium gradients
+        "gradient-cehta":
+          "linear-gradient(135deg, #1d6f42 0%, #34c759 50%, #0a84ff 100%)",
+        "gradient-gold":
+          "linear-gradient(135deg, #b8860b 0%, #d4af37 50%, #f5cf5b 100%)",
+        "gradient-radial":
+          "radial-gradient(ellipse at center, var(--tw-gradient-stops))",
+        "gradient-conic":
+          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+        "mesh-default":
+          "radial-gradient(at 12% 18%, hsla(155, 60%, 35%, 0.18) 0px, transparent 50%), radial-gradient(at 82% 22%, hsla(43, 92%, 56%, 0.14) 0px, transparent 55%), radial-gradient(at 50% 88%, hsla(212, 96%, 52%, 0.10) 0px, transparent 50%)",
       },
       transitionTimingFunction: {
         apple: "cubic-bezier(0.16, 1, 0.3, 1)",
+        "out-expo": "cubic-bezier(0.19, 1, 0.22, 1)",
+        "out-back": "cubic-bezier(0.34, 1.56, 0.64, 1)",
       },
       keyframes: {
         shimmer: {
@@ -132,10 +161,60 @@ const config: Config = {
           "0%, 100%": { opacity: "1", transform: "scale(1)" },
           "50%": { opacity: "0.6", transform: "scale(0.85)" },
         },
+        // V5++ ola CA — new animations
+        "slide-up-fade": {
+          from: { opacity: "0", transform: "translateY(12px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "slide-down-fade": {
+          from: { opacity: "0", transform: "translateY(-12px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
+        "scale-fade-in": {
+          from: { opacity: "0", transform: "scale(0.92)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
+        "blur-in": {
+          from: { opacity: "0", filter: "blur(8px)" },
+          to: { opacity: "1", filter: "blur(0)" },
+        },
+        "fade-in": {
+          from: { opacity: "0" },
+          to: { opacity: "1" },
+        },
+        "gradient-flow": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+        "spin-slow": {
+          to: { transform: "rotate(360deg)" },
+        },
+        "pulse-ring": {
+          "0%": { transform: "scale(0.9)", opacity: "0.7" },
+          "100%": { transform: "scale(1.4)", opacity: "0" },
+        },
+        "bounce-soft": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-3px)" },
+        },
       },
       animation: {
         shimmer: "shimmer 2s linear infinite",
         "pulse-dot": "pulse-dot 1.6s ease-in-out infinite",
+        "slide-up-fade": "slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+        "slide-down-fade": "slide-down-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+        "scale-fade-in": "scale-fade-in 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        "blur-in": "blur-in 0.5s cubic-bezier(0.16, 1, 0.3, 1)",
+        "fade-in": "fade-in 0.3s ease-out",
+        "gradient-flow": "gradient-flow 8s ease infinite",
+        float: "float 4s ease-in-out infinite",
+        "spin-slow": "spin-slow 4s linear infinite",
+        "pulse-ring": "pulse-ring 1.6s ease-out infinite",
+        "bounce-soft": "bounce-soft 1.8s ease-in-out infinite",
       },
     },
   },

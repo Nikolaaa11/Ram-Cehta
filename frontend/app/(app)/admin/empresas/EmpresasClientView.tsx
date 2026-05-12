@@ -89,12 +89,19 @@ export function EmpresasClientView({ initialEmpresas }: Props) {
       apiClient.post(`/empresa/${codigo}/sync-all-dropbox`, {}, session),
     onMutate: (codigo: string) => setSyncingCodigo(codigo),
     onSettled: () => setSyncingCodigo(null),
-    onSuccess: (data: any, codigo: string) => {
-      const trab = data.trabajadores?.created_trabajadores ?? 0;
-      const legal = data.legal?.created_legal ?? 0;
-      const f29 = data.f29?.created_f29 ?? 0;
-      const f22 = data.f22?.created ?? 0;
-      const errors = data.errors?.length ?? 0;
+    onSuccess: (data: unknown, codigo: string) => {
+      const d = data as {
+        trabajadores?: { created_trabajadores?: number };
+        legal?: { created_legal?: number };
+        f29?: { created_f29?: number };
+        f22?: { created?: number };
+        errors?: unknown[];
+      };
+      const trab = d.trabajadores?.created_trabajadores ?? 0;
+      const legal = d.legal?.created_legal ?? 0;
+      const f29 = d.f29?.created_f29 ?? 0;
+      const f22 = d.f22?.created ?? 0;
+      const errors = d.errors?.length ?? 0;
       toast.success(
         `Sync ${codigo}: trab=${trab} legal=${legal} f29=${f29} f22=${f22}` +
           (errors > 0 ? ` · ${errors} errores` : ""),

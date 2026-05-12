@@ -178,9 +178,10 @@ export function MailboxClientView({ initialItems }: Props) {
 
   const pollMut = useMutation({
     mutationFn: () => apiClient.post("/admin/mailbox/poll", {}, session),
-    onSuccess: (data: any) => {
+    onSuccess: (data: unknown) => {
+      const d = data as { inserted?: number; errors?: number };
       toast.success(
-        `Poll OK · ${data.inserted ?? 0} nuevos · ${data.errors ?? 0} errores`,
+        `Poll OK · ${d.inserted ?? 0} nuevos · ${d.errors ?? 0} errores`,
       );
       qc.invalidateQueries({ queryKey: ["mailbox"] });
     },
@@ -192,8 +193,9 @@ export function MailboxClientView({ initialItems }: Props) {
 
   const classifyMut = useMutation({
     mutationFn: () => apiClient.post("/admin/mailbox/classify", {}, session),
-    onSuccess: (data: any) => {
-      toast.success(`Clasificación OK · ${data.classified ?? 0} mails`);
+    onSuccess: (data: unknown) => {
+      const d = data as { classified?: number };
+      toast.success(`Clasificación OK · ${d.classified ?? 0} mails`);
       qc.invalidateQueries({ queryKey: ["mailbox"] });
     },
     onError: (e: unknown) => {
@@ -323,8 +325,9 @@ export function MailboxClientView({ initialItems }: Props) {
     onMutate: () => {
       setBulkSelected(new Set());
     },
-    onSuccess: (data: any) => {
-      toast.success(`${data.archived ?? 0} emails archivados`);
+    onSuccess: (data: unknown) => {
+      const d = data as { archived?: number };
+      toast.success(`${d.archived ?? 0} emails archivados`);
       qc.invalidateQueries({ queryKey: ["mailbox"] });
     },
     onError: (e: unknown) => {

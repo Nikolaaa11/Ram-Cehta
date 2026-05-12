@@ -135,10 +135,11 @@ export default function CartolasRunsPage() {
       apiClient.post(`/cartolas/sync/${codigo}`, {}, session),
     onMutate: (codigo) => setSyncingEmpresa(codigo),
     onSettled: () => setSyncingEmpresa(null),
-    onSuccess: (data: any, codigo) => {
-      const imp = data.files_imported ?? 0;
-      const skipped = data.files_skipped ?? 0;
-      const inserted = data.movimientos_inserted ?? 0;
+    onSuccess: (data: unknown, codigo) => {
+      const d = data as { files_imported?: number; files_skipped?: number; movimientos_inserted?: number };
+      const imp = d.files_imported ?? 0;
+      const skipped = d.files_skipped ?? 0;
+      const inserted = d.movimientos_inserted ?? 0;
       toast.success(
         `${codigo}: ${imp} PDFs nuevos · ${inserted} movimientos · ${skipped} duplicados`,
       );

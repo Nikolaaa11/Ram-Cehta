@@ -269,3 +269,301 @@
   }
 }
 
+/* ============================================================================
+ * V5++ ola CA — Visual delight system
+ * ============================================================================
+ * Gradient meshes, glow effects, count-up animations, ripple, magnetic hover.
+ * Todos respetan `prefers-reduced-motion`.
+ */
+
+/* ── Gradient mesh para hero sections ─────────────────────────────────────── */
+.gradient-mesh {
+  background-color: #fafafa;
+  background-image:
+    radial-gradient(at 12% 18%, hsla(155, 60%, 35%, 0.18) 0px, transparent 50%),
+    radial-gradient(at 82% 22%, hsla(43, 92%, 56%, 0.14) 0px, transparent 55%),
+    radial-gradient(at 50% 88%, hsla(212, 96%, 52%, 0.10) 0px, transparent 50%);
+}
+html.dark .gradient-mesh {
+  background-color: #0a0a0a;
+  background-image:
+    radial-gradient(at 12% 18%, hsla(155, 60%, 35%, 0.30) 0px, transparent 50%),
+    radial-gradient(at 82% 22%, hsla(43, 92%, 56%, 0.20) 0px, transparent 55%),
+    radial-gradient(at 50% 88%, hsla(212, 96%, 52%, 0.18) 0px, transparent 50%);
+}
+
+/* Mesh animado — se mueve sutilmente cada 18s */
+@media (prefers-reduced-motion: no-preference) {
+  .gradient-mesh-animated {
+    background-color: #fafafa;
+    background-image:
+      radial-gradient(at 12% 18%, hsla(155, 60%, 35%, 0.18) 0px, transparent 50%),
+      radial-gradient(at 82% 22%, hsla(43, 92%, 56%, 0.14) 0px, transparent 55%),
+      radial-gradient(at 50% 88%, hsla(212, 96%, 52%, 0.10) 0px, transparent 50%);
+    background-size: 200% 200%;
+    animation: mesh-drift 18s ease-in-out infinite;
+  }
+  html.dark .gradient-mesh-animated {
+    background-color: #0a0a0a;
+    background-image:
+      radial-gradient(at 12% 18%, hsla(155, 60%, 35%, 0.30) 0px, transparent 50%),
+      radial-gradient(at 82% 22%, hsla(43, 92%, 56%, 0.20) 0px, transparent 55%),
+      radial-gradient(at 50% 88%, hsla(212, 96%, 52%, 0.18) 0px, transparent 50%);
+    background-size: 200% 200%;
+    animation: mesh-drift 18s ease-in-out infinite;
+  }
+
+  @keyframes mesh-drift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+}
+
+/* ── Glow effect sobre cards al hover (premium) ───────────────────────────── */
+.glow-on-hover {
+  position: relative;
+  isolation: isolate;
+}
+.glow-on-hover::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, #1d6f42 0%, #34c759 50%, #0a84ff 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: -1;
+  pointer-events: none;
+}
+.glow-on-hover:hover::before {
+  opacity: 1;
+}
+.glow-on-hover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(29, 111, 66, 0.06),
+    transparent 40%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.glow-on-hover:hover::after {
+  opacity: 1;
+}
+
+/* ── Spotlight follow-mouse (sólo hover, sin JS pesado) ───────────────────── */
+.spotlight {
+  position: relative;
+  background:
+    radial-gradient(
+      circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(29, 111, 66, 0.10) 0%,
+      transparent 30%
+    ),
+    var(--surface-bg, #fff);
+}
+html.dark .spotlight {
+  background:
+    radial-gradient(
+      circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(52, 199, 89, 0.18) 0%,
+      transparent 30%
+    ),
+    #18181b;
+}
+
+/* ── Premium gradient border (sin glow, sólo borde gradient) ──────────────── */
+.gradient-border {
+  position: relative;
+  background: white;
+  border-radius: 1rem;
+}
+html.dark .gradient-border { background: #18181b; }
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #1d6f42, #d4af37 60%, #1d6f42);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Animated count-up: utility para números que crecen ───────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .count-up {
+    animation: count-up-blur 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes count-up-blur {
+    from { opacity: 0; filter: blur(8px); transform: translateY(8px); }
+    to { opacity: 1; filter: blur(0); transform: translateY(0); }
+  }
+}
+
+/* ── Ripple effect (botones, FAB, click feedback) ─────────────────────────── */
+@keyframes ripple-out {
+  0% { transform: scale(0); opacity: 0.5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(29, 111, 66, 0.30);
+  pointer-events: none;
+  animation: ripple-out 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Pulse glow para status indicators (live/online) ──────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(52, 199, 89, 0); }
+}
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+.pulse-glow-amber {
+  animation: pulse-glow-amber 2s ease-in-out infinite;
+}
+@keyframes pulse-glow-amber {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.6); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 149, 0, 0); }
+}
+.pulse-glow-red {
+  animation: pulse-glow-red 1.6s ease-in-out infinite;
+}
+@keyframes pulse-glow-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 59, 48, 0); }
+}
+
+/* ── Float animation (badges, decoraciones) ───────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .float-slow {
+    animation: float-slow 6s ease-in-out infinite;
+  }
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+}
+
+/* ── Shine sweep (premium badges, plan upgrade CTAs) ──────────────────────── */
+@keyframes shine-sweep {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.shine-sweep {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.0) 40%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.0) 60%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shine-sweep 3s ease-in-out infinite;
+}
+
+/* ── Gradient text (premium títulos / KPIs principales) ───────────────────── */
+.text-gradient {
+  background-image: linear-gradient(135deg, #1d6f42 0%, #34c759 60%, #0a84ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-gradient-gold {
+  background-image: linear-gradient(135deg, #b8860b 0%, #d4af37 50%, #f5cf5b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Slide-up entrance ────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes slide-up-fade {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .slide-up-fade {
+    animation: slide-up-fade 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+}
+
+/* ── Stagger helpers (delay aplicado vía clase) ───────────────────────────── */
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+
+/* ── Magnetic button hover (transición elástica) ──────────────────────────── */
+.magnetic {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.magnetic:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+.magnetic:active {
+  transform: translateY(0) scale(0.98);
+  transition-duration: 0.1s;
+}
+
+/* ── Spinner conic premium (alternativa al spinner clásico) ───────────────── */
+@keyframes spin-conic { to { transform: rotate(360deg); } }
+.spinner-conic {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, #1d6f42 360deg);
+  mask: radial-gradient(circle, transparent 55%, black 56%);
+  -webkit-mask: radial-gradient(circle, transparent 55%, black 56%);
+  animation: spin-conic 0.9s linear infinite;
+}
+
+/* ── Backdrop noise texture (premium glass surfaces) ──────────────────────── */
+.noise-overlay::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* ── Confetti / sparkle (success states) ──────────────────────────────────── */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(180deg); }
+}
+.sparkle {
+  animation: sparkle 1.2s ease-in-out infinite;
+}
+
+/* ── Tilt 3D (hover sobre cards premium) ──────────────────────────────────── */
+.tilt-3d {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tilt-3d:hover {
+  transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) translateZ(4px);
+}
+

@@ -29,25 +29,41 @@ export interface KpiCardProps {
   href?: Route;
   /** Tono de la tarjeta — afecta solo el icono. Default. */
   tone?: "default" | "positive" | "negative" | "warning";
+  /** V5++ ola CA — si true, agrega glow gradient en hover (premium feel). */
+  glow?: boolean;
   className?: string;
 }
 
 const toneIconBg: Record<NonNullable<KpiCardProps["tone"]>, string> = {
-  default: "bg-ink-100/60 text-ink-700",
-  positive: "bg-positive/10 text-positive",
-  negative: "bg-negative/10 text-negative",
-  warning: "bg-warning/10 text-warning",
+  default: "bg-ink-100/60 text-ink-700 ring-1 ring-ink-100",
+  positive: "bg-positive/10 text-positive ring-1 ring-positive/20",
+  negative: "bg-negative/10 text-negative ring-1 ring-negative/20",
+  warning: "bg-warning/10 text-warning ring-1 ring-warning/20",
 };
 
-const directionStyles: Record<KpiDelta["direction"], { color: string; Icon: LucideIcon }> = {
-  up: { color: "text-positive", Icon: TrendingUp },
-  down: { color: "text-negative", Icon: TrendingDown },
-  flat: { color: "text-ink-500", Icon: Minus },
+const toneAccentGradient: Record<NonNullable<KpiCardProps["tone"]>, string> = {
+  default:
+    "before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-ink-300 before:to-transparent",
+  positive:
+    "before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-positive/50 before:to-transparent",
+  negative:
+    "before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-negative/60 before:to-transparent",
+  warning:
+    "before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-warning/60 before:to-transparent",
+};
+
+const directionStyles: Record<KpiDelta["direction"], { color: string; bg: string; Icon: LucideIcon }> = {
+  up: { color: "text-positive", bg: "bg-positive/8", Icon: TrendingUp },
+  down: { color: "text-negative", bg: "bg-negative/8", Icon: TrendingDown },
+  flat: { color: "text-ink-500", bg: "bg-ink-100/40", Icon: Minus },
 };
 
 /**
  * Render server-safe — sin hooks, sin "use client".
  * Renderiza una tarjeta KPI grande de tipografía display.
+ *
+ * V5++ ola CA: top accent gradient + delta como pill + sparkline con
+ * gradient fill + opcional glow on hover.
  */
 export function KpiCard({
   label,
@@ -58,6 +74,7 @@ export function KpiCard({
   sparkline,
   href,
   tone = "default",
+  glow = false,
   className,
 }: KpiCardProps) {
   const dir = delta ? directionStyles[delta.direction] : null;
@@ -65,13 +82,12 @@ export function KpiCard({
 
   const content = (
     <Surface
-      variant={href ? "interactive" : "default"}
+      variant={glow ? "glow" : href ? "interactive" : "default"}
       className={cn(
-        // Grid 3-row con tracks fijos: header (auto), value-block (1fr crece),
-        // bottom-slot (20px reservado siempre). Esto GARANTIZA que el valor
-        // central siempre queda alineado con las otras cards, tenga o no delta.
-        "relative grid h-[160px] grid-rows-[auto_1fr_20px] transition-all duration-200 ease-apple",
-        href && "hover:-translate-y-0.5 hover:shadow-card-hover",
+        // Top accent line — sutil indicator del tono
+        "relative grid h-[160px] grid-rows-[auto_1fr_20px] overflow-hidden transition-all duration-300 ease-apple",
+        toneAccentGradient[tone],
+        href && !glow && "hover:-translate-y-0.5 hover:shadow-card-hover",
         className,
       )}
     >
@@ -82,11 +98,11 @@ export function KpiCard({
         {Icon && (
           <span
             className={cn(
-              "inline-flex h-8 w-8 items-center justify-center rounded-xl",
+              "inline-flex h-9 w-9 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
               toneIconBg[tone],
             )}
           >
-            <Icon className="h-4 w-4" strokeWidth={1.5} />
+            <Icon className="h-4 w-4" strokeWidth={1.75} />
           </span>
         )}
       </div>
@@ -103,19 +119,21 @@ export function KpiCard({
       </div>
 
       {/* Bottom slot — siempre rendea con altura 20px (definida en grid-rows).
-          Si hay delta, lo muestra; si no, queda como espacio reservado para
-          que las cards de la fila tengan exactamente el mismo layout. */}
+          V5++ ola CA: delta ahora se renderiza como pill con bg semi-transparente. */}
       <div className="flex items-end justify-between gap-3">
-        {delta ? (
+        {delta && dir ? (
           <div
             className={cn(
-              "flex items-center gap-1.5 text-sm",
-              dir?.color,
+              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs",
+              dir.color,
+              dir.bg,
             )}
           >
-            {DirIcon && <DirIcon className="h-3.5 w-3.5" strokeWidth={1.75} />}
-            <span className="font-medium tabular-nums">{delta.value}</span>
-            <span className="text-ink-500">{delta.label}</span>
+            {DirIcon && <DirIcon className="h-3 w-3" strokeWidth={2} />}
+            <span className="font-semibold tabular-nums">{delta.value}</span>
+            <span className="text-ink-500 dark:text-ink-400">
+              {delta.label}
+            </span>
           </div>
         ) : (
           <span aria-hidden className="block h-5 w-1" />
@@ -131,18 +149,18 @@ export function KpiCard({
     return (
       <Link
         href={href}
-        className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+        className="group block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
       >
         {content}
       </Link>
     );
   }
-  return content;
+  return <div className="group">{content}</div>;
 }
 
 /**
- * Sparkline puramente visual: SVG path normalizado al rango. Sin tooltips.
- * Cualquier interactividad va en chart full (Phase 4+).
+ * Sparkline puramente visual: SVG path normalizado al rango.
+ * V5++ ola CA: agrega area fill con gradient para más impacto visual.
  */
 function Sparkline({
   points,
@@ -152,19 +170,23 @@ function Sparkline({
   tone: NonNullable<KpiCardProps["tone"]>;
 }) {
   if (points.length < 2) return null;
-  const w = 60;
-  const h = 24;
+  const w = 72;
+  const h = 28;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const span = max - min || 1;
   const step = w / (points.length - 1);
-  const d = points
+
+  const linePath = points
     .map((p, i) => {
       const x = i * step;
       const y = h - ((p - min) / span) * h;
       return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
     })
     .join(" ");
+
+  // Area path — agrega cierre al fondo para llenar área debajo de la línea
+  const areaPath = `${linePath} L${w.toFixed(1)},${h} L0,${h} Z`;
 
   const stroke =
     tone === "positive"
@@ -175,6 +197,12 @@ function Sparkline({
           ? "#ff9500"
           : "#1d6f42";
 
+  const gradientId = `spark-grad-${tone}`;
+  const lastPoint = {
+    x: w,
+    y: h - ((points[points.length - 1]! - min) / span) * h,
+  };
+
   return (
     <svg
       width={w}
@@ -183,13 +211,27 @@ function Sparkline({
       className="shrink-0"
       aria-hidden
     >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity={0.30} />
+          <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={areaPath} fill={`url(#${gradientId})`} />
       <path
-        d={d}
+        d={linePath}
         fill="none"
         stroke={stroke}
         strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+      {/* End-point dot — pequeño punto al final del trend */}
+      <circle
+        cx={lastPoint.x}
+        cy={lastPoint.y}
+        r={2}
+        fill={stroke}
       />
     </svg>
   );

@@ -174,8 +174,9 @@ export function F22ClientView({ initialEmpresas, initialF22Page }: Props) {
   const syncMut = useMutation({
     mutationFn: (codigo: string) =>
       apiClient.post(`/f22/sync-dropbox/${codigo}`, {}, session),
-    onSuccess: (data: any) => {
-      toast.success(`Sync OK · ${data.created ?? 0} nuevos`);
+    onSuccess: (data: unknown) => {
+      const d = data as { created?: number };
+      toast.success(`Sync OK · ${d.created ?? 0} nuevos`);
       qc.invalidateQueries({ queryKey: ["f22"] });
     },
     onError: (e: unknown) => {

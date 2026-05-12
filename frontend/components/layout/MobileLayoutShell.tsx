@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { PageTransition } from "./PageTransition";
 
 /**
  * Wrapper responsive que envuelve el sidebar + main content del layout
@@ -115,7 +116,7 @@ export function MobileLayoutShell({
           En print quitamos el padding para aprovechar al máximo el A4.
           V5++ ola Z: pb-[5.5rem] reserva espacio para el bottom nav (≈3.5rem + safe area). */}
       <main className="flex-1 overflow-auto p-4 pt-[4.5rem] pb-[5.5rem] md:p-8 md:pt-8 md:pb-8 print:overflow-visible print:p-0">
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
 
       {/* V5++ ola Z: Bottom nav primario en mobile. */}
