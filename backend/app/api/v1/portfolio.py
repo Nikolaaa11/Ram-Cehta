@@ -30,6 +30,7 @@ from fastapi import APIRouter
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
+from app.services.empresa_scope_service import EmpresaScopeDep
 from app.schemas.portfolio import (
     CurrencyBreakdownItem,
     EmpresaPortfolioRow,
@@ -136,17 +137,24 @@ def periodo_label(year: int, month: int) -> str:
 # =====================================================================
 @router.get("/consolidated", response_model=PortfolioConsolidated)
 async def portfolio_consolidated(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> PortfolioConsolidated:
     """Vista consolidada del portafolio en CLP/USD/UF.
 
-    Agrega los saldos de las 9 empresas del FIP CEHTA y los convierte a
-    USD/UF usando las tasas del día. Soft-fail: si las tasas no están
-    disponibles, los campos USD/UF vienen `None` y la respuesta incluye
-    un warning para que la UI muestre solo CLP.
+    V5++ ola CB: filtra por empresas en scope del user. Admin global ve
+    todo el portafolio (FIP CEHTA completo). Scoped users ven solo sus
+    empresas — útil cuando un partner GP solo gestiona una vertical.
     """
     today = date.today()
     warnings: list[str] = []
+
+    # Build scope filter dinámicamente para todas las queries
+    scope_params: dict = {}
+    scope_filter = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_filter = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
 
     # ----- Tasas del día (soft-fail) ------------------------------------
     svc = CurrencyService(db)
@@ -174,11 +182,15 @@ async def portfolio_consolidated(
     # no hay cuentas en USD/UF cargadas). Cuando se carguen, agregar columna
     # `currency` a `core.movimientos` y este código la lee per-row.
     empresa_rows: list = []
+    # Build separate e.codigo filter para WHERE de empresas
+    e_scope_filter = ""
+    if scope_filter:
+        e_scope_filter = "AND e.codigo = ANY(CAST(:scope_codes AS text[]))"
     try:
         empresa_rows = list(
             (
                 await db.execute(
-                    text("""
+                    text(f"""
                         WITH ult AS (
                             SELECT DISTINCT ON (empresa_codigo, banco)
                                 empresa_codigo, banco,
@@ -186,6 +198,7 @@ async def portfolio_consolidated(
                             FROM core.movimientos
                             WHERE real_proyectado = 'Real'
                               AND saldo_contable IS NOT NULL
+                              {scope_filter}
                             ORDER BY empresa_codigo, banco,
                                      fecha DESC, movimiento_id DESC
                         ),
@@ -202,8 +215,10 @@ async def portfolio_consolidated(
                         FROM core.empresas e
                         LEFT JOIN agg a ON a.empresa_codigo = e.codigo
                         WHERE e.activo = true
+                          {e_scope_filter}
                         ORDER BY e.codigo
-                    """)
+                    """),
+                    scope_params,
                 )
             ).fetchall()
         )
@@ -270,9 +285,10 @@ async def portfolio_consolidated(
         # Query: sum sobre DISTINCT ON (empresa, banco) con fecha <= fin_mes.
         for year, month in months_back(today, 12):
             fin_mes = last_day_of_month(year, month)
+            monthly_params = {"fin_mes": fin_mes, **scope_params}
             row = (
                 await db.execute(
-                    text("""
+                    text(f"""
                         WITH ult AS (
                             SELECT DISTINCT ON (empresa_codigo, banco)
                                 empresa_codigo, banco,
@@ -281,13 +297,14 @@ async def portfolio_consolidated(
                             WHERE real_proyectado = 'Real'
                               AND saldo_contable IS NOT NULL
                               AND fecha <= :fin_mes
+                              {scope_filter}
                             ORDER BY empresa_codigo, banco,
                                      fecha DESC, movimiento_id DESC
                         )
                         SELECT COALESCE(SUM(saldo), 0) AS total
                         FROM ult
                     """),
-                    {"fin_mes": fin_mes},
+                    monthly_params,
                 )
             ).fetchone()
             mes_clp = Decimal(row[0] or 0) if row else ZERO
