@@ -48,6 +48,54 @@ app/
 - Value objects para tipos del dominio chileno: `Rut`, `MontoCLP`, `MontoUF`, `Periodo`
 - IVA = 19% centralizado en `app/domain/value_objects/iva.py` (nunca hardcoded en múltiples lugares)
 
+## Multi-tenant scope (V5++ ola CB — OBLIGATORIO)
+
+**Toda query nueva sobre datos por empresa DEBE aplicar scope.**
+
+Pattern:
+```python
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
+
+# Caso 1: list endpoint que filtra por empresa
+@router.get("/foo")
+async def list_foo(
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep,
+    empresa_codigo: str | None = None,
+):
+    empresa_codes = scope.filter_codes(empresa_codigo)
+    # admin global → empresa_codes is None (sin filtro)
+    # scoped → lista de empresas permitidas (incluye empresa_codigo si vino)
+    sql = "... WHERE empresa_codigo = ANY(CAST(:codes AS text[]))"
+    params = {"codes": empresa_codes} if empresa_codes else {}
+
+# Caso 2: endpoint que recibe empresa_codigo en path
+@router.get("/{empresa_codigo}/foo")
+async def get_foo(user: CurrentUser, db: DBSession, empresa_codigo: str):
+    await assert_empresa_access(user, db, empresa_codigo)  # 403 si no tiene
+    ...
+
+# Caso 3: endpoint que lee un recurso y verifica acceso por su empresa
+@router.get("/{recurso_id}")
+async def get_recurso(...):
+    rec = await repo.get(recurso_id)
+    await assert_empresa_access(user, db, rec.empresa_codigo)
+    return rec
+```
+
+Endpoints YA con scope (revisar antes de modificar):
+calendar, legal, entregables, trabajadores, avance, dashboard,
+reportes_contables, estados_financieros, conciliacion, bitacora,
+suscripciones, vouchers, ordenes_compra, movimientos, f29, f22,
+lp_contratos, cartolas, search, catalogos.
+
+Endpoints intencionalmente cross-empresa (admin-only):
+- `/avance/sync-all-from-dropbox` — sync masivo todas las empresas
+- `/reportes/contables/consolidado-fondo.html` — reporte agregado fondo
+- `/admin/*` — operaciones administrativas
+
 ## Prohibido
 
 - `bcrypt` para hashing (usar `argon2id`)
@@ -56,6 +104,7 @@ app/
 - Commitear secretos o `.env` con valores reales
 - Endpoints mutadores sin auth explícita
 - Queries N+1 (usar `selectinload` / `joinedload`)
+- **Listar/leer datos por empresa SIN scope check** (cross-tenant leak)
 
 ## Workflow git
 
