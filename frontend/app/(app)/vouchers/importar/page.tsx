@@ -115,6 +115,12 @@ export default function ImportarVoucherPage() {
   const [empresaCodigo, setEmpresaCodigo] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [extraction, setExtraction] = useState<ExtractResponse | null>(null);
+  // V5++ ola CE — Cola de archivos para flujo bulk. Si el user dropea varios
+  // archivos a la vez, los demas quedan aqui esperando turno mientras el
+  // primero se revisa y confirma. Despues del submit del actual, el efecto
+  // de useEffect dispara handleUpload del siguiente.
+  const [fileQueue, setFileQueue] = useState<File[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
 
   // Form state (precargado desde extraction.suggestion en el step "review")
   const [proveedorRut, setProveedorRut] = useState("");
@@ -206,17 +212,47 @@ export default function ImportarVoucherPage() {
     }
   }
 
+  function handleFilesSelected(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    const arr = Array.from(files);
+    const first = arr[0];
+    if (!first) return;
+    if (arr.length === 1) {
+      // Modo simple: 1 archivo, mismo flujo de siempre.
+      setFileQueue([]);
+      setQueueIndex(0);
+      handleUpload(first);
+      return;
+    }
+    // Modo bulk: cola para procesar uno por uno.
+    setFileQueue(arr);
+    setQueueIndex(0);
+    handleUpload(first);
+  }
+
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleUpload(file);
+    handleFilesSelected(e.dataTransfer.files);
   }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) handleUpload(file);
+    handleFilesSelected(e.target.files);
     e.target.value = ""; // permite re-subir el mismo archivo
+  }
+
+  function advanceQueue() {
+    if (fileQueue.length === 0) return false;
+    const nextIdx = queueIndex + 1;
+    const next = fileQueue[nextIdx];
+    if (!next) {
+      setFileQueue([]);
+      setQueueIndex(0);
+      return false;
+    }
+    setQueueIndex(nextIdx);
+    handleUpload(next);
+    return true;
   }
 
   const totalContable = useMemo(
@@ -298,7 +334,11 @@ export default function ImportarVoucherPage() {
           ? `Voucher ${resp.codigo} creado · Proveedor agregado al catálogo`
           : `Voucher ${resp.codigo} creado en DRAFT`,
       );
-      router.push(`/vouchers/${resp.voucher_id}`);
+      // Bulk: si quedan archivos en cola, procesar el siguiente.
+      const hasMore = advanceQueue();
+      if (!hasMore) {
+        router.push(`/vouchers/${resp.voucher_id}`);
+      }
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.detail : "Error al crear el voucher",
@@ -379,6 +419,7 @@ export default function ImportarVoucherPage() {
               ref={fileInputRef}
               type="file"
               accept={ACCEPT}
+              multiple
               onChange={handleFileInput}
               className="hidden"
             />
@@ -390,7 +431,9 @@ export default function ImportarVoucherPage() {
               Arrastrá tu archivo aquí o hacé click para elegir
             </p>
             <p className="mt-2 text-sm text-ink-500">
-              Soportados: PDF, JPG, PNG, HEIC, WebP, DOCX, PPTX (máx 15MB)
+              Soportados: PDF, JPG, PNG, HEIC, WebP, DOCX, PPTX (máx 15MB).
+              Podés arrastrar <span className="font-medium">varios a la vez</span>{" "}
+              y los procesamos uno por uno.
             </p>
             <div className="mt-6 flex justify-center gap-3 text-xs text-ink-500">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">
@@ -424,6 +467,13 @@ export default function ImportarVoucherPage() {
         <form onSubmit={handleConfirm} className="space-y-6">
           {/* Banner de confianza + warnings */}
           <Surface className="p-4">
+            {fileQueue.length > 1 && (
+              <div className="mb-3 flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 text-xs text-cehta-green">
+                <Sparkles className="size-3.5" />
+                Procesando archivo {queueIndex + 1} de {fileQueue.length} ·
+                {" "}{fileQueue.length - queueIndex - 1} pendientes en cola
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-cehta-green/10 px-3 py-1 text-cehta-green">
                 <Sparkles className="size-3.5" />
