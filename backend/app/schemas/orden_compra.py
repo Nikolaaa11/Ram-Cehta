@@ -31,6 +31,11 @@ class OrdenCompraCreate(BaseModel):
     numero_oc: str = Field(..., min_length=1, max_length=50)
     empresa_codigo: str
     proveedor_id: int | None = None
+    # Opcionales: si no viene proveedor_id pero si proveedor_rut+nombre,
+    # el endpoint auto-resuelve o auto-crea el proveedor en core.proveedores
+    # (mismo patron que el form Nubox de vouchers).
+    proveedor_rut: str | None = None
+    proveedor_nombre: str | None = None
     fecha_emision: date
     validez_dias: int = Field(default=30, ge=1)
     moneda: Literal["CLP", "UF", "USD"] = "CLP"

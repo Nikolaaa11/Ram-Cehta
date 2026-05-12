@@ -19,8 +19,11 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
+from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
 from app.models.orden_compra import OrdenCompra
+from app.schemas.proveedor import ProveedorCreate
 from app.schemas.bulk import (
     BulkItemError,
     BulkUpdateEstadoRequest,
@@ -133,6 +136,38 @@ async def create_oc(
 ) -> OrdenCompraRead:
     # V5++ ola AD: validar acceso a empresa
     await assert_empresa_access(user, db, body.empresa_codigo)
+
+    # V5++ ola CE: auto-resolver/crear proveedor si vino RUT+nombre en lugar
+    # de proveedor_id. Mismo patron que el form Nubox de vouchers.
+    if body.proveedor_id is None and body.proveedor_rut:
+        if not validate_rut(body.proveedor_rut):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"RUT proveedor '{body.proveedor_rut}' invalido "
+                    "(digito verificador incorrecto)."
+                ),
+            )
+        rut_canonical = format_rut(body.proveedor_rut)
+        prov_repo = ProveedorRepository(db)
+        proveedor = await prov_repo.get_by_rut(rut_canonical)
+        if proveedor is None:
+            if not body.proveedor_nombre or not body.proveedor_nombre.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Proveedor no existe y falta proveedor_nombre para "
+                        "crearlo automaticamente."
+                    ),
+                )
+            proveedor = await prov_repo.create(
+                ProveedorCreate(
+                    rut=rut_canonical,
+                    razon_social=body.proveedor_nombre.strip(),
+                )
+            )
+        # Reemplazamos el body con proveedor_id resuelto.
+        body = body.model_copy(update={"proveedor_id": proveedor.proveedor_id})
 
     repo = OrdenCompraRepository(db)
     if await repo.exists_numero_oc(body.empresa_codigo, body.numero_oc):

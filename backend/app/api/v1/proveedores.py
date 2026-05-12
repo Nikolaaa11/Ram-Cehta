@@ -33,6 +33,16 @@ class ProveedorSearchResult(BaseModel):
     proveedor: ProveedorRead | None = None
 
 
+class ProveedorSearchHit(BaseModel):
+    """Item liviano del resultado de /search?q= (autocompletado fuzzy)."""
+
+    proveedor_id: int
+    razon_social: str
+    rut: str | None = None
+    vouchers_count: int = 0
+    ordenes_compra_count: int = 0
+
+
 @router.get("", response_model=Page[ProveedorRead])
 async def list_proveedores(
     user: CurrentUser,
@@ -40,15 +50,32 @@ async def list_proveedores(
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 20,
     search: str | None = None,
+    with_counts: bool = False,
 ) -> Page[ProveedorRead]:
+    """Lista proveedores activos paginados. Si `with_counts=true`, agrega
+    `vouchers_count` y `ordenes_compra_count` a cada item (1 query extra
+    agregada). Util para la pantalla /admin/proveedores donde queremos
+    ver el uso real de cada proveedor."""
     repo = ProveedorRepository(db)
     items, total = await repo.list(page=page, size=size, search=search)
-    return Page.build(
-        items=[ProveedorRead.model_validate(p) for p in items],
-        total=total,
-        page=page,
-        size=size,
-    )
+    counts_map: dict[int, dict[str, int]] = {}
+    if with_counts and items:
+        counts_map = await repo.counts_by_proveedor(
+            [p.proveedor_id for p in items]
+        )
+    enriched: list[ProveedorRead] = []
+    for p in items:
+        item = ProveedorRead.model_validate(p)
+        if with_counts:
+            counts = counts_map.get(p.proveedor_id, {})
+            item = item.model_copy(
+                update={
+                    "vouchers_count": counts.get("vouchers", 0),
+                    "ordenes_compra_count": counts.get("ordenes_compra", 0),
+                }
+            )
+        enriched.append(item)
+    return Page.build(items=enriched, total=total, page=page, size=size)
 
 
 @router.post("", response_model=ProveedorRead, status_code=status.HTTP_201_CREATED)
@@ -82,6 +109,47 @@ async def create_proveedor(
         after=created.model_dump(mode="json"),
     )
     return created
+
+
+@router.get("/search", response_model=list[ProveedorSearchHit])
+async def search_proveedores(
+    user: CurrentUser,
+    db: DBSession,
+    q: Annotated[str, Query(min_length=2, max_length=80)],
+    limit: Annotated[int, Query(ge=1, le=25)] = 10,
+    with_counts: bool = False,
+) -> list[ProveedorSearchHit]:
+    """Busqueda fuzzy de proveedores para autocompletado por nombre o RUT.
+
+    A diferencia de /search-by-rut (que solo acepta RUT y devuelve exact-match),
+    este endpoint matchea ILIKE en razon_social y RUT parcial. Pensado para
+    cuando el user no recuerda el RUT exacto y empieza a tipear el nombre.
+
+    Si `with_counts=true`, agrega vouchers_count y ordenes_compra_count
+    (cuesta una query extra — usalo solo en pantallas de catalogo, no en
+    cada keystroke).
+
+    IMPORTANTE: debe estar declarada antes de /{proveedor_id: int}.
+    """
+    repo = ProveedorRepository(db)
+    items = await repo.quick_search(q, limit=limit)
+    if not items:
+        return []
+    counts: dict[int, dict[str, int]] = {}
+    if with_counts:
+        counts = await repo.counts_by_proveedor([p.proveedor_id for p in items])
+    return [
+        ProveedorSearchHit(
+            proveedor_id=p.proveedor_id,
+            razon_social=p.razon_social,
+            rut=p.rut,
+            vouchers_count=counts.get(p.proveedor_id, {}).get("vouchers", 0),
+            ordenes_compra_count=counts.get(p.proveedor_id, {}).get(
+                "ordenes_compra", 0
+            ),
+        )
+        for p in items
+    ]
 
 
 @router.get("/search-by-rut", response_model=ProveedorSearchResult)

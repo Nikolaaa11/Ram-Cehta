@@ -53,6 +53,104 @@ class ProveedorRepository:
         )
         return result.first()
 
+    async def quick_search(
+        self, q: str, limit: int = 10
+    ) -> list[Proveedor]:
+        """Busqueda rapida para autocompletado: matchea RUT o razon_social.
+
+        Si `q` parsea como RUT valido, busca prioridad alta por RUT canonical.
+        En paralelo, hace ILIKE sobre razon_social. Devuelve hasta `limit`
+        resultados, sin paginacion, ordenados por: match exacto RUT primero,
+        luego razon_social alfabetica.
+
+        Activos solamente.
+        """
+        if not q or len(q.strip()) < 2:
+            return []
+        cleaned = q.strip()
+        pattern = f"%{cleaned}%"
+        clauses = [Proveedor.razon_social.ilike(pattern)]
+        if validate_rut(cleaned):
+            canonical = format_rut(cleaned)
+            clauses.append(Proveedor.rut == canonical)
+        else:
+            # RUT no valido pero quizas el user esta tipeando un fragmento
+            clauses.append(Proveedor.rut.ilike(pattern))
+        stmt = (
+            select(Proveedor)
+            .where(Proveedor.activo.is_(True))
+            .where(or_(*clauses))
+            .order_by(Proveedor.razon_social)
+            .limit(limit)
+        )
+        return list((await self._session.scalars(stmt)).all())
+
+    async def counts_by_proveedor(
+        self, proveedor_ids: list[int]
+    ) -> dict[int, dict[str, int]]:
+        """Cuenta vouchers (por contraparte_rut) y OCs (por proveedor_id)
+        asociados a cada proveedor en la lista.
+
+        Devuelve `{proveedor_id: {"vouchers": N, "ordenes_compra": M}}`.
+
+        Notas:
+        - Vouchers se vinculan por `contraparte_rut` (string), no por FK.
+        - OCs se vinculan por `proveedor_id` (FK).
+        - Si la lista esta vacia, devuelve dict vacio sin tocar la DB.
+        """
+        if not proveedor_ids:
+            return {}
+        # Para vouchers necesitamos los RUTs canonicos de los proveedores
+        provs = (
+            await self._session.scalars(
+                select(Proveedor).where(Proveedor.proveedor_id.in_(proveedor_ids))
+            )
+        ).all()
+        rut_to_id = {p.rut: p.proveedor_id for p in provs if p.rut}
+        result: dict[int, dict[str, int]] = {
+            p.proveedor_id: {"vouchers": 0, "ordenes_compra": 0} for p in provs
+        }
+
+        from sqlalchemy import text
+
+        if rut_to_id:
+            rows = (
+                await self._session.execute(
+                    text(
+                        """
+                        SELECT contraparte_rut, COUNT(*) AS n
+                        FROM core.vouchers
+                        WHERE contraparte_rut = ANY(CAST(:ruts AS text[]))
+                        GROUP BY contraparte_rut
+                        """
+                    ),
+                    {"ruts": list(rut_to_id.keys())},
+                )
+            ).all()
+            for rut, n in rows:
+                pid = rut_to_id.get(rut)
+                if pid is not None:
+                    result[pid]["vouchers"] = int(n)
+
+        rows_oc = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT proveedor_id, COUNT(*) AS n
+                    FROM core.ordenes_compra
+                    WHERE proveedor_id = ANY(CAST(:ids AS int[]))
+                    GROUP BY proveedor_id
+                    """
+                ),
+                {"ids": proveedor_ids},
+            )
+        ).all()
+        for pid, n in rows_oc:
+            if pid in result:
+                result[pid]["ordenes_compra"] = int(n)
+
+        return result
+
     async def create(self, data: ProveedorCreate) -> Proveedor:
         proveedor = Proveedor(**data.model_dump(exclude_none=True))
         self._session.add(proveedor)

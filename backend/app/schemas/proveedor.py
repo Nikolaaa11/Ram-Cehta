@@ -62,5 +62,9 @@ class ProveedorRead(ProveedorBase):
     activo: bool
     created_at: datetime
     updated_at: datetime
+    # Conteos opcionales — se pueblan solo cuando el endpoint los pide
+    # explicitamente (with_counts=true) para no pagar el costo en cada lectura.
+    vouchers_count: int | None = None
+    ordenes_compra_count: int | None = None
 
     model_config = {"from_attributes": True}

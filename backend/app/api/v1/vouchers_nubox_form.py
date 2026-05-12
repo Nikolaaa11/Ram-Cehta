@@ -175,6 +175,28 @@ class FormMetadataResponse(BaseModel):
     empresas: list[EmpresaMetadata]
 
 
+class DuplicateVoucherHit(BaseModel):
+    voucher_id: int
+    codigo: str
+    status: str
+    fecha_documento: str | None
+    total: str | None
+    glosa: str | None
+
+
+class CheckDuplicateResponse(BaseModel):
+    """Respuesta de /vouchers/check-duplicate.
+
+    Detecta vouchers existentes con la misma combinacion (empresa,
+    proveedor_rut, tipo_documento, numero_documento) — la firma natural
+    de un documento tributario. Si hay match, devuelve los duplicados
+    para que el FE muestre warning antes del submit.
+    """
+
+    duplicates: list[DuplicateVoucherHit]
+    rut_canonical: str | None = None
+
+
 # =====================================================================
 # GET /vouchers/form-metadata
 # =====================================================================
@@ -260,6 +282,86 @@ async def get_form_metadata(
         tipos_documento=TIPO_DOCUMENTO_OPCIONES,
         cuentas_contables_sample=[dict(c) for c in cuentas_rows],
         empresas=empresas_list,
+    )
+
+
+# =====================================================================
+# GET /vouchers/check-duplicate
+# =====================================================================
+
+
+@router.get("/check-duplicate", response_model=CheckDuplicateResponse)
+async def check_duplicate_voucher(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: Annotated[str, "Empresa receptora"],
+    proveedor_rut: Annotated[str, "RUT en cualquier formato"],
+    numero_documento: Annotated[str, "Folio del documento"],
+    tipo_documento: Annotated[
+        Literal[
+            "FACTURA", "BOLETA", "NOTA_CREDITO", "NOTA_DEBITO", "HONORARIOS", "NA"
+        ],
+        "Tipo documento",
+    ] = "FACTURA",
+) -> CheckDuplicateResponse:
+    """Busca vouchers ya creados con la misma firma (empresa+RUT+folio+tipo).
+
+    Pensado para que el FE Nubox llame ANTES del submit cuando ya tiene
+    proveedor + folio + tipo + empresa, y muestre un warning si el voucher
+    parece duplicado. No bloquea — solo avisa. El submit final puede ignorar
+    el warning (a veces el mismo folio se reusa legitimamente, ej. notas
+    de credito que referencian la factura).
+
+    Devuelve hasta 5 hits para no spamear la UI.
+    """
+    from app.services.empresa_scope_service import assert_empresa_access
+
+    await assert_empresa_access(user, db, empresa_codigo)
+
+    rut_canonical: str | None = None
+    rut_search = proveedor_rut.strip()
+    if validate_rut(rut_search):
+        rut_canonical = format_rut(rut_search)
+        rut_search = rut_canonical
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT voucher_id, codigo, status, fecha_documento::text,
+                       total_debit::text AS total, glosa
+                FROM core.vouchers
+                WHERE empresa_codigo = :emp
+                  AND contraparte_rut = :rut
+                  AND doc_tributario_folio = :folio
+                  AND doc_tributario_tipo = :tipo
+                  AND status NOT IN ('VOIDED', 'CANCELLED')
+                ORDER BY voucher_id DESC
+                LIMIT 5
+                """
+            ),
+            {
+                "emp": empresa_codigo,
+                "rut": rut_search,
+                "folio": numero_documento,
+                "tipo": tipo_documento,
+            },
+        )
+    ).mappings().all()
+
+    return CheckDuplicateResponse(
+        duplicates=[
+            DuplicateVoucherHit(
+                voucher_id=int(r["voucher_id"]),
+                codigo=str(r["codigo"]),
+                status=str(r["status"]),
+                fecha_documento=r["fecha_documento"],
+                total=r["total"],
+                glosa=r["glosa"],
+            )
+            for r in rows
+        ],
+        rut_canonical=rut_canonical,
     )
 
 
