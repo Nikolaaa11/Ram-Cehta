@@ -49,6 +49,7 @@ import {
   pickPrimaryEmpresa,
   LOGO_MAP,
 } from "@/hooks/use-my-empresas";
+import { useActiveEmpresa } from "@/hooks/use-active-empresa";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { useMailboxPrefetch } from "@/hooks/use-mailbox";
@@ -407,22 +408,30 @@ export function AppSidebar({ email }: AppSidebarProps) {
   // Atajos teclado globales (gd → dashboard, gv → vouchers, etc.)
   useKeyboardShortcuts();
 
-  // V5++ ola BR — Logo + nombre dinámicos según la empresa del user
-  // - Admin con muchas empresas → "Cehta Capital" default
-  // - 1 empresa → muestra ese logo + razón social
-  // - Múltiples → la primera operativa (no admin entity)
+  // V5++ ola BR — Logo + nombre dinámicos según la empresa activa
+  // Prioridad: URL > expanded en sidebar > única empresa del user > default
   const { data: myEmpresas } = useMyEmpresas();
-  const primaryEmpresa = pickPrimaryEmpresa(myEmpresas);
-  const brandLogo = primaryEmpresa
-    ? LOGO_MAP[primaryEmpresa.codigo] ?? "/logos/cehta.png"
+  const { active: activeEmpresaCodigo } = useActiveEmpresa();
+
+  // Resolver empresa para el brand
+  const brandEmpresa = activeEmpresaCodigo
+    ? (myEmpresas?.empresas.find((e) => e.codigo === activeEmpresaCodigo) ??
+       // Admin tiene acceso pero no aparece en myEmpresas con razón social
+       // → construir un objeto mínimo
+       { codigo: activeEmpresaCodigo, razon_social: activeEmpresaCodigo,
+         rut: null, activo: true, roles: ["admin"] })
+    : pickPrimaryEmpresa(myEmpresas);
+
+  const brandLogo = brandEmpresa
+    ? LOGO_MAP[brandEmpresa.codigo] ?? "/logos/cehta.png"
     : "/logos/cehta.png";
-  const brandName = primaryEmpresa
-    ? primaryEmpresa.razon_social.length > 26
-      ? primaryEmpresa.razon_social.slice(0, 24) + "…"
-      : primaryEmpresa.razon_social
+  const brandName = brandEmpresa
+    ? brandEmpresa.razon_social.length > 26
+      ? brandEmpresa.razon_social.slice(0, 24) + "…"
+      : brandEmpresa.razon_social
     : "Cehta Capital";
-  const brandSubtitle = primaryEmpresa
-    ? primaryEmpresa.codigo
+  const brandSubtitle = brandEmpresa
+    ? brandEmpresa.codigo
     : "FIP CEHTA ESG";
 
   return (
@@ -616,6 +625,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
  * Cada empresa es expandible con sus 5 sub-secciones.
  */
 function EmpresasNav({ pathname }: { pathname: string }) {
+  // V5++ ola BR — sincronizar empresa activa cuando user expande/clickea
+  const { setActive: setActiveEmpresa } = useActiveEmpresa();
   const { data: empresas, isLoading } = useCatalogoEmpresas();
   const { pinned } = usePinnedEmpresas();
   const [expanded, setExpanded] = useState<string | null>(() => {
@@ -693,6 +704,7 @@ function EmpresasNav({ pathname }: { pathname: string }) {
                   href={`/empresa/${emp.codigo}` as Route}
                   aria-current={isActive ? "page" : undefined}
                   title={emp.razon_social}
+                  onClick={() => setActiveEmpresa(emp.codigo)}
                   className={cn(
                     "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors duration-150 ease-apple",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
@@ -730,9 +742,12 @@ function EmpresasNav({ pathname }: { pathname: string }) {
             <div key={emp.codigo}>
               <button
                 type="button"
-                onClick={() =>
-                  setExpanded(isExpanded ? null : emp.codigo)
-                }
+                onClick={() => {
+                  const newExpanded = isExpanded ? null : emp.codigo;
+                  setExpanded(newExpanded);
+                  // V5++ ola BR: dispara update global del brand
+                  setActiveEmpresa(newExpanded);
+                }}
                 aria-expanded={isExpanded}
                 title={emp.razon_social}
                 className={cn(
