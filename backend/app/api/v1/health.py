@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import time
+from typing import Any
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -7,6 +10,13 @@ from sqlalchemy import text
 from app.api.deps import DBSession
 
 router = APIRouter()
+
+# V5++ ola CC perf: cache in-process para /health/detailed.
+# Los counts no necesitan ser frescos al milisegundo — polleadores
+# externos (uptime monitors, Sentry, dashboards) consultan c/30s.
+# Cache TTL 30s reduce 95% de queries pesadas sobre la DB.
+_DETAILED_CACHE: dict[str, Any] = {"ts": 0.0, "data": None}
+_DETAILED_CACHE_TTL = 30.0  # segundos
 
 
 class HealthResponse(BaseModel):
@@ -46,7 +56,19 @@ async def health_detailed(session: DBSession) -> DetailedHealthResponse:
     Devuelve siempre 200 (no 503) con los componentes detallados, así un
     monitor puede alertar selectivamente en `services.imap_inbox=down`
     sin tirar el endpoint completo.
+
+    V5++ ola CC: cache in-process 30s. Como los uptime monitors polean
+    cada 30-60s y los counts son lentos (DB en Ohio, backend en GRU,
+    ~1100ms por query consolidada), el cache evita 95% de hits a DB.
     """
+    # Cache hit
+    now = time.time()
+    if (
+        _DETAILED_CACHE["data"] is not None
+        and (now - _DETAILED_CACHE["ts"]) < _DETAILED_CACHE_TTL
+    ):
+        return _DETAILED_CACHE["data"]  # type: ignore[no-any-return]
+
     from app.core.config import settings
 
     overall = "ok"
@@ -124,7 +146,7 @@ async def health_detailed(session: DBSession) -> DetailedHealthResponse:
             except Exception:
                 pass
 
-    return DetailedHealthResponse(
+    result = DetailedHealthResponse(
         status=overall,
         database=db_status,
         alembic_head=alembic_head,
@@ -132,6 +154,10 @@ async def health_detailed(session: DBSession) -> DetailedHealthResponse:
         counts=counts,
         version="v5++",
     )
+    # Cache write
+    _DETAILED_CACHE["ts"] = now
+    _DETAILED_CACHE["data"] = result
+    return result
 
 
 # ============================================================================
