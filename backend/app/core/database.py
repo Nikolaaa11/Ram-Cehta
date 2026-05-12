@@ -52,18 +52,14 @@ if _is_transaction_pooler:
             "prepared_statement_cache_size": 0,
         },
     )
-    # V5++ ola BS HOTFIX: pool reducido + connect_args removidos.
-    # Supabase Free tier: 15 clients en session mode.
-    # Conservador: 8+4=12 por app machine. Fits Free tier.
-    # connect_args removidos porque pueden incompatibilidad con asyncpg
-    # detrás de pgbouncer session mode (prepared_statement_cache_size).
+    # V5++ ola BS HOTFIX FINAL: vuelta a config simple conocida buena
     engine = create_async_engine(
         _db_url,
         echo=False,
-        pool_size=8,            # 8 conexiones live
-        max_overflow=4,         # +4 burst hasta 12 totales
-        pool_pre_ping=True,     # detect dead connections
-        pool_recycle=900,       # reciclar a los 15min
+        pool_size=5,
+        max_overflow=2,
+        pool_pre_ping=True,
+        pool_recycle=1800,
         pool_timeout=30,
     )
 
