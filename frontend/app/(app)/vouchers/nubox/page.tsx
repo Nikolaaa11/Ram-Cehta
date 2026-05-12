@@ -60,6 +60,25 @@ interface LineRow {
   total: string;
 }
 
+interface ProveedorSearchResult {
+  rut_valid: boolean;
+  rut_canonical: string | null;
+  exists: boolean;
+  proveedor: {
+    proveedor_id: number;
+    razon_social: string;
+    rut: string | null;
+    activo: boolean;
+  } | null;
+}
+
+type ProveedorLookupState =
+  | { status: "idle" }
+  | { status: "searching" }
+  | { status: "invalid" }
+  | { status: "existing"; razonSocial: string; rutCanonical: string }
+  | { status: "new"; rutCanonical: string };
+
 const FORMA_PAGO_LABELS: Record<string, string> = {
   TRANSFERENCIA: "Transferencia",
   CHEQUE: "Cheque",
@@ -109,6 +128,62 @@ export default function NuboxFormPage() {
   const [financiera, setFinanciera] = useState<LineRow[]>([
     { comentario: "", cuenta_codigo: "", total: "" },
   ]);
+
+  // Lookup en vivo del proveedor por RUT (debounced 400ms).
+  // Avisa al usuario si el proveedor ya existe (precarga nombre), si es nuevo
+  // (se va a crear automaticamente al guardar) o si el RUT es invalido.
+  const [proveedorLookup, setProveedorLookup] = useState<ProveedorLookupState>({
+    status: "idle",
+  });
+
+  useEffect(() => {
+    if (!session) return;
+    const trimmed = proveedorRut.trim();
+    if (trimmed.length < 4) {
+      setProveedorLookup({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setProveedorLookup({ status: "searching" });
+    const timer = setTimeout(() => {
+      apiClient
+        .get<ProveedorSearchResult>(
+          `/proveedores/search-by-rut?rut=${encodeURIComponent(trimmed)}`,
+          session,
+        )
+        .then((result) => {
+          if (cancelled) return;
+          if (!result.rut_valid) {
+            setProveedorLookup({ status: "invalid" });
+            return;
+          }
+          if (result.exists && result.proveedor) {
+            setProveedorLookup({
+              status: "existing",
+              razonSocial: result.proveedor.razon_social,
+              rutCanonical: result.rut_canonical ?? trimmed,
+            });
+            // Precargar solo si el usuario aun no escribio nada en nombre,
+            // para no pisarle ediciones manuales.
+            setProveedorNombre((current) =>
+              current.trim() === "" ? result.proveedor!.razon_social : current,
+            );
+          } else {
+            setProveedorLookup({
+              status: "new",
+              rutCanonical: result.rut_canonical ?? trimmed,
+            });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setProveedorLookup({ status: "idle" });
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [proveedorRut, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -311,7 +386,31 @@ export default function NuboxFormPage() {
                 onChange={(e) => setProveedorRut(e.target.value)}
                 placeholder="76.123.456-7"
                 className="form-input"
+                aria-describedby="proveedor-rut-status"
               />
+              <div id="proveedor-rut-status" className="mt-1 min-h-[1rem] text-xs">
+                {proveedorLookup.status === "searching" && (
+                  <span className="text-ink-500">Buscando proveedor…</span>
+                )}
+                {proveedorLookup.status === "invalid" && (
+                  <span className="text-red-600">
+                    RUT inválido — revisá el dígito verificador.
+                  </span>
+                )}
+                {proveedorLookup.status === "existing" && (
+                  <span className="text-cehta-green">
+                    ✓ Proveedor existente:{" "}
+                    <span className="font-medium">
+                      {proveedorLookup.razonSocial}
+                    </span>
+                  </span>
+                )}
+                {proveedorLookup.status === "new" && (
+                  <span className="text-amber-600">
+                    Nuevo — se creará en el catálogo al guardar el voucher.
+                  </span>
+                )}
+              </div>
             </div>
             <div>
               <Label>Proveedor razón social *</Label>
