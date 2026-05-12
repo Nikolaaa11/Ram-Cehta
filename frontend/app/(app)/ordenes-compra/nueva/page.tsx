@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
@@ -16,6 +16,25 @@ interface ItemForm {
   precio_unitario: string;
   cantidad: string;
 }
+
+interface ProveedorSearchResult {
+  rut_valid: boolean;
+  rut_canonical: string | null;
+  exists: boolean;
+  proveedor: {
+    proveedor_id: number;
+    razon_social: string;
+    rut: string | null;
+    activo: boolean;
+  } | null;
+}
+
+type ProveedorLookupState =
+  | { status: "idle" }
+  | { status: "searching" }
+  | { status: "invalid" }
+  | { status: "existing"; razonSocial: string; rutCanonical: string }
+  | { status: "new"; rutCanonical: string };
 
 const inputBase =
   "w-full rounded-lg border-0 ring-1 ring-hairline bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green";
@@ -35,7 +54,11 @@ export default function NuevaOcPage() {
 
   const [empresaCodigo, setEmpresaCodigo] = useState("");
   const [numeroOc, setNumeroOc] = useState("");
-  const [proveedorId, setProveedorId] = useState("");
+  const [proveedorRut, setProveedorRut] = useState("");
+  const [proveedorNombre, setProveedorNombre] = useState("");
+  const [proveedorLookup, setProveedorLookup] = useState<ProveedorLookupState>({
+    status: "idle",
+  });
   const [fechaEmision, setFechaEmision] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -50,6 +73,55 @@ export default function NuevaOcPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Lookup en vivo del proveedor por RUT (debounced 400ms). Mismo patron
+  // que el form Nubox para tener UX consistente entre OCs y vouchers.
+  useEffect(() => {
+    if (!session) return;
+    const trimmed = proveedorRut.trim();
+    if (trimmed.length < 4) {
+      setProveedorLookup({ status: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setProveedorLookup({ status: "searching" });
+    const timer = setTimeout(() => {
+      apiClient
+        .get<ProveedorSearchResult>(
+          `/proveedores/search-by-rut?rut=${encodeURIComponent(trimmed)}`,
+          session,
+        )
+        .then((result) => {
+          if (cancelled) return;
+          if (!result.rut_valid) {
+            setProveedorLookup({ status: "invalid" });
+            return;
+          }
+          if (result.exists && result.proveedor) {
+            setProveedorLookup({
+              status: "existing",
+              razonSocial: result.proveedor.razon_social,
+              rutCanonical: result.rut_canonical ?? trimmed,
+            });
+            setProveedorNombre((current) =>
+              current.trim() === "" ? result.proveedor!.razon_social : current,
+            );
+          } else {
+            setProveedorLookup({
+              status: "new",
+              rutCanonical: result.rut_canonical ?? trimmed,
+            });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setProveedorLookup({ status: "idle" });
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [proveedorRut, session]);
 
   const empresaItems = useMemo<ComboboxItem[]>(
     () =>
@@ -78,6 +150,18 @@ export default function NuevaOcPage() {
       setError("Completá los campos obligatorios y al menos un ítem.");
       return;
     }
+    if (proveedorRut.trim() && proveedorLookup.status === "invalid") {
+      setError("El RUT del proveedor es inválido (dígito verificador).");
+      return;
+    }
+    if (
+      proveedorRut.trim() &&
+      proveedorLookup.status === "new" &&
+      !proveedorNombre.trim()
+    ) {
+      setError("Ingresá la razón social del proveedor para crearlo.");
+      return;
+    }
     if (items.some((it) => !it.descripcion || !it.precio_unitario)) {
       setError("Cada ítem requiere descripción y precio unitario.");
       return;
@@ -85,25 +169,52 @@ export default function NuevaOcPage() {
 
     setSubmitting(true);
     try {
+      const payload: Record<string, unknown> = {
+        empresa_codigo: empresaCodigo,
+        numero_oc: numeroOc,
+        fecha_emision: fechaEmision,
+        moneda,
+        validez_dias: Number(validezDias) || 30,
+        forma_pago: formaPago || null,
+        plazo_pago: plazoPago || null,
+        observaciones: observaciones || null,
+        items: items.map((it, i) => ({
+          item: i + 1,
+          descripcion: it.descripcion,
+          precio_unitario: Number(it.precio_unitario),
+          cantidad: Number(it.cantidad) || 1,
+        })),
+      };
+      // Adjuntar proveedor: si existe, mandamos id resuelto del lookup;
+      // si es nuevo, RUT+nombre para que el backend lo cree.
+      if (proveedorRut.trim()) {
+        if (
+          proveedorLookup.status === "existing" &&
+          proveedorLookup.rutCanonical
+        ) {
+          payload.proveedor_rut = proveedorLookup.rutCanonical;
+          payload.proveedor_nombre = proveedorNombre.trim();
+        } else if (
+          proveedorLookup.status === "new" &&
+          proveedorLookup.rutCanonical
+        ) {
+          payload.proveedor_rut = proveedorLookup.rutCanonical;
+          payload.proveedor_nombre = proveedorNombre.trim();
+        }
+      }
+      // neto se calcula a partir de los items en el backend (compute_totals
+      // del repo), pero el schema exige neto>0 — usamos suma de items como
+      // estimacion (el backend lo va a recomputar de todas formas).
+      const netoEstimado = items.reduce(
+        (sum, it) =>
+          sum +
+          (Number(it.precio_unitario) || 0) * (Number(it.cantidad) || 0),
+        0,
+      );
+      payload.neto = netoEstimado || 1;
       const created = await apiClient.post<OcRead>(
         "/ordenes-compra",
-        {
-          empresa_codigo: empresaCodigo,
-          numero_oc: numeroOc,
-          proveedor_id: proveedorId ? Number(proveedorId) : null,
-          fecha_emision: fechaEmision,
-          moneda,
-          validez_dias: Number(validezDias) || 30,
-          forma_pago: formaPago || null,
-          plazo_pago: plazoPago || null,
-          observaciones: observaciones || null,
-          items: items.map((it, i) => ({
-            item: i + 1,
-            descripcion: it.descripcion,
-            precio_unitario: Number(it.precio_unitario),
-            cantidad: Number(it.cantidad) || 1,
-          })),
-        },
+        payload,
         session,
       );
       router.push(`/ordenes-compra/${created.oc_id}`);
@@ -134,8 +245,8 @@ export default function NuevaOcPage() {
           Nueva OC
         </h1>
         <p className="mt-1 text-sm text-ink-500">
-          Completá los datos. El total se calcula automáticamente en el backend
-          (neto + 19% IVA).
+          Tipeá el RUT del proveedor y vamos a precargar/crearlo solos. El
+          total se calcula automáticamente en el backend (neto + 19% IVA).
         </p>
       </header>
 
@@ -193,16 +304,56 @@ export default function NuevaOcPage() {
                 />
               </div>
               <div>
-                <label className={labelBase} htmlFor="proveedor-id">
-                  Proveedor ID
+                <label className={labelBase} htmlFor="proveedor-rut">
+                  Proveedor RUT
                 </label>
                 <input
-                  id="proveedor-id"
-                  type="number"
-                  value={proveedorId}
-                  onChange={(e) => setProveedorId(e.target.value)}
-                  placeholder="ej. 12"
-                  className={`${inputBase} tabular-nums`}
+                  id="proveedor-rut"
+                  type="text"
+                  value={proveedorRut}
+                  onChange={(e) => setProveedorRut(e.target.value)}
+                  placeholder="76.123.456-7"
+                  className={inputBase}
+                  aria-describedby="proveedor-rut-status"
+                />
+                <div
+                  id="proveedor-rut-status"
+                  className="mt-1 min-h-[1rem] text-xs"
+                >
+                  {proveedorLookup.status === "searching" && (
+                    <span className="text-ink-500">Buscando proveedor…</span>
+                  )}
+                  {proveedorLookup.status === "invalid" && (
+                    <span className="text-negative">
+                      RUT inválido — revisá el dígito verificador.
+                    </span>
+                  )}
+                  {proveedorLookup.status === "existing" && (
+                    <span className="text-cehta-green">
+                      ✓ Existente:{" "}
+                      <span className="font-medium">
+                        {proveedorLookup.razonSocial}
+                      </span>
+                    </span>
+                  )}
+                  {proveedorLookup.status === "new" && (
+                    <span className="text-warning">
+                      Nuevo — se creará en el catálogo al guardar.
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className={labelBase} htmlFor="proveedor-nombre">
+                  Proveedor razón social
+                </label>
+                <input
+                  id="proveedor-nombre"
+                  type="text"
+                  value={proveedorNombre}
+                  onChange={(e) => setProveedorNombre(e.target.value)}
+                  placeholder="Ej: Office Depot SpA"
+                  className={inputBase}
                 />
               </div>
               <div>
