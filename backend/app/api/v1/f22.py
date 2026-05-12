@@ -317,15 +317,10 @@ async def sync_dropbox(
     """Escanea `/Cehta Capital/01-Empresas/{COD}/03-Legal/Declaraciones SII/F22/`
     y crea filas para los `{YYYY}.pdf` que no existan en DB.
 
-    Idempotente: el UNIQUE (empresa, año) evita duplicados.
-    Soft-fail: si Dropbox no está configurado, devuelve 503.
-
-    Auditoría: cada sync se registra en core.audit_log con `created` y
-    `errors` para trazabilidad — quién corrió el sync, cuándo, qué pasó.
-
-    La lógica vive en `app.services.f22_sync_service.sync_f22_dropbox`
-    para que `/empresa/{cod}/sync-all-dropbox` la reuse sin duplicar.
+    V5++ ola CB: scope check para que solo users con rol en la empresa
+    puedan sync sus F22.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     from app.services.dropbox_service import DropboxNotConfigured, DropboxService
     from app.services.f22_sync_service import sync_f22_dropbox
 

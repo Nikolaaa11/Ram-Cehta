@@ -302,14 +302,8 @@ async def sync_f29_dropbox(
     request: Request,
     empresa_codigo: str,
 ) -> dict:
-    """Escanea `Cehta Capital/01-Empresas/{empresa}/03-Legal/Declaraciones SII/F29/`
-    y crea entries en `core.f29_obligaciones` para cada PDF cuyo nombre
-    matchee `YYYY-MM` (interpretado como periodo tributario `MM_YY`).
-
-    Idempotente: match por `(empresa_codigo, periodo_tributario)` con
-    `ON CONFLICT DO NOTHING`. Setea fecha_vencimiento por default al día 12
-    del mes siguiente (regla F29 CL).
-    """
+    """V5++ ola CB: sync F29 desde Dropbox con scope check."""
+    await assert_empresa_access(user, db, empresa_codigo)
     integration_repo = IntegrationRepository(db)
     integration = await integration_repo.get_by_provider("dropbox")
     if integration is None:
