@@ -28,6 +28,7 @@ log = logging.getLogger(__name__)
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.domain.value_objects.periodo import Periodo, current_periodo
+from app.services.empresa_scope_service import EmpresaScopeDep
 from app.schemas.dashboard import (
     Alert,
     CashflowPoint,
@@ -201,12 +202,27 @@ def _build_ceo_narrative(
 # GET /dashboard — endpoint legacy (saldos + mov + OC + F29)
 # =====================================================================
 @router.get("", response_model=DashboardResponse)
-async def get_dashboard(user: CurrentUser, db: DBSession) -> DashboardResponse:
+async def get_dashboard(
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
+) -> DashboardResponse:
+    """V5++ ola CB: dashboard filtrado por empresas en scope del user."""
     periodo = current_periodo()
+
+    # Build scope filter
+    scope_params: dict = {}
+    scope_clause_empresa = ""
+    scope_clause_e = ""
+    scope_clause_oc = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_clause_empresa = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
+        scope_clause_e = "AND e.codigo = ANY(CAST(:scope_codes AS text[]))"
+        scope_clause_oc = "WHERE empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
 
     saldos_rows = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     e.codigo,
                     e.razon_social,
@@ -224,26 +240,30 @@ async def get_dashboard(user: CurrentUser, db: DBSession) -> DashboardResponse:
                     LIMIT 1
                 ) m ON true
                 WHERE e.activo = true
+                {scope_clause_e}
                 ORDER BY e.codigo
-            """)
+            """),
+            scope_params,
         )
     ).fetchall()
 
     mov_rows = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT movimiento_id, fecha::text, empresa_codigo,
                        descripcion, abono, egreso, concepto_general, proyecto
                 FROM core.movimientos
+                WHERE 1=1 {scope_clause_empresa}
                 ORDER BY fecha DESC, movimiento_id DESC
                 LIMIT 15
-            """)
+            """),
+            scope_params,
         )
     ).fetchall()
 
     oc_row = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     COUNT(*) FILTER (WHERE estado = 'emitida') AS total_emitidas,
                     COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_emitidas,
@@ -251,19 +271,23 @@ async def get_dashboard(user: CurrentUser, db: DBSession) -> DashboardResponse:
                     COALESCE(SUM(total) FILTER (WHERE estado = 'pagada'), 0) AS monto_pagadas,
                     COUNT(*) FILTER (WHERE estado = 'anulada') AS total_anuladas
                 FROM core.ordenes_compra
-            """)
+                {scope_clause_oc}
+            """),
+            scope_params,
         )
     ).fetchone()
 
     f29_rows = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT empresa_codigo, periodo_tributario,
                        fecha_vencimiento::text, monto_a_pagar, estado
                 FROM core.f29_obligaciones
                 WHERE estado IN ('pendiente', 'vencido')
+                  {scope_clause_empresa}
                 ORDER BY fecha_vencimiento
-            """)
+            """),
+            scope_params,
         )
     ).fetchall()
 
@@ -317,27 +341,39 @@ async def get_dashboard(user: CurrentUser, db: DBSession) -> DashboardResponse:
 # GET /dashboard/kpis — hero stats
 # =====================================================================
 @router.get("/kpis", response_model=DashboardKPIs)
-async def get_kpis(user: CurrentUser, db: DBSession) -> DashboardKPIs:
+async def get_kpis(
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
+) -> DashboardKPIs:
+    """V5++ ola CB: KPIs solo de empresas en scope del user."""
     periodo = current_periodo()
     periodo_anterior = shift_periodo(periodo, -1)
 
-    # Saldos consolidados (suma del último movimiento Real por empresa+banco)
+    scope_params: dict = {"p_now": periodo, "p_prev": periodo_anterior, "p": periodo}
+    scope_filter_emp = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_filter_emp = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
+
+    # Saldos consolidados — solo de empresas en scope
     saldos_row = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     COALESCE(SUM(saldo_contable), 0) AS s_contable,
                     COALESCE(SUM(saldo_cehta), 0)    AS s_cehta,
                     COALESCE(SUM(saldo_corfo), 0)    AS s_corfo
                 FROM core.v_saldos_actuales
-            """)
+                WHERE 1=1 {scope_filter_emp}
+            """),
+            scope_params,
         )
     ).fetchone()
 
-    # Egresos / abonos del mes actual y anterior (real_proyectado='Real')
+    # Egresos / abonos del mes actual y anterior — solo de empresas en scope
     flujo_row = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_now), 0) AS egreso_now,
                     COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_prev), 0) AS egreso_prev,
@@ -346,8 +382,9 @@ async def get_kpis(user: CurrentUser, db: DBSession) -> DashboardKPIs:
                 FROM core.movimientos
                 WHERE real_proyectado = 'Real'
                   AND periodo IN (:p_now, :p_prev)
+                  {scope_filter_emp}
             """),
-            {"p_now": periodo, "p_prev": periodo_anterior},
+            scope_params,
         )
     ).fetchone()
 
@@ -356,42 +393,47 @@ async def get_kpis(user: CurrentUser, db: DBSession) -> DashboardKPIs:
     abono_now = Decimal(flujo_row[2] or 0)
     abono_prev = Decimal(flujo_row[3] or 0)
 
-    # IVA a pagar consolidado del mes
+    # IVA a pagar consolidado del mes — solo scope
     iva_row = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT COALESCE(SUM(iva_a_pagar), 0)
                 FROM core.v_iva_consolidado
                 WHERE periodo = :p
+                  {scope_filter_emp}
             """),
-            {"p": periodo},
+            scope_params,
         )
     ).fetchone()
     iva_a_pagar = Decimal(iva_row[0] or 0) if iva_row else ZERO
 
-    # OC emitidas pendientes
+    # OC emitidas pendientes — solo scope
     oc_row = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     COUNT(*) FILTER (WHERE estado = 'emitida') AS n_emitidas,
                     COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_emitidas
                 FROM core.ordenes_compra
-            """)
+                WHERE 1=1 {scope_filter_emp}
+            """),
+            scope_params,
         )
     ).fetchone()
 
-    # F29 alertas
+    # F29 alertas — solo scope
     f29_row = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     COUNT(*) FILTER (WHERE dias_para_vencer BETWEEN 0 AND 30)
                         AS proximas_30d,
                     COUNT(*) FILTER (WHERE dias_para_vencer < 0 AND estado = 'pendiente')
                         AS vencidas
                 FROM core.v_f29_alertas
-            """)
+                WHERE 1=1 {scope_filter_emp}
+            """),
+            scope_params,
         )
     ).fetchone()
 
@@ -447,17 +489,17 @@ async def get_kpis(user: CurrentUser, db: DBSession) -> DashboardKPIs:
 async def get_cashflow(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     meses: Annotated[int, Query(ge=1, le=36)] = 12,
 ) -> CashflowResponse:
-    """Devuelve los últimos N meses pivotando real vs proyectado.
-
-    Si `empresa_codigo` es None, agrega sobre todo el portafolio.
-    """
-    where_empresa = "AND empresa_codigo = :empresa" if empresa_codigo else ""
+    """V5++ ola CB: cashflow filtrado por scope del user."""
+    empresa_codes = scope.filter_codes(empresa_codigo)
+    where_empresa = ""
     params: dict = {"meses": meses}
-    if empresa_codigo:
-        params["empresa"] = empresa_codigo
+    if empresa_codes is not None:
+        where_empresa = "AND empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
+        params["empresa_codes"] = empresa_codes
 
     rows = (
         await db.execute(
@@ -543,21 +585,23 @@ async def get_cashflow(
 async def get_egresos_por_concepto(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     periodo: str | None = None,
 ) -> list[EgresoConcepto]:
-    """Top 10 conceptos por egreso del periodo. Default: periodo actual."""
+    """V5++ ola CB: top 10 conceptos egreso filtrado por scope."""
     p = periodo or current_periodo()
-    # validamos formato — si es inválido devolvemos lista vacía
     try:
         Periodo.parse(p)
     except ValueError:
         return []
 
-    where_empresa = "AND empresa_codigo = :empresa" if empresa_codigo else ""
+    empresa_codes = scope.filter_codes(empresa_codigo)
+    where_empresa = ""
     params: dict = {"periodo": p}
-    if empresa_codigo:
-        params["empresa"] = empresa_codigo
+    if empresa_codes is not None:
+        where_empresa = "AND empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
+        params["empresa_codes"] = empresa_codes
 
     # where_empresa es un literal server-side, no input de usuario.
     sql = f"""
@@ -606,12 +650,18 @@ async def get_egresos_por_concepto(
 # =====================================================================
 @router.get("/saldos-por-empresa", response_model=list[SaldoEmpresaDetalle])
 async def get_saldos_por_empresa(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> list[SaldoEmpresaDetalle]:
-    """Saldo actual + variación últimos 30 días por empresa."""
+    """V5++ ola CB: saldos por empresa, solo de empresas en scope."""
+    scope_params: dict = {}
+    scope_filter_e = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_filter_e = "AND e.codigo = ANY(CAST(:scope_codes AS text[]))"
     rows = (
         await db.execute(
-            text("""
+            text(f"""
                 WITH ult AS (
                     SELECT DISTINCT ON (empresa_codigo)
                         empresa_codigo,
@@ -646,8 +696,10 @@ async def get_saldos_por_empresa(
                 LEFT JOIN ult     u ON u.empresa_codigo = e.codigo
                 LEFT JOIN hace_30 h ON h.empresa_codigo = e.codigo
                 WHERE e.activo = true
+                  {scope_filter_e}
                 ORDER BY e.codigo
-            """)
+            """),
+            scope_params,
         )
     ).fetchall()
 
@@ -672,13 +724,17 @@ async def get_saldos_por_empresa(
 async def get_iva_trend(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     meses: Annotated[int, Query(ge=1, le=36)] = 12,
 ) -> list[IvaPoint]:
-    where_empresa = "WHERE empresa_codigo = :empresa" if empresa_codigo else ""
+    """V5++ ola CB: IVA trend filtrado por scope."""
+    empresa_codes = scope.filter_codes(empresa_codigo)
+    where_empresa = ""
     params: dict = {"meses": meses}
-    if empresa_codigo:
-        params["empresa"] = empresa_codigo
+    if empresa_codes is not None:
+        where_empresa = "WHERE empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
+        params["empresa_codes"] = empresa_codes
 
     # where_empresa es un literal server-side, no input de usuario.
     sql = f"""
@@ -731,11 +787,19 @@ async def get_iva_trend(
 async def get_proyectos_ranking(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     limit: Annotated[int, Query(ge=1, le=50)] = 5,
 ) -> list[ProyectoRanking]:
+    """V5++ ola CB: ranking de proyectos filtrado por scope."""
+    scope_params: dict = {"limit": limit}
+    scope_filter = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_filter = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
     rows = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT
                     proyecto,
                     SUM(egreso)                              AS total_egreso,
@@ -746,11 +810,12 @@ async def get_proyectos_ranking(
                   AND egreso > 0
                   AND real_proyectado = 'Real'
                   AND fecha >= CURRENT_DATE - INTERVAL '12 months'
+                  {scope_filter}
                 GROUP BY proyecto
                 ORDER BY total_egreso DESC
                 LIMIT :limit
             """),
-            {"limit": limit},
+            scope_params,
         )
     ).fetchall()
 
@@ -772,19 +837,28 @@ async def get_proyectos_ranking(
 async def get_movimientos_recientes(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
 ) -> list[MovimientoReciente]:
+    """V5++ ola CB: movimientos recientes solo de empresas en scope."""
+    scope_params: dict = {"limit": limit}
+    scope_filter = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_filter = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
     rows = (
         await db.execute(
-            text("""
+            text(f"""
                 SELECT movimiento_id, fecha::text, empresa_codigo,
                        descripcion, abono, egreso, concepto_general, proyecto
                 FROM core.movimientos
                 WHERE real_proyectado = 'Real'
+                  {scope_filter}
                 ORDER BY fecha DESC, movimiento_id DESC
                 LIMIT :limit
             """),
-            {"limit": limit},
+            scope_params,
         )
     ).fetchall()
 
@@ -1224,17 +1298,19 @@ class VouchersKpisResponse(BaseModel):
 
 @router.get("/vouchers-kpis", response_model=VouchersKpisResponse)
 async def get_vouchers_kpis(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> VouchersKpisResponse:
-    """KPIs cross-empresa del módulo Vouchers para el CEO Dashboard.
-
-    Una query consolidada en lugar de N+1 — útil para el widget de la
-    home que se carga al abrir la app.
-    """
+    """V5++ ola CB: KPIs vouchers filtrado por scope del user."""
+    scope_params: dict = {}
+    scope_filter = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_params["scope_codes"] = allowed
+        scope_filter = "WHERE empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
     row = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT
                     COUNT(*) FILTER (WHERE status = 'PENDING')                              AS pendientes_firma,
                     COALESCE(SUM(total_debit) FILTER (WHERE status = 'PENDING'), 0)         AS pendientes_firma_monto,
@@ -1244,8 +1320,10 @@ async def get_vouchers_kpis(
                     COUNT(*) FILTER (WHERE threshold_aplicado = TRUE AND status = 'PENDING') AS reforzados_pendientes,
                     MAX(fecha_contable)                                                      AS last_fecha
                 FROM core.vouchers
+                {scope_filter}
                 """
-            )
+            ),
+            scope_params,
         )
     ).mappings().one()
 
