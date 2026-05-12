@@ -30,30 +30,51 @@ export default function AsistentePickerPage() {
 
   return (
     <div className="mx-auto max-w-[1440px] space-y-8 px-6 py-6 lg:px-10">
-      {/* Hero editorial */}
-      <header className="space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-cehta-green">
-          AI Asistente · Cehta
-        </p>
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink-900 sm:text-4xl">
-          Tu copiloto del portafolio
-        </h1>
-        <p className="max-w-2xl text-base text-ink-500">
-          Tu Asistente AI tiene contexto financiero, legal y operativo de cada
-          empresa. Elegí una para empezar la conversación.
-        </p>
+      {/* Hero editorial premium con gradient mesh */}
+      <header className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/3 to-emerald-50/30 ring-1 ring-cehta-green/15 p-8 dark:from-ink-900 dark:via-cehta-green/10 dark:to-cehta-green/5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 gradient-mesh opacity-60"
+        />
+        <Sparkles
+          aria-hidden
+          className="absolute right-8 top-8 h-4 w-4 text-amber-400/60 sparkle"
+        />
+        <Sparkles
+          aria-hidden
+          className="absolute right-24 top-16 h-3 w-3 text-cehta-green/50 sparkle"
+          style={{ animationDelay: "0.5s" }}
+        />
+        <div className="relative space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
+            <span className="relative inline-flex h-1.5 w-1.5">
+              <span className="absolute h-full w-full rounded-full bg-cehta-green/50 animate-pulse-ring" />
+              <span className="relative h-1.5 w-1.5 rounded-full bg-cehta-green" />
+            </span>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+              AI Asistente · Powered by Claude
+            </p>
+          </div>
+          <h1 className="font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+            Tu <span className="text-gradient">copiloto</span> del portafolio
+          </h1>
+          <p className="max-w-2xl text-base text-ink-500 dark:text-ink-400">
+            Tu Asistente AI tiene contexto financiero, legal y operativo de cada
+            empresa. Elegí una para empezar la conversación.
+          </p>
+        </div>
       </header>
 
-      {/* Hint card */}
+      {/* Hint card premium */}
       <Surface variant="glass" className="flex items-start gap-3">
-        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green">
+        <span className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green ring-1 ring-cehta-green/20">
           <Sparkles className="h-4 w-4" strokeWidth={1.75} />
         </span>
         <div>
-          <p className="text-sm font-medium text-ink-900">
+          <p className="text-sm font-medium text-ink-900 dark:text-ink-100">
             Contexto por empresa
           </p>
-          <p className="mt-0.5 text-sm text-ink-500">
+          <p className="mt-0.5 text-sm text-ink-500 dark:text-ink-400">
             Cada asistente tiene memoria de movimientos, OCs, F29 y documentos
             legales de su empresa. Verificá decisiones financieras antes de
             actuar.
@@ -103,43 +124,69 @@ export default function AsistentePickerPage() {
       {/* Grid */}
       {!isLoading && !error && sorted.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sorted.map((emp) => {
+          {sorted.map((emp, idx) => {
             const accent = colorFor(emp.codigo);
             return (
               <Link
                 key={emp.codigo}
                 href={`/empresa/${emp.codigo}/asistente`}
-                className="group relative block overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-hairline shadow-card transition-all duration-200 ease-apple hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+                style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}
+                className="group relative block overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-hairline shadow-card transition-all duration-300 ease-apple hover:-translate-y-1 hover:shadow-elevated-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green animate-slide-up-fade dark:bg-ink-900 dark:ring-ink-800"
               >
+                {/* Accent border top */}
+                <span
+                  aria-hidden
+                  className="absolute inset-x-0 top-0 h-px"
+                  style={{
+                    background: `linear-gradient(90deg, transparent, ${accent}80, transparent)`,
+                  }}
+                />
                 {/* Wash on hover */}
                 <span
                   aria-hidden
-                  className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                  className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                   style={{
-                    background: `linear-gradient(135deg, ${accent}10 0%, transparent 60%)`,
+                    background: `linear-gradient(135deg, ${accent}15 0%, transparent 60%)`,
                   }}
                 />
+                {/* Decorative blob on hover */}
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute -right-6 -bottom-6 h-20 w-20 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-80"
+                  style={{ backgroundColor: `${accent}40` }}
+                />
                 <div className="relative flex items-start gap-3">
-                  <EmpresaLogo empresaCodigo={emp.codigo} size={44} />
+                  <div className="transition-transform duration-300 ease-apple group-hover:scale-110">
+                    <EmpresaLogo empresaCodigo={emp.codigo} size={44} />
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-display text-base font-semibold tracking-tight text-ink-900">
+                    <p className="font-display text-base font-semibold tracking-tight text-ink-900 dark:text-ink-100 transition-colors group-hover:text-cehta-green">
                       {emp.codigo}
                     </p>
-                    <p className="mt-0.5 line-clamp-1 text-sm text-ink-500">
+                    <p className="mt-0.5 line-clamp-1 text-sm text-ink-500 dark:text-ink-400">
                       {emp.razon_social ?? "—"}
                     </p>
                   </div>
                   <ArrowUpRight
-                    className="h-4 w-4 shrink-0 text-ink-300 transition-colors group-hover:text-cehta-green"
+                    className="h-4 w-4 shrink-0 text-ink-300 transition-all duration-300 ease-apple group-hover:text-cehta-green group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
                     strokeWidth={1.75}
                   />
                 </div>
                 <div className="relative mt-4 flex items-center gap-2">
                   <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ backgroundColor: accent }}
-                  />
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
+                    className="relative inline-flex h-1.5 w-1.5 items-center justify-center"
+                  >
+                    <span
+                      aria-hidden
+                      className="absolute h-full w-full rounded-full opacity-50 animate-pulse-ring"
+                      style={{ backgroundColor: accent }}
+                    />
+                    <span
+                      className="relative h-1.5 w-1.5 rounded-full"
+                      style={{ backgroundColor: accent }}
+                    />
+                  </span>
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500 transition-colors group-hover:text-cehta-green">
                     Abrir asistente
                   </span>
                 </div>

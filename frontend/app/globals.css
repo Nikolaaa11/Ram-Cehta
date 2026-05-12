@@ -567,3 +567,103 @@ html.dark .gradient-border { background: #18181b; }
   transform: perspective(1000px) rotateX(2deg) rotateY(-2deg) translateZ(4px);
 }
 
+/* ── Progress bar indeterminate (loading sin saber %) ─────────────────────── */
+@keyframes progress-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
+/* ── Progress bar stripes animated (modo "active") ────────────────────────── */
+.progress-stripes {
+  background-image: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.15) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.15) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 1rem 1rem;
+  animation: progress-stripes-flow 0.8s linear infinite;
+}
+@keyframes progress-stripes-flow {
+  from { background-position: 0 0; }
+  to { background-position: 1rem 0; }
+}
+
+/* ── Frosted glass elevated (premium navbar, modal overlays) ──────────────── */
+.frosted-glass {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+html.dark .frosted-glass {
+  background: rgba(24, 24, 27, 0.65);
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+/* ── Aurora gradient (login bg / informe-lp hero alternativo) ─────────────── */
+@keyframes aurora-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.aurora-bg {
+  background: linear-gradient(
+    125deg,
+    rgba(29, 111, 66, 0.10) 0%,
+    rgba(52, 199, 89, 0.08) 25%,
+    rgba(10, 132, 255, 0.10) 50%,
+    rgba(94, 92, 230, 0.08) 75%,
+    rgba(29, 111, 66, 0.10) 100%
+  );
+  background-size: 400% 400%;
+  animation: aurora-shift 18s ease infinite;
+}
+
+/* ── Halo glow (alrededor de avatars, icons importantes) ──────────────────── */
+.halo-glow {
+  position: relative;
+}
+.halo-glow::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(29, 111, 66, 0.25) 0%,
+    transparent 60%
+  );
+  z-index: -1;
+  pointer-events: none;
+}
+.halo-glow-gold::before {
+  background: radial-gradient(
+    circle,
+    rgba(212, 175, 55, 0.30) 0%,
+    transparent 60%
+  );
+}
+
+/* ── Underline animado (Apple-style links) ────────────────────────────────── */
+.underline-grow {
+  position: relative;
+  display: inline-flex;
+}
+.underline-grow::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1.5px;
+  width: 0;
+  background: currentColor;
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.underline-grow:hover::after {
+  width: 100%;
+}
+
