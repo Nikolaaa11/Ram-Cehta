@@ -16,6 +16,7 @@ from fastapi.responses import Response
 from sqlalchemy import and_, func, select, text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.services.empresa_scope_service import assert_empresa_access
 from app.infrastructure.repositories.avance_repository import (
     HitoRepository,
     ProyectoRepository,
@@ -102,6 +103,8 @@ async def list_proyectos(
     db: DBSession,
     empresa_codigo: str,
 ) -> list[ProyectoListItem]:
+    # V5++ ola CB: solo proyectos de empresas en scope
+    await assert_empresa_access(user, db, empresa_codigo)
     proyecto_repo = ProyectoRepository(db)
     hito_repo = HitoRepository(db)
     riesgo_repo = RiesgoRepository(db)
@@ -133,6 +136,8 @@ async def create_proyecto(
     db: DBSession,
     body: ProyectoCreate,
 ) -> ProyectoRead:
+    # V5++ ola CB: solo crear en empresas en scope
+    await assert_empresa_access(user, db, body.empresa_codigo)
     repo = ProyectoRepository(db)
     proyecto = await repo.create(body)
     await db.commit()
@@ -155,6 +160,8 @@ async def get_proyecto(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, proyecto.empresa_codigo)
     hitos = await HitoRepository(db).list_for_proyecto(proyecto_id)
     riesgos = await RiesgoRepository(db).list_for_proyecto(proyecto_id)
     return ProyectoDetail.model_validate(
@@ -183,6 +190,8 @@ async def update_proyecto(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, proyecto.empresa_codigo)
     updated = await repo.update(proyecto, body)
     await db.commit()
     return ProyectoRead.model_validate(updated)
@@ -202,6 +211,8 @@ async def delete_proyecto(
     repo = ProyectoRepository(db)
     proyecto = await repo.get(proyecto_id)
     if proyecto is not None:
+        # V5++ ola CB: scope check
+        await assert_empresa_access(user, db, proyecto.empresa_codigo)
         await repo.delete(proyecto)
         await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -224,10 +235,13 @@ async def create_hito(
     proyecto_id: int,
     body: HitoCreate,
 ) -> HitoRead:
-    if (await ProyectoRepository(db).get(proyecto_id)) is None:
+    proyecto = await ProyectoRepository(db).get(proyecto_id)
+    if proyecto is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado"
         )
+    # V5++ ola CB: scope check via empresa del proyecto padre
+    await assert_empresa_access(user, db, proyecto.empresa_codigo)
     hito = await HitoRepository(db).create(proyecto_id, body)
     await db.commit()
     return HitoRead.model_validate(hito)
@@ -250,6 +264,10 @@ async def update_hito(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Hito no encontrado"
         )
+    # V5++ ola CB: scope check via empresa del proyecto padre
+    proyecto = await ProyectoRepository(db).get(hito.proyecto_id)
+    if proyecto:
+        await assert_empresa_access(user, db, proyecto.empresa_codigo)
     updated = await repo.update(hito, body)
     await db.commit()
     return HitoRead.model_validate(updated)
@@ -269,6 +287,10 @@ async def delete_hito(
     repo = HitoRepository(db)
     hito = await repo.get(hito_id)
     if hito is not None:
+        # V5++ ola CB: scope check via empresa del proyecto padre
+        proyecto = await ProyectoRepository(db).get(hito.proyecto_id)
+        if proyecto:
+            await assert_empresa_access(user, db, proyecto.empresa_codigo)
         await repo.delete(hito)
         await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -290,6 +312,8 @@ async def list_riesgos_empresa(
     empresa_codigo: str,
     severidad: str | None = None,
 ) -> list[RiesgoRead]:
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, empresa_codigo)
     riesgos = await RiesgoRepository(db).list_for_empresa(empresa_codigo, severidad)
     return [RiesgoRead.model_validate(r) for r in riesgos]
 
@@ -311,6 +335,8 @@ async def create_riesgo_proyecto(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Proyecto no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, proyecto.empresa_codigo)
     # Forzar el proyecto_id de la URL y derivar empresa_codigo del proyecto
     body_with_proyecto = body.model_copy(update={"proyecto_id": proyecto_id})
     riesgo = await RiesgoRepository(db).create(
@@ -337,6 +363,13 @@ async def create_riesgo_empresa(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Falta empresa_codigo o proyecto_id",
         )
+    # V5++ ola CB: scope check
+    if body.empresa_codigo:
+        await assert_empresa_access(user, db, body.empresa_codigo)
+    elif body.proyecto_id:
+        proyecto = await ProyectoRepository(db).get(body.proyecto_id)
+        if proyecto:
+            await assert_empresa_access(user, db, proyecto.empresa_codigo)
     riesgo = await RiesgoRepository(db).create(body)
     await db.commit()
     return RiesgoRead.model_validate(riesgo)
@@ -359,6 +392,9 @@ async def update_riesgo(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Riesgo no encontrado"
         )
+    # V5++ ola CB: scope check
+    if riesgo.empresa_codigo:
+        await assert_empresa_access(user, db, riesgo.empresa_codigo)
     updated = await repo.update(riesgo, body)
     await db.commit()
     return RiesgoRead.model_validate(updated)
@@ -378,6 +414,9 @@ async def delete_riesgo(
     repo = RiesgoRepository(db)
     riesgo = await repo.get(riesgo_id)
     if riesgo is not None:
+        # V5++ ola CB: scope check
+        if riesgo.empresa_codigo:
+            await assert_empresa_access(user, db, riesgo.empresa_codigo)
         await repo.delete(riesgo)
         await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -400,10 +439,9 @@ async def sync_roadmap(
 ) -> SyncRoadmapResponse:
     """Detecta `/Cehta Capital/Proyectos/{codigo}/Roadmap.xlsx` y lo registra.
 
-    Implementación mínima V3 fase 5: marca el path en el proyecto base
-    (creándolo si no existe). El parsing detallado del Excel queda
-    para fase posterior — acá garantizamos al menos visibilidad del path.
+    V5++ ola CB: scope check.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     dbx = await _get_dropbox_service(db)
     if dbx is None:
         raise HTTPException(
@@ -731,9 +769,9 @@ async def import_gantt_preview(
 ) -> GanttImportPreview:
     """Modo dry-run: parsea el Excel y devuelve preview sin tocar DB.
 
-    El frontend muestra al usuario los proyectos/hitos detectados y los
-    warnings antes de pedir confirmación para el commit.
+    V5++ ola CB: scope check.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     content = await _read_upload(file)
     try:
         parsed = parse_gantt_excel(content, empresa_codigo=empresa_codigo)
@@ -756,18 +794,8 @@ async def import_gantt_commit(
     empresa_codigo: str,
     file: UploadFile = File(..., description="Excel del Gantt a importar"),
 ) -> GanttImportResult:
-    """Modo persistencia: parsea el Excel y crea/actualiza proyectos+hitos.
-
-    Estrategia upsert por `metadata_.codigo_excel`:
-    - Si existe un proyecto en DB con ese codigo en metadata, se actualiza.
-    - Si no existe, se crea.
-    - Hitos: estrategia conservadora — sólo se crean los que no existen
-      (match por proyecto + nombre normalizado). Esto evita pisar
-      ediciones manuales que el usuario haya hecho desde la UI.
-
-    Para forzar reset completo, el usuario puede borrar los proyectos
-    primero desde la UI.
-    """
+    """V5++ ola CB: scope check + persistir Gantt."""
+    await assert_empresa_access(user, db, empresa_codigo)
     content = await _read_upload(file)
     try:
         parsed = parse_gantt_excel(content, empresa_codigo=empresa_codigo)
@@ -832,19 +860,8 @@ async def sync_gantt_from_dropbox(
     db: DBSession,
     empresa_codigo: str,
 ) -> GanttImportResult:
-    """Descarga el Roadmap.xlsx desde Dropbox, lo parsea y commitea.
-
-    Busca en orden:
-    1. /Cehta Capital/01-Empresas/{empresa}/05-Proyectos & Avance/Roadmap.xlsx
-    2. /Cehta Capital/01-Empresas/{empresa}/05-Proyectos & Avance/Carta Gantt.xlsx
-    3. /Cehta Capital/Proyectos/{empresa}/Roadmap.xlsx (legacy V3)
-
-    Si no encuentra archivo en ninguno de los candidatos, devuelve 404.
-    Si Dropbox no está conectado, devuelve 503.
-
-    Atajo: 1 click sincroniza el Gantt de la empresa sin tener que
-    descargar el archivo a tu disco y volver a subirlo.
-    """
+    """V5++ ola CB: scope check + sync Gantt desde Dropbox."""
+    await assert_empresa_access(user, db, empresa_codigo)
     dbx = await _get_dropbox_service(db)
     if dbx is None:
         raise HTTPException(
@@ -956,19 +973,14 @@ async def sync_all_gantts_from_dropbox(
 ) -> GanttSyncAllResult:
     """Sincroniza los Gantts de TODAS las empresas del portafolio desde Dropbox.
 
-    Itera por cada empresa registrada y busca su Roadmap.xlsx en:
-        /Cehta Capital/01-Empresas/{empresa}/05-Proyectos & Avance/Roadmap.xlsx
-
-    Para cada empresa:
-    - Si el archivo existe → descarga, parsea, upserta proyectos+hitos.
-    - Si no existe → reporta `not_found` y sigue con la siguiente.
-    - Si falla el parser → reporta `error` y sigue.
-
-    Aislamiento: las empresas que fallan NO afectan a las demás. Cada
-    empresa se procesa con flush propio. El commit final es uno solo.
-
-    El endpoint devuelve un resumen agregado con detalle por empresa.
+    V5++ ola CB: SOLO ADMIN. Esto opera cross-empresa así que solo accesible
+    para users con app_role='admin'.
     """
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sync all-empresas solo está disponible para administradores. Use el endpoint /{empresa_codigo}/import-excel/sync-from-dropbox para tu empresa específica.",
+        )
     dbx = await _get_dropbox_service(db)
     if dbx is None:
         raise HTTPException(
@@ -1138,12 +1150,8 @@ async def delete_imported_proyectos(
     db: DBSession,
     empresa_codigo: str,
 ) -> dict[str, int | str]:
-    """Borra todos los proyectos importados desde Excel para esta empresa.
-
-    Identifica los importados por la presencia de `metadata_.codigo_excel`.
-    Los proyectos creados manualmente (sin codigo_excel) no se tocan.
-    Los hitos asociados se borran en cascada (ondelete CASCADE en FK).
-    """
+    """V5++ ola CB: scope check + borrar proyectos importados."""
+    await assert_empresa_access(user, db, empresa_codigo)
     q = select(ProyectoEmpresa).where(ProyectoEmpresa.empresa_codigo == empresa_codigo)
     proyectos = list((await db.scalars(q)).all())
     borrados = 0
