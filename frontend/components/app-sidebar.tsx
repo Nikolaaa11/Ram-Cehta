@@ -44,6 +44,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
+import {
+  useMyEmpresas,
+  pickPrimaryEmpresa,
+  LOGO_MAP,
+} from "@/hooks/use-my-empresas";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { useMailboxPrefetch } from "@/hooks/use-mailbox";
@@ -402,6 +407,24 @@ export function AppSidebar({ email }: AppSidebarProps) {
   // Atajos teclado globales (gd → dashboard, gv → vouchers, etc.)
   useKeyboardShortcuts();
 
+  // V5++ ola BR — Logo + nombre dinámicos según la empresa del user
+  // - Admin con muchas empresas → "Cehta Capital" default
+  // - 1 empresa → muestra ese logo + razón social
+  // - Múltiples → la primera operativa (no admin entity)
+  const { data: myEmpresas } = useMyEmpresas();
+  const primaryEmpresa = pickPrimaryEmpresa(myEmpresas);
+  const brandLogo = primaryEmpresa
+    ? LOGO_MAP[primaryEmpresa.codigo] ?? "/logos/cehta.png"
+    : "/logos/cehta.png";
+  const brandName = primaryEmpresa
+    ? primaryEmpresa.razon_social.length > 26
+      ? primaryEmpresa.razon_social.slice(0, 24) + "…"
+      : primaryEmpresa.razon_social
+    : "Cehta Capital";
+  const brandSubtitle = primaryEmpresa
+    ? primaryEmpresa.codigo
+    : "FIP CEHTA ESG";
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-hairline bg-white dark:border-ink-800 dark:bg-ink-950">
       {/* Brand */}
@@ -409,8 +432,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glass ring-1 ring-hairline dark:bg-ink-900 dark:ring-ink-700">
             <Image
-              src="/logos/cehta.png"
-              alt="Cehta Capital"
+              src={brandLogo}
+              alt={brandName}
               width={40}
               height={40}
               className="h-full w-full object-contain p-0.5"
@@ -419,10 +442,10 @@ export function AppSidebar({ email }: AppSidebarProps) {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
-              Cehta Capital
+            <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100 truncate" title={brandName}>
+              {brandName}
             </p>
-            <p className="text-xs text-ink-500">FIP CEHTA ESG</p>
+            <p className="text-xs text-ink-500 truncate" title={brandSubtitle}>{brandSubtitle}</p>
           </div>
           {/* V4 fase 4 — data-tour anchor para el OnboardingTour. Wrappeamos
               en un span para no tener que modificar la API de NotificationsBell. */}
