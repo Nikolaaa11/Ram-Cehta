@@ -153,3 +153,67 @@ def test_sorted_output_for_consistency() -> None:
         user=_scoped(), allowed_codes=frozenset({"ZETA", "ALFA", "MIKE"})
     )
     assert scope.filter_codes(None) == ["ALFA", "MIKE", "ZETA"]
+
+
+# ----------------------------------------------------------------------------
+# scope_sql_clause helper (V5++ ola CB)
+# ----------------------------------------------------------------------------
+
+
+def test_scope_sql_clause_admin_returns_empty() -> None:
+    """Admin → no clause, no params."""
+    from app.services.empresa_scope_service import scope_sql_clause
+    scope = EmpresaScope(user=_admin(), allowed_codes=None)
+    clause, params = scope_sql_clause(scope)
+    assert clause == ""
+    assert params == {}
+
+
+def test_scope_sql_clause_scoped_user_returns_and_clause() -> None:
+    """Scoped user → AND clause con array param."""
+    from app.services.empresa_scope_service import scope_sql_clause
+    scope = EmpresaScope(
+        user=_scoped(), allowed_codes=frozenset({"EVOQUE", "RHO"})
+    )
+    clause, params = scope_sql_clause(scope)
+    assert "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))" == clause
+    assert params == {"scope_codes": ["EVOQUE", "RHO"]}
+
+
+def test_scope_sql_clause_as_where_for_first_filter() -> None:
+    """as_where=True → WHERE en lugar de AND."""
+    from app.services.empresa_scope_service import scope_sql_clause
+    scope = EmpresaScope(
+        user=_scoped(), allowed_codes=frozenset({"DTE"})
+    )
+    clause, _params = scope_sql_clause(scope, as_where=True)
+    assert clause.startswith("WHERE ")
+
+
+def test_scope_sql_clause_custom_column() -> None:
+    """Soporta alias como e.codigo."""
+    from app.services.empresa_scope_service import scope_sql_clause
+    scope = EmpresaScope(
+        user=_scoped(), allowed_codes=frozenset({"EVOQUE"})
+    )
+    clause, _ = scope_sql_clause(scope, column="e.codigo")
+    assert "e.codigo = ANY" in clause
+
+
+def test_scope_sql_clause_custom_param_name() -> None:
+    """Permite param name custom para evitar collisions."""
+    from app.services.empresa_scope_service import scope_sql_clause
+    scope = EmpresaScope(
+        user=_scoped(), allowed_codes=frozenset({"EVOQUE"})
+    )
+    clause, params = scope_sql_clause(scope, param_name="my_codes")
+    assert ":my_codes" in clause
+    assert "my_codes" in params
+
+
+def test_scope_sql_clause_user_without_empresas_returns_sentinel() -> None:
+    """User sin empresas → sentinel para que 0 rows."""
+    from app.services.empresa_scope_service import scope_sql_clause
+    scope = EmpresaScope(user=_scoped(), allowed_codes=frozenset())
+    _, params = scope_sql_clause(scope)
+    assert params["scope_codes"] == ["__NO_EMPRESA__"]

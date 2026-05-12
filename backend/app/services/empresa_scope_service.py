@@ -296,3 +296,45 @@ class EmpresaScope:
 
 
 EmpresaScopeDep = Annotated[EmpresaScope, Depends(_resolve_scope)]
+
+
+# ---------------------------------------------------------------------------
+# SQL helpers — reduce duplicación en endpoints que filtran por scope
+# ---------------------------------------------------------------------------
+
+
+def scope_sql_clause(
+    scope: EmpresaScope,
+    column: str = "empresa_codigo",
+    as_where: bool = False,
+    param_name: str = "scope_codes",
+) -> tuple[str, dict]:
+    """V5++ ola CB: helper para construir cláusula SQL de scope.
+
+    Args:
+        scope: EmpresaScope inyectado en el endpoint.
+        column: nombre de la columna a filtrar. Default "empresa_codigo".
+                Soporta alias como "e.codigo", "v.empresa_codigo" etc.
+        as_where: si True devuelve "WHERE ..." (para queries sin WHERE existente).
+                  Si False (default) devuelve "AND ..." para agregar a WHERE.
+        param_name: nombre del binding param. Default "scope_codes".
+
+    Returns:
+        (clause_str, params_dict). Si admin global, clause_str="" y dict={}.
+
+    Uso:
+        clause, params = scope_sql_clause(scope, column="empresa_codigo")
+        sql = f"SELECT * FROM core.foo WHERE x = :y {clause}"
+        params.update({"y": "value"})
+        rows = await db.execute(text(sql), params)
+    """
+    if scope.is_global:
+        return "", {}
+
+    allowed = sorted(scope.allowed_codes or frozenset())
+    if not allowed:
+        allowed = ["__NO_EMPRESA__"]  # sentinel → 0 rows
+
+    prefix = "WHERE " if as_where else "AND "
+    clause = f"{prefix}{column} = ANY(CAST(:{param_name} AS text[]))"
+    return clause, {param_name: allowed}
