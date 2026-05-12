@@ -377,6 +377,14 @@ export function VouchersClientView({
               Plantillas
             </Link>
             <Link
+              href={"/vouchers/importar" as Route}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-gradient-to-r from-cehta-green/10 to-cehta-green/5 px-3 py-2 text-sm font-medium text-cehta-green hover:from-cehta-green/15 hover:to-cehta-green/10"
+              title="Subí una imagen, PDF o PPT y la IA precarga los campos"
+            >
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+              Importar con IA
+            </Link>
+            <Link
               href={"/vouchers/nubox" as Route}
               className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green bg-cehta-green/5 px-3 py-2 text-sm font-medium text-cehta-green hover:bg-cehta-green/10"
               title="Form Nubox-style (Información Contable + Financiera)"
