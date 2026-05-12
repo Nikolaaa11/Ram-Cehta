@@ -52,7 +52,10 @@ if _is_transaction_pooler:
             "prepared_statement_cache_size": 0,
         },
     )
-    # V5++ ola BS HOTFIX FINAL: vuelta a config simple conocida buena
+else:
+    # V5++ ola BS HOTFIX FINAL: pool ultra conservador para Supabase Free tier
+    # 5 + 2 = 7 max por app machine. Fits dentro del límite de 15 clients
+    # del session pooler aunque haya release machine + app machine.
     engine = create_async_engine(
         _db_url,
         echo=False,
