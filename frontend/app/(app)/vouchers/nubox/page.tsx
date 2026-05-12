@@ -25,9 +25,13 @@ import {
   AlertCircle,
   CheckCircle2,
   CreditCard,
+  Cloud,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useFormAutosave } from "@/hooks/use-form-autosave";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
@@ -135,6 +139,72 @@ export default function NuboxFormPage() {
   const [proveedorLookup, setProveedorLookup] = useState<ProveedorLookupState>({
     status: "idle",
   });
+
+  // Auto-save de borrador en localStorage. Persiste todo el state del form
+  // para que si el user cierra el browser, al volver encuentre lo tipeado.
+  const draftState = useMemo(
+    () => ({
+      empresaCodigo,
+      proveedorRut,
+      proveedorNombre,
+      tipoDocumento,
+      numeroDocumento,
+      formaPago,
+      fechaDocumento,
+      fechaVencimiento,
+      glosa,
+      documentoDropboxPath,
+      contable,
+      financiera,
+    }),
+    [
+      empresaCodigo,
+      proveedorRut,
+      proveedorNombre,
+      tipoDocumento,
+      numeroDocumento,
+      formaPago,
+      fechaDocumento,
+      fechaVencimiento,
+      glosa,
+      documentoDropboxPath,
+      contable,
+      financiera,
+    ],
+  );
+  const { clear: clearDraft, hasSaved } = useFormAutosave(
+    "voucher-nubox-v1",
+    draftState,
+    {
+      onRestore: (saved) => {
+        if (saved.empresaCodigo) setEmpresaCodigo(saved.empresaCodigo);
+        if (saved.proveedorRut) setProveedorRut(saved.proveedorRut);
+        if (saved.proveedorNombre) setProveedorNombre(saved.proveedorNombre);
+        if (saved.tipoDocumento) setTipoDocumento(saved.tipoDocumento);
+        if (saved.numeroDocumento) setNumeroDocumento(saved.numeroDocumento);
+        if (saved.formaPago) setFormaPago(saved.formaPago);
+        if (saved.fechaDocumento) setFechaDocumento(saved.fechaDocumento);
+        if (saved.fechaVencimiento) setFechaVencimiento(saved.fechaVencimiento);
+        if (saved.glosa) setGlosa(saved.glosa);
+        if (saved.documentoDropboxPath)
+          setDocumentoDropboxPath(saved.documentoDropboxPath);
+        if (saved.contable?.length) setContable(saved.contable);
+        if (saved.financiera?.length) setFinanciera(saved.financiera);
+        toast.info("Restauré tu borrador del último intento.");
+      },
+    },
+  );
+
+  // Dirty = al menos un campo no esta vacio (proxy simple).
+  const isDirty =
+    proveedorRut.trim().length > 0 ||
+    proveedorNombre.trim().length > 0 ||
+    numeroDocumento.trim().length > 0 ||
+    glosa.trim().length > 0 ||
+    contable.some((l) => l.comentario || l.cuenta_codigo || l.total) ||
+    financiera.some((l) => l.comentario || l.cuenta_codigo || l.total);
+
+  useUnsavedChangesWarning(isDirty && !submitting);
 
   useEffect(() => {
     if (!session) return;
@@ -290,6 +360,7 @@ export default function NuboxFormPage() {
           ? `Voucher ${resp.codigo} creado · Proveedor "${proveedorNombre.trim()}" agregado al catálogo`
           : `Voucher ${resp.codigo} creado en DRAFT`,
       );
+      clearDraft();
       window.location.href = `/vouchers/${resp.voucher_id}`;
     } catch (err) {
       toast.error(
@@ -299,6 +370,22 @@ export default function NuboxFormPage() {
       setSubmitting(false);
     }
   };
+
+  // Atajos de teclado: Ctrl/Cmd+S para submit, Ctrl/Cmd+Enter para agregar
+  // linea contable (la mas usada). El hook ignora el handler si el form
+  // todavia esta cargando metadata o ya esta enviando.
+  useFormShortcuts({
+    "mod+s": (e) => {
+      e.preventDefault();
+      if (!submitting && cuadrado) {
+        handleSubmit(new Event("submit") as unknown as React.FormEvent);
+      }
+    },
+    "mod+enter": (e) => {
+      e.preventDefault();
+      if (!submitting) addLine("contable");
+    },
+  });
 
   if (loading) {
     return (
@@ -321,13 +408,25 @@ export default function NuboxFormPage() {
         >
           <ArrowLeft className="size-5" />
         </Link>
-        <div>
-          <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
-            Nuevo voucher — Form Nubox
-          </h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+              Nuevo voucher — Form Nubox
+            </h1>
+            {hasSaved && isDirty && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-cehta-green/10 px-2.5 py-0.5 text-xs text-cehta-green">
+                <Cloud className="h-3 w-3" />
+                Borrador guardado
+              </span>
+            )}
+          </div>
           <p className="text-sm text-ink-500 mt-1">
             Compra con factura proveedor. Σ Contable = Σ Financiera (partida
             doble). Inicia en DRAFT y requiere aprobación de Líder + Director.
+            <span className="ml-2 hidden text-xs text-ink-400 sm:inline">
+              · Atajos: <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘S</kbd> guardar ·{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘↵</kbd> agregar línea
+            </span>
           </p>
         </div>
       </div>
