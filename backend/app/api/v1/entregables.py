@@ -43,6 +43,10 @@ from app.schemas.entregable import (
     ReporteRegulatorio,
 )
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -184,6 +188,7 @@ def _row_to_read(row: dict[str, Any]) -> EntregableRead:
 async def list_entregables(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     categoria: Categoria | None = None,
     estado: EstadoEntregable | None = None,
     anio: int | None = Query(None, ge=2024, le=2030),
@@ -252,6 +257,16 @@ async def list_entregables(
             "AND fecha_limite <= (CURRENT_DATE + INTERVAL '15 days')"
         )
 
+    # V5++ ola CB: aplicar scope multi-tenant.
+    # Los entregables se vinculan a empresa via subcategoria o extra.empresa_codigo.
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        conditions.append(
+            "(subcategoria = ANY(CAST(:scope_codes AS text[])) "
+            "OR extra->>'empresa_codigo' = ANY(CAST(:scope_codes AS text[])))"
+        )
+        params["scope_codes"] = allowed
+
     where = "WHERE " + " AND ".join(conditions) if conditions else ""
     rows = (
         await db.execute(
@@ -270,29 +285,40 @@ async def list_entregables(
 # ---------------------------------------------------------------------------
 @router.get("/facets")
 async def get_facets(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> dict[str, list[str]]:
     """Devuelve valores únicos para alimentar selects de filtros.
 
-    Útil para que el frontend muestre dropdowns de Responsable / Empresa
-    sin tener que adivinar valores. Devuelve lista ordenada alfabéticamente.
+    V5++ ola CB: solo facets de empresas en scope del user.
     """
+    params: dict = {}
+    where_scope = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        where_scope = (
+            "WHERE (subcategoria = ANY(CAST(:scope_codes AS text[])) "
+            "OR extra->>'empresa_codigo' = ANY(CAST(:scope_codes AS text[])))"
+        )
+        params["scope_codes"] = allowed
     rows_resp = (
         await db.execute(
             text(
-                "SELECT DISTINCT responsable FROM app.entregables_regulatorios "
-                "WHERE responsable IS NOT NULL ORDER BY responsable"
-            )
+                f"SELECT DISTINCT responsable FROM app.entregables_regulatorios "
+                f"{where_scope}{(' AND ' if where_scope else 'WHERE ')}responsable IS NOT NULL "
+                f"ORDER BY responsable"
+            ),
+            params,
         )
     ).all()
     rows_emp = (
         await db.execute(
             text(
-                "SELECT DISTINCT COALESCE(extra->>'empresa_codigo', subcategoria) AS emp "
-                "FROM app.entregables_regulatorios "
-                "WHERE COALESCE(extra->>'empresa_codigo', subcategoria) IS NOT NULL "
-                "ORDER BY emp"
-            )
+                f"SELECT DISTINCT COALESCE(extra->>'empresa_codigo', subcategoria) AS emp "
+                f"FROM app.entregables_regulatorios "
+                f"{where_scope}{(' AND ' if where_scope else 'WHERE ')}COALESCE(extra->>'empresa_codigo', subcategoria) IS NOT NULL "
+                f"ORDER BY emp"
+            ),
+            params,
         )
     ).all()
     return {
@@ -306,16 +332,26 @@ async def get_facets(
 # ---------------------------------------------------------------------------
 @router.get("/counts", response_model=EntregableEstadosCounts)
 async def get_counts(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> EntregableEstadosCounts:
-    """Conteo por estado, sin filtros — para el header KPI del módulo."""
+    """Conteo por estado — solo de empresas en scope del user. V5++ ola CB."""
+    params: dict = {}
+    where_scope = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        where_scope = (
+            "WHERE (subcategoria = ANY(CAST(:scope_codes AS text[])) "
+            "OR extra->>'empresa_codigo' = ANY(CAST(:scope_codes AS text[])))"
+        )
+        params["scope_codes"] = allowed
     rows = (
         await db.execute(
             text(
-                "SELECT estado, COUNT(*) AS n "
-                "FROM app.entregables_regulatorios "
-                "GROUP BY estado"
-            )
+                f"SELECT estado, COUNT(*) AS n "
+                f"FROM app.entregables_regulatorios "
+                f"{where_scope} GROUP BY estado"
+            ),
+            params,
         )
     ).mappings().all()
     counts = EntregableEstadosCounts()
@@ -330,20 +366,27 @@ async def get_counts(
 # ---------------------------------------------------------------------------
 @router.get("/critical-count", response_model=CriticalCount)
 async def critical_count(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> CriticalCount:
     """Conteo agregado de entregables en alerta crítica.
 
     Crítico = vencido / hoy / ≤5 días, AND aún no entregado.
 
-    Endpoint pensado para el badge del sidebar — devuelve solo enteros,
-    sin payloads, con un solo SELECT agregado para que sea barato de
-    llamar frecuentemente (cada vez que el usuario navega).
+    V5++ ola CB: solo entregables de empresas en scope.
     """
+    params: dict = {}
+    scope_filter = ""
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        scope_filter = (
+            "AND (subcategoria = ANY(CAST(:scope_codes AS text[])) "
+            "OR extra->>'empresa_codigo' = ANY(CAST(:scope_codes AS text[])))"
+        )
+        params["scope_codes"] = allowed
     row = (
         await db.execute(
             text(
-                """
+                f"""
                 SELECT
                   COUNT(*) FILTER (WHERE fecha_limite < CURRENT_DATE)             AS vencidos,
                   COUNT(*) FILTER (WHERE fecha_limite = CURRENT_DATE)             AS hoy,
@@ -353,8 +396,10 @@ async def critical_count(
                   )                                                               AS proximos_5d
                 FROM app.entregables_regulatorios
                 WHERE estado IN ('pendiente','en_proceso')
+                {scope_filter}
                 """
-            )
+            ),
+            params,
         )
     ).mappings().first()
     if row is None:
@@ -974,7 +1019,7 @@ async def reporte_regulatorio(
 # ---------------------------------------------------------------------------
 @router.get("/{entregable_id}", response_model=EntregableRead)
 async def get_entregable(
-    user: CurrentUser, db: DBSession, entregable_id: int
+    user: CurrentUser, db: DBSession, entregable_id: int, scope: EmpresaScopeDep,
 ) -> EntregableRead:
     row = (
         await db.execute(
@@ -989,6 +1034,19 @@ async def get_entregable(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Entregable no encontrado"
         )
+    # V5++ ola CB: verificar acceso a la empresa del entregable
+    if not scope.is_global:
+        row_d = dict(row)
+        empresa_e = row_d.get("subcategoria") or (
+            (row_d.get("extra") or {}).get("empresa_codigo")
+            if isinstance(row_d.get("extra"), dict)
+            else None
+        )
+        if empresa_e and empresa_e not in (scope.allowed_codes or set()):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Sin acceso al entregable de '{empresa_e}'",
+            )
     return _row_to_read(dict(row))
 
 

@@ -37,6 +37,7 @@ from app.schemas.trabajador import (
     TrabajadorUpdate,
 )
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import assert_empresa_access
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.dropbox_sync_service import DropboxSyncService
 from app.services.trabajador_service import TrabajadorService
@@ -81,6 +82,8 @@ async def list_trabajadores(
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> Page[TrabajadorListItem]:
+    # V5++ ola CB: solo trabajadores de empresas en scope del user
+    await assert_empresa_access(user, db, empresa_codigo)
     repo = TrabajadorRepository(db)
     items, total = await repo.list(empresa_codigo, estado, page, size)
     return Page.build(
@@ -103,6 +106,8 @@ async def create_trabajador(
     request: Request,
     body: TrabajadorCreate,
 ) -> TrabajadorRead:
+    # V5++ ola CB: solo crear trabajadores en empresas en scope
+    await assert_empresa_access(user, db, body.empresa_codigo)
     repo = TrabajadorRepository(db)
     existing = await repo.get_by_rut(body.empresa_codigo, body.rut)
     if existing is not None:
@@ -159,6 +164,8 @@ async def get_trabajador(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Trabajador no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, trabajador.empresa_codigo)
     return TrabajadorRead.model_validate(trabajador)
 
 
@@ -180,6 +187,8 @@ async def update_trabajador(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Trabajador no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, trabajador.empresa_codigo)
     before = TrabajadorRead.model_validate(trabajador).model_dump(mode="json")
     updated = await repo.update(trabajador, body)
     await db.commit()
@@ -216,6 +225,8 @@ async def mark_inactive(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Trabajador no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, trabajador.empresa_codigo)
     if trabajador.estado == "inactivo":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -246,6 +257,8 @@ async def delete_trabajador(
     trabajador = await repo.get(trabajador_id)
     if trabajador is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, trabajador.empresa_codigo)
     before = TrabajadorRead.model_validate(trabajador).model_dump(mode="json")
     label = before.get("nombre_completo")
     await db.delete(trabajador)
@@ -301,6 +314,8 @@ async def upload_documento(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Trabajador no encontrado"
         )
+    # V5++ ola CB: scope check
+    await assert_empresa_access(user, db, trabajador.empresa_codigo)
 
     # Leer + validar tamaño
     content = await file.read()
@@ -349,6 +364,10 @@ async def download_documento(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Documento no encontrado"
         )
+    # V5++ ola CB: scope check
+    trabajador = await repo.get(trabajador_id)
+    if trabajador:
+        await assert_empresa_access(user, db, trabajador.empresa_codigo)
     service = await _build_service(db)
     try:
         link = await service.get_documento_temporary_link(doc)
@@ -378,7 +397,10 @@ async def sync_trabajadores_dropbox(
       crea un `core.trabajador_documento` con `tipo` inferido del nombre.
 
     Idempotente: el match por `dropbox_path` evita duplicados al re-ejecutar.
+
+    V5++ ola CB: solo users con scope a la empresa pueden sync.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     integration_repo = IntegrationRepository(db)
     integration = await integration_repo.get_by_provider("dropbox")
     if integration is None:
