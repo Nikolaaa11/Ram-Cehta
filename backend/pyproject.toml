@@ -34,6 +34,10 @@ dependencies = [
     "tiktoken>=0.8,<0.10",
     "pypdf>=5.0,<6.0",
     "python-docx>=1.1,<2.0",
+    # PPTX para extraer texto e imagenes de presentaciones (V5++ ola CE —
+    # /vouchers/extract-from-upload). Liviano (~200KB), pure python.
+    # Si no se instala, el dispatcher soft-falla con warning.
+    "python-pptx>=1.0,<2.0",
     # OCR end-to-end (V4 fase 1) — DEPS CORE.
     # Requiere binarios de sistema en runtime:
     #   apt install tesseract-ocr tesseract-ocr-spa poppler-utils

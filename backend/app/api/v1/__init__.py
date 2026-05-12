@@ -58,6 +58,7 @@ from app.api.v1 import (
     voucher_templates,
     vouchers,
     vouchers_demo,
+    vouchers_extract,
     vouchers_nubox_form,
     webhooks,
 )
@@ -159,6 +160,13 @@ api_router.include_router(plan_cuentas.router, tags=["plan-cuentas"])
 # /vouchers/{voucher_id: int} y FastAPI devolvería 422 Unprocessable.
 api_router.include_router(
     vouchers_nubox_form.router, prefix="/vouchers", tags=["vouchers-nubox-form"]
+)
+# V5++ ola CE: Extraccion IA desde upload (imagen / PDF / DOCX / PPTX).
+# Endpoint /vouchers/extract-from-upload que NO crea el voucher, solo
+# devuelve los campos extraidos para que el FE los muestre en un form
+# editable. Mismo motivo de orden: ruta estatica antes que vouchers.router.
+api_router.include_router(
+    vouchers_extract.router, prefix="/vouchers", tags=["vouchers-extract"]
 )
 # V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
 # arriendos, servicios mensuales). save-as-template + use-template flow.

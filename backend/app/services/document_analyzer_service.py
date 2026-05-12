@@ -335,6 +335,66 @@ def extract_text_docx(content: bytes) -> str:
     return "\n".join(parts)
 
 
+def extract_text_pptx(content: bytes) -> tuple[str, list[str]]:
+    """Extrae texto de un .pptx usando python-pptx.
+
+    Recorre slide por slide. Para cada slide concatena:
+      - Texto de todos los shapes (titulos, bullets, body)
+      - Texto de tablas (cell por cell)
+      - Notas del presentador (si las hay)
+
+    Cada slide queda separado por "--- Slide N ---" para que Claude pueda
+    razonar slide-por-slide si hace falta.
+
+    Soft-fail si python-pptx no esta instalado: devuelve ("", [warning]).
+    """
+    warnings: list[str] = []
+    try:
+        from pptx import Presentation  # type: ignore[import-not-found]
+    except ImportError as exc:
+        warnings.append(
+            "python-pptx no instalado — no puedo leer presentaciones PPT/PPTX. "
+            f"Instalá python-pptx en el backend ({exc})."
+        )
+        log.warning("doc_analyzer.pptx_import_failed", error=str(exc))
+        return "", warnings
+
+    try:
+        prs = Presentation(io.BytesIO(content))
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"No pude abrir el .pptx: {exc}")
+        log.warning("doc_analyzer.pptx_open_failed", error=str(exc))
+        return "", warnings
+
+    slides_text: list[str] = []
+    for idx, slide in enumerate(prs.slides, start=1):
+        slide_parts: list[str] = [f"--- Slide {idx} ---"]
+        for shape in slide.shapes:
+            # Texto de shapes (titulos, content placeholders, text boxes).
+            if hasattr(shape, "text") and shape.text and shape.text.strip():
+                slide_parts.append(shape.text.strip())
+            # Tablas (frecuente en slides de "presupuesto"/"cronograma").
+            if shape.has_table:
+                for row in shape.table.rows:
+                    cells = [
+                        c.text.strip() for c in row.cells if c.text and c.text.strip()
+                    ]
+                    if cells:
+                        slide_parts.append(" | ".join(cells))
+        # Notas del presentador.
+        notes_slide = getattr(slide, "notes_slide", None)
+        if notes_slide is not None:
+            notes_frame = getattr(notes_slide, "notes_text_frame", None)
+            if notes_frame and notes_frame.text and notes_frame.text.strip():
+                slide_parts.append(f"[Notas]: {notes_frame.text.strip()}")
+        if len(slide_parts) > 1:  # mas que solo el header
+            slides_text.append("\n".join(slide_parts))
+
+    if not slides_text:
+        warnings.append("El .pptx no contiene texto extraible (solo imagenes?).")
+    return "\n\n".join(slides_text), warnings
+
+
 def extract_text_image(
     content: bytes,
     mime: str | None = None,
@@ -389,6 +449,8 @@ def _ext_from_content_type(content_type: str, filename: str | None) -> str:
         return "pdf"
     if "officedocument.wordprocessingml" in ct or ct.endswith("/msword"):
         return "docx"
+    if "officedocument.presentationml" in ct or ct.endswith("/vnd.ms-powerpoint"):
+        return "pptx"
     if "png" in ct:
         return "png"
     if "jpeg" in ct or "jpg" in ct:
@@ -426,6 +488,13 @@ async def extract_text(
         )
     if ext == "docx":
         return _ExtractResult(text=extract_text_docx(content), method="docx")
+    if ext in {"pptx", "ppt"}:
+        text_out, warns = extract_text_pptx(content)
+        return _ExtractResult(
+            text=text_out,
+            warnings=tuple(warns),
+            method="pptx" if text_out else "failed",
+        )
     if ext in {"png", "jpg", "jpeg", "gif", "webp", "tif", "tiff"}:
         text_out, warns = extract_text_image(content, mime=content_type)
         # Si OCR rindió → 'image_ocr'; si soft-failed → 'failed'.
