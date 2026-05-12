@@ -48,6 +48,7 @@ from app.api.v1 import (
     proveedores,
     proyectos_contables,
     reportes_contables,
+    reset_data,
     saved_views,
     search,
     suscripciones,
@@ -179,6 +180,9 @@ api_router.include_router(nubox_export.router, tags=["nubox-export"])
 api_router.include_router(reportes_contables.router, tags=["reportes-contables"])
 # V5 Fase 5: Conciliación bancaria voucher ↔ movimiento.
 api_router.include_router(conciliacion.router, tags=["conciliacion"])
+# V5++ ola CD: endpoints de reset/clear data por módulo (gantt, f29, etc.)
+# Para borrar datos viejos antes de re-importar con info actualizada.
+api_router.include_router(reset_data.router, tags=["reset-data"])
 # V5: Seed/cleanup de vouchers demo para probar el dashboard sin
 # crear vouchers manualmente.
 api_router.include_router(vouchers_demo.router, tags=["vouchers-demo"])

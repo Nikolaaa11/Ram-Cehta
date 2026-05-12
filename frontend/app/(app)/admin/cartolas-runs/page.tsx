@@ -31,6 +31,8 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ResetDataButton } from "@/components/shared/ResetDataButton";
+import { RecentActivityFeed } from "@/components/shared/RecentActivityFeed";
 
 interface CartolaRun {
   run_id: number;
@@ -185,19 +187,65 @@ export default function CartolasRunsPage() {
           </p>
         </div>
         {empresaFilter && (
-          <button
-            type="button"
-            onClick={() => syncMut.mutate(empresaFilter)}
-            disabled={syncingEmpresa === empresaFilter}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {syncingEmpresa === empresaFilter ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
-            )}
-            Sync cartolas · {empresaFilter}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <ResetDataButton
+              endpoint={`/admin/reset/movimientos/${empresaFilter}`}
+              method="POST"
+              body={{ confirm: true }}
+              label={`Borrar movimientos · ${empresaFilter}`}
+              title={`Borrar TODOS los movimientos de ${empresaFilter}`}
+              description={
+                <>
+                  <p>
+                    Borra <strong>TODOS</strong> los movimientos bancarios
+                    importados para <strong>{empresaFilter}</strong>
+                    {" "}(todos los períodos).
+                  </p>
+                  <p className="mt-1 text-xs text-ink-500">
+                    Útil cuando hay duplicados o datos erróneos. Después
+                    podés re-sincronizar las cartolas con &quot;Sync cartolas&quot;.
+                  </p>
+                </>
+              }
+              confirmWord={`BORRAR ${empresaFilter}`}
+              onSuccess={() => qc.invalidateQueries({ queryKey: ["cartolas-runs"] })}
+            />
+            <ResetDataButton
+              endpoint={`/admin/reset/cartolas-runs/${empresaFilter}`}
+              method="POST"
+              body={{ confirm: true }}
+              label="Borrar historial sync"
+              title={`Borrar historial de runs · ${empresaFilter}`}
+              description={
+                <>
+                  <p>
+                    Borra el <strong>historial de runs</strong> de
+                    sincronización de cartolas. NO borra los movimientos.
+                  </p>
+                  <p className="mt-1 text-xs text-ink-500">
+                    Útil para forzar re-procesamiento de archivos PDF que
+                    fueron skipped por hash duplicado.
+                  </p>
+                </>
+              }
+              confirmWord={`BORRAR ${empresaFilter}`}
+              ghost
+              onSuccess={() => qc.invalidateQueries({ queryKey: ["cartolas-runs"] })}
+            />
+            <button
+              type="button"
+              onClick={() => syncMut.mutate(empresaFilter)}
+              disabled={syncingEmpresa === empresaFilter}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            >
+              {syncingEmpresa === empresaFilter ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+              )}
+              Sync cartolas · {empresaFilter}
+            </button>
+          </div>
         )}
       </div>
 
@@ -469,6 +517,13 @@ export default function CartolasRunsPage() {
           </li>
         </ul>
       </div>
+
+      {/* V5++ ola CD: bitácora de cambios sobre cartolas/movimientos */}
+      <RecentActivityFeed
+        entityType="cartolas_runs_bulk"
+        title="Actividad reciente · Cartolas & Movimientos"
+        limit={15}
+      />
     </div>
   );
 }

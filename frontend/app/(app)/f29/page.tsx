@@ -15,6 +15,7 @@ import { SyncDropboxButton } from "@/components/empresa/SyncDropboxButton";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
+import { ResetDataButton } from "@/components/shared/ResetDataButton";
 import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
 import { toCLP, toDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -218,11 +219,33 @@ export default function F29Page() {
             estado={estado && estado !== ESTADO_TODOS ? estado : null}
           />
           {empresa && empresa !== EMPRESA_TODAS && (
-            <SyncDropboxButton
-              empresaCodigo={empresa}
-              resource="f29"
-              variant="default"
-            />
+            <>
+              <ResetDataButton
+                endpoint={`/admin/reset/f29/${empresa}`}
+                method="POST"
+                body={{ confirm: true }}
+                label={`Borrar F29 · ${empresa}`}
+                title={`Borrar todos los F29 de ${empresa}`}
+                description={
+                  <>
+                    <p>
+                      Borra <strong>TODOS</strong> los F29 (mensuales SII)
+                      registrados para <strong>{empresa}</strong>.
+                    </p>
+                    <p className="mt-1 text-xs text-ink-500">
+                      Después podés re-sincronizar desde Dropbox tocando
+                      &quot;Sync&quot; para traer la versión actualizada.
+                    </p>
+                  </>
+                }
+                confirmWord={`BORRAR ${empresa}`}
+              />
+              <SyncDropboxButton
+                empresaCodigo={empresa}
+                resource="f29"
+                variant="default"
+              />
+            </>
           )}
           {canCreateF29 && (
             <Link

@@ -20,6 +20,8 @@ import { CrearProyectoDialog } from "@/components/avance/CrearProyectoDialog";
 import { CrearHitoDialog } from "@/components/avance/CrearHitoDialog";
 import { CrearRiesgoDialog } from "@/components/avance/CrearRiesgoDialog";
 import { ImportarGanttDialog } from "@/components/avance/ImportarGanttDialog";
+import { ResetDataButton } from "@/components/shared/ResetDataButton";
+import { RecentActivityFeed } from "@/components/shared/RecentActivityFeed";
 import { cn } from "@/lib/utils";
 import type { ProyectoListItem, RiesgoRead } from "@/lib/api/schema";
 
@@ -85,17 +87,48 @@ export default function EmpresaAvancePage({
               </Surface.Subtitle>
             </div>
             {canCreate && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {tab === "proyectos" && (
-                  <button
-                    type="button"
-                    onClick={() => setImportOpen(true)}
-                    title="Importar Carta Gantt desde Excel"
-                    className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-50"
-                  >
-                    <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} />
-                    Importar Excel
-                  </button>
+                  <>
+                    <ResetDataButton
+                      endpoint={`/admin/reset/gantt/${codigo}`}
+                      method="POST"
+                      body={{ confirm: true }}
+                      label="Borrar Gantt anterior"
+                      title={`Borrar Gantt importado de ${codigo}`}
+                      description={
+                        <>
+                          <p>
+                            <strong>Borra</strong> todos los proyectos
+                            que fueron importados desde Excel para{" "}
+                            <strong>{codigo}</strong>.
+                          </p>
+                          <p className="mt-1">
+                            <strong>NO borra</strong> los proyectos creados
+                            manualmente en la UI (sin codigo_excel). Los hitos
+                            de los proyectos borrados se eliminan en cascada.
+                          </p>
+                          <p className="mt-2 text-xs text-ink-500">
+                            Útil cuando vas a subir un Gantt actualizado.
+                            Después usá &quot;Importar Excel&quot; con el nuevo archivo.
+                          </p>
+                        </>
+                      }
+                      confirmWord={`BORRAR ${codigo}`}
+                      onSuccess={() => {
+                        qc.invalidateQueries({ queryKey: ["avance", codigo] });
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImportOpen(true)}
+                      title="Importar Carta Gantt desde Excel"
+                      className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-colors duration-150 ease-apple hover:bg-ink-50"
+                    >
+                      <FileSpreadsheet className="h-4 w-4" strokeWidth={1.75} />
+                      Importar Excel
+                    </button>
+                  </>
                 )}
                 {tab === "proyectos" ? (
                   <button
@@ -197,6 +230,13 @@ export default function EmpresaAvancePage({
           )}
         </>
       )}
+
+      {/* V5++ ola CD: bitácora de cambios sobre esta empresa */}
+      <RecentActivityFeed
+        entityType="gantt_proyectos_bulk"
+        title={`Actividad reciente · Gantt ${codigo}`}
+        limit={10}
+      />
 
       <CrearProyectoDialog
         open={proyectoOpen}

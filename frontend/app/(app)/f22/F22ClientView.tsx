@@ -33,6 +33,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { exportCsv, csvFilename } from "@/lib/csv-export";
+import { ResetDataButton } from "@/components/shared/ResetDataButton";
 
 interface F22Item {
   f22_id: number;
@@ -258,19 +259,43 @@ export function F22ClientView({ initialEmpresas, initialF22Page }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {empresaFilter && (
-            <button
-              type="button"
-              onClick={() => syncMut.mutate(empresaFilter)}
-              disabled={syncMut.isPending}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green disabled:opacity-50"
-            >
-              {syncMut.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
-              )}
-              Sync Dropbox · {empresaFilter}
-            </button>
+            <>
+              <ResetDataButton
+                endpoint={`/admin/reset/f22/${empresaFilter}`}
+                method="POST"
+                body={{ confirm: true }}
+                label={`Borrar F22 · ${empresaFilter}`}
+                title={`Borrar todos los F22 de ${empresaFilter}`}
+                description={
+                  <>
+                    <p>
+                      Borra <strong>TODOS</strong> los F22 (declaraciones
+                      anuales de renta) registrados para{" "}
+                      <strong>{empresaFilter}</strong>.
+                    </p>
+                    <p className="mt-1 text-xs text-ink-500">
+                      Después podés re-sincronizar desde Dropbox con
+                      &quot;Sync Dropbox · {empresaFilter}&quot; para traer la versión actualizada.
+                    </p>
+                  </>
+                }
+                confirmWord={`BORRAR ${empresaFilter}`}
+                onSuccess={() => qc.invalidateQueries({ queryKey: ["f22"] })}
+              />
+              <button
+                type="button"
+                onClick={() => syncMut.mutate(empresaFilter)}
+                disabled={syncMut.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green disabled:opacity-50"
+              >
+                {syncMut.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
+                )}
+                Sync Dropbox · {empresaFilter}
+              </button>
+            </>
           )}
           <button
             type="button"

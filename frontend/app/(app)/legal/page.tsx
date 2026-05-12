@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { AlertBadge } from "@/components/legal/AlertBadge";
 import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
+import { RecentActivityFeed } from "@/components/shared/RecentActivityFeed";
 import { EMPRESA_COLOR } from "@/components/cartas-gantt/empresa-colors";
 import { toDate } from "@/lib/format";
 import type { LegalDocumentListItem, Page } from "@/lib/api/schema";
@@ -343,6 +344,13 @@ export default function LegalPortafolioPage() {
           </table>
         </Surface>
       )}
+
+      {/* V5++ ola CD: bitácora de cambios en documentos legales */}
+      <RecentActivityFeed
+        entityType="legal_document"
+        title="Actividad reciente · Documentos legales"
+        limit={15}
+      />
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
+import { RecentActivityFeed } from "@/components/shared/RecentActivityFeed";
 import { EntregableCard } from "@/components/entregables/EntregableCard";
 import { MarcarEntregadoDialog } from "@/components/entregables/MarcarEntregadoDialog";
 import { BulkActionBar } from "@/components/entregables/BulkActionBar";
@@ -384,6 +385,13 @@ export default function EntregablesPage() {
           {vista === "heatmap" && <HeatmapYearView entregables={entregables} />}
         </>
       )}
+
+      {/* V5++ ola CD: bitácora de cambios en entregables */}
+      <RecentActivityFeed
+        entityType="entregable"
+        title="Actividad reciente · Entregables regulatorios"
+        limit={15}
+      />
     </div>
   );
 }
