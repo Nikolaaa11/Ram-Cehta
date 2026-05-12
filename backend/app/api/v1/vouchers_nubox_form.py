@@ -100,6 +100,8 @@ class NuboxFormCreate(BaseModel):
     empresa_codigo: str = Field(min_length=2, max_length=20)
     proveedor_rut: str = Field(min_length=8, max_length=20)
     proveedor_nombre: str = Field(min_length=1, max_length=200)
+    # V5++ ola CE — Origen para tracking (ver migration 0055). Default nubox_form.
+    source: str | None = Field(default=None, max_length=40)
     tipo_documento: Literal[
         "FACTURA", "BOLETA", "NOTA_CREDITO", "NOTA_DEBITO", "HONORARIOS", "NA"
     ]
@@ -502,6 +504,7 @@ async def create_voucher_nubox_form(
         forma_pago=body.forma_pago,
         fecha_vencimiento=body.fecha_vencimiento,
         documento_dropbox_path=body.documento_dropbox_path,
+        source=body.source or "nubox_form",
         created_by=str(user.sub),
         requested_by=str(user.sub),
     )
@@ -568,6 +571,31 @@ async def create_voucher_nubox_form(
         )
     except Exception:
         pass  # audit es best-effort
+
+    # V5++ ola CE — Webhook voucher.imported para vouchers que vienen del
+    # flujo de IA. Best-effort (no rompe la creacion si el dispatcher falla).
+    if (body.source or "").lower() == "ai_import":
+        try:
+            from app.services.webhook_dispatcher import publish_event
+
+            await publish_event(
+                db,
+                "voucher.imported",
+                {
+                    "voucher_id": voucher.voucher_id,
+                    "codigo": codigo,
+                    "empresa_codigo": body.empresa_codigo,
+                    "proveedor_rut": proveedor_rut_canonical,
+                    "proveedor_nombre": body.proveedor_nombre.strip(),
+                    "tipo_documento": body.tipo_documento,
+                    "numero_documento": body.numero_documento,
+                    "total": str(total_contable),
+                    "source": "ai_import",
+                    "created_by": str(user.sub),
+                },
+            )
+        except Exception:
+            pass
 
     return NuboxFormResponse(
         voucher_id=voucher.voucher_id,

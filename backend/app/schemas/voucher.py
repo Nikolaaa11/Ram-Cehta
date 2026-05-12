@@ -225,6 +225,8 @@ class VoucherRead(BaseModel):
     void_reason: str | None
     created_by: str | None
     requested_by: str | None
+    # V5++ ola CE — origen (manual/nubox_form/ai_import/csv/etc); NULL=legacy
+    source: str | None = None
     created_at: datetime
     updated_at: datetime
     lines: list[VoucherLineRead]
@@ -247,6 +249,8 @@ class VoucherListItem(BaseModel):
     moneda: Moneda
     contraparte_nombre: str | None
     threshold_aplicado: bool
+    # V5++ ola CE — Origen del voucher para mostrar badge en la lista
+    source: str | None = None
     created_at: datetime
 
 

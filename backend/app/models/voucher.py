@@ -87,6 +87,10 @@ class Voucher(Base):
     fecha_vencimiento: Mapped[date | None] = mapped_column(Date)
     documento_dropbox_path: Mapped[str | None] = mapped_column(Text)
 
+    # V5++ ola CE — Origen del voucher (manual/nubox_form/ai_import/csv/etc).
+    # NULL = legacy. Ver migration 0055_voucher_source.
+    source: Mapped[str | None] = mapped_column(Text)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

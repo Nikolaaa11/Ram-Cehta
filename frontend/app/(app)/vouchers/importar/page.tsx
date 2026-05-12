@@ -274,6 +274,9 @@ export default function ImportarVoucherPage() {
         fecha_documento: fechaDocumento,
         fecha_vencimiento: fechaVencimiento || null,
         glosa: glosa || null,
+        // V5++ ola CE — marca como creado desde el flujo de IA para que el
+        // badge "IA" aparezca en la lista y se publique webhook voucher.imported.
+        source: "ai_import",
         informacion_contable: contable.map((l) => ({
           comentario: l.comentario,
           cuenta_codigo: l.cuenta_codigo,
