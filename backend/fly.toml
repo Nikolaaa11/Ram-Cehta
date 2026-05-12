@@ -11,9 +11,22 @@ kill_timeout = "10s"
   dockerfile = "Dockerfile"
 
 # Cada deploy aplica migraciones automáticamente antes de cambiar el tráfico.
-# Si la migración falla, el deploy se aborta y se mantiene la versión anterior.
-[deploy]
-  release_command = "alembic upgrade head"
+# V5++ ola BS HOTFIX: release_command DESACTIVADO.
+#
+# Razón: Supabase session pooler (port 5432) tiene límite estricto de
+# 15 clientes simultáneos en Free tier. La app vieja en proceso de
+# rolling deploy mantiene su pool ocupado, dejando 0 espacio para que
+# alembic abra una conn nueva durante el release. Esto rompe el deploy
+# aunque no haya migraciones que aplicar.
+#
+# Workaround: corremos alembic MANUALMENTE cuando hay migraciones nuevas:
+#   fly ssh console -a cehta-backend
+#   alembic upgrade head
+#
+# Cuando se quiera re-habilitar (ej. migrando a transaction pooler para
+# release_command), descomentar las 2 líneas siguientes:
+# [deploy]
+#   release_command = "alembic upgrade head"
 
 [env]
   APP_ENV = "production"
