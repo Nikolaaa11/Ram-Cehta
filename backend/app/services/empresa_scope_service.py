@@ -69,6 +69,26 @@ def invalidate_all_caches() -> None:
     _EMPRESA_CACHE.clear()
 
 
+def get_cache_stats() -> dict:
+    """V5++ ola CB: stats del cache para debugging/monitoring.
+
+    Útil exponerlo en /health/perf para ver hit rate y tamaño.
+    """
+    now = time.time()
+    fresh = sum(
+        1 for v in _EMPRESA_CACHE.values()
+        if (now - v[0]) < _CACHE_TTL
+    )
+    stale = len(_EMPRESA_CACHE) - fresh
+    return {
+        "size": len(_EMPRESA_CACHE),
+        "fresh": fresh,
+        "stale": stale,
+        "ttl_seconds": _CACHE_TTL,
+        "max_size": _CACHE_MAX_SIZE,
+    }
+
+
 async def get_allowed_empresa_codes(
     user: AuthenticatedUser, db: AsyncSession
 ) -> frozenset[str] | None:

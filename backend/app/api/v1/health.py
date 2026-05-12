@@ -125,6 +125,8 @@ class PerfResponse(BaseModel):
     workers: int | None
     cache_features: list[str] = []
     recommendations: list[str]
+    # V5++ ola CB: scope cache stats
+    scope_cache: dict | None = None
 
 
 @router.get("/health/perf", response_model=PerfResponse)
@@ -166,6 +168,13 @@ async def perf_health(session: DBSession) -> PerfResponse:
     if not recs:
         recs.append("✅ Configuración óptima detectada")
 
+    # V5++ ola CB: incluir stats del scope cache
+    try:
+        from app.services.empresa_scope_service import get_cache_stats
+        scope_cache_info = get_cache_stats()
+    except Exception:
+        scope_cache_info = None
+
     return PerfResponse(
         db_pool_mode=pool_mode,
         db_pool_size=pool_size,
@@ -184,4 +193,5 @@ async def perf_health(session: DBSession) -> PerfResponse:
             "/catalogos/* Cache-Control: 5min stale-while-revalidate 60s",
         ],
         recommendations=recs,
+        scope_cache=scope_cache_info,
     )
