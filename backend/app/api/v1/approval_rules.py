@@ -24,6 +24,7 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import invalidate_user_cache
 
 router = APIRouter()
 
@@ -310,7 +311,11 @@ async def assign_user_company_role(
     body: UserCompanyRoleCreate,
 ) -> UserCompanyRoleRead:
     """Asigna un rol a un usuario en una empresa. UPSERT idempotente:
-    si ya existe el (user, empresa, role), lo reactiva."""
+    si ya existe el (user, empresa, role), lo reactiva.
+
+    V5++ ola CB: invalida el scope cache del user al final para que el
+    cambio sea inmediato (sin esperar TTL de 60s).
+    """
     try:
         await db.execute(
             text(
@@ -339,6 +344,9 @@ async def assign_user_company_role(
             detail=f"No se pudo asignar: {exc}",
         ) from exc
 
+    # V5++ ola CB: refrescar cache para que el cambio sea inmediato
+    invalidate_user_cache(body.user_id)
+
     row = (
         await db.execute(
             text(
@@ -366,7 +374,11 @@ async def revoke_user_company_role(
     empresa_codigo: Annotated[str, Query()],
     role: Annotated[CompanyRole, Query()],
 ) -> Response:
-    """Revoca el rol marcando active=false (preserva audit log)."""
+    """Revoca el rol marcando active=false (preserva audit log).
+
+    V5++ ola CB: invalida cache scope del user para que el revoke sea
+    inmediato.
+    """
     res = await db.execute(
         text(
             "UPDATE core.user_company_roles SET active = FALSE "
@@ -379,4 +391,6 @@ async def revoke_user_company_role(
             status_code=status.HTTP_404_NOT_FOUND, detail="Asignación no encontrada"
         )
     await db.commit()
+    # V5++ ola CB: refrescar cache para que el revoke sea inmediato
+    invalidate_user_cache(user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
