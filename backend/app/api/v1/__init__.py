@@ -151,19 +151,26 @@ api_router.include_router(
 # V5: Plan de cuentas + importer .xlsx — fundación del módulo Vouchers/Contabilidad.
 # Router sin prefix porque las rutas son /admin/plan-cuentas/...
 api_router.include_router(plan_cuentas.router, tags=["plan-cuentas"])
-# V5: Vouchers (comprobantes contables) — corazón del módulo. Líneas
-# debe/haber con imputación triple cuenta + proyecto + área. Partida
-# doble validada en 3 capas (Pydantic + trigger Postgres + UI).
-api_router.include_router(vouchers.router, tags=["vouchers"])
-# V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
-# arriendos, servicios mensuales). save-as-template + use-template flow.
-api_router.include_router(voucher_templates.router, tags=["voucher-templates"])
 # V5++ ola AM: Form Nubox-style (header + Información Contable + Financiera)
 # que matchea el Excel "documento para claude boucher". GET form-metadata
 # + POST nubox-form. Crea voucher COMPRA con partida doble cuadrada.
+# IMPORTANTE: este router DEBE registrarse antes de vouchers.router porque
+# sus paths (/vouchers/form-metadata, /vouchers/nubox-form) chocarían con
+# /vouchers/{voucher_id: int} y FastAPI devolvería 422 Unprocessable.
 api_router.include_router(
     vouchers_nubox_form.router, prefix="/vouchers", tags=["vouchers-nubox-form"]
 )
+# V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
+# arriendos, servicios mensuales). save-as-template + use-template flow.
+# IMPORTANTE: mismo motivo de orden — /vouchers/templates colisiona con
+# /vouchers/{voucher_id}.
+api_router.include_router(voucher_templates.router, tags=["voucher-templates"])
+# V5: Vouchers (comprobantes contables) — corazón del módulo. Líneas
+# debe/haber con imputación triple cuenta + proyecto + área. Partida
+# doble validada en 3 capas (Pydantic + trigger Postgres + UI).
+# Va al final porque tiene /vouchers/{voucher_id: int} que matchearía
+# cualquier path string si se registra antes que los routers hermanos.
+api_router.include_router(vouchers.router, tags=["vouchers"])
 # V5: Proyectos contables (formales para imputación, distintos de los
 # Gantts operativos). CRUD + endpoint /avance con presupuesto vs ejecutado.
 api_router.include_router(proyectos_contables.router, tags=["proyectos-contables"])
