@@ -26,9 +26,11 @@ import {
   CalendarDays,
   ClipboardList,
   FileText,
+  MessageSquare,
   Plus,
   Search,
   Sparkles,
+  UploadCloud,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,18 @@ const ACTIONS: Action[] = [
     label: "Pregunta al AI",
     icon: Sparkles,
     href: "/asistente",
+    tone: "info",
+  },
+  {
+    label: "Importar voucher con IA",
+    icon: UploadCloud,
+    href: "/vouchers/importar",
+    tone: "info",
+  },
+  {
+    label: "Voucher desde mensaje",
+    icon: MessageSquare,
+    href: "/vouchers/desde-mensaje",
     tone: "info",
   },
   {
