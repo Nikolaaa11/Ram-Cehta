@@ -83,7 +83,7 @@ interface ExtractResponse {
 }
 
 const ACCEPT =
-  ".pdf,.jpg,.jpeg,.png,.heic,.webp,.tif,.tiff,.docx,.pptx,.ppt,image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  ".pdf,.jpg,.jpeg,.png,.heic,.webp,.tif,.tiff,.gif,.bmp,.docx,.pptx,.ppt,.xlsx,.xlsm,.txt,.md,.csv,.eml,.html,.htm,.msg,image/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,message/rfc822,text/html,text/plain,text/csv";
 
 const FORMA_PAGO_LABELS: Record<string, string> = {
   TRANSFERENCIA: "Transferencia",
@@ -509,9 +509,10 @@ export default function ImportarVoucherPage() {
               Arrastrá tu archivo aquí o hacé click para elegir
             </p>
             <p className="mt-2 text-sm text-ink-500">
-              Soportados: PDF, JPG, PNG, HEIC, WebP, DOCX, PPTX (máx 15MB).
-              Podés arrastrar <span className="font-medium">varios a la vez</span>{" "}
-              y los procesamos uno por uno.
+              PDF, imagen (JPG/PNG/HEIC/WebP/TIFF/GIF), Office (DOCX/PPTX/XLSX),
+              email (EML), HTML, TXT, CSV. Hasta 15MB. Podés arrastrar{" "}
+              <span className="font-medium">varios a la vez</span> y los
+              procesamos uno por uno.
             </p>
             <div className="mt-6 flex justify-center gap-3 text-xs text-ink-500">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">

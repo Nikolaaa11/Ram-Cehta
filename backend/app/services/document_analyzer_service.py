@@ -335,6 +335,176 @@ def extract_text_docx(content: bytes) -> str:
     return "\n".join(parts)
 
 
+def extract_text_xlsx(content: bytes) -> tuple[str, list[str]]:
+    """Extrae texto de un .xlsx leyendo cada hoja con openpyxl.
+
+    Formato: "--- Hoja: {sheet_name} ---" antes de cada hoja, luego filas
+    pipe-separated (`cell1 | cell2 | cell3`). Solo lee las primeras 200 filas
+    por hoja para evitar inflar el prompt con planillas de miles de filas.
+
+    Soft-fail si openpyxl no esta instalado (ya esta en deps via pandas, pero
+    igual lo manejamos).
+    """
+    warnings: list[str] = []
+    try:
+        from openpyxl import load_workbook  # type: ignore[import-not-found]
+    except ImportError as exc:
+        warnings.append(f"openpyxl no disponible: {exc}")
+        log.warning("doc_analyzer.xlsx_import_failed", error=str(exc))
+        return "", warnings
+
+    try:
+        wb = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"No pude abrir el .xlsx: {exc}")
+        log.warning("doc_analyzer.xlsx_open_failed", error=str(exc))
+        return "", warnings
+
+    sheets_text: list[str] = []
+    MAX_ROWS_PER_SHEET = 200
+    for sheet_name in wb.sheetnames:
+        ws = wb[sheet_name]
+        sheet_parts: list[str] = [f"--- Hoja: {sheet_name} ---"]
+        rows_read = 0
+        for row in ws.iter_rows(values_only=True):
+            if rows_read >= MAX_ROWS_PER_SHEET:
+                sheet_parts.append(f"[...truncado a {MAX_ROWS_PER_SHEET} filas]")
+                break
+            cells = [str(c) for c in row if c is not None and str(c).strip()]
+            if cells:
+                sheet_parts.append(" | ".join(cells))
+                rows_read += 1
+        if len(sheet_parts) > 1:
+            sheets_text.append("\n".join(sheet_parts))
+
+    if not sheets_text:
+        warnings.append("El .xlsx no contiene celdas con datos.")
+    return "\n\n".join(sheets_text), warnings
+
+
+def extract_text_eml(content: bytes) -> tuple[str, list[str]]:
+    """Extrae texto de un .eml (RFC 5322 email).
+
+    Devuelve un bloque formateado con: From, To, Subject, Date, y el body
+    plain text (preferido) o el HTML stripped (fallback). Si el email tiene
+    attachments inline, los lista al final con sus nombres y tamanos para
+    que el LLM sepa que hay archivos asociados.
+
+    Stdlib only — sin deps externas.
+    """
+    warnings: list[str] = []
+    try:
+        from email import message_from_bytes
+        from email.policy import default as default_policy
+    except ImportError as exc:  # pragma: no cover
+        warnings.append(f"email stdlib no disponible: {exc}")
+        return "", warnings
+
+    try:
+        msg = message_from_bytes(content, policy=default_policy)
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"No pude parsear el .eml: {exc}")
+        return "", warnings
+
+    parts: list[str] = []
+    headers = ["From", "To", "Cc", "Subject", "Date"]
+    for h in headers:
+        val = msg.get(h)
+        if val:
+            parts.append(f"{h}: {val}")
+    parts.append("")  # blank line antes del body
+
+    # Buscar el primer text/plain; sino el primer text/html stripped.
+    body_text = None
+    attachments: list[str] = []
+    if msg.is_multipart():
+        for part in msg.walk():
+            ctype = part.get_content_type()
+            disp = part.get("Content-Disposition", "") or ""
+            if "attachment" in disp.lower():
+                fname = part.get_filename() or "(sin nombre)"
+                payload = part.get_payload(decode=True)
+                size = len(payload) if payload else 0
+                attachments.append(f"{fname} ({size} bytes, {ctype})")
+                continue
+            if body_text is None and ctype == "text/plain":
+                try:
+                    body_text = part.get_content()
+                except Exception:  # noqa: BLE001
+                    pass
+        if body_text is None:
+            for part in msg.walk():
+                if part.get_content_type() == "text/html":
+                    try:
+                        html_body = part.get_content()
+                        body_text, html_warnings = _strip_html(html_body)
+                        warnings.extend(html_warnings)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    break
+    else:
+        try:
+            body_text = msg.get_content()
+        except Exception:  # noqa: BLE001
+            body_text = msg.get_payload(decode=False)
+
+    if body_text:
+        parts.append(str(body_text).strip())
+    else:
+        warnings.append("No pude extraer el body del email.")
+
+    if attachments:
+        parts.append("")
+        parts.append("[Adjuntos:]")
+        for a in attachments:
+            parts.append(f"  - {a}")
+
+    return "\n".join(parts), warnings
+
+
+def _strip_html(html: str) -> tuple[str, list[str]]:
+    """Convierte HTML a texto plano basico. Stdlib only."""
+    warnings: list[str] = []
+    try:
+        from html.parser import HTMLParser
+
+        class _Stripper(HTMLParser):
+            def __init__(self) -> None:
+                super().__init__()
+                self.parts: list[str] = []
+
+            def handle_data(self, data: str) -> None:
+                self.parts.append(data)
+
+            def handle_starttag(
+                self, tag: str, attrs: list[tuple[str, str | None]]
+            ) -> None:
+                if tag in {"p", "br", "div", "tr"}:
+                    self.parts.append("\n")
+                elif tag in {"td", "th", "li"}:
+                    self.parts.append(" | ")
+
+        s = _Stripper()
+        s.feed(html)
+        text_out = "".join(s.parts)
+        # Colapsar whitespace
+        text_out = re.sub(r"\n{3,}", "\n\n", text_out)
+        text_out = re.sub(r"[ \t]+", " ", text_out)
+        return text_out.strip(), warnings
+    except Exception as exc:  # noqa: BLE001
+        warnings.append(f"HTML strip falló: {exc}")
+        return html, warnings
+
+
+def extract_text_html(content: bytes) -> tuple[str, list[str]]:
+    """Extrae texto de un .html (emails forwarded, paginas guardadas)."""
+    try:
+        html = content.decode("utf-8")
+    except UnicodeDecodeError:
+        html = content.decode("latin-1", errors="ignore")
+    return _strip_html(html)
+
+
 def extract_text_pptx(content: bytes) -> tuple[str, list[str]]:
     """Extrae texto de un .pptx usando python-pptx.
 
@@ -451,6 +621,12 @@ def _ext_from_content_type(content_type: str, filename: str | None) -> str:
         return "docx"
     if "officedocument.presentationml" in ct or ct.endswith("/vnd.ms-powerpoint"):
         return "pptx"
+    if "officedocument.spreadsheetml" in ct or "excel" in ct:
+        return "xlsx"
+    if "message/rfc822" in ct or "message" in ct:
+        return "eml"
+    if "html" in ct:
+        return "html"
     if "png" in ct:
         return "png"
     if "jpeg" in ct or "jpg" in ct:
@@ -494,6 +670,27 @@ async def extract_text(
             text=text_out,
             warnings=tuple(warns),
             method="pptx" if text_out else "failed",
+        )
+    if ext in {"xlsx", "xlsm"}:
+        text_out, warns = extract_text_xlsx(content)
+        return _ExtractResult(
+            text=text_out,
+            warnings=tuple(warns),
+            method="xlsx" if text_out else "failed",
+        )
+    if ext == "eml":
+        text_out, warns = extract_text_eml(content)
+        return _ExtractResult(
+            text=text_out,
+            warnings=tuple(warns),
+            method="eml" if text_out else "failed",
+        )
+    if ext in {"html", "htm"}:
+        text_out, warns = extract_text_html(content)
+        return _ExtractResult(
+            text=text_out,
+            warnings=tuple(warns),
+            method="html" if text_out else "failed",
         )
     if ext in {"png", "jpg", "jpeg", "gif", "webp", "tif", "tiff"}:
         text_out, warns = extract_text_image(content, mime=content_type)

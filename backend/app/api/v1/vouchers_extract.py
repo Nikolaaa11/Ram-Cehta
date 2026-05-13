@@ -52,7 +52,14 @@ router = APIRouter()
 
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15MB
 SUPPORTED_EXTS = {
+    # PDFs y office
     "pdf",
+    "docx",
+    "pptx",
+    "ppt",
+    "xlsx",
+    "xlsm",
+    # Imagenes
     "jpg",
     "jpeg",
     "png",
@@ -60,9 +67,17 @@ SUPPORTED_EXTS = {
     "webp",
     "tif",
     "tiff",
-    "docx",
-    "pptx",
-    "ppt",
+    "gif",
+    "bmp",
+    # Texto plano y derivados
+    "txt",
+    "md",
+    "csv",
+    # Email y web
+    "eml",
+    "html",
+    "htm",
+    "msg",  # outlook (parsea como text de mejor esfuerzo)
 }
 
 
