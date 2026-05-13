@@ -125,6 +125,10 @@ export default function ImportarVoucherPage() {
   // de useEffect dispara handleUpload del siguiente.
   const [fileQueue, setFileQueue] = useState<File[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
+  // Prefetch del siguiente archivo en background. Cuando el user esta
+  // revisando el archivo N, en paralelo arrancamos el extract de N+1.
+  // Al confirmar N, advanceQueue chequea este cache y omite el re-fetch.
+  const [prefetched, setPrefetched] = useState<Record<number, ExtractResponse>>({});
 
   // Form state (precargado desde extraction.suggestion en el step "review")
   const [proveedorRut, setProveedorRut] = useState("");
@@ -252,12 +256,61 @@ export default function ImportarVoucherPage() {
     if (!next) {
       setFileQueue([]);
       setQueueIndex(0);
+      setPrefetched({});
       return false;
     }
     setQueueIndex(nextIdx);
-    handleUpload(next);
+    // Si ya prefetcheamos este archivo, saltamos el extract y vamos directo
+    // al step review con los datos cacheados — UX instantanea entre archivos.
+    const cached = prefetched[nextIdx];
+    if (cached) {
+      setExtraction(cached);
+      applySuggestion(cached);
+      setStep("review");
+      if (cached.warnings.length > 0) {
+        toast.info(`Archivo ${nextIdx + 1}: ${cached.warnings.length} avisos.`);
+      }
+    } else {
+      handleUpload(next);
+    }
     return true;
   }
+
+  // Prefetch del siguiente archivo en background cuando el user entra a
+  // "review". Si el bulk tiene varios pendientes, el N+1 se procesa en
+  // paralelo mientras revisas el N. Asi al confirmar el actual, el siguiente
+  // ya esta listo y no esperas la latencia del backend (5-20s por archivo).
+  useEffect(() => {
+    if (step !== "review") return;
+    if (!session) return;
+    if (fileQueue.length === 0) return;
+    const nextIdx = queueIndex + 1;
+    const nextFile = fileQueue[nextIdx];
+    if (!nextFile) return;
+    if (prefetched[nextIdx]) return; // ya cacheado
+    if (!empresaCodigo) return;
+    let cancelled = false;
+    const formData = new FormData();
+    formData.append("file", nextFile);
+    formData.append("empresa_codigo", empresaCodigo);
+    apiClient
+      .postForm<ExtractResponse>(
+        "/vouchers/extract-from-upload",
+        formData,
+        session,
+      )
+      .then((data) => {
+        if (cancelled) return;
+        setPrefetched((prev) => ({ ...prev, [nextIdx]: data }));
+      })
+      .catch(() => {
+        // soft-fail: si el prefetch falla, advanceQueue va a hacer extract
+        // normal cuando el user confirme.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, queueIndex, fileQueue, empresaCodigo, session, prefetched]);
 
   const totalContable = useMemo(
     () => contable.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
@@ -497,6 +550,11 @@ export default function ImportarVoucherPage() {
                 <Sparkles className="size-3.5" />
                 Procesando archivo {queueIndex + 1} de {fileQueue.length} ·
                 {" "}{fileQueue.length - queueIndex - 1} pendientes en cola
+                {prefetched[queueIndex + 1] && (
+                  <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-cehta-green/20 px-2 py-0.5 text-[10px] font-medium">
+                    ⚡ Siguiente precargado
+                  </span>
+                )}
               </div>
             )}
             <div className="flex flex-wrap items-center gap-3 text-sm">
