@@ -920,13 +920,23 @@ async def analyze_document(
     extraction_warnings: list[str] | None = None,
     extraction_method: str | None = None,
     ocr_pages: int | None = None,
+    image_content: bytes | None = None,
+    image_mime: str | None = None,
 ) -> DocumentExtraction:
     """Llama a Claude y devuelve un `DocumentExtraction`.
 
     `extraction_method` y `ocr_pages` los pasa el endpoint desde el
     `_ExtractResult` para que la respuesta lleve traza de cómo se obtuvo
     el texto (frontend muestra chip "OCR aplicado" cuando corresponde).
+
+    V5++ ola CF — Multimodal: si `image_content` viene, mandamos la imagen
+    como bloque image en el message (Claude Vision). Util para fotos de
+    factura donde tesseract da OCR borroso — Vision lee mejor que tesseract.
+    El `text` sigue siendo el OCR/extraido y le da contexto adicional al
+    modelo. Si `image_content` no viene, flujo text-only original.
     """
+    import base64 as _b64
+
     extraction_warnings = list(extraction_warnings or [])
 
     client = _anthropic_client()
@@ -938,14 +948,46 @@ async def analyze_document(
         filename=filename,
         text_chars=len(text),
         truncated_to=min(len(text), MAX_TEXT_CHARS),
+        has_image=image_content is not None,
+        image_bytes=len(image_content) if image_content else 0,
     )
+
+    # Construir el content del message — text-only o multimodal
+    content_blocks: list[dict[str, Any]]
+    if image_content and image_mime:
+        # Claude Vision: imagen + texto OCR como contexto. Limite 5MB por imagen.
+        MAX_IMG = 5 * 1024 * 1024
+        if len(image_content) > MAX_IMG:
+            extraction_warnings.append(
+                f"Imagen >{MAX_IMG // 1024 // 1024}MB, omitida (solo texto OCR)."
+            )
+            content_blocks = [{"type": "text", "text": prompt}]
+        else:
+            normalized_mime = image_mime
+            if not normalized_mime.startswith("image/"):
+                normalized_mime = f"image/{normalized_mime}"
+            # Algunos browsers mandan image/jpg en vez de image/jpeg
+            normalized_mime = normalized_mime.replace("image/jpg", "image/jpeg")
+            content_blocks = [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": normalized_mime,
+                        "data": _b64.b64encode(image_content).decode("ascii"),
+                    },
+                },
+                {"type": "text", "text": prompt},
+            ]
+    else:
+        content_blocks = [{"type": "text", "text": prompt}]
 
     try:
         message = await client.messages.create(
             model=settings.ai_chat_model,
             max_tokens=MAX_RESPONSE_TOKENS,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content_blocks}],
         )
     except Exception as exc:
         log.error("doc_analyzer.llm_failed", error=str(exc))

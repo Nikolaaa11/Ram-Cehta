@@ -403,24 +403,53 @@ async def extract_from_upload(
         content, content_type=file.content_type or "", filename=filename
     )
     warnings: list[str] = list(extract_result.warnings)
-    if not extract_result.text or len(extract_result.text.strip()) < 20:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                f"No se pudo extraer texto util del archivo ({extract_result.method}). "
-                "Probá con otro archivo, una version digital del PDF, o cargá los datos manualmente."
-            ),
+    is_image = ext in {"jpg", "jpeg", "png", "gif", "webp", "heic", "bmp"}
+    extracted_text = extract_result.text
+    extracted_method = extract_result.method
+    extracted_ocr_pages = extract_result.ocr_pages
+    if not extracted_text or len(extracted_text.strip()) < 20:
+        # Si es imagen, Claude Vision puede leerla directamente — no necesitamos
+        # texto. Si NO es imagen y no hay texto, fallamos.
+        if not is_image:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    f"No se pudo extraer texto util del archivo ({extracted_method}). "
+                    "Probá con otro archivo, una version digital del PDF, o cargá los datos manualmente."
+                ),
+            )
+        # Imagen sin OCR: Vision la analiza sola con un fallback de prompt.
+        extracted_text = (
+            "[OCR no disponible para esta imagen. Analiza directamente la "
+            "imagen adjunta y extrae los datos de la factura.]"
         )
+        extracted_method = "vision_only"
+        warnings.append("OCR vacio — usando Claude Vision sola.")
 
     # 3) Analizar con Claude (schema 'factura' — el caso de uso principal)
+    #    V5++ ola CF: si el archivo es imagen, ademas del OCR mandamos la
+    #    imagen original a Claude Vision para una extraccion mas precisa
+    #    (Vision lee mejor que tesseract para fotos borrosas).
+    image_content: bytes | None = None
+    image_mime: str | None = None
+    if ext in {"jpg", "jpeg", "png", "gif", "webp", "heic", "bmp"}:
+        image_content = content
+        image_mime = file.content_type or f"image/{ext}"
+
     try:
         extraction = await analyze_document(
-            extract_result.text,
+            extracted_text,
             tipo="factura",
             filename=filename,
             extraction_warnings=warnings,
-            extraction_method=extract_result.method,
-            ocr_pages=extract_result.ocr_pages,
+            extraction_method=(
+                f"{extracted_method}+vision"
+                if image_content
+                else extracted_method
+            ),
+            ocr_pages=extracted_ocr_pages,
+            image_content=image_content,
+            image_mime=image_mime,
         )
     except DocumentAnalyzerNotConfigured as exc:
         raise HTTPException(
