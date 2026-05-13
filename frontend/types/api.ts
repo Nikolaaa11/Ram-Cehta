@@ -5388,6 +5388,12 @@ export interface paths {
          *     - Empresas con su razón social/RUT/comuna/dirección + aprobadores
          *       (matching de approval_rules + user_company_roles)
          *
+         *     V5++ ola CH fase 3: las empresas se filtran por el scope del user.
+         *     Antes este endpoint devolvia las 9 empresas a todos los users, y al
+         *     intentar guardar el POST devolvia 403 — el dropdown del FE permitia
+         *     elegir empresas que el user no podia usar. Ahora el dropdown solo
+         *     muestra las que el user puede operar.
+         *
          *     El frontend cachea este endpoint con stale-while-revalidate 5min.
          */
         get: operations["get_form_metadata_api_v1_vouchers_form_metadata_get"];
@@ -5956,6 +5962,38 @@ export interface paths {
          *     (audit). Si necesitás reemplazar, anulá y reversá.
          */
         delete: operations["delete_voucher_attachment_api_v1_vouchers__voucher_id__attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/mis-pendientes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mis Pendientes
+         * @description Lista los vouchers PENDING donde el current user es el proximo aprobador.
+         *
+         *     Logica:
+         *       1. Empresas donde el user tiene algun rol activo (user_company_roles)
+         *       2. Vouchers PENDING en esas empresas
+         *       3. Para cada voucher: cargar approval state (rule + approvals)
+         *       4. Filtrar: solo los que `next_pending_role` esta en los roles del
+         *          user en esa empresa. Excluir vouchers donde el user ya firmo
+         *          (anti-doble-firma del flujo).
+         *       5. Devolver ordenado por dias_pendiente DESC (los mas urgentes primero)
+         *
+         *     Sin paginacion porque tipicamente el aprobador tiene <20 pendientes.
+         *     Si crece, agregar `?limit=N&offset=M` despues.
+         */
+        get: operations["list_mis_pendientes_api_v1_vouchers_mis_pendientes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -12504,6 +12542,71 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * MisPendientesItem
+         * @description Una fila de la pantalla "mis aprobaciones pendientes".
+         */
+        MisPendientesItem: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Empresa Razon Social */
+            empresa_razon_social: string | null;
+            /** Tipo */
+            tipo: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /**
+             * Fecha Creacion
+             * Format: date-time
+             */
+            fecha_creacion: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Contraparte Rut */
+            contraparte_rut: string | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo: string | null;
+            /** Doc Tributario Folio */
+            doc_tributario_folio: string | null;
+            /** Glosa */
+            glosa: string | null;
+            /** Moneda */
+            moneda: string;
+            /** Total */
+            total: string;
+            /** Creador Email */
+            creador_email: string | null;
+            /** Mi Rol Para Firmar */
+            mi_rol_para_firmar: string;
+            /** Rol Label */
+            rol_label: string;
+            /** Firmas Hechas */
+            firmas_hechas: number;
+            /** Firmas Totales */
+            firmas_totales: number;
+            /** Matched Rule Descripcion */
+            matched_rule_descripcion: string | null;
+            /** Reinforced */
+            reinforced: boolean;
+            /** Dias Pendiente */
+            dias_pendiente: number;
+            /** Primer Adjunto Dropbox Path */
+            primer_adjunto_dropbox_path: string | null;
+        };
+        /** MisPendientesResponse */
+        MisPendientesResponse: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["MisPendientesItem"][];
         };
         /**
          * MonthlyPoint
@@ -27462,6 +27565,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mis_pendientes_api_v1_vouchers_mis_pendientes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MisPendientesResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
