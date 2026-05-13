@@ -54,6 +54,48 @@ const TIPO_LABEL: Record<VoucherTipo, string> = {
   REVERSO: "Reverso",
 };
 
+const SOURCE_LABELS: Record<string, { label: string; tone: string; title: string }> = {
+  ai_import: {
+    label: "Importado con IA",
+    tone: "bg-sf-purple/10 text-sf-purple ring-sf-purple/20",
+    title: "Extraído de imagen/PDF/PPT con Claude",
+  },
+  factura_pdf: {
+    label: "Factura PDF",
+    tone: "bg-sf-blue/10 text-sf-blue ring-sf-blue/20",
+    title: "Extraído de PDF en Dropbox",
+  },
+  csv_bulk: {
+    label: "CSV bulk",
+    tone: "bg-cehta-green/10 text-cehta-green ring-cehta-green/20",
+    title: "Cargado desde CSV/Excel",
+  },
+  template: {
+    label: "Plantilla",
+    tone: "bg-warning/10 text-warning ring-warning/20",
+    title: "Generado desde plantilla recurrente",
+  },
+  nubox_form: {
+    label: "Form Nubox",
+    tone: "bg-ink-100 text-ink-700 ring-hairline",
+    title: "Creado manualmente en el form Nubox",
+  },
+};
+
+function renderSourceBadgeFull(source: string | null | undefined) {
+  if (!source) return null;
+  const meta = SOURCE_LABELS[source];
+  if (!meta) return null;
+  return (
+    <span
+      title={meta.title}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ring-1 ring-inset ${meta.tone}`}
+    >
+      {meta.label}
+    </span>
+  );
+}
+
 const STATUS_META: Record<VoucherStatus, { label: string; color: string }> = {
   DRAFT: { label: "Borrador", color: "bg-ink-100 text-ink-600 ring-hairline" },
   PENDING: { label: "Pendiente", color: "bg-warning/10 text-warning ring-warning/20" },
@@ -193,6 +235,8 @@ export default function VoucherDetailPage({ params }: PageProps) {
                   Reforzado
                 </span>
               )}
+              {/* V5++ ola CE — Badge del origen del voucher. */}
+              {renderSourceBadgeFull((voucher as VoucherFull & { source?: string | null }).source)}
               {voucher.reversal_of && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-700 ring-1 ring-slate-200">
                   <RotateCcw className="h-3 w-3" strokeWidth={2.5} />

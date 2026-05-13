@@ -184,12 +184,16 @@ async def list_vouchers(
     fecha_desde: date | None = Query(default=None),
     fecha_hasta: date | None = Query(default=None),
     contraparte_rut: str | None = Query(default=None),
+    source: str | None = Query(default=None, max_length=40),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[VoucherListItem]:
     """Lista vouchers con filtros. Order by fecha_contable DESC.
 
     V5++ ola AD: auto-filtra por empresas a las que el user tiene rol.
     Admin global ve todo. User con scope EVOQUE+CSL ve solo esas dos.
+
+    V5++ ola CE: filtro `source` (ai_import, nubox_form, csv_bulk, etc.)
+    para ver, por ejemplo, todos los vouchers cargados con IA.
     """
     stmt = select(Voucher)
 
@@ -208,6 +212,8 @@ async def list_vouchers(
         stmt = stmt.where(Voucher.fecha_contable <= fecha_hasta)
     if contraparte_rut:
         stmt = stmt.where(Voucher.contraparte_rut == contraparte_rut)
+    if source:
+        stmt = stmt.where(Voucher.source == source)
     stmt = stmt.order_by(Voucher.fecha_contable.desc(), Voucher.voucher_id.desc()).limit(
         limit
     )

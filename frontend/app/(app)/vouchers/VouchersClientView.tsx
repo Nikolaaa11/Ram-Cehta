@@ -190,6 +190,8 @@ export function VouchersClientView({
   const [empresaFilter, setEmpresaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState<VoucherTipo | "">("");
   const [estadoFilter, setEstadoFilter] = useState<VoucherStatus | "">("");
+  // V5++ ola CE — Filtro por origen (manual / IA / CSV / template / etc.)
+  const [sourceFilter, setSourceFilter] = useState<string>("");
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [search, setSearch] = useState("");
@@ -251,6 +253,7 @@ export function VouchersClientView({
     empresaFilter === "" &&
     tipoFilter === "" &&
     estadoFilter === "" &&
+    sourceFilter === "" &&
     fechaDesde === "" &&
     fechaHasta === "";
 
@@ -260,6 +263,7 @@ export function VouchersClientView({
       empresaFilter,
       tipoFilter,
       estadoFilter,
+      sourceFilter,
       fechaDesde,
       fechaHasta,
     ],
@@ -272,6 +276,7 @@ export function VouchersClientView({
       if (empresaFilter) qs.set("empresa_codigo", empresaFilter);
       if (tipoFilter) qs.set("tipo", tipoFilter);
       if (estadoFilter) qs.set("status", estadoFilter);
+      if (sourceFilter) qs.set("source", sourceFilter);
       if (fechaDesde) qs.set("fecha_desde", fechaDesde);
       if (fechaHasta) qs.set("fecha_hasta", fechaHasta);
       qs.set("limit", "200");
@@ -505,6 +510,19 @@ export function VouchersClientView({
                 {STATUS_META[s].label}
               </option>
             ))}
+          </select>
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            title="Filtrar por origen del voucher"
+          >
+            <option value="">Todos los orígenes</option>
+            <option value="ai_import">Importado con IA</option>
+            <option value="nubox_form">Form Nubox</option>
+            <option value="factura_pdf">Factura PDF</option>
+            <option value="csv_bulk">CSV bulk</option>
+            <option value="template">Plantilla</option>
           </select>
           <div className="flex items-center gap-1">
             <input
