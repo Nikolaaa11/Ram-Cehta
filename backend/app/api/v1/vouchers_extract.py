@@ -271,6 +271,84 @@ def _build_suggestion(
     )
 
 
+class ExtractFromTextRequest(BaseModel):
+    """Body de /vouchers/extract-from-text. El user pega un texto crudo
+    (email forwarded, WhatsApp copiado, nota a mano) y Claude extrae
+    los campos de factura igual que con un archivo."""
+
+    empresa_codigo: str
+    text: str
+    source_hint: str | None = None  # "email" | "whatsapp" | "manual" — info para audit
+
+
+@router.post(
+    "/extract-from-text",
+    response_model=ExtractFromUploadResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def extract_from_text(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    body: ExtractFromTextRequest,
+) -> ExtractFromUploadResponse:
+    """Extrae datos de factura desde un texto pegado (sin archivo).
+
+    Casos de uso:
+      - Email forwarded copiado y pegado en un textarea.
+      - Mensaje de WhatsApp del proveedor con los datos del cobro.
+      - Nota a mano transcrita.
+
+    NO crea voucher — devuelve la misma `ExtractedVoucherSuggestion` que
+    /extract-from-upload para que el FE muestre el form editable. No sube
+    nada a Dropbox (no hay archivo).
+
+    Cap: 60.000 chars (suficiente para emails largos + thread, evita pasar
+    novelas enteras al LLM por costo).
+    """
+    if not body.text or len(body.text.strip()) < 30:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El texto es demasiado corto para extraer datos "
+                "(minimo 30 caracteres)."
+            ),
+        )
+    MAX_TEXT = 60_000
+    text_input = body.text.strip()[:MAX_TEXT]
+
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
+    try:
+        extraction = await analyze_document(
+            text_input,
+            tipo="factura",
+            filename=f"texto-pegado-{body.source_hint or 'manual'}.txt",
+            extraction_warnings=[],
+            extraction_method=body.source_hint or "text_paste",
+            ocr_pages=None,
+        )
+    except DocumentAnalyzerNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    suggestion = _build_suggestion(extraction.fields, body.empresa_codigo)
+
+    return ExtractFromUploadResponse(
+        suggestion=suggestion,
+        raw_fields=extraction.fields,
+        warnings=extraction.warnings,
+        tipo_detectado=extraction.tipo_detectado,
+        confidence=extraction.confidence,
+        extraction_method=extraction.extraction_method,
+        ocr_pages=extraction.ocr_pages,
+        filename=f"texto-{body.source_hint or 'pegado'}",
+        file_size_bytes=len(text_input.encode("utf-8")),
+        dropbox_path=None,
+        dropbox_warning=None,
+    )
+
+
 @router.post(
     "/extract-from-upload",
     response_model=ExtractFromUploadResponse,
