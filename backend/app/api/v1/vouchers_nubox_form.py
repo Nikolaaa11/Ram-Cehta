@@ -49,7 +49,10 @@ from app.infrastructure.repositories.proveedor_repository import ProveedorReposi
 from app.models.voucher import Voucher, VoucherLine
 from app.schemas.proveedor import ProveedorCreate
 from app.services.audit_service import audit_log
-from app.services.empresa_scope_service import assert_empresa_access
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.services.voucher_service import generate_voucher_code
 
 router = APIRouter()
@@ -318,7 +321,7 @@ class CheckDuplicateResponse(BaseModel):
 
 @router.get("/form-metadata", response_model=FormMetadataResponse)
 async def get_form_metadata(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep,
 ) -> FormMetadataResponse:
     """Devuelve TODO lo que el form Nubox necesita para llenar selectores:
 
@@ -326,6 +329,12 @@ async def get_form_metadata(
     - Muestra de cuentas contables imputables (primeras 200)
     - Empresas con su razón social/RUT/comuna/dirección + aprobadores
       (matching de approval_rules + user_company_roles)
+
+    V5++ ola CH fase 3: las empresas se filtran por el scope del user.
+    Antes este endpoint devolvia las 9 empresas a todos los users, y al
+    intentar guardar el POST devolvia 403 — el dropdown del FE permitia
+    elegir empresas que el user no podia usar. Ahora el dropdown solo
+    muestra las que el user puede operar.
 
     El frontend cachea este endpoint con stale-while-revalidate 5min.
     """
@@ -344,18 +353,40 @@ async def get_form_metadata(
 
     # Empresas con datos del receptor. core.empresas usa 'ciudad' como
     # equivalente a "comuna" en el Excel.
-    empresas_rows = (await db.execute(
-        text(
-            """
-            SELECT codigo, razon_social, COALESCE(rut, '') as rut,
-                   COALESCE(direccion, '') as direccion,
-                   COALESCE(ciudad, '') as comuna
-            FROM core.empresas
-            WHERE activo = TRUE
-            ORDER BY codigo
-            """
-        )
-    )).mappings().all()
+    # V5++ ola CH fase 3 — scope filter.
+    empresa_scope = scope.filter_codes(None)
+    if empresa_scope is None:
+        # Admin global ve todas las empresas activas.
+        empresas_rows = (await db.execute(
+            text(
+                """
+                SELECT codigo, razon_social, COALESCE(rut, '') as rut,
+                       COALESCE(direccion, '') as direccion,
+                       COALESCE(ciudad, '') as comuna
+                FROM core.empresas
+                WHERE activo = TRUE
+                ORDER BY codigo
+                """
+            )
+        )).mappings().all()
+    elif not empresa_scope:
+        # User sin empresas asignadas → lista vacia (no hay donde ingresar)
+        empresas_rows = []
+    else:
+        empresas_rows = (await db.execute(
+            text(
+                """
+                SELECT codigo, razon_social, COALESCE(rut, '') as rut,
+                       COALESCE(direccion, '') as direccion,
+                       COALESCE(ciudad, '') as comuna
+                FROM core.empresas
+                WHERE activo = TRUE
+                  AND codigo = ANY(CAST(:scope AS text[]))
+                ORDER BY codigo
+                """
+            ),
+            {"scope": empresa_scope},
+        )).mappings().all()
 
     empresas_list = []
     for er in empresas_rows:
