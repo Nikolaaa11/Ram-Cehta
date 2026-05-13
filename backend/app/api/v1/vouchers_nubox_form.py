@@ -68,14 +68,101 @@ FORMA_PAGO_OPCIONES = [
     "OTRO",
 ]
 
+# V5++ ola CH — Catalogo SII expandido (Nicolas, sesion 3 cont.)
+# Reemplaza el set chico anterior por los 15 tipos tributarios reales.
+# `BOLETA`, `HONORARIOS` y `NA` se mantienen para compatibilidad con
+# vouchers ya creados (deserializan OK al leerlos). El form nuevo usa
+# solo los del catalogo expandido.
 TIPO_DOCUMENTO_OPCIONES = [
+    "DECLARACION_INGRESO",
     "FACTURA",
-    "BOLETA",
+    "FACTURA_COMPRA",
+    "FACTURA_COMPRA_ELECTRONICA",
+    "FACTURA_INICIO",
+    "FACTURA_ELECTRONICA",
+    "FACTURA_ELECTRONICA_EXENTA",
+    "FACTURA_EXENTA",
+    "LIQUIDACION_FACTURA",
+    "LIQUIDACION_FACTURA_ELECTRONICA",
     "NOTA_CREDITO",
+    "NOTA_CREDITO_ELECTRONICA",
     "NOTA_DEBITO",
+    "NOTA_DEBITO_ELECTRONICA",
+    "SOLICITUD_REGISTRO_FACTURA",
+    # Backward compat (vouchers viejos):
+    "BOLETA",
     "HONORARIOS",
     "NA",
 ]
+
+# Subsets para calculo de Total Bruto = Neto + IVA.
+# Documentos AFECTOS a IVA 19% (Total Bruto = Neto x 1.19).
+TIPO_DOC_AFECTOS_IVA: frozenset[str] = frozenset(
+    {
+        "FACTURA",
+        "FACTURA_COMPRA",
+        "FACTURA_COMPRA_ELECTRONICA",
+        "FACTURA_INICIO",
+        "FACTURA_ELECTRONICA",
+        "LIQUIDACION_FACTURA",
+        "LIQUIDACION_FACTURA_ELECTRONICA",
+        "NOTA_CREDITO",
+        "NOTA_CREDITO_ELECTRONICA",
+        "NOTA_DEBITO",
+        "NOTA_DEBITO_ELECTRONICA",
+    }
+)
+# Documentos EXENTOS (Total Bruto = Neto, sin IVA).
+TIPO_DOC_EXENTOS: frozenset[str] = frozenset(
+    {
+        "FACTURA_EXENTA",
+        "FACTURA_ELECTRONICA_EXENTA",
+    }
+)
+# Otros (DI, SRF) — el bruto se trata como neto por defecto. Para
+# Declaracion de Ingreso aplicaria IVA importacion pero se valida caso
+# por caso con contabilidad. Por ahora bruto = neto.
+TIPO_DOC_OTROS: frozenset[str] = frozenset(
+    {
+        "DECLARACION_INGRESO",
+        "SOLICITUD_REGISTRO_FACTURA",
+        # Backward compat (boletas/honorarios viejos no afectan a IVA en
+        # el voucher Nubox; el FE muestra Bruto=Neto)
+        "BOLETA",
+        "HONORARIOS",
+        "NA",
+    }
+)
+
+
+def tipo_doc_aplica_iva(tipo: str) -> bool:
+    """True si el tipo doc tiene IVA 19% al calcular Total Bruto."""
+    return tipo in TIPO_DOC_AFECTOS_IVA
+
+
+# Labels human-readable para FE (titulos UI). Mantenido en backend para
+# que un cambio sea idempotente (el FE solo expone, no hardcodea).
+TIPO_DOCUMENTO_LABELS: dict[str, str] = {
+    "DECLARACION_INGRESO": "Declaración de ingreso",
+    "FACTURA": "Factura",
+    "FACTURA_COMPRA": "Factura de compra",
+    "FACTURA_COMPRA_ELECTRONICA": "Factura de compra electrónica",
+    "FACTURA_INICIO": "Factura de inicio",
+    "FACTURA_ELECTRONICA": "Factura electrónica",
+    "FACTURA_ELECTRONICA_EXENTA": "Factura electrónica exenta",
+    "FACTURA_EXENTA": "Factura exenta",
+    "LIQUIDACION_FACTURA": "Liquidación factura",
+    "LIQUIDACION_FACTURA_ELECTRONICA": "Liquidación factura electrónica",
+    "NOTA_CREDITO": "Nota de crédito",
+    "NOTA_CREDITO_ELECTRONICA": "Nota de crédito electrónica",
+    "NOTA_DEBITO": "Nota de débito",
+    "NOTA_DEBITO_ELECTRONICA": "Nota de débito electrónica",
+    "SOLICITUD_REGISTRO_FACTURA": "Solicitud registro factura",
+    # Backward compat (no se muestra en form nuevo, solo lectura).
+    "BOLETA": "Boleta",
+    "HONORARIOS": "Boleta honorarios",
+    "NA": "No aplica",
+}
 
 
 # =====================================================================
@@ -102,8 +189,28 @@ class NuboxFormCreate(BaseModel):
     proveedor_nombre: str = Field(min_length=1, max_length=200)
     # V5++ ola CE — Origen para tracking (ver migration 0055). Default nubox_form.
     source: str | None = Field(default=None, max_length=40)
+    # V5++ ola CH: catalogo expandido (15 tipos SII + 3 backward-compat).
+    # Si llega un tipo nuevo del FE este Literal lo acepta; los antiguos
+    # (BOLETA, HONORARIOS, NA) siguen aceptados para vouchers heredados.
     tipo_documento: Literal[
-        "FACTURA", "BOLETA", "NOTA_CREDITO", "NOTA_DEBITO", "HONORARIOS", "NA"
+        "DECLARACION_INGRESO",
+        "FACTURA",
+        "FACTURA_COMPRA",
+        "FACTURA_COMPRA_ELECTRONICA",
+        "FACTURA_INICIO",
+        "FACTURA_ELECTRONICA",
+        "FACTURA_ELECTRONICA_EXENTA",
+        "FACTURA_EXENTA",
+        "LIQUIDACION_FACTURA",
+        "LIQUIDACION_FACTURA_ELECTRONICA",
+        "NOTA_CREDITO",
+        "NOTA_CREDITO_ELECTRONICA",
+        "NOTA_DEBITO",
+        "NOTA_DEBITO_ELECTRONICA",
+        "SOLICITUD_REGISTRO_FACTURA",
+        "BOLETA",
+        "HONORARIOS",
+        "NA",
     ]
     numero_documento: str = Field(min_length=1, max_length=50)
     forma_pago: Literal[
@@ -173,6 +280,11 @@ class EmpresaMetadata(BaseModel):
 class FormMetadataResponse(BaseModel):
     formas_pago: list[str]
     tipos_documento: list[str]
+    # V5++ ola CH — label + clasificacion IVA por tipo doc, para que el FE
+    # muestre nombre humano y calcule Total Bruto sin hardcodear logica.
+    tipo_documento_labels: dict[str, str] = {}
+    # Subset de tipos que aplican IVA 19% (Total Bruto = Neto * 1.19).
+    tipos_documento_afectos_iva: list[str] = []
     cuentas_contables_sample: list[dict]  # primeras N cuentas imputables
     empresas: list[EmpresaMetadata]
 
@@ -282,6 +394,8 @@ async def get_form_metadata(
     return FormMetadataResponse(
         formas_pago=FORMA_PAGO_OPCIONES,
         tipos_documento=TIPO_DOCUMENTO_OPCIONES,
+        tipo_documento_labels=TIPO_DOCUMENTO_LABELS,
+        tipos_documento_afectos_iva=sorted(TIPO_DOC_AFECTOS_IVA),
         cuentas_contables_sample=[dict(c) for c in cuentas_rows],
         empresas=empresas_list,
     )
@@ -301,7 +415,24 @@ async def check_duplicate_voucher(
     numero_documento: Annotated[str, "Folio del documento"],
     tipo_documento: Annotated[
         Literal[
-            "FACTURA", "BOLETA", "NOTA_CREDITO", "NOTA_DEBITO", "HONORARIOS", "NA"
+            "DECLARACION_INGRESO",
+            "FACTURA",
+            "FACTURA_COMPRA",
+            "FACTURA_COMPRA_ELECTRONICA",
+            "FACTURA_INICIO",
+            "FACTURA_ELECTRONICA",
+            "FACTURA_ELECTRONICA_EXENTA",
+            "FACTURA_EXENTA",
+            "LIQUIDACION_FACTURA",
+            "LIQUIDACION_FACTURA_ELECTRONICA",
+            "NOTA_CREDITO",
+            "NOTA_CREDITO_ELECTRONICA",
+            "NOTA_DEBITO",
+            "NOTA_DEBITO_ELECTRONICA",
+            "SOLICITUD_REGISTRO_FACTURA",
+            "BOLETA",
+            "HONORARIOS",
+            "NA",
         ],
         "Tipo documento",
     ] = "FACTURA",
