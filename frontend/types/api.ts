@@ -4398,6 +4398,12 @@ export interface paths {
          *     V5++ ola CB: filtra por empresas en scope del user. Admin global ve
          *     todo el portafolio (FIP CEHTA completo). Scoped users ven solo sus
          *     empresas — útil cuando un partner GP solo gestiona una vertical.
+         *
+         *     V5++ ola CG perf: el endpoint corre 12 queries serializadas (monthly
+         *     trend) + saldos por empresa + tasas USD/UF — total p95 ~2.5s sobre
+         *     Supabase Ohio. Cacheamos 60s en el browser/CDN para que el CEO
+         *     dashboard no replee al hacer refresh inmediato. SWR 30s permite UI
+         *     instantánea mientras se actualiza background.
          */
         get: operations["portfolio_consolidated_api_v1_portfolio_consolidated_get"];
         put?: never;
@@ -4522,6 +4528,11 @@ export interface paths {
          *         - Cuántos a tiempo / atrasados / no entregados
          *         - % cumplimiento + % a tiempo
          *         - Nota A/B/C/D/F como score consolidado.
+         *
+         *     V5++ ola CG security: scope check sobre empresa_codigo. Sin esto,
+         *     un user scoped a empresa A podia consultar compliance de empresa B.
+         *     `assert_empresa_access` estaba importado pero no usado (dead import
+         *     flagueado por audit de dead-code, llevaba a scope bypass).
          */
         get: operations["compliance_grade_empresa_api_v1_entregables_compliance_grade__empresa_codigo__get"];
         put?: never;
@@ -5255,6 +5266,13 @@ export interface paths {
          *     Si `empresa_codigo` se pasa, JOIN con `plan_cuenta_empresa` para filtrar
          *     solo las habilitadas. Útil para los selectores del form de voucher
          *     (mostrar solo cuentas que aplican a la empresa del voucher).
+         *
+         *     V5++ ola CG security: si el filtro `empresa_codigo` viene, validamos
+         *     que el user tenga acceso. Sin esto, un user scoped a empresa A podía
+         *     listar las cuentas habilitadas para empresa B (cross-tenant leak).
+         *
+         *     V5++ ola CG perf: cache 5 min — el plan de cuentas cambia cuando se
+         *     re-importa el Excel, rara vez en operación normal.
          */
         get: operations["list_plan_cuentas_api_v1_plan_cuentas_get"];
         put?: never;
@@ -5279,6 +5297,9 @@ export interface paths {
          *     Útil para el componente `PlanCuentasTree` de la UI. Performance: una
          *     sola query trae todas las cuentas; el armado del árbol es O(n) en
          *     Python.
+         *
+         *     V5++ ola CG security: si filtro `empresa_codigo` viene, scope check.
+         *     V5++ ola CG perf: cache 5 min.
          */
         get: operations["plan_cuentas_tree_api_v1_plan_cuentas_tree_get"];
         put?: never;
@@ -5343,6 +5364,10 @@ export interface paths {
         /**
          * Toggle Cuenta Empresa
          * @description Habilita o deshabilita una cuenta para una empresa específica.
+         *
+         *     V5++ ola CG security: scope check sobre `empresa_codigo`. Sin esto, un
+         *     user con `legal:write` pero scoped a empresa A podía manipular cuentas
+         *     habilitadas en empresa B.
          */
         patch: operations["toggle_cuenta_empresa_api_v1_plan_cuentas__codigo__empresas__empresa_codigo__patch"];
         trace?: never;
@@ -6124,7 +6149,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Proyectos */
+        /**
+         * List Proyectos
+         * @description Lista proyectos contables filtrable.
+         *
+         *     V5++ ola CG security: aplica scope multi-tenant. Si el user no es admin
+         *     global, filtra a las empresas permitidas; si `empresa_codigo` viene en
+         *     query, validamos acceso explícito.
+         *
+         *     V5++ ola CG perf: cache 5 min — los proyectos cambian rara vez.
+         */
         get: operations["list_proyectos_api_v1_proyectos_contables_get"];
         put?: never;
         /** Create Proyecto */
@@ -6191,7 +6225,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Areas */
+        /**
+         * List Areas
+         * @description V5++ ola CG perf: cache 5 min stale-while-revalidate 60s.
+         *     Las áreas son catálogo cuasi-estático (cambian ~1/año).
+         */
         get: operations["list_areas_api_v1_areas_get"];
         put?: never;
         /** Create Area */
@@ -6279,6 +6317,8 @@ export interface paths {
          *
          *     UPSERT: si no había row, crea con `aplica` indicado. Si había, lo
          *     actualiza.
+         *
+         *     V5++ ola CG security: scope check sobre `empresa_codigo`.
          */
         patch: operations["toggle_area_empresa_api_v1_areas__codigo__empresas__empresa_codigo__patch"];
         trace?: never;
@@ -6359,7 +6399,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Export Batches */
+        /**
+         * List Export Batches
+         * @description V5++ ola CG security: aplica scope multi-tenant. Sin filtro, devuelve
+         *     solo batches de las empresas que el user puede ver.
+         */
         get: operations["list_export_batches_api_v1_admin_nubox_export_batches_get"];
         put?: never;
         post?: never;
@@ -6398,6 +6442,8 @@ export interface paths {
         /**
          * Create Export Batch Endpoint
          * @description Genera batch de exportación con vouchers APPROVED no exportados.
+         *
+         *     V5++ ola CG security: scope check sobre `body.empresa_codigo`.
          */
         post: operations["create_export_batch_endpoint_api_v1_admin_nubox_export_batch_post"];
         delete?: never;
@@ -10593,6 +10639,18 @@ export interface components {
             formas_pago: string[];
             /** Tipos Documento */
             tipos_documento: string[];
+            /**
+             * Tipo Documento Labels
+             * @default {}
+             */
+            tipo_documento_labels: {
+                [key: string]: string;
+            };
+            /**
+             * Tipos Documento Afectos Iva
+             * @default []
+             */
+            tipos_documento_afectos_iva: string[];
             /** Cuentas Contables Sample */
             cuentas_contables_sample: {
                 [key: string]: unknown;
@@ -12731,7 +12789,7 @@ export interface components {
              * Tipo Documento
              * @enum {string}
              */
-            tipo_documento: "FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA";
+            tipo_documento: "DECLARACION_INGRESO" | "FACTURA" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "BOLETA" | "HONORARIOS" | "NA";
             /** Numero Documento */
             numero_documento: string;
             /**
@@ -13070,7 +13128,7 @@ export interface components {
              */
             moneda: "CLP" | "UF" | "USD";
             /** Neto */
-            neto: number | string;
+            neto?: number | string | null;
             /** Forma Pago */
             forma_pago?: string | null;
             /** Plazo Pago */
@@ -26443,7 +26501,7 @@ export interface operations {
                 empresa_codigo: string;
                 proveedor_rut: string;
                 numero_documento: string;
-                tipo_documento?: "FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA";
+                tipo_documento?: "DECLARACION_INGRESO" | "FACTURA" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "BOLETA" | "HONORARIOS" | "NA";
             };
             header?: {
                 authorization?: string | null;
