@@ -39,6 +39,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { isValidRut, formatRut } from "@/lib/rut";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmpresaLogoButton } from "@/components/empresa/EmpresaLogoButton";
 
 interface EmpresaRead {
   empresa_id: number;
@@ -60,6 +61,8 @@ interface EmpresaCatalogo {
   razon_social: string;
   oc_prefix: string | null;
   rut: string | null;
+  // V5++ ola CG — Logo en Dropbox para PDFs branded
+  logo_dropbox_path?: string | null;
 }
 
 interface Props {
@@ -206,6 +209,17 @@ export function EmpresasClientView({ initialEmpresas }: Props) {
                       {e.oc_prefix ?? "—"}
                     </td>
                     <td className="px-3 py-2 text-right">
+                      <span className="mr-2 inline-flex">
+                        <EmpresaLogoButton
+                          empresaCodigo={e.codigo}
+                          hasLogo={!!e.logo_dropbox_path}
+                          onUploaded={() => {
+                            qc.invalidateQueries({
+                              queryKey: ["admin-empresas-catalogo"],
+                            });
+                          }}
+                        />
+                      </span>
                       <button
                         type="button"
                         onClick={(ev) => {

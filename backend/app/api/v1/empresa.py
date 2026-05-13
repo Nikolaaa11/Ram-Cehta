@@ -20,9 +20,11 @@ from collections.abc import Iterable
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import text
+
+import structlog
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.api.v1.dashboard import (
@@ -46,6 +48,8 @@ from app.schemas.empresa_dashboard import (
 )
 
 router = APIRouter()
+
+_log_empresa_logo = structlog.get_logger("empresa_logo")
 
 ZERO = Decimal("0")
 
@@ -965,11 +969,6 @@ class LogoUploadResponse(BaseModel):
     size_bytes: int
 
 
-from fastapi import File, UploadFile
-import structlog as _structlog
-_log_empresa_logo = _structlog.get_logger("empresa_logo")
-
-
 @router.post(
     "/{empresa_codigo}/logo",
     response_model=LogoUploadResponse,
@@ -1075,16 +1074,31 @@ async def get_empresa_logo_url(
 ) -> LogoUrlResponse:
     """Devuelve URL temporal Dropbox (4h) del logo. Usada por FE para
     mostrar preview y por el render_orden_compra_html para embeber."""
-    empresa = await _get_empresa(db, empresa_codigo)
-    if not empresa.logo_dropbox_path:
+    import asyncio as _asyncio
+
+    from app.infrastructure.repositories.integration_repository import (
+        IntegrationRepository,
+    )
+    from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+
+    row = (
+        await db.execute(
+            text(
+                "SELECT logo_dropbox_path FROM core.empresas WHERE codigo = :cod"
+            ),
+            {"cod": empresa_codigo},
+        )
+    ).first()
+    if not row:
+        raise HTTPException(
+            status_code=404, detail=f"Empresa no encontrada: {empresa_codigo}"
+        )
+    logo_path = row[0]
+    if not logo_path:
         raise HTTPException(
             status_code=404,
             detail=f"Empresa {empresa_codigo} no tiene logo cargado",
         )
-
-    from app.infrastructure.repositories.integration_repository import IntegrationRepository
-    from app.services.dropbox_service import DropboxNotConfigured, DropboxService
-    import asyncio as _asyncio
 
     integration_repo = IntegrationRepository(db)
     integration = await integration_repo.get_by_provider("dropbox")
@@ -1095,7 +1109,7 @@ async def get_empresa_logo_url(
             access_token=integration.access_token,
             refresh_token=integration.refresh_token,
         )
-        url = await _asyncio.to_thread(dbx.get_temporary_link, empresa.logo_dropbox_path)
+        url = await _asyncio.to_thread(dbx.get_temporary_link, logo_path)
     except DropboxNotConfigured as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001

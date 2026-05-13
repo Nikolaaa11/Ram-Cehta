@@ -211,7 +211,7 @@ async def create_oc(
     return _to_read(user, oc)
 
 
-@router.get("/{oc_id}", response_model=OrdenCompraRead)
+@router.get("/{oc_id:int}", response_model=OrdenCompraRead)
 async def get_oc(
     user: CurrentUser, db: DBSession, scope: EmpresaScopeDep, oc_id: int
 ) -> OrdenCompraRead:
@@ -232,7 +232,7 @@ _OC_EDITABLE_ESTADOS = {"emitida", "parcial"}
 
 
 # V5++ ola CG — Renderizado HTML branded de OC (para print → PDF)
-@router.get("/{oc_id}.html", response_class=Response)
+@router.get("/{oc_id:int}.html", response_class=Response)
 async def get_oc_html(
     user: CurrentUser,
     db: DBSession,

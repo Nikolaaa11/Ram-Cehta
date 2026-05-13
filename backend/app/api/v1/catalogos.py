@@ -25,6 +25,8 @@ class EmpresaCatalogo(BaseModel):
     razon_social: str
     oc_prefix: str | None = None
     rut: str | None = None
+    # V5++ ola CG — Para que el FE sepa si tiene logo cargado
+    logo_dropbox_path: str | None = None
 
 
 _EMPRESA_COLS = (
@@ -152,14 +154,20 @@ async def list_empresas(
     rows = (
         await db.execute(
             text(
-                f"SELECT codigo, razon_social, oc_prefix, rut "
+                f"SELECT codigo, razon_social, oc_prefix, rut, logo_dropbox_path "
                 f"FROM core.empresas {sql_filter} ORDER BY codigo"  # noqa: S608
             ),
             params,
         )
     ).fetchall()
     return [
-        EmpresaCatalogo(codigo=r[0], razon_social=r[1], oc_prefix=r[2], rut=r[3])
+        EmpresaCatalogo(
+            codigo=r[0],
+            razon_social=r[1],
+            oc_prefix=r[2],
+            rut=r[3],
+            logo_dropbox_path=r[4],
+        )
         for r in rows
     ]
 
