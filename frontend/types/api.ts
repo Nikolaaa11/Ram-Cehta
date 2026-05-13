@@ -21,6 +21,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/health/detailed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Health Detailed
+         * @description Health check exhaustivo — para uptime monitors externos.
+         *
+         *     Devuelve siempre 200 (no 503) con los componentes detallados, así un
+         *     monitor puede alertar selectivamente en `services.imap_inbox=down`
+         *     sin tirar el endpoint completo.
+         *
+         *     V5++ ola CC: cache in-process 30s. Como los uptime monitors polean
+         *     cada 30-60s y los counts son lentos (DB en Ohio, backend en GRU,
+         *     ~1100ms por query consolidada), el cache evita 95% de hits a DB.
+         */
+        get: operations["health_detailed_api_v1_health_detailed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/health/perf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Perf Health
+         * @description V5++ ola BJ: diagnóstico de configuración perf actual.
+         *
+         *     Detecta cuellos de botella comunes y devuelve recomendaciones.
+         *     Ejemplo: si DATABASE_URL usa transaction pooler (port 6543), recomienda
+         *     cambiar a session pooler (5432) para 10x más velocidad.
+         */
+        get: operations["perf_health_api_v1_health_perf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/validate/rut": {
         parameters: {
             query?: never;
@@ -96,11 +148,138 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Proveedores */
+        /**
+         * List Proveedores
+         * @description Lista proveedores activos paginados. Si `with_counts=true`, agrega
+         *     `vouchers_count` y `ordenes_compra_count` a cada item (1 query extra
+         *     agregada). Util para la pantalla /admin/proveedores donde queremos
+         *     ver el uso real de cada proveedor.
+         */
         get: operations["list_proveedores_api_v1_proveedores_get"];
         put?: never;
         /** Create Proveedor */
         post: operations["create_proveedor_api_v1_proveedores_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/duplicates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Duplicate Groups
+         * @description Detecta proveedores candidatos a fusion por razon social normalizada.
+         *
+         *     Normaliza razon_social a [A-Z0-9]+ y agrupa los que comparten key.
+         *     Devuelve solo grupos con 2+ miembros, ordenados por tamano descendiente.
+         *
+         *     Pensado para que el admin revise duplicados en /admin/proveedores y
+         *     decida cual mantener (fusion manual via PATCH/DELETE — la fusion
+         *     automatica requiere mover referencias en vouchers/OCs y se hace en
+         *     una pasada manual fuera del endpoint).
+         *
+         *     IMPORTANTE: declarado antes de /{proveedor_id: int} para evitar colision.
+         */
+        get: operations["list_duplicate_groups_api_v1_proveedores_duplicates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Proveedores
+         * @description Busqueda fuzzy de proveedores para autocompletado por nombre o RUT.
+         *
+         *     A diferencia de /search-by-rut (que solo acepta RUT y devuelve exact-match),
+         *     este endpoint matchea ILIKE en razon_social y RUT parcial. Pensado para
+         *     cuando el user no recuerda el RUT exacto y empieza a tipear el nombre.
+         *
+         *     Si `with_counts=true`, agrega vouchers_count y ordenes_compra_count
+         *     (cuesta una query extra — usalo solo en pantallas de catalogo, no en
+         *     cada keystroke).
+         *
+         *     IMPORTANTE: debe estar declarada antes de /{proveedor_id: int}.
+         */
+        get: operations["search_proveedores_api_v1_proveedores_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/search-by-rut": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search By Rut
+         * @description Busca un proveedor por RUT en cualquier formato. Pensado para autocompletado.
+         *
+         *     Valida con modulo 11. Si el RUT es invalido, devuelve `rut_valid=False`
+         *     para que el FE muestre el error sin pegarle 400 al endpoint en cada keystroke.
+         *     Si es valido, normaliza al formato canonico ('12.345.678-9') y busca match
+         *     exacto en core.proveedores.
+         *
+         *     IMPORTANTE: esta ruta DEBE estar declarada antes de GET /{proveedor_id}
+         *     porque sino FastAPI intenta parsear "search-by-rut" como int y devuelve 422.
+         */
+        get: operations["search_by_rut_api_v1_proveedores_search_by_rut_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/{source_id}/merge-into/{target_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Merge Proveedor Into
+         * @description Fusiona el proveedor `source_id` en `target_id`.
+         *
+         *     Mueve TODAS las referencias del source al target:
+         *       - core.vouchers.contraparte_rut: del RUT del source al RUT del target
+         *         (solo si el target tiene RUT; si no, no se mueve esa columna).
+         *       - core.ordenes_compra.proveedor_id: del source al target.
+         *
+         *     Y luego deja el source con `activo=false` (soft-delete). Idempotente.
+         *
+         *     Restricciones:
+         *       - No se puede fusionar un proveedor consigo mismo.
+         *       - El target debe existir y estar activo.
+         *       - El source debe existir (puede estar activo o no).
+         *       - Permission scope: proveedor:delete (mismo que soft-delete).
+         */
+        post: operations["merge_proveedor_into_api_v1_proveedores__source_id__merge_into__target_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -126,6 +305,30 @@ export interface paths {
         patch: operations["update_proveedor_api_v1_proveedores__proveedor_id__patch"];
         trace?: never;
     };
+    "/api/v1/catalogos/empresas/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa
+         * @description Detalle completo de una empresa (incluye campos fiscales/contacto).
+         */
+        get: operations["get_empresa_api_v1_catalogos_empresas__codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Empresa
+         * @description Actualiza datos editables de la empresa. Solo admin (`empresa:update`).
+         */
+        patch: operations["update_empresa_api_v1_catalogos_empresas__codigo__patch"];
+        trace?: never;
+    };
     "/api/v1/catalogos/empresas": {
         parameters: {
             query?: never;
@@ -135,7 +338,11 @@ export interface paths {
         };
         /**
          * List Empresas
-         * @description Catálogo plano de empresas activas — único source-of-truth para selects (Disciplina 1).
+         * @description Catálogo plano de empresas — único source-of-truth para selects.
+         *
+         *     V5++ ola AP: filtra por las empresas que el user puede ver.
+         *     - Admin → ve todas (activas e inactivas, para histórico)
+         *     - Scoped users → solo las de su user_company_roles
          */
         get: operations["list_empresas_api_v1_catalogos_empresas_get"];
         put?: never;
@@ -153,7 +360,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Catalogos */
+        /**
+         * Get Catalogos
+         * @description V5++ ola AP: empresas en el catalogo filtradas por scope del user.
+         */
         get: operations["get_catalogos_api_v1_catalogos_get"];
         put?: never;
         post?: never;
@@ -170,7 +380,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Dashboard */
+        /**
+         * Get Dashboard
+         * @description V5++ ola CB: dashboard filtrado por empresas en scope del user.
+         */
         get: operations["get_dashboard_api_v1_dashboard_get"];
         put?: never;
         post?: never;
@@ -187,7 +400,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Kpis */
+        /**
+         * Get Kpis
+         * @description V5++ ola CB+CC: KPIs solo de empresas en scope del user.
+         *
+         *     Cache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan
+         *     ser frescos al segundo. El browser/CDN devuelve cached por 60s y
+         *     revalida en background.
+         */
         get: operations["get_kpis_api_v1_dashboard_kpis_get"];
         put?: never;
         post?: never;
@@ -206,9 +426,7 @@ export interface paths {
         };
         /**
          * Get Cashflow
-         * @description Devuelve los últimos N meses pivotando real vs proyectado.
-         *
-         *     Si `empresa_codigo` es None, agrega sobre todo el portafolio.
+         * @description V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min.
          */
         get: operations["get_cashflow_api_v1_dashboard_cashflow_get"];
         put?: never;
@@ -228,7 +446,7 @@ export interface paths {
         };
         /**
          * Get Egresos Por Concepto
-         * @description Top 10 conceptos por egreso del periodo. Default: periodo actual.
+         * @description V5++ ola CB: top 10 conceptos egreso filtrado por scope.
          */
         get: operations["get_egresos_por_concepto_api_v1_dashboard_egresos_por_concepto_get"];
         put?: never;
@@ -248,7 +466,7 @@ export interface paths {
         };
         /**
          * Get Saldos Por Empresa
-         * @description Saldo actual + variación últimos 30 días por empresa.
+         * @description V5++ ola CB+CC: saldos por empresa, solo de empresas en scope. Cache 60s.
          */
         get: operations["get_saldos_por_empresa_api_v1_dashboard_saldos_por_empresa_get"];
         put?: never;
@@ -266,7 +484,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Iva Trend */
+        /**
+         * Get Iva Trend
+         * @description V5++ ola CB: IVA trend filtrado por scope.
+         */
         get: operations["get_iva_trend_api_v1_dashboard_iva_trend_get"];
         put?: never;
         post?: never;
@@ -283,7 +504,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Proyectos Ranking */
+        /**
+         * Get Proyectos Ranking
+         * @description V5++ ola CB: ranking de proyectos filtrado por scope.
+         */
         get: operations["get_proyectos_ranking_api_v1_dashboard_proyectos_ranking_get"];
         put?: never;
         post?: never;
@@ -300,7 +524,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Movimientos Recientes */
+        /**
+         * Get Movimientos Recientes
+         * @description V5++ ola CB: movimientos recientes solo de empresas en scope.
+         */
         get: operations["get_movimientos_recientes_api_v1_dashboard_movimientos_recientes_get"];
         put?: never;
         post?: never;
@@ -324,10 +551,78 @@ export interface paths {
          *     Datos reales calculados sobre los movimientos / OC / F29 ya cargados.
          *     El bloque `insights_ai` queda como placeholder hasta integrar con el
          *     AI Asistente (V3 fase 3 — separado).
+         *
+         *     Cada query SQL está aislada con try/except — si una falla (vista no existe,
+         *     schema drift, etc.), el resto del reporte se calcula igual y el bloque
+         *     afectado vuelve con valores cero. Loggeamos el error para diagnóstico.
          */
         get: operations["ceo_consolidated_api_v1_dashboard_ceo_consolidated_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/vouchers-kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Vouchers Kpis
+         * @description V5++ ola CB: KPIs vouchers filtrado por scope del user.
+         */
+        get: operations["get_vouchers_kpis_api_v1_dashboard_vouchers_kpis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/extract-from-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Oc Extract From Text
+         * @description Crear OC desde texto pegado (email, WhatsApp, cotización en texto).
+         *
+         *     NO crea la OC — devuelve sugerencia para que el FE muestre el form
+         *     editable y el user confirme con POST /ordenes-compra (existente).
+         */
+        post: operations["oc_extract_from_text_api_v1_ordenes_compra_extract_from_text_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/extract-from-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Oc Extract From Upload
+         * @description Extract para OC desde archivo. Mismo pipeline que vouchers/extract-from-upload
+         *     pero con tipo='orden_compra' (schema con campos específicos de OC).
+         */
+        post: operations["oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -341,7 +636,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Ocs */
+        /**
+         * List Ocs
+         * @description V5++ ola AD: auto-filtra por empresas a las que el user tiene rol.
+         */
         get: operations["list_ocs_api_v1_ordenes_compra_get"];
         put?: never;
         /** Create Oc */
@@ -363,7 +661,11 @@ export interface paths {
         get: operations["get_oc_api_v1_ordenes_compra__oc_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Oc
+         * @description Borra una OC. Solo permitido si estado in ('emitida', 'anulada').
+         */
+        delete: operations["delete_oc_api_v1_ordenes_compra__oc_id__delete"];
         options?: never;
         head?: never;
         /**
@@ -371,6 +673,60 @@ export interface paths {
          * @description Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`.
          */
         patch: operations["update_oc_api_v1_ordenes_compra__oc_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Oc Html
+         * @description Renderiza la OC como HTML branded (con logo de la empresa emisora).
+         *
+         *     Print-friendly: el browser convierte a PDF con Ctrl+P sin perder
+         *     formato. No genera PDF server-side para mantenerlo simple y
+         *     multi-plataforma.
+         *
+         *     Si la empresa tiene logo_dropbox_path, se incluye via URL temporal
+         *     Dropbox (4h). Sino, fallback a razón social en texto grande.
+         */
+        get: operations["get_oc_html_api_v1_ordenes_compra__oc_id__html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate Oc
+         * @description Duplica una OC existente. Copia proveedor, items, montos, moneda, forma_pago.
+         *
+         *     El user pasa el numero_oc nuevo (obligatorio, no auto-generamos para no
+         *     pisar correlativos manuales). Opcionalmente puede sobrescribir fecha_emision
+         *     y observaciones; el resto se hereda del original.
+         *
+         *     La OC duplicada arranca en estado 'emitida' sin pdf_url (se generara cuando
+         *     el flujo de export lo dispare).
+         */
+        post: operations["duplicate_oc_api_v1_ordenes_compra__oc_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/ordenes-compra/{oc_id}/estado": {
@@ -390,6 +746,80 @@ export interface paths {
         patch: operations["update_estado_api_v1_ordenes_compra__oc_id__estado_patch"];
         trace?: never;
     };
+    "/api/v1/ordenes-compra/bulk-update-estado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Update Estado
+         * @description Cambio masivo de estado en hasta 200 OCs.
+         *
+         *     Reglas:
+         *     - Reusa la misma autorización por-OC que `PATCH /{oc_id}/estado` — si el
+         *       usuario no tiene permiso para el cambio en algún ID, ese ID falla y los
+         *       demás siguen.
+         *     - Cada cambio es una mutación independiente con su propio `audit_log`,
+         *       auditado bajo `action='bulk_update'` con `entity_label` que enumera
+         *       cuántos quedaron.
+         *     - El commit es uno solo al final — atómico por endpoint pero idempotente
+         *       por id (re-correr no re-aplica si el estado ya quedó).
+         */
+        post: operations["bulk_update_estado_api_v1_ordenes_compra_bulk_update_estado_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/import-csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Ocs Csv
+         * @description Bulk-import de Órdenes de Compra desde CSV (Excel chileno).
+         *
+         *     Formato esperado:
+         *         - Separador: `;`  (Excel chileno) o `,`
+         *         - Encoding: UTF-8 (BOM opcional)
+         *         - Una fila por ITEM de la OC; mismo `numero_oc` agrupa filas
+         *           en una OC con sus items. La key real para agrupar combina
+         *           `empresa_codigo|numero_oc`.
+         *
+         *     Columnas obligatorias (case-insensitive, aliases en español OK):
+         *         numero_oc, empresa_codigo, fecha_emision,
+         *         item, descripcion, precio_unitario, cantidad
+         *
+         *     Columnas opcionales:
+         *         proveedor_id, validez_dias, moneda, forma_pago, plazo_pago,
+         *         observaciones
+         *
+         *     El `neto` de la OC se calcula como Σ(precio_unitario * cantidad) de
+         *     los items. El IVA y total se calculan con la regla CLP estándar.
+         *
+         *     Todas las OCs se crean en estado `emitida`. Idempotencia: si una OC
+         *     con `(empresa_codigo, numero_oc)` ya existe, se reporta error y se
+         *     continúa con las demás (best-effort).
+         *
+         *     `dry_run=true` valida y devuelve el reporte sin insertar nada.
+         */
+        post: operations["import_ocs_csv_api_v1_ordenes_compra_import_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/movimientos": {
         parameters: {
             query?: never;
@@ -397,10 +827,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Movimientos */
+        /**
+         * List Movimientos
+         * @description V5++ ola AP: scope multi-tenant aplicado.
+         */
         get: operations["list_movimientos_api_v1_movimientos_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Manual Movimiento
+         * @description Crea un movimiento manual (fuera del ETL).
+         *
+         *     Casos típicos: ajuste contable, transferencia de inversor que el banco
+         *     no carga al Excel madre, corrección one-off. Todo el resto entra via
+         *     ETL del Excel (sigue siendo el canal primario).
+         *
+         *     `natural_key` se prefijo `manual_` + 12 chars random — esto evita
+         *     chocar con keys del ETL (que usa formato Hipervinculo + idx).
+         *
+         *     V5++ ola AP: scope check multi-tenant — solo crea en empresa del user.
+         */
+        post: operations["create_manual_movimiento_api_v1_movimientos_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -414,7 +860,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List F29 */
+        /**
+         * List F29
+         * @description V5++ ola AK: scope multi-tenant aplicado.
+         */
         get: operations["list_f29_api_v1_f29_get"];
         put?: never;
         /** Create F29 */
@@ -467,6 +916,236 @@ export interface paths {
         patch: operations["update_f29_api_v1_f29__f29_id__patch"];
         trace?: never;
     };
+    "/api/v1/f29/sync-dropbox/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync F29 Dropbox
+         * @description V5++ ola CB: sync F29 desde Dropbox con scope check.
+         */
+        post: operations["sync_f29_dropbox_api_v1_f29_sync_dropbox__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/f29/bulk-update-estado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Update Estado F29
+         * @description Cambio masivo de estado en hasta 200 F29.
+         *
+         *     Patrón calcado de OCs: chequea existencia + estado distinto, marca como
+         *     fallidos los que no aplican, commit único al final.
+         */
+        post: operations["bulk_update_estado_f29_api_v1_f29_bulk_update_estado_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/f22": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List F22
+         * @description V5++ ola AK: scope multi-tenant aplicado.
+         */
+        get: operations["list_f22_api_v1_f22_get"];
+        put?: never;
+        /**
+         * Create F22
+         * @description Crea un F22. Reusa el scope `f29:create` (mismo dominio tributario).
+         */
+        post: operations["create_f22_api_v1_f22_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/f22/{f22_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get F22 */
+        get: operations["get_f22_api_v1_f22__f22_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete F22 */
+        delete: operations["delete_f22_api_v1_f22__f22_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update F22
+         * @description Editar campos parciales del F22. Solo los enviados se actualizan.
+         */
+        patch: operations["update_f22_api_v1_f22__f22_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/f22/{f22_id}/marcar-pagado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marcar Pagado
+         * @description Shortcut para marcar como pagado con fecha + comprobante.
+         */
+        post: operations["marcar_pagado_api_v1_f22__f22_id__marcar_pagado_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/f22/sync-dropbox/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Dropbox
+         * @description Escanea `/Cehta Capital/01-Empresas/{COD}/03-Legal/Declaraciones SII/F22/`
+         *     y crea filas para los `{YYYY}.pdf` que no existan en DB.
+         *
+         *     V5++ ola CB: scope check para que solo users con rol en la empresa
+         *     puedan sync sus F22.
+         */
+        post: operations["sync_dropbox_api_v1_f22_sync_dropbox__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cartolas/sync-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync All Empresas
+         * @description Procesa cartolas de TODAS las empresas activas en una sola llamada.
+         *
+         *     Útil para el cierre mensual: subís todos los PDFs de todas las
+         *     empresas a Dropbox y disparás esto. Idempotente, hashes existentes
+         *     se skipean.
+         *
+         *     Devuelve dict por empresa con sus stats individuales + agregado.
+         */
+        post: operations["sync_all_empresas_api_v1_cartolas_sync_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cartolas/sync/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Cartolas
+         * @description Procesa todos los PDFs de cartolas en Dropbox para la empresa.
+         *
+         *     Idempotente: PDFs ya procesados (file_hash conocido) se skipean.
+         *     Soft-fail por archivo: errores individuales no abortan el run.
+         *
+         *     El servicio inserta filas en core.movimientos con `fuente='cartola_pdf'`
+         *     para distinguirlas del ETL de Excel madre.
+         *
+         *     V5++ ola AP: scope check — solo admin o user con rol en esa empresa.
+         */
+        post: operations["sync_cartolas_api_v1_cartolas_sync__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cartolas/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cartolas Runs
+         * @description Lista los runs de cartolas. Útil para auditar qué PDFs se procesaron
+         *     y cuáles fallaron (PDF escaneado, banco desconocido, etc.).
+         *
+         *     V5++ ola AP: scope multi-tenant aplicado.
+         */
+        get: operations["list_cartolas_runs_api_v1_cartolas_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cartolas/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cartola Run
+         * @description Detalle de un run específico.
+         */
+        get: operations["get_cartola_run_api_v1_cartolas_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/suscripciones": {
         parameters: {
             query?: never;
@@ -474,7 +1153,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Suscripciones */
+        /**
+         * List Suscripciones
+         * @description V5++ ola CB: suscripciones filtradas por empresas en scope.
+         */
         get: operations["list_suscripciones_api_v1_suscripciones_get"];
         put?: never;
         /** Create Suscripcion */
@@ -483,6 +1165,27 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/suscripciones/{suscripcion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Suscripcion */
+        delete: operations["delete_suscripcion_api_v1_suscripciones__suscripcion_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Suscripcion
+         * @description PATCH parcial. admin/finance pueden editar firmado, fecha_firma, etc.
+         */
+        patch: operations["update_suscripcion_api_v1_suscripciones__suscripcion_id__patch"];
         trace?: never;
     };
     "/api/v1/suscripciones/totals": {
@@ -499,6 +1202,135 @@ export interface paths {
         get: operations["totals_per_empresa_api_v1_suscripciones_totals_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lp-contratos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Contratos
+         * @description V5++ ola AP: scope multi-tenant aplicado sobre fondo_codigo.
+         */
+        get: operations["list_contratos_api_v1_lp_contratos_get"];
+        put?: never;
+        /** Create Contrato */
+        post: operations["create_contrato_api_v1_lp_contratos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lp-contratos/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Contratos Summary
+         * @description KPIs del fondo: Σ UF comprometidas, % meta, breakdown por estado/serie.
+         */
+        get: operations["contratos_summary_api_v1_lp_contratos_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lp-contratos/{contrato_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Contrato */
+        get: operations["get_contrato_api_v1_lp_contratos__contrato_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Contrato */
+        patch: operations["update_contrato_api_v1_lp_contratos__contrato_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/lp-contratos/{contrato_id}/pagar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pagar Contrato
+         * @description Marca el contrato como PAGADO y crea voucher INGRESO automático.
+         *
+         *     Flujo:
+         *         1. Validar contrato existe + no está ya pagado
+         *         2. Determinar monto_clp (del body o del contrato)
+         *         3. Generar voucher INGRESO con líneas DEBE/HABER apropiadas
+         *         4. Actualizar contrato: estado=PAGADO, fecha_pago, voucher_id
+         *         5. Auditar
+         */
+        post: operations["pagar_contrato_api_v1_lp_contratos__contrato_id__pagar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lp-contratos/{contrato_id}/marcar-suscrito": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marcar Suscrito
+         * @description PROMETIDO → SUSCRITO. Para cuando se firma el contrato definitivo
+         *     pero el pago aún no se ejecutó.
+         */
+        post: operations["marcar_suscrito_api_v1_lp_contratos__contrato_id__marcar_suscrito_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lp-contratos/{contrato_id}/resolver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolver Contrato
+         * @description Anula el contrato (resolución por incumplimiento o mutuo acuerdo).
+         *     No genera voucher de reverso automáticamente — si ya estaba pagado,
+         *     el COO crea un REVERSO manual.
+         */
+        post: operations["resolver_contrato_api_v1_lp_contratos__contrato_id__resolver_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -570,6 +1402,274 @@ export interface paths {
          *     drill-down desde la UI.
          */
         get: operations["data_quality_api_v1_audit_data_quality_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Actions
+         * @description Listado paginado del audit trail (sin diffs, lighter).
+         */
+        get: operations["list_actions_api_v1_audit_actions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/actions/{log_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Action
+         * @description Detalle completo de una entrada (incluye diffs).
+         */
+        get: operations["get_action_api_v1_audit_actions__log_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/entity/{entity_type}/{entity_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entity History
+         * @description Historial completo de mutaciones para una entidad concreta.
+         */
+        get: operations["entity_history_api_v1_audit_entity__entity_type___entity_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/http-mutations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Http Mutations
+         * @description V5++ ola AE: trail HTTP coarse-grained de toda mutación.
+         *
+         *     Filtros combinables. Default últimas 24h. Para forense de un user
+         *     específico, pasá `user_email`. Para detectar abuso, `only_slow` o
+         *     `only_errors`. Resultados ordenados por timestamp DESC.
+         */
+        get: operations["list_http_mutations_api_v1_audit_http_mutations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/http-mutations/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Http Mutations Summary
+         * @description V5++ ola AE: estadísticas agregadas del trail HTTP.
+         *
+         *     Devuelve top users, top endpoints, top errores, percentiles latencia.
+         *     Útil para dashboard "¿quién hizo qué en las últimas 24h?".
+         */
+        get: operations["http_mutations_summary_api_v1_audit_http_mutations_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/scope-violations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Scope Violations
+         * @description V5++ ola CB: lista tentativas cross-tenant detectadas.
+         *
+         *     Cuando un user no-admin intenta acceder a una empresa fuera de su
+         *     `core.user_company_roles`, se guarda en `audit.scope_violations`.
+         *
+         *     Útil para:
+         *     - Detectar usuarios con configuración incorrecta (un rol mal asignado
+         *       y la persona reintenta varias veces).
+         *     - Detectar tentativas maliciosas (mismo user reintenta a 5 empresas
+         *       distintas en 1 minuto → sospechoso).
+         *     - Auditoría regulatoria (evidencia que el scope funciona).
+         *
+         *     Solo admin (`audit:read` scope).
+         */
+        get: operations["list_scope_violations_api_v1_audit_scope_violations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/integrity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit Integrity
+         * @description V5++ ola BS: chequeo de integridad del sistema multi-tenant.
+         *
+         *     Devuelve un report con:
+         *         - users_total
+         *         - users_sin_rol      (potencial issue)
+         *         - users_admin        (debería ser 1-2)
+         *         - empresas_total
+         *         - empresas_sin_reglas    (no pueden aprobar vouchers)
+         *         - empresas_sin_users     (nadie puede operar)
+         *         - vouchers_orphan        (empresa inactiva)
+         *         - audit_entries_total    (cantidad de eventos registrados)
+         *         - audit_last_24h         (actividad reciente)
+         *         - issues                 (lista de problemas detectados con severidad)
+         */
+        get: operations["audit_integrity_api_v1_audit_integrity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bitacora/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bitacora Timeline
+         * @description V5++ ola AO: timeline cronológico unificado.
+         *
+         *     Combina action_log (entity diffs) + http_mutations (cada request HTTP).
+         *     Si el user no es admin, solo ve su propia actividad.
+         *
+         *     Cada item del timeline tiene:
+         *         timestamp, source ('action'|'http'), user_email, action,
+         *         entity_type, entity_id, summary, status_code (si http)
+         */
+        get: operations["bitacora_timeline_api_v1_bitacora_timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bitacora/user/{email}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bitacora Per User
+         * @description V5++ ola AO: estadísticas + timeline de un usuario específico.
+         *
+         *     Solo admins (audit:read). Devuelve:
+         *         - Total acciones en N días
+         *         - Breakdown por tipo de acción
+         *         - Empresas tocadas (cantidad distinct)
+         *         - Top entity_types editados
+         *         - Últimas 50 acciones detalladas
+         */
+        get: operations["bitacora_per_user_api_v1_bitacora_user__email__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bitacora/empresa/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bitacora Per Empresa
+         * @description V5++ ola AO + CB: actividad sobre una empresa específica con scope check.
+         *
+         *     Útil para revisión por empresa: "¿qué se hizo en EVOQUE este mes?"
+         *     Busca en entity_label o en el diff JSONB un match con la empresa.
+         */
+        get: operations["bitacora_per_empresa_api_v1_bitacora_empresa__codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bitacora/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bitacora Summary
+         * @description Vista 360° de la actividad del sistema en los últimos N días.
+         */
+        get: operations["bitacora_summary_api_v1_bitacora_summary_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -859,6 +1959,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trabajadores/sync-dropbox/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Trabajadores Dropbox
+         * @description Escanea `Cehta Capital/01-Empresas/{empresa}/02-Trabajadores/Activos/`
+         *     y reconcilia con la DB.
+         *
+         *     Para cada subcarpeta con formato `RUT - Nombre`:
+         *     - Si NO existe el trabajador en DB → lo crea con estado='activo'.
+         *     - Para cada archivo dentro → si el `dropbox_path` no existe en DB,
+         *       crea un `core.trabajador_documento` con `tipo` inferido del nombre.
+         *
+         *     Idempotente: el match por `dropbox_path` evita duplicados al re-ejecutar.
+         *
+         *     V5++ ola CB: solo users con scope a la empresa pueden sync.
+         */
+        post: operations["sync_trabajadores_dropbox_api_v1_trabajadores_sync_dropbox__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/trabajadores/{trabajador_id}/documentos/{documento_id}": {
         parameters: {
             query?: never;
@@ -877,6 +2007,222 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Ask
+         * @description Pregunta one-shot al AI sobre entregables / compliance / pipeline.
+         *
+         *     Usa Anthropic tool calling: el modelo decide qué tools ejecutar contra
+         *     la base, y devuelve una respuesta consolidada con la traza de calls.
+         *
+         *     No persiste conversación (a diferencia de `/chat`) — pensado para
+         *     queries puntuales tipo "qué entregables vencen esta semana?".
+         *
+         *     Devuelve 503 si `ANTHROPIC_API_KEY` no está configurado.
+         */
+        post: operations["ai_ask_api_v1_ai_ask_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/ask/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Ask Stream
+         * @description V5 fase 5 — Versión streaming de `/ai/ask`.
+         *
+         *     Devuelve un Server-Sent Events stream con frames por cada paso del
+         *     loop de tool calling:
+         *       - `iteration` — al inicio de cada iteración
+         *       - `tool_use` — Claude pide ejecutar una tool (input visible)
+         *       - `tool_result` — la tool devolvió su resultado (preview)
+         *       - `thinking` — texto intermedio que Claude escribe entre tools
+         *       - `answer` — texto final cuando termina
+         *       - `done` — cierre con tokens totales
+         *       - `error` — en caso de fallo
+         *
+         *     El frontend lo consume con `EventSource` o `fetch + ReadableStream` y
+         *     renderea cada frame en tiempo real, dando feedback visible al usuario
+         *     de "qué está haciendo Claude".
+         */
+        post: operations["ai_ask_stream_api_v1_ai_ask_stream_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/acta/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Generate Acta
+         * @description Genera un draft de acta del Comité de Vigilancia con AI.
+         *
+         *     Pull de datos reales (vencidos, próximos, compliance) → context → Claude
+         *     devuelve markdown estructurado de acta lista para revisar y firmar.
+         *
+         *     Si `empresa` se pasa, el acta es scoped a esa empresa específica.
+         */
+        post: operations["ai_generate_acta_api_v1_ai_acta_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/executive-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ai Executive Summary
+         * @description V5 fase 6 — Resumen narrativo de 1-2 líneas para CEO Dashboard.
+         *
+         *     Pull rápido de KPIs + compliance + entregables → Claude redacta
+         *     "context setting" antes de números crudos. Pensado para mostrarse
+         *     arriba del header del CEO dashboard.
+         *
+         *     Devuelve 503 si Anthropic no está configurado.
+         */
+        get: operations["ai_executive_summary_api_v1_ai_executive_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/secretaria-tareas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Secretaria Tareas
+         * @description V4 fase 8.2 — Secretaria AI de Tareas ("Claudia").
+         *
+         *     Llama internamente al endpoint upcoming-tasks para obtener el feed
+         *     de prioridades, lo resume, y le pide a Claude que genere 5 bullets
+         *     accionables en tono cálido + chileno-rioplatense formal.
+         *
+         *     Cache: 30 minutos en memoria (key = hash de los IDs de hitos top).
+         *
+         *     Devuelve 503 si Anthropic no está configurado — frontend debe
+         *     ocultar el panel.
+         */
+        post: operations["ai_secretaria_tareas_api_v1_ai_secretaria_tareas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/insights/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ai Insights Generate
+         * @description V5 fase 3 — Genera insights proactivos vía Claude.
+         *
+         *     Pull consolidado de compliance + workload + templates fallidos +
+         *     concentración → Claude identifica hasta 5 anomalías relevantes.
+         *
+         *     Pensado para correr nightly (cron) y persistirse en BD para que el
+         *     operador encuentre los insights en su próxima sesión. En V5.3 inicial,
+         *     se llama on-demand desde el frontend admin.
+         *
+         *     Devuelve 503 si `ANTHROPIC_API_KEY` no está configurado.
+         */
+        post: operations["ai_insights_generate_api_v1_ai_insights_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ai Insights List
+         * @description Lista insights persistidos. Por default solo los abiertos (no dismissed).
+         *
+         *     Devuelve más recientes primero. El frontend lo muestra como inbox.
+         */
+        get: operations["ai_insights_list_api_v1_ai_insights_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/insights/{insight_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Ai Insight Update
+         * @description Marca un insight como leído o dismissed.
+         *
+         *     Idempotente: si ya está marcado, no falla. Setear `read=False` o
+         *     `dismissed=False` resetea el timestamp.
+         */
+        patch: operations["ai_insight_update_api_v1_ai_insights__insight_id__patch"];
         trace?: never;
     };
     "/api/v1/ai/conversations": {
@@ -1020,6 +2366,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/data-qa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask Data Qa
+         * @description Responde una pregunta sobre el estado financiero usando un snapshot
+         *     pre-computado. NO ejecuta SQL arbitrario — solo lee counts/totales
+         *     seguros y deja a Claude razonar sobre el JSON.
+         *
+         *     Uso típico: el dashboard tiene un input "Pregunta a Claudia Data" y
+         *     Nicolás escribe "¿cuántos vouchers PENDING tiene TRONGKAI?" → Claude
+         *     responde citando el número exacto del snapshot.
+         */
+        post: operations["ask_data_qa_api_v1_ai_data_qa_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/legal": {
         parameters: {
             query?: never;
@@ -1027,7 +2399,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Legal */
+        /**
+         * List Legal
+         * @description V5++ ola CB: scope multi-tenant aplicado.
+         *
+         *     - Admin global → ve todo
+         *     - User scoped → SOLO documentos de sus empresas
+         *     - Si pasa empresa_codigo fuera de su scope → 403
+         */
         get: operations["list_legal_api_v1_legal_get"];
         put?: never;
         /** Create Legal */
@@ -1045,7 +2424,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Alerts Legal */
+        /**
+         * Alerts Legal
+         * @description V5++ ola CB: filtra alertas por empresas en scope del user.
+         */
         get: operations["alerts_legal_api_v1_legal_alerts_get"];
         put?: never;
         post?: never;
@@ -1096,6 +2478,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/legal/sync-dropbox/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Legal Dropbox
+         * @description Escanea `Cehta Capital/01-Empresas/{empresa}/03-Legal/` recursivamente
+         *     y crea legal_documents para los archivos que aún no estén en DB.
+         *
+         *     Categoría/subcategoría se inferen del path:
+         *       Contratos/Cliente   → contrato/cliente
+         *       Contratos/Proveedor → contrato/proveedor
+         *       Contratos/Bancario  → contrato/bancario
+         *       Actas               → acta
+         *       Declaraciones SII/F29 → declaracion_sii/f29
+         *       Pólizas             → poliza
+         *
+         *     Idempotente: match por `dropbox_path`.
+         *
+         *     V5++ ola CB: solo usuarios con acceso a la empresa pueden sync.
+         */
+        post: operations["sync_legal_dropbox_api_v1_legal_sync_dropbox__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/legal/{documento_id}/download": {
         parameters: {
             query?: never;
@@ -1107,6 +2522,91 @@ export interface paths {
         get: operations["download_legal_api_v1_legal__documento_id__download_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Legal Versions
+         * @description Versiones del documento, más nueva primero.
+         */
+        get: operations["list_legal_versions_api_v1_legal__documento_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}/versions/{version_number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Legal Version */
+        get: operations["get_legal_version_api_v1_legal__documento_id__versions__version_number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}/versions/{version_number}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare Legal Version
+         * @description Compara una versión histórica contra el estado actual del documento.
+         */
+        get: operations["compare_legal_version_api_v1_legal__documento_id__versions__version_number__compare_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/legal/{documento_id}/versions/{version_number}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Legal Version
+         * @description Restaura una versión histórica como estado actual.
+         *
+         *     Forward-only: NO pisamos historia. El flujo es:
+         *       1. Snapshot del estado actual → nueva versión.
+         *       2. Aplicar valores del snapshot histórico al row actual.
+         *       3. Snapshot del estado restaurado → otra nueva versión
+         *          (para tener trazabilidad clara: "restauré a v5").
+         *
+         *     Sólo admin con 2FA habilitado (high-impact, destructivo).
+         */
+        post: operations["restore_legal_version_api_v1_legal__documento_id__versions__version_number__restore_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1144,6 +2644,138 @@ export interface paths {
          * @description Envía un email de prueba al `to` indicado o al primer admin recipient.
          */
         post: operations["notifications_test_api_v1_notifications_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/regenerate-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Alerts
+         * @description Forza el regenerado de alertas in-app + webhooks de vencimiento.
+         *
+         *     Mismo flow que `scripts/alerts_cron.py` corre cada hora pero on-demand:
+         *     F29 due, contratos due, OCs estancadas, entregables regulatorios.
+         *     El servicio es idempotente — correrlo 2 veces seguidas no spamea
+         *     (dedup por user+entity en últimas 24h).
+         *
+         *     Útil después de:
+         *       - Cargar F29 nuevos manualmente
+         *       - Marcar entregables como entregados
+         *       - Cambiar fechas de vigencia legal
+         */
+        post: operations["regenerate_alerts_api_v1_notifications_regenerate_alerts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Inbox
+         * @description Lista paginada de notificaciones del usuario actual.
+         */
+        get: operations["list_inbox_api_v1_inbox_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unread Count
+         * @description Cantidad de notificaciones sin leer (para el bell badge).
+         */
+        get: operations["unread_count_api_v1_inbox_unread_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark Read
+         * @description Marca una notificación como leída (solo si pertenece al usuario).
+         */
+        post: operations["mark_read_api_v1_inbox__notification_id__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/mark-all-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark All Read
+         * @description Marca todas las notificaciones del usuario como leídas.
+         */
+        post: operations["mark_all_read_api_v1_inbox_mark_all_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inbox/generate-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Alerts
+         * @description Trigger manual del generador de alertas (admin-only).
+         *
+         *     En producción se invoca via cron / scheduled job. Idempotente.
+         */
+        post: operations["generate_alerts_api_v1_inbox_generate_alerts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1367,9 +2999,7 @@ export interface paths {
          * Sync Roadmap
          * @description Detecta `/Cehta Capital/Proyectos/{codigo}/Roadmap.xlsx` y lo registra.
          *
-         *     Implementación mínima V3 fase 5: marca el path en el proyecto base
-         *     (creándolo si no existe). El parsing detallado del Excel queda
-         *     para fase posterior — acá garantizamos al menos visibilidad del path.
+         *     V5++ ola CB: scope check.
          */
         get: operations["sync_roadmap_api_v1_avance__empresa_codigo__sync_roadmap_get"];
         put?: never;
@@ -1378,6 +3008,174 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/import-excel/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Gantt Preview
+         * @description Modo dry-run: parsea el Excel y devuelve preview sin tocar DB.
+         *
+         *     V5++ ola CB: scope check.
+         */
+        post: operations["import_gantt_preview_api_v1_avance__empresa_codigo__import_excel_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/import-excel/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Gantt Commit
+         * @description V5++ ola CB: scope check + persistir Gantt.
+         */
+        post: operations["import_gantt_commit_api_v1_avance__empresa_codigo__import_excel_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/import-excel/sync-from-dropbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Gantt From Dropbox
+         * @description V5++ ola CB: scope check + sync Gantt desde Dropbox.
+         */
+        post: operations["sync_gantt_from_dropbox_api_v1_avance__empresa_codigo__import_excel_sync_from_dropbox_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/sync-all-from-dropbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync All Gantts From Dropbox
+         * @description Sincroniza los Gantts de TODAS las empresas del portafolio desde Dropbox.
+         *
+         *     V5++ ola CB: SOLO ADMIN. Esto opera cross-empresa así que solo accesible
+         *     para users con app_role='admin'.
+         */
+        post: operations["sync_all_gantts_from_dropbox_api_v1_avance_sync_all_from_dropbox_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/{empresa_codigo}/import-excel/proyectos-importados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Imported Proyectos
+         * @description V5++ ola CB: scope check + borrar proyectos importados.
+         */
+        delete: operations["delete_imported_proyectos_api_v1_avance__empresa_codigo__import_excel_proyectos_importados_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/portfolio/upcoming-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upcoming Tasks
+         * @description Buckets temporales cross-empresa para Kanban + Secretaria AI.
+         *
+         *     Filtra hitos con `estado IN ('pendiente', 'en_progreso')` (las
+         *     completadas y canceladas no van al Kanban). Para stats de tendencia
+         *     incluye conteo separado de completadas última semana vs anterior.
+         *
+         *     Cap defensivo: máximo 200 hitos por bucket — si una empresa tiene
+         *     más se truncan (en frontend mostramos "+N más" link a la vista
+         *     completa de la empresa).
+         *
+         *     El response es self-contained: el frontend no necesita queries
+         *     adicionales para mostrar nombre de empresa/proyecto/encargado.
+         */
+        get: operations["upcoming_tasks_api_v1_avance_portfolio_upcoming_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/avance/hitos/{hito_id}/quick": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Quick Edit Hito
+         * @description Endpoint optimizado para acciones inline del Kanban.
+         *
+         *     Single endpoint que cubre los 5 quick actions del prompt maestro:
+         *     - ✓ Marcar completado: `{"estado": "completado"}`
+         *     - 📅 Reasignar fecha: `{"fecha_planificada": "2026-05-15"}`
+         *     - 👤 Cambiar encargado: `{"encargado": "felipe@dte.cl"}`
+         *     - 📝 Editar descripción: `{"descripcion": "..."}`
+         *     - Actualizar progreso: `{"progreso_pct": 50}`
+         *
+         *     Side effects automáticos (defensa contra estados inconsistentes):
+         *     - Si `estado="completado"` y no se pasó `progreso_pct`, lo seteamos a 100.
+         *     - Si `estado="completado"` y no se pasó `fecha_completado`, hoy.
+         *     - Si `progreso_pct=100` y no se pasó `estado`, lo seteamos a "completado".
+         */
+        patch: operations["quick_edit_hito_api_v1_avance_hitos__hito_id__quick_patch"];
         trace?: never;
     };
     "/api/v1/calendar/events": {
@@ -1427,6 +3225,42 @@ export interface paths {
         put?: never;
         /** Complete Event */
         post: operations["complete_event_api_v1_calendar_events__event_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/calendar/obligations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Obligations
+         * @description Timeline unificado de obligaciones (V3 fase 9).
+         *
+         *     Agrega 5 fuentes en una lista única ordenada por `due_date`:
+         *
+         *       * F29 con `fecha_vencimiento` y estado != 'pagado'
+         *       * Documentos legales `vigente` con `fecha_vigencia_hasta`
+         *       * OCs `emitida`/`aprobada` (due_date = fecha_emision + plazo_pago)
+         *       * Suscripciones de acciones por firmar (`firmado=false`)
+         *       * Eventos manuales del calendario (no completados)
+         *
+         *     Defaults: `from_date=today`, `to_date=today + 90 días`. Permite filtrar
+         *     por `empresa_codigo` y por `tipo` (uno solo).
+         *
+         *     V5++ ola CB: multi-tenant scoping.
+         *       * Admin global → sin restricción
+         *       * User scoped → SOLO ve obligaciones de empresas en `user_company_roles`
+         *       * Si pasa `empresa_codigo` no permitido → 403
+         */
+        get: operations["list_obligations_api_v1_calendar_obligations_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1530,6 +3364,57 @@ export interface paths {
          *     path para que el frontend pueda linkear al archivo.
          */
         post: operations["import_from_dropbox_api_v1_fondos_import_from_dropbox_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Empresas Flat
+         * @description Lista plana de empresas para poblar selects.
+         *
+         *     Devuelve TODAS las empresas por defecto (incluidas inactivas) para que
+         *     los selectores en /vouchers, /reportes, /admin, etc. muestren el set
+         *     completo del portafolio. Pasá `?solo_activas=true` si necesitás filtrar
+         *     a las que están operando hoy.
+         *
+         *     Cache: 5min stale-while-revalidate. Las empresas cambian rara vez —
+         *     esto reduce ~30 requests/sesión a 1.
+         */
+        get: operations["list_empresas_flat_api_v1_empresa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/sync-all-dropbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync All Dropbox
+         * @description Corre todos los syncs Dropbox de la empresa en una transacción.
+         *
+         *     Cada sub-sync atrapa sus errores y los acumula en `errors[]` sin
+         *     abortar los demás. Idempotente — si re-corres no duplica nada.
+         */
+        post: operations["sync_all_dropbox_api_v1_empresa__empresa_codigo__sync_all_dropbox_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1676,10 +3561,3921 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/empresa/{empresa_codigo}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Empresa Logo
+         * @description Sube logo via multipart. Lo guarda en Dropbox + DB.
+         */
+        post: operations["upload_empresa_logo_api_v1_empresa__empresa_codigo__logo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/logo-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa Logo Url
+         * @description Devuelve URL temporal Dropbox (4h) del logo. Usada por FE para
+         *     mostrar preview y por el render_orden_compra_html para embeber.
+         */
+        get: operations["get_empresa_logo_url_api_v1_empresa__empresa_codigo__logo_url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/documents/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Uploaded Document
+         * @description Analiza un archivo y devuelve los campos extraídos.
+         *
+         *     Status codes:
+         *     - 200: extracción ok (puede tener confidence baja o warnings).
+         *     - 413: archivo > 10 MB.
+         *     - 422: no se pudo extraer texto (PDF de imágenes sin OCR, archivo vacío…).
+         *     - 503: ANTHROPIC_API_KEY no configurada en backend.
+         */
+        post: operations["analyze_uploaded_document_api_v1_documents_analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global Search
+         * @description Cmd+K. Recibe `q` y devuelve hits agrupados por entidad.
+         *
+         *     V5++ ola AP: scope multi-tenant aplicado. Cada user solo ve hits de
+         *     sus empresas. Admin ve todo.
+         *
+         *     Si `q` < 2 chars devolvemos respuesta vacía pero válida (200).
+         */
+        get: operations["global_search_api_v1_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exports/{entity_type}.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Entity Xlsx
+         * @description Exporta una lista a Excel, respetando filtros opcionales.
+         *
+         *     `entity_type` debe ser una clave de `_ENTITY_QUERIES`. 404 si no existe.
+         *     Cualquier usuario autenticado puede exportar — los datos sensibles ya
+         *     están protegidos a nivel CRUD por scopes; un usuario que no puede ver
+         *     OCs tampoco las ve en el listado y no encontrará nada útil que exportar.
+         */
+        get: operations["export_entity_xlsx_api_v1_exports__entity_type__xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digest/ceo-weekly/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Digest Preview
+         * @description Devuelve el payload JSON del digest semanal (admin-only).
+         */
+        get: operations["digest_preview_api_v1_digest_ceo_weekly_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digest/ceo-weekly/preview.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Digest Preview Html
+         * @description Devuelve el HTML del email exactamente como va a llegar al CEO.
+         *
+         *     Útil para iframe de preview en `/admin/digest`.
+         */
+        get: operations["digest_preview_html_api_v1_digest_ceo_weekly_preview_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digest/ceo-weekly/send-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Digest Send Now
+         * @description Envía el digest a los recipients indicados o al default admin list.
+         *
+         *     Devuelve 503 si `RESEND_API_KEY` no está configurada — soft-fail flow.
+         */
+        post: operations["digest_send_now_api_v1_digest_ceo_weekly_send_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digest/entregables-weekly/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entregables Digest Preview
+         * @description JSON payload del digest semanal de entregables (admin-only).
+         */
+        get: operations["entregables_digest_preview_api_v1_digest_entregables_weekly_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digest/entregables-weekly/preview.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entregables Digest Preview Html
+         * @description Preview HTML del email de entregables (iframe-friendly).
+         */
+        get: operations["entregables_digest_preview_html_api_v1_digest_entregables_weekly_preview_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/digest/entregables-weekly/send-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Entregables Digest Send Now
+         * @description Dispara el envío del digest semanal de entregables.
+         *
+         *     Pensado para correr lunes 8am Chile vía GitHub Action cron.
+         */
+        post: operations["entregables_digest_send_now_api_v1_digest_entregables_weekly_send_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Views
+         * @description Lista las vistas del usuario, opcionalmente filtradas por página.
+         */
+        get: operations["list_views_api_v1_me_views_get"];
+        put?: never;
+        /**
+         * Create View
+         * @description Crea una vista nueva con los filtros snapshot actuales.
+         */
+        post: operations["create_view_api_v1_me_views_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/views/{view_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete View
+         * @description Borra una vista del usuario. 404 si no es suya.
+         */
+        delete: operations["delete_view_api_v1_me_views__view_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update View
+         * @description Update parcial: rename / cambio de filtros / toggle pin.
+         */
+        patch: operations["update_view_api_v1_me_views__view_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/me/2fa/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Status 2Fa */
+        get: operations["status_2fa_api_v1_me_2fa_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/2fa/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enroll 2Fa
+         * @description Genera secret + QR + backup codes; persiste con `enabled=false`.
+         *
+         *     - Si ya hay enrollment con `enabled=false` → regenera (allow retry).
+         *     - Si ya hay enrollment con `enabled=true`  → 409 (debe disable primero).
+         */
+        post: operations["enroll_2fa_api_v1_me_2fa_enroll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/2fa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify 2Fa
+         * @description Confirma posesión del autenticador. Si OK, `enabled=true`.
+         */
+        post: operations["verify_2fa_api_v1_me_2fa_verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/2fa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable 2Fa
+         * @description Desactiva 2FA — borra la fila. Requiere code válido como gate.
+         */
+        post: operations["disable_2fa_api_v1_me_2fa_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/2fa/regenerate-backup-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Backup Codes
+         * @description Regenera los 10 backup codes. Requiere 2FA activo.
+         *
+         *     Los códigos anteriores quedan completamente invalidados.
+         */
+        post: operations["regenerate_backup_codes_api_v1_me_2fa_regenerate_backup_codes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/preferences/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Preference
+         * @description Devuelve la preferencia del usuario logueado para esta key.
+         *
+         *     404 si no existe (no devolvemos `{}` ni `null` — el frontend usa el 404
+         *     como señal explícita de "primera vez" para disparar el onboarding tour).
+         */
+        get: operations["get_preference_api_v1_me_preferences__key__get"];
+        /**
+         * Upsert Preference
+         * @description Upsert: crea o actualiza la preferencia para esta key + user.
+         *
+         *     Idempotente: llamar con el mismo body múltiples veces no cambia el
+         *     estado más allá de `updated_at`.
+         */
+        put: operations["upsert_preference_api_v1_me_preferences__key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sidebar-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sidebar State
+         * @description Estado agregado del sidebar en una sola request.
+         *
+         *     Usa asyncio.gather para correr las 4 counts en paralelo dentro de la
+         *     misma transacción. Latencia: ~max(c1, c2, c3, c4) en lugar de
+         *     sum(c1+c2+c3+c4) que serían los 4 endpoints separados.
+         *
+         *     Soft-fail per-count: si una tabla no existe (entornos antiguos),
+         *     el helper devuelve 0 sin romper el endpoint.
+         */
+        get: operations["get_sidebar_state_api_v1_me_sidebar_state_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/empresas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List My Empresas
+         * @description V5++ ola AI + CB: empresas a las que el current user tiene acceso.
+         *
+         *     Útil para el frontend:
+         *       - Pre-seleccionar empresa default al crear voucher (si tiene solo 1)
+         *       - Limitar selector de empresa al universo permitido
+         *       - Mostrar "Mis Empresas" widget en dashboard
+         *       - Mostrar scope info (admin badge, count, etc.)
+         *
+         *     V5++ ola AR: Cache 5min stale-while-revalidate 60s. Los roles cambian
+         *     rara vez, y el scope cache TTL ya es 60s en backend.
+         *
+         *     V5++ ola CB: agrega `scope_summary` con info estructurada para UI:
+         *       - total: count de empresas accesibles
+         *       - is_global: alias de is_admin
+         *       - roles_summary: agregación de roles únicos del user
+         */
+        get: operations["list_my_empresas_api_v1_me_empresas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bulk-import/{entity_type}/dry-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry Run
+         * @description Sube un CSV, valida y devuelve el report sin tocar DB.
+         *
+         *     Scope check es per-entity (`{entity}:create`) — el dep estático no funciona
+         *     porque el scope depende del path param.
+         */
+        post: operations["dry_run_api_v1_bulk_import__entity_type__dry_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/bulk-import/{entity_type}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute
+         * @description Ejecuta el import — inserta filas validadas.
+         */
+        post: operations["execute_api_v1_bulk_import__entity_type__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get System Status
+         * @description Status agregado de toda la plataforma. Admin-only.
+         *
+         *     Reusa el scope `audit:read` que ya existe (admin). No tiene sentido
+         *     abrirlo a finance/viewer — es info de operaciones internas.
+         */
+        get: operations["get_system_status_api_v1_admin_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/currency/rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Rates
+         * @description Lista las tasas cacheadas en el rango (default últimos 30 días).
+         *
+         *     Sin auth especial — son datos públicos del Banco Central.
+         */
+        get: operations["list_rates_api_v1_currency_rates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/currency/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest Rates
+         * @description UF + USD de hoy. Soft-fail por moneda: si una falla, viene None.
+         */
+        get: operations["latest_rates_api_v1_currency_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/currency/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert Amount
+         * @description Convierte un monto entre CLP/UF/USD.
+         */
+        post: operations["convert_amount_api_v1_currency_convert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/currency/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Today
+         * @description Refresh manual de las tasas de hoy. Admin only (scope `audit:read`).
+         *
+         *     Útil cuando el cron diario no corrió o hubo un blip en las APIs.
+         */
+        post: operations["refresh_today_api_v1_currency_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/event-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Event Types
+         * @description Lista de eventos publicables — el frontend pinta checkboxes con esto.
+         */
+        get: operations["list_event_types_api_v1_webhooks_event_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Subscriptions */
+        get: operations["list_subscriptions_api_v1_webhooks_get"];
+        put?: never;
+        /** Create Subscription */
+        post: operations["create_subscription_api_v1_webhooks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{sub_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Subscription */
+        delete: operations["delete_subscription_api_v1_webhooks__sub_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Subscription */
+        patch: operations["update_subscription_api_v1_webhooks__sub_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/webhooks/{sub_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Subscription
+         * @description Dispara un evento `test` para verificar que el webhook funciona.
+         *
+         *     Útil al crear: el user agrega su URL → click 'Test' → ve si llega a
+         *     Slack/Zapier/etc + chequea la signature.
+         */
+        post: operations["test_subscription_api_v1_webhooks__sub_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{sub_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Deliveries */
+        get: operations["list_deliveries_api_v1_webhooks__sub_id__deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stream/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Events
+         * @description Endpoint principal del stream SSE.
+         *
+         *     Auth: header `Authorization: Bearer <jwt>` O query `?token=<jwt>`.
+         *
+         *     El response es `text/event-stream`. El cliente típico es
+         *     `new EventSource('/api/v1/stream/events?token=...')` desde el frontend.
+         */
+        get: operations["stream_events_api_v1_stream_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tokens
+         * @description Lista todos los tokens — solo admins. No expone el hash, solo el hint.
+         */
+        get: operations["list_tokens_api_v1_api_tokens_get"];
+        put?: never;
+        /**
+         * Create Api Token
+         * @description Crea un token nuevo. Devuelve el plaintext UNA sola vez.
+         *
+         *     Gate 2FA: emitir credenciales que potencialmente actúan como un admin
+         *     es operación critical. Requiere 2FA activo.
+         */
+        post: operations["create_api_token_api_v1_api_tokens_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-tokens/{token_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke Api Token
+         * @description Marca el token como revocado. El próximo intento de uso devuelve 401.
+         */
+        post: operations["revoke_api_token_api_v1_api_tokens__token_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Api Token
+         * @description Borra el registro completamente. Equivalente a revoke pero sin
+         *     historial. Útil para limpiar tokens que nunca se usaron.
+         */
+        delete: operations["delete_api_token_api_v1_api_tokens__token_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolio/consolidated": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Portfolio Consolidated
+         * @description Vista consolidada del portafolio en CLP/USD/UF.
+         *
+         *     V5++ ola CB: filtra por empresas en scope del user. Admin global ve
+         *     todo el portafolio (FIP CEHTA completo). Scoped users ven solo sus
+         *     empresas — útil cuando un partner GP solo gestiona una vertical.
+         */
+        get: operations["portfolio_consolidated_api_v1_portfolio_consolidated_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Entregables
+         * @description Lista entregables con filtros opcionales.
+         *
+         *     Filtros V4 fase 7 añadidos: `mes`, `responsable` (parcial), `empresa`
+         *     (match contra `subcategoria` o `extra->>empresa_codigo`), `q`
+         *     (búsqueda full-text en `nombre || descripcion || notas`).
+         *
+         *     Si `only_alerta=true`, solo devuelve los que estén en estado pendiente o
+         *     en_proceso AND con días_restantes ≤ 15 (criterio del banner del frontend).
+         */
+        get: operations["list_entregables_api_v1_entregables_get"];
+        put?: never;
+        /**
+         * Create Entregable
+         * @description Crea un entregable manual. Reusa scope `audit:read` (admin) — la
+         *     creación de entregables regulatorios es operación de gobernanza.
+         */
+        post: operations["create_entregable_api_v1_entregables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Facets
+         * @description Devuelve valores únicos para alimentar selects de filtros.
+         *
+         *     V5++ ola CB: solo facets de empresas en scope del user.
+         */
+        get: operations["get_facets_api_v1_entregables_facets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Counts
+         * @description Conteo por estado — solo de empresas en scope del user. V5++ ola CB.
+         */
+        get: operations["get_counts_api_v1_entregables_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/critical-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Critical Count
+         * @description Conteo agregado de entregables en alerta crítica.
+         *
+         *     Crítico = vencido / hoy / ≤5 días, AND aún no entregado.
+         *
+         *     V5++ ola CB: solo entregables de empresas en scope.
+         */
+        get: operations["critical_count_api_v1_entregables_critical_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/compliance-grade/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compliance Grade Empresa
+         * @description Devuelve el compliance grade YTD de una empresa específica.
+         *
+         *     Pensado para el widget de empresa (`/empresa/[codigo]`). Muestra:
+         *         - Total de entregables que ya vencieron en YTD
+         *         - Cuántos a tiempo / atrasados / no entregados
+         *         - % cumplimiento + % a tiempo
+         *         - Nota A/B/C/D/F como score consolidado.
+         */
+        get: operations["compliance_grade_empresa_api_v1_entregables_compliance_grade__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/compliance-grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compliance Grade Report
+         * @description Snapshot consolidado de compliance por empresa para todo el portafolio.
+         *
+         *     Itera sobre las empresas que tienen al menos 1 entregable asignado
+         *     y devuelve la lista ordenada por compliance score descendente.
+         */
+        get: operations["compliance_grade_report_api_v1_entregables_compliance_grade_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/reporte-cv.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reporte Cv Xlsx
+         * @description Genera un Excel multi-sheet con formato profesional para Comité Vigilancia.
+         *
+         *     5 sheets:
+         *         1. Resumen ejecutivo — KPIs + tasa cumplimiento + meta
+         *         2. Vencidos sin entregar — fondo rojo claro, requiere explicación
+         *         3. Próximos 30 días — pipeline corto
+         *         4. Distribución por estado — counts agregados
+         *         5. Compliance por empresa — ranking con grade A/B/C/D/F (oculto si
+         *            filtro empresa específica, ya que solo habría 1 fila)
+         *
+         *     Apple-ish formatting: header bold + fill suave, freeze panes, auto-width,
+         *     borders sutiles. Pensado para imprimir o entregar al CV.
+         */
+        get: operations["reporte_cv_xlsx_api_v1_entregables_reporte_cv_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/reporte-regulatorio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reporte Regulatorio
+         * @description Snapshot ejecutivo: counts + próximos 30d + vencidos + tasa cumplimiento.
+         *
+         *     V5++ ola CB: filtra por scope del user (solo sus empresas).
+         */
+        get: operations["reporte_regulatorio_api_v1_entregables_reporte_regulatorio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/{entregable_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Entregable */
+        get: operations["get_entregable_api_v1_entregables__entregable_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Entregable */
+        delete: operations["delete_entregable_api_v1_entregables__entregable_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Entregable */
+        patch: operations["update_entregable_api_v1_entregables__entregable_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/entregables/bulk-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Update Entregables
+         * @description Cambia el estado de varios entregables a la vez.
+         *
+         *     Reusa la misma lógica que el PATCH single (incluye auto-generación
+         *     del próximo período si es recurrente y se marca entregado). Audita
+         *     cada cambio individualmente para mantener el rastro completo.
+         *
+         *     Si `estado='entregado'` y no se manda `fecha_entrega_real`, default
+         *     a hoy (igual que el PATCH single).
+         */
+        post: operations["bulk_update_entregables_api_v1_entregables_bulk_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/bulk-reassign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Reassign Entregables
+         * @description Reassigna varios entregables a un nuevo responsable en bloque.
+         *
+         *     Caso de uso típico: el equipo legal cambia, todos los CMF pasan a otro
+         *     contacto, etc. Audita cada cambio individualmente para preservar
+         *     trazabilidad por entregable.
+         */
+        post: operations["bulk_reassign_entregables_api_v1_entregables_bulk_reassign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/calendar.ics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Entregables Ics
+         * @description Devuelve un feed iCalendar (RFC 5545) con los entregables.
+         *
+         *     Para suscribirse desde Google Calendar / Outlook / Apple Calendar:
+         *         Settings → Add calendar by URL →
+         *         https://api.../entregables/calendar.ics?...
+         *
+         *     Cada entregable es un VEVENT all-day con:
+         *         - SUMMARY: [{categoria}] {nombre}
+         *         - DESCRIPTION: período + responsable + ref normativa + nivel alerta
+         *         - DTSTART: fecha_limite (date-only)
+         *         - UID estable: entregable-{id}@cehta.cl  → al re-sync, el cliente
+         *           solo actualiza lo cambiado en lugar de duplicar.
+         *         - CATEGORIES: la categoría regulatoria (CMF/CORFO/UAF/...)
+         *         - STATUS: CONFIRMED por default, CANCELLED si ya entregado.
+         *
+         *     Filtros opcionales mismo nombre que `GET /entregables`.
+         */
+        get: operations["entregables_ics_api_v1_entregables_calendar_ics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/serie": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generar Serie
+         * @description Genera todas las instancias de un template recurrente para un año.
+         *
+         *     Idempotente — usa ON CONFLICT (id_template, periodo) DO NOTHING. Si
+         *     ya hay instancias para ese año, se ignoran (cuenta vuelve en `instancias_existentes`).
+         */
+        post: operations["generar_serie_api_v1_entregables_serie_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/extend-forward": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extend Forward
+         * @description Auto-extiende templates recurrentes hacia adelante.
+         *
+         *     Para cada `id_template` recurrente, identifica la última instancia
+         *     futura. Si está a menos de `horizon_days`, genera todas las instancias
+         *     del año siguiente. Idempotente.
+         *
+         *     Pensado para correr desde un cron mensual (ej. cada 1ro del mes).
+         *     Así nunca llegamos a fin de año sin entregables 2027/2028 cargados.
+         */
+        post: operations["extend_forward_api_v1_entregables_extend_forward_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entregables/import-csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Entregables Csv
+         * @description Importa entregables desde un CSV.
+         *
+         *     Headers requeridos: id_template, nombre, categoria, fecha_limite,
+         *     frecuencia, prioridad, responsable, periodo.
+         *     Headers opcionales: descripcion, subcategoria, referencia_normativa,
+         *     estado (default 'pendiente'), notas, adjunto_url, alerta_15/10/5
+         *     (default true), empresa_codigo (se guarda en `extra->>'empresa_codigo'`).
+         *
+         *     fecha_limite: ISO `YYYY-MM-DD`.
+         *     Idempotente vía UNIQUE (id_template, periodo) — filas duplicadas se
+         *     cuentan como `rows_skipped`, no fallan.
+         *
+         *     Validación por fila — si falla, sigue con las demás. Errores se
+         *     devuelven en `errors[]` con número de fila para que el operador pueda
+         *     corregir el CSV y reintentar.
+         */
+        post: operations["import_entregables_csv_api_v1_entregables_import_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Lps */
+        get: operations["list_lps_api_v1_lps_get"];
+        put?: never;
+        /** Create Lp */
+        post: operations["create_lp_api_v1_lps_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lps/{lp_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Lp */
+        get: operations["get_lp_api_v1_lps__lp_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Lp */
+        delete: operations["delete_lp_api_v1_lps__lp_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Lp */
+        patch: operations["update_lp_api_v1_lps__lp_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/informes-lp/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate Informe
+         * @description Sprint 1: crea borrador con secciones placeholder.
+         *
+         *     Sprint 2 reemplazará con narrativas AI reales de Anthropic.
+         */
+        post: operations["generate_informe_api_v1_informes_lp_generate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Informes */
+        get: operations["list_informes_api_v1_informes_lp_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp/{informe_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Informe */
+        get: operations["get_informe_api_v1_informes_lp__informe_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Informe */
+        delete: operations["delete_informe_api_v1_informes_lp__informe_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Informe */
+        patch: operations["update_informe_api_v1_informes_lp__informe_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/informes-lp/admin/dispatch-notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dispatch Notifications
+         * @description V4 fase 9.2: cron que envía notificaciones positivas a los advocates.
+         *
+         *     Llamar 1 vez al día (idealmente 9 AM Chile time vía cron en Fly):
+         *
+         *       curl -X POST https://cehta-backend.fly.dev/api/v1/informes-lp/admin/dispatch-notifications \
+         *         -H "Authorization: Bearer $TOKEN"
+         *
+         *     Lógica:
+         *     - Escanea eventos `open` y `agendar_click` de informes con parent_token
+         *     - Para cada uno NO notificado todavía, envía email al LP parent:
+         *         * 👀 "{X} abrió tu link"
+         *         * 🎉 "{X} agendó café con Guido"
+         *     - Idempotente vía UNIQUE(child_token, tipo) en informes_lp_notifications
+         *     - Soft-fail si Resend no está configurado
+         *
+         *     `dry_run=true` cuenta lo que mandaría sin enviar.
+         */
+        post: operations["dispatch_notifications_api_v1_informes_lp_admin_dispatch_notifications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp/admin/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin Analytics
+         * @description Dashboard de analytics consolidado para /admin/informes-lp.
+         *
+         *     Incluye:
+         *     - Métricas globales (total generados, publicados, aperturas, shares)
+         *     - Tasas de conversion + viral 1→N
+         *     - Top 5 advocates (LPs que más comparten + downstream conversions)
+         */
+        get: operations["admin_analytics_api_v1_informes_lp_admin_analytics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp/{informe_id}/regenerate-narrative": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Regenerate Narrative
+         * @description Re-genera narrativas AI del informe con datos vivos actuales.
+         *
+         *     Útil cuando:
+         *     - El GP editó manualmente y quiere volver al output AI
+         *     - Pasaron días y los KPIs cambiaron significativamente
+         *     - Se actualizó el KB de la empresa con datos nuevos
+         *
+         *     Limpia el cache server-side de informes_lp_service para esta combo
+         *     de inputs y vuelve a llamar a Claude.
+         */
+        post: operations["regenerate_narrative_api_v1_informes_lp__informe_id__regenerate_narrative_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp/by-token/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Informe By Token
+         * @description Endpoint PÚBLICO — el token es la auth. Cualquiera con el link puede ver.
+         *
+         *     Soft-fail si:
+         *     - Token no existe → 404 genérico (sin filtrar info)
+         *     - Estado != publicado → 404 también (no exponer borradores)
+         *     - Expirado → devolvemos pero con flag `is_expired=true`
+         */
+        get: operations["get_informe_by_token_api_v1_informes_lp_by_token__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp/by-token/{token}/track": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Track Event
+         * @description Endpoint PÚBLICO — tracking de eventos sin auth.
+         *
+         *     El token es la auth. IP se hashea antes de persistir. Rate limiting
+         *     se hace en middleware (TODO Sprint 3).
+         *
+         *     Side effects:
+         *     - tipo='open' → incrementa veces_abierto en el informe
+         *     - tipo='share_click' → incrementa veces_compartido
+         */
+        post: operations["track_event_api_v1_informes_lp_by_token__token__track_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/informes-lp/by-token/{token}/share": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Share Informe
+         * @description Endpoint PÚBLICO — el LP comparte con un colega.
+         *
+         *     Crea un nuevo informe con `parent_token = current` y mismo contenido.
+         *     El frontend usa el child_token para mostrar el link al LP que comparte.
+         *
+         *     Sprint 2 va a sumar el envío de email automático con Resend al
+         *     destinatario.
+         */
+        post: operations["share_informe_api_v1_informes_lp_by_token__token__share_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/policies-fondo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Policies
+         * @description Lista políticas del fondo. Default: todas, ordenadas por
+         *     `tipo` ASC y luego `fecha_aprobacion` DESC (versión más nueva
+         *     primero dentro de cada tipo).
+         */
+        get: operations["list_policies_api_v1_policies_fondo_get"];
+        put?: never;
+        /** Create Policy */
+        post: operations["create_policy_api_v1_policies_fondo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/policies-fondo/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Policy */
+        get: operations["get_policy_api_v1_policies_fondo__policy_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Policy */
+        patch: operations["update_policy_api_v1_policies_fondo__policy_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/lps/{lp_id}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Lp Documents
+         * @description Lista documentos del LP. Default: todos, ordenados por
+         *     `created_at` DESC (último subido primero).
+         */
+        get: operations["list_lp_documents_api_v1_lps__lp_id__documents_get"];
+        put?: never;
+        /** Create Lp Document */
+        post: operations["create_lp_document_api_v1_lps__lp_id__documents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/lps/{lp_id}/documents/{lp_doc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Lp Document */
+        get: operations["get_lp_document_api_v1_lps__lp_id__documents__lp_doc_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Lp Document
+         * @description Borrado físico — los docs LP se pueden eliminar (a diferencia
+         *     de las políticas del fondo, que solo se derogan).
+         */
+        delete: operations["delete_lp_document_api_v1_lps__lp_id__documents__lp_doc_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Lp Document */
+        patch: operations["update_lp_document_api_v1_lps__lp_id__documents__lp_doc_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/fondo-actas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Fondo Actas
+         * @description Lista actas del fondo. Default: todas, ordenadas por
+         *     `fecha_reunion` DESC (más reciente primero).
+         */
+        get: operations["list_fondo_actas_api_v1_fondo_actas_get"];
+        put?: never;
+        /** Create Fondo Acta */
+        post: operations["create_fondo_acta_api_v1_fondo_actas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/fondo-actas/{acta_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Fondo Acta */
+        get: operations["get_fondo_acta_api_v1_fondo_actas__acta_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Fondo Acta */
+        delete: operations["delete_fondo_acta_api_v1_fondo_actas__acta_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Fondo Acta */
+        patch: operations["update_fondo_acta_api_v1_fondo_actas__acta_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/plan-cuentas/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Cuentas Summary
+         * @description Estado actual del plan de cuentas en DB.
+         *
+         *     Usado por la UI antes/después del import para mostrar "tienes X
+         *     cuentas cargadas, último import: ...". No requiere scope adicional
+         *     porque solo expone counts agregados.
+         */
+        get: operations["plan_cuentas_summary_api_v1_admin_plan_cuentas_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/plan-cuentas/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Plan Cuentas
+         * @description Importa el plan de cuentas desde un .xlsx subido.
+         *
+         *     Idempotente: re-correr con el mismo archivo no duplica nada (UPSERT
+         *     por código de cuenta). Útil cuando el COO actualiza el Excel y
+         *     quiere re-sincronizar la DB con el archivo más reciente.
+         *
+         *     Validaciones:
+         *       - Extensión .xlsx / .xls
+         *       - Tamaño máximo 10 MB
+         *       - Estructura del Excel: hoja `PlanDeCuentas` con las 31 columnas esperadas
+         *       - Cuentas se insertan en orden por nivel (1→4) para respetar FK
+         *       - Habilitaciones por empresa solo crean si la empresa existe en `core.empresas`
+         *         (ej: si CENERGY no estuviera en DB, las suyas se omiten silenciosamente)
+         */
+        post: operations["import_plan_cuentas_api_v1_admin_plan_cuentas_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plan-cuentas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Plan Cuentas
+         * @description Lista flat del plan de cuentas con filtros típicos.
+         *
+         *     Si `empresa_codigo` se pasa, JOIN con `plan_cuenta_empresa` para filtrar
+         *     solo las habilitadas. Útil para los selectores del form de voucher
+         *     (mostrar solo cuentas que aplican a la empresa del voucher).
+         */
+        get: operations["list_plan_cuentas_api_v1_plan_cuentas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plan-cuentas/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Cuentas Tree
+         * @description Devuelve el plan como árbol con 4 niveles anidados.
+         *
+         *     Útil para el componente `PlanCuentasTree` de la UI. Performance: una
+         *     sola query trae todas las cuentas; el armado del árbol es O(n) en
+         *     Python.
+         */
+        get: operations["plan_cuentas_tree_api_v1_plan_cuentas_tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plan-cuentas/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Plan Cuenta */
+        get: operations["get_plan_cuenta_api_v1_plan_cuentas__codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Plan Cuenta */
+        patch: operations["update_plan_cuenta_api_v1_plan_cuentas__codigo__patch"];
+        trace?: never;
+    };
+    "/api/v1/plan-cuentas/{codigo}/empresas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cuenta Empresas
+         * @description Lista las empresas que tienen habilitada esta cuenta.
+         */
+        get: operations["list_cuenta_empresas_api_v1_plan_cuentas__codigo__empresas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/plan-cuentas/{codigo}/empresas/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Toggle Cuenta Empresa
+         * @description Habilita o deshabilita una cuenta para una empresa específica.
+         */
+        patch: operations["toggle_cuenta_empresa_api_v1_plan_cuentas__codigo__empresas__empresa_codigo__patch"];
+        trace?: never;
+    };
+    "/api/v1/vouchers/form-metadata": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Form Metadata
+         * @description Devuelve TODO lo que el form Nubox necesita para llenar selectores:
+         *
+         *     - Listas estáticas (formas_pago, tipos_documento)
+         *     - Muestra de cuentas contables imputables (primeras 200)
+         *     - Empresas con su razón social/RUT/comuna/dirección + aprobadores
+         *       (matching de approval_rules + user_company_roles)
+         *
+         *     El frontend cachea este endpoint con stale-while-revalidate 5min.
+         */
+        get: operations["get_form_metadata_api_v1_vouchers_form_metadata_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/check-duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Duplicate Voucher
+         * @description Busca vouchers ya creados con la misma firma (empresa+RUT+folio+tipo).
+         *
+         *     Pensado para que el FE Nubox llame ANTES del submit cuando ya tiene
+         *     proveedor + folio + tipo + empresa, y muestre un warning si el voucher
+         *     parece duplicado. No bloquea — solo avisa. El submit final puede ignorar
+         *     el warning (a veces el mismo folio se reusa legitimamente, ej. notas
+         *     de credito que referencian la factura).
+         *
+         *     Devuelve hasta 5 hits para no spamear la UI.
+         */
+        get: operations["check_duplicate_voucher_api_v1_vouchers_check_duplicate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/nubox-form": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Voucher Nubox Form
+         * @description Crea un voucher desde el form Nubox-style del Excel.
+         *
+         *     Mapeo:
+         *       empresa_codigo         -> voucher.empresa_codigo
+         *       proveedor_rut+nombre   -> voucher.contraparte_rut + contraparte_nombre
+         *       tipo_documento         -> voucher.doc_tributario_tipo
+         *       numero_documento       -> voucher.doc_tributario_folio
+         *       forma_pago             -> voucher.forma_pago (nuevo en 0052)
+         *       fecha_documento        -> voucher.fecha_documento
+         *       fecha_vencimiento      -> voucher.fecha_vencimiento (nuevo)
+         *       documento_dropbox_path -> voucher.documento_dropbox_path (nuevo)
+         *       informacion_contable[] -> voucher_lines con DEBE + tipo_imputacion=CONTABLE
+         *       informacion_financiera[] -> voucher_lines con HABER + tipo_imputacion=FINANCIERA
+         *
+         *     Tipo de voucher = COMPRA (porque viene de factura proveedor).
+         *     Glosa autogenerada si no se pasa: "Compra a {proveedor} folio {n}"
+         *
+         *     Status inicial: DRAFT (lo aprueban Líder + Director después).
+         */
+        post: operations["create_voucher_nubox_form_api_v1_vouchers_nubox_form_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/extract-from-text": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract From Text
+         * @description Extrae datos de factura desde un texto pegado (sin archivo).
+         *
+         *     Casos de uso:
+         *       - Email forwarded copiado y pegado en un textarea.
+         *       - Mensaje de WhatsApp del proveedor con los datos del cobro.
+         *       - Nota a mano transcrita.
+         *
+         *     NO crea voucher — devuelve la misma `ExtractedVoucherSuggestion` que
+         *     /extract-from-upload para que el FE muestre el form editable. No sube
+         *     nada a Dropbox (no hay archivo).
+         *
+         *     Cap: 60.000 chars (suficiente para emails largos + thread, evita pasar
+         *     novelas enteras al LLM por costo).
+         */
+        post: operations["extract_from_text_api_v1_vouchers_extract_from_text_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/extract-from-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract From Upload
+         * @description Lee imagen / PDF / DOCX / PPTX, lo analiza con Claude y sugiere campos
+         *     para el form Nubox de creacion de voucher.
+         *
+         *     NO crea el voucher — solo devuelve la sugerencia para que el FE la muestre
+         *     en un form editable. Cuando el usuario confirma, el FE POST a
+         *     /vouchers/nubox-form con los datos ya editados.
+         *
+         *     Scope: el `empresa_codigo` se valida con `assert_empresa_access` (multi-tenant).
+         */
+        post: operations["extract_from_upload_api_v1_vouchers_extract_from_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Templates
+         * @description Lista plantillas. Por default: activas, ordenadas por uso reciente.
+         *
+         *     `sort=most_used` ordena por use_count desc — útil para mostrar las
+         *     plantillas más populares al inicio del list.
+         */
+        get: operations["list_templates_api_v1_vouchers_templates_get"];
+        put?: never;
+        /**
+         * Create Template
+         * @description Crea plantilla nueva manual. El `codigo` debe ser único.
+         */
+        post: operations["create_template_api_v1_vouchers_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Template */
+        get: operations["get_template_api_v1_vouchers_templates__template_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Template
+         * @description Soft delete: marca activo=false. La plantilla deja de aparecer en list
+         *     default pero queda preservada para auditoría.
+         */
+        delete: operations["delete_template_api_v1_vouchers_templates__template_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Template */
+        patch: operations["update_template_api_v1_vouchers_templates__template_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/vouchers/templates/from-voucher/{voucher_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Template From Voucher
+         * @description Crea plantilla a partir de un voucher existente. El voucher se mantiene
+         *     intacto; copiamos sus líneas + header.
+         *
+         *     Útil para: el COO crea un voucher complejo de sueldo, lo guarda, y
+         *     después click "Guardar como plantilla" → la próxima vez 1 click.
+         */
+        post: operations["create_template_from_voucher_api_v1_vouchers_templates_from_voucher__voucher_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/templates/{template_id}/use": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use Template
+         * @description Instancia la plantilla como un voucher nuevo en DRAFT.
+         *
+         *     - Toma todas las líneas de la plantilla
+         *     - Si `multiplier` se provee, multiplica debit/credit por ese factor
+         *     - `glosa_override` reemplaza glosa_default; soporta interpolación
+         *       `{mes}`, `{anio}`, `{fecha}` (en formato ISO)
+         *     - El voucher resultante queda en DRAFT — el user lo revisa y submit
+         *     - Incrementa `use_count` y actualiza `last_used_at`
+         */
+        post: operations["use_template_api_v1_vouchers_templates__template_id__use_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Vouchers
+         * @description Búsqueda full-text en vouchers usando Postgres tsvector + GIN.
+         *
+         *     V5++ ola V: 10-100x más rápido que ILIKE para datasets grandes.
+         *     Soporta stemming español ('proveedor' matchea 'provee').
+         *
+         *     Ranking: codigo (peso A) > contraparte_rut (A) > contraparte_nombre (B)
+         *              > doc_tributario_folio (B) > glosa (C). Ordenado por ts_rank desc.
+         *
+         *     Si la migration 0046 no se aplicó todavía, fallback a ILIKE estándar.
+         */
+        get: operations["search_vouchers_api_v1_vouchers_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Vouchers
+         * @description Lista vouchers con filtros. Order by fecha_contable DESC.
+         *
+         *     V5++ ola AD: auto-filtra por empresas a las que el user tiene rol.
+         *     Admin global ve todo. User con scope EVOQUE+CSL ve solo esas dos.
+         *
+         *     V5++ ola CE: filtro `source` (ai_import, nubox_form, csv_bulk, etc.)
+         *     para ver, por ejemplo, todos los vouchers cargados con IA.
+         */
+        get: operations["list_vouchers_api_v1_vouchers_get"];
+        put?: never;
+        /**
+         * Create Voucher
+         * @description Crea voucher + líneas en una sola transacción.
+         *
+         *     Validaciones (en orden):
+         *       1. Pydantic ya validó: line_number único+correlativo, debit XOR credit,
+         *          partida doble si !DRAFT, COMPRA/VENTA con doc tributario, REVERSO con
+         *          reversal_of.
+         *       2. Empresa existe + activa.
+         *       3. fecha_contable NO está en período cerrado.
+         *       4. Cada línea: cuenta existe + imputable + habilitada para empresa.
+         *       5. Cada línea con proyecto: proyecto existe + pertenece a empresa.
+         *       6. Cada línea con área: área existe + aplica a empresa.
+         *       7. Para líneas CORFO: cuenta es elegible y tipo_gasto está en eligible_types.
+         *       8. Genera código correlativo via core.next_voucher_code().
+         *       9. INSERT voucher + lines en commit atómico.
+         */
+        post: operations["create_voucher_api_v1_vouchers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/paginated": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Vouchers Paginated
+         * @description V5++ ola AG: lista paginada con total count.
+         *
+         *     Mejor que /vouchers (limit fijo) para listados largos:
+         *       - Devuelve `total` para mostrar contador "X de Y vouchers"
+         *       - `has_more` indica si hay más páginas
+         *       - Ordenado por fecha_contable DESC para consistencia con UI
+         *
+         *     Usa los índices de Ola AF para que el COUNT sea <50ms incluso con 100k rows.
+         */
+        get: operations["list_vouchers_paginated_api_v1_vouchers_paginated_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/stats/by-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vouchers Stats By Source
+         * @description V5++ ola CE — Conteos de vouchers agrupados por origen.
+         *
+         *     Devuelve `{source: count}` con todas las categorias presentes en la DB
+         *     + `null` para vouchers legacy sin source seteado + `total` con la suma.
+         *
+         *     Respeta el scope multi-tenant (un user que ve EVOQUE solo cuenta los
+         *     suyos). Filtros opcionales fecha_desde/fecha_hasta sobre fecha_contable.
+         *
+         *     Pensado para el widget "Resumen de automatizacion" en /vouchers que
+         *     muestra "X% vienen de IA, Y% form manual, etc.".
+         */
+        get: operations["vouchers_stats_by_source_api_v1_vouchers_stats_by_source_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/counts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vouchers Counts
+         * @description V5++ ola AG: counts agrupados por status para dashboard.
+         *
+         *     Devuelve: {DRAFT: n, PENDING: n, APPROVED: n, EXECUTED: n, ...}
+         *     Filtra por las empresas del user scope. Un solo query SQL agregado.
+         */
+        get: operations["vouchers_counts_api_v1_vouchers_counts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Voucher */
+        get: operations["get_voucher_api_v1_vouchers__voucher_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Voucher
+         * @description Borra fisico, solo permitido si DRAFT.
+         *
+         *     Para vouchers enviados (PENDING+), usar POST /vouchers/{id}/void.
+         *     Para vouchers cerrados, crear voucher de REVERSO.
+         */
+        delete: operations["delete_voucher_api_v1_vouchers__voucher_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Voucher */
+        patch: operations["update_voucher_api_v1_vouchers__voucher_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voucher Html
+         * @description V5++ HTML imprimible del voucher individual.
+         *
+         *     Server-side render notarial con líneas + firmas SHA-256 (si APPROVED+).
+         *     El user abre en pestaña nueva → Ctrl+P → guarda como PDF formal.
+         */
+        get: operations["get_voucher_html_api_v1_vouchers__voucher_id__html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Voucher
+         * @description Pasa el voucher de DRAFT a PENDING (esperando aprobación).
+         *
+         *     Validaciones:
+         *       - Status actual debe ser DRAFT
+         *       - Líneas cuadran (Σ debit == Σ credit) — el trigger DB lo valida
+         *       - Vouchers tipo COMPRA/VENTA tienen al menos 1 adjunto
+         */
+        post: operations["submit_voucher_api_v1_vouchers__voucher_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Void Voucher */
+        post: operations["void_voucher_api_v1_vouchers__voucher_id__void_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Voucher Attachments
+         * @description Lista adjuntos del voucher (sin URLs temporales — esas se piden por adjunto).
+         */
+        get: operations["list_voucher_attachments_api_v1_vouchers__voucher_id__attachments_get"];
+        put?: never;
+        /**
+         * Upload Voucher Attachment
+         * @description Sube un adjunto a Dropbox + persiste metadata en DB.
+         *
+         *     Path Dropbox: /Cehta Capital/02-Fondo (FIP CEHTA)/Vouchers/{empresa}/{año}/{codigo}/{file}
+         */
+        post: operations["upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/origen-document-url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voucher Origen Document Url
+         * @description V5++ ola CF — URL temporal del documento origen del voucher (Dropbox).
+         *
+         *     Si el voucher fue creado via /vouchers/importar con archivo y se subio
+         *     a Dropbox, su columna `documento_dropbox_path` tiene el path. Este
+         *     endpoint genera un temporary link (4h) que el FE abre en pestaña nueva
+         *     para que el user vea el PDF/imagen original.
+         *
+         *     Diferente del endpoint /attachments/{id}/url: este es para el archivo
+         *     de origen (extraido con IA), no para attachments uploaded manualmente.
+         */
+        get: operations["get_voucher_origen_document_url_api_v1_vouchers__voucher_id__origen_document_url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/attachments/{attachment_id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voucher Attachment Url
+         * @description Genera URL temporal de Dropbox (vence en 4h) para descargar el archivo.
+         */
+        get: operations["get_voucher_attachment_url_api_v1_vouchers__voucher_id__attachments__attachment_id__url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/attachments/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Voucher Attachment
+         * @description Borra adjunto de Dropbox + DB. Solo permitido en DRAFT/PENDING.
+         *
+         *     Para vouchers aprobados o ejecutados, los adjuntos quedan inmutables
+         *     (audit). Si necesitás reemplazar, anulá y reversá.
+         */
+        delete: operations["delete_voucher_attachment_api_v1_vouchers__voucher_id__attachments__attachment_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voucher Approvals State
+         * @description Devuelve el estado completo del flujo de aprobación.
+         *
+         *     Calcula:
+         *       1. La regla que matchea (por monto + tipo + balance treatment).
+         *       2. Roles requeridos (en orden) y cuáles ya firmaron.
+         *       3. Cuál es el próximo rol pendiente.
+         *       4. Si el usuario actual puede firmar el siguiente paso.
+         */
+        get: operations["get_voucher_approvals_state_api_v1_vouchers__voucher_id__approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Voucher
+         * @description Firma del rol indicado.
+         *
+         *     Validaciones:
+         *       - Voucher existe y está en PENDING
+         *       - User tiene el rol declarado activo en la empresa del voucher
+         *       - El rol corresponde al próximo paso pendiente del flujo
+         *       - Una vez firmado el último paso, el voucher pasa a APPROVED
+         */
+        post: operations["approve_voucher_api_v1_vouchers__voucher_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Voucher
+         * @description Rechaza el voucher con razón. Pasa a REJECTED.
+         *
+         *     Cualquier rol asignado en la empresa puede rechazar (no solo el
+         *     aprobador del paso actual). Esto permite que un Director frene un
+         *     voucher dudoso aunque no le toque firmar el siguiente paso.
+         */
+        post: operations["reject_voucher_api_v1_vouchers__voucher_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/from-factura-pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Voucher From Factura Pdf
+         * @description Crea voucher COMPRA DRAFT con datos extraídos de un PDF factura.
+         *
+         *     Flujo:
+         *       1. Descarga el PDF de Dropbox
+         *       2. Extrae texto con pypdf (fallback OCR si está configurado)
+         *       3. Llama Claude con schema 'factura' → obtiene proveedor, monto, fecha
+         *       4. Genera código voucher (next_voucher_code en DB)
+         *       5. INSERT voucher con líneas vacías — user completa imputación
+         *
+         *     El voucher queda en DRAFT con líneas con descripción de la factura
+         *     pero sin cuenta_codigo / proyecto / area (los completa el user).
+         *
+         *     Soft-fail: si Claude no está configurado o el PDF está corrupto,
+         *     devuelve 503/422 con detalle.
+         */
+        post: operations["create_voucher_from_factura_pdf_api_v1_vouchers_from_factura_pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/bulk-approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Approve Vouchers
+         * @description Firma múltiples vouchers con el rol indicado. Operación best-effort:
+         *     cada voucher se procesa en su propia transacción; los que fallan no
+         *     abortan los exitosos.
+         *
+         *     Validaciones por voucher (mismas que /approve individual):
+         *     - Voucher existe y está en PENDING
+         *     - User tiene el rol activo en la empresa del voucher
+         *     - El rol corresponde al próximo paso pendiente del flujo
+         *     - Una vez firmado el último paso, el voucher pasa a APPROVED
+         *
+         *     Idempotente: si un voucher ya fue firmado por este user con este rol,
+         *     no falla — devuelve success=True con su status actual.
+         */
+        post: operations["bulk_approve_vouchers_api_v1_vouchers_bulk_approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/import-csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Vouchers Csv
+         * @description Bulk-import de vouchers desde CSV (Excel chileno).
+         *
+         *     Formato esperado:
+         *         - Separador: `;`  (Excel chileno)
+         *         - Encoding: UTF-8 (BOM opcional)
+         *         - Una fila por LÍNEA del voucher; mismo `voucher_ref` agrupa
+         *           filas en un voucher con sus líneas.
+         *
+         *     Columnas obligatorias (case-insensitive, aliases en español OK):
+         *         voucher_ref, empresa_codigo, tipo, fecha_documento, fecha_contable,
+         *         glosa, line_number, cuenta_codigo
+         *
+         *     Columnas opcionales:
+         *         contraparte_rut, contraparte_nombre, doc_tributario_tipo,
+         *         doc_tributario_folio, proyecto_codigo, area_codigo, debit, credit,
+         *         descripcion
+         *
+         *     Todos los vouchers se crean en `DRAFT` (descuadre permitido). El user
+         *     revisa y submit manualmente, o usa /vouchers/bulk-approve después.
+         *
+         *     `dry_run=true` valida y devuelve el reporte sin insertar nada — útil
+         *     para previsualizar antes de commitear el import.
+         */
+        post: operations["import_vouchers_csv_api_v1_vouchers_import_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proyectos-contables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Proyectos */
+        get: operations["list_proyectos_api_v1_proyectos_contables_get"];
+        put?: never;
+        /** Create Proyecto */
+        post: operations["create_proyecto_api_v1_proyectos_contables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proyectos-contables/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Proyecto */
+        get: operations["get_proyecto_api_v1_proyectos_contables__codigo__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Proyecto
+         * @description Borra el proyecto. Falla 409 si tiene voucher_lines apuntándole.
+         *
+         *     Para "deshabilitar" un proyecto sin perder datos, usar PATCH con
+         *     `estado = 'CLOSED'`.
+         */
+        delete: operations["delete_proyecto_api_v1_proyectos_contables__codigo__delete"];
+        options?: never;
+        head?: never;
+        /** Update Proyecto */
+        patch: operations["update_proyecto_api_v1_proyectos_contables__codigo__patch"];
+        trace?: never;
+    };
+    "/api/v1/proyectos-contables/{codigo}/avance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proyecto Avance
+         * @description Calcula presupuesto ejecutado vs total a partir de los vouchers.
+         *
+         *     `presupuesto_ejecutado = SUM(voucher_lines.debit) - SUM(voucher_lines.credit)`
+         *     para vouchers tipo COMPRA/EGRESO con status >= APPROVED. (Los DRAFT
+         *     y PENDING no se cuentan, no son ejecuciones reales aún.)
+         */
+        get: operations["proyecto_avance_api_v1_proyectos_contables__codigo__avance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Areas */
+        get: operations["list_areas_api_v1_areas_get"];
+        put?: never;
+        /** Create Area */
+        post: operations["create_area_api_v1_areas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/empresas-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Areas Empresas Matrix
+         * @description Devuelve toda la matriz {area_codigo: [empresa_codigo, ...]}.
+         *
+         *     Útil para la UI que muestra "qué empresas usan cada área" en una sola
+         *     request (en vez de N+1 calls).
+         */
+        get: operations["areas_empresas_matrix_api_v1_areas_empresas_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Area */
+        get: operations["get_area_api_v1_areas__codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Area */
+        patch: operations["update_area_api_v1_areas__codigo__patch"];
+        trace?: never;
+    };
+    "/api/v1/areas/{codigo}/empresas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Area Empresas */
+        get: operations["list_area_empresas_api_v1_areas__codigo__empresas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/areas/{codigo}/empresas/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Toggle Area Empresa
+         * @description Habilita o deshabilita un área para una empresa específica.
+         *
+         *     UPSERT: si no había row, crea con `aplica` indicado. Si había, lo
+         *     actualiza.
+         */
+        patch: operations["toggle_area_empresa_api_v1_areas__codigo__empresas__empresa_codigo__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/approval-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Approval Rules */
+        get: operations["list_approval_rules_api_v1_admin_approval_rules_get"];
+        put?: never;
+        /** Create Approval Rule */
+        post: operations["create_approval_rule_api_v1_admin_approval_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/approval-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Approval Rule */
+        get: operations["get_approval_rule_api_v1_admin_approval_rules__rule_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Approval Rule */
+        delete: operations["delete_approval_rule_api_v1_admin_approval_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Approval Rule */
+        patch: operations["update_approval_rule_api_v1_admin_approval_rules__rule_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/user-company-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List User Company Roles */
+        get: operations["list_user_company_roles_api_v1_admin_user_company_roles_get"];
+        put?: never;
+        /**
+         * Assign User Company Role
+         * @description Asigna un rol a un usuario en una empresa. UPSERT idempotente:
+         *     si ya existe el (user, empresa, role), lo reactiva.
+         *
+         *     V5++ ola CB: invalida el scope cache del user al final para que el
+         *     cambio sea inmediato (sin esperar TTL de 60s).
+         */
+        post: operations["assign_user_company_role_api_v1_admin_user_company_roles_post"];
+        /**
+         * Revoke User Company Role
+         * @description Revoca el rol marcando active=false (preserva audit log).
+         *
+         *     V5++ ola CB: invalida cache scope del user para que el revoke sea
+         *     inmediato.
+         */
+        delete: operations["revoke_user_company_role_api_v1_admin_user_company_roles_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/export-batches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Export Batches */
+        get: operations["list_export_batches_api_v1_admin_nubox_export_batches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/export-batches/{batch_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Export Batch */
+        get: operations["get_export_batch_api_v1_admin_nubox_export_batches__batch_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/export-batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Export Batch Endpoint
+         * @description Genera batch de exportación con vouchers APPROVED no exportados.
+         */
+        post: operations["create_export_batch_endpoint_api_v1_admin_nubox_export_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/export-batches/{batch_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Batch Csv
+         * @description Re-genera el CSV de un batch para descarga.
+         *
+         *     No persistimos el archivo en blob storage — lo regeneramos a partir
+         *     de los vouchers que el batch agrupó. Esto garantiza que si los
+         *     folios Nubox se asignaron, el CSV refleja el estado actual.
+         */
+        get: operations["download_batch_csv_api_v1_admin_nubox_export_batches__batch_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/export-batches/{batch_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Batch
+         * @description COO confirma carga en Nubox e ingresa folios devueltos.
+         *
+         *     Si vienen folios, mapea cada voucher_codigo → folio_nubox y los marca
+         *     como SYNCED. Si folios={} marca el batch como CONFIRMED sin trazar
+         *     folios individuales (se puede asignar después por voucher).
+         */
+        post: operations["confirm_batch_api_v1_admin_nubox_export_batches__batch_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/export-batches/{batch_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Batch
+         * @description Cancela el batch + libera vouchers para re-exportar.
+         *
+         *     Útil si el COO se da cuenta que generó el batch con criterios mal
+         *     (rango fechas equivocado, empresa equivocada). Los vouchers vuelven
+         *     a APPROVED + nubox_status NULL.
+         */
+        post: operations["cancel_batch_api_v1_admin_nubox_export_batches__batch_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/libro-diario": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Libro Diario */
+        get: operations["get_libro_diario_api_v1_reportes_contables_libro_diario_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/libro-mayor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Libro Mayor */
+        get: operations["get_libro_mayor_api_v1_reportes_contables_libro_mayor_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/pl-proyecto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pl Proyecto */
+        get: operations["get_pl_proyecto_api_v1_reportes_contables_pl_proyecto_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/pl-area": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pl Area */
+        get: operations["get_pl_area_api_v1_reportes_contables_pl_area_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/rendicion-corfo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Rendicion Corfo */
+        get: operations["get_rendicion_corfo_api_v1_reportes_contables_rendicion_corfo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/libro-diario.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Libro Diario Html
+         * @description Renderea el libro diario como HTML imprimible (Ctrl+P → PDF).
+         */
+        get: operations["get_libro_diario_html_api_v1_reportes_contables_libro_diario_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/balance-prueba.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Balance Prueba Html
+         * @description Balance de prueba: saldos por cuenta agrupados.
+         *
+         *     Computado con SQL agregado de voucher_lines en el rango. Solo cuentas
+         *     con movimiento. Cuadrado (Σ debe = Σ haber).
+         */
+        get: operations["get_balance_prueba_html_api_v1_reportes_contables_balance_prueba_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/cierre-mensual.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cierre Mensual Html
+         * @description Reporte de cierre mensual con checklist + KPIs.
+         */
+        get: operations["get_cierre_mensual_html_api_v1_reportes_contables_cierre_mensual_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/cashflow-mensual.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Cashflow Mensual Html
+         * @description Cashflow mensual — entradas vs salidas mes a mes del año.
+         */
+        get: operations["get_cashflow_mensual_html_api_v1_reportes_contables_cashflow_mensual_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/pl-mensual.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pl Mensual Html
+         * @description P&L mensual — ingresos (cuentas 4-*) vs gastos (cuentas 5-*) por mes.
+         */
+        get: operations["get_pl_mensual_html_api_v1_reportes_contables_pl_mensual_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/estado-resultados.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Estado Resultados Html
+         * @description Estado de Resultados anual jerárquico (cuentas 4-* y 5-*).
+         */
+        get: operations["get_estado_resultados_html_api_v1_reportes_contables_estado_resultados_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/balance-general.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Balance General Html
+         * @description Balance General (Activo / Pasivo / Patrimonio) a fecha de corte.
+         */
+        get: operations["get_balance_general_html_api_v1_reportes_contables_balance_general_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/consolidado-fondo.html": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Consolidado Fondo Html
+         * @description Reporte consolidado del fondo — todas las empresas activas del portafolio.
+         *
+         *     V5++ ola CB: SOLO ADMIN. Reporte cross-empresa restringido.
+         */
+        get: operations["get_consolidado_fondo_html_api_v1_reportes_contables_consolidado_fondo_html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reportes/contables/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reportes Index
+         * @description Lista los 12 reportes contables disponibles con metadata.
+         *
+         *     Útil para integraciones externas (ej: API tokens) que quieran descubrir
+         *     los reportes accesibles. También sirve como sitemap interno.
+         */
+        get: operations["get_reportes_index_api_v1_reportes_contables_index_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/conciliacion/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conciliacion Summary */
+        get: operations["conciliacion_summary_api_v1_admin_conciliacion_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/conciliacion/no-conciliados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get No Conciliados */
+        get: operations["get_no_conciliados_api_v1_admin_conciliacion_no_conciliados_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/conciliacion/movimientos-huerfanos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Movimientos Huerfanos */
+        get: operations["get_movimientos_huerfanos_api_v1_admin_conciliacion_movimientos_huerfanos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/conciliacion/auto-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto Run Conciliacion
+         * @description Corre el algoritmo de match automático sobre vouchers EXECUTED.
+         */
+        post: operations["auto_run_conciliacion_api_v1_admin_conciliacion_auto_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/match-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Match Candidates
+         * @description Lista candidatos de movimiento para conciliar manualmente este voucher.
+         */
+        get: operations["get_match_candidates_api_v1_vouchers__voucher_id__match_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reconcile Voucher */
+        post: operations["reconcile_voucher_api_v1_vouchers__voucher_id__reconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/unreconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Unreconcile Voucher */
+        post: operations["unreconcile_voucher_api_v1_vouchers__voucher_id__unreconcile_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reset/movimientos/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Movimientos
+         * @description Borra movimientos bancarios de la empresa (opcionalmente filtrado por período).
+         *
+         *     Útil cuando:
+         *     - Importaste un ETL con datos errados y querés re-cargar.
+         *     - El banco mandó cartolas duplicadas.
+         *
+         *     NOTA: NO borra las cartolas_runs (que son el historial de sync). Solo
+         *     los rows en core.movimientos.
+         */
+        post: operations["reset_movimientos_api_v1_admin_reset_movimientos__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reset/f29/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset F29
+         * @description Borra TODOS los F29 de la empresa. Después podés re-sincronizar
+         *     desde Dropbox con /f29/sync-dropbox/{codigo}.
+         */
+        post: operations["reset_f29_api_v1_admin_reset_f29__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reset/f22/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset F22
+         * @description Borra TODOS los F22 (declaraciones anuales) de la empresa.
+         */
+        post: operations["reset_f22_api_v1_admin_reset_f22__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reset/cartolas-runs/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Cartolas Runs
+         * @description Borra el historial de runs de sync de cartolas para esta empresa.
+         *
+         *     NO borra los movimientos importados. Solo el log de qué archivos fueron
+         *     procesados. Útil para forzar re-procesamiento de archivos que fueron
+         *     skipped por hash duplicado.
+         */
+        post: operations["reset_cartolas_runs_api_v1_admin_reset_cartolas_runs__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reset/entregables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Entregables
+         * @description Borra entregables filtrados. Si no se filtra, borra TODOS.
+         *
+         *     Solo admin. Useful cuando se rehace el catálogo regulatorio entero.
+         */
+        post: operations["reset_entregables_api_v1_admin_reset_entregables_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/reset/gantt/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Gantt
+         * @description Borra los proyectos importados desde Excel (Gantt) de la empresa.
+         *
+         *     Los proyectos creados manualmente (sin metadata_.codigo_excel) NO se tocan.
+         *     Hitos asociados se borran en cascada.
+         */
+        post: operations["reset_gantt_api_v1_admin_reset_gantt__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vouchers-demo/seed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Seed Vouchers Demo
+         * @description Crea N vouchers demo en distintos estados.
+         *
+         *     Para que se respeten todos los invariants (partida doble, cuenta
+         *     imputable, FKs), el flujo es:
+         *       1. Buscar 2 cuentas imputables: una banco (1-XX), una gasto (3-XX o GASTO)
+         *       2. Buscar 1 proyecto activo + 1 área aplicable de la empresa
+         *       3. Crear voucher en DRAFT con 2 líneas cuadradas
+         *       4. Cambiar status (el trigger valida partida doble)
+         *
+         *     Distribución de estados:
+         *       - 25% DRAFT (operador editando)
+         *       - 25% PENDING (esperando firma)
+         *       - 20% APPROVED (firmado, sin ejecutar)
+         *       - 15% EXECUTED no conciliado (pago hecho, sin match banco)
+         *       - 10% RECONCILED (todo cuadra)
+         *       - 5% REJECTED (rechazado con razón)
+         */
+        post: operations["seed_vouchers_demo_api_v1_admin_vouchers_demo_seed_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/vouchers-demo/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cleanup Vouchers Demo
+         * @description Borra TODOS los vouchers cuya glosa empieza con [DEMO].
+         *
+         *     Trigger inmutabilidad post-cierre puede bloquear si los vouchers
+         *     están en período cerrado — ese es el comportamiento correcto, no
+         *     se borran.
+         */
+        post: operations["cleanup_vouchers_demo_api_v1_admin_vouchers_demo_cleanup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/estados-financieros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Estados Financieros
+         * @description V5++ ola CB: EEFF filtrados por empresas en scope del user.
+         */
+        get: operations["list_estados_financieros_api_v1_estados_financieros_get"];
+        put?: never;
+        /** Create Estado Financiero */
+        post: operations["create_estado_financiero_api_v1_estados_financieros_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/estados-financieros/{ef_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Estado Financiero */
+        get: operations["get_estado_financiero_api_v1_estados_financieros__ef_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Estado Financiero
+         * @description Borrado físico — el GP puede limpiar EEFF cargados por error
+         *     (ej. archivo subido al período equivocado). Para preservar historial
+         *     regulatorio CMF, lo correcto es marcar `auditado=true` con
+         *     `aprobado_directorio=true` antes que borrar.
+         */
+        delete: operations["delete_estado_financiero_api_v1_estados_financieros__ef_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Estado Financiero */
+        patch: operations["update_estado_financiero_api_v1_estados_financieros__ef_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Status
+         * @description Status agregado del inbox para /admin/integraciones.
+         *
+         *     Soft-fail: si la tabla `core.inbox_messages` no existe (migration 0039
+         *     pendiente), devuelve un status vacío con `imap_configured=false` en lugar
+         *     de 500. Esto permite que el frontend muestre el card "Sin configurar"
+         *     incluso en entornos viejos.
+         */
+        get: operations["get_status_api_v1_admin_mailbox_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/poll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Poll
+         * @description Trigger manual del IMAP poll. Idempotente.
+         */
+        post: operations["trigger_poll_api_v1_admin_mailbox_poll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/classify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Classify
+         * @description Clasifica con Claude todos los mails status='received' (hasta `limit`).
+         */
+        post: operations["trigger_classify_api_v1_admin_mailbox_classify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mailbox
+         * @description Lista emails procesados con filtros. Más nuevo primero.
+         */
+        get: operations["list_mailbox_api_v1_admin_mailbox_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mailbox Item */
+        get: operations["get_mailbox_item_api_v1_admin_mailbox__inbox_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}/to-voucher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mailbox To Voucher
+         * @description Genera la sugerencia de voucher desde un email del inbox.
+         *
+         *     El email ya esta clasificado (Claude lo mar como factura/recibo/etc.
+         *     durante /classify). Este endpoint:
+         *
+         *       1. Lee el row del inbox (subject + from + body_text).
+         *       2. Concatena los campos en un texto canonico.
+         *       3. Pasa el texto a /vouchers/extract-from-text logic (analyze_document
+         *          con schema 'factura').
+         *       4. Devuelve la misma ExtractedVoucherSuggestion para que el FE muestre
+         *          el form editable y el user confirme.
+         *
+         *     NO crea el voucher; el FE redirige a /vouchers/desde-mensaje con los
+         *     datos precargados, o muestra el form inline en el mailbox detail.
+         */
+        post: operations["mailbox_to_voucher_api_v1_admin_mailbox__inbox_id__to_voucher_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reply Email
+         * @description Manda la respuesta editada vía Resend y marca el row como 'replied'.
+         */
+        post: operations["reply_email_api_v1_admin_mailbox__inbox_id__reply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Email
+         * @description Des-archiva un email (vuelve a 'classified' o 'received').
+         *
+         *     Útil si Nicolás archivó un email por error o cambia de opinión sobre
+         *     spam clasificado por la AI.
+         *
+         *     Restaura a 'classified' si tenía categoría AI, sino a 'received' para
+         *     que pueda ser re-clasificado.
+         */
+        post: operations["restore_email_api_v1_admin_mailbox__inbox_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive Email
+         * @description Archiva sin responder (spam, info, etc.).
+         */
+        post: operations["archive_email_api_v1_admin_mailbox__inbox_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/bulk-archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Archive
+         * @description Archiva varios emails en una operación. Útil para limpiar spam masivo.
+         *
+         *     Ignora los que ya están en status 'replied' o 'archived' (skipped).
+         *     Idempotente — re-llamarlo no hace nada.
+         */
+        post: operations["bulk_archive_api_v1_admin_mailbox_bulk_archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}/link-voucher": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Voucher
+         * @description Asocia un email con un voucher ya creado.
+         *
+         *     Caso típico: el inbox recibe una factura proveedor, Nicolás crea el
+         *     voucher tipo COMPRA en /vouchers/nuevo, copia el ID y vuelve acá para
+         *     linkearlo. Después el detalle del email muestra el link al voucher.
+         */
+        post: operations["link_voucher_api_v1_admin_mailbox__inbox_id__link_voucher_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/mailbox/{inbox_id}/link-oc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link Oc
+         * @description Asocia un email con una orden de compra existente.
+         *
+         *     Caso típico: el proveedor responde al pedido y Nicolás linkea el
+         *     email con la OC para que toda la conversación quede trazada.
+         */
+        post: operations["link_oc_api_v1_admin_mailbox__inbox_id__link_oc_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActaDataSummary */
+        ActaDataSummary: {
+            /**
+             * Ytd Total
+             * @default 0
+             */
+            ytd_total: number;
+            /**
+             * Ytd Entregados
+             * @default 0
+             */
+            ytd_entregados: number;
+            /**
+             * Tasa Cumplimiento
+             * @default 0
+             */
+            tasa_cumplimiento: number;
+            /**
+             * Vencidos Count
+             * @default 0
+             */
+            vencidos_count: number;
+            /**
+             * Proximos 30D Count
+             * @default 0
+             */
+            proximos_30d_count: number;
+        };
+        /**
+         * ActaGenerateRequest
+         * @description Pide a Claude que genere un draft de acta CV.
+         */
+        ActaGenerateRequest: {
+            /** Empresa */
+            empresa?: string | null;
+        };
+        /**
+         * ActaGenerateResponse
+         * @description Markdown del acta + metadata para el frontend.
+         */
+        ActaGenerateResponse: {
+            /** Markdown */
+            markdown: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Empresa */
+            empresa?: string | null;
+            tokens?: components["schemas"]["AskTokens"];
+            data_summary?: components["schemas"]["ActaDataSummary"];
+        };
+        /**
+         * Acuerdo
+         * @description Un acuerdo dentro del acta — punto del orden del día votado.
+         */
+        Acuerdo: {
+            /** Orden Dia */
+            orden_dia: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Votos A Favor
+             * @default 0
+             */
+            votos_a_favor: number;
+            /**
+             * Votos En Contra
+             * @default 0
+             */
+            votos_en_contra: number;
+            /**
+             * Abstenciones
+             * @default 0
+             */
+            abstenciones: number;
+            /**
+             * Aprobado
+             * @default false
+             */
+            aprobado: boolean;
+        };
         /**
          * AgentRunReport
          * @description Reporte de los agentes scheduled.
@@ -1704,6 +7500,67 @@ export interface components {
             errores?: string[];
         };
         /**
+         * AiInsight
+         * @description Un insight generado por la AI sobre patrones o anomalías.
+         */
+        AiInsight: {
+            /** Severity */
+            severity: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /**
+             * Recommendation
+             * @default
+             */
+            recommendation: string;
+            /** Tags */
+            tags?: string[];
+        };
+        /**
+         * AiInsightRead
+         * @description Insight persistido en BD con metadata + estado per-admin.
+         */
+        AiInsightRead: {
+            /** Insight Id */
+            insight_id: number;
+            /** Severity */
+            severity: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Recommendation */
+            recommendation: string;
+            /** Tags */
+            tags?: string[];
+            /** Read At */
+            read_at?: string | null;
+            /** Dismissed At */
+            dismissed_at?: string | null;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * AiInsightUpdate
+         * @description PATCH parcial para marcar leído / dismiss.
+         */
+        AiInsightUpdate: {
+            /** Read */
+            read?: boolean | null;
+            /** Dismissed */
+            dismissed?: boolean | null;
+        };
+        /**
          * Alert
          * @description Alerta priorizada para el panel del CEO.
          */
@@ -1719,6 +7576,534 @@ export interface components {
             /** Href */
             href?: string | null;
         };
+        /** ApiTokenCreate */
+        ApiTokenCreate: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /** Expires At */
+            expires_at?: string | null;
+        };
+        /** ApiTokenRead */
+        ApiTokenRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Token Hint */
+            token_hint: string;
+            /** Created By */
+            created_by: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ApiTokenWithSecret
+         * @description Devuelto SOLO al crear — incluye el token crudo una sola vez.
+         */
+        ApiTokenWithSecret: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Token Hint */
+            token_hint: string;
+            /** Created By */
+            created_by: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /** Revoked At */
+            revoked_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Token */
+            token: string;
+        };
+        /** ApprovalRuleCreate */
+        ApprovalRuleCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Voucher Tipo */
+            voucher_tipo?: ("INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO") | null;
+            /**
+             * Min Amount
+             * @default 0
+             */
+            min_amount: number | string;
+            /** Max Amount */
+            max_amount?: number | string | null;
+            /** Balance Treatment */
+            balance_treatment?: ("GASTO" | "ACTIVACION") | null;
+            /** Required Roles */
+            required_roles: ("GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA")[];
+            /**
+             * Reinforced
+             * @default false
+             */
+            reinforced: boolean;
+            /**
+             * Priority
+             * @default 100
+             */
+            priority: number;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Descripcion */
+            descripcion?: string | null;
+        };
+        /** ApprovalRuleRead */
+        ApprovalRuleRead: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Voucher Tipo */
+            voucher_tipo?: ("INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO") | null;
+            /**
+             * Min Amount
+             * @default 0
+             */
+            min_amount: string;
+            /** Max Amount */
+            max_amount?: string | null;
+            /** Balance Treatment */
+            balance_treatment?: ("GASTO" | "ACTIVACION") | null;
+            /** Required Roles */
+            required_roles: ("GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA")[];
+            /**
+             * Reinforced
+             * @default false
+             */
+            reinforced: boolean;
+            /**
+             * Priority
+             * @default 100
+             */
+            priority: number;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Rule Id */
+            rule_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ApprovalRuleUpdate */
+        ApprovalRuleUpdate: {
+            /** Voucher Tipo */
+            voucher_tipo?: ("INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO") | null;
+            /** Min Amount */
+            min_amount?: number | string | null;
+            /** Max Amount */
+            max_amount?: number | string | null;
+            /** Balance Treatment */
+            balance_treatment?: ("GASTO" | "ACTIVACION") | null;
+            /** Required Roles */
+            required_roles?: ("GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA")[] | null;
+            /** Reinforced */
+            reinforced?: boolean | null;
+            /** Priority */
+            priority?: number | null;
+            /** Active */
+            active?: boolean | null;
+            /** Descripcion */
+            descripcion?: string | null;
+        };
+        /**
+         * ApproveRequest
+         * @description POST /vouchers/{id}/approve — firma propia con rol activo en empresa.
+         */
+        ApproveRequest: {
+            /**
+             * Role
+             * @description Rol con el que firma (debe estar asignado al user en esa empresa)
+             */
+            role: string;
+            /** Comments */
+            comments?: string | null;
+        };
+        /** ArchiveRequest */
+        ArchiveRequest: {
+            /**
+             * Reason
+             * @default archived_manual
+             */
+            reason: string;
+        };
+        /** AreaCreate */
+        AreaCreate: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Activa
+             * @default true
+             */
+            activa: boolean;
+        };
+        /**
+         * AreaEmpresaMatrix
+         * @description Matriz completa para UI: por área, lista de empresas que aplican.
+         */
+        AreaEmpresaMatrix: {
+            /** Matrix */
+            matrix: {
+                [key: string]: string[];
+            };
+        };
+        /** AreaEmpresaRead */
+        AreaEmpresaRead: {
+            /** Area Codigo */
+            area_codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Aplica */
+            aplica: boolean;
+        };
+        /** AreaEmpresaUpdate */
+        AreaEmpresaUpdate: {
+            /** Aplica */
+            aplica: boolean;
+        };
+        /** AreaRead */
+        AreaRead: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Activa
+             * @default true
+             */
+            activa: boolean;
+        };
+        /** AreaUpdate */
+        AreaUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Activa */
+            activa?: boolean | null;
+        };
+        /**
+         * AskRequest
+         * @description Una pregunta one-shot al asistente con tool calling habilitado.
+         */
+        AskRequest: {
+            /** Question */
+            question: string;
+            /**
+             * Write Mode
+             * @description Si True, Claude puede mutar datos (marcar entregables). El frontend debe pedir confirmación explícita antes de habilitarlo.
+             * @default false
+             */
+            write_mode: boolean;
+        };
+        /**
+         * AskResponse
+         * @description Respuesta completa de `POST /ai/ask`.
+         */
+        AskResponse: {
+            /** Answer */
+            answer: string;
+            /** Tool Calls */
+            tool_calls?: components["schemas"]["AskToolCall"][];
+            /**
+             * Iterations
+             * @default 0
+             */
+            iterations: number;
+            tokens?: components["schemas"]["AskTokens"];
+        };
+        /** AskTokens */
+        AskTokens: {
+            /**
+             * Input
+             * @default 0
+             */
+            input: number;
+            /**
+             * Output
+             * @default 0
+             */
+            output: number;
+        };
+        /** AskToolCall */
+        AskToolCall: {
+            /** Tool */
+            tool: string;
+            /** Input */
+            input?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Output Preview
+             * @default
+             */
+            output_preview: string;
+        };
+        /**
+         * AuditLogList
+         * @description Lighter row para listados (sin diffs).
+         */
+        AuditLogList: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string | null;
+            /** User Email */
+            user_email: string | null;
+            /** Action */
+            action: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Label */
+            entity_label: string | null;
+            /** Summary */
+            summary: string;
+            /** Ip */
+            ip: string | null;
+            /** User Agent */
+            user_agent: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * AuditLogRead
+         * @description Detalle completo: incluye diff_before/diff_after.
+         */
+        AuditLogRead: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string | null;
+            /** User Email */
+            user_email: string | null;
+            /** Action */
+            action: string;
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Entity Label */
+            entity_label: string | null;
+            /** Summary */
+            summary: string;
+            /** Ip */
+            ip: string | null;
+            /** User Agent */
+            user_agent: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Diff Before */
+            diff_before?: {
+                [key: string]: unknown;
+            } | null;
+            /** Diff After */
+            diff_after?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** AutoRunReport */
+        AutoRunReport: {
+            /** Vouchers Evaluados */
+            vouchers_evaluados: number;
+            /** Matched Unico */
+            matched_unico: number;
+            /** Matched Ambiguo */
+            matched_ambiguo: number;
+            /** Sin Candidatos */
+            sin_candidatos: number;
+            /** Matches */
+            matches: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** AutoRunRequest */
+        AutoRunRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Fecha Desde */
+            fecha_desde?: string | null;
+            /** Fecha Hasta */
+            fecha_hasta?: string | null;
+            /**
+             * Window Days
+             * @default 3
+             */
+            window_days: number;
+        };
+        /**
+         * BackupCodesResponse
+         * @description Respuesta de `POST /me/2fa/regenerate-backup-codes`.
+         */
+        BackupCodesResponse: {
+            /**
+             * Backup Codes
+             * @description 10 códigos nuevos one-time. Los anteriores quedan invalidados.
+             */
+            backup_codes: string[];
+        };
+        /** Body_analyze_uploaded_document_api_v1_documents_analyze_post */
+        Body_analyze_uploaded_document_api_v1_documents_analyze_post: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "contrato" | "f29" | "trabajador_contrato" | "factura" | "liquidacion" | "auto";
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_dry_run_api_v1_bulk_import__entity_type__dry_run_post */
+        Body_dry_run_api_v1_bulk_import__entity_type__dry_run_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_extract_from_upload_api_v1_vouchers_extract_from_upload_post */
+        Body_extract_from_upload_api_v1_vouchers_extract_from_upload_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Archivo PDF/JPG/PNG/DOCX/PPTX
+             */
+            file: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Save To Dropbox
+             * @default true
+             */
+            save_to_dropbox: boolean;
+        };
+        /** Body_import_entregables_csv_api_v1_entregables_import_csv_post */
+        Body_import_entregables_csv_api_v1_entregables_import_csv_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_import_gantt_commit_api_v1_avance__empresa_codigo__import_excel_commit_post */
+        Body_import_gantt_commit_api_v1_avance__empresa_codigo__import_excel_commit_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Excel del Gantt a importar
+             */
+            file: string;
+        };
+        /** Body_import_gantt_preview_api_v1_avance__empresa_codigo__import_excel_preview_post */
+        Body_import_gantt_preview_api_v1_avance__empresa_codigo__import_excel_preview_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Excel del Gantt a previsualizar
+             */
+            file: string;
+        };
+        /** Body_import_ocs_csv_api_v1_ordenes_compra_import_csv_post */
+        Body_import_ocs_csv_api_v1_ordenes_compra_import_csv_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        /** Body_import_plan_cuentas_api_v1_admin_plan_cuentas_import_post */
+        Body_import_plan_cuentas_api_v1_admin_plan_cuentas_import_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Plan_de_cuentas_v2.xlsx
+             */
+            file: string;
+        };
+        /** Body_import_vouchers_csv_api_v1_vouchers_import_csv_post */
+        Body_import_vouchers_csv_api_v1_vouchers_import_csv_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+        };
+        /** Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post */
+        Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Cotización en cualquier formato
+             */
+            file: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Save To Dropbox
+             * @default true
+             */
+            save_to_dropbox: boolean;
+        };
         /** Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post */
         Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post: {
             /**
@@ -1732,6 +8117,15 @@ export interface components {
              */
             file: string;
         };
+        /** Body_upload_empresa_logo_api_v1_empresa__empresa_codigo__logo_post */
+        Body_upload_empresa_logo_api_v1_empresa__empresa_codigo__logo_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Logo PNG/JPG/SVG max 2MB
+             */
+            file: string;
+        };
         /** Body_upload_legal_api_v1_legal__documento_id__upload_post */
         Body_upload_legal_api_v1_legal__documento_id__upload_post: {
             /**
@@ -1741,6 +8135,179 @@ export interface components {
             file: string;
             /** Nombre Archivo */
             nombre_archivo?: string | null;
+        };
+        /** Body_upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post */
+        Body_upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "FACTURA" | "BOLETA" | "CONTRATO" | "COTIZACION" | "TRANSFERENCIA" | "LIQUIDACION_SUELDO" | "ACTA" | "RESPALDO_TECNICO" | "OTRO";
+            /**
+             * File
+             * Format: binary
+             * @description Factura, boleta, contrato, etc.
+             */
+            file: string;
+        };
+        /** BulkApproveItemResult */
+        BulkApproveItemResult: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Success */
+            success: boolean;
+            /** Error */
+            error?: string | null;
+            /** New Status */
+            new_status?: string | null;
+        };
+        /**
+         * BulkApproveRequest
+         * @description POST /vouchers/bulk-approve — firma N vouchers con el mismo rol.
+         *
+         *     Caso de uso: el COO (Nicolás) revisa la cola de vouchers PENDING
+         *     al final del día y firma todos los que ya validó técnicamente.
+         *     Cada voucher se valida individualmente — si uno falla, no aborta
+         *     el resto.
+         */
+        BulkApproveRequest: {
+            /** Voucher Ids */
+            voucher_ids: number[];
+            /**
+             * Role
+             * @description Rol con el que firma (debe estar activo en cada empresa)
+             */
+            role: string;
+        };
+        /** BulkApproveResponse */
+        BulkApproveResponse: {
+            /** Total */
+            total: number;
+            /** Succeeded */
+            succeeded: number;
+            /** Failed */
+            failed: number;
+            /** Items */
+            items: components["schemas"]["BulkApproveItemResult"][];
+        };
+        /** BulkArchiveRequest */
+        BulkArchiveRequest: {
+            /** Inbox Ids */
+            inbox_ids: number[];
+            /**
+             * Reason
+             * @default archived_bulk
+             */
+            reason: string;
+        };
+        /** BulkArchiveResponse */
+        BulkArchiveResponse: {
+            /** Archived */
+            archived: number;
+            /** Skipped */
+            skipped: number;
+        };
+        /** BulkItemError */
+        BulkItemError: {
+            /** Id */
+            id: number;
+            /** Detail */
+            detail: string;
+        };
+        /**
+         * BulkReassignRequest
+         * @description Cambia el responsable de varios entregables en bloque.
+         */
+        BulkReassignRequest: {
+            /** Ids */
+            ids: number[];
+            /** Responsable */
+            responsable: string;
+        };
+        /** BulkReassignResponse */
+        BulkReassignResponse: {
+            /** Requested */
+            requested: number;
+            /** Updated Ids */
+            updated_ids: number[];
+            /** Not Found */
+            not_found: number[];
+        };
+        /**
+         * BulkUpdateEstadoRequest
+         * @description Body para `POST /<entity>/bulk-update-estado`.
+         *
+         *     `ids` se valida con techo defensivo (200) — si necesitamos más, lo
+         *     movemos a job en background.
+         */
+        BulkUpdateEstadoRequest: {
+            /** Ids */
+            ids: number[];
+            /** Estado */
+            estado: string;
+        };
+        /**
+         * BulkUpdateRequest
+         * @description Marca varios entregables en una sola transacción.
+         *
+         *     Útil para cierre de mes o cuando se entregan varios documentos juntos
+         *     (ej. todos los F29 trimestrales del año fiscal). Idempotente — si un
+         *     id ya está en el estado destino, se cuenta como `already_target` y
+         *     no se incluye en `updated_ids`.
+         */
+        BulkUpdateRequest: {
+            /** Ids */
+            ids: number[];
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "pendiente" | "en_proceso" | "entregado" | "no_entregado";
+            /** Fecha Entrega Real */
+            fecha_entrega_real?: string | null;
+            /** Motivo No Entrega */
+            motivo_no_entrega?: string | null;
+            /** Notas */
+            notas?: string | null;
+            /** Adjunto Url */
+            adjunto_url?: string | null;
+        };
+        /** BulkUpdateResponse */
+        BulkUpdateResponse: {
+            /** Requested */
+            requested: number;
+            /** Updated Ids */
+            updated_ids: number[];
+            /** Already Target */
+            already_target: number[];
+            /** Not Found */
+            not_found: number[];
+            /** Auto Generated Next Periods */
+            auto_generated_next_periods: number;
+        };
+        /**
+         * BulkUpdateResult
+         * @description Reporte de una operación masiva.
+         *
+         *     `requested` = cuántos IDs vinieron en el request. `succeeded` + len(failed)
+         *     debería igualar `requested` si todos los items existían; los IDs que no
+         *     existen aparecen en `failed` con `detail="not found"`.
+         */
+        BulkUpdateResult: {
+            /**
+             * Operation
+             * @enum {string}
+             */
+            operation: "update_estado" | "delete";
+            /** Requested */
+            requested: number;
+            /** Succeeded */
+            succeeded: number;
+            /**
+             * Failed
+             * @default []
+             */
+            failed: components["schemas"]["BulkItemError"][];
         };
         /**
          * CEOConsolidatedReport
@@ -1772,6 +8339,44 @@ export interface components {
              * Format: date-time
              */
             last_updated: string;
+        };
+        /**
+         * CEODigestPayload
+         * @description Payload completo del digest semanal CEO.
+         *
+         *     Se serializa como JSON para `/preview` y se renderiza vía
+         *     `DigestService.build_html()` para el body del email.
+         */
+        CEODigestPayload: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
+            /** Top Kpis */
+            top_kpis?: {
+                [key: string]: number | string;
+            };
+            /** Empresas */
+            empresas?: components["schemas"]["EmpresaDigestRow"][];
+            /** Alerts */
+            alerts?: components["schemas"]["DigestAlert"][];
+            /** Movimientos Significativos */
+            movimientos_significativos?: components["schemas"]["MovimientoDigestRow"][];
+            /** Vs Prev Week */
+            vs_prev_week?: {
+                [key: string]: number | string;
+            };
         };
         /** CalendarEventCreate */
         CalendarEventCreate: {
@@ -1879,6 +8484,71 @@ export interface components {
             /** Completado */
             completado?: boolean | null;
         };
+        /** CancelBatchRequest */
+        CancelBatchRequest: {
+            /** Razon */
+            razon: string;
+        };
+        /** CartolaRunRead */
+        CartolaRunRead: {
+            /** Run Id */
+            run_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Dropbox Path */
+            dropbox_path: string;
+            /** File Hash */
+            file_hash: string;
+            /** File Size Bytes */
+            file_size_bytes: number | null;
+            /** Banco Detectado */
+            banco_detectado: string | null;
+            /** Periodo Desde */
+            periodo_desde: string | null;
+            /** Periodo Hasta */
+            periodo_hasta: string | null;
+            /** Status */
+            status: string;
+            /** Rows Extracted */
+            rows_extracted: number;
+            /** Rows Inserted */
+            rows_inserted: number;
+            /** Rows Skipped */
+            rows_skipped: number;
+            /** Error Message */
+            error_message: string | null;
+            /** Triggered By */
+            triggered_by: string | null;
+            /**
+             * Triggered At
+             * Format: date-time
+             */
+            triggered_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
+        /** CartolasSyncResponse */
+        CartolasSyncResponse: {
+            /** Files Seen */
+            files_seen: number;
+            /** Files Skipped */
+            files_skipped: number;
+            /** Files Imported */
+            files_imported: number;
+            /** Files Failed Parse */
+            files_failed_parse: number;
+            /** Files Failed Ocr Required */
+            files_failed_ocr_required: number;
+            /** Movimientos Inserted */
+            movimientos_inserted: number;
+            /** Movimientos Skipped */
+            movimientos_skipped: number;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+        };
         /** CashflowPoint */
         CashflowPoint: {
             /** Periodo */
@@ -1948,6 +8618,70 @@ export interface components {
             message: string;
         };
         /**
+         * CheckDuplicateResponse
+         * @description Respuesta de /vouchers/check-duplicate.
+         *
+         *     Detecta vouchers existentes con la misma combinacion (empresa,
+         *     proveedor_rut, tipo_documento, numero_documento) — la firma natural
+         *     de un documento tributario. Si hay match, devuelve los duplicados
+         *     para que el FE muestre warning antes del submit.
+         */
+        CheckDuplicateResponse: {
+            /** Duplicates */
+            duplicates: components["schemas"]["DuplicateVoucherHit"][];
+            /** Rut Canonical */
+            rut_canonical?: string | null;
+        };
+        /** CleanupResponse */
+        CleanupResponse: {
+            /** Vouchers Eliminados */
+            vouchers_eliminados: number;
+            /** Lines Eliminadas */
+            lines_eliminadas: number;
+        };
+        /**
+         * ComplianceGradeEmpresa
+         * @description Compliance grade de una empresa específica.
+         */
+        ComplianceGradeEmpresa: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Total */
+            total: number;
+            /** Entregados A Tiempo */
+            entregados_a_tiempo: number;
+            /** Entregados Atrasados */
+            entregados_atrasados: number;
+            /** No Entregados */
+            no_entregados: number;
+            /** Pendientes */
+            pendientes: number;
+            /** Tasa Cumplimiento */
+            tasa_cumplimiento: number;
+            /** Tasa A Tiempo */
+            tasa_a_tiempo: number;
+            /** Grade */
+            grade: string;
+        };
+        /**
+         * ComplianceGradeReport
+         * @description Snapshot consolidado del compliance grade de todas las empresas.
+         */
+        ComplianceGradeReport: {
+            /**
+             * Generado At
+             * Format: date-time
+             */
+            generado_at: string;
+            /** Empresas */
+            empresas?: components["schemas"]["ComplianceGradeEmpresa"][];
+            /**
+             * Promedio Cumplimiento
+             * @default 0
+             */
+            promedio_cumplimiento: number;
+        };
+        /**
          * ComposicionRow
          * @description Una fila de la tabla Composición Completa CC.
          */
@@ -1971,6 +8705,34 @@ export interface components {
             concepto_detallado: string;
             /** Concepto General */
             concepto_general: string | null;
+        };
+        /** ConciliacionSummary */
+        ConciliacionSummary: {
+            /** No Conciliados */
+            no_conciliados: number;
+            /** Conciliados */
+            conciliados: number;
+            /** Movimientos Huerfanos */
+            movimientos_huerfanos: number;
+            /** Monto Pendiente */
+            monto_pendiente: string;
+        };
+        /**
+         * ConfirmBatchRequest
+         * @description COO ingresa los folios devueltos por Nubox tras cargar el CSV.
+         *
+         *     Mapeo: codigo del voucher (CSL-2026-EGR-00001) → folio Nubox.
+         */
+        ConfirmBatchRequest: {
+            /**
+             * Folios
+             * @description Map de voucher.codigo a folio Nubox. Si vacío, marca CONFIRMED sin folios.
+             */
+            folios?: {
+                [key: string]: string;
+            };
+            /** Notas */
+            notas?: string | null;
         };
         /** ConversationCreate */
         ConversationCreate: {
@@ -1999,6 +8761,145 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** ConversionRequest */
+        ConversionRequest: {
+            /**
+             * Amount
+             * @description Monto a convertir (cualquier signo).
+             */
+            amount: number | string;
+            /**
+             * From Currency
+             * @enum {string}
+             */
+            from_currency: "CLP" | "UF" | "USD";
+            /**
+             * To Currency
+             * @enum {string}
+             */
+            to_currency: "CLP" | "UF" | "USD";
+            /**
+             * Date
+             * @description Fecha de la tasa. Default: hoy.
+             */
+            date?: string | null;
+        };
+        /** ConversionResult */
+        ConversionResult: {
+            /** From Amount */
+            from_amount: string;
+            /** From Currency */
+            from_currency: string;
+            /** To Amount */
+            to_amount: string | null;
+            /** To Currency */
+            to_currency: string;
+            /** Rate Used */
+            rate_used: string | null;
+            /** Date Used */
+            date_used: string | null;
+        };
+        /**
+         * CriticalCount
+         * @description Conteo ligero de entregables en alerta crítica para el badge sidebar.
+         *
+         *     Cubre: vencidos, vencen hoy, o vencen ≤5 días Y todavía no están
+         *     entregados. Sin payloads pesados — solo el número.
+         */
+        CriticalCount: {
+            /**
+             * Critical
+             * @default 0
+             */
+            critical: number;
+            /**
+             * Vencidos
+             * @default 0
+             */
+            vencidos: number;
+            /**
+             * Hoy
+             * @default 0
+             */
+            hoy: number;
+            /**
+             * Proximos 5D
+             * @default 0
+             */
+            proximos_5d: number;
+        };
+        /**
+         * CsvImportError
+         * @description Detalle de fila inválida durante CSV import.
+         */
+        CsvImportError: {
+            /** Row */
+            row: number;
+            /** Error */
+            error: string;
+            /** Raw */
+            raw?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * CsvImportResponse
+         * @description Resultado de un import CSV de entregables.
+         */
+        CsvImportResponse: {
+            /** Rows Received */
+            rows_received: number;
+            /** Rows Imported */
+            rows_imported: number;
+            /** Rows Skipped */
+            rows_skipped: number;
+            /** Rows Failed */
+            rows_failed: number;
+            /** Errors */
+            errors?: components["schemas"]["CsvImportError"][];
+            /** Sample Imported Ids */
+            sample_imported_ids?: number[];
+        };
+        /** CuentaMeta */
+        CuentaMeta: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Tipo */
+            tipo: string;
+            /** Nivel */
+            nivel: number;
+        };
+        /**
+         * CurrencyBreakdownItem
+         * @description Donut: cuánto del portafolio está en cada moneda.
+         *
+         *     `total_clp` es la suma equivalente en CLP de las cuentas en esa moneda.
+         *     `percent` es el porcentaje sobre el total CLP del portafolio (0 a 100).
+         */
+        CurrencyBreakdownItem: {
+            /** Currency */
+            currency: string;
+            /** Total Clp */
+            total_clp: string;
+            /** Percent */
+            percent: string;
+        };
+        /** CurrencyRateRead */
+        CurrencyRateRead: {
+            /** Currency Code */
+            currency_code: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Rate Clp */
+            rate_clp: string;
+            /** Source */
+            source: string;
         };
         /**
          * DashboardKPIs
@@ -2052,6 +8953,28 @@ export interface components {
             /** Periodo Actual */
             periodo_actual: string;
         };
+        /** DataQARequest */
+        DataQARequest: {
+            /** Question */
+            question: string;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+        };
+        /** DataQAResponse */
+        DataQAResponse: {
+            /** Answer */
+            answer: string;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Model */
+            model: string;
+            /** Tokens Input */
+            tokens_input: number;
+            /** Tokens Output */
+            tokens_output: number;
+        };
         /** DataQualityIssue */
         DataQualityIssue: {
             /** Code */
@@ -2081,6 +9004,205 @@ export interface components {
             readonly total_issues: number;
             /** Critical Count */
             readonly critical_count: number;
+        };
+        /** DetailedHealthResponse */
+        DetailedHealthResponse: {
+            /** Status */
+            status: string;
+            /** Database */
+            database: string;
+            /** Alembic Head */
+            alembic_head: string | null;
+            /** Services */
+            services: {
+                [key: string]: string;
+            };
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Version */
+            version: string;
+        };
+        /**
+         * DigestAlert
+         * @description Alerta priorizada para el bloque de Top Alerts.
+         */
+        DigestAlert: {
+            /** Tipo */
+            tipo: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "critical" | "warning" | "info";
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Link */
+            link?: string | null;
+        };
+        /**
+         * DigestSendRequest
+         * @description Body opcional del POST /digest/ceo-weekly/send-now.
+         */
+        DigestSendRequest: {
+            /** Recipients */
+            recipients?: string[] | null;
+        };
+        /**
+         * DigestSendResult
+         * @description Resultado del envío del digest.
+         */
+        DigestSendResult: {
+            /** Sent */
+            sent: number;
+            /** Failed */
+            failed?: string[];
+            /** Preview Url */
+            preview_url?: string | null;
+        };
+        /**
+         * DisableRequest
+         * @description Mismo shape que VerifyRequest — el code es el final auth gate.
+         */
+        DisableRequest: {
+            /** Code */
+            code: string;
+        };
+        /**
+         * DocumentExtraction
+         * @description Campos extraídos de un documento por el AI analyzer.
+         */
+        DocumentExtraction: {
+            /**
+             * Tipo Detectado
+             * @description Tipo concreto detectado (nunca 'auto' — el LLM resuelve).
+             */
+            tipo_detectado: string;
+            /**
+             * Confidence
+             * @description Confianza del LLM en la extraccion (0-1).
+             */
+            confidence: number;
+            /**
+             * Fields
+             * @description Pares clave-valor con los campos del documento. Las claves dependen de `tipo_detectado` (ver `document_analyzer_service.SCHEMAS`).
+             */
+            fields?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Raw Text Preview
+             * @description Primeros ~500 chars del texto extraído (solo debug UX).
+             * @default
+             */
+            raw_text_preview: string;
+            /**
+             * Warnings
+             * @description Notas del LLM sobre ambigüedades o campos imputados.
+             */
+            warnings?: string[];
+            /**
+             * Extraction Method
+             * @description Cómo se extrajo el texto: 'pypdf' (PDF digital), 'ocr' (PDF/imagen escaneado), 'hybrid' (mezcla pypdf+ocr), 'docx', 'text', 'image_ocr', 'failed' (soft-fail cuando tesseract no está instalado en el host). Útil para que el frontend explique al usuario por qué el análisis fue lento.
+             */
+            extraction_method?: string | null;
+            /**
+             * Ocr Pages
+             * @description Número de páginas que pasaron por OCR (None si no se usó OCR).
+             */
+            ocr_pages?: number | null;
+        };
+        /**
+         * DuplicateOcRequest
+         * @description Body de POST /ordenes-compra/{oc_id}/duplicate.
+         *
+         *     Solo se piden los campos que TIENEN que ser distintos del original:
+         *     - numero_oc obligatorio (no auto-generamos para no inventar correlativos)
+         *     - fecha_emision opcional (default = hoy en la zona del backend)
+         *     - observaciones opcional (si querés pisar las del original)
+         *
+         *     Todo lo demas (proveedor, items, montos, moneda, forma_pago, plazo_pago,
+         *     validez_dias) se copia tal cual desde la OC original.
+         */
+        DuplicateOcRequest: {
+            /** Numero Oc */
+            numero_oc: string;
+            /** Fecha Emision */
+            fecha_emision?: string | null;
+            /** Observaciones */
+            observaciones?: string | null;
+        };
+        /**
+         * DuplicateProveedorGroup
+         * @description Grupo de proveedores candidatos a fusión.
+         *
+         *     Normalizamos `razon_social` a `[A-Z0-9]+` (quitando puntos, espacios y
+         *     caracteres no alfanumericos) y agrupamos los que comparten esa clave.
+         *     Asi 'ACME SpA', 'A.C.M.E. S.p.A.' y 'acme spa' caen en el mismo grupo.
+         */
+        DuplicateProveedorGroup: {
+            /** Normalized Key */
+            normalized_key: string;
+            /** Members */
+            members: components["schemas"]["DuplicateProveedorMember"][];
+        };
+        /** DuplicateProveedorMember */
+        DuplicateProveedorMember: {
+            /** Proveedor Id */
+            proveedor_id: number;
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut: string | null;
+            /** Created At */
+            created_at: string;
+            /**
+             * Vouchers Count
+             * @default 0
+             */
+            vouchers_count: number;
+            /**
+             * Ordenes Compra Count
+             * @default 0
+             */
+            ordenes_compra_count: number;
+        };
+        /**
+         * DuplicateRow
+         * @description Fila válida pero que duplica un registro existente en DB.
+         */
+        DuplicateRow: {
+            /** Row Index */
+            row_index: number;
+            /**
+             * Key
+             * @description Valor único que choca (rut, nombre, etc.)
+             */
+            key: string;
+            /** Existing Id */
+            existing_id?: number | null;
+            /** Original */
+            original: {
+                [key: string]: unknown;
+            };
+        };
+        /** DuplicateVoucherHit */
+        DuplicateVoucherHit: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Status */
+            status: string;
+            /** Fecha Documento */
+            fecha_documento: string | null;
+            /** Total */
+            total: string | null;
+            /** Glosa */
+            glosa: string | null;
         };
         /** EgresoConcepto */
         EgresoConcepto: {
@@ -2155,6 +9277,600 @@ export interface components {
             oc_prefix?: string | null;
             /** Rut */
             rut?: string | null;
+            /** Logo Dropbox Path */
+            logo_dropbox_path?: string | null;
+        };
+        /** EmpresaCount */
+        EmpresaCount: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social?: string | null;
+            /** Total Hitos */
+            total_hitos: number;
+            /** Pendientes */
+            pendientes: number;
+            /** En Progreso */
+            en_progreso: number;
+            /** Completados */
+            completados: number;
+        };
+        /**
+         * EmpresaDigestRow
+         * @description KPIs por empresa para la tabla principal del digest.
+         */
+        EmpresaDigestRow: {
+            /** Codigo */
+            codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Health Score */
+            health_score: number;
+            /** Saldo Actual */
+            saldo_actual: string;
+            /** Flujo 7D */
+            flujo_7d: string;
+            /** Oc Pendientes */
+            oc_pendientes: number;
+            /** F29 Vencidas */
+            f29_vencidas: number;
+            /**
+             * Delta Health
+             * @default 0
+             */
+            delta_health: number;
+        };
+        /**
+         * EmpresaListItem
+         * @description Forma mínima usada por todos los selects del frontend.
+         */
+        EmpresaListItem: {
+            /** Codigo */
+            codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut?: string | null;
+            /** Oc Prefix */
+            oc_prefix?: string | null;
+            /**
+             * Activo
+             * @default true
+             */
+            activo: boolean;
+        };
+        /** EmpresaMetadata */
+        EmpresaMetadata: {
+            /** Codigo */
+            codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut: string;
+            /** Direccion */
+            direccion?: string | null;
+            /** Comuna */
+            comuna?: string | null;
+            /** Aprobadores */
+            aprobadores: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * EmpresaPortfolioRow
+         * @description Una fila de la tabla por empresa.
+         *
+         *     `saldo_native` es el saldo en la moneda donde realmente vive la cuenta
+         *     (`currency_native`). Para casi todas las empresas hoy es CLP, pero el
+         *     schema queda preparado para cuando alguien tenga cuenta en USD o UF.
+         */
+        EmpresaPortfolioRow: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Saldo Native */
+            saldo_native: string;
+            /** Currency Native */
+            currency_native: string;
+            /** Saldo Clp */
+            saldo_clp: string;
+            /** Saldo Usd */
+            saldo_usd?: string | null;
+            /** Percent Of Portfolio */
+            percent_of_portfolio: string;
+        };
+        /** EmpresaRead */
+        EmpresaRead: {
+            /** Empresa Id */
+            empresa_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut: string | null;
+            /** Giro */
+            giro: string | null;
+            /** Direccion */
+            direccion: string | null;
+            /** Ciudad */
+            ciudad: string | null;
+            /** Telefono */
+            telefono: string | null;
+            /** Representante Legal */
+            representante_legal: string | null;
+            /** Email Firmante */
+            email_firmante: string | null;
+            /** Oc Prefix */
+            oc_prefix: string | null;
+            /** Activo */
+            activo: boolean;
+        };
+        /**
+         * EmpresaUpdate
+         * @description PATCH /catalogos/empresas/{codigo} — datos fiscales/contacto editables.
+         *
+         *     `codigo` NO es editable (es el identificador semántico que se usa por toda
+         *     la app). Para cambiarlo se requeriría una migración manual.
+         */
+        EmpresaUpdate: {
+            /** Razon Social */
+            razon_social?: string | null;
+            /** Rut */
+            rut?: string | null;
+            /** Giro */
+            giro?: string | null;
+            /** Direccion */
+            direccion?: string | null;
+            /** Ciudad */
+            ciudad?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Representante Legal */
+            representante_legal?: string | null;
+            /** Email Firmante */
+            email_firmante?: string | null;
+            /** Oc Prefix */
+            oc_prefix?: string | null;
+            /** Activo */
+            activo?: boolean | null;
+        };
+        /**
+         * EnrollResponse
+         * @description Respuesta de `POST /me/2fa/enroll` — única vez que el secret y los
+         *     backup codes salen del backend. El frontend los muestra al usuario y
+         *     los descarta. Si el usuario los pierde, hay que regenerar.
+         */
+        EnrollResponse: {
+            /**
+             * Secret
+             * @description Base32 — para entry manual en el autenticador
+             */
+            secret: string;
+            /**
+             * Provisioning Uri
+             * @description otpauth:// — formato QR
+             */
+            provisioning_uri: string;
+            /**
+             * Qr Url
+             * @description URL del PNG del QR para mostrar en <img>
+             */
+            qr_url: string;
+            /**
+             * Backup Codes
+             * @description 10 códigos one-time, formato XXXX-XXXX. Mostrar UNA SOLA VEZ.
+             */
+            backup_codes: string[];
+        };
+        /** EntregableCreate */
+        EntregableCreate: {
+            /** Id Template */
+            id_template: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Categoria
+             * @enum {string}
+             */
+            categoria: "CMF" | "CORFO" | "UAF" | "SII" | "INTERNO" | "AUDITORIA" | "ASAMBLEA" | "OPERACIONAL";
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Referencia Normativa */
+            referencia_normativa?: string | null;
+            /**
+             * Fecha Limite
+             * Format: date
+             */
+            fecha_limite: string;
+            /**
+             * Frecuencia
+             * @enum {string}
+             */
+            frecuencia: "mensual" | "trimestral" | "semestral" | "anual" | "bienal" | "unico" | "segun_evento";
+            /**
+             * Prioridad
+             * @enum {string}
+             */
+            prioridad: "critica" | "alta" | "media" | "baja";
+            /** Responsable */
+            responsable: string;
+            /** Periodo */
+            periodo: string;
+            /**
+             * Alerta 15
+             * @default true
+             */
+            alerta_15: boolean;
+            /**
+             * Alerta 10
+             * @default true
+             */
+            alerta_10: boolean;
+            /**
+             * Alerta 5
+             * @default true
+             */
+            alerta_5: boolean;
+            /** Notas */
+            notas?: string | null;
+            /** Adjunto Url */
+            adjunto_url?: string | null;
+            /**
+             * Estado
+             * @default pendiente
+             * @enum {string}
+             */
+            estado: "pendiente" | "en_proceso" | "entregado" | "no_entregado";
+            /** Extra */
+            extra?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * EntregableDigestRow
+         * @description Una fila de entregable para el digest operativo.
+         */
+        EntregableDigestRow: {
+            /** Entregable Id */
+            entregable_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Categoria */
+            categoria: string;
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha Limite
+             * Format: date
+             */
+            fecha_limite: string;
+            /** Dias Restantes */
+            dias_restantes: number;
+            /** Responsable */
+            responsable: string;
+            /** Estado */
+            estado: string;
+            /** Nivel Alerta */
+            nivel_alerta: string;
+        };
+        /** EntregableEstadosCounts */
+        EntregableEstadosCounts: {
+            /**
+             * Pendiente
+             * @default 0
+             */
+            pendiente: number;
+            /**
+             * En Proceso
+             * @default 0
+             */
+            en_proceso: number;
+            /**
+             * Entregado
+             * @default 0
+             */
+            entregado: number;
+            /**
+             * No Entregado
+             * @default 0
+             */
+            no_entregado: number;
+        };
+        /** EntregableRead */
+        EntregableRead: {
+            /** Id Template */
+            id_template: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Categoria
+             * @enum {string}
+             */
+            categoria: "CMF" | "CORFO" | "UAF" | "SII" | "INTERNO" | "AUDITORIA" | "ASAMBLEA" | "OPERACIONAL";
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Referencia Normativa */
+            referencia_normativa?: string | null;
+            /**
+             * Fecha Limite
+             * Format: date
+             */
+            fecha_limite: string;
+            /**
+             * Frecuencia
+             * @enum {string}
+             */
+            frecuencia: "mensual" | "trimestral" | "semestral" | "anual" | "bienal" | "unico" | "segun_evento";
+            /**
+             * Prioridad
+             * @enum {string}
+             */
+            prioridad: "critica" | "alta" | "media" | "baja";
+            /** Responsable */
+            responsable: string;
+            /** Periodo */
+            periodo: string;
+            /**
+             * Alerta 15
+             * @default true
+             */
+            alerta_15: boolean;
+            /**
+             * Alerta 10
+             * @default true
+             */
+            alerta_10: boolean;
+            /**
+             * Alerta 5
+             * @default true
+             */
+            alerta_5: boolean;
+            /** Entregable Id */
+            entregable_id: number;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "pendiente" | "en_proceso" | "entregado" | "no_entregado";
+            /** Fecha Entrega Real */
+            fecha_entrega_real: string | null;
+            /** Motivo No Entrega */
+            motivo_no_entrega: string | null;
+            /** Notas */
+            notas: string | null;
+            /** Adjunto Url */
+            adjunto_url: string | null;
+            /** Generado Automaticamente */
+            generado_automaticamente: boolean;
+            /** Es Publico */
+            es_publico: boolean;
+            /** Extra */
+            extra: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Nivel Alerta */
+            nivel_alerta?: ("vencido" | "hoy" | "critico" | "urgente" | "proximo" | "en_rango" | "normal") | null;
+            /** Dias Restantes */
+            dias_restantes?: number | null;
+        };
+        /**
+         * EntregableUpdate
+         * @description PATCH parcial — todos los campos opcionales.
+         */
+        EntregableUpdate: {
+            /** Estado */
+            estado?: ("pendiente" | "en_proceso" | "entregado" | "no_entregado") | null;
+            /** Fecha Entrega Real */
+            fecha_entrega_real?: string | null;
+            /** Motivo No Entrega */
+            motivo_no_entrega?: string | null;
+            /** Notas */
+            notas?: string | null;
+            /** Adjunto Url */
+            adjunto_url?: string | null;
+            /** Fecha Limite */
+            fecha_limite?: string | null;
+            /** Nombre */
+            nombre?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Prioridad */
+            prioridad?: ("critica" | "alta" | "media" | "baja") | null;
+            /** Responsable */
+            responsable?: string | null;
+            /** Alerta 15 */
+            alerta_15?: boolean | null;
+            /** Alerta 10 */
+            alerta_10?: boolean | null;
+            /** Alerta 5 */
+            alerta_5?: boolean | null;
+            /** Extra */
+            extra?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * EntregablesDigestPayload
+         * @description Payload del digest semanal operativo de entregables.
+         *
+         *     Foco: lo que el equipo operativo (no el CEO) tiene que mover esta
+         *     semana para no atrasarse con CMF/CORFO/UAF/SII/Reglamento Interno.
+         */
+        EntregablesDigestPayload: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Period From
+             * Format: date
+             */
+            period_from: string;
+            /**
+             * Period To
+             * Format: date
+             */
+            period_to: string;
+            /** Vencidos Count */
+            vencidos_count: number;
+            /** Hoy Count */
+            hoy_count: number;
+            /** Proximos 7D Count */
+            proximos_7d_count: number;
+            /** Proximos 30D Count */
+            proximos_30d_count: number;
+            /** Tasa Cumplimiento Ytd */
+            tasa_cumplimiento_ytd: number;
+            /** Vencidos */
+            vencidos?: components["schemas"]["EntregableDigestRow"][];
+            /** Hoy */
+            hoy?: components["schemas"]["EntregableDigestRow"][];
+            /** Proximos 7D */
+            proximos_7d?: components["schemas"]["EntregableDigestRow"][];
+        };
+        /** EstadoFinancieroCreate */
+        EstadoFinancieroCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo Ef
+             * @enum {string}
+             */
+            tipo_ef: "balance" | "estado_resultados" | "flujo_caja" | "cambios_patrimonio" | "consolidado" | "notas";
+            /**
+             * Periodo Tipo
+             * @enum {string}
+             */
+            periodo_tipo: "mensual" | "trimestral" | "semestral" | "anual";
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha Corte
+             * Format: date
+             */
+            fecha_corte: string;
+            /**
+             * Auditado
+             * @default false
+             */
+            auditado: boolean;
+            /** Auditor */
+            auditor?: string | null;
+            /**
+             * Aprobado Directorio
+             * @default false
+             */
+            aprobado_directorio: boolean;
+            /** Fecha Aprobacion */
+            fecha_aprobacion?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** EstadoFinancieroRead */
+        EstadoFinancieroRead: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo Ef
+             * @enum {string}
+             */
+            tipo_ef: "balance" | "estado_resultados" | "flujo_caja" | "cambios_patrimonio" | "consolidado" | "notas";
+            /**
+             * Periodo Tipo
+             * @enum {string}
+             */
+            periodo_tipo: "mensual" | "trimestral" | "semestral" | "anual";
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha Corte
+             * Format: date
+             */
+            fecha_corte: string;
+            /**
+             * Auditado
+             * @default false
+             */
+            auditado: boolean;
+            /** Auditor */
+            auditor?: string | null;
+            /**
+             * Aprobado Directorio
+             * @default false
+             */
+            aprobado_directorio: boolean;
+            /** Fecha Aprobacion */
+            fecha_aprobacion?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Ef Id */
+            ef_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** EstadoFinancieroUpdate */
+        EstadoFinancieroUpdate: {
+            /** Tipo Ef */
+            tipo_ef?: ("balance" | "estado_resultados" | "flujo_caja" | "cambios_patrimonio" | "consolidado" | "notas") | null;
+            /** Periodo Tipo */
+            periodo_tipo?: ("mensual" | "trimestral" | "semestral" | "anual") | null;
+            /** Periodo */
+            periodo?: string | null;
+            /** Fecha Corte */
+            fecha_corte?: string | null;
+            /** Auditado */
+            auditado?: boolean | null;
+            /** Auditor */
+            auditor?: string | null;
+            /** Aprobado Directorio */
+            aprobado_directorio?: boolean | null;
+            /** Fecha Aprobacion */
+            fecha_aprobacion?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** EstadoUpdateRequest */
         EstadoUpdateRequest: {
@@ -2196,6 +9912,252 @@ export interface components {
              * @description Duración total de la corrida en segundos. None si aún corre.
              */
             readonly duration_seconds: number | null;
+        };
+        /**
+         * ExecuteImportRequest
+         * @description Body del POST /execute — son las filas validadas del dry-run.
+         */
+        ExecuteImportRequest: {
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * ExecutiveSummaryResponse
+         * @description Resumen narrativo del portfolio (1-2 líneas) para CEO Dashboard.
+         */
+        ExecutiveSummaryResponse: {
+            /** Summary */
+            summary: string;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            tokens?: components["schemas"]["AskTokens"];
+        };
+        /**
+         * ExtractFromTextRequest
+         * @description Body de /vouchers/extract-from-text. El user pega un texto crudo
+         *     (email forwarded, WhatsApp copiado, nota a mano) y Claude extrae
+         *     los campos de factura igual que con un archivo.
+         */
+        ExtractFromTextRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Text */
+            text: string;
+            /** Source Hint */
+            source_hint?: string | null;
+        };
+        /**
+         * ExtractFromUploadResponse
+         * @description Respuesta del endpoint: datos crudos del LLM + sugerencia para el form.
+         */
+        ExtractFromUploadResponse: {
+            suggestion: components["schemas"]["ExtractedVoucherSuggestion"];
+            /** Raw Fields */
+            raw_fields: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings: string[];
+            /** Tipo Detectado */
+            tipo_detectado: string;
+            /** Confidence */
+            confidence: number;
+            /** Extraction Method */
+            extraction_method: string | null;
+            /** Ocr Pages */
+            ocr_pages: number | null;
+            /** Filename */
+            filename: string;
+            /** File Size Bytes */
+            file_size_bytes: number;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Dropbox Warning */
+            dropbox_warning?: string | null;
+        };
+        /**
+         * ExtractedLine
+         * @description Una linea sugerida para el form (cuenta vacia, user la completa).
+         */
+        ExtractedLine: {
+            /** Comentario */
+            comentario: string;
+            /**
+             * Cuenta Codigo
+             * @default
+             */
+            cuenta_codigo: string;
+            /** Total */
+            total: string;
+        };
+        /**
+         * ExtractedVoucherSuggestion
+         * @description Sugerencia precargada para el form Nubox-style.
+         *
+         *     Todos los campos son tentativos — el FE los renderiza en inputs editables
+         *     y el user ajusta antes de submitir el voucher real con /vouchers/nubox-form.
+         */
+        ExtractedVoucherSuggestion: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Empresa Auto Detectada
+             * @default false
+             */
+            empresa_auto_detectada: boolean;
+            /** Empresa Receptor Rut Detectado */
+            empresa_receptor_rut_detectado?: string | null;
+            /**
+             * Proveedor Rut
+             * @default
+             */
+            proveedor_rut: string;
+            /**
+             * Proveedor Nombre
+             * @default
+             */
+            proveedor_nombre: string;
+            /**
+             * Rut Es Valido
+             * @default false
+             */
+            rut_es_valido: boolean;
+            /**
+             * Tipo Documento
+             * @default FACTURA
+             */
+            tipo_documento: string;
+            /**
+             * Numero Documento
+             * @default
+             */
+            numero_documento: string;
+            /**
+             * Forma Pago
+             * @default TRANSFERENCIA
+             */
+            forma_pago: string;
+            /** Fecha Documento */
+            fecha_documento: string;
+            /**
+             * Fecha Vencimiento
+             * @default
+             */
+            fecha_vencimiento: string;
+            /**
+             * Glosa
+             * @default
+             */
+            glosa: string;
+            /**
+             * Moneda
+             * @default CLP
+             */
+            moneda: string;
+            /** Informacion Contable */
+            informacion_contable: components["schemas"]["ExtractedLine"][];
+            /** Informacion Financiera */
+            informacion_financiera: components["schemas"]["ExtractedLine"][];
+        };
+        /** F22Create */
+        F22Create: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ano Tributario */
+            ano_tributario: number;
+            /**
+             * Fecha Vencimiento
+             * Format: date
+             */
+            fecha_vencimiento: string;
+            /** Monto A Pagar */
+            monto_a_pagar?: number | string | null;
+            /**
+             * Estado
+             * @default pendiente
+             * @enum {string}
+             */
+            estado: "pendiente" | "pagado" | "vencido" | "prorrogado" | "exento";
+            /** Notas */
+            notas?: string | null;
+        };
+        /**
+         * F22EstadoUpdate
+         * @description Marcar pagado / prorrogado en un solo POST.
+         */
+        F22EstadoUpdate: {
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "pendiente" | "pagado" | "vencido" | "prorrogado" | "exento";
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            /** Comprobante Url */
+            comprobante_url?: string | null;
+        };
+        /** F22Read */
+        F22Read: {
+            /** F22 Id */
+            f22_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ano Tributario */
+            ano_tributario: number;
+            /**
+             * Fecha Vencimiento
+             * Format: date
+             */
+            fecha_vencimiento: string;
+            /** Monto A Pagar */
+            monto_a_pagar: string | null;
+            /** Fecha Pago */
+            fecha_pago: string | null;
+            /** Estado */
+            estado: string;
+            /** Comprobante Url */
+            comprobante_url: string | null;
+            /** Dropbox Path */
+            dropbox_path: string | null;
+            /** Notas */
+            notas: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * F22Update
+         * @description PATCH /f22/{id} — edición parcial.
+         *
+         *     Reglas:
+         *     - Si estado=='pagado', `fecha_pago` es obligatoria.
+         *     - Si estado!='pagado', `fecha_pago` puede ser None.
+         */
+        F22Update: {
+            /** Estado */
+            estado?: ("pendiente" | "pagado" | "vencido" | "prorrogado" | "exento") | null;
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            /** Fecha Vencimiento */
+            fecha_vencimiento?: string | null;
+            /** Comprobante Url */
+            comprobante_url?: string | null;
+            /** Monto A Pagar */
+            monto_a_pagar?: number | string | null;
+            /** Notas */
+            notas?: string | null;
         };
         /** F29Create */
         F29Create: {
@@ -2313,6 +10275,143 @@ export interface components {
             flujo_neto: string;
             /** Saldo Acumulado */
             saldo_acumulado: string;
+        };
+        /** FondoActaCreate */
+        FondoActaCreate: {
+            /**
+             * Tipo Organo
+             * @enum {string}
+             */
+            tipo_organo: "directorio_afis" | "comite_inversion" | "asamblea_lps" | "comite_vigilancia" | "comite_riesgo" | "otro";
+            /** Numero Acta */
+            numero_acta: number;
+            /**
+             * Fecha Reunion
+             * Format: date
+             */
+            fecha_reunion: string;
+            /** Lugar */
+            lugar?: string | null;
+            /** Quorum */
+            quorum?: number | null;
+            /** Quorum Total */
+            quorum_total?: number | null;
+            /** Presidente */
+            presidente?: string | null;
+            /** Secretario */
+            secretario?: string | null;
+            /** Asistentes */
+            asistentes?: string[];
+            /** Temario */
+            temario?: string | null;
+            /** Acuerdos */
+            acuerdos?: components["schemas"]["Acuerdo"][];
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /**
+             * Estado
+             * @default borrador
+             * @enum {string}
+             */
+            estado: "borrador" | "aprobada" | "firmada" | "archivada";
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** FondoActaRead */
+        FondoActaRead: {
+            /**
+             * Tipo Organo
+             * @enum {string}
+             */
+            tipo_organo: "directorio_afis" | "comite_inversion" | "asamblea_lps" | "comite_vigilancia" | "comite_riesgo" | "otro";
+            /** Numero Acta */
+            numero_acta: number;
+            /**
+             * Fecha Reunion
+             * Format: date
+             */
+            fecha_reunion: string;
+            /** Lugar */
+            lugar?: string | null;
+            /** Quorum */
+            quorum?: number | null;
+            /** Quorum Total */
+            quorum_total?: number | null;
+            /** Presidente */
+            presidente?: string | null;
+            /** Secretario */
+            secretario?: string | null;
+            /** Asistentes */
+            asistentes?: string[];
+            /** Temario */
+            temario?: string | null;
+            /** Acuerdos */
+            acuerdos?: components["schemas"]["Acuerdo"][];
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /**
+             * Estado
+             * @default borrador
+             * @enum {string}
+             */
+            estado: "borrador" | "aprobada" | "firmada" | "archivada";
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Acta Id */
+            acta_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** FondoActaUpdate */
+        FondoActaUpdate: {
+            /** Tipo Organo */
+            tipo_organo?: ("directorio_afis" | "comite_inversion" | "asamblea_lps" | "comite_vigilancia" | "comite_riesgo" | "otro") | null;
+            /** Numero Acta */
+            numero_acta?: number | null;
+            /** Fecha Reunion */
+            fecha_reunion?: string | null;
+            /** Lugar */
+            lugar?: string | null;
+            /** Quorum */
+            quorum?: number | null;
+            /** Quorum Total */
+            quorum_total?: number | null;
+            /** Presidente */
+            presidente?: string | null;
+            /** Secretario */
+            secretario?: string | null;
+            /** Asistentes */
+            asistentes?: string[] | null;
+            /** Temario */
+            temario?: string | null;
+            /** Acuerdos */
+            acuerdos?: components["schemas"]["Acuerdo"][] | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /** Estado */
+            estado?: ("borrador" | "aprobada" | "firmada" | "archivada") | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** FondoCreate */
         FondoCreate: {
@@ -2488,6 +10587,319 @@ export interface components {
             /** Notas */
             notas?: string | null;
         };
+        /** FormMetadataResponse */
+        FormMetadataResponse: {
+            /** Formas Pago */
+            formas_pago: string[];
+            /** Tipos Documento */
+            tipos_documento: string[];
+            /** Cuentas Contables Sample */
+            cuentas_contables_sample: {
+                [key: string]: unknown;
+            }[];
+            /** Empresas */
+            empresas: components["schemas"]["EmpresaMetadata"][];
+        };
+        /**
+         * GanttHitoPreview
+         * @description Hito tal como salió del parser, antes de ir a DB.
+         */
+        GanttHitoPreview: {
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Fecha Planificada */
+            fecha_planificada?: string | null;
+            /** Fecha Completado */
+            fecha_completado?: string | null;
+            /** Estado */
+            estado: string;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /**
+             * Orden
+             * @default 0
+             */
+            orden: number;
+            /** Encargado */
+            encargado?: string | null;
+            /** Monto Real */
+            monto_real?: number | null;
+            /** Monto Proyectado */
+            monto_proyectado?: number | null;
+            /** Actividad Principal */
+            actividad_principal?: string | null;
+            /** Avance Decimal */
+            avance_decimal?: number | null;
+        };
+        /**
+         * GanttImportPreview
+         * @description Resultado del modo preview (sin tocar DB).
+         *
+         *     El cliente lo muestra al usuario para que confirme antes del commit.
+         */
+        GanttImportPreview: {
+            /**
+             * Formato
+             * @enum {string}
+             */
+            formato: "classic" | "ee" | "revtech" | "unknown";
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Proyectos */
+            proyectos?: components["schemas"]["GanttProyectoPreview"][];
+            /** Warnings */
+            warnings?: string[];
+            /**
+             * Total Proyectos
+             * @default 0
+             */
+            total_proyectos: number;
+            /**
+             * Total Hitos
+             * @default 0
+             */
+            total_hitos: number;
+        };
+        /**
+         * GanttImportResult
+         * @description Resultado del modo commit — qué se creó/actualizó/saltó.
+         */
+        GanttImportResult: {
+            /**
+             * Formato
+             * @enum {string}
+             */
+            formato: "classic" | "ee" | "revtech" | "unknown";
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Proyectos Creados
+             * @default 0
+             */
+            proyectos_creados: number;
+            /**
+             * Proyectos Actualizados
+             * @default 0
+             */
+            proyectos_actualizados: number;
+            /**
+             * Hitos Creados
+             * @default 0
+             */
+            hitos_creados: number;
+            /**
+             * Hitos Actualizados
+             * @default 0
+             */
+            hitos_actualizados: number;
+            /** Warnings */
+            warnings?: string[];
+            /** Message */
+            message: string;
+        };
+        /**
+         * GanttProyectoPreview
+         * @description Proyecto parseado con sus hitos (modo preview o commit).
+         */
+        GanttProyectoPreview: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Estado */
+            estado: string;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Fin Estimada */
+            fecha_fin_estimada?: string | null;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /** Hitos */
+            hitos?: components["schemas"]["GanttHitoPreview"][];
+        };
+        /**
+         * GanttSyncAllItem
+         * @description Resultado del sync por empresa dentro del bulk.
+         */
+        GanttSyncAllItem: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "not_found" | "error" | "no_dropbox";
+            /** Formato */
+            formato?: string | null;
+            /**
+             * Proyectos Creados
+             * @default 0
+             */
+            proyectos_creados: number;
+            /**
+             * Proyectos Actualizados
+             * @default 0
+             */
+            proyectos_actualizados: number;
+            /**
+             * Hitos Creados
+             * @default 0
+             */
+            hitos_creados: number;
+            /**
+             * Hitos Actualizados
+             * @default 0
+             */
+            hitos_actualizados: number;
+            /** Message */
+            message: string;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+        };
+        /**
+         * GanttSyncAllResult
+         * @description Resultado agregado del bulk-sync de Gantts del portafolio.
+         */
+        GanttSyncAllResult: {
+            /** Total Empresas */
+            total_empresas: number;
+            /** Sincronizadas */
+            sincronizadas: number;
+            /** No Encontradas */
+            no_encontradas: number;
+            /** Con Error */
+            con_error: number;
+            /** Items */
+            items?: components["schemas"]["GanttSyncAllItem"][];
+            /**
+             * Proyectos Creados Total
+             * @default 0
+             */
+            proyectos_creados_total: number;
+            /**
+             * Proyectos Actualizados Total
+             * @default 0
+             */
+            proyectos_actualizados_total: number;
+            /**
+             * Hitos Creados Total
+             * @default 0
+             */
+            hitos_creados_total: number;
+            /**
+             * Hitos Actualizados Total
+             * @default 0
+             */
+            hitos_actualizados_total: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * GenerarSerieRequest
+         * @description Genera N instancias de un template recurrente para un año dado.
+         */
+        GenerarSerieRequest: {
+            /** Id Template */
+            id_template: string;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Categoria
+             * @enum {string}
+             */
+            categoria: "CMF" | "CORFO" | "UAF" | "SII" | "INTERNO" | "AUDITORIA" | "ASAMBLEA" | "OPERACIONAL";
+            /** Subcategoria */
+            subcategoria?: string | null;
+            /** Referencia Normativa */
+            referencia_normativa?: string | null;
+            /**
+             * Frecuencia
+             * @enum {string}
+             */
+            frecuencia: "mensual" | "trimestral" | "semestral" | "anual" | "bienal" | "unico" | "segun_evento";
+            /**
+             * Prioridad
+             * @enum {string}
+             */
+            prioridad: "critica" | "alta" | "media" | "baja";
+            /** Responsable */
+            responsable: string;
+            /** Anio */
+            anio: number;
+            /**
+             * Alerta 15
+             * @default true
+             */
+            alerta_15: boolean;
+            /**
+             * Alerta 10
+             * @default true
+             */
+            alerta_10: boolean;
+            /**
+             * Alerta 5
+             * @default true
+             */
+            alerta_5: boolean;
+        };
+        /** GenerarSerieResponse */
+        GenerarSerieResponse: {
+            /** Template */
+            template: string;
+            /** Anio */
+            anio: number;
+            /** Instancias Creadas */
+            instancias_creadas: number;
+            /** Instancias Existentes */
+            instancias_existentes: number;
+            /** Fechas */
+            fechas: string[];
+        };
+        /** GenerateAlertsReport */
+        GenerateAlertsReport: {
+            /**
+             * F29 Due
+             * @default 0
+             */
+            f29_due: number;
+            /**
+             * Contrato Due
+             * @default 0
+             */
+            contrato_due: number;
+            /**
+             * Oc Pending
+             * @default 0
+             */
+            oc_pending: number;
+            /**
+             * Entregables Due
+             * @default 0
+             */
+            entregables_due: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /** Errores */
+            errores?: string[];
+        };
+        /** GenerateBatchRequest */
+        GenerateBatchRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Fecha Desde */
+            fecha_desde?: string | null;
+            /** Fecha Hasta */
+            fecha_hasta?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -2518,6 +10930,38 @@ export interface components {
             /** Color */
             color: string;
         };
+        /**
+         * HitoConContexto
+         * @description Hito con metadata del proyecto + empresa para mostrar cross-portfolio.
+         */
+        HitoConContexto: {
+            /** Hito Id */
+            hito_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Estado */
+            estado: string;
+            /** Fecha Planificada */
+            fecha_planificada?: string | null;
+            /** Fecha Completado */
+            fecha_completado?: string | null;
+            /** Progreso Pct */
+            progreso_pct: number;
+            /** Encargado */
+            encargado?: string | null;
+            /** Dias Hasta Vencimiento */
+            dias_hasta_vencimiento?: number | null;
+            /** Proyecto Id */
+            proyecto_id: number;
+            /** Proyecto Nombre */
+            proyecto_nombre: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Empresa Razon Social */
+            empresa_razon_social?: string | null;
+        };
         /** HitoCreate */
         HitoCreate: {
             /** Nombre */
@@ -2546,6 +10990,30 @@ export interface components {
             progreso_pct: number;
             /** Deliverable Url */
             deliverable_url?: string | null;
+            /** Encargado */
+            encargado?: string | null;
+        };
+        /**
+         * HitoQuickEdit
+         * @description Single endpoint para todas las acciones quick del Kanban.
+         *
+         *     Cualquier campo es opcional — los que vengan se aplican.
+         *     Si vienen `estado="completado"` y no `progreso_pct`, lo seteamos a 100.
+         *     Si vienen `estado="completado"` y no `fecha_completado`, lo seteamos a hoy.
+         */
+        HitoQuickEdit: {
+            /** Estado */
+            estado?: ("pendiente" | "en_progreso" | "completado" | "cancelado") | null;
+            /** Progreso Pct */
+            progreso_pct?: number | null;
+            /** Fecha Planificada */
+            fecha_planificada?: string | null;
+            /** Fecha Completado */
+            fecha_completado?: string | null;
+            /** Encargado */
+            encargado?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
         };
         /** HitoRead */
         HitoRead: {
@@ -2569,6 +11037,8 @@ export interface components {
             progreso_pct: number;
             /** Deliverable Url */
             deliverable_url?: string | null;
+            /** Encargado */
+            encargado?: string | null;
             /**
              * Created At
              * Format: date-time
@@ -2598,6 +11068,27 @@ export interface components {
             progreso_pct?: number | null;
             /** Deliverable Url */
             deliverable_url?: string | null;
+            /** Encargado */
+            encargado?: string | null;
+        };
+        /** ImportCsvResponse */
+        ImportCsvResponse: {
+            /** Total Rows */
+            total_rows: number;
+            /** Total Vouchers Intended */
+            total_vouchers_intended: number;
+            /** Vouchers Created Count */
+            vouchers_created_count: number;
+            /** Errors Count */
+            errors_count: number;
+            /** Vouchers Created */
+            vouchers_created?: {
+                [key: string]: unknown;
+            }[];
+            /** Errors */
+            errors?: {
+                [key: string]: unknown;
+            }[];
         };
         /** ImportFromDropboxResponse */
         ImportFromDropboxResponse: {
@@ -2617,6 +11108,42 @@ export interface components {
             fondos_actualizados: number;
             /** Message */
             message: string;
+        };
+        /**
+         * ImportPlanCuentasReport
+         * @description Respuesta del endpoint de import — resumen + counters DB.
+         */
+        ImportPlanCuentasReport: {
+            /** Summary */
+            summary: {
+                [key: string]: unknown;
+            };
+            /** Counters */
+            counters: {
+                [key: string]: number;
+            };
+            /** File Name */
+            file_name: string;
+            /** File Size Bytes */
+            file_size_bytes: number;
+        };
+        /** ImportResult */
+        ImportResult: {
+            /** Entity Type */
+            entity_type: string;
+            /** Created */
+            created: number;
+            /** Skipped */
+            skipped: number;
+            /** Errors */
+            errors?: components["schemas"]["ImportRowError"][];
+        };
+        /** ImportRowError */
+        ImportRowError: {
+            /** Row Index */
+            row_index: number;
+            /** Detail */
+            detail: string;
         };
         /** IndexStatus */
         IndexStatus: {
@@ -2642,6 +11169,304 @@ export interface components {
             /** Skipped */
             skipped?: string[];
         };
+        /**
+         * InformeLpGenerateRequest
+         * @description Input del endpoint POST /informes-lp/generate.
+         */
+        InformeLpGenerateRequest: {
+            /** Lp Id */
+            lp_id?: number | null;
+            /**
+             * Tipo
+             * @default periodico
+             * @enum {string}
+             */
+            tipo: "periodico" | "pitch_inicial" | "update_mensual" | "tear_sheet" | "memoria_anual";
+            /** Titulo */
+            titulo?: string | null;
+            /** Periodo */
+            periodo?: string | null;
+            /** Incluir Empresas */
+            incluir_empresas?: string[] | null;
+            /**
+             * Tono
+             * @default ejecutivo
+             * @enum {string}
+             */
+            tono: "ejecutivo" | "narrativo" | "tecnico";
+        };
+        /**
+         * InformeLpListItem
+         * @description Vista listado admin — sin contenido pesado.
+         */
+        InformeLpListItem: {
+            /** Informe Id */
+            informe_id: number;
+            /** Lp Id */
+            lp_id?: number | null;
+            /** Lp Nombre */
+            lp_nombre?: string | null;
+            /** Token */
+            token: string;
+            /** Titulo */
+            titulo: string;
+            /** Periodo */
+            periodo?: string | null;
+            /** Tipo */
+            tipo: string;
+            /** Estado */
+            estado: string;
+            /** Publicado At */
+            publicado_at?: string | null;
+            /** Veces Abierto */
+            veces_abierto: number;
+            /** Veces Compartido */
+            veces_compartido: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * InformeLpPublicView
+         * @description Vista pública del informe — la que ve el LP en /informe/[token].
+         *
+         *     Diferencias vs InformeLpRead:
+         *     - NO incluye token (ya lo tiene en la URL)
+         *     - NO incluye analytics ni audit fields
+         *     - Incluye datos del LP destinatario (nombre + foto)
+         *     - Incluye live data del portafolio (KPIs, ESG metrics) que se
+         *       pulea on-demand
+         */
+        InformeLpPublicView: {
+            /** Informe Id */
+            informe_id: number;
+            /** Titulo */
+            titulo: string;
+            /** Periodo */
+            periodo?: string | null;
+            /** Tipo */
+            tipo: string;
+            /** Hero Titulo */
+            hero_titulo?: string | null;
+            /** Hero Narrativa */
+            hero_narrativa?: string | null;
+            /** Secciones */
+            secciones?: {
+                [key: string]: unknown;
+            } | null;
+            /** Publicado At */
+            publicado_at?: string | null;
+            /** Expira At */
+            expira_at?: string | null;
+            /**
+             * Is Expired
+             * @default false
+             */
+            is_expired: boolean;
+            /** Lp Nombre */
+            lp_nombre?: string | null;
+            /** Lp Apellido */
+            lp_apellido?: string | null;
+            /** Lp Empresa */
+            lp_empresa?: string | null;
+            /** Parent Lp Nombre */
+            parent_lp_nombre?: string | null;
+            /** Live Data */
+            live_data?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * InformeLpRead
+         * @description Vista admin (interna) — incluye token + analytics.
+         */
+        InformeLpRead: {
+            /** Informe Id */
+            informe_id: number;
+            /** Lp Id */
+            lp_id?: number | null;
+            /** Token */
+            token: string;
+            /** Parent Token */
+            parent_token?: string | null;
+            /** Titulo */
+            titulo: string;
+            /** Periodo */
+            periodo?: string | null;
+            /** Tipo */
+            tipo: string;
+            /** Hero Titulo */
+            hero_titulo?: string | null;
+            /** Hero Narrativa */
+            hero_narrativa?: string | null;
+            /** Secciones */
+            secciones?: {
+                [key: string]: unknown;
+            } | null;
+            /** Estado */
+            estado: string;
+            /** Publicado At */
+            publicado_at?: string | null;
+            /** Expira At */
+            expira_at?: string | null;
+            /** Veces Abierto */
+            veces_abierto: number;
+            /** Veces Compartido */
+            veces_compartido: number;
+            /** Tiempo Promedio Segundos */
+            tiempo_promedio_segundos?: number | null;
+            /** Creado Por */
+            creado_por?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * InformeLpShareRequest
+         * @description Body de POST /informes-lp/by-token/{token}/share.
+         */
+        InformeLpShareRequest: {
+            /** Nombre Destinatario */
+            nombre_destinatario: string;
+            /** Email Destinatario */
+            email_destinatario: string;
+            /** Mensaje Personal */
+            mensaje_personal?: string | null;
+        };
+        /**
+         * InformeLpShareResponse
+         * @description Respuesta del share — devuelve el child_token para que el
+         *     frontend pueda mostrar el link generado al LP que comparte.
+         */
+        InformeLpShareResponse: {
+            /** Child Token */
+            child_token: string;
+            /** Child Url */
+            child_url: string;
+            /** Parent Token */
+            parent_token: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * InformeLpUpdate
+         * @description Edición del informe antes de publicar.
+         */
+        InformeLpUpdate: {
+            /** Titulo */
+            titulo?: string | null;
+            /** Hero Titulo */
+            hero_titulo?: string | null;
+            /** Hero Narrativa */
+            hero_narrativa?: string | null;
+            /** Secciones */
+            secciones?: {
+                [key: string]: unknown;
+            } | null;
+            /** Estado */
+            estado?: ("borrador" | "publicado" | "archivado") | null;
+            /** Expira At */
+            expira_at?: string | null;
+        };
+        /**
+         * InformesAnalytics
+         * @description Dashboard de analytics para /admin/informes-lp.
+         */
+        InformesAnalytics: {
+            /** Total Generados */
+            total_generados: number;
+            /** Total Publicados */
+            total_publicados: number;
+            /** Total Aperturas */
+            total_aperturas: number;
+            /** Total Compartidos */
+            total_compartidos: number;
+            /** Tiempo Promedio Segundos */
+            tiempo_promedio_segundos?: number | null;
+            /** Tasa Apertura */
+            tasa_apertura: number;
+            /** Tasa Share */
+            tasa_share: number;
+            /** Tasa Conversion */
+            tasa_conversion: number;
+            /** Tasa Viral */
+            tasa_viral: number;
+            /** Top Advocates */
+            top_advocates?: components["schemas"]["TopAdvocate"][];
+        };
+        /** InsightsResponse */
+        InsightsResponse: {
+            /** Insights */
+            insights?: components["schemas"]["AiInsight"][];
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            tokens?: components["schemas"]["AskTokens"];
+            /** Raw Response */
+            raw_response?: string | null;
+            /**
+             * Persisted Count
+             * @default 0
+             */
+            persisted_count: number;
+        };
+        /**
+         * IntegrationCheck
+         * @description Estado de una integración externa o componente interno.
+         *
+         *     `state` define el color visual:
+         *       - ok       → verde, todo bien
+         *       - degraded → ámbar, responde pero con problemas (timeout reciente, etc)
+         *       - down     → rojo, no responde / error
+         *       - disabled → gris, intencionalmente apagado (no api_key configurada)
+         *       - unknown  → gris, no se pudo determinar el estado
+         */
+        IntegrationCheck: {
+            /** Name */
+            name: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "ok" | "degraded" | "down" | "disabled" | "unknown";
+            /** Detail */
+            detail?: string | null;
+            /** Latency Ms */
+            latency_ms?: number | null;
+            /**
+             * Last Checked At
+             * Format: date-time
+             */
+            last_checked_at: string;
+        };
+        /**
+         * InvalidRow
+         * @description Fila que NO pasó validación Pydantic.
+         */
+        InvalidRow: {
+            /**
+             * Row Index
+             * @description 0-based index dentro del CSV
+             */
+            row_index: number;
+            /** Errors */
+            errors: string[];
+            /** Original */
+            original: {
+                [key: string]: unknown;
+            };
+        };
         /** IvaPoint */
         IvaPoint: {
             /** Periodo */
@@ -2657,6 +11482,22 @@ export interface components {
             iva_debito: string;
             /** Iva A Pagar */
             iva_a_pagar: string;
+        };
+        /**
+         * LatestRatesResponse
+         * @description Snapshot de UF + USD para hoy. Si alguno no está disponible
+         *     (API caída + sin cache), el campo viene None y la UI hace soft-fail.
+         */
+        LatestRatesResponse: {
+            /** Uf Clp */
+            uf_clp: string | null;
+            /** Usd Clp */
+            usd_clp: string | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
         };
         /**
          * LegalAlert
@@ -2820,6 +11661,707 @@ export interface components {
             estado?: ("vigente" | "vencido" | "renovado" | "cancelado" | "borrador") | null;
         };
         /**
+         * LegalDocumentVersionCompareResponse
+         * @description Payload del endpoint compare. ``diff`` lista sólo las claves que
+         *     difieren — mismo contrato que ``audit.action_log.diff_*``.
+         */
+        LegalDocumentVersionCompareResponse: {
+            /** Version A */
+            version_a: {
+                [key: string]: unknown;
+            };
+            /** Version B */
+            version_b: {
+                [key: string]: unknown;
+            };
+            /** Diff */
+            diff: {
+                [key: string]: unknown;
+            };
+        };
+        /** LegalDocumentVersionRead */
+        LegalDocumentVersionRead: {
+            /** Version Id */
+            version_id: number;
+            /** Documento Id */
+            documento_id: number;
+            /** Version Number */
+            version_number: number;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Changed By */
+            changed_by?: string | null;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+            /** Change Summary */
+            change_summary?: string | null;
+        };
+        /** LibroDiarioRow */
+        LibroDiarioRow: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /** Voucher Tipo */
+            voucher_tipo: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Glosa */
+            glosa: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Line Number */
+            line_number: number;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Cuenta Nombre */
+            cuenta_nombre: string;
+            /** Proyecto Codigo */
+            proyecto_codigo: string | null;
+            /** Area Codigo */
+            area_codigo: string | null;
+            /** Debit */
+            debit: string;
+            /** Credit */
+            credit: string;
+            /** Linea Descripcion */
+            linea_descripcion: string | null;
+        };
+        /** LibroMayorMovimiento */
+        LibroMayorMovimiento: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Glosa */
+            glosa: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Line Number */
+            line_number: number;
+            /** Linea Descripcion */
+            linea_descripcion: string | null;
+            /** Proyecto Codigo */
+            proyecto_codigo: string | null;
+            /** Area Codigo */
+            area_codigo: string | null;
+            /** Debit */
+            debit: string;
+            /** Credit */
+            credit: string;
+        };
+        /** LibroMayorReport */
+        LibroMayorReport: {
+            cuenta: components["schemas"]["CuentaMeta"] | null;
+            /**
+             * Fecha Desde
+             * Format: date
+             */
+            fecha_desde: string;
+            /**
+             * Fecha Hasta
+             * Format: date
+             */
+            fecha_hasta: string;
+            /** Saldo Apertura */
+            saldo_apertura: string;
+            /** Total Debe */
+            total_debe: string;
+            /** Total Haber */
+            total_haber: string;
+            /** Saldo Cierre */
+            saldo_cierre: string;
+            /** Movimientos */
+            movimientos: components["schemas"]["LibroMayorMovimiento"][];
+        };
+        /** LinkOcRequest */
+        LinkOcRequest: {
+            /** Oc Id */
+            oc_id: number;
+        };
+        /** LinkVoucherRequest */
+        LinkVoucherRequest: {
+            /** Voucher Id */
+            voucher_id: number;
+        };
+        /** LogoUploadResponse */
+        LogoUploadResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Logo Dropbox Path */
+            logo_dropbox_path: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** LogoUrlResponse */
+        LogoUrlResponse: {
+            /** Url */
+            url: string;
+            /**
+             * Expires In Hours
+             * @default 4
+             */
+            expires_in_hours: number;
+        };
+        /** LpContratoCreate */
+        LpContratoCreate: {
+            /**
+             * Fondo Codigo
+             * @default FONDO
+             */
+            fondo_codigo: string;
+            /** Suscriptor Nombre */
+            suscriptor_nombre: string;
+            /** Suscriptor Rut */
+            suscriptor_rut: string;
+            /** Representante Nombre */
+            representante_nombre?: string | null;
+            /** Representante Rut */
+            representante_rut?: string | null;
+            /** Domicilio */
+            domicilio?: string | null;
+            /** Email */
+            email?: string | null;
+            /**
+             * Tipo Contrato
+             * @enum {string}
+             */
+            tipo_contrato: "PROMESA" | "DEFINITIVO";
+            /**
+             * Serie
+             * @enum {string}
+             */
+            serie: "A" | "B";
+            /**
+             * Fecha Contrato
+             * Format: date
+             */
+            fecha_contrato: string;
+            /** Notaria */
+            notaria?: string | null;
+            /** Codigo Verificacion */
+            codigo_verificacion?: string | null;
+            /** Cantidad Cuotas */
+            cantidad_cuotas: number | string;
+            /**
+             * Valor Por Cuota Uf
+             * @default 350
+             */
+            valor_por_cuota_uf: number | string;
+            /** Uf Comprometidas */
+            uf_comprometidas: number | string;
+            /** Monto Clp */
+            monto_clp?: number | string | null;
+            /** Uf Value At Signing */
+            uf_value_at_signing?: number | string | null;
+            /**
+             * Multa Mora Pct
+             * @default 5.00
+             */
+            multa_mora_pct: number | string | null;
+            /**
+             * Indemnizacion Pct
+             * @default 50.00
+             */
+            indemnizacion_pct: number | string | null;
+            /** Forma Pago */
+            forma_pago?: string | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+        };
+        /** LpContratoRead */
+        LpContratoRead: {
+            /** Contrato Id */
+            contrato_id: number;
+            /** Fondo Codigo */
+            fondo_codigo: string;
+            /** Suscriptor Nombre */
+            suscriptor_nombre: string;
+            /** Suscriptor Rut */
+            suscriptor_rut: string;
+            /** Representante Nombre */
+            representante_nombre: string | null;
+            /** Representante Rut */
+            representante_rut: string | null;
+            /** Domicilio */
+            domicilio: string | null;
+            /** Email */
+            email: string | null;
+            /**
+             * Tipo Contrato
+             * @enum {string}
+             */
+            tipo_contrato: "PROMESA" | "DEFINITIVO";
+            /**
+             * Serie
+             * @enum {string}
+             */
+            serie: "A" | "B";
+            /**
+             * Fecha Contrato
+             * Format: date
+             */
+            fecha_contrato: string;
+            /** Notaria */
+            notaria: string | null;
+            /** Codigo Verificacion */
+            codigo_verificacion: string | null;
+            /** Cantidad Cuotas */
+            cantidad_cuotas: string;
+            /** Valor Por Cuota Uf */
+            valor_por_cuota_uf: string;
+            /** Uf Comprometidas */
+            uf_comprometidas: string;
+            /** Monto Clp */
+            monto_clp: string | null;
+            /** Uf Value At Signing */
+            uf_value_at_signing: string | null;
+            /** Multa Mora Pct */
+            multa_mora_pct: string | null;
+            /** Indemnizacion Pct */
+            indemnizacion_pct: string | null;
+            /** Forma Pago */
+            forma_pago: string | null;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "PROMETIDO" | "SUSCRITO" | "PAGADO" | "INCUMPLIDO" | "RESUELTO";
+            /** Fecha Suscripcion */
+            fecha_suscripcion: string | null;
+            /** Fecha Pago */
+            fecha_pago: string | null;
+            /** Voucher Id */
+            voucher_id: number | null;
+            /** Dropbox Path */
+            dropbox_path: string | null;
+            /** Observaciones */
+            observaciones: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * LpContratoUpdate
+         * @description PATCH — solo campos no críticos. Estado / monto_clp pasan por endpoints específicos.
+         */
+        LpContratoUpdate: {
+            /** Representante Nombre */
+            representante_nombre?: string | null;
+            /** Representante Rut */
+            representante_rut?: string | null;
+            /** Domicilio */
+            domicilio?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Notaria */
+            notaria?: string | null;
+            /** Codigo Verificacion */
+            codigo_verificacion?: string | null;
+            /** Multa Mora Pct */
+            multa_mora_pct?: number | string | null;
+            /** Indemnizacion Pct */
+            indemnizacion_pct?: number | string | null;
+            /** Forma Pago */
+            forma_pago?: string | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+        };
+        /** LpCreate */
+        LpCreate: {
+            /** Nombre */
+            nombre: string;
+            /** Apellido */
+            apellido?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Empresa */
+            empresa?: string | null;
+            /** Rol */
+            rol?: string | null;
+            /**
+             * Estado
+             * @default pipeline
+             * @enum {string}
+             */
+            estado: "pipeline" | "cualificado" | "activo" | "inactivo" | "declinado";
+            /** Primer Contacto */
+            primer_contacto?: string | null;
+            /** Perfil Inversor */
+            perfil_inversor?: ("conservador" | "moderado" | "agresivo" | "esg_focused") | null;
+            /** Intereses */
+            intereses?: string[];
+            /** Relationship Owner */
+            relationship_owner?: string | null;
+            /** Aporte Total */
+            aporte_total?: number | string | null;
+            /** Aporte Actual */
+            aporte_actual?: number | string | null;
+            /** Empresas Invertidas */
+            empresas_invertidas?: string[];
+            /** Notas */
+            notas?: string | null;
+        };
+        /** LpDocumentCreate */
+        LpDocumentCreate: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "contrato_suscripcion" | "kyc" | "ddq" | "side_letter" | "aml_pep" | "recibo_aporte" | "acta_aprobacion" | "w8_w9_tax" | "dni_pasaporte" | "power_of_attorney" | "otro";
+            /** Nombre */
+            nombre: string;
+            /** Fecha Firma */
+            fecha_firma?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto Clp */
+            monto_clp?: number | string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /**
+             * Estado
+             * @default vigente
+             * @enum {string}
+             */
+            estado: "vigente" | "vencido" | "borrador" | "archivado";
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Uploaded By */
+            uploaded_by?: string | null;
+        };
+        /** LpDocumentRead */
+        LpDocumentRead: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "contrato_suscripcion" | "kyc" | "ddq" | "side_letter" | "aml_pep" | "recibo_aporte" | "acta_aprobacion" | "w8_w9_tax" | "dni_pasaporte" | "power_of_attorney" | "otro";
+            /** Nombre */
+            nombre: string;
+            /** Fecha Firma */
+            fecha_firma?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto Clp */
+            monto_clp?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /**
+             * Estado
+             * @default vigente
+             * @enum {string}
+             */
+            estado: "vigente" | "vencido" | "borrador" | "archivado";
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Lp Doc Id */
+            lp_doc_id: number;
+            /** Lp Id */
+            lp_id: number;
+            /** Uploaded By */
+            uploaded_by?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LpDocumentUpdate */
+        LpDocumentUpdate: {
+            /** Tipo */
+            tipo?: ("contrato_suscripcion" | "kyc" | "ddq" | "side_letter" | "aml_pep" | "recibo_aporte" | "acta_aprobacion" | "w8_w9_tax" | "dni_pasaporte" | "power_of_attorney" | "otro") | null;
+            /** Nombre */
+            nombre?: string | null;
+            /** Fecha Firma */
+            fecha_firma?: string | null;
+            /** Fecha Vigencia Hasta */
+            fecha_vigencia_hasta?: string | null;
+            /** Monto Clp */
+            monto_clp?: number | string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /** Estado */
+            estado?: ("vigente" | "vencido" | "borrador" | "archivado") | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** LpRead */
+        LpRead: {
+            /** Nombre */
+            nombre: string;
+            /** Apellido */
+            apellido?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Empresa */
+            empresa?: string | null;
+            /** Rol */
+            rol?: string | null;
+            /**
+             * Estado
+             * @default pipeline
+             * @enum {string}
+             */
+            estado: "pipeline" | "cualificado" | "activo" | "inactivo" | "declinado";
+            /** Primer Contacto */
+            primer_contacto?: string | null;
+            /** Perfil Inversor */
+            perfil_inversor?: ("conservador" | "moderado" | "agresivo" | "esg_focused") | null;
+            /** Intereses */
+            intereses?: string[];
+            /** Relationship Owner */
+            relationship_owner?: string | null;
+            /** Aporte Total */
+            aporte_total?: string | null;
+            /** Aporte Actual */
+            aporte_actual?: string | null;
+            /** Empresas Invertidas */
+            empresas_invertidas?: string[];
+            /** Notas */
+            notas?: string | null;
+            /** Lp Id */
+            lp_id: number;
+            /** Metadata */
+            metadata_?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** LpUpdate */
+        LpUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Apellido */
+            apellido?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Empresa */
+            empresa?: string | null;
+            /** Rol */
+            rol?: string | null;
+            /** Estado */
+            estado?: ("pipeline" | "cualificado" | "activo" | "inactivo" | "declinado") | null;
+            /** Primer Contacto */
+            primer_contacto?: string | null;
+            /** Perfil Inversor */
+            perfil_inversor?: ("conservador" | "moderado" | "agresivo" | "esg_focused") | null;
+            /** Intereses */
+            intereses?: string[] | null;
+            /** Relationship Owner */
+            relationship_owner?: string | null;
+            /** Aporte Total */
+            aporte_total?: number | string | null;
+            /** Aporte Actual */
+            aporte_actual?: number | string | null;
+            /** Empresas Invertidas */
+            empresas_invertidas?: string[] | null;
+            /** Notas */
+            notas?: string | null;
+        };
+        /** MailboxClassifyResponse */
+        MailboxClassifyResponse: {
+            /** Classified */
+            classified: number;
+            /** Errors */
+            errors: number;
+            /** Skipped */
+            skipped: number;
+        };
+        /** MailboxDetail */
+        MailboxDetail: {
+            /** Inbox Id */
+            inbox_id: number;
+            /** Message Id */
+            message_id: string;
+            /** From Email */
+            from_email: string;
+            /** From Name */
+            from_name: string | null;
+            /** Subject */
+            subject: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Has Attachments */
+            has_attachments: boolean;
+            /** Category */
+            category: string | null;
+            /** Ai Confidence */
+            ai_confidence: number | null;
+            /** Ai Summary */
+            ai_summary: string | null;
+            /** Ai Suggested Action */
+            ai_suggested_action: string | null;
+            /** Status */
+            status: string;
+            /** Classified At */
+            classified_at: string | null;
+            /** Replied At */
+            replied_at: string | null;
+            /** Body Text */
+            body_text: string | null;
+            /** Body Html */
+            body_html: string | null;
+            /** Attachments Meta */
+            attachments_meta: {
+                [key: string]: unknown;
+            }[];
+            /** Draft Response Html */
+            draft_response_html: string | null;
+            /** Linked Voucher Id */
+            linked_voucher_id: number | null;
+            /** Linked Oc Id */
+            linked_oc_id: number | null;
+        };
+        /** MailboxItem */
+        MailboxItem: {
+            /** Inbox Id */
+            inbox_id: number;
+            /** Message Id */
+            message_id: string;
+            /** From Email */
+            from_email: string;
+            /** From Name */
+            from_name: string | null;
+            /** Subject */
+            subject: string;
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /** Has Attachments */
+            has_attachments: boolean;
+            /** Category */
+            category: string | null;
+            /** Ai Confidence */
+            ai_confidence: number | null;
+            /** Ai Summary */
+            ai_summary: string | null;
+            /** Ai Suggested Action */
+            ai_suggested_action: string | null;
+            /** Status */
+            status: string;
+            /** Classified At */
+            classified_at: string | null;
+            /** Replied At */
+            replied_at: string | null;
+        };
+        /** MailboxPollResponse */
+        MailboxPollResponse: {
+            /** Seen */
+            seen: number;
+            /** Inserted */
+            inserted: number;
+            /** Skipped */
+            skipped: number;
+            /** Errors */
+            errors: number;
+            /**
+             * Attachments Uploaded
+             * @default 0
+             */
+            attachments_uploaded: number;
+        };
+        /**
+         * MailboxStatusResponse
+         * @description Status para mostrar en /admin/integraciones.
+         */
+        MailboxStatusResponse: {
+            /** Imap Configured */
+            imap_configured: boolean;
+            /** Imap User */
+            imap_user: string | null;
+            /** Anthropic Enabled */
+            anthropic_enabled: boolean;
+            /** Resend Enabled */
+            resend_enabled: boolean;
+            /** Dropbox Enabled */
+            dropbox_enabled: boolean;
+            /** Last Received At */
+            last_received_at: string | null;
+            /** Counts By Status */
+            counts_by_status: {
+                [key: string]: number;
+            };
+            /** Counts By Category */
+            counts_by_category: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * MailboxToVoucherRequest
+         * @description Body para POST /admin/mailbox/{inbox_id}/to-voucher.
+         *
+         *     `empresa_codigo` es el target del voucher (el email puede venir a
+         *     contactocehta@gmail.com pero la factura es para una empresa portfolio
+         *     especifica que el user elige). Si no viene, el endpoint intenta inferir
+         *     desde el body — fallback a la primera empresa activa.
+         */
+        MailboxToVoucherRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+        };
+        /**
          * MarkInactiveRequest
          * @description Marca a un trabajador como inactivo. La fecha de egreso es obligatoria.
          */
@@ -2831,6 +12373,52 @@ export interface components {
             fecha_egreso: string;
             /** Motivo */
             motivo?: string | null;
+        };
+        /** MatchCandidate */
+        MatchCandidate: {
+            /** Movimiento Id */
+            movimiento_id: number;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Descripcion */
+            descripcion: string | null;
+            /** Monto */
+            monto: string;
+            /** Banco */
+            banco: string | null;
+            /** Tipo Egreso */
+            tipo_egreso: string | null;
+            /** Proveedor Id */
+            proveedor_id: number | null;
+            /** Proveedor Nombre */
+            proveedor_nombre: string | null;
+        };
+        /**
+         * MergeProveedorResponse
+         * @description Respuesta de POST /proveedores/{src}/merge-into/{target}.
+         *
+         *     Reporta cuantas referencias se movieron y deja el proveedor source como
+         *     inactivo (soft-delete). La operacion es idempotente: re-llamar con los
+         *     mismos ids no afecta nada (el source ya esta inactivo).
+         */
+        MergeProveedorResponse: {
+            /** Source Id */
+            source_id: number;
+            /** Target Id */
+            target_id: number;
+            /** Target Razon Social */
+            target_razon_social: string;
+            /** Target Rut */
+            target_rut: string | null;
+            /** Vouchers Moved */
+            vouchers_moved: number;
+            /** Ordenes Compra Moved */
+            ordenes_compra_moved: number;
+            /** Source Deactivated */
+            source_deactivated: boolean;
         };
         /** MessageRead */
         MessageRead: {
@@ -2858,6 +12446,115 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * MonthlyPoint
+         * @description Punto del trend de saldo total por mes.
+         */
+        MonthlyPoint: {
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha Inicio
+             * Format: date
+             */
+            fecha_inicio: string;
+            /** Total Clp */
+            total_clp: string;
+            /** Total Usd */
+            total_usd?: string | null;
+        };
+        /**
+         * MovimientoDigestRow
+         * @description Movimiento significativo (>=5M CLP) en últimos 7 días.
+         */
+        MovimientoDigestRow: {
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Monto */
+            monto: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "abono" | "egreso";
+        };
+        /** MovimientoHuerfano */
+        MovimientoHuerfano: {
+            /** Movimiento Id */
+            movimiento_id: number;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Descripcion */
+            descripcion: string | null;
+            /** Monto */
+            monto: string;
+            /** Banco */
+            banco: string | null;
+            /** Tipo Egreso */
+            tipo_egreso: string | null;
+            /** Proveedor Id */
+            proveedor_id: number | null;
+            /** Proveedor Nombre */
+            proveedor_nombre: string | null;
+        };
+        /**
+         * MovimientoManualCreate
+         * @description Payload para registrar un movimiento manual fuera del ETL.
+         *
+         *     Casos de uso: ajustes contables, transferencias inversor, correcciones
+         *     one-off que no vienen del Excel madre. Persiste con `real_proyectado='real'`
+         *     y un `natural_key` con prefijo `manual_` para distinguir del ETL en audit.
+         *
+         *     El `periodo` y `anio` se auto-derivan de `fecha` (formato MM_YY) si no se
+         *     pasan, igual que hace el ETL.
+         */
+        MovimientoManualCreate: {
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Abono
+             * @default 0
+             */
+            abono: number | string;
+            /**
+             * Egreso
+             * @default 0
+             */
+            egreso: number | string;
+            /** Concepto General */
+            concepto_general?: string | null;
+            /** Concepto Detallado */
+            concepto_detallado?: string | null;
+            /** Tipo Egreso */
+            tipo_egreso?: string | null;
+            /** Fuente */
+            fuente?: string | null;
+            /** Proyecto */
+            proyecto?: string | null;
+            /** Banco */
+            banco?: string | null;
+            /** Tipo Documento */
+            tipo_documento?: string | null;
+            /** Numero Documento */
+            numero_documento?: string | null;
         };
         /** MovimientoRead */
         MovimientoRead: {
@@ -2933,6 +12630,34 @@ export interface components {
             /** Proyecto */
             proyecto: string | null;
         };
+        /** NotificationRead */
+        NotificationRead: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Tipo */
+            tipo: string;
+            /** Severity */
+            severity: string;
+            /** Title */
+            title: string;
+            /** Body */
+            body: string;
+            /** Link */
+            link?: string | null;
+            /** Entity Type */
+            entity_type?: string | null;
+            /** Entity Id */
+            entity_id?: string | null;
+            /** Read At */
+            read_at?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /** NotificationsStatus */
         NotificationsStatus: {
             /** Enabled */
@@ -2946,6 +12671,133 @@ export interface components {
         NotificationsTestRequest: {
             /** To */
             to?: string | null;
+        };
+        /** NuboxBatchRead */
+        NuboxBatchRead: {
+            /** Batch Id */
+            batch_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Fecha Desde */
+            fecha_desde: string | null;
+            /** Fecha Hasta */
+            fecha_hasta: string | null;
+            /** Voucher Count */
+            voucher_count: number;
+            /** Total Debit */
+            total_debit: string;
+            /** Total Credit */
+            total_credit: string;
+            /** File Name */
+            file_name: string;
+            /** File Format */
+            file_format: string;
+            /** File Hash */
+            file_hash: string | null;
+            /** File Size Bytes */
+            file_size_bytes: number | null;
+            /** Status */
+            status: string;
+            /** Generated By */
+            generated_by: string | null;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Uploaded At */
+            uploaded_at: string | null;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Error Message */
+            error_message: string | null;
+            /** Notas */
+            notas: string | null;
+        };
+        /**
+         * NuboxFormCreate
+         * @description Body del form Nubox-style.
+         */
+        NuboxFormCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Proveedor Rut */
+            proveedor_rut: string;
+            /** Proveedor Nombre */
+            proveedor_nombre: string;
+            /** Source */
+            source?: string | null;
+            /**
+             * Tipo Documento
+             * @enum {string}
+             */
+            tipo_documento: "FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA";
+            /** Numero Documento */
+            numero_documento: string;
+            /**
+             * Forma Pago
+             * @enum {string}
+             */
+            forma_pago: "TRANSFERENCIA" | "CHEQUE" | "CONTADO" | "EFECTIVO" | "CREDITO_30D" | "CREDITO_60D" | "CREDITO_90D" | "TARJETA_CREDITO" | "TARJETA_DEBITO" | "OTRO";
+            /**
+             * Fecha Documento
+             * Format: date
+             */
+            fecha_documento: string;
+            /** Fecha Vencimiento */
+            fecha_vencimiento?: string | null;
+            /** Documento Dropbox Path */
+            documento_dropbox_path?: string | null;
+            /** Glosa */
+            glosa?: string | null;
+            /** Informacion Contable */
+            informacion_contable: components["schemas"]["NuboxFormLine"][];
+            /** Informacion Financiera */
+            informacion_financiera: components["schemas"]["NuboxFormLine"][];
+        };
+        /**
+         * NuboxFormLine
+         * @description Una línea del form: Comentario + Cuenta + Total.
+         */
+        NuboxFormLine: {
+            /** Comentario */
+            comentario: string;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /**
+             * Total
+             * @description Monto > 0
+             */
+            total: number | string;
+            /** Proyecto Codigo */
+            proyecto_codigo?: string | null;
+            /** Area Codigo */
+            area_codigo?: string | null;
+        };
+        /** NuboxFormResponse */
+        NuboxFormResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Status */
+            status: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Total Contable */
+            total_contable: string;
+            /** Total Financiera */
+            total_financiera: string;
+            /** Lines Count */
+            lines_count: number;
+            /** Proxima Accion */
+            proxima_accion: string;
+            /** Proveedor Id */
+            proveedor_id: number;
+            /** Proveedor Creado Automatico */
+            proveedor_creado_automatico: boolean;
+            /** Proveedor Rut Canonical */
+            proveedor_rut_canonical: string;
         };
         /** OCDetalleCreate */
         OCDetalleCreate: {
@@ -2986,6 +12838,209 @@ export interface components {
             /** Total Anuladas */
             total_anuladas: number;
         };
+        /**
+         * ObligationItem
+         * @description Item del timeline unificado de obligaciones (V3 fase 9).
+         *
+         *     Agrega 5 fuentes en un único contrato:
+         *
+         *       * `f29`        — F29 con `fecha_vencimiento` y `estado != 'pagado'`
+         *       * `legal`      — documentos legales `vigente` con `fecha_vigencia_hasta`
+         *       * `oc`         — OC `emitida`/`aprobada` (no pagada/anulada)
+         *       * `suscripcion`— suscripciones de acciones por firmar
+         *       * `event`      — eventos manuales del calendario (`core.calendar_events`)
+         *
+         *     El `id` es compuesto (`f"{tipo}:{entity_id}"`) para evitar colisiones
+         *     entre fuentes y permitir keys estables en el frontend.
+         */
+        ObligationItem: {
+            /** Id */
+            id: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "f29" | "f22" | "legal" | "oc" | "suscripcion" | "event" | "hito" | "entregable";
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "critical" | "warning" | "info";
+            /** Title */
+            title: string;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+            /** Days Until */
+            days_until: number;
+            /** Monto */
+            monto?: string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /** Link */
+            link: string;
+        };
+        /** OcExtractFromTextRequest */
+        OcExtractFromTextRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Text */
+            text: string;
+            /** Source Hint */
+            source_hint?: string | null;
+        };
+        /** OcExtractFromUploadResponse */
+        OcExtractFromUploadResponse: {
+            suggestion: components["schemas"]["OcExtractedSuggestion"];
+            /** Raw Fields */
+            raw_fields: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings: string[];
+            /** Tipo Detectado */
+            tipo_detectado: string;
+            /** Confidence */
+            confidence: number;
+            /** Extraction Method */
+            extraction_method: string | null;
+            /** Ocr Pages */
+            ocr_pages: number | null;
+            /** Filename */
+            filename: string;
+            /** File Size Bytes */
+            file_size_bytes: number;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Dropbox Warning */
+            dropbox_warning?: string | null;
+        };
+        /** OcExtractedItem */
+        OcExtractedItem: {
+            /** Descripcion */
+            descripcion: string;
+            /**
+             * Cantidad
+             * @default 1
+             */
+            cantidad: string;
+            /**
+             * Precio Unitario
+             * @default 0
+             */
+            precio_unitario: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: string;
+        };
+        /**
+         * OcExtractedSuggestion
+         * @description Sugerencia precargada para el form de OC nueva.
+         */
+        OcExtractedSuggestion: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Empresa Auto Detectada
+             * @default false
+             */
+            empresa_auto_detectada: boolean;
+            /** Empresa Receptor Rut Detectado */
+            empresa_receptor_rut_detectado?: string | null;
+            /**
+             * Proveedor Rut
+             * @default
+             */
+            proveedor_rut: string;
+            /**
+             * Proveedor Nombre
+             * @default
+             */
+            proveedor_nombre: string;
+            /**
+             * Rut Es Valido
+             * @default false
+             */
+            rut_es_valido: boolean;
+            /**
+             * Numero Oc
+             * @default
+             */
+            numero_oc: string;
+            /** Fecha Emision */
+            fecha_emision: string;
+            /**
+             * Validez Dias
+             * @default 30
+             */
+            validez_dias: number;
+            /**
+             * Moneda
+             * @default CLP
+             */
+            moneda: string;
+            /**
+             * Neto
+             * @default 0
+             */
+            neto: string;
+            /**
+             * Forma Pago
+             * @default
+             */
+            forma_pago: string;
+            /**
+             * Plazo Pago
+             * @default
+             */
+            plazo_pago: string;
+            /**
+             * Observaciones
+             * @default
+             */
+            observaciones: string;
+            /** Items */
+            items: components["schemas"]["OcExtractedItem"][];
+        };
+        /** OcImportCsvResponse */
+        OcImportCsvResponse: {
+            /** Total Rows */
+            total_rows: number;
+            /** Total Ocs Intended */
+            total_ocs_intended: number;
+            /** Ocs Created Count */
+            ocs_created_count: number;
+            /** Errors Count */
+            errors_count: number;
+            /** Ocs Created */
+            ocs_created?: {
+                [key: string]: unknown;
+            }[];
+            /** Errors */
+            errors?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * OperationalMetric
+         * @description Una métrica operativa que el dashboard muestra como tile.
+         */
+        OperationalMetric: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: string;
+            /** Hint */
+            hint?: string | null;
+        };
         /** OrdenCompraCreate */
         OrdenCompraCreate: {
             /** Numero Oc */
@@ -2994,6 +13049,10 @@ export interface components {
             empresa_codigo: string;
             /** Proveedor Id */
             proveedor_id?: number | null;
+            /** Proveedor Rut */
+            proveedor_rut?: string | null;
+            /** Proveedor Nombre */
+            proveedor_nombre?: string | null;
             /**
              * Fecha Emision
              * Format: date
@@ -3131,10 +13190,107 @@ export interface components {
             /** Pdf Url */
             pdf_url?: string | null;
         };
+        /** OwnerCount */
+        OwnerCount: {
+            /** Encargado */
+            encargado: string;
+            /** Pendientes Count */
+            pendientes_count: number;
+            /** Vencidas Count */
+            vencidas_count: number;
+        };
+        /** PLAreaRow */
+        PLAreaRow: {
+            /** Area Codigo */
+            area_codigo: string;
+            /** Area Nombre */
+            area_nombre: string;
+            /** Ingresos */
+            ingresos: string;
+            /** Gastos */
+            gastos: string;
+            /** Resultado */
+            resultado: string;
+        };
+        /** PLProyectoRow */
+        PLProyectoRow: {
+            /** Proyecto Codigo */
+            proyecto_codigo: string;
+            /** Proyecto Nombre */
+            proyecto_nombre: string;
+            /** Tipo Financiamiento */
+            tipo_financiamiento: string | null;
+            /** Ingresos */
+            ingresos: string;
+            /** Gastos */
+            gastos: string;
+            /** Resultado */
+            resultado: string;
+        };
+        /**
+         * PagarRequest
+         * @description Body para POST /pagar. Si monto_clp ya está en el contrato, no es necesario.
+         *     Si no, hay que pasarlo aquí (valor real al momento del pago — refleja
+         *     el valor UF efectivo en CLP a la fecha).
+         */
+        PagarRequest: {
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            /** Monto Clp */
+            monto_clp?: number | string | null;
+            /** Uf Value At Pago */
+            uf_value_at_pago?: number | string | null;
+            /** Cuenta Banco */
+            cuenta_banco?: string | null;
+            /** Glosa Extra */
+            glosa_extra?: string | null;
+        };
+        /** PagarResponse */
+        PagarResponse: {
+            /** Contrato Id */
+            contrato_id: number;
+            /** Voucher Id */
+            voucher_id: number;
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /** Monto Clp */
+            monto_clp: string;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "PROMETIDO" | "SUSCRITO" | "PAGADO" | "INCUMPLIDO" | "RESUELTO";
+        };
+        /** Page[AuditLogList] */
+        Page_AuditLogList_: {
+            /** Items */
+            items: components["schemas"]["AuditLogList"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
         /** Page[EtlRunRead] */
         Page_EtlRunRead_: {
             /** Items */
             items: components["schemas"]["EtlRunRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[F22Read] */
+        Page_F22Read_: {
+            /** Items */
+            items: components["schemas"]["F22Read"][];
             /** Total */
             total: number;
             /** Page */
@@ -3187,6 +13343,19 @@ export interface components {
         Page_MovimientoRead_: {
             /** Items */
             items: components["schemas"]["MovimientoRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[NotificationRead] */
+        Page_NotificationRead_: {
+            /** Items */
+            items: components["schemas"]["NotificationRead"][];
             /** Total */
             total: number;
             /** Page */
@@ -3261,6 +13430,335 @@ export interface components {
             /** Pages */
             pages: number;
         };
+        /** Page[WebhookDeliveryRead] */
+        Page_WebhookDeliveryRead_: {
+            /** Items */
+            items: components["schemas"]["WebhookDeliveryRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** PaginatedVouchersResponse */
+        PaginatedVouchersResponse: {
+            /** Items */
+            items: components["schemas"]["VoucherListItem"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Has More */
+            has_more: boolean;
+        };
+        /** PerfResponse */
+        PerfResponse: {
+            /** Db Pool Mode */
+            db_pool_mode: string;
+            /** Db Pool Size */
+            db_pool_size: number | null;
+            /** Db Max Overflow */
+            db_max_overflow?: number | null;
+            /** Db Pool Recycle Sec */
+            db_pool_recycle_sec?: number | null;
+            /** Db Url Redacted */
+            db_url_redacted: string;
+            /** Gzip Min Size */
+            gzip_min_size: number;
+            /** Gzip Level */
+            gzip_level: number;
+            /** Workers */
+            workers: number | null;
+            /**
+             * Cache Features
+             * @default []
+             */
+            cache_features: string[];
+            /** Recommendations */
+            recommendations: string[];
+            /** Scope Cache */
+            scope_cache?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** PlanCuentaEmpresaRead */
+        PlanCuentaEmpresaRead: {
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Habilitada */
+            habilitada: boolean;
+            /** Notas */
+            notas: string | null;
+        };
+        /** PlanCuentaEmpresaUpdate */
+        PlanCuentaEmpresaUpdate: {
+            /** Habilitada */
+            habilitada: boolean;
+            /** Notas */
+            notas?: string | null;
+        };
+        /** PlanCuentaRead */
+        PlanCuentaRead: {
+            /** Codigo */
+            codigo: string;
+            /** Nivel */
+            nivel: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "ACTIVO" | "PASIVO" | "PATRIMONIO" | "INGRESO" | "GASTO" | "RESULTADO" | "ORDEN";
+            /** Nombre */
+            nombre: string;
+            /** Descripcion */
+            descripcion: string | null;
+            /** Codigo Padre */
+            codigo_padre: string | null;
+            /** Imputable */
+            imputable: boolean;
+            /** Iva Tratamiento */
+            iva_tratamiento: string;
+            /** Corfo Elegible */
+            corfo_elegible: boolean;
+            /** Tipo Gasto Corfo */
+            tipo_gasto_corfo: ("RRHH" | "OPERACION" | "INVERSION" | "GASTOS_GENERALES" | "NO_ELEGIBLE") | null;
+            /** Nubox Code */
+            nubox_code: string | null;
+            /** Codigo F22 */
+            codigo_f22: number | null;
+            /** Ajuste 14D */
+            ajuste_14d: string | null;
+            /** Flag Caja */
+            flag_caja: boolean;
+            /** Flag Activo Fijo */
+            flag_activo_fijo: boolean;
+            /** Flag Documento */
+            flag_documento: boolean;
+            /** Flag Control Gestion */
+            flag_control_gestion: boolean;
+            /** Flag Partida */
+            flag_partida: boolean;
+            /** Flag Concepto */
+            flag_concepto: boolean;
+            /** Flag Capital */
+            flag_capital: boolean;
+            /** Flag Activo Neto */
+            flag_activo_neto: boolean;
+            /** Flag Marca 14D */
+            flag_marca_14d: boolean;
+            /** Flag Percepcion */
+            flag_percepcion: boolean;
+            /** Activa */
+            activa: boolean;
+        };
+        /**
+         * PlanCuentaTreeNode
+         * @description Nodo del árbol jerárquico — recursivo via children.
+         */
+        PlanCuentaTreeNode: {
+            /** Codigo */
+            codigo: string;
+            /** Nivel */
+            nivel: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "ACTIVO" | "PASIVO" | "PATRIMONIO" | "INGRESO" | "GASTO" | "RESULTADO" | "ORDEN";
+            /** Nombre */
+            nombre: string;
+            /** Imputable */
+            imputable: boolean;
+            /** Activa */
+            activa: boolean;
+            /** Corfo Elegible */
+            corfo_elegible: boolean;
+            /** Children */
+            children?: components["schemas"]["PlanCuentaTreeNode"][];
+        };
+        /**
+         * PlanCuentaUpdate
+         * @description PATCH /plan-cuentas/{codigo} — campos editables.
+         *
+         *     Estructura (codigo, nivel, padre) NO se edita — viene del Excel y se
+         *     actualiza via re-import. Acá solo cosas que el COO puede tocar:
+         *     desactivar, marcar CORFO post-hoc, actualizar nubox_code.
+         */
+        PlanCuentaUpdate: {
+            /** Activa */
+            activa?: boolean | null;
+            /** Corfo Elegible */
+            corfo_elegible?: boolean | null;
+            /** Tipo Gasto Corfo */
+            tipo_gasto_corfo?: ("RRHH" | "OPERACION" | "INVERSION" | "GASTOS_GENERALES" | "NO_ELEGIBLE") | null;
+            /** Nubox Code */
+            nubox_code?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+        };
+        /**
+         * PlanCuentasSummary
+         * @description Estado actual del plan de cuentas en DB.
+         */
+        PlanCuentasSummary: {
+            /** Total Cuentas */
+            total_cuentas: number;
+            /** Cuentas Imputables */
+            cuentas_imputables: number;
+            /** Cuentas Corfo */
+            cuentas_corfo: number;
+            /** Habilitaciones Total */
+            habilitaciones_total: number;
+            /** Last Imported */
+            last_imported: string | null;
+        };
+        /** PolicyFondoCreate */
+        PolicyFondoCreate: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "reglamento_interno" | "manual_uaf" | "codigo_etica" | "politica_pep" | "politica_inversion" | "politica_riesgo" | "politica_conflicto_interes" | "manual_compliance" | "otro";
+            /** Nombre */
+            nombre: string;
+            /** Version */
+            version: string;
+            /**
+             * Fecha Aprobacion
+             * Format: date
+             */
+            fecha_aprobacion: string;
+            /** Fecha Vigencia Desde */
+            fecha_vigencia_desde?: string | null;
+            /** Fecha Proxima Revision */
+            fecha_proxima_revision?: string | null;
+            /** Aprobado Por */
+            aprobado_por?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /**
+             * Estado
+             * @default vigente
+             * @enum {string}
+             */
+            estado: "vigente" | "derogada" | "borrador";
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+        };
+        /** PolicyFondoRead */
+        PolicyFondoRead: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "reglamento_interno" | "manual_uaf" | "codigo_etica" | "politica_pep" | "politica_inversion" | "politica_riesgo" | "politica_conflicto_interes" | "manual_compliance" | "otro";
+            /** Nombre */
+            nombre: string;
+            /** Version */
+            version: string;
+            /**
+             * Fecha Aprobacion
+             * Format: date
+             */
+            fecha_aprobacion: string;
+            /** Fecha Vigencia Desde */
+            fecha_vigencia_desde?: string | null;
+            /** Fecha Proxima Revision */
+            fecha_proxima_revision?: string | null;
+            /** Aprobado Por */
+            aprobado_por?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /**
+             * Estado
+             * @default vigente
+             * @enum {string}
+             */
+            estado: "vigente" | "derogada" | "borrador";
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            };
+            /** Policy Id */
+            policy_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** PolicyFondoUpdate */
+        PolicyFondoUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Version */
+            version?: string | null;
+            /** Fecha Aprobacion */
+            fecha_aprobacion?: string | null;
+            /** Fecha Vigencia Desde */
+            fecha_vigencia_desde?: string | null;
+            /** Fecha Proxima Revision */
+            fecha_proxima_revision?: string | null;
+            /** Aprobado Por */
+            aprobado_por?: string | null;
+            /** Dropbox Path */
+            dropbox_path?: string | null;
+            /** Hash Sha256 */
+            hash_sha256?: string | null;
+            /** Estado */
+            estado?: ("vigente" | "derogada" | "borrador") | null;
+            /** Metadata */
+            metadata?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /**
+         * PortfolioConsolidated
+         * @description Vista consolidada del portafolio cross-empresa.
+         *
+         *     Estructura optimizada para que la UI pueda renderear todo el dashboard
+         *     `/portafolio` con una sola request.
+         */
+        PortfolioConsolidated: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /** Total Clp */
+            total_clp: string;
+            /** Total Usd */
+            total_usd?: string | null;
+            /** Total Uf */
+            total_uf?: string | null;
+            /** Empresas */
+            empresas: components["schemas"]["EmpresaPortfolioRow"][];
+            /** Currency Breakdown */
+            currency_breakdown: components["schemas"]["CurrencyBreakdownItem"][];
+            /** Monthly Trend */
+            monthly_trend: components["schemas"]["MonthlyPoint"][];
+            rates_used: components["schemas"]["RatesUsed"];
+            /** Warnings */
+            warnings?: string[];
+        };
         /** ProveedorCreate */
         ProveedorCreate: {
             /** Razon Social */
@@ -3324,6 +13822,50 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Vouchers Count */
+            vouchers_count?: number | null;
+            /** Ordenes Compra Count */
+            ordenes_compra_count?: number | null;
+        };
+        /**
+         * ProveedorSearchHit
+         * @description Item liviano del resultado de /search?q= (autocompletado fuzzy).
+         */
+        ProveedorSearchHit: {
+            /** Proveedor Id */
+            proveedor_id: number;
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut?: string | null;
+            /**
+             * Vouchers Count
+             * @default 0
+             */
+            vouchers_count: number;
+            /**
+             * Ordenes Compra Count
+             * @default 0
+             */
+            ordenes_compra_count: number;
+        };
+        /**
+         * ProveedorSearchResult
+         * @description Respuesta de busqueda por RUT para autocompletado en formularios.
+         *
+         *     Pensado para que el FE muestre estados claros mientras el user tipea:
+         *       - rut_valid=False  -> "RUT invalido (digito verificador)"
+         *       - exists=True       -> precarga datos del proveedor existente
+         *       - exists=False      -> "Proveedor no existe, se creara automaticamente"
+         */
+        ProveedorSearchResult: {
+            /** Rut Valid */
+            rut_valid: boolean;
+            /** Rut Canonical */
+            rut_canonical?: string | null;
+            /** Exists */
+            exists: boolean;
+            proveedor?: components["schemas"]["ProveedorRead"] | null;
         };
         /** ProveedorUpdate */
         ProveedorUpdate: {
@@ -3360,6 +13902,128 @@ export interface components {
             proyectado: string;
             /** Delta Pct */
             delta_pct: number;
+        };
+        /** ProyectoAvance */
+        ProyectoAvance: {
+            /** Codigo */
+            codigo: string;
+            /** Presupuesto Total */
+            presupuesto_total: string | null;
+            /** Presupuesto Ejecutado */
+            presupuesto_ejecutado: string;
+            /** Porcentaje Ejecutado */
+            porcentaje_ejecutado: number | null;
+            /** Monto Disponible */
+            monto_disponible: string | null;
+            /** Cantidad Vouchers */
+            cantidad_vouchers: number;
+        };
+        /** ProyectoContableCreate */
+        ProyectoContableCreate: {
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /**
+             * Tipo Financiamiento
+             * @enum {string}
+             */
+            tipo_financiamiento: "CORFO" | "PRIVADO" | "INTERNO" | "FINANCIERO";
+            /** Programa */
+            programa?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Termino */
+            fecha_termino?: string | null;
+            /** Presupuesto Total */
+            presupuesto_total?: number | string | null;
+            /**
+             * Moneda
+             * @default CLP
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Primer Desembolso Corfo */
+            primer_desembolso_corfo?: string | null;
+            /** Tipos Gasto Elegibles */
+            tipos_gasto_elegibles?: ("RRHH" | "OPERACION" | "INVERSION" | "GASTOS_GENERALES" | "NO_ELEGIBLE")[];
+            /**
+             * Estado
+             * @default ACTIVE
+             * @enum {string}
+             */
+            estado: "ACTIVE" | "CLOSED" | "SUSPENDED";
+            /** Gantt Proyecto Id */
+            gantt_proyecto_id?: number | null;
+        };
+        /** ProyectoContableRead */
+        ProyectoContableRead: {
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /**
+             * Tipo Financiamiento
+             * @enum {string}
+             */
+            tipo_financiamiento: "CORFO" | "PRIVADO" | "INTERNO" | "FINANCIERO";
+            /** Programa */
+            programa?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Termino */
+            fecha_termino?: string | null;
+            /** Presupuesto Total */
+            presupuesto_total?: string | null;
+            /**
+             * Moneda
+             * @default CLP
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Primer Desembolso Corfo */
+            primer_desembolso_corfo?: string | null;
+            /** Tipos Gasto Elegibles */
+            tipos_gasto_elegibles?: ("RRHH" | "OPERACION" | "INVERSION" | "GASTOS_GENERALES" | "NO_ELEGIBLE")[];
+            /**
+             * Estado
+             * @default ACTIVE
+             * @enum {string}
+             */
+            estado: "ACTIVE" | "CLOSED" | "SUSPENDED";
+            /** Gantt Proyecto Id */
+            gantt_proyecto_id: number | null;
+            /** Presupuesto Ejecutado */
+            presupuesto_ejecutado?: string | null;
+        };
+        /** ProyectoContableUpdate */
+        ProyectoContableUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Tipo Financiamiento */
+            tipo_financiamiento?: ("CORFO" | "PRIVADO" | "INTERNO" | "FINANCIERO") | null;
+            /** Programa */
+            programa?: string | null;
+            /** Fecha Inicio */
+            fecha_inicio?: string | null;
+            /** Fecha Termino */
+            fecha_termino?: string | null;
+            /** Presupuesto Total */
+            presupuesto_total?: number | string | null;
+            /** Moneda */
+            moneda?: ("CLP" | "UF" | "USD" | "EUR") | null;
+            /** Primer Desembolso Corfo */
+            primer_desembolso_corfo?: string | null;
+            /** Tipos Gasto Elegibles */
+            tipos_gasto_elegibles?: ("RRHH" | "OPERACION" | "INVERSION" | "GASTOS_GENERALES" | "NO_ELEGIBLE")[] | null;
+            /** Estado */
+            estado?: ("ACTIVE" | "CLOSED" | "SUSPENDED") | null;
+            /** Gantt Proyecto Id */
+            gantt_proyecto_id?: number | null;
         };
         /** ProyectoCreate */
         ProyectoCreate: {
@@ -3547,6 +14211,66 @@ export interface components {
             /** Dropbox Roadmap Path */
             dropbox_roadmap_path?: string | null;
         };
+        /**
+         * RatesUsed
+         * @description Tasas usadas para los cálculos. Útil para el tooltip de los KPIs.
+         */
+        RatesUsed: {
+            /** Uf Clp */
+            uf_clp?: string | null;
+            /** Usd Clp */
+            usd_clp?: string | null;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+        };
+        /** ReconcileRequest */
+        ReconcileRequest: {
+            /** Movimiento Id */
+            movimiento_id: number;
+        };
+        /** ReconcileResponse */
+        ReconcileResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /** Movimiento Id */
+            movimiento_id: number;
+            /** Monto */
+            monto: string;
+            /**
+             * Fecha Movimiento
+             * Format: date
+             */
+            fecha_movimiento: string;
+            /** Auto Match */
+            auto_match: boolean;
+        };
+        /**
+         * RefreshResult
+         * @description Resultado del refresh manual (POST /currency/refresh).
+         */
+        RefreshResult: {
+            /** Refreshed */
+            refreshed: number;
+            /** Skipped */
+            skipped: number;
+            /** Errors */
+            errors?: string[];
+            /** Rates */
+            rates?: components["schemas"]["CurrencyRateRead"][];
+        };
+        /**
+         * RejectRequest
+         * @description POST /vouchers/{id}/reject — rechaza con razón obligatoria.
+         */
+        RejectRequest: {
+            /** Reason */
+            reason: string;
+        };
         /** RejectedRowRead */
         RejectedRowRead: {
             /** Rejected Id */
@@ -3568,6 +14292,168 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** RendicionCorfoLinea */
+        RendicionCorfoLinea: {
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Glosa */
+            glosa: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Contraparte Rut */
+            contraparte_rut: string | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo: string | null;
+            /** Doc Tributario Folio */
+            doc_tributario_folio: string | null;
+            /** Line Number */
+            line_number: number;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Cuenta Nombre */
+            cuenta_nombre: string;
+            /** Tipo Gasto Corfo */
+            tipo_gasto_corfo: string | null;
+            /** Area Codigo */
+            area_codigo: string | null;
+            /** Debit */
+            debit: string;
+            /** Credit */
+            credit: string;
+            /** Linea Descripcion */
+            linea_descripcion: string | null;
+        };
+        /** RendicionCorfoProyectoMeta */
+        RendicionCorfoProyectoMeta: {
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Tipo Financiamiento */
+            tipo_financiamiento: string;
+            /** Programa */
+            programa: string | null;
+            /** Presupuesto Total */
+            presupuesto_total: string | null;
+            /** Primer Desembolso Corfo */
+            primer_desembolso_corfo: string | null;
+            /** Tipos Gasto Elegibles */
+            tipos_gasto_elegibles: string[];
+        };
+        /** RendicionCorfoReport */
+        RendicionCorfoReport: {
+            proyecto: components["schemas"]["RendicionCorfoProyectoMeta"] | null;
+            /** Fecha Desde */
+            fecha_desde?: string | null;
+            /** Fecha Hasta */
+            fecha_hasta?: string | null;
+            /** Lineas */
+            lineas: components["schemas"]["RendicionCorfoLinea"][];
+            /** Desglose Por Tipo Gasto */
+            desglose_por_tipo_gasto: components["schemas"]["RendicionCorfoTipoGasto"][];
+            /** Total */
+            total: string;
+        };
+        /** RendicionCorfoTipoGasto */
+        RendicionCorfoTipoGasto: {
+            /** Tipo Gasto */
+            tipo_gasto: string;
+            /** Monto */
+            monto: string;
+        };
+        /** ReplyRequest */
+        ReplyRequest: {
+            /** Body Html */
+            body_html: string;
+            /** Subject Override */
+            subject_override?: string | null;
+        };
+        /**
+         * ReporteRegulatorio
+         * @description Snapshot resumido para actas del Comité de Vigilancia.
+         */
+        ReporteRegulatorio: {
+            /**
+             * Generado At
+             * Format: date-time
+             */
+            generado_at: string;
+            estados: components["schemas"]["EntregableEstadosCounts"];
+            /** Proximos 30D */
+            proximos_30d: components["schemas"]["EntregableRead"][];
+            /** Vencidos Sin Entregar */
+            vencidos_sin_entregar: components["schemas"]["EntregableRead"][];
+            /** Tasa Cumplimiento Ytd */
+            tasa_cumplimiento_ytd: number;
+            /** Total Ytd */
+            total_ytd: number;
+            /** Entregados Ytd */
+            entregados_ytd: number;
+        };
+        /**
+         * ResetConfirm
+         * @description Body para todos los endpoints reset.
+         *
+         *     `confirm` debe ser True para que el server proceda. Esto evita resets
+         *     accidentales por bots/curl mal escrito.
+         */
+        ResetConfirm: {
+            /**
+             * Confirm
+             * @description Debe ser True
+             * @default false
+             */
+            confirm: boolean;
+        };
+        /** ResetEntregablesBody */
+        ResetEntregablesBody: {
+            /**
+             * Confirm
+             * @description Debe ser True
+             * @default false
+             */
+            confirm: boolean;
+            /** Categoria */
+            categoria?: string | null;
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+        };
+        /** ResetMovimientosBody */
+        ResetMovimientosBody: {
+            /**
+             * Confirm
+             * @description Debe ser True
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Periodo Desde
+             * @description Filtro inclusivo. Ej '2026_01'
+             */
+            periodo_desde?: string | null;
+            /**
+             * Periodo Hasta
+             * @description Filtro inclusivo. Ej '2026_06'
+             */
+            periodo_hasta?: string | null;
+        };
+        /**
+         * ResetResult
+         * @description Respuesta de cada endpoint reset.
+         */
+        ResetResult: {
+            /** Rows Deleted */
+            rows_deleted: number;
+            /** Detail */
+            detail: string;
         };
         /** ResumenCC */
         ResumenCC: {
@@ -3738,10 +14624,206 @@ export interface components {
             /** Delta 30D */
             delta_30d: string;
         };
+        /**
+         * SavedViewCreate
+         * @description Crear una vista — siempre toma la `page` actual + filtros snapshot.
+         */
+        SavedViewCreate: {
+            /**
+             * Page
+             * @enum {string}
+             */
+            page: "oc" | "f29" | "trabajadores" | "proveedores" | "legal" | "fondos" | "entregables" | "cartas_gantt" | "suscripciones" | "calendario";
+            /** Name */
+            name: string;
+            /** Filters */
+            filters?: {
+                [key: string]: unknown;
+            };
+        };
+        /** SavedViewRead */
+        SavedViewRead: {
+            /** Id */
+            id: string;
+            /** User Id */
+            user_id: string;
+            /** Page */
+            page: string;
+            /** Name */
+            name: string;
+            /** Filters */
+            filters: {
+                [key: string]: unknown;
+            };
+            /** Is Pinned */
+            is_pinned: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * SavedViewUpdate
+         * @description Update parcial — todos los campos opcionales.
+         *
+         *     El frontend usa este schema para rename, cambio de filtros (overwrite
+         *     "current") y toggle pin. Si todos vienen None, la mutation es no-op.
+         */
+        SavedViewUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Filters */
+            filters?: {
+                [key: string]: unknown;
+            } | null;
+            /** Is Pinned */
+            is_pinned?: boolean | null;
+        };
+        /**
+         * SearchHit
+         * @description Un resultado individual; agnóstico de la entidad de origen.
+         *
+         *     `link` es la ruta relativa del frontend a la que el palette navega al
+         *     seleccionar el resultado. `score` es solo informativo (lex-similarity rank
+         *     crudo); el frontend ya recibe los hits ordenados.
+         */
+        SearchHit: {
+            /**
+             * Entity Type
+             * @enum {string}
+             */
+            entity_type: "empresa" | "orden_compra" | "proveedor" | "f29" | "f22" | "trabajador" | "legal_document" | "fondo" | "suscripcion" | "voucher" | "inbox";
+            /** Entity Id */
+            entity_id: string;
+            /** Title */
+            title: string;
+            /** Subtitle */
+            subtitle?: string | null;
+            /** Badge */
+            badge?: string | null;
+            /** Link */
+            link: string;
+            /**
+             * Score
+             * @default 0
+             */
+            score: number;
+        };
+        /**
+         * SearchResponse
+         * @description Respuesta agregada por entidad — el frontend pinta secciones.
+         */
+        SearchResponse: {
+            /** Query */
+            query: string;
+            /** Total */
+            total: number;
+            /**
+             * By Entity
+             * @description Mapa entity_type → hits (cap. 5 por entidad). El frontend renderea una sección por clave presente.
+             */
+            by_entity?: {
+                [key: string]: components["schemas"]["SearchHit"][];
+            };
+        };
+        /**
+         * SecretariaBriefResponse
+         * @description Brief de la Secretaria AI: 5 bullets accionables del día.
+         *
+         *     `cached=True` indica que la respuesta vino del cache de 30min (el
+         *     frontend puede mostrar un indicador "actualizado hace X").
+         */
+        SecretariaBriefResponse: {
+            /** Bullets */
+            bullets?: string[];
+            /** Raw Text */
+            raw_text: string;
+            /** Model */
+            model: string;
+            /**
+             * Cached
+             * @default false
+             */
+            cached: boolean;
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+        };
+        /** SeedVouchersRequest */
+        SeedVouchersRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Cantidad
+             * @default 8
+             */
+            cantidad: number;
+        };
+        /** SeedVouchersResponse */
+        SeedVouchersResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Vouchers Creados */
+            vouchers_creados: number;
+            /** Por Estado */
+            por_estado: {
+                [key: string]: number;
+            };
+            /** Cuentas Usadas */
+            cuentas_usadas: {
+                [key: string]: string;
+            };
+            /** Nota */
+            nota: string;
+        };
         /** SetRoleRequest */
         SetRoleRequest: {
             /** App Role */
             app_role: string;
+        };
+        /** SidebarStateResponse */
+        SidebarStateResponse: {
+            /** Unread Notifications */
+            unread_notifications: number;
+            /** Critical Obligations */
+            critical_obligations: number;
+            /** Critical Entregables */
+            critical_entregables: number;
+            /** Mailbox Pending */
+            mailbox_pending: number;
+            /**
+             * Voucher Drafts Mine
+             * @default 0
+             */
+            voucher_drafts_mine: number;
+            /**
+             * Voucher Pending Approvals
+             * @default 0
+             */
+            voucher_pending_approvals: number;
+        };
+        /**
+         * StatusResponse
+         * @description Estado del 2FA del usuario logueado.
+         */
+        StatusResponse: {
+            /** Enabled */
+            enabled: boolean;
+            /** Enabled At */
+            enabled_at?: string | null;
+            /**
+             * Backup Codes Remaining
+             * @default 0
+             */
+            backup_codes_remaining: number;
         };
         /** SubCategoriaItem */
         SubCategoriaItem: {
@@ -3753,6 +14835,21 @@ export interface components {
             total_abono: string;
             /** Transaction Count */
             transaction_count: number;
+        };
+        /** SubmitResponse */
+        SubmitResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /**
+             * New Status
+             * @default PENDING
+             * @enum {string}
+             */
+            new_status: "DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID";
+            /** Message */
+            message: string;
         };
         /** SuscripcionCreate */
         SuscripcionCreate: {
@@ -3834,6 +14931,56 @@ export interface components {
             recibos_firmados: number;
         };
         /**
+         * SuscripcionUpdate
+         * @description PATCH /suscripciones-acciones/{id} — edición parcial.
+         */
+        SuscripcionUpdate: {
+            /** Fecha Recibo */
+            fecha_recibo?: string | null;
+            /** Acciones Pagadas */
+            acciones_pagadas?: number | string | null;
+            /** Monto Uf */
+            monto_uf?: number | string | null;
+            /** Monto Clp */
+            monto_clp?: number | string | null;
+            /** Contrato Ref */
+            contrato_ref?: string | null;
+            /** Recibo Url */
+            recibo_url?: string | null;
+            /** Firmado */
+            firmado?: boolean | null;
+            /** Fecha Firma */
+            fecha_firma?: string | null;
+        };
+        /** SyncAllDropboxResponse */
+        SyncAllDropboxResponse: {
+            /** Trabajadores */
+            trabajadores?: {
+                [key: string]: unknown;
+            } | null;
+            /** Legal */
+            legal?: {
+                [key: string]: unknown;
+            } | null;
+            /** F29 */
+            f29?: {
+                [key: string]: unknown;
+            } | null;
+            /** F22 */
+            f22?: {
+                [key: string]: unknown;
+            } | null;
+            /** Estados Financieros */
+            estados_financieros?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: string[];
+        };
+        /**
          * SyncRoadmapResponse
          * @description Respuesta del sync con Dropbox Roadmap.xlsx.
          */
@@ -3856,6 +15003,109 @@ export interface components {
             hitos_creados: number;
             /** Message */
             message: string;
+        };
+        /**
+         * SystemStatus
+         * @description Snapshot del estado de la plataforma.
+         */
+        SystemStatus: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Overall
+             * @enum {string}
+             */
+            overall: "ok" | "degraded" | "down" | "disabled" | "unknown";
+            /** Checks */
+            checks: components["schemas"]["IntegrationCheck"][];
+            /** Metrics */
+            metrics?: components["schemas"]["OperationalMetric"][];
+        };
+        /**
+         * TemplateLineCreate
+         * @description Línea de plantilla — mismo shape que VoucherLineCreate pero sin
+         *     constraint de debit XOR credit (la plantilla puede ser usada con
+         *     distinto monto cada vez).
+         */
+        TemplateLineCreate: {
+            /** Line Number */
+            line_number: number;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Proyecto Codigo */
+            proyecto_codigo?: string | null;
+            /** Area Codigo */
+            area_codigo?: string | null;
+            /**
+             * Debit
+             * @default 0
+             */
+            debit: number | string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: number | string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Iva Tratamiento */
+            iva_tratamiento?: ("AFECTO" | "EXENTO" | "NO_GRAVADO" | "NA") | null;
+            /**
+             * Balance Treatment
+             * @default NA
+             * @enum {string}
+             */
+            balance_treatment: "GASTO" | "ACTIVACION" | "NA";
+        };
+        /**
+         * TemplateUseRequest
+         * @description POST /vouchers/templates/{id}/use — instancia plantilla como voucher DRAFT.
+         *
+         *     El user provee fecha_documento + fecha_contable obligatorias y opcionalmente
+         *     overrides para los montos (si la plantilla tenía debit/credit como placeholder
+         *     a multiplicar). El resto se hereda de la plantilla.
+         */
+        TemplateUseRequest: {
+            /**
+             * Fecha Documento
+             * @description ISO YYYY-MM-DD
+             */
+            fecha_documento: string;
+            /**
+             * Fecha Contable
+             * @description ISO YYYY-MM-DD
+             */
+            fecha_contable: string;
+            /**
+             * Glosa Override
+             * @description Si se provee, reemplaza glosa_default. Soporta interpolación: {mes} {anio} {fecha} se reemplazan automáticamente.
+             */
+            glosa_override?: string | null;
+            /**
+             * Multiplier
+             * @description Si se provee, multiplica debit/credit de cada línea por este factor (útil cuando la plantilla tiene montos relativos).
+             */
+            multiplier?: number | string | null;
+            /** Doc Tributario Folio */
+            doc_tributario_folio?: string | null;
+        };
+        /** TopAdvocate */
+        TopAdvocate: {
+            /** Lp Id */
+            lp_id: number;
+            /** Lp Nombre */
+            lp_nombre: string;
+            /** Compartio Count */
+            compartio_count: number;
+            /** Aperturas Downstream */
+            aperturas_downstream: number;
+            /** Convertidos */
+            convertidos: number;
+            /** Aporte Atribuible */
+            aporte_atribuible?: string | null;
         };
         /**
          * TrabajadorCreate
@@ -4018,6 +15268,38 @@ export interface components {
             /** Notas */
             notas?: string | null;
         };
+        /**
+         * TrackEventRequest
+         * @description Body de POST /informes-lp/by-token/{token}/track.
+         *
+         *     Endpoint público — no requiere auth. Rate limited.
+         */
+        TrackEventRequest: {
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "open" | "scroll" | "section_view" | "cta_click" | "share_click" | "pdf_download" | "video_play" | "time_spent" | "agendar_click";
+            /** Seccion */
+            seccion?: string | null;
+            /** Valor Numerico */
+            valor_numerico?: number | null;
+            /** Valor Texto */
+            valor_texto?: string | null;
+            /** Referer */
+            referer?: string | null;
+        };
+        /**
+         * TrackEventResponse
+         * @description Confirmación mínima del track — no devuelve nada sensible.
+         */
+        TrackEventResponse: {
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
         /** TransaccionRecienteItem */
         TransaccionRecienteItem: {
             /** Movimiento Id */
@@ -4043,6 +15325,89 @@ export interface components {
             /** Hipervinculo */
             hipervinculo: string | null;
         };
+        /** UnreadCount */
+        UnreadCount: {
+            /** Unread */
+            unread: number;
+        };
+        /**
+         * UpcomingStats
+         * @description Stats agregadas para el header del Kanban + input de la Secretaria AI.
+         */
+        UpcomingStats: {
+            /** Total Hitos */
+            total_hitos: number;
+            /** Total Pendientes */
+            total_pendientes: number;
+            /** Total En Progreso */
+            total_en_progreso: number;
+            /** Total Completados */
+            total_completados: number;
+            /** Vencidas Count */
+            vencidas_count: number;
+            /** Completadas Ultima Semana */
+            completadas_ultima_semana: number;
+            /** Completadas Semana Anterior */
+            completadas_semana_anterior: number;
+            /** Owners Top */
+            owners_top?: components["schemas"]["OwnerCount"][];
+            /** Empresas Top */
+            empresas_top?: components["schemas"]["EmpresaCount"][];
+        };
+        /**
+         * UpcomingTasksResponse
+         * @description Buckets temporales cross-empresa para Kanban + Secretaria AI.
+         */
+        UpcomingTasksResponse: {
+            /** Vencidas */
+            vencidas?: components["schemas"]["HitoConContexto"][];
+            /** Hoy */
+            hoy?: components["schemas"]["HitoConContexto"][];
+            /** Esta Semana */
+            esta_semana?: components["schemas"]["HitoConContexto"][];
+            /** Proximas 2 Semanas */
+            proximas_2_semanas?: components["schemas"]["HitoConContexto"][];
+            /** Sin Fecha */
+            sin_fecha?: components["schemas"]["HitoConContexto"][];
+            stats: components["schemas"]["UpcomingStats"];
+        };
+        /** UserCompanyRoleCreate */
+        UserCompanyRoleCreate: {
+            /** User Id */
+            user_id: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA";
+            /** Notas */
+            notas?: string | null;
+        };
+        /** UserCompanyRoleRead */
+        UserCompanyRoleRead: {
+            /** User Id */
+            user_id: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA";
+            /** Notas */
+            notas?: string | null;
+            /** Active */
+            active: boolean;
+            /**
+             * Assigned At
+             * Format: date-time
+             */
+            assigned_at: string;
+            /** Assigned By */
+            assigned_by: string | null;
+        };
         /** UserMeResponse */
         UserMeResponse: {
             /** Sub */
@@ -4053,6 +15418,37 @@ export interface components {
             app_role: string;
             /** Allowed Actions */
             allowed_actions: string[];
+        };
+        /**
+         * UserPreferenceRead
+         * @description Respuesta de `GET /me/preferences/{key}`.
+         */
+        UserPreferenceRead: {
+            /** Key */
+            key: string;
+            /** Value */
+            value: {
+                [key: string]: unknown;
+            } | unknown[] | string | number | boolean | null;
+        };
+        /**
+         * UserPreferenceUpdate
+         * @description Body de `PUT /me/preferences/{key}`.
+         *
+         *     `value` acepta cualquier valor JSON-serializable. Ejemplos válidos:
+         *       - `{"completed": true, "current_step": 3}` (onboarding_tour)
+         *       - `"dark"` (theme)
+         *       - `42` (some_counter)
+         *       - `true` (feature_flag_local)
+         */
+        UserPreferenceUpdate: {
+            /**
+             * Value
+             * @description Valor JSON-serializable a persistir en la preferencia. Acepta dict, list, str, int, float, bool.
+             */
+            value: {
+                [key: string]: unknown;
+            } | unknown[] | string | number | boolean | null;
         };
         /**
          * UserRoleAssignRequest
@@ -4108,6 +15504,18 @@ export interface components {
              */
             app_role: "admin" | "finance" | "viewer";
         };
+        /**
+         * ValidRow
+         * @description Fila lista para insertar (cleaned + validated).
+         */
+        ValidRow: {
+            /** Row Index */
+            row_index: number;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -4116,6 +15524,852 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** ValidationReport */
+        ValidationReport: {
+            /** Entity Type */
+            entity_type: string;
+            /** Total Rows */
+            total_rows: number;
+            /** Valid Rows */
+            valid_rows: number;
+            /** Invalid Rows */
+            invalid_rows?: components["schemas"]["InvalidRow"][];
+            /** Duplicates */
+            duplicates?: components["schemas"]["DuplicateRow"][];
+            /** Valid */
+            valid?: components["schemas"]["ValidRow"][];
+        };
+        /**
+         * VerifyRequest
+         * @description Request para `POST /me/2fa/verify` y `POST /me/2fa/disable`.
+         *
+         *     `code` acepta:
+         *     - 6 dígitos (TOTP del autenticador)
+         *     - 9 chars formato `XXXX-XXXX` (backup code one-time)
+         */
+        VerifyRequest: {
+            /** Code */
+            code: string;
+        };
+        /** VoidRequest */
+        VoidRequest: {
+            /** Reason */
+            reason: string;
+        };
+        /** VoucherApprovalRead */
+        VoucherApprovalRead: {
+            /** Approval Id */
+            approval_id: number;
+            /** Voucher Id */
+            voucher_id: number;
+            /** Approver User Id */
+            approver_user_id: string;
+            /** Role */
+            role: string;
+            /** Order Num */
+            order_num: number;
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "APPROVED" | "REJECTED";
+            /**
+             * Signed At
+             * Format: date-time
+             */
+            signed_at: string;
+            /** Signature Hash */
+            signature_hash: string;
+            /** Ip Address */
+            ip_address: string | null;
+            /** User Agent */
+            user_agent: string | null;
+            /** Comments */
+            comments: string | null;
+        };
+        /**
+         * VoucherApprovalsState
+         * @description Estado completo del flujo de aprobación de un voucher.
+         *
+         *     Devuelve la regla matcheada + roles requeridos + firmas hechas +
+         *     qué falta. Útil para que la UI muestre la botonera correcta.
+         */
+        VoucherApprovalsState: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /** Voucher Status */
+            voucher_status: string;
+            /** Matched Rule Id */
+            matched_rule_id: number | null;
+            /** Matched Rule Descripcion */
+            matched_rule_descripcion: string | null;
+            /** Required Roles */
+            required_roles: string[];
+            /** Reinforced */
+            reinforced: boolean;
+            /** Approvals */
+            approvals: components["schemas"]["VoucherApprovalRead"][];
+            /** Next Pending Role */
+            next_pending_role: string | null;
+            /** Next Pending Order */
+            next_pending_order: number | null;
+            /** Can Current User Sign */
+            can_current_user_sign: boolean;
+            /** Current User Eligible Role */
+            current_user_eligible_role: string | null;
+        };
+        /**
+         * VoucherAttachmentLink
+         * @description URL temporal de Dropbox para descargar el adjunto (vence en 4h).
+         */
+        VoucherAttachmentLink: {
+            /** Attachment Id */
+            attachment_id: number;
+            /** File Name */
+            file_name: string;
+            /** Url */
+            url: string;
+            /**
+             * Expires In Seconds
+             * @default 14400
+             */
+            expires_in_seconds: number;
+        };
+        /** VoucherAttachmentRead */
+        VoucherAttachmentRead: {
+            /** Attachment Id */
+            attachment_id: number;
+            /** Voucher Id */
+            voucher_id: number;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "FACTURA" | "BOLETA" | "CONTRATO" | "COTIZACION" | "TRANSFERENCIA" | "LIQUIDACION_SUELDO" | "ACTA" | "RESPALDO_TECNICO" | "OTRO";
+            /** File Name */
+            file_name: string;
+            /** Dropbox Path */
+            dropbox_path: string;
+            /** File Hash */
+            file_hash: string | null;
+            /** Mime Type */
+            mime_type: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /** Uploaded By */
+            uploaded_by: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+        };
+        /**
+         * VoucherCreate
+         * @description POST /vouchers — crear voucher con sus líneas en una transacción.
+         *
+         *     Si `status` se omite, queda en `DRAFT` (permite descuadre temporal).
+         *     Para crear directamente en `PENDING` (raro), las líneas tienen que
+         *     cuadrar.
+         */
+        VoucherCreate: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /**
+             * Status
+             * @default DRAFT
+             * @enum {string}
+             */
+            status: "DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID";
+            /**
+             * Fecha Documento
+             * Format: date
+             */
+            fecha_documento: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Fecha Ejecucion */
+            fecha_ejecucion?: string | null;
+            /** Glosa */
+            glosa: string;
+            /**
+             * Moneda
+             * @default CLP
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Exchange Rate */
+            exchange_rate?: number | string | null;
+            /** Contraparte Rut */
+            contraparte_rut?: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre?: string | null;
+            /** Contraparte Tipo */
+            contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            /** Doc Tributario Folio */
+            doc_tributario_folio?: string | null;
+            /** Doc Tributario Sii Track Id */
+            doc_tributario_sii_track_id?: string | null;
+            /** Banco */
+            banco?: string | null;
+            /** Banco Cuenta Alias */
+            banco_cuenta_alias?: string | null;
+            /**
+             * Threshold Aplicado
+             * @default false
+             */
+            threshold_aplicado: boolean;
+            /** Reversal Of */
+            reversal_of?: number | null;
+            /** Lines */
+            lines: components["schemas"]["VoucherLineCreate"][];
+        };
+        /**
+         * VoucherFromFacturaRequest
+         * @description POST /vouchers/from-factura-pdf — crea voucher DRAFT desde factura PDF.
+         *
+         *     Usa document_analyzer_service (Claude) para extraer:
+         *       - proveedor_rut + proveedor_nombre
+         *       - numero_factura (folio)
+         *       - fecha
+         *       - monto_neto + iva + total
+         *       - descripcion (glosa)
+         *
+         *     Y crea un voucher tipo COMPRA en estado DRAFT con esos datos
+         *     pre-llenados. El user revisa, completa imputación contable
+         *     (cuenta + proyecto + área), y envía a aprobación.
+         */
+        VoucherFromFacturaRequest: {
+            /**
+             * Empresa Codigo
+             * @description Empresa que recibe la factura
+             */
+            empresa_codigo: string;
+            /**
+             * Dropbox Path
+             * @description Path en Dropbox del PDF
+             */
+            dropbox_path: string;
+        };
+        /** VoucherFromFacturaResponse */
+        VoucherFromFacturaResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Voucher Codigo */
+            voucher_codigo: string;
+            /** Extracted */
+            extracted: {
+                [key: string]: unknown;
+            };
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+        };
+        /**
+         * VoucherLineCreate
+         * @description Una línea debe/haber con imputación triple.
+         */
+        VoucherLineCreate: {
+            /**
+             * Line Number
+             * @description Orden dentro del voucher
+             */
+            line_number: number;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Proyecto Codigo */
+            proyecto_codigo?: string | null;
+            /** Area Codigo */
+            area_codigo?: string | null;
+            /**
+             * Debit
+             * @default 0
+             */
+            debit: number | string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: number | string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Iva Tratamiento */
+            iva_tratamiento?: ("AFECTO" | "EXENTO" | "NO_GRAVADO" | "NA") | null;
+            /** Iva Amount */
+            iva_amount?: number | string | null;
+            /** Neto Amount */
+            neto_amount?: number | string | null;
+            /**
+             * Balance Treatment
+             * @default NA
+             * @enum {string}
+             */
+            balance_treatment: "GASTO" | "ACTIVACION" | "NA";
+        };
+        /** VoucherLineRead */
+        VoucherLineRead: {
+            /**
+             * Line Number
+             * @description Orden dentro del voucher
+             */
+            line_number: number;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Proyecto Codigo */
+            proyecto_codigo?: string | null;
+            /** Area Codigo */
+            area_codigo?: string | null;
+            /**
+             * Debit
+             * @default 0
+             */
+            debit: string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Iva Tratamiento */
+            iva_tratamiento?: ("AFECTO" | "EXENTO" | "NO_GRAVADO" | "NA") | null;
+            /** Iva Amount */
+            iva_amount?: string | null;
+            /** Neto Amount */
+            neto_amount?: string | null;
+            /**
+             * Balance Treatment
+             * @default NA
+             * @enum {string}
+             */
+            balance_treatment: "GASTO" | "ACTIVACION" | "NA";
+            /** Line Id */
+            line_id: number;
+            /** Voucher Id */
+            voucher_id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * VoucherListItem
+         * @description GET /vouchers — vista de lista, sin líneas.
+         */
+        VoucherListItem: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID";
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Glosa */
+            glosa: string;
+            /** Total Debit */
+            total_debit: string;
+            /** Total Credit */
+            total_credit: string;
+            /**
+             * Moneda
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Threshold Aplicado */
+            threshold_aplicado: boolean;
+            /** Source */
+            source?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** VoucherNoConciliado */
+        VoucherNoConciliado: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Tipo */
+            tipo: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Fecha Ejecucion */
+            fecha_ejecucion: string | null;
+            /** Glosa */
+            glosa: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Contraparte Rut */
+            contraparte_rut: string | null;
+            /** Total Debit */
+            total_debit: string;
+            /** Moneda */
+            moneda: string;
+        };
+        /**
+         * VoucherRead
+         * @description GET /vouchers/{id} — voucher con todas sus relaciones cargadas.
+         */
+        VoucherRead: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID";
+            /**
+             * Fecha Documento
+             * Format: date
+             */
+            fecha_documento: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Fecha Ejecucion */
+            fecha_ejecucion: string | null;
+            /** Glosa */
+            glosa: string;
+            /** Total Debit */
+            total_debit: string;
+            /** Total Credit */
+            total_credit: string;
+            /**
+             * Moneda
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Exchange Rate */
+            exchange_rate: string | null;
+            /** Contraparte Rut */
+            contraparte_rut: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Contraparte Tipo */
+            contraparte_tipo: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            /** Doc Tributario Folio */
+            doc_tributario_folio: string | null;
+            /** Doc Tributario Sii Track Id */
+            doc_tributario_sii_track_id: string | null;
+            /** Banco */
+            banco: string | null;
+            /** Banco Cuenta Alias */
+            banco_cuenta_alias: string | null;
+            /** Movimiento Id */
+            movimiento_id: number | null;
+            /** Threshold Aplicado */
+            threshold_aplicado: boolean;
+            /** Reversal Of */
+            reversal_of: number | null;
+            /** Reversed By */
+            reversed_by: number | null;
+            /** Nubox Folio */
+            nubox_folio: string | null;
+            /** Nubox Synced At */
+            nubox_synced_at: string | null;
+            /** Nubox Status */
+            nubox_status: string | null;
+            /** Rejection Reason */
+            rejection_reason: string | null;
+            /** Void Reason */
+            void_reason: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Requested By */
+            requested_by: string | null;
+            /** Source */
+            source?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Lines */
+            lines: components["schemas"]["VoucherLineRead"][];
+        };
+        /**
+         * VoucherTemplateCreate
+         * @description POST /vouchers/templates — crea plantilla nueva (manual o desde voucher).
+         */
+        VoucherTemplateCreate: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /** Glosa Default */
+            glosa_default: string;
+            /**
+             * Moneda
+             * @default CLP
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Lines */
+            lines: components["schemas"]["TemplateLineCreate"][];
+            /** Contraparte Rut */
+            contraparte_rut?: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre?: string | null;
+            /** Contraparte Tipo */
+            contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+        };
+        /**
+         * VoucherTemplateListItem
+         * @description GET /vouchers/templates — vista de lista, sin lines.
+         */
+        VoucherTemplateListItem: {
+            /** Template Id */
+            template_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /**
+             * Moneda
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Activo */
+            activo: boolean;
+            /** Use Count */
+            use_count: number;
+            /** Last Used At */
+            last_used_at: string | null;
+        };
+        /**
+         * VoucherTemplateRead
+         * @description GET /vouchers/templates/{id} — plantilla completa.
+         */
+        VoucherTemplateRead: {
+            /** Template Id */
+            template_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /** Glosa Default */
+            glosa_default: string;
+            /**
+             * Moneda
+             * @enum {string}
+             */
+            moneda: "CLP" | "UF" | "USD" | "EUR";
+            /** Lines */
+            lines: {
+                [key: string]: unknown;
+            }[];
+            /** Contraparte Rut */
+            contraparte_rut: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Contraparte Tipo */
+            contraparte_tipo: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            /** Activo */
+            activo: boolean;
+            /** Use Count */
+            use_count: number;
+            /** Last Used At */
+            last_used_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * VoucherTemplateUpdate
+         * @description PATCH /vouchers/templates/{id} — edita plantilla existente.
+         */
+        VoucherTemplateUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Glosa Default */
+            glosa_default?: string | null;
+            /** Activo */
+            activo?: boolean | null;
+            /** Lines */
+            lines?: components["schemas"]["TemplateLineCreate"][] | null;
+            /** Contraparte Rut */
+            contraparte_rut?: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre?: string | null;
+            /** Contraparte Tipo */
+            contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+        };
+        /**
+         * VoucherUpdate
+         * @description PATCH /vouchers/{id} — solo se permite mientras DRAFT (validado en endpoint).
+         *
+         *     Status NO se cambia con PATCH — usar acciones específicas:
+         *       POST /vouchers/{id}/submit   → DRAFT → PENDING
+         *       POST /vouchers/{id}/reject   → PENDING → REJECTED
+         *       POST /vouchers/{id}/void     → cualquier estado activo → VOID
+         */
+        VoucherUpdate: {
+            /** Glosa */
+            glosa?: string | null;
+            /** Fecha Documento */
+            fecha_documento?: string | null;
+            /** Fecha Contable */
+            fecha_contable?: string | null;
+            /** Fecha Ejecucion */
+            fecha_ejecucion?: string | null;
+            /** Contraparte Rut */
+            contraparte_rut?: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre?: string | null;
+            /** Contraparte Tipo */
+            contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            /** Doc Tributario Folio */
+            doc_tributario_folio?: string | null;
+            /** Banco */
+            banco?: string | null;
+            /** Banco Cuenta Alias */
+            banco_cuenta_alias?: string | null;
+        };
+        /**
+         * VouchersKpisResponse
+         * @description KPIs del módulo Vouchers para el CEO Dashboard.
+         *
+         *     Una sola query agregada que cuenta vouchers por estado + montos +
+         *     items urgentes. La UI consume esto y muestra cards Apple-tier en
+         *     el dashboard principal.
+         */
+        VouchersKpisResponse: {
+            /** Pendientes Firma */
+            pendientes_firma: number;
+            /** Pendientes Firma Monto */
+            pendientes_firma_monto: string;
+            /** Aprobados Sin Ejecutar */
+            aprobados_sin_ejecutar: number;
+            /** No Conciliados */
+            no_conciliados: number;
+            /** No Conciliados Monto */
+            no_conciliados_monto: string;
+            /** Batches Nubox Pendientes */
+            batches_nubox_pendientes: number;
+            /** Vouchers Reforzados Pendientes */
+            vouchers_reforzados_pendientes: number;
+            /** Last Voucher Fecha */
+            last_voucher_fecha: string | null;
+        };
+        /** WebhookDeliveryRead */
+        WebhookDeliveryRead: {
+            /** Id */
+            id: string;
+            /** Subscription Id */
+            subscription_id: string;
+            /** Event Type */
+            event_type: string;
+            /** Payload */
+            payload: {
+                [key: string]: unknown;
+            };
+            /** Status Code */
+            status_code: number | null;
+            /** Response Body */
+            response_body: string | null;
+            /** Error */
+            error: string | null;
+            /** Attempt */
+            attempt: number;
+            /** Delivered At */
+            delivered_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** WebhookSubscriptionCreate */
+        WebhookSubscriptionCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Target Url
+             * Format: uri
+             */
+            target_url: string;
+            /** Events */
+            events: ("oc.created" | "oc.paid" | "oc.cancelled" | "f29.created" | "f29.due" | "f29.paid" | "legal.created" | "legal.due" | "trabajador.created" | "trabajador.deleted" | "lp.created" | "lp_document.created" | "entregable.due" | "etl.completed" | "etl.failed" | "audit.high_severity" | "test")[];
+            /** Description */
+            description?: string | null;
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
+        };
+        /** WebhookSubscriptionRead */
+        WebhookSubscriptionRead: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Target Url */
+            target_url: string;
+            /** Events */
+            events: string[];
+            /** Description */
+            description: string | null;
+            /** Active */
+            active: boolean;
+            /** Secret Hint */
+            secret_hint: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** WebhookSubscriptionUpdate */
+        WebhookSubscriptionUpdate: {
+            /** Name */
+            name?: string | null;
+            /** Target Url */
+            target_url?: string | null;
+            /** Events */
+            events?: ("oc.created" | "oc.paid" | "oc.cancelled" | "f29.created" | "f29.due" | "f29.paid" | "legal.created" | "legal.due" | "trabajador.created" | "trabajador.deleted" | "lp.created" | "lp_document.created" | "entregable.due" | "etl.completed" | "etl.failed" | "audit.high_severity" | "test")[] | null;
+            /** Description */
+            description?: string | null;
+            /** Active */
+            active?: boolean | null;
+        };
+        /**
+         * WebhookSubscriptionWithSecret
+         * @description Devuelto SOLO al crear — incluye el secret crudo una sola vez.
+         */
+        WebhookSubscriptionWithSecret: {
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Target Url */
+            target_url: string;
+            /** Events */
+            events: string[];
+            /** Description */
+            description: string | null;
+            /** Active */
+            active: boolean;
+            /** Secret Hint */
+            secret_hint: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Secret */
+            secret: string;
+        };
+        /**
+         * WebhookTestRequest
+         * @description Body para POST /webhooks/{id}/test — dispara un evento `test` ahora.
+         */
+        WebhookTestRequest: {
+            /** Sample Payload */
+            sample_payload?: {
+                [key: string]: unknown;
+            } | null;
         };
     };
     responses: never;
@@ -4142,6 +16396,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    health_detailed_api_v1_health_detailed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailedHealthResponse"];
+                };
+            };
+        };
+    };
+    perf_health_api_v1_health_perf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PerfResponse"];
                 };
             };
         };
@@ -4281,6 +16575,7 @@ export interface operations {
                 page?: number;
                 size?: number;
                 search?: string | null;
+                with_counts?: boolean;
             };
             header?: {
                 authorization?: string | null;
@@ -4332,6 +16627,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProveedorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_duplicate_groups_api_v1_proveedores_duplicates_get: {
+        parameters: {
+            query?: {
+                limit_groups?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicateProveedorGroup"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_proveedores_api_v1_proveedores_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+                with_counts?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProveedorSearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_by_rut_api_v1_proveedores_search_by_rut_get: {
+        parameters: {
+            query: {
+                rut: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProveedorSearchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    merge_proveedor_into_api_v1_proveedores__source_id__merge_into__target_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                source_id: number;
+                target_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeProveedorResponse"];
                 };
             };
             /** @description Validation Error */
@@ -4433,6 +16863,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProveedorRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_empresa_api_v1_catalogos_empresas__codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_empresa_api_v1_catalogos_empresas__codigo__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmpresaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaRead"];
                 };
             };
             /** @description Validation Error */
@@ -4800,6 +17300,107 @@ export interface operations {
             };
         };
     };
+    get_vouchers_kpis_api_v1_dashboard_vouchers_kpis_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VouchersKpisResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    oc_extract_from_text_api_v1_ordenes_compra_extract_from_text_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OcExtractFromTextRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcExtractFromUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcExtractFromUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_ocs_api_v1_ordenes_compra_get: {
         parameters: {
             query?: {
@@ -4904,6 +17505,37 @@ export interface operations {
             };
         };
     };
+    delete_oc_api_v1_ordenes_compra__oc_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_oc_api_v1_ordenes_compra__oc_id__patch: {
         parameters: {
             query?: never;
@@ -4923,6 +17555,74 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrdenCompraRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_oc_html_api_v1_ordenes_compra__oc_id__html_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_oc_api_v1_ordenes_compra__oc_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateOcRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4978,6 +17678,76 @@ export interface operations {
             };
         };
     };
+    bulk_update_estado_api_v1_ordenes_compra_bulk_update_estado_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUpdateEstadoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkUpdateResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_ocs_csv_api_v1_ordenes_compra_import_csv_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_ocs_csv_api_v1_ordenes_compra_import_csv_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcImportCsvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_movimientos_api_v1_movimientos_get: {
         parameters: {
             query?: {
@@ -5004,6 +17774,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_MovimientoRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_manual_movimiento_api_v1_movimientos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MovimientoManualCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovimientoRead"];
                 };
             };
             /** @description Validation Error */
@@ -5193,6 +17998,455 @@ export interface operations {
             };
         };
     };
+    sync_f29_dropbox_api_v1_f29_sync_dropbox__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_update_estado_f29_api_v1_f29_bulk_update_estado_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUpdateEstadoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkUpdateResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_f22_api_v1_f22_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                empresa_codigo?: string | null;
+                estado?: string | null;
+                ano_tributario?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_F22Read_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_f22_api_v1_f22_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["F22Create"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F22Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_f22_api_v1_f22__f22_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                f22_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F22Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_f22_api_v1_f22__f22_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                f22_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_f22_api_v1_f22__f22_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                f22_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["F22Update"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F22Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    marcar_pagado_api_v1_f22__f22_id__marcar_pagado_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                f22_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["F22EstadoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F22Read"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_dropbox_api_v1_f22_sync_dropbox__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_all_empresas_api_v1_cartolas_sync_all_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_cartolas_api_v1_cartolas_sync__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartolasSyncResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cartolas_runs_api_v1_cartolas_runs_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                status?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartolaRunRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cartola_run_api_v1_cartolas_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CartolaRunRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_suscripciones_api_v1_suscripciones_get: {
         parameters: {
             query?: {
@@ -5263,6 +18517,74 @@ export interface operations {
             };
         };
     };
+    delete_suscripcion_api_v1_suscripciones__suscripcion_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                suscripcion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_suscripcion_api_v1_suscripciones__suscripcion_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                suscripcion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuscripcionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuscripcionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     totals_per_empresa_api_v1_suscripciones_totals_get: {
         parameters: {
             query?: never;
@@ -5281,6 +18603,287 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuscripcionResumen"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_contratos_api_v1_lp_contratos_get: {
+        parameters: {
+            query?: {
+                estado?: ("PROMETIDO" | "SUSCRITO" | "PAGADO" | "INCUMPLIDO" | "RESUELTO") | null;
+                serie?: ("A" | "B") | null;
+                tipo?: ("PROMESA" | "DEFINITIVO") | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpContratoRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_contrato_api_v1_lp_contratos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LpContratoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpContratoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    contratos_summary_api_v1_lp_contratos_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_contrato_api_v1_lp_contratos__contrato_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                contrato_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpContratoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_contrato_api_v1_lp_contratos__contrato_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                contrato_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LpContratoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpContratoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pagar_contrato_api_v1_lp_contratos__contrato_id__pagar_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                contrato_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PagarRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PagarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    marcar_suscrito_api_v1_lp_contratos__contrato_id__marcar_suscrito_post: {
+        parameters: {
+            query?: {
+                fecha_suscripcion?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                contrato_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpContratoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolver_contrato_api_v1_lp_contratos__contrato_id__resolver_post: {
+        parameters: {
+            query: {
+                razon: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                contrato_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpContratoRead"];
                 };
             };
             /** @description Validation Error */
@@ -5416,6 +19019,416 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DataQualityReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_actions_api_v1_audit_actions_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                entity_type?: string | null;
+                entity_id?: string | null;
+                user_id?: string | null;
+                action?: string | null;
+                from_date?: string | null;
+                to_date?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AuditLogList_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_action_api_v1_audit_actions__log_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                log_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entity_history_api_v1_audit_entity__entity_type___entity_id__history_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entity_type: string;
+                entity_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_AuditLogList_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_http_mutations_api_v1_audit_http_mutations_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                user_email?: string | null;
+                method?: string | null;
+                status_code_min?: number | null;
+                path_prefix?: string | null;
+                /** @description Solo 4xx/5xx */
+                only_errors?: boolean;
+                /** @description Solo latencia >1000ms */
+                only_slow?: boolean;
+                since_hours?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    http_mutations_summary_api_v1_audit_http_mutations_summary_get: {
+        parameters: {
+            query?: {
+                since_hours?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_scope_violations_api_v1_audit_scope_violations_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                /** @description Filtrar por user_id */
+                user_id?: string | null;
+                /** @description Filtrar por empresa intentada */
+                attempted_empresa?: string | null;
+                since_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_integrity_api_v1_audit_integrity_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bitacora_timeline_api_v1_bitacora_timeline_get: {
+        parameters: {
+            query?: {
+                user_email?: string | null;
+                since_hours?: number;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bitacora_per_user_api_v1_bitacora_user__email__get: {
+        parameters: {
+            query?: {
+                since_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                email: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bitacora_per_empresa_api_v1_bitacora_empresa__codigo__get: {
+        parameters: {
+            query?: {
+                since_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bitacora_summary_api_v1_bitacora_summary_get: {
+        parameters: {
+            query?: {
+                since_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -6039,6 +20052,41 @@ export interface operations {
             };
         };
     };
+    sync_trabajadores_dropbox_api_v1_trabajadores_sync_dropbox__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     delete_documento_api_v1_trabajadores__trabajador_id__documentos__documento_id__delete: {
         parameters: {
             query?: never;
@@ -6059,6 +20107,281 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_ask_api_v1_ai_ask_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AskResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_ask_stream_api_v1_ai_ask_stream_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_generate_acta_api_v1_ai_acta_generate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActaGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActaGenerateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_executive_summary_api_v1_ai_executive_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExecutiveSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_secretaria_tareas_api_v1_ai_secretaria_tareas_post: {
+        parameters: {
+            query?: {
+                /** @description Filtrar por empresa_codigo */
+                empresa?: string | null;
+                /** @description Filtrar por encargado */
+                encargado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretariaBriefResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_insights_generate_api_v1_ai_insights_generate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_insights_list_api_v1_ai_insights_get: {
+        parameters: {
+            query?: {
+                /** @description Si True, incluye los insights archivados */
+                include_dismissed?: boolean;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiInsightRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_insight_update_api_v1_ai_insights__insight_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                insight_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AiInsightUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiInsightRead"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -6341,6 +20664,41 @@ export interface operations {
             };
         };
     };
+    ask_data_qa_api_v1_ai_data_qa_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataQARequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataQAResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_legal_api_v1_legal_get: {
         parameters: {
             query?: {
@@ -6586,6 +20944,41 @@ export interface operations {
             };
         };
     };
+    sync_legal_dropbox_api_v1_legal_sync_dropbox__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     download_legal_api_v1_legal__documento_id__download_get: {
         parameters: {
             query?: never;
@@ -6606,6 +20999,141 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_legal_versions_api_v1_legal__documento_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentVersionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_legal_version_api_v1_legal__documento_id__versions__version_number__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+                version_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentVersionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compare_legal_version_api_v1_legal__documento_id__versions__version_number__compare_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+                version_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentVersionCompareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_legal_version_api_v1_legal__documento_id__versions__version_number__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                documento_id: number;
+                version_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocumentRead"];
                 };
             };
             /** @description Validation Error */
@@ -6674,6 +21202,200 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_alerts_api_v1_notifications_regenerate_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateAlertsReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_inbox_api_v1_inbox_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                unread?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_NotificationRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unread_count_api_v1_inbox_unread_count_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_inbox__notification_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_all_read_api_v1_inbox_mark_all_read_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_alerts_api_v1_inbox_generate_alerts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateAlertsReport"];
                 };
             };
             /** @description Validation Error */
@@ -7237,6 +21959,252 @@ export interface operations {
             };
         };
     };
+    import_gantt_preview_api_v1_avance__empresa_codigo__import_excel_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_gantt_preview_api_v1_avance__empresa_codigo__import_excel_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GanttImportPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_gantt_commit_api_v1_avance__empresa_codigo__import_excel_commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_gantt_commit_api_v1_avance__empresa_codigo__import_excel_commit_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GanttImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_gantt_from_dropbox_api_v1_avance__empresa_codigo__import_excel_sync_from_dropbox_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GanttImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_all_gantts_from_dropbox_api_v1_avance_sync_all_from_dropbox_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GanttSyncAllResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_imported_proyectos_api_v1_avance__empresa_codigo__import_excel_proyectos_importados_delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number | string;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upcoming_tasks_api_v1_avance_portfolio_upcoming_tasks_get: {
+        parameters: {
+            query?: {
+                /** @description Filtrar por empresa_codigo */
+                empresa?: string | null;
+                /** @description Filtrar por encargado */
+                encargado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpcomingTasksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quick_edit_hito_api_v1_avance_hitos__hito_id__quick_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                hito_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HitoQuickEdit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HitoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_events_api_v1_calendar_events_get: {
         parameters: {
             query?: {
@@ -7396,6 +22364,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CalendarEventRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_obligations_api_v1_calendar_obligations_get: {
+        parameters: {
+            query?: {
+                from_date?: string | null;
+                to_date?: string | null;
+                empresa_codigo?: string | null;
+                tipo?: ("f29" | "f22" | "legal" | "oc" | "suscripcion" | "event" | "hito" | "entregable") | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ObligationItem"][];
                 };
             };
             /** @description Validation Error */
@@ -7676,6 +22680,72 @@ export interface operations {
             };
         };
     };
+    list_empresas_flat_api_v1_empresa_get: {
+        parameters: {
+            query?: {
+                solo_activas?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_all_dropbox_api_v1_empresa__empresa_codigo__sync_all_dropbox_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncAllDropboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     resumen_cc_api_v1_empresa__empresa_codigo__resumen_cc_get: {
         parameters: {
             query?: {
@@ -7916,6 +22986,7169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProyectadoVsRealRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_empresa_logo_api_v1_empresa__empresa_codigo__logo_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_empresa_logo_api_v1_empresa__empresa_codigo__logo_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_empresa_logo_url_api_v1_empresa__empresa_codigo__logo_url_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_uploaded_document_api_v1_documents_analyze_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_analyze_uploaded_document_api_v1_documents_analyze_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentExtraction"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    global_search_api_v1_search_get: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_entity_xlsx_api_v1_exports__entity_type__xlsx_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                estado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entity_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    digest_preview_api_v1_digest_ceo_weekly_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CEODigestPayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    digest_preview_html_api_v1_digest_ceo_weekly_preview_html_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    digest_send_now_api_v1_digest_ceo_weekly_send_now_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DigestSendRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestSendResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entregables_digest_preview_api_v1_digest_entregables_weekly_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntregablesDigestPayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entregables_digest_preview_html_api_v1_digest_entregables_weekly_preview_html_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entregables_digest_send_now_api_v1_digest_entregables_weekly_send_now_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DigestSendRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DigestSendResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_views_api_v1_me_views_get: {
+        parameters: {
+            query?: {
+                page?: ("oc" | "f29" | "trabajadores" | "proveedores" | "legal" | "fondos" | "entregables" | "cartas_gantt" | "suscripciones" | "calendario") | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_view_api_v1_me_views_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_view_api_v1_me_views__view_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_view_api_v1_me_views__view_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    status_2fa_api_v1_me_2fa_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enroll_2fa_api_v1_me_2fa_enroll_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrollResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_2fa_api_v1_me_2fa_verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_2fa_api_v1_me_2fa_disable_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DisableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_backup_codes_api_v1_me_2fa_regenerate_backup_codes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupCodesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_preference_api_v1_me_preferences__key__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_preference_api_v1_me_preferences__key__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferenceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPreferenceRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_sidebar_state_api_v1_me_sidebar_state_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SidebarStateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_my_empresas_api_v1_me_empresas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dry_run_api_v1_bulk_import__entity_type__dry_run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entity_type: "trabajadores" | "fondos" | "proveedores";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_dry_run_api_v1_bulk_import__entity_type__dry_run_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidationReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_api_v1_bulk_import__entity_type__execute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entity_type: "trabajadores" | "fondos" | "proveedores";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecuteImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_system_status_api_v1_admin_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rates_api_v1_currency_rates_get: {
+        parameters: {
+            query?: {
+                currency?: string | null;
+                from_date?: string | null;
+                to_date?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurrencyRateRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    latest_rates_api_v1_currency_latest_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LatestRatesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    convert_amount_api_v1_currency_convert_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_today_api_v1_currency_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_event_types_api_v1_webhooks_event_types_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string[];
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_subscriptions_api_v1_webhooks_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscriptionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_subscription_api_v1_webhooks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookSubscriptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscriptionWithSecret"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_subscription_api_v1_webhooks__sub_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sub_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_subscription_api_v1_webhooks__sub_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sub_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookSubscriptionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSubscriptionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_subscription_api_v1_webhooks__sub_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sub_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookTestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deliveries_api_v1_webhooks__sub_id__deliveries_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sub_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_WebhookDeliveryRead_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_events_api_v1_stream_events_get: {
+        parameters: {
+            query?: {
+                _authorization?: string | null;
+                token?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_tokens_api_v1_api_tokens_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_api_token_api_v1_api_tokens_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenWithSecret"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_api_token_api_v1_api_tokens__token_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_api_token_api_v1_api_tokens__token_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    portfolio_consolidated_api_v1_portfolio_consolidated_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioConsolidated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_entregables_api_v1_entregables_get: {
+        parameters: {
+            query?: {
+                categoria?: ("CMF" | "CORFO" | "UAF" | "SII" | "INTERNO" | "AUDITORIA" | "ASAMBLEA" | "OPERACIONAL") | null;
+                estado?: ("pendiente" | "en_proceso" | "entregado" | "no_entregado") | null;
+                anio?: number | null;
+                mes?: number | null;
+                desde?: string | null;
+                hasta?: string | null;
+                /** @description Match parcial case-insensitive */
+                responsable?: string | null;
+                /** @description Filtra por subcategoria o extra.empresa_codigo */
+                empresa?: string | null;
+                /** @description Búsqueda libre en nombre/descripcion/notas */
+                q?: string | null;
+                /** @description Solo entregables en alerta activa */
+                only_alerta?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntregableRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_entregable_api_v1_entregables_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntregableCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntregableRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_facets_api_v1_entregables_facets_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string[];
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_counts_api_v1_entregables_counts_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntregableEstadosCounts"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    critical_count_api_v1_entregables_critical_count_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CriticalCount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compliance_grade_empresa_api_v1_entregables_compliance_grade__empresa_codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceGradeEmpresa"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    compliance_grade_report_api_v1_entregables_compliance_grade_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceGradeReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reporte_cv_xlsx_api_v1_entregables_reporte_cv_xlsx_get: {
+        parameters: {
+            query?: {
+                /** @description Si se pasa, filtra el reporte a una sola empresa (match contra subcategoria o extra.empresa_codigo). Útil para acta empresa-específica. */
+                empresa?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reporte_regulatorio_api_v1_entregables_reporte_regulatorio_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReporteRegulatorio"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_entregable_api_v1_entregables__entregable_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entregable_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntregableRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_entregable_api_v1_entregables__entregable_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entregable_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_entregable_api_v1_entregables__entregable_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                entregable_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntregableUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntregableRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_update_entregables_api_v1_entregables_bulk_update_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_reassign_entregables_api_v1_entregables_bulk_reassign_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkReassignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkReassignResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    entregables_ics_api_v1_entregables_calendar_ics_get: {
+        parameters: {
+            query?: {
+                /** @description Default: hoy - 30 días (para que aparezcan vencidos) */
+                desde?: string | null;
+                /** @description Default: hoy + 365 días */
+                hasta?: string | null;
+                estado?: ("pendiente" | "en_proceso" | "entregado" | "no_entregado") | null;
+                empresa?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generar_serie_api_v1_entregables_serie_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerarSerieRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerarSerieResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extend_forward_api_v1_entregables_extend_forward_post: {
+        parameters: {
+            query?: {
+                /** @description Si quedan ≤ horizon_days de instancias futuras, se genera el año siguiente */
+                horizon_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_entregables_csv_api_v1_entregables_import_csv_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_entregables_csv_api_v1_entregables_import_csv_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CsvImportResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_lps_api_v1_lps_get: {
+        parameters: {
+            query?: {
+                estado?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_lp_api_v1_lps_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LpCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lp_api_v1_lps__lp_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_lp_api_v1_lps__lp_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_lp_api_v1_lps__lp_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LpUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_informe_api_v1_informes_lp_generate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformeLpGenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_informes_api_v1_informes_lp_get: {
+        parameters: {
+            query?: {
+                estado?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_informe_api_v1_informes_lp__informe_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                informe_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_informe_api_v1_informes_lp__informe_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                informe_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_informe_api_v1_informes_lp__informe_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                informe_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformeLpUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dispatch_notifications_api_v1_informes_lp_admin_dispatch_notifications_post: {
+        parameters: {
+            query?: {
+                dry_run?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    admin_analytics_api_v1_informes_lp_admin_analytics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformesAnalytics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_narrative_api_v1_informes_lp__informe_id__regenerate_narrative_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                informe_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_informe_by_token_api_v1_informes_lp_by_token__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpPublicView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    track_event_api_v1_informes_lp_by_token__token__track_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrackEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrackEventResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    share_informe_api_v1_informes_lp_by_token__token__share_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InformeLpShareRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InformeLpShareResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_policies_api_v1_policies_fondo_get: {
+        parameters: {
+            query?: {
+                tipo?: ("reglamento_interno" | "manual_uaf" | "codigo_etica" | "politica_pep" | "politica_inversion" | "politica_riesgo" | "politica_conflicto_interes" | "manual_compliance" | "otro") | null;
+                estado?: ("vigente" | "derogada" | "borrador") | null;
+                proxima_revision_desde?: string | null;
+                proxima_revision_hasta?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyFondoRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_policy_api_v1_policies_fondo_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyFondoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyFondoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_policy_api_v1_policies_fondo__policy_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyFondoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_policy_api_v1_policies_fondo__policy_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                policy_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyFondoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyFondoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_lp_documents_api_v1_lps__lp_id__documents_get: {
+        parameters: {
+            query?: {
+                tipo?: ("contrato_suscripcion" | "kyc" | "ddq" | "side_letter" | "aml_pep" | "recibo_aporte" | "acta_aprobacion" | "w8_w9_tax" | "dni_pasaporte" | "power_of_attorney" | "otro") | null;
+                estado?: ("vigente" | "vencido" | "borrador" | "archivado") | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpDocumentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_lp_document_api_v1_lps__lp_id__documents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LpDocumentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lp_document_api_v1_lps__lp_id__documents__lp_doc_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+                lp_doc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_lp_document_api_v1_lps__lp_id__documents__lp_doc_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+                lp_doc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_lp_document_api_v1_lps__lp_id__documents__lp_doc_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                lp_id: number;
+                lp_doc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LpDocumentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpDocumentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_fondo_actas_api_v1_fondo_actas_get: {
+        parameters: {
+            query?: {
+                tipo_organo?: ("directorio_afis" | "comite_inversion" | "asamblea_lps" | "comite_vigilancia" | "comite_riesgo" | "otro") | null;
+                estado?: ("borrador" | "aprobada" | "firmada" | "archivada") | null;
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoActaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_fondo_acta_api_v1_fondo_actas_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FondoActaCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoActaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_fondo_acta_api_v1_fondo_actas__acta_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                acta_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoActaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_fondo_acta_api_v1_fondo_actas__acta_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                acta_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_fondo_acta_api_v1_fondo_actas__acta_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                acta_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FondoActaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoActaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_cuentas_summary_api_v1_admin_plan_cuentas_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentasSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_plan_cuentas_api_v1_admin_plan_cuentas_import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_plan_cuentas_api_v1_admin_plan_cuentas_import_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPlanCuentasReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_plan_cuentas_api_v1_plan_cuentas_get: {
+        parameters: {
+            query?: {
+                nivel?: number | null;
+                tipo?: ("ACTIVO" | "PASIVO" | "PATRIMONIO" | "INGRESO" | "GASTO" | "RESULTADO" | "ORDEN") | null;
+                imputable?: boolean | null;
+                corfo_elegible?: boolean | null;
+                activa?: boolean | null;
+                /** @description Si se pasa, solo devuelve cuentas habilitadas para esa empresa */
+                empresa_codigo?: string | null;
+                /** @description Busca en codigo y nombre (case-insensitive) */
+                search?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_cuentas_tree_api_v1_plan_cuentas_tree_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                only_active?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentaTreeNode"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_plan_cuenta_api_v1_plan_cuentas__codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_plan_cuenta_api_v1_plan_cuentas__codigo__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanCuentaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cuenta_empresas_api_v1_plan_cuentas__codigo__empresas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentaEmpresaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_cuenta_empresa_api_v1_plan_cuentas__codigo__empresas__empresa_codigo__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlanCuentaEmpresaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanCuentaEmpresaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_form_metadata_api_v1_vouchers_form_metadata_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FormMetadataResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_duplicate_voucher_api_v1_vouchers_check_duplicate_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                proveedor_rut: string;
+                numero_documento: string;
+                tipo_documento?: "FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CheckDuplicateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_voucher_nubox_form_api_v1_vouchers_nubox_form_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NuboxFormCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NuboxFormResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_from_text_api_v1_vouchers_extract_from_text_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExtractFromTextRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractFromUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    extract_from_upload_api_v1_vouchers_extract_from_upload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_extract_from_upload_api_v1_vouchers_extract_from_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractFromUploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_templates_api_v1_vouchers_templates_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                activo?: boolean;
+                sort?: "recent" | "most_used" | "alpha";
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTemplateListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_template_api_v1_vouchers_templates_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherTemplateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_template_api_v1_vouchers_templates__template_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_template_api_v1_vouchers_templates__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_template_api_v1_vouchers_templates__template_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherTemplateUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_template_from_voucher_api_v1_vouchers_templates_from_voucher__voucher_id__post: {
+        parameters: {
+            query: {
+                codigo: string;
+                nombre: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherTemplateRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    use_template_api_v1_vouchers_templates__template_id__use_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                template_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateUseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_vouchers_api_v1_vouchers_search_get: {
+        parameters: {
+            query: {
+                q: string;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vouchers_api_v1_vouchers_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                tipo?: ("INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO") | null;
+                status?: ("DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID") | null;
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+                contraparte_rut?: string | null;
+                source?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_voucher_api_v1_vouchers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_vouchers_paginated_api_v1_vouchers_paginated_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+                empresa_codigo?: string | null;
+                tipo?: ("INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO") | null;
+                status?: ("DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID") | null;
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+                contraparte_rut?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PaginatedVouchersResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vouchers_stats_by_source_api_v1_vouchers_stats_by_source_get: {
+        parameters: {
+            query?: {
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    vouchers_counts_api_v1_vouchers_counts_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voucher_api_v1_vouchers__voucher_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_voucher_api_v1_vouchers__voucher_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_voucher_api_v1_vouchers__voucher_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voucher_html_api_v1_vouchers__voucher_id__html_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_voucher_api_v1_vouchers__voucher_id__submit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    void_voucher_api_v1_vouchers__voucher_id__void_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoidRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_voucher_attachments_api_v1_vouchers__voucher_id__attachments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherAttachmentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherAttachmentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voucher_origen_document_url_api_v1_vouchers__voucher_id__origen_document_url_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherAttachmentLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voucher_attachment_url_api_v1_vouchers__voucher_id__attachments__attachment_id__url_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+                attachment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherAttachmentLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_voucher_attachment_api_v1_vouchers__voucher_id__attachments__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+                attachment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voucher_approvals_state_api_v1_vouchers__voucher_id__approvals_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherApprovalsState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_voucher_api_v1_vouchers__voucher_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherApprovalsState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_voucher_api_v1_vouchers__voucher_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RejectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherApprovalsState"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_voucher_from_factura_pdf_api_v1_vouchers_from_factura_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoucherFromFacturaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherFromFacturaResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_approve_vouchers_api_v1_vouchers_bulk_approve_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkApproveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkApproveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_vouchers_csv_api_v1_vouchers_import_csv_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_vouchers_csv_api_v1_vouchers_import_csv_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportCsvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_proyectos_api_v1_proyectos_contables_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                tipo_financiamiento?: ("CORFO" | "PRIVADO" | "INTERNO" | "FINANCIERO") | null;
+                estado?: ("ACTIVE" | "CLOSED" | "SUSPENDED") | null;
+                search?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoContableRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_proyecto_api_v1_proyectos_contables_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProyectoContableCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoContableRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_proyecto_api_v1_proyectos_contables__codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoContableRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_proyecto_api_v1_proyectos_contables__codigo__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_proyecto_api_v1_proyectos_contables__codigo__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProyectoContableUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoContableRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proyecto_avance_api_v1_proyectos_contables__codigo__avance_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProyectoAvance"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_areas_api_v1_areas_get: {
+        parameters: {
+            query?: {
+                only_active?: boolean;
+                /** @description Si se pasa, solo devuelve áreas que aplican a esa empresa */
+                empresa_codigo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_area_api_v1_areas_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    areas_empresas_matrix_api_v1_areas_empresas_matrix_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaEmpresaMatrix"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_area_api_v1_areas__codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_area_api_v1_areas__codigo__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_area_empresas_api_v1_areas__codigo__empresas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaEmpresaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_area_empresa_api_v1_areas__codigo__empresas__empresa_codigo__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaEmpresaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaEmpresaRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_approval_rules_api_v1_admin_approval_rules_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                only_active?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRuleRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_approval_rule_api_v1_admin_approval_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRuleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRuleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_approval_rule_api_v1_admin_approval_rules__rule_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRuleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_approval_rule_api_v1_admin_approval_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_approval_rule_api_v1_admin_approval_rules__rule_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                rule_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRuleUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalRuleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_user_company_roles_api_v1_admin_user_company_roles_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                user_id?: string | null;
+                only_active?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserCompanyRoleRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assign_user_company_role_api_v1_admin_user_company_roles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCompanyRoleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserCompanyRoleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_user_company_role_api_v1_admin_user_company_roles_delete: {
+        parameters: {
+            query: {
+                user_id: string;
+                empresa_codigo: string;
+                role: "GG" | "COO" | "CONTADOR" | "OPERADOR" | "DIRECTOR" | "TESORERIA";
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_export_batches_api_v1_admin_nubox_export_batches_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                status?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NuboxBatchRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_export_batch_api_v1_admin_nubox_export_batches__batch_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NuboxBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_export_batch_endpoint_api_v1_admin_nubox_export_batch_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NuboxBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_batch_csv_api_v1_admin_nubox_export_batches__batch_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_batch_api_v1_admin_nubox_export_batches__batch_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NuboxBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_batch_api_v1_admin_nubox_export_batches__batch_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                batch_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancelBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NuboxBatchRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_libro_diario_api_v1_reportes_contables_libro_diario_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibroDiarioRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_libro_mayor_api_v1_reportes_contables_libro_mayor_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                cuenta: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibroMayorReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pl_proyecto_api_v1_reportes_contables_pl_proyecto_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PLProyectoRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pl_area_api_v1_reportes_contables_pl_area_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PLAreaRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rendicion_corfo_api_v1_reportes_contables_rendicion_corfo_get: {
+        parameters: {
+            query: {
+                proyecto: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RendicionCorfoReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_libro_diario_html_api_v1_reportes_contables_libro_diario_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_balance_prueba_html_api_v1_reportes_contables_balance_prueba_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                fecha_desde: string;
+                fecha_hasta: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cierre_mensual_html_api_v1_reportes_contables_cierre_mensual_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                anio: number;
+                mes: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_cashflow_mensual_html_api_v1_reportes_contables_cashflow_mensual_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                anio: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pl_mensual_html_api_v1_reportes_contables_pl_mensual_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                anio: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_estado_resultados_html_api_v1_reportes_contables_estado_resultados_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                anio: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_balance_general_html_api_v1_reportes_contables_balance_general_html_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                fecha_corte: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_consolidado_fondo_html_api_v1_reportes_contables_consolidado_fondo_html_get: {
+        parameters: {
+            query: {
+                anio: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reportes_index_api_v1_reportes_contables_index_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conciliacion_summary_api_v1_admin_conciliacion_summary_get: {
+        parameters: {
+            query: {
+                empresa: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConciliacionSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_no_conciliados_api_v1_admin_conciliacion_no_conciliados_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherNoConciliado"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_movimientos_huerfanos_api_v1_admin_conciliacion_movimientos_huerfanos_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MovimientoHuerfano"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auto_run_conciliacion_api_v1_admin_conciliacion_auto_run_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoRunReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_match_candidates_api_v1_vouchers__voucher_id__match_candidates_get: {
+        parameters: {
+            query?: {
+                window_days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchCandidate"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reconcile_voucher_api_v1_vouchers__voucher_id__reconcile_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReconcileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReconcileResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unreconcile_voucher_api_v1_vouchers__voucher_id__unreconcile_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_movimientos_api_v1_admin_reset_movimientos__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetMovimientosBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_f29_api_v1_admin_reset_f29__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_f22_api_v1_admin_reset_f22__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_cartolas_runs_api_v1_admin_reset_cartolas_runs__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_entregables_api_v1_admin_reset_entregables_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetEntregablesBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_gantt_api_v1_admin_reset_gantt__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetConfirm"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResetResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    seed_vouchers_demo_api_v1_admin_vouchers_demo_seed_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeedVouchersRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeedVouchersResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cleanup_vouchers_demo_api_v1_admin_vouchers_demo_cleanup_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_estados_financieros_api_v1_estados_financieros_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                tipo_ef?: ("balance" | "estado_resultados" | "flujo_caja" | "cambios_patrimonio" | "consolidado" | "notas") | null;
+                periodo_tipo?: ("mensual" | "trimestral" | "semestral" | "anual") | null;
+                auditado?: boolean | null;
+                fecha_desde?: string | null;
+                fecha_hasta?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoFinancieroRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_estado_financiero_api_v1_estados_financieros_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstadoFinancieroCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoFinancieroRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_estado_financiero_api_v1_estados_financieros__ef_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ef_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoFinancieroRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_estado_financiero_api_v1_estados_financieros__ef_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ef_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_estado_financiero_api_v1_estados_financieros__ef_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                ef_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstadoFinancieroUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EstadoFinancieroRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_status_api_v1_admin_mailbox_status_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_poll_api_v1_admin_mailbox_poll_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxPollResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    trigger_classify_api_v1_admin_mailbox_classify_post: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxClassifyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mailbox_api_v1_admin_mailbox_get: {
+        parameters: {
+            query?: {
+                status?: string | null;
+                category?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mailbox_item_api_v1_admin_mailbox__inbox_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mailbox_to_voucher_api_v1_admin_mailbox__inbox_id__to_voucher_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailboxToVoucherRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reply_email_api_v1_admin_mailbox__inbox_id__reply_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_email_api_v1_admin_mailbox__inbox_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_email_api_v1_admin_mailbox__inbox_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_archive_api_v1_admin_mailbox_bulk_archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkArchiveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkArchiveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_voucher_api_v1_admin_mailbox__inbox_id__link_voucher_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkVoucherRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_oc_api_v1_admin_mailbox__inbox_id__link_oc_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkOcRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxDetail"];
                 };
             };
             /** @description Validation Error */
