@@ -1211,6 +1211,71 @@ async def upload_voucher_attachment(
 
 
 @router.get(
+    "/vouchers/{voucher_id}/origen-document-url",
+    response_model=VoucherAttachmentLink,
+)
+async def get_voucher_origen_document_url(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    voucher_id: int,
+) -> VoucherAttachmentLink:
+    """V5++ ola CF — URL temporal del documento origen del voucher (Dropbox).
+
+    Si el voucher fue creado via /vouchers/importar con archivo y se subio
+    a Dropbox, su columna `documento_dropbox_path` tiene el path. Este
+    endpoint genera un temporary link (4h) que el FE abre en pestaña nueva
+    para que el user vea el PDF/imagen original.
+
+    Diferente del endpoint /attachments/{id}/url: este es para el archivo
+    de origen (extraido con IA), no para attachments uploaded manualmente.
+    """
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT voucher_id, codigo, empresa_codigo, documento_dropbox_path
+                FROM core.vouchers
+                WHERE voucher_id = :v
+                """
+            ),
+            {"v": voucher_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    if not scope.can_access(row["empresa_codigo"]):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Sin acceso al voucher de empresa '{row['empresa_codigo']}'",
+        )
+    if not row["documento_dropbox_path"]:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Este voucher no tiene documento origen en Dropbox.",
+        )
+    dbx = await _get_dropbox_service(db)
+    try:
+        url = await asyncio.to_thread(
+            dbx.get_temporary_link, row["documento_dropbox_path"]
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo generar URL temporal: {exc}",
+        ) from exc
+    # File name: ultimo segmento del path
+    file_name = row["documento_dropbox_path"].rsplit("/", 1)[-1]
+    return VoucherAttachmentLink(
+        attachment_id=0,  # no es un attachment_id real
+        file_name=file_name,
+        url=url,
+    )
+
+
+@router.get(
     "/vouchers/{voucher_id}/attachments/{attachment_id}/url",
     response_model=VoucherAttachmentLink,
 )

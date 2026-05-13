@@ -531,29 +531,19 @@ export default function VoucherDetailPage({ params }: PageProps) {
         <VoucherReconcileCard voucher={voucher} />
 
         {/* V5++ ola CF — Documento origen: si el voucher tiene un dropbox_path
-            (viene del flujo /vouchers/importar), mostrarlo como link directo
-            arriba del card de adjuntos.
-            Cast: documento_dropbox_path es campo del voucher pero el schema
-            generado puede no exponerlo, asi que usamos cast string indexada. */}
+            (viene del flujo /vouchers/importar), mostrarlo como link clickable
+            que abre el archivo en una pestaña nueva (URL temporal Dropbox 4h). */}
         {(() => {
           const dropboxPath = (voucher as unknown as { documento_dropbox_path?: string | null })
             .documento_dropbox_path;
           if (!dropboxPath) return null;
+          const fileName = dropboxPath.split("/").pop() ?? dropboxPath;
           return (
-            <div className="rounded-2xl border border-sf-blue/20 bg-sf-blue/5 p-4">
-              <p className="text-xs uppercase tracking-wider text-sf-blue mb-2">
-                Documento origen
-              </p>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-ink-700">📎</span>
-                <code className="font-mono text-xs text-ink-600 break-all">
-                  {dropboxPath}
-                </code>
-              </div>
-              <p className="mt-2 text-xs text-ink-500">
-                Archivo original procesado con IA al crear este voucher (Dropbox).
-              </p>
-            </div>
+            <DropboxOrigenCard
+              voucherId={voucher.voucher_id}
+              fileName={fileName}
+              path={dropboxPath}
+            />
           );
         })()}
 
@@ -784,6 +774,80 @@ function VoidDialog({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/**
+ * V5++ ola CF — Card del documento origen (Dropbox).
+ *
+ * Click "Abrir" llama GET /vouchers/{id}/origen-document-url que devuelve
+ * una URL temporal de Dropbox (vence en 4h). Esa URL es publica (token en
+ * el query string) asi que la abrimos directo en window.open — no
+ * necesita header de auth, ya esta autorizado por el get_temporary_link.
+ */
+function DropboxOrigenCard({
+  voucherId,
+  fileName,
+  path,
+}: {
+  voucherId: number;
+  fileName: string;
+  path: string;
+}) {
+  const { session } = useSession();
+  const [loading, setLoading] = useState(false);
+
+  async function handleOpen() {
+    if (!session) {
+      toast.error("Sesión expirada");
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await apiClient.get<{ file_name: string; url: string }>(
+        `/vouchers/${voucherId}/origen-document-url`,
+        session,
+      );
+      window.open(resp.url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : "No se pudo abrir el documento origen.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-sf-blue/20 bg-sf-blue/5 p-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          <p className="text-xs uppercase tracking-wider text-sf-blue mb-2">
+            Documento origen
+          </p>
+          <p className="text-sm font-medium text-ink-900 break-all">
+            📎 {fileName}
+          </p>
+          <p className="mt-1 text-xs text-ink-500 break-all">
+            <code className="font-mono">{path}</code>
+          </p>
+          <p className="mt-2 text-xs text-ink-500">
+            Archivo procesado con IA al crear este voucher. URL temporal
+            válida 4 horas.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={handleOpen}
+          disabled={loading}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-sf-blue px-3.5 py-2 text-sm font-medium text-white hover:bg-sf-blue/90 disabled:opacity-60"
+        >
+          {loading ? "Generando…" : "Abrir →"}
+        </button>
+      </div>
     </div>
   );
 }
