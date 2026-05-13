@@ -523,7 +523,13 @@ async def compliance_grade_empresa(
         - Cuántos a tiempo / atrasados / no entregados
         - % cumplimiento + % a tiempo
         - Nota A/B/C/D/F como score consolidado.
+
+    V5++ ola CG security: scope check sobre empresa_codigo. Sin esto,
+    un user scoped a empresa A podia consultar compliance de empresa B.
+    `assert_empresa_access` estaba importado pero no usado (dead import
+    flagueado por audit de dead-code, llevaba a scope bypass).
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     return await _compute_compliance_for_empresa(db, empresa_codigo)
 
 
