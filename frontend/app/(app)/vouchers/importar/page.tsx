@@ -125,6 +125,36 @@ export default function ImportarVoucherPage() {
   // de useEffect dispara handleUpload del siguiente.
   const [fileQueue, setFileQueue] = useState<File[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
+
+  // V5++ ola CF — Paste desde clipboard. Cuando el user copia una imagen
+  // (WhatsApp Web, screenshot, etc.) y pega en esta pagina con Ctrl+V,
+  // la procesamos como un upload. Util para no tener que descargar a archivo
+  // antes de subir.
+  useEffect(() => {
+    if (step !== "pick") return;
+    function onPaste(e: ClipboardEvent) {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            handleFilesSelected({
+              0: file,
+              length: 1,
+              item: () => file,
+            } as unknown as FileList);
+            toast.info("Imagen pegada desde el clipboard.");
+            return;
+          }
+        }
+      }
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, empresaCodigo]);
   // Prefetch del siguiente archivo en background. Cuando el user esta
   // revisando el archivo N, en paralelo arrancamos el extract de N+1.
   // Al confirmar N, advanceQueue chequea este cache y omite el re-fetch.
@@ -511,8 +541,9 @@ export default function ImportarVoucherPage() {
             <p className="mt-2 text-sm text-ink-500">
               PDF, imagen (JPG/PNG/HEIC/WebP/TIFF/GIF), Office (DOCX/PPTX/XLSX),
               email (EML), HTML, TXT, CSV. Hasta 15MB. Podés arrastrar{" "}
-              <span className="font-medium">varios a la vez</span> y los
-              procesamos uno por uno.
+              <span className="font-medium">varios a la vez</span> o pegar{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[10px]">⌘V</kbd>{" "}
+              una imagen del portapapeles.
             </p>
             <div className="mt-6 flex justify-center gap-3 text-xs text-ink-500">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">

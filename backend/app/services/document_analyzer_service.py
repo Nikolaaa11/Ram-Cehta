@@ -53,7 +53,10 @@ log = structlog.get_logger(__name__)
 
 # Tope de chars enviados al LLM. Subir esto multiplica el costo.
 MAX_TEXT_CHARS = 6000
-MAX_RESPONSE_TOKENS = 1000
+# V5++ ola CF — Ampliado a 2500 porque el schema "factura" ahora pide
+# items detallados (puede tener 5-20 lineas) ademas de los campos basicos.
+# Si crece mas, considerar streaming.
+MAX_RESPONSE_TOKENS = 2500
 MIN_TEXT_CHARS = 20  # bajo esto, el doc es ilegible (PDF de imágenes sin OCR, etc.)
 
 # V4 fase 1 — OCR tunables. Si pypdf devuelve menos chars que este umbral,
