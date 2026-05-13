@@ -231,6 +231,130 @@ async def get_oc(
 _OC_EDITABLE_ESTADOS = {"emitida", "parcial"}
 
 
+# V5++ ola CG — Renderizado HTML branded de OC (para print → PDF)
+@router.get("/{oc_id}.html", response_class=Response)
+async def get_oc_html(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    oc_id: int,
+) -> Response:
+    """Renderiza la OC como HTML branded (con logo de la empresa emisora).
+
+    Print-friendly: el browser convierte a PDF con Ctrl+P sin perder
+    formato. No genera PDF server-side para mantenerlo simple y
+    multi-plataforma.
+
+    Si la empresa tiene logo_dropbox_path, se incluye via URL temporal
+    Dropbox (4h). Sino, fallback a razón social en texto grande.
+    """
+    repo = OrdenCompraRepository(db)
+    oc = await repo.get(oc_id)
+    if not oc:
+        raise HTTPException(status_code=404, detail="OC no encontrada")
+    if not scope.can_access(oc.empresa_codigo):
+        raise HTTPException(status_code=403, detail="Sin acceso a esta OC")
+
+    # Datos de la empresa emisora
+    from sqlalchemy import text as _text
+
+    empresa_row = (
+        await db.execute(
+            _text(
+                """
+                SELECT codigo, razon_social, rut, direccion, ciudad, telefono,
+                       representante_legal, email_firmante, logo_dropbox_path
+                FROM core.empresas
+                WHERE codigo = :cod
+                """
+            ),
+            {"cod": oc.empresa_codigo},
+        )
+    ).mappings().first()
+
+    empresa_dict = dict(empresa_row) if empresa_row else {"codigo": oc.empresa_codigo}
+
+    # Logo URL temporal si hay path
+    logo_url: str | None = None
+    if empresa_dict.get("logo_dropbox_path"):
+        try:
+            from app.infrastructure.repositories.integration_repository import (
+                IntegrationRepository,
+            )
+            from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+            import asyncio as _asyncio
+
+            integration_repo = IntegrationRepository(db)
+            integration = await integration_repo.get_by_provider("dropbox")
+            if integration and integration.access_token:
+                dbx = DropboxService(
+                    access_token=integration.access_token,
+                    refresh_token=integration.refresh_token,
+                )
+                logo_url = await _asyncio.to_thread(
+                    dbx.get_temporary_link, empresa_dict["logo_dropbox_path"]
+                )
+        except Exception:  # noqa: BLE001
+            # Sin logo si Dropbox falla — el render hace fallback a texto
+            pass
+
+    # Datos del proveedor
+    proveedor_dict: dict | None = None
+    if oc.proveedor_id:
+        prov_row = (
+            await db.execute(
+                _text(
+                    """
+                    SELECT razon_social, rut, direccion, email
+                    FROM core.proveedores
+                    WHERE proveedor_id = :pid
+                    """
+                ),
+                {"pid": oc.proveedor_id},
+            )
+        ).mappings().first()
+        if prov_row:
+            proveedor_dict = dict(prov_row)
+
+    # OC dict
+    oc_dict = {
+        "numero_oc": oc.numero_oc,
+        "estado": oc.estado,
+        "fecha_emision": oc.fecha_emision.isoformat(),
+        "validez_dias": oc.validez_dias,
+        "moneda": oc.moneda,
+        "neto": str(oc.neto),
+        "iva": str(oc.iva),
+        "total": str(oc.total),
+        "forma_pago": oc.forma_pago or "",
+        "plazo_pago": oc.plazo_pago or "",
+        "observaciones": oc.observaciones or "",
+    }
+
+    # Items
+    items_list = [
+        {
+            "item": d.item,
+            "descripcion": d.descripcion,
+            "cantidad": str(d.cantidad),
+            "precio_unitario": str(d.precio_unitario),
+            "total_linea": str(d.total_linea) if d.total_linea else "0",
+        }
+        for d in (oc.items or [])
+    ]
+
+    from app.services.report_renderer_service import render_orden_compra_html
+
+    html = render_orden_compra_html(
+        oc=oc_dict,
+        items=items_list,
+        empresa=empresa_dict,
+        proveedor=proveedor_dict,
+        logo_url=logo_url,
+    )
+    return Response(content=html, media_type="text/html")
+
+
 @router.post(
     "/{oc_id}/duplicate",
     response_model=OrdenCompraRead,

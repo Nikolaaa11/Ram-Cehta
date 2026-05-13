@@ -23,6 +23,8 @@ class Empresa(Base):
     representante_legal: Mapped[str | None] = mapped_column(Text)
     email_firmante: Mapped[str | None] = mapped_column(Text)
     oc_prefix: Mapped[str | None] = mapped_column(Text)
+    # V5++ ola CG — Logo path en Dropbox para PDFs branded (OCs, EEFF, etc.)
+    logo_dropbox_path: Mapped[str | None] = mapped_column(Text)
     activo: Mapped[bool] = mapped_column(Boolean, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

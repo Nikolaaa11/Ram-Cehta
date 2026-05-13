@@ -953,3 +953,154 @@ async def proyectado_vs_real(
             )
         )
     return out
+
+
+# =====================================================================
+# V5++ ola CG — Logo de la empresa (para PDFs branded)
+# =====================================================================
+
+class LogoUploadResponse(BaseModel):
+    empresa_codigo: str
+    logo_dropbox_path: str
+    size_bytes: int
+
+
+from fastapi import File, UploadFile
+import structlog as _structlog
+_log_empresa_logo = _structlog.get_logger("empresa_logo")
+
+
+@router.post(
+    "/{empresa_codigo}/logo",
+    response_model=LogoUploadResponse,
+)
+async def upload_empresa_logo(
+    empresa_codigo: str,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("empresa:update"))],
+    db: DBSession,
+    file: Annotated[UploadFile, File(description="Logo PNG/JPG/SVG max 2MB")],
+) -> LogoUploadResponse:
+    """Sube logo via multipart. Lo guarda en Dropbox + DB."""
+    import re as _re
+    import time as _time
+
+    # Validaciones
+    filename = file.filename or "logo.png"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "png"
+    if ext not in {"png", "jpg", "jpeg", "svg", "webp"}:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Formato '.{ext}' no soportado. Usá PNG, JPG, SVG o WebP.",
+        )
+
+    content = await file.read()
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archivo muy grande ({len(content) / 1024:.0f} KB). Max 2 MB.",
+        )
+    if len(content) < 100:
+        raise HTTPException(status_code=400, detail="Archivo vacío o corrupto")
+
+    # Verificar empresa existe
+    empresa = await _get_empresa(db, empresa_codigo)
+
+    # Upload a Dropbox
+    from app.infrastructure.repositories.integration_repository import IntegrationRepository
+    from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+
+    integration_repo = IntegrationRepository(db)
+    integration = await integration_repo.get_by_provider("dropbox")
+    if integration is None or not integration.access_token:
+        raise HTTPException(
+            status_code=503,
+            detail="Dropbox no conectado. Conectalo en /admin/integraciones.",
+        )
+    try:
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+    except DropboxNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    # Naming: logo.<ext> en /00-Branding/ — sobreescribe si existe
+    safe_ext = _re.sub(r"[^a-z]", "", ext.lower())
+    target_path = (
+        f"/Cehta Capital/01-Empresas/{empresa_codigo}/00-Branding/logo.{safe_ext}"
+    )
+
+    try:
+        dbx.upload_file(target_path, content, overwrite=True)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502, detail=f"Fallé subiendo a Dropbox: {exc}"
+        ) from exc
+
+    # Update DB
+    from sqlalchemy import text as _text
+    await db.execute(
+        _text(
+            "UPDATE core.empresas SET logo_dropbox_path = :path, updated_at = now() "
+            "WHERE codigo = :cod"
+        ),
+        {"path": target_path, "cod": empresa_codigo},
+    )
+    await db.commit()
+
+    _log_empresa_logo.info(
+        "empresa.logo.uploaded",
+        empresa=empresa_codigo,
+        path=target_path,
+        size=len(content),
+    )
+
+    return LogoUploadResponse(
+        empresa_codigo=empresa_codigo,
+        logo_dropbox_path=target_path,
+        size_bytes=len(content),
+    )
+
+
+class LogoUrlResponse(BaseModel):
+    url: str
+    expires_in_hours: int = 4
+
+
+@router.get("/{empresa_codigo}/logo-url", response_model=LogoUrlResponse)
+async def get_empresa_logo_url(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+) -> LogoUrlResponse:
+    """Devuelve URL temporal Dropbox (4h) del logo. Usada por FE para
+    mostrar preview y por el render_orden_compra_html para embeber."""
+    empresa = await _get_empresa(db, empresa_codigo)
+    if not empresa.logo_dropbox_path:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Empresa {empresa_codigo} no tiene logo cargado",
+        )
+
+    from app.infrastructure.repositories.integration_repository import IntegrationRepository
+    from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+    import asyncio as _asyncio
+
+    integration_repo = IntegrationRepository(db)
+    integration = await integration_repo.get_by_provider("dropbox")
+    if integration is None:
+        raise HTTPException(status_code=503, detail="Dropbox no conectado")
+    try:
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+        url = await _asyncio.to_thread(dbx.get_temporary_link, empresa.logo_dropbox_path)
+    except DropboxNotConfigured as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502, detail=f"No se pudo generar URL: {exc}"
+        ) from exc
+
+    return LogoUrlResponse(url=url, expires_in_hours=4)

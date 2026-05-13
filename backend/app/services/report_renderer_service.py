@@ -1230,3 +1230,202 @@ def render_cierre_mensual_html(
         + _render_footer(f"cierre-{empresa_codigo}-{anio}-{mes:02d}")
     )
     return _wrap_page(body, f"Cierre {mes_str} {empresa_codigo}")
+
+
+# =====================================================================
+# V5++ ola CG — Orden de Compra branded (PDF-ready HTML)
+# =====================================================================
+def render_orden_compra_html(
+    *,
+    oc: dict,
+    items: list[dict],
+    empresa: dict,
+    proveedor: dict | None = None,
+    logo_url: str | None = None,
+) -> str:
+    """Renderiza una OC con branding de la empresa emisora (logo + datos
+    fiscales + datos del proveedor + tabla de items + totales).
+
+    Diseño Apple/minimalista: header con logo a la izquierda, info empresa
+    a la derecha, después título "ORDEN DE COMPRA" + número OC en grande,
+    proveedor + items + totales, footer con firma.
+
+    Print-friendly: CSS @media print elimina backgrounds, usa fuentes
+    serif clásicas, margenes A4. Browser convierte con Ctrl+P → PDF.
+    """
+    badge_class = {
+        "emitida": "badge-amber",
+        "pagada": "badge-green",
+        "parcial": "badge-amber",
+        "anulada": "badge-red",
+    }.get(oc.get("estado", ""), "badge-gray")
+
+    # Header con logo (opcional) + datos empresa emisora
+    logo_html = (
+        f'<img src="{_esc(logo_url)}" alt="Logo" '
+        'style="max-height: 80px; max-width: 200px; object-fit: contain;">'
+        if logo_url
+        else f'<div style="font-size: 24pt; font-weight: 700; color: #1d6f42;">'
+        f'{_esc(empresa.get("razon_social", "")[:40])}</div>'
+    )
+
+    empresa_html = f"""
+    <div style="text-align: right; font-size: 9pt; color: #4b5563;">
+      <p style="margin: 0; font-weight: 600; font-size: 11pt; color: #111827;">
+        {_esc(empresa.get("razon_social", ""))}
+      </p>
+      <p style="margin: 0.2em 0;">RUT: <code>{_esc(empresa.get("rut") or "—")}</code></p>
+      <p style="margin: 0.2em 0;">{_esc(empresa.get("direccion") or "")}</p>
+      <p style="margin: 0.2em 0;">{_esc(empresa.get("ciudad") or "")}</p>
+      <p style="margin: 0.2em 0;">{_esc(empresa.get("telefono") or "")}</p>
+    </div>
+    """
+
+    # Items table
+    items_html = ""
+    moneda = oc.get("moneda", "CLP")
+    sign = "$" if moneda == "CLP" else f"{moneda} "
+    for it in items:
+        cantidad = Decimal(str(it.get("cantidad", 1)))
+        precio = Decimal(str(it.get("precio_unitario", 0)))
+        total_linea = Decimal(str(it.get("total_linea") or cantidad * precio))
+        items_html += f"""<tr>
+          <td class="num">{_esc(it.get('item', ''))}</td>
+          <td>{_esc(it.get('descripcion', ''))}</td>
+          <td class="num">{cantidad.normalize()}</td>
+          <td class="num">{sign}{precio:,.0f}</td>
+          <td class="num">{sign}{total_linea:,.0f}</td>
+        </tr>"""
+
+    neto = Decimal(str(oc.get("neto", 0)))
+    iva = Decimal(str(oc.get("iva", 0)))
+    total = Decimal(str(oc.get("total", 0)))
+
+    proveedor_html = ""
+    if proveedor:
+        proveedor_html = f"""
+        <div style="background: #f9fafb; padding: 1em; border-radius: 6px; margin: 1.5em 0;">
+          <p class="label" style="font-size: 8pt; text-transform: uppercase; font-weight: 600; color: #6b7280;">
+            Proveedor
+          </p>
+          <p style="margin: 0.3em 0; font-weight: 600; font-size: 11pt;">
+            {_esc(proveedor.get("razon_social", ""))}
+          </p>
+          <p style="margin: 0.2em 0; font-size: 9pt; color: #4b5563;">
+            RUT: <code>{_esc(proveedor.get("rut") or "—")}</code>
+          </p>
+          {f'<p style="margin: 0.2em 0; font-size: 9pt;">{_esc(proveedor.get("direccion") or "")}</p>' if proveedor.get("direccion") else ''}
+          {f'<p style="margin: 0.2em 0; font-size: 9pt;">{_esc(proveedor.get("email") or "")}</p>' if proveedor.get("email") else ''}
+        </div>
+        """
+
+    observaciones_html = ""
+    if oc.get("observaciones"):
+        observaciones_html = f"""
+        <div style="margin-top: 2em; padding: 1em; background: #fefce8; border-left: 3px solid #ca8a04;">
+          <p class="label" style="font-size: 8pt; text-transform: uppercase; font-weight: 600;">Observaciones</p>
+          <p style="margin: 0.4em 0; font-size: 9pt;">{_esc(oc.get("observaciones"))}</p>
+        </div>
+        """
+
+    body = f"""
+    <!-- Header con logo + datos empresa -->
+    <div style="display: flex; justify-content: space-between; align-items: start;
+                margin-bottom: 2em; padding-bottom: 1em; border-bottom: 2px solid #1d6f42;">
+      <div>{logo_html}</div>
+      {empresa_html}
+    </div>
+
+    <!-- Título grande -->
+    <div style="margin: 1.5em 0;">
+      <p class="eyebrow" style="text-transform: uppercase; letter-spacing: 0.1em;
+                                 font-size: 9pt; color: #6b7280; margin: 0;">
+        Orden de Compra
+      </p>
+      <h1 style="margin: 0.2em 0 0 0; font-size: 28pt; font-weight: 700;">
+        N° {_esc(oc.get("numero_oc", "—"))}
+      </h1>
+      <div style="margin-top: 0.8em; display: flex; gap: 1em; flex-wrap: wrap;">
+        <span class="badge {badge_class}">{_esc(oc.get("estado", "").upper())}</span>
+        <span style="font-size: 9pt; color: #4b5563;">
+          Fecha emisión: <code>{_esc(str(oc.get("fecha_emision", "")))}</code>
+        </span>
+        <span style="font-size: 9pt; color: #4b5563;">
+          Validez: {oc.get("validez_dias", 30)} días
+        </span>
+        <span style="font-size: 9pt; color: #4b5563;">
+          Moneda: <code>{moneda}</code>
+        </span>
+      </div>
+    </div>
+
+    {proveedor_html}
+
+    <!-- Forma de pago / plazo -->
+    {f'''<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1em; margin: 1em 0; font-size: 9pt;">
+      <div><span class="label">Forma de pago:</span> {_esc(oc.get("forma_pago") or "—")}</div>
+      <div><span class="label">Plazo:</span> {_esc(oc.get("plazo_pago") or "—")}</div>
+    </div>''' if oc.get("forma_pago") or oc.get("plazo_pago") else ''}
+
+    <!-- Tabla items -->
+    <table style="margin-top: 1.5em;">
+      <thead>
+        <tr>
+          <th style="width: 50px;">#</th>
+          <th>Descripción</th>
+          <th class="num" style="width: 80px;">Cantidad</th>
+          <th class="num" style="width: 120px;">P. unitario</th>
+          <th class="num" style="width: 140px;">Total línea</th>
+        </tr>
+      </thead>
+      <tbody>{items_html}</tbody>
+    </table>
+
+    <!-- Totales -->
+    <div style="margin-top: 1.5em; display: flex; justify-content: flex-end;">
+      <table style="width: 320px; border-top: 2px solid #111827;">
+        <tr>
+          <td style="padding: 0.4em 1em; text-align: right; font-weight: 500;">Neto</td>
+          <td class="num" style="padding: 0.4em 1em; font-weight: 500;">{sign}{neto:,.0f}</td>
+        </tr>
+        <tr>
+          <td style="padding: 0.4em 1em; text-align: right;">IVA</td>
+          <td class="num" style="padding: 0.4em 1em;">{sign}{iva:,.0f}</td>
+        </tr>
+        <tr style="border-top: 1px solid #e5e7eb;">
+          <td style="padding: 0.6em 1em; text-align: right; font-weight: 700; font-size: 12pt;">TOTAL</td>
+          <td class="num" style="padding: 0.6em 1em; font-weight: 700; font-size: 12pt; color: #1d6f42;">
+            {sign}{total:,.0f}
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    {observaciones_html}
+
+    <!-- Firmas -->
+    <div style="margin-top: 4em; display: grid; grid-template-columns: 1fr 1fr; gap: 4em;">
+      <div style="border-top: 1px solid #111827; padding-top: 0.5em;">
+        <p style="font-size: 9pt; color: #6b7280; margin: 0;">Autoriza</p>
+        <p style="font-size: 10pt; margin: 0.3em 0;">
+          {_esc(empresa.get("representante_legal") or "Gerente General")}
+        </p>
+        <p style="font-size: 8pt; color: #6b7280; margin: 0;">
+          {_esc(empresa.get("razon_social", ""))}
+        </p>
+      </div>
+      <div style="border-top: 1px solid #111827; padding-top: 0.5em;">
+        <p style="font-size: 9pt; color: #6b7280; margin: 0;">Conformidad proveedor</p>
+        <p style="font-size: 10pt; margin: 0.3em 0; color: #9ca3af;">
+          ___________________________
+        </p>
+        <p style="font-size: 8pt; color: #6b7280; margin: 0;">
+          Nombre, fecha y firma
+        </p>
+      </div>
+    </div>
+
+    {_render_footer(f"oc-{oc.get('numero_oc', '')}-{empresa.get('codigo', '')}")}
+    """
+
+    return _wrap_page(body, f"OC {oc.get('numero_oc', '')} · {empresa.get('codigo', '')}")
