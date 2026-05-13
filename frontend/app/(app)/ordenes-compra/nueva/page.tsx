@@ -3,11 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Cloud, Plus, Trash2 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { useFormAutosave } from "@/hooks/use-form-autosave";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
+import { toast } from "@/components/ui/toast";
 import { apiClient, ApiError } from "@/lib/api/client";
 import type { OcRead } from "@/lib/api/schema";
 
@@ -73,6 +77,74 @@ export default function NuevaOcPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // V5++ ola CE — Auto-save + warning + shortcuts (consistentes con Nubox).
+  const draftState = useMemo(
+    () => ({
+      empresaCodigo,
+      numeroOc,
+      proveedorRut,
+      proveedorNombre,
+      fechaEmision,
+      moneda,
+      validezDias,
+      formaPago,
+      plazoPago,
+      observaciones,
+      items,
+    }),
+    [
+      empresaCodigo,
+      numeroOc,
+      proveedorRut,
+      proveedorNombre,
+      fechaEmision,
+      moneda,
+      validezDias,
+      formaPago,
+      plazoPago,
+      observaciones,
+      items,
+    ],
+  );
+  const { clear: clearDraft, hasSaved } = useFormAutosave(
+    "oc-nueva-v1",
+    draftState,
+    {
+      onRestore: (saved) => {
+        if (saved.empresaCodigo) setEmpresaCodigo(saved.empresaCodigo);
+        if (saved.numeroOc) setNumeroOc(saved.numeroOc);
+        if (saved.proveedorRut) setProveedorRut(saved.proveedorRut);
+        if (saved.proveedorNombre) setProveedorNombre(saved.proveedorNombre);
+        if (saved.fechaEmision) setFechaEmision(saved.fechaEmision);
+        if (saved.moneda) setMoneda(saved.moneda);
+        if (saved.validezDias) setValidezDias(saved.validezDias);
+        if (saved.formaPago) setFormaPago(saved.formaPago);
+        if (saved.plazoPago) setPlazoPago(saved.plazoPago);
+        if (saved.observaciones) setObservaciones(saved.observaciones);
+        if (saved.items?.length) setItems(saved.items);
+        toast.info("Restauré tu borrador del último intento.");
+      },
+    },
+  );
+  const isDirty =
+    numeroOc.trim().length > 0 ||
+    proveedorRut.trim().length > 0 ||
+    proveedorNombre.trim().length > 0 ||
+    observaciones.trim().length > 0 ||
+    items.some((it) => it.descripcion.trim() || it.precio_unitario);
+  useUnsavedChangesWarning(isDirty && !submitting);
+  useFormShortcuts({
+    "mod+s": (e) => {
+      e.preventDefault();
+      if (!submitting) {
+        const form = document.querySelector(
+          "form",
+        ) as HTMLFormElement | null;
+        form?.requestSubmit();
+      }
+    },
+  });
 
   // Lookup en vivo del proveedor por RUT (debounced 400ms). Mismo patron
   // que el form Nubox para tener UX consistente entre OCs y vouchers.
@@ -217,6 +289,7 @@ export default function NuevaOcPage() {
         payload,
         session,
       );
+      clearDraft();
       router.push(`/ordenes-compra/${created.oc_id}`);
     } catch (err) {
       setError(
@@ -241,12 +314,23 @@ export default function NuevaOcPage() {
       </Link>
 
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
-          Nueva OC
-        </h1>
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
+            Nueva OC
+          </h1>
+          {hasSaved && isDirty && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-cehta-green/10 px-2.5 py-0.5 text-xs text-cehta-green">
+              <Cloud className="h-3 w-3" />
+              Borrador guardado
+            </span>
+          )}
+        </div>
         <p className="mt-1 text-sm text-ink-500">
           Tipeá el RUT del proveedor y vamos a precargar/crearlo solos. El
           total se calcula automáticamente en el backend (neto + 19% IVA).
+          <span className="ml-2 hidden text-xs text-ink-400 sm:inline">
+            · <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono">⌘S</kbd> guardar
+          </span>
         </p>
       </header>
 

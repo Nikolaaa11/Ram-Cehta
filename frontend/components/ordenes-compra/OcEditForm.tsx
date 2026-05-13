@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import type { OcRead } from "@/lib/api/schema";
 
 interface Props {
@@ -59,6 +61,25 @@ export function OcEditForm({ initialData }: Props) {
   const [form, setForm] = useState<FormState>(initial);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // V5++ ola CE — Warning si hay cambios sin guardar. No autosave en edicion
+  // (riesgo de pisar valores del servidor con un draft viejo en otra pestaña).
+  const hasUnsavedEdits =
+    form.observaciones !== initial.observaciones ||
+    form.forma_pago !== initial.forma_pago ||
+    form.plazo_pago !== initial.plazo_pago ||
+    form.validez_dias !== initial.validez_dias ||
+    form.pdf_url !== initial.pdf_url;
+  useUnsavedChangesWarning(hasUnsavedEdits && !submitting);
+  useFormShortcuts({
+    "mod+s": (e) => {
+      e.preventDefault();
+      if (!submitting && hasUnsavedEdits) {
+        const el = document.querySelector("form") as HTMLFormElement | null;
+        el?.requestSubmit();
+      }
+    },
+  });
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));

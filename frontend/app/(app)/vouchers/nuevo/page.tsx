@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
 import type {
   Area,
@@ -180,6 +182,32 @@ export default function NuevoVoucherPage() {
   }, [emailData?.subject]);
 
   const [submitting, setSubmitting] = useState(false);
+
+  // V5++ ola CE — Warning + shortcuts UX. No autosave aqui porque el state
+  // tiene N lineas con FKs (cuenta+proyecto+area) que requieren re-fetch al
+  // restaurar; preferimos no-restore que restore-incorrecto.
+  const isDirty =
+    glosa.trim().length > 0 ||
+    contraparteRut.trim().length > 0 ||
+    contraparteNombre.trim().length > 0 ||
+    docTributarioFolio.trim().length > 0 ||
+    lines.some(
+      (l) =>
+        l.cuenta_codigo ||
+        l.debit ||
+        l.credit ||
+        (l.descripcion ?? "").trim(),
+    );
+  useUnsavedChangesWarning(isDirty && !submitting);
+
+  // Cmd/Ctrl+S guarda como DRAFT (menos arriesgado que enviar a PENDING
+  // sin querer). El user usa el boton azul para enviar.
+  useFormShortcuts({
+    "mod+s": (e) => {
+      e.preventDefault();
+      if (!submitting) submit("DRAFT");
+    },
+  });
 
   const tipoMeta = TIPOS.find((t) => t.value === tipo)!;
 

@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
+import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
@@ -292,6 +294,12 @@ export default function ImportarVoucherPage() {
     }
   }
 
+  // V5++ ola CE — Warning + shortcuts. No autosave porque los datos vienen
+  // del archivo subido (la IA los precarga); restaurar un draft viejo
+  // pisaria la extraccion fresca, lo que es confuso.
+  const isDirty = step === "review" || step === "creating";
+  useUnsavedChangesWarning(isDirty && step !== "creating");
+
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault();
     if (!cuadrado) {
@@ -351,6 +359,18 @@ export default function ImportarVoucherPage() {
     setStep("pick");
     setExtraction(null);
   }
+
+  useFormShortcuts({
+    "mod+s": (e) => {
+      e.preventDefault();
+      if (step === "review" && cuadrado) {
+        const form = document.querySelector(
+          "form",
+        ) as HTMLFormElement | null;
+        form?.requestSubmit();
+      }
+    },
+  });
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
