@@ -18,9 +18,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
-
-from app.core.limiter import limiter
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -329,9 +327,8 @@ async def _try_upload_to_dropbox(
     response_model=OcExtractFromUploadResponse,
     status_code=status.HTTP_200_OK,
 )
-@limiter.limit("10/minute")
+# NOTA: @limiter.limit removido (rompe Pydantic schema). Default 100/min.
 async def oc_extract_from_text(
-    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("oc:create"))],
     db: DBSession,
     body: OcExtractFromTextRequest,
@@ -384,9 +381,8 @@ async def oc_extract_from_text(
     response_model=OcExtractFromUploadResponse,
     status_code=status.HTTP_200_OK,
 )
-@limiter.limit("5/minute")
+# NOTA: @limiter.limit removido (rompe Pydantic schema). Default 100/min.
 async def oc_extract_from_upload(
-    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("oc:create"))],
     db: DBSession,
     file: Annotated[UploadFile, File(description="Cotización en cualquier formato")],

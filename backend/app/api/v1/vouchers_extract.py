@@ -31,10 +31,8 @@ from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
-
-from app.core.limiter import limiter
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -433,9 +431,11 @@ class ExtractFromTextRequest(BaseModel):
     response_model=ExtractFromUploadResponse,
     status_code=status.HTTP_200_OK,
 )
-@limiter.limit("10/minute")
+# NOTA: @limiter.limit removido (rompe Pydantic schema inference con
+# Annotated[AuthenticatedUser, Depends]). Aplicar rate limit via
+# middleware o slowapi Depends() en próxima iteración. Default global
+# 100/min sigue activo desde main.py.
 async def extract_from_text(
-    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
     body: ExtractFromTextRequest,
@@ -504,9 +504,8 @@ async def extract_from_text(
     response_model=ExtractFromUploadResponse,
     status_code=status.HTTP_200_OK,
 )
-@limiter.limit("5/minute")
+# NOTA: @limiter.limit removido (rompe Pydantic schema). Default 100/min.
 async def extract_from_upload(
-    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
     file: Annotated[UploadFile, File(description="Archivo PDF/JPG/PNG/DOCX/PPTX")],
