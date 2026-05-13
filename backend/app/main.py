@@ -7,13 +7,13 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import get_session
+from app.core.limiter import limiter
 from app.core.logging import configure_logging, get_logger
 from app.core.observability import init_sentry
 from app.services.notification_generator_service import (
@@ -28,7 +28,8 @@ log = get_logger(__name__)
 sentry_active = init_sentry()
 log.info("sentry", active=sentry_active)
 
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+# `limiter` ahora vive en app/core/limiter.py para que los routers lo
+# puedan importar y aplicar `@limiter.limit("X/minute")` a sus endpoints.
 
 # V5++ ola X: rate limits específicos por endpoint costoso.
 # Cada uno se aplica como decorator @limiter.limit("X/minute") en el handler.

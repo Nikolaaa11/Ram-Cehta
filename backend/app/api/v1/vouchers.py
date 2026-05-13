@@ -1516,6 +1516,9 @@ class MisPendientesItem(BaseModel):
     dias_pendiente: int
     # Adjunto: link al primer documento si existe (factura/boleta)
     primer_adjunto_dropbox_path: str | None
+    # V5++ ola CJ — attachment_id del primer adjunto, para que el FE
+    # pueda linkear directo a /vouchers/{vid}/attachments/{aid}/url
+    primer_adjunto_id: int | None
 
 
 class MisPendientesResponse(BaseModel):
@@ -1586,7 +1589,10 @@ async def list_mis_pendientes(
                 u.email AS creador_email,
                 (SELECT dropbox_path FROM core.voucher_attachments va
                   WHERE va.voucher_id = v.voucher_id
-                  ORDER BY va.uploaded_at ASC LIMIT 1) AS primer_adjunto
+                  ORDER BY va.uploaded_at ASC LIMIT 1) AS primer_adjunto,
+                (SELECT attachment_id FROM core.voucher_attachments va2
+                  WHERE va2.voucher_id = v.voucher_id
+                  ORDER BY va2.uploaded_at ASC LIMIT 1) AS primer_adjunto_id
             FROM core.vouchers v
             LEFT JOIN core.empresas e ON e.codigo = v.empresa_codigo
             LEFT JOIN auth.users u ON u.id::TEXT = v.created_by::TEXT
@@ -1724,6 +1730,7 @@ async def list_mis_pendientes(
             reinforced=bool(rule.get("reforzado")),
             dias_pendiente=dias_pendiente,
             primer_adjunto_dropbox_path=vr["primer_adjunto"],
+            primer_adjunto_id=vr["primer_adjunto_id"],
         ))
 
     # Ordenar por dias_pendiente DESC (mas urgentes primero), luego total DESC.

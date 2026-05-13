@@ -75,7 +75,12 @@ class EmailService:
         html: str,
         attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
-        """Envía un email vía Resend. Soft-fail si no está configurado."""
+        """Envía un email vía Resend. Soft-fail si no está configurado.
+
+        ⚠️ BLOQUEANTE — Resend API es sync. NO usar desde un handler
+        async sin envolver en `asyncio.to_thread`. Para uso async correcto
+        llamar `send_async` abajo.
+        """
         if not self.enabled:
             log.warning("email.disabled", to=to, subject=subject)
             return None
@@ -95,6 +100,30 @@ class EmailService:
         except Exception as exc:  # noqa: BLE001 — soft fail, log y seguir
             log.warning("email.send_failed", to=to, subject=subject, error=str(exc))
             return None
+
+    async def send_async(
+        self,
+        *,
+        to: list[str],
+        subject: str,
+        html: str,
+        attachments: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any] | None:
+        """Versión async-friendly de `send`. Envuelve la llamada bloqueante
+        a Resend en `asyncio.to_thread` para no colgar el event loop.
+
+        V5++ ola CJ — fix para audit perf reportando que `send` síncrono
+        desde handlers async puede colgar workers bajo carga (44 users).
+        """
+        import asyncio
+
+        return await asyncio.to_thread(
+            self.send,
+            to=to,
+            subject=subject,
+            html=html,
+            attachments=attachments,
+        )
 
 
 def get_email_service() -> EmailService:

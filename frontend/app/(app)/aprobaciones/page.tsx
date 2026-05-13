@@ -68,6 +68,7 @@ interface MisPendientesItem {
   reinforced: boolean;
   dias_pendiente: number;
   primer_adjunto_dropbox_path: string | null;
+  primer_adjunto_id: number | null;
 }
 
 interface MisPendientesResponse {
@@ -548,14 +549,15 @@ function VoucherApprovalCard({
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-end gap-2 border-t border-hairline pt-3">
-        {item.primer_adjunto_dropbox_path && (
-          <span
-            className="inline-flex items-center gap-1 text-[11px] text-ink-500"
-            title={item.primer_adjunto_dropbox_path}
-          >
-            <FileText className="size-3.5" />
-            Adjunto disponible
-          </span>
+        {item.primer_adjunto_dropbox_path && item.primer_adjunto_id && (
+          <AdjuntoLinkButton
+            voucherId={item.voucher_id}
+            attachmentId={item.primer_adjunto_id}
+            label={
+              item.primer_adjunto_dropbox_path.split("/").pop() ??
+              "Ver adjunto"
+            }
+          />
         )}
         <Link
           href={`/vouchers/${item.voucher_id}` as Route}
@@ -581,6 +583,56 @@ function VoucherApprovalCard({
         </button>
       </div>
     </Surface>
+  );
+}
+
+// V5++ ola CJ — Boton clickeable que abre el adjunto en una nueva tab.
+// Pega a /vouchers/{vid}/attachments/{aid}/url, recibe URL temporal de
+// Dropbox (4h) y la abre. Antes era solo un span "Adjunto disponible"
+// que no hacia nada — fricción brutal para el aprobador.
+function AdjuntoLinkButton({
+  voucherId,
+  attachmentId,
+  label,
+}: {
+  voucherId: number;
+  attachmentId: number;
+  label: string;
+}) {
+  const { session } = useSession();
+  const [loading, setLoading] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={loading}
+      onClick={async () => {
+        if (!session) {
+          toast.error("Sesión expirada — recargá la página");
+          return;
+        }
+        setLoading(true);
+        try {
+          const resp = await apiClient.get<{ url: string }>(
+            `/vouchers/${voucherId}/attachments/${attachmentId}/url`,
+            session,
+          );
+          window.open(resp.url, "_blank", "noopener,noreferrer");
+        } catch (err) {
+          toast.error(
+            err instanceof ApiError
+              ? err.detail
+              : "No pude generar el link del adjunto",
+          );
+        } finally {
+          setLoading(false);
+        }
+      }}
+      className="inline-flex items-center gap-1 rounded-xl border border-cehta-green/20 bg-cehta-green/5 px-2.5 py-1 text-[11px] font-medium text-cehta-green hover:bg-cehta-green/10 disabled:opacity-60"
+      title={`Ver adjunto: ${label}`}
+    >
+      <FileText className="size-3.5" />
+      {loading ? "Abriendo…" : "Ver adjunto"}
+    </button>
   );
 }
 
