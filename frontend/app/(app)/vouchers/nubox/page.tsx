@@ -83,6 +83,20 @@ type ProveedorLookupState =
   | { status: "existing"; razonSocial: string; rutCanonical: string }
   | { status: "new"; rutCanonical: string };
 
+interface DuplicateVoucherHit {
+  voucher_id: number;
+  codigo: string;
+  status: string;
+  fecha_documento: string | null;
+  total: string | null;
+  glosa: string | null;
+}
+
+interface CheckDuplicateResponse {
+  duplicates: DuplicateVoucherHit[];
+  rut_canonical: string | null;
+}
+
 const FORMA_PAGO_LABELS: Record<string, string> = {
   TRANSFERENCIA: "Transferencia",
   CHEQUE: "Cheque",
@@ -139,6 +153,41 @@ export default function NuboxFormPage() {
   const [proveedorLookup, setProveedorLookup] = useState<ProveedorLookupState>({
     status: "idle",
   });
+
+  // V5++ ola CE — Check de voucher duplicado (mismo empresa+RUT+folio+tipo).
+  // Se dispara cuando los 4 campos minimos estan llenos (debounce 500ms).
+  // Avisa al user si ya existe un voucher con esa firma — no bloquea.
+  const [duplicates, setDuplicates] = useState<DuplicateVoucherHit[]>([]);
+  useEffect(() => {
+    if (!session) return;
+    const rutOk = proveedorRut.trim().length >= 8;
+    const folioOk = numeroDocumento.trim().length > 0;
+    if (!empresaCodigo || !rutOk || !folioOk || !tipoDocumento) {
+      setDuplicates([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      const qs = new URLSearchParams({
+        empresa_codigo: empresaCodigo,
+        proveedor_rut: proveedorRut.trim(),
+        numero_documento: numeroDocumento.trim(),
+        tipo_documento: tipoDocumento,
+      }).toString();
+      apiClient
+        .get<CheckDuplicateResponse>(`/vouchers/check-duplicate?${qs}`, session)
+        .then((resp) => {
+          if (!cancelled) setDuplicates(resp.duplicates ?? []);
+        })
+        .catch(() => {
+          if (!cancelled) setDuplicates([]);
+        });
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [empresaCodigo, proveedorRut, numeroDocumento, tipoDocumento, session]);
 
   // Auto-save de borrador en localStorage. Persiste todo el state del form
   // para que si el user cierra el browser, al volver encuentre lo tipeado.
@@ -432,6 +481,41 @@ export default function NuboxFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* V5++ ola CE — Warning si el backend detecta vouchers con la
+            misma firma (empresa+RUT+folio+tipo). NO bloquea — solo avisa. */}
+        {duplicates.length > 0 && (
+          <Surface className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
+              <div className="flex-1 text-sm">
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  Ya existe {duplicates.length === 1 ? "un voucher" : `${duplicates.length} vouchers`} con esta combinación de empresa + RUT + folio + tipo.
+                </p>
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                  Revisá antes de crear uno nuevo. Si es legítimo (ej. nota de crédito que referencia la factura), seguí adelante.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {duplicates.map((d) => (
+                    <li key={d.voucher_id} className="text-xs">
+                      <Link
+                        href={`/vouchers/${d.voucher_id}`}
+                        target="_blank"
+                        className="font-mono text-cehta-green hover:underline"
+                      >
+                        {d.codigo}
+                      </Link>
+                      <span className="ml-2 text-amber-800 dark:text-amber-300">
+                        · {d.status}
+                        {d.fecha_documento ? ` · ${d.fecha_documento}` : ""}
+                        {d.total ? ` · $${Number(d.total).toLocaleString("es-CL")}` : ""}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </Surface>
+        )}
         {/* HEADER */}
         <Surface className="p-6">
           <div className="flex items-center gap-2 mb-4">
