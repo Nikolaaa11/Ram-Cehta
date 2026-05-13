@@ -646,6 +646,68 @@ export default function ImportarVoucherPage() {
                 ))}
               </div>
             )}
+            {/* V5++ ola CF — Quick summary: proveedor + items detectados */}
+            {extraction.suggestion && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-lg bg-ink-50 dark:bg-ink-900 p-2.5">
+                  <p className="text-[10px] uppercase tracking-wider text-ink-500">
+                    Proveedor detectado
+                  </p>
+                  <p className="mt-1 font-medium text-ink-900 dark:text-ink-100 break-words">
+                    {extraction.suggestion.proveedor_nombre || "(no detectado)"}
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] text-ink-600">
+                    {extraction.suggestion.proveedor_rut || "—"}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-ink-50 dark:bg-ink-900 p-2.5">
+                  <p className="text-[10px] uppercase tracking-wider text-ink-500">
+                    Documento
+                  </p>
+                  <p className="mt-1 text-ink-900 dark:text-ink-100">
+                    <span className="font-medium">
+                      {extraction.suggestion.tipo_documento}
+                    </span>{" "}
+                    folio{" "}
+                    <span className="font-mono">
+                      {extraction.suggestion.numero_documento || "—"}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-ink-600">
+                    {extraction.suggestion.fecha_documento} ·{" "}
+                    {extraction.suggestion.forma_pago}
+                  </p>
+                </div>
+                {extraction.suggestion.informacion_contable.length > 0 && (
+                  <div className="md:col-span-2 rounded-lg bg-ink-50 dark:bg-ink-900 p-2.5">
+                    <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-1">
+                      Líneas detectadas ({extraction.suggestion.informacion_contable.length})
+                    </p>
+                    <ul className="space-y-0.5 max-h-32 overflow-y-auto">
+                      {extraction.suggestion.informacion_contable.slice(0, 8).map((l, i) => (
+                        <li
+                          key={i}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="text-ink-700 truncate">
+                            {l.comentario || "(sin descripción)"}
+                          </span>
+                          <span className="font-mono text-ink-900 dark:text-ink-100 shrink-0">
+                            $
+                            {Number(l.total || 0).toLocaleString("es-CL")}
+                          </span>
+                        </li>
+                      ))}
+                      {extraction.suggestion.informacion_contable.length > 8 && (
+                        <li className="text-ink-500">
+                          +{extraction.suggestion.informacion_contable.length - 8} más…
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </Surface>
 
           {/* Header */}
