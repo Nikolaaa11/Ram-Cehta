@@ -65,6 +65,23 @@ class DuplicateProveedorGroup(BaseModel):
     members: list[DuplicateProveedorMember]
 
 
+class MergeProveedorResponse(BaseModel):
+    """Respuesta de POST /proveedores/{src}/merge-into/{target}.
+
+    Reporta cuantas referencias se movieron y deja el proveedor source como
+    inactivo (soft-delete). La operacion es idempotente: re-llamar con los
+    mismos ids no afecta nada (el source ya esta inactivo).
+    """
+
+    source_id: int
+    target_id: int
+    target_razon_social: str
+    target_rut: str | None
+    vouchers_moved: int
+    ordenes_compra_moved: int
+    source_deactivated: bool
+
+
 @router.get("", response_model=Page[ProveedorRead])
 async def list_proveedores(
     user: CurrentUser,
@@ -287,6 +304,121 @@ async def search_by_rut(
         rut_canonical=canonical,
         exists=existing is not None,
         proveedor=ProveedorRead.model_validate(existing) if existing else None,
+    )
+
+
+@router.post(
+    "/{source_id}/merge-into/{target_id}",
+    response_model=MergeProveedorResponse,
+)
+async def merge_proveedor_into(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:delete"))],
+    db: DBSession,
+    request: Request,
+    source_id: int,
+    target_id: int,
+) -> MergeProveedorResponse:
+    """Fusiona el proveedor `source_id` en `target_id`.
+
+    Mueve TODAS las referencias del source al target:
+      - core.vouchers.contraparte_rut: del RUT del source al RUT del target
+        (solo si el target tiene RUT; si no, no se mueve esa columna).
+      - core.ordenes_compra.proveedor_id: del source al target.
+
+    Y luego deja el source con `activo=false` (soft-delete). Idempotente.
+
+    Restricciones:
+      - No se puede fusionar un proveedor consigo mismo.
+      - El target debe existir y estar activo.
+      - El source debe existir (puede estar activo o no).
+      - Permission scope: proveedor:delete (mismo que soft-delete).
+    """
+    if source_id == target_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="source_id y target_id no pueden ser iguales",
+        )
+    repo = ProveedorRepository(db)
+    source = await repo.get(source_id)
+    target = await repo.get(target_id)
+    if source is None:
+        raise HTTPException(status_code=404, detail=f"Proveedor source {source_id} no existe")
+    if target is None or not target.activo:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Proveedor target {target_id} no existe o esta inactivo",
+        )
+
+    vouchers_moved = 0
+    if source.rut and target.rut and source.rut != target.rut:
+        result = await db.execute(
+            text(
+                """
+                UPDATE core.vouchers
+                SET contraparte_rut = :target_rut,
+                    contraparte_nombre = :target_nombre
+                WHERE contraparte_rut = :source_rut
+                """
+            ),
+            {
+                "target_rut": target.rut,
+                "target_nombre": target.razon_social,
+                "source_rut": source.rut,
+            },
+        )
+        vouchers_moved = int(result.rowcount or 0)
+
+    result_oc = await db.execute(
+        text(
+            """
+            UPDATE core.ordenes_compra
+            SET proveedor_id = :target_id
+            WHERE proveedor_id = :source_id
+            """
+        ),
+        {"target_id": target_id, "source_id": source_id},
+    )
+    ordenes_compra_moved = int(result_oc.rowcount or 0)
+
+    deactivated = False
+    if source.activo:
+        await repo.soft_delete(source)
+        deactivated = True
+
+    await db.commit()
+
+    await audit_log(
+        db,
+        request,
+        user,
+        action="merge",
+        entity_type="proveedor",
+        entity_id=str(source_id),
+        entity_label=source.razon_social,
+        summary=(
+            f"Proveedor '{source.razon_social}' (#{source_id}) fusionado en "
+            f"'{target.razon_social}' (#{target_id}). "
+            f"Movidos {vouchers_moved} vouchers y {ordenes_compra_moved} OCs."
+        ),
+        before={
+            "source": {"id": source_id, "razon_social": source.razon_social, "rut": source.rut},
+            "target": {"id": target_id, "razon_social": target.razon_social, "rut": target.rut},
+        },
+        after={
+            "vouchers_moved": vouchers_moved,
+            "ordenes_compra_moved": ordenes_compra_moved,
+            "source_deactivated": deactivated,
+        },
+    )
+
+    return MergeProveedorResponse(
+        source_id=source_id,
+        target_id=target_id,
+        target_razon_social=target.razon_social,
+        target_rut=target.rut,
+        vouchers_moved=vouchers_moved,
+        ordenes_compra_moved=ordenes_compra_moved,
+        source_deactivated=deactivated,
     )
 
 

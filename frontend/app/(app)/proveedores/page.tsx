@@ -15,6 +15,10 @@ import {
   GitMerge,
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useSession } from "@/hooks/use-session";
+import { apiClient, ApiError } from "@/lib/api/client";
+import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
@@ -125,6 +129,35 @@ export default function ProveedoresPage() {
     () => duplicates?.reduce((sum, g) => sum + g.members.length, 0) ?? 0,
     [duplicates],
   );
+
+  // V5++ ola CE — Fusión de proveedores: dentro de un grupo, el user elige
+  // un "winner" y los demas se fusionan en él (mueve referencias + soft-delete).
+  const { session } = useSession();
+  const queryClient = useQueryClient();
+  const [mergingId, setMergingId] = useState<number | null>(null);
+
+  async function handleMerge(sourceId: number, targetId: number, targetName: string) {
+    if (mergingId !== null) return;
+    setMergingId(sourceId);
+    try {
+      const resp = await apiClient.post<{
+        vouchers_moved: number;
+        ordenes_compra_moved: number;
+      }>(`/proveedores/${sourceId}/merge-into/${targetId}`, {}, session);
+      toast.success(
+        `Fusionado en "${targetName}". ` +
+          `${resp.vouchers_moved} vouchers + ${resp.ordenes_compra_moved} OCs movidos.`,
+      );
+      await queryClient.invalidateQueries({ queryKey: ["proveedores-duplicates"] });
+      await queryClient.invalidateQueries({ queryKey: ["proveedores"] });
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.detail : "Error al fusionar el proveedor.",
+      );
+    } finally {
+      setMergingId(null);
+    }
+  }
 
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -407,10 +440,12 @@ export default function ProveedoresPage() {
                   Detectamos proveedores que parecen ser el mismo.
                 </p>
                 <p className="mt-1 text-ink-500">
-                  Agrupamos por razón social normalizada (sin puntos, espacios
-                  ni mayúsculas). Si dos filas son la misma empresa, editá la
-                  que tiene más vouchers/OCs y eliminá las otras. La fusión
-                  automática (mover referencias) llega en otra iteración.
+                  Agrupamos por razón social normalizada. En cada fila tenés
+                  un botón <b>"Fusionar en →"</b> que mueve todos los vouchers
+                  y OCs de ese duplicado al "ganador" que elijas, y soft-deleta
+                  el duplicado. Esto es <b>reversible</b> via /admin/audit
+                  (action=merge) pero es una operación delicada — verificá
+                  bien antes.
                 </p>
               </div>
             </div>
@@ -485,13 +520,59 @@ export default function ProveedoresPage() {
                         <td className="px-4 py-2 tabular-nums text-ink-700">
                           {m.ordenes_compra_count}
                         </td>
-                        <td className="px-4 py-2 text-right">
+                        <td className="px-4 py-2 text-right space-x-2">
                           <Link
                             href={`/proveedores/${m.proveedor_id}`}
                             className="text-xs font-medium text-cehta-green hover:underline"
                           >
-                            Ver →
+                            Ver
                           </Link>
+                          {g.members.length >= 2 && (
+                            <select
+                              disabled={mergingId !== null}
+                              defaultValue=""
+                              onChange={(e) => {
+                                const targetId = Number(e.target.value);
+                                if (!targetId) return;
+                                const target = g.members.find(
+                                  (x) => x.proveedor_id === targetId,
+                                );
+                                if (!target) return;
+                                if (
+                                  window.confirm(
+                                    `Fusionar #${m.proveedor_id} "${m.razon_social}" en #${targetId} "${target.razon_social}"?\n\nSe moveran ${m.vouchers_count} vouchers y ${m.ordenes_compra_count} OCs al ganador, y el duplicado quedara soft-deleted.`,
+                                  )
+                                ) {
+                                  handleMerge(
+                                    m.proveedor_id,
+                                    targetId,
+                                    target.razon_social,
+                                  );
+                                }
+                                e.target.value = "";
+                              }}
+                              className="rounded border border-hairline bg-white px-1.5 py-0.5 text-[11px] text-ink-700 focus:outline-none focus:ring-1 focus:ring-cehta-green"
+                            >
+                              <option value="">
+                                {mergingId === m.proveedor_id
+                                  ? "Fusionando…"
+                                  : "Fusionar en →"}
+                              </option>
+                              {g.members
+                                .filter(
+                                  (other) =>
+                                    other.proveedor_id !== m.proveedor_id,
+                                )
+                                .map((other) => (
+                                  <option
+                                    key={other.proveedor_id}
+                                    value={other.proveedor_id}
+                                  >
+                                    #{other.proveedor_id} {other.razon_social}
+                                  </option>
+                                ))}
+                            </select>
+                          )}
                         </td>
                       </tr>
                     ))}
