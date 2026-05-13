@@ -311,6 +311,59 @@ async def list_vouchers_paginated(
 # =====================================================================
 
 
+@router.get("/vouchers/stats/by-source")
+async def vouchers_stats_by_source(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    fecha_desde: date | None = Query(default=None),
+    fecha_hasta: date | None = Query(default=None),
+) -> dict:
+    """V5++ ola CE — Conteos de vouchers agrupados por origen.
+
+    Devuelve `{source: count}` con todas las categorias presentes en la DB
+    + `null` para vouchers legacy sin source seteado + `total` con la suma.
+
+    Respeta el scope multi-tenant (un user que ve EVOQUE solo cuenta los
+    suyos). Filtros opcionales fecha_desde/fecha_hasta sobre fecha_contable.
+
+    Pensado para el widget "Resumen de automatizacion" en /vouchers que
+    muestra "X% vienen de IA, Y% form manual, etc.".
+    """
+    scoped_codes = scope.filter_codes(None)
+    sql = """
+        SELECT COALESCE(source, '__null__') AS source, COUNT(*) AS n
+        FROM core.vouchers
+        WHERE 1=1
+    """
+    params: dict = {}
+    if scoped_codes is not None:
+        sql += " AND empresa_codigo = ANY(CAST(:codes AS text[]))"
+        params["codes"] = scoped_codes
+    if fecha_desde:
+        sql += " AND fecha_contable >= :desde"
+        params["desde"] = fecha_desde
+    if fecha_hasta:
+        sql += " AND fecha_contable <= :hasta"
+        params["hasta"] = fecha_hasta
+    sql += " GROUP BY source ORDER BY n DESC"
+    rows = (await db.execute(text(sql), params)).mappings().all()
+    by_source = {str(r["source"]): int(r["n"]) for r in rows}
+    total = sum(by_source.values())
+    # Porcentaje de automatizados (cualquier source != nubox_form|null|manual)
+    automated = sum(
+        v
+        for k, v in by_source.items()
+        if k not in ("nubox_form", "manual", "__null__")
+    )
+    return {
+        "by_source": by_source,
+        "total": total,
+        "automated_count": automated,
+        "automated_pct": round(automated / total * 100, 1) if total else 0.0,
+    }
+
+
 @router.get("/vouchers/counts")
 async def vouchers_counts(
     user: CurrentUser,

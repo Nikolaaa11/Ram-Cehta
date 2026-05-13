@@ -318,6 +318,20 @@ export function VouchersClientView({
     );
   }, [vouchers, search, useServerSearch, searchResults]);
 
+  // V5++ ola CE — Stats de origen (widget de automatizacion).
+  const { data: sourceStats } = useQuery<{
+    by_source: Record<string, number>;
+    total: number;
+    automated_count: number;
+    automated_pct: number;
+  }>({
+    queryKey: ["vouchers-stats-source"],
+    queryFn: () =>
+      apiClient.get("/vouchers/stats/by-source", session),
+    enabled: !!session,
+    staleTime: 60_000,
+  });
+
   // KPIs derivados
   const kpis = (vouchers ?? []).reduce(
     (acc, v) => {
@@ -470,6 +484,70 @@ export function VouchersClientView({
               value={String(kpis.threshold)}
               hint="Sobre umbral, doble firma"
             />
+          </div>
+        )}
+
+        {/* V5++ ola CE — Widget de automatización: counts por origen.
+            Click en cada chip filtra source en la lista. */}
+        {sourceStats && sourceStats.total > 0 && (
+          <div className="rounded-2xl border border-hairline bg-white p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-ink-500">
+                  Resumen de automatización
+                </p>
+                <p className="mt-0.5 text-2xl font-semibold tracking-tight text-ink-900">
+                  {sourceStats.automated_pct}%
+                  <span className="ml-2 text-sm font-normal text-ink-500">
+                    de los vouchers fueron automatizados
+                  </span>
+                </p>
+                <p className="mt-0.5 text-xs text-ink-500">
+                  {sourceStats.automated_count} de {sourceStats.total} vienen
+                  de IA, CSV, plantillas o factura PDF.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(sourceStats.by_source)
+                  .filter(([k]) => k !== "__null__")
+                  .map(([key, count]) => {
+                    const labels: Record<string, string> = {
+                      ai_import: "IA",
+                      factura_pdf: "PDF",
+                      csv_bulk: "CSV",
+                      template: "Tpl",
+                      nubox_form: "Form",
+                      manual: "Manual",
+                    };
+                    const label = labels[key] ?? key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSourceFilter(key)}
+                        title={`Filtrar por ${label}`}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ring-1 ring-inset transition-colors ${
+                          sourceFilter === key
+                            ? "bg-cehta-green/15 text-cehta-green ring-cehta-green/30"
+                            : "bg-ink-50 text-ink-700 ring-hairline hover:bg-ink-100"
+                        }`}
+                      >
+                        <span className="font-semibold">{label}</span>
+                        <span className="tabular-nums">{count}</span>
+                      </button>
+                    );
+                  })}
+                {sourceFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setSourceFilter("")}
+                    className="text-xs text-ink-500 hover:text-ink-900 px-2"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
