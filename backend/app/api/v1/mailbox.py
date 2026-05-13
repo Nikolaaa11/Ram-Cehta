@@ -419,9 +419,10 @@ async def mailbox_to_voucher(
         ) from exc
 
     # Reusamos el helper de vouchers_extract para mappear al shape del form.
-    from app.api.v1.vouchers_extract import _build_suggestion
+    from app.api.v1.vouchers_extract import _build_suggestion, _maybe_match_empresa
 
     suggestion = _build_suggestion(extraction.fields, body.empresa_codigo)
+    suggestion = await _maybe_match_empresa(suggestion, db)
 
     return {
         "inbox_id": inbox_id,

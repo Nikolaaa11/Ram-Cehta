@@ -97,6 +97,13 @@ class ExtractedVoucherSuggestion(BaseModel):
     """
 
     empresa_codigo: str
+    # V5++ ola CF — Auto-detect de empresa receptora.
+    # Si la IA detecto un receptor_rut y matchea con una empresa activa,
+    # `empresa_codigo` se setea con la detectada y `empresa_auto_detectada=True`.
+    # Si no hay match, `empresa_codigo` queda en el default (primer empresa
+    # del user) y `empresa_auto_detectada=False`.
+    empresa_auto_detectada: bool = False
+    empresa_receptor_rut_detectado: str | None = None
     proveedor_rut: str = ""
     proveedor_nombre: str = ""
     rut_es_valido: bool = False
@@ -106,6 +113,7 @@ class ExtractedVoucherSuggestion(BaseModel):
     fecha_documento: str  # YYYY-MM-DD
     fecha_vencimiento: str = ""
     glosa: str = ""
+    moneda: str = "CLP"
     informacion_contable: list[ExtractedLine]
     informacion_financiera: list[ExtractedLine]
 
@@ -323,8 +331,20 @@ def _build_suggestion(
         total=total_str,
     )
 
+    # V5++ ola CF — Detectar receptor + moneda
+    receptor_rut_raw = str(fields.get("receptor_rut") or "").strip()
+    receptor_rut_canonical: str | None = None
+    if receptor_rut_raw and receptor_rut_raw.lower() not in ("null", "none", ""):
+        if validate_rut(receptor_rut_raw):
+            receptor_rut_canonical = format_rut(receptor_rut_raw)
+
+    moneda_raw = str(fields.get("moneda") or "CLP").strip().upper()
+    moneda = moneda_raw if moneda_raw in {"CLP", "USD", "UF", "EUR"} else "CLP"
+
     return ExtractedVoucherSuggestion(
         empresa_codigo=empresa_codigo,
+        empresa_auto_detectada=False,  # se overridea en el endpoint si matchea
+        empresa_receptor_rut_detectado=receptor_rut_canonical,
         proveedor_rut=proveedor_rut,
         proveedor_nombre=proveedor_nombre,
         rut_es_valido=rut_valido,
@@ -334,8 +354,40 @@ def _build_suggestion(
         fecha_documento=fecha_doc.isoformat(),
         fecha_vencimiento=fecha_venc,
         glosa=glosa,
+        moneda=moneda,
         informacion_contable=informacion_contable,
         informacion_financiera=[linea_financiera],
+    )
+
+
+async def _maybe_match_empresa(
+    suggestion: ExtractedVoucherSuggestion, db: Any
+) -> ExtractedVoucherSuggestion:
+    """Si la IA detecto receptor_rut y matchea con una empresa activa,
+    actualiza `empresa_codigo` con la detectada y marca el flag."""
+    if not suggestion.empresa_receptor_rut_detectado:
+        return suggestion
+    from sqlalchemy import text as _text
+
+    row = (
+        await db.execute(
+            _text(
+                """
+                SELECT codigo FROM core.empresas
+                WHERE rut = :rut AND activo = TRUE
+                LIMIT 1
+                """
+            ),
+            {"rut": suggestion.empresa_receptor_rut_detectado},
+        )
+    ).fetchone()
+    if not row:
+        return suggestion
+    return suggestion.model_copy(
+        update={
+            "empresa_codigo": str(row[0]),
+            "empresa_auto_detectada": True,
+        }
     )
 
 
@@ -401,6 +453,7 @@ async def extract_from_text(
         ) from exc
 
     suggestion = _build_suggestion(extraction.fields, body.empresa_codigo)
+    suggestion = await _maybe_match_empresa(suggestion, db)
 
     return ExtractFromUploadResponse(
         suggestion=suggestion,
@@ -526,6 +579,7 @@ async def extract_from_upload(
 
     # 4) Construir sugerencia precargada para el form
     suggestion = _build_suggestion(extraction.fields, empresa_codigo)
+    suggestion = await _maybe_match_empresa(suggestion, db)
 
     # 5) Si el user pidio archivar, subimos a Dropbox y devolvemos el path
     #    en la response. El FE lo persiste como documento_dropbox_path al

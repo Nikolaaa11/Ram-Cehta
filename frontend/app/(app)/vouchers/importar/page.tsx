@@ -55,6 +55,8 @@ interface ExtractedLine {
 
 interface VoucherSuggestion {
   empresa_codigo: string;
+  empresa_auto_detectada?: boolean;
+  empresa_receptor_rut_detectado?: string | null;
   proveedor_rut: string;
   proveedor_nombre: string;
   rut_es_valido: boolean;
@@ -64,6 +66,7 @@ interface VoucherSuggestion {
   fecha_documento: string;
   fecha_vencimiento: string;
   glosa: string;
+  moneda?: string;
   informacion_contable: ExtractedLine[];
   informacion_financiera: ExtractedLine[];
 }
@@ -601,6 +604,14 @@ export default function ImportarVoucherPage() {
                   ? ` · OCR ${extraction.ocr_pages} págs`
                   : ""}
               </span>
+              {extraction.suggestion.empresa_auto_detectada && (
+                <span
+                  title={`Detectado por RUT receptor ${extraction.suggestion.empresa_receptor_rut_detectado}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-cehta-green/10 px-2.5 py-0.5 text-xs text-cehta-green"
+                >
+                  🎯 Empresa auto-detectada: {extraction.suggestion.empresa_codigo}
+                </span>
+              )}
               {extraction.dropbox_path && (
                 <span
                   title={`Archivo guardado en ${extraction.dropbox_path}`}

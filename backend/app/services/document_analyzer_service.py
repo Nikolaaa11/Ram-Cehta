@@ -112,11 +112,17 @@ SCHEMAS: dict[str, dict[str, str]] = {
     "factura": {
         "proveedor_rut": "RUT del proveedor/emisor.",
         "proveedor_nombre": "Razón social del proveedor.",
+        "receptor_rut": (
+            "RUT de la empresa que RECIBE la factura (no el proveedor). "
+            "Si no aparece, null."
+        ),
+        "receptor_nombre": "Razón social del receptor si aparece, null sino.",
         "numero_factura": "Folio o número de factura.",
         "fecha": "Fecha de emisión (YYYY-MM-DD).",
         "monto_neto": "Monto neto sin IVA, número entero.",
         "iva": "Monto del IVA, número entero.",
         "total": "Total con IVA incluido, número entero.",
+        "moneda": "Codigo ISO de moneda: CLP / USD / UF / EUR. Default CLP.",
         "descripcion": "Glosa o detalle resumido del bien/servicio.",
         "subtipo_documento": (
             "Subtipo: FACTURA / BOLETA / NOTA_CREDITO / NOTA_DEBITO / HONORARIOS / COTIZACION / NA."
