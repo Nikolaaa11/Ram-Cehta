@@ -146,6 +146,33 @@ SCHEMAS: dict[str, dict[str, str]] = {
         "descuentos": "Total de descuentos legales y otros en CLP.",
         "liquido_pagar": "Líquido a pagar en CLP.",
     },
+    "orden_compra": {
+        "proveedor_rut": "RUT del proveedor (a quien le compramos).",
+        "proveedor_nombre": "Razón social del proveedor.",
+        "receptor_rut": (
+            "RUT de la empresa COMPRADORA (la que emite la OC). Si aparece, "
+            "matchea con una empresa del portafolio. Null si no aparece."
+        ),
+        "receptor_nombre": "Razón social de la empresa compradora si aparece.",
+        "numero_oc": "Número o folio de la OC si aparece (ej. 'OC-2026-042').",
+        "fecha_emision": "Fecha de emisión (YYYY-MM-DD).",
+        "validez_dias": "Días de validez de la cotización/OC si aparece.",
+        "moneda": "Codigo ISO: CLP / USD / UF / EUR. Default CLP.",
+        "neto": "Monto neto sin IVA, número entero.",
+        "iva": "Monto del IVA, número entero.",
+        "total": "Total con IVA, número entero.",
+        "forma_pago": (
+            "Forma de pago si aparece: TRANSFERENCIA, CHEQUE, CONTADO, CREDITO_30D, "
+            "CREDITO_60D, CREDITO_90D, etc."
+        ),
+        "plazo_pago": "Plazo de pago en texto libre (ej. '30 días', 'al recibir').",
+        "observaciones": "Observaciones o términos especiales si aparecen.",
+        "items": (
+            "Lista de items: cada uno {descripcion: string, cantidad: number, "
+            "precio_unitario: number, total: number}. Si solo hay un total agregado "
+            "sin desglose, devolvé [] y usa el campo 'total' general."
+        ),
+    },
 }
 
 
