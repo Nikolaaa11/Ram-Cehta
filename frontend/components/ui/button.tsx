@@ -8,14 +8,19 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+        // V5++ ola CJ — default ahora verde Cehta (era gris hsl shadcn).
+        // 40+ archivos antes lo sobreescribían con className="bg-cehta-green"
+        // ad-hoc. Ahora viene por default y el branding queda coherente.
+        default:
+          "bg-cehta-green text-white shadow hover:bg-cehta-green-700 focus-visible:ring-cehta-green",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+          "bg-negative text-white shadow-sm hover:bg-negative/90 focus-visible:ring-negative",
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+          "border border-hairline bg-white text-ink-700 shadow-sm hover:bg-ink-50 hover:text-ink-900 focus-visible:ring-cehta-green",
+        secondary:
+          "bg-ink-100 text-ink-700 shadow-sm hover:bg-ink-200 focus-visible:ring-cehta-green",
+        ghost: "hover:bg-cehta-green/10 hover:text-cehta-green",
+        link: "text-cehta-green underline-offset-4 hover:underline",
       },
       size: {
         default: "h-9 px-4 py-2",

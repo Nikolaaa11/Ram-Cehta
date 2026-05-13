@@ -123,11 +123,18 @@ export default function VoucherDetailPage({ params }: PageProps) {
   const qc = useQueryClient();
   const [showVoid, setShowVoid] = useState(false);
 
-  const { data: voucher, isLoading } = useQuery<VoucherFull>({
+  const { data: voucher, isLoading, isError, error } = useQuery<VoucherFull>({
     queryKey: ["voucher", voucherId],
     queryFn: () =>
       apiClient.get<VoucherFull>(`/vouchers/${voucherId}`, session),
     enabled: !!session && !!voucherId,
+    // V5++ ola CJ — no reintentar en 403/404 (queda spinner infinito si no).
+    retry: (failureCount, err) => {
+      if (err instanceof ApiError && (err.status === 403 || err.status === 404)) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // V5++ ola CH fase 2: traer set de tipos afectos a IVA del backend para
@@ -178,6 +185,41 @@ export default function VoucherDetailPage({ params }: PageProps) {
       toast.error(err instanceof ApiError ? err.detail : "No se pudo eliminar");
     },
   });
+
+  // V5++ ola CJ — manejo correcto de error. Antes quedaba spinner infinito
+  // si el voucher era de otra empresa (403) o no existía (404).
+  if (isError) {
+    const apiErr = error instanceof ApiError ? error : null;
+    const status = apiErr?.status;
+    return (
+      <div className="mx-auto max-w-[800px] px-6 py-12">
+        <Link
+          href={"/vouchers" as Route}
+          className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-cehta-green mb-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a vouchers
+        </Link>
+        <div className="rounded-3xl border border-negative/20 bg-negative/5 p-8 text-center">
+          <AlertCircle className="mx-auto h-12 w-12 text-negative" />
+          <h1 className="mt-3 text-xl font-semibold text-ink-900">
+            {status === 403
+              ? "Sin acceso a este voucher"
+              : status === 404
+                ? "Voucher no encontrado"
+                : "No se pudo cargar el voucher"}
+          </h1>
+          <p className="mt-2 text-sm text-ink-600">
+            {status === 403
+              ? "Este voucher pertenece a una empresa a la que no tenés acceso. Si creés que es un error, contactá a Nicolás."
+              : status === 404
+                ? `El voucher con id ${voucherId} no existe. Quizás fue eliminado.`
+                : apiErr?.detail || "Reintentá en unos segundos."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !voucher) {
     return (

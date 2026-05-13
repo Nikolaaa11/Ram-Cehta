@@ -715,7 +715,11 @@ export function VouchersClientView({
                 </button>
               </div>
             )}
-            <table className="w-full text-sm">
+            {/* V5++ ola CJ — wrapper overflow-x para que la tabla no rompa
+                el viewport en mobile (los contadores pueden mirar la lista
+                desde celular). */}
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-ink-50/60 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
                   {estadoFilter === "PENDING" && (
@@ -820,6 +824,7 @@ export function VouchersClientView({
                 })}
               </tbody>
             </table>
+            </div>{/* cierre overflow-x wrapper */}
           </div>
         )}
       </div>

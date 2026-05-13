@@ -356,7 +356,10 @@ export default function ImportarVoucherPage() {
     () => financiera.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [financiera],
   );
-  const cuadrado = totalContable === totalFinanciera && totalContable > 0;
+  // V5++ ola CJ — comparar con tolerancia 0.01 (bug floats fix).
+  const cuadrado =
+    totalContable > 0 &&
+    Math.abs(totalContable - totalFinanciera) < 0.01;
 
   function updateLine(
     which: "contable" | "financiera",

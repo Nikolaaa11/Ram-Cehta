@@ -27,6 +27,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckCircle2,
+  CheckSquare,
   Clock,
   FileSignature,
   FileText,
@@ -34,6 +35,7 @@ import {
   PenTool,
   RefreshCw,
   Sparkles,
+  Square,
   XCircle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
@@ -113,6 +115,19 @@ const urgencyChip = (dias: number) => {
   );
 };
 
+interface BulkApproveItemResult {
+  voucher_id: number;
+  success: boolean;
+  error: string | null;
+  new_status: string | null;
+}
+interface BulkApproveResponse {
+  total: number;
+  succeeded: number;
+  failed: number;
+  items: BulkApproveItemResult[];
+}
+
 export default function AprobacionesPage() {
   const { session } = useSession();
   const qc = useQueryClient();
@@ -120,6 +135,11 @@ export default function AprobacionesPage() {
   const [showRejectFor, setShowRejectFor] = useState<MisPendientesItem | null>(
     null,
   );
+  // V5++ ola CJ — bulk approve UI. Mapa voucher_id -> seleccionado.
+  // Permitimos solo bulk APPROVE (rechazo seguimos uno por uno porque cada
+  // rechazo necesita su razón > 10 chars).
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkSigningRole, setBulkSigningRole] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch, isFetching } =
     useQuery<MisPendientesResponse>({
@@ -143,6 +163,75 @@ export default function AprobacionesPage() {
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [data]);
+
+  // Items seleccionados como objetos completos (para el dialog).
+  const selectedItems = useMemo(() => {
+    return (data?.items ?? []).filter((i) => selectedIds.has(i.voucher_id));
+  }, [data, selectedIds]);
+
+  // Para bulk approve necesitamos que TODOS los seleccionados tengan el
+  // mismo rol pendiente (porque el endpoint firma con un solo rol). Si
+  // mezclás GG + DIRECTOR no podés bulk — el botón se deshabilita.
+  const selectedRoles = useMemo(() => {
+    const roles = new Set(selectedItems.map((i) => i.mi_rol_para_firmar));
+    return Array.from(roles);
+  }, [selectedItems]);
+  const bulkRoleConsistente = selectedRoles.length === 1;
+
+  const toggleSelected = (vid: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(vid)) next.delete(vid);
+      else next.add(vid);
+      return next;
+    });
+  };
+  const selectAllInGroup = (items: MisPendientesItem[]) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      // Si TODOS estan ya seleccionados → deseleccionar todos del grupo.
+      // Si alguno NO esta seleccionado → seleccionar todos.
+      const todosSel = items.every((i) => next.has(i.voucher_id));
+      if (todosSel) {
+        for (const i of items) next.delete(i.voucher_id);
+      } else {
+        for (const i of items) next.add(i.voucher_id);
+      }
+      return next;
+    });
+  };
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const bulkMut = useMutation({
+    mutationFn: async (params: { ids: number[]; role: string }) =>
+      apiClient.post<BulkApproveResponse>(
+        "/vouchers/bulk-approve",
+        { voucher_ids: params.ids, role: params.role },
+        session,
+      ),
+    onSuccess: (resp) => {
+      if (resp.failed === 0) {
+        toast.success(
+          `✓ Firmados ${resp.succeeded} vouchers como ${bulkSigningRole}`,
+        );
+      } else {
+        toast.info(
+          `${resp.succeeded} firmados · ${resp.failed} con error. Revisá la lista actualizada.`,
+          { duration: 10000 },
+        );
+      }
+      clearSelection();
+      setBulkSigningRole(null);
+      qc.invalidateQueries({ queryKey: ["vouchers", "mis-pendientes"] });
+      qc.invalidateQueries({ queryKey: ["vouchers"] });
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError ? err.detail : "No se pudo firmar en bulk",
+        { duration: 8000 },
+      );
+    },
+  });
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
@@ -216,34 +305,120 @@ export default function AprobacionesPage() {
 
       {grouped.length > 0 && (
         <div className="space-y-6">
-          {grouped.map(([empresa, items]) => (
-            <section key={empresa} className="space-y-2">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-700">
-                  {empresa}
-                  {items[0]?.empresa_razon_social && (
-                    <span className="ml-2 font-normal text-ink-500 capitalize">
-                      — {items[0].empresa_razon_social}
-                    </span>
-                  )}
-                </h2>
-                <span className="text-xs text-ink-500">
-                  {items.length} pendiente{items.length === 1 ? "" : "s"}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <VoucherApprovalCard
-                    key={item.voucher_id}
-                    item={item}
-                    onSign={() => setSigningFor(item)}
-                    onReject={() => setShowRejectFor(item)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+          {grouped.map(([empresa, items]) => {
+            const todosSel = items.every((i) => selectedIds.has(i.voucher_id));
+            const algunoSel = items.some((i) => selectedIds.has(i.voucher_id));
+            return (
+              <section key={empresa} className="space-y-2">
+                <div className="flex items-baseline justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => selectAllInGroup(items)}
+                      className="inline-flex items-center gap-1 text-ink-500 hover:text-cehta-green"
+                      title={todosSel ? "Deseleccionar todos" : "Seleccionar todos del grupo"}
+                      aria-label={todosSel ? "Deseleccionar todos" : "Seleccionar todos del grupo"}
+                    >
+                      {todosSel ? (
+                        <CheckSquare className="size-4 text-cehta-green" />
+                      ) : algunoSel ? (
+                        <CheckSquare className="size-4 text-cehta-green/50" />
+                      ) : (
+                        <Square className="size-4" />
+                      )}
+                    </button>
+                    <h2 className="text-sm font-semibold uppercase tracking-wider text-ink-700">
+                      {empresa}
+                      {items[0]?.empresa_razon_social && (
+                        <span className="ml-2 font-normal text-ink-500 capitalize">
+                          — {items[0].empresa_razon_social}
+                        </span>
+                      )}
+                    </h2>
+                  </div>
+                  <span className="text-xs text-ink-500">
+                    {items.length} pendiente{items.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <VoucherApprovalCard
+                      key={item.voucher_id}
+                      item={item}
+                      selected={selectedIds.has(item.voucher_id)}
+                      onToggleSelect={() => toggleSelected(item.voucher_id)}
+                      onSign={() => setSigningFor(item)}
+                      onReject={() => setShowRejectFor(item)}
+                    />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
         </div>
+      )}
+
+      {/* V5++ ola CJ — Barra flotante de bulk action.
+          Aparece cuando hay seleccion. Permite firmar TODAS las
+          seleccionadas con un click (si comparten el mismo rol). */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 z-40 -translate-x-1/2 transform">
+          <Surface className="flex items-center gap-3 px-5 py-3 shadow-2xl border border-cehta-green/30 bg-white">
+            <span className="text-sm font-medium text-ink-900">
+              {selectedIds.size} voucher{selectedIds.size === 1 ? "" : "s"} seleccionado
+              {selectedIds.size === 1 ? "" : "s"}
+            </span>
+            {!bulkRoleConsistente ? (
+              <span className="text-xs text-amber-700">
+                · Mezcla de roles ({selectedRoles.join(", ")}) — no se puede
+                bulk
+              </span>
+            ) : (
+              <span className="text-xs text-ink-500">
+                · Firmar como{" "}
+                <strong className="text-cehta-green">{selectedRoles[0]}</strong>
+              </span>
+            )}
+            <div className="ml-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="text-xs text-ink-600 hover:text-ink-900"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={!bulkRoleConsistente || bulkMut.isPending}
+                onClick={() => {
+                  if (!bulkRoleConsistente) return;
+                  const firstRole = selectedRoles[0];
+                  if (firstRole) setBulkSigningRole(firstRole);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-50"
+              >
+                <FileSignature className="size-4" />
+                Firmar {selectedIds.size}
+              </button>
+            </div>
+          </Surface>
+        </div>
+      )}
+
+      {/* Modal de confirmación bulk */}
+      {bulkSigningRole && selectedItems.length > 0 && (
+        <BulkSignDialog
+          items={selectedItems}
+          role={bulkSigningRole}
+          isPending={bulkMut.isPending}
+          onClose={() => setBulkSigningRole(null)}
+          onConfirm={() =>
+            bulkMut.mutate({
+              ids: Array.from(selectedIds),
+              role: bulkSigningRole,
+            })
+          }
+        />
       )}
 
       {signingFor && (
@@ -274,16 +449,37 @@ export default function AprobacionesPage() {
 
 function VoucherApprovalCard({
   item,
+  selected,
+  onToggleSelect,
   onSign,
   onReject,
 }: {
   item: MisPendientesItem;
+  selected: boolean;
+  onToggleSelect: () => void;
   onSign: () => void;
   onReject: () => void;
 }) {
   return (
-    <Surface className="p-4">
+    <Surface
+      className={`p-4 ${selected ? "ring-2 ring-cehta-green/40 bg-cehta-green/[0.02]" : ""}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          {/* Checkbox bulk */}
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            className="mt-0.5 shrink-0 text-ink-400 hover:text-cehta-green"
+            aria-label={selected ? "Quitar de seleccion" : "Seleccionar para firma bulk"}
+            title={selected ? "Quitar de seleccion" : "Seleccionar para firma bulk"}
+          >
+            {selected ? (
+              <CheckSquare className="size-5 text-cehta-green" />
+            ) : (
+              <Square className="size-5" />
+            )}
+          </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-2">
             <Link
@@ -338,6 +534,7 @@ function VoucherApprovalCard({
             )}
           </p>
         </div>
+        </div>{/* cierre wrapper checkbox+info */}
         <div className="text-right shrink-0">
           <p className="font-mono text-lg font-semibold tabular-nums text-ink-900">
             {fmtMonto(item.total, item.moneda)}
@@ -384,6 +581,121 @@ function VoucherApprovalCard({
         </button>
       </div>
     </Surface>
+  );
+}
+
+function BulkSignDialog({
+  items,
+  role,
+  isPending,
+  onClose,
+  onConfirm,
+}: {
+  items: MisPendientesItem[];
+  role: string;
+  isPending: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const totalGeneral = items.reduce((sum, it) => sum + parseFloat(it.total || "0"), 0);
+  const empresas = new Set(items.map((i) => i.empresa_codigo));
+  const monedas = new Set(items.map((i) => i.moneda));
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+      >
+        <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+          <FileSignature className="size-3.5" />
+          Confirmar firma en bulk
+        </div>
+        <p className="text-sm text-ink-700">
+          Voy a firmar <strong>{items.length} voucher{items.length === 1 ? "" : "s"}</strong>{" "}
+          como{" "}
+          <strong className="text-cehta-green">{role}</strong>.
+        </p>
+        <div className="rounded-xl bg-ink-50 p-3 space-y-1 text-sm">
+          <div className="flex justify-between">
+            <span className="text-ink-500">Total vouchers</span>
+            <span className="font-mono font-semibold">{items.length}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-ink-500">Empresas involucradas</span>
+            <span className="font-medium">
+              {Array.from(empresas).join(", ")}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-ink-500">
+              Suma total{monedas.size > 1 ? " (mixto)" : ""}
+            </span>
+            <span className="font-mono font-semibold">
+              {monedas.size === 1 && monedas.has("CLP")
+                ? `$${Math.round(totalGeneral).toLocaleString("es-CL")}`
+                : `${totalGeneral.toLocaleString("es-CL")} (mixto)`}
+            </span>
+          </div>
+        </div>
+        {/* Lista compacta de vouchers para revisar */}
+        <div className="max-h-64 overflow-y-auto rounded-xl border border-hairline">
+          <table className="w-full text-xs">
+            <thead className="bg-ink-50 text-ink-600">
+              <tr>
+                <th className="px-3 py-2 text-left">Voucher</th>
+                <th className="px-3 py-2 text-left">Empresa</th>
+                <th className="px-3 py-2 text-left">Proveedor</th>
+                <th className="px-3 py-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline">
+              {items.map((i) => (
+                <tr key={i.voucher_id}>
+                  <td className="px-3 py-1.5 font-mono">{i.codigo}</td>
+                  <td className="px-3 py-1.5">{i.empresa_codigo}</td>
+                  <td className="px-3 py-1.5 truncate max-w-[150px]">
+                    {i.contraparte_nombre ?? "—"}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-mono">
+                    {fmtMonto(i.total, i.moneda)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-ink-500">
+          Cada firma queda con tu IP + timestamp + hash SHA-256. Si alguno
+          tiene problemas (regla cambiada, ya firmado, etc.), seguirá con
+          los siguientes — no se aborta el batch completo.
+        </p>
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isPending}
+            className="rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
+          >
+            <FileSignature className="size-4" />
+            {isPending ? `Firmando ${items.length}…` : `Confirmar ${items.length} firmas`}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

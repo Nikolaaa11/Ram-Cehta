@@ -53,6 +53,7 @@ export default function MisPendientesPage() {
   const [pending, setPending] = useState<Voucher[]>([]);
   const [empresas, setEmpresas] = useState<MyEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -79,7 +80,16 @@ export default function MisPendientesPage() {
         );
         setEmpresas(empResp.empresas || []);
       } catch (err) {
-        // silenced
+        // V5++ ola CJ — antes silenciado; ahora propagamos para que el
+        // user vea el error y pueda reintentar (no quede "sin pendientes"
+        // como falso positivo cuando hay un 401/500).
+        const message =
+          err instanceof ApiError
+            ? err.detail
+            : err instanceof Error
+              ? err.message
+              : "No pude cargar tus pendientes. Reintentá en unos segundos.";
+        setLoadError(message);
       } finally {
         setLoading(false);
       }
@@ -89,6 +99,28 @@ export default function MisPendientesPage() {
 
   const draftsCount = state?.voucher_drafts_mine ?? drafts.length;
   const pendingCount = state?.voucher_pending_approvals ?? pending.length;
+
+  // V5++ ola CJ — manejo de error explícito (antes se silenciaba).
+  if (loadError && !loading) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 space-y-4">
+        <Surface className="p-8 bg-negative/5 border border-negative/20 text-center">
+          <AlertCircle className="mx-auto size-12 text-negative" />
+          <h2 className="mt-3 text-lg font-semibold text-ink-900">
+            No pude cargar tus pendientes
+          </h2>
+          <p className="mt-2 text-sm text-ink-600">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700"
+          >
+            Reintentar
+          </button>
+        </Surface>
+      </div>
+    );
+  }
 
   // V5++ ola AX: skeleton mientras carga
   if (loading && pending.length === 0 && drafts.length === 0) {

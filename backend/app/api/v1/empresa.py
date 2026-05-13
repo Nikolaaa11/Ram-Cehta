@@ -149,8 +149,23 @@ def _validate_periodo(periodo: str | None) -> str | None:
     return periodo
 
 
-async def _get_empresa(db, codigo: str) -> tuple[str, str]:
-    """Devuelve (codigo, razon_social) o lanza 404."""
+async def _get_empresa(db, codigo: str, user=None) -> tuple[str, str]:
+    """Devuelve (codigo, razon_social) o lanza 404.
+
+    V5++ ola CJ — si se pasa `user`, valida que tenga scope en la empresa
+    (CRITICAL — antes 10 endpoints leian KPIs/saldos de otras empresas).
+    `user` queda opcional por backward compat con call sites legacy que
+    no hicimos migrar; los nuevos siempre lo pasan.
+
+    Recomendado: pasar `user` SIEMPRE.
+    """
+    # Scope check primero — falla rápido si no tiene acceso, sin pegarle a la
+    # tabla empresas. assert_empresa_access ya hace su propia query a
+    # user_company_roles + cache.
+    if user is not None:
+        from app.services.empresa_scope_service import assert_empresa_access
+        await assert_empresa_access(user, db, codigo)
+
     row = (
         await db.execute(
             text(
@@ -279,7 +294,7 @@ async def sync_all_dropbox(
     abortar los demás. Idempotente — si re-corres no duplica nada.
     """
     # Validar empresa
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     response = SyncAllDropboxResponse()
 
@@ -362,7 +377,7 @@ async def resumen_cc(
             detail="real_proyectado debe ser 'Real' o 'Proyectado'",
         )
 
-    codigo, razon_social = await _get_empresa(db, empresa_codigo)
+    codigo, razon_social = await _get_empresa(db, empresa_codigo, user=user)
 
     # Filtros opcionales
     where_extra = []
@@ -499,7 +514,7 @@ async def egresos_por_tipo(
 ) -> list[EgresoTipoItem]:
     """Top 9 conceptos por egreso + 'Otros'. Para el donut chart."""
     _validate_periodo(periodo)
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     where_extra = []
     params: dict = {"codigo": empresa_codigo}
@@ -587,7 +602,7 @@ async def egresos_por_proyecto(
 ) -> list[EgresoProyectoItem]:
     """Egresos agrupados por proyecto, ordenado desc — para treemap."""
     _validate_periodo(periodo)
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     excluded = {e.strip().lower() for e in exclude if e and e.strip()}
     if not include_default_excluded:
@@ -659,7 +674,7 @@ async def flujo_mensual(
     meses: Annotated[int, Query(ge=1, le=36)] = 12,
 ) -> list[FlujoMensualPoint]:
     """Time series de los últimos N meses para esta empresa, real + proyectado."""
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     rows = (
         await db.execute(
@@ -750,7 +765,7 @@ async def transacciones_recientes(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="real_proyectado debe ser 'Real' o 'Proyectado'",
         )
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     where_extra = []
     params: dict = {"codigo": empresa_codigo, "limit": limit}
@@ -829,7 +844,7 @@ async def categorias_breakdown(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="real_proyectado debe ser 'Real' o 'Proyectado'",
         )
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     where_extra = ""
     params: dict = {"codigo": empresa_codigo}
@@ -911,7 +926,7 @@ async def proyectado_vs_real(
 ) -> list[ProyectadoVsRealRow]:
     """Comparativa Real vs Proyectado por categoría (concepto_general)."""
     _validate_periodo(periodo)
-    await _get_empresa(db, empresa_codigo)
+    await _get_empresa(db, empresa_codigo, user=user)
 
     where_extra = ""
     params: dict = {"codigo": empresa_codigo}
@@ -1002,7 +1017,7 @@ async def upload_empresa_logo(
         raise HTTPException(status_code=400, detail="Archivo vacío o corrupto")
 
     # Verificar empresa existe
-    empresa = await _get_empresa(db, empresa_codigo)
+    empresa = await _get_empresa(db, empresa_codigo, user=user)
 
     # Upload a Dropbox
     from app.infrastructure.repositories.integration_repository import IntegrationRepository

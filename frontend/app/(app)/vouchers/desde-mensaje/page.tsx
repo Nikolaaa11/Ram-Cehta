@@ -254,7 +254,11 @@ export default function DesdeMensajePage() {
     () => financiera.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [financiera],
   );
-  const cuadrado = totalContable === totalFinanciera && totalContable > 0;
+  // V5++ ola CJ — comparar con tolerancia 0.01 para evitar bug de floats
+  // (0.1+0.2 !== 0.3) que bloqueaba el submit en UF/USD.
+  const cuadrado =
+    totalContable > 0 &&
+    Math.abs(totalContable - totalFinanciera) < 0.01;
 
   function updateLine(
     which: "contable" | "financiera",

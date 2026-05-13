@@ -922,22 +922,38 @@ class VoidRequest(BaseModel):
 async def void_voucher(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    request: Request,
     voucher_id: int,
     body: VoidRequest,
 ) -> VoucherRead:
+    """V5++ ola CJ — scope check + audit_log (compliance gap reportado)."""
     v = await db.get(Voucher, voucher_id)
     if v is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
+    await assert_empresa_access(user, db, v.empresa_codigo)
     if v.status in ("VOID", "CLOSED"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Voucher ya está en {v.status}",
         )
+    status_prev = v.status
     v.status = "VOID"
     v.void_reason = body.reason.strip()
     await db.commit()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="reject",
+        entity_type="voucher",
+        entity_id=str(voucher_id),
+        entity_label=v.codigo,
+        summary=f"Voucher {v.codigo} ANULADO (estado previo: {status_prev}). Razón: {body.reason[:200]}",
+        before={"status": status_prev},
+        after={"status": "VOID", "void_reason": body.reason},
+    )
     return await get_voucher(user, db, voucher_id)
 
 
@@ -955,18 +971,22 @@ async def void_voucher(
 async def delete_voucher(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    request: Request,
     voucher_id: int,
 ) -> Response:
     """Borra fisico, solo permitido si DRAFT.
 
     Para vouchers enviados (PENDING+), usar POST /vouchers/{id}/void.
     Para vouchers cerrados, crear voucher de REVERSO.
+
+    V5++ ola CJ — scope check + audit_log (compliance gap).
     """
     v = await db.get(Voucher, voucher_id)
     if v is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
+    await assert_empresa_access(user, db, v.empresa_codigo)
     if v.status != "DRAFT":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -975,8 +995,22 @@ async def delete_voucher(
                 f"Para anular usar POST /vouchers/{voucher_id}/void."
             ),
         )
+    codigo_prev = v.codigo
+    empresa_prev = v.empresa_codigo
     await db.delete(v)
     await db.commit()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="delete",
+        entity_type="voucher",
+        entity_id=str(voucher_id),
+        entity_label=codigo_prev,
+        summary=f"Voucher DRAFT {codigo_prev} eliminado físicamente (empresa: {empresa_prev})",
+        before={"status": "DRAFT", "codigo": codigo_prev},
+        after=None,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -1567,7 +1601,58 @@ async def list_mis_pendientes(
     if not vouchers_rows:
         return MisPendientesResponse(total=0, items=[])
 
-    # 3. Para cada voucher, calcular approval state
+    # V5++ ola CJ — PERF FIX para N+1 reportado por audit (4.8s con 30
+    # vouchers PENDING). En lugar de hacer 2 queries por voucher dentro
+    # del loop (`get_voucher_balance_treatment_dominante` + `get_voucher_approvals`),
+    # cargamos AMBAS en bulk con un solo `WHERE voucher_id = ANY(:ids)`.
+
+    voucher_ids = [vr["voucher_id"] for vr in vouchers_rows]
+
+    # Bulk balance_treatment dominante: tipo dominante por voucher.
+    # ACTIVACION > GASTO > NA (hipotesis pesimista).
+    bt_rows = (await db.execute(
+        text(
+            """
+            SELECT
+                voucher_id,
+                COUNT(*) FILTER (WHERE balance_treatment = 'ACTIVACION') AS act,
+                COUNT(*) FILTER (WHERE balance_treatment = 'GASTO')      AS gas,
+                COUNT(*) FILTER (WHERE balance_treatment = 'NA')         AS na
+            FROM core.voucher_lines
+            WHERE voucher_id = ANY(:ids)
+            GROUP BY voucher_id
+            """
+        ),
+        {"ids": voucher_ids},
+    )).mappings().all()
+    bt_by_voucher: dict[int, str | None] = {}
+    for r in bt_rows:
+        if (r["act"] or 0) > 0:
+            bt_by_voucher[r["voucher_id"]] = "ACTIVACION"
+        elif (r["gas"] or 0) > 0:
+            bt_by_voucher[r["voucher_id"]] = "GASTO"
+        elif (r["na"] or 0) > 0:
+            bt_by_voucher[r["voucher_id"]] = "NA"
+        else:
+            bt_by_voucher[r["voucher_id"]] = None
+
+    # Bulk approvals: todas las aprobaciones de todos los vouchers en una.
+    appr_rows = (await db.execute(
+        text(
+            """
+            SELECT voucher_id, order_num, role, decision,
+                   approver_user_id::text AS approver_user_id
+            FROM core.voucher_approvals
+            WHERE voucher_id = ANY(:ids)
+            ORDER BY voucher_id, order_num
+            """
+        ),
+        {"ids": voucher_ids},
+    )).mappings().all()
+    approvals_by_voucher: dict[int, list[dict[str, Any]]] = {}
+    for a in appr_rows:
+        approvals_by_voucher.setdefault(a["voucher_id"], []).append(dict(a))
+
     items: list[MisPendientesItem] = []
     rules_cache: dict[str, list[dict[str, Any]]] = {}
     now = datetime.now(tz=UTC)
@@ -1577,9 +1662,7 @@ async def list_mis_pendientes(
         if empresa not in rules_cache:
             rules_cache[empresa] = await load_active_rules(db, empresa)
         rules = rules_cache[empresa]
-        bt = await get_voucher_balance_treatment_dominante(
-            db, vr["voucher_id"]
-        )
+        bt = bt_by_voucher.get(vr["voucher_id"])
         rule = find_matching_rule(
             rules,
             voucher_tipo=vr["tipo"],
@@ -1591,7 +1674,7 @@ async def list_mis_pendientes(
             # devuelve estos (mostraria el rol pendiente como undefined).
             continue
         required_roles = list(rule["required_roles"])
-        approvals_raw = await get_voucher_approvals(db, vr["voucher_id"])
+        approvals_raw = approvals_by_voucher.get(vr["voucher_id"], [])
         approved_orders = {
             a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
         }

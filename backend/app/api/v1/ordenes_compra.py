@@ -460,11 +460,16 @@ async def update_oc(
     oc_id: int,
     body: OrdenCompraUpdate,
 ) -> OrdenCompraRead:
-    """Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`."""
+    """Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`.
+
+    V5++ ola CJ — scope check sobre `oc.empresa_codigo` (era un gap
+    crítico: user con oc:update global podía editar OC de empresa ajena).
+    """
     repo = OrdenCompraRepository(db)
     oc = await repo.get(oc_id)
     if not oc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
+    await assert_empresa_access(user, db, oc.empresa_codigo)
     if oc.estado not in _OC_EDITABLE_ESTADOS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -515,13 +520,17 @@ async def delete_oc(
     request: Request,
     oc_id: int,
 ) -> Response:
-    """Borra una OC. Solo permitido si estado in ('emitida', 'anulada')."""
+    """Borra una OC. Solo permitido si estado in ('emitida', 'anulada').
+
+    V5++ ola CJ — scope check sobre empresa.
+    """
     repo = OrdenCompraRepository(db)
     oc = await repo.get(oc_id)
     if not oc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
         )
+    await assert_empresa_access(user, db, oc.empresa_codigo)
     if oc.estado not in {"emitida", "anulada"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -565,6 +574,8 @@ async def update_estado(
     if not oc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
 
+    # V5++ ola CJ — scope check sobre empresa.
+    await assert_empresa_access(user, db, oc.empresa_codigo)
     allowed = _authz.allowed_actions_for_oc(user, oc.estado)
     _ESTADO_ACTION = {"pagada": "mark_paid", "anulada": "cancel", "parcial": "mark_paid"}
     required = _ESTADO_ACTION.get(body.estado)

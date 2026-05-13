@@ -349,7 +349,12 @@ export default function NuboxFormPage() {
     () => financiera.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [financiera],
   );
-  const cuadrado = totalContable === totalFinanciera && totalContable > 0;
+  // V5++ ola CJ — comparar floats con tolerancia (0.01) para evitar
+  // `0.1+0.2 === 0.3 // false`. En CLP los montos son enteros normalmente
+  // pero en UF/USD pueden tener decimales y romper el cuadre por epsilon.
+  const cuadrado =
+    totalContable > 0 &&
+    Math.abs(totalContable - totalFinanciera) < 0.01;
 
   const addLine = (which: "contable" | "financiera") => {
     const row: LineRow = { comentario: "", cuenta_codigo: "", total: "" };
