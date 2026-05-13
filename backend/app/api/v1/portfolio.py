@@ -26,7 +26,7 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
@@ -137,14 +137,21 @@ def periodo_label(year: int, month: int) -> str:
 # =====================================================================
 @router.get("/consolidated", response_model=PortfolioConsolidated)
 async def portfolio_consolidated(
-    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
+    user: CurrentUser, db: DBSession, response: Response, scope: EmpresaScopeDep
 ) -> PortfolioConsolidated:
     """Vista consolidada del portafolio en CLP/USD/UF.
 
     V5++ ola CB: filtra por empresas en scope del user. Admin global ve
     todo el portafolio (FIP CEHTA completo). Scoped users ven solo sus
     empresas — útil cuando un partner GP solo gestiona una vertical.
+
+    V5++ ola CG perf: el endpoint corre 12 queries serializadas (monthly
+    trend) + saldos por empresa + tasas USD/UF — total p95 ~2.5s sobre
+    Supabase Ohio. Cacheamos 60s en el browser/CDN para que el CEO
+    dashboard no replee al hacer refresh inmediato. SWR 30s permite UI
+    instantánea mientras se actualiza background.
     """
+    response.headers["Cache-Control"] = "private, max-age=60, stale-while-revalidate=30"
     today = date.today()
     warnings: list[str] = []
 

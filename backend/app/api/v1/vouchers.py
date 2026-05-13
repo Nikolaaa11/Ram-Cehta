@@ -444,17 +444,29 @@ async def get_voucher_html(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
 
-    # Cargar nombres de cuentas (JOIN con plan_cuentas)
-    line_dicts = []
-    for ln in sorted(v.lines, key=lambda x: x.line_number):
-        cuenta_nombre = await db.scalar(
-            text("SELECT nombre FROM core.plan_cuentas WHERE codigo = :c"),
-            {"c": ln.cuenta_codigo},
+    # Cargar nombres de cuentas (V5++ ola CG perf: 1 query con IN en vez de
+    # N round-trips. Antes hacíamos `SELECT nombre FROM core.plan_cuentas
+    # WHERE codigo = :c` por cada línea — con 5-15 líneas eso eran
+    # 5-15 round-trips de ~80ms cada uno sobre Supabase Ohio. Ahora 1 sola.)
+    lines_sorted = sorted(v.lines, key=lambda x: x.line_number)
+    cuenta_codes = {ln.cuenta_codigo for ln in lines_sorted if ln.cuenta_codigo}
+    cuenta_nombre_map: dict[str, str] = {}
+    if cuenta_codes:
+        cuenta_rows = await db.execute(
+            text(
+                "SELECT codigo, nombre FROM core.plan_cuentas "
+                "WHERE codigo = ANY(CAST(:codes AS text[]))"
+            ),
+            {"codes": list(cuenta_codes)},
         )
+        cuenta_nombre_map = {r[0]: r[1] for r in cuenta_rows}
+
+    line_dicts = []
+    for ln in lines_sorted:
         line_dicts.append({
             "line_number": ln.line_number,
             "cuenta_codigo": ln.cuenta_codigo,
-            "cuenta_nombre": cuenta_nombre or "",
+            "cuenta_nombre": cuenta_nombre_map.get(ln.cuenta_codigo, ""),
             "proyecto_codigo": ln.proyecto_codigo,
             "area_codigo": ln.area_codigo,
             "descripcion": ln.descripcion or "",
