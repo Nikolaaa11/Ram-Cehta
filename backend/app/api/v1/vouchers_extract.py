@@ -131,7 +131,7 @@ class ExtractFromUploadResponse(BaseModel):
     filename: str
     file_size_bytes: int
     # V5++ ola CE — Si save_to_dropbox=true y la integracion esta activa,
-    # el archivo se sube a /Apps/CehtaCapital/Adjuntos-Vouchers/{empresa}/{año}/
+    # el archivo se sube a /Cehta Capital/01-Empresas/{empresa}/06-Adjuntos-Vouchers/{año}/
     # y aca devolvemos el path para que el FE lo pase al nubox-form como
     # documento_dropbox_path.
     dropbox_path: str | None = None
@@ -157,7 +157,13 @@ def _safe_filename(name: str) -> str:
 async def _try_upload_to_dropbox(
     db: Any, content: bytes, filename: str, empresa_codigo: str
 ) -> tuple[str | None, str | None]:
-    """Sube `content` a Dropbox bajo Adjuntos-Vouchers/{empresa}/{año}/.
+    """Sube `content` a Dropbox bajo 06-Adjuntos-Vouchers/{año}/ de la empresa.
+
+    Path: `/Cehta Capital/01-Empresas/{EMPRESA}/06-Adjuntos-Vouchers/{año}/`
+
+    Consistente con el resto del codigo (legal_repository, trabajador_repository,
+    cartolas_sync_service, f22_sync_service, etc.) que usa `/Cehta Capital/`
+    como root y `01-Empresas/{COD}/` como base por empresa.
 
     Devuelve (path, warning):
       - (path, None) si exitoso
@@ -185,7 +191,10 @@ async def _try_upload_to_dropbox(
     safe = _safe_filename(filename)
     year = date.today().year
     ts = int(time.time() * 1000)
-    path = f"/Apps/CehtaCapital/Adjuntos-Vouchers/{empresa_codigo}/{year}/{ts}_{safe}"
+    path = (
+        f"/Cehta Capital/01-Empresas/{empresa_codigo}/06-Adjuntos-Vouchers/"
+        f"{year}/{ts}_{safe}"
+    )
     try:
         # upload_file es sync — Fastapi corre el endpoint async, asi que
         # tecnicamente bloquea el event loop. Para uploads de hasta 15MB es
