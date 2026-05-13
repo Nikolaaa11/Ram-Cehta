@@ -17,12 +17,13 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import assert_empresa_access
 
 router = APIRouter()
 
@@ -75,16 +76,27 @@ class AreaEmpresaMatrix(BaseModel):
 # =====================================================================
 
 
+_CATALOG_CACHE_HEADER = "private, max-age=300, stale-while-revalidate=60"
+
+
 @router.get("/areas", response_model=list[AreaRead])
 async def list_areas(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
     only_active: bool = Query(default=True),
     empresa_codigo: str | None = Query(
         default=None,
         description="Si se pasa, solo devuelve áreas que aplican a esa empresa",
     ),
 ) -> list[AreaRead]:
+    """V5++ ola CG perf: cache 5 min stale-while-revalidate 60s.
+    Las áreas son catálogo cuasi-estático (cambian ~1/año)."""
+    response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
+    # V5++ ola CG security: scope check si filtro empresa_codigo viene.
+    if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
+
     where_parts: list[str] = []
     params: dict[str, Any] = {}
 
@@ -265,7 +277,10 @@ async def toggle_area_empresa(
 
     UPSERT: si no había row, crea con `aplica` indicado. Si había, lo
     actualiza.
+
+    V5++ ola CG security: scope check sobre `empresa_codigo`.
     """
+    await assert_empresa_access(user, db, empresa_codigo)
     await db.execute(
         text(
             """

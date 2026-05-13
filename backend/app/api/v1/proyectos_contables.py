@@ -18,13 +18,16 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -97,21 +100,44 @@ _PROY_COLS = (
 # =====================================================================
 
 
+_PROY_CACHE_HEADER = "private, max-age=300, stale-while-revalidate=60"
+
+
 @router.get("/proyectos-contables", response_model=list[ProyectoContableRead])
 async def list_proyectos(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
+    response: Response,
     empresa_codigo: str | None = Query(default=None),
     tipo_financiamiento: TipoFinanciamiento | None = Query(default=None),
     estado: ProyectoEstado | None = Query(default=None),
     search: str | None = Query(default=None, max_length=100),
 ) -> list[ProyectoContableRead]:
+    """Lista proyectos contables filtrable.
+
+    V5++ ola CG security: aplica scope multi-tenant. Si el user no es admin
+    global, filtra a las empresas permitidas; si `empresa_codigo` viene en
+    query, validamos acceso explícito.
+
+    V5++ ola CG perf: cache 5 min — los proyectos cambian rara vez.
+    """
+    response.headers["Cache-Control"] = _PROY_CACHE_HEADER
     where_parts: list[str] = []
     params: dict[str, Any] = {}
 
     if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
         where_parts.append("empresa_codigo = :empresa")
         params["empresa"] = empresa_codigo
+    else:
+        # Filtrar por scope global del user.
+        empresa_codes = scope.filter_codes(None)
+        if empresa_codes is not None:
+            if not empresa_codes:
+                return []
+            where_parts.append("empresa_codigo = ANY(CAST(:codes AS text[]))")
+            params["codes"] = empresa_codes
     if tipo_financiamiento:
         where_parts.append("tipo_financiamiento = :tipo")
         params["tipo"] = tipo_financiamiento
@@ -162,6 +188,8 @@ async def get_proyecto(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Proyecto {codigo} no encontrado",
         )
+    # V5++ ola CG security: scope check sobre la empresa del proyecto.
+    await assert_empresa_access(user, db, row["empresa_codigo"])
     return ProyectoContableRead.model_validate(dict(row))
 
 
@@ -181,6 +209,10 @@ async def create_proyecto(
     db: DBSession,
     body: ProyectoContableCreate,
 ) -> ProyectoContableRead:
+    # V5++ ola CG security: el user no puede crear proyectos en empresas
+    # que no le pertenecen aunque tenga legal:write global.
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
     # Validar empresa
     empresa_existe = await db.scalar(
         text("SELECT 1 FROM core.empresas WHERE codigo = :c AND activo = TRUE"),
@@ -239,6 +271,19 @@ async def update_proyecto(
     codigo: str,
     body: ProyectoContableUpdate,
 ) -> ProyectoContableRead:
+    # V5++ ola CG security: scope check antes de UPDATE.
+    empresa_row = await db.execute(
+        text("SELECT empresa_codigo FROM core.proyectos_contables WHERE codigo = :c"),
+        {"c": codigo},
+    )
+    empresa_row_first = empresa_row.first()
+    if not empresa_row_first:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proyecto {codigo} no encontrado",
+        )
+    await assert_empresa_access(user, db, empresa_row_first[0])
+
     update_data = body.model_dump(exclude_unset=True)
     if not update_data:
         return await get_proyecto(user, db, codigo)
@@ -288,6 +333,20 @@ async def delete_proyecto(
     Para "deshabilitar" un proyecto sin perder datos, usar PATCH con
     `estado = 'CLOSED'`.
     """
+    # V5++ ola CG security: scope check antes de DELETE.
+    empresa_row = (
+        await db.execute(
+            text("SELECT empresa_codigo FROM core.proyectos_contables WHERE codigo = :c"),
+            {"c": codigo},
+        )
+    ).first()
+    if not empresa_row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proyecto {codigo} no encontrado",
+        )
+    await assert_empresa_access(user, db, empresa_row[0])
+
     has_lines = await db.scalar(
         text(
             "SELECT 1 FROM core.voucher_lines WHERE proyecto_codigo = :c LIMIT 1"

@@ -267,7 +267,8 @@ export default function DesdeMensajeOcPage() {
         fecha_emision: fechaEmision,
         validez_dias: Number(validezDias) || 30,
         moneda,
-        neto: totalNeto,
+        // Disciplina 2: backend recomputa el neto de los items. El FE solo
+        // muestra preview con totalNeto pero NO lo envía.
         forma_pago: formaPago || null,
         plazo_pago: plazoPago || null,
         observaciones: observaciones || null,

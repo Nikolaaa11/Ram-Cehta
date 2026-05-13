@@ -97,9 +97,10 @@ def _check_confirm(body: ResetConfirm) -> None:
 @router.post(
     "/admin/reset/movimientos/{empresa_codigo}",
     response_model=ResetResult,
+    dependencies=[Depends(require_scope("legal:delete"))],
 )
 async def reset_movimientos(
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:delete"))],
     db: DBSession,
     request: Request,
     empresa_codigo: str,
@@ -243,9 +244,10 @@ async def reset_f22(
 @router.post(
     "/admin/reset/cartolas-runs/{empresa_codigo}",
     response_model=ResetResult,
+    dependencies=[Depends(require_scope("legal:delete"))],
 )
 async def reset_cartolas_runs(
-    user: CurrentUser,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:delete"))],
     db: DBSession,
     request: Request,
     empresa_codigo: str,

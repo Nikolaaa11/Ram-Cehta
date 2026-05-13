@@ -274,16 +274,10 @@ export default function NuevaOcPage() {
           payload.proveedor_nombre = proveedorNombre.trim();
         }
       }
-      // neto se calcula a partir de los items en el backend (compute_totals
-      // del repo), pero el schema exige neto>0 — usamos suma de items como
-      // estimacion (el backend lo va a recomputar de todas formas).
-      const netoEstimado = items.reduce(
-        (sum, it) =>
-          sum +
-          (Number(it.precio_unitario) || 0) * (Number(it.cantidad) || 0),
-        0,
-      );
-      payload.neto = netoEstimado || 1;
+      // Disciplina 2: el `neto` lo recomputa el backend a partir de los
+      // items (compute_totals en OrdenCompraCreate). NO lo mandamos desde
+      // el FE — antes lo hacíamos para satisfacer una validación gt=0 que
+      // ya removimos del schema (V5++ ola CG, cleanup post-audit).
       const created = await apiClient.post<OcRead>(
         "/ordenes-compra",
         payload,

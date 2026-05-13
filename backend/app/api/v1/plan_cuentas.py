@@ -24,6 +24,7 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
@@ -32,6 +33,7 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import assert_empresa_access
 from app.services.plan_cuentas_import_service import (
     PlanCuentasParseError,
     apply_to_db,
@@ -287,10 +289,14 @@ _PLAN_COLS = (
 )
 
 
+_PLAN_CACHE_HEADER = "private, max-age=300, stale-while-revalidate=60"
+
+
 @router.get("/plan-cuentas", response_model=list[PlanCuentaRead])
 async def list_plan_cuentas(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
     nivel: int | None = Query(default=None, ge=1, le=4),
     tipo: CuentaTipo | None = Query(default=None),
     imputable: bool | None = Query(default=None),
@@ -310,7 +316,18 @@ async def list_plan_cuentas(
     Si `empresa_codigo` se pasa, JOIN con `plan_cuenta_empresa` para filtrar
     solo las habilitadas. Útil para los selectores del form de voucher
     (mostrar solo cuentas que aplican a la empresa del voucher).
+
+    V5++ ola CG security: si el filtro `empresa_codigo` viene, validamos
+    que el user tenga acceso. Sin esto, un user scoped a empresa A podía
+    listar las cuentas habilitadas para empresa B (cross-tenant leak).
+
+    V5++ ola CG perf: cache 5 min — el plan de cuentas cambia cuando se
+    re-importa el Excel, rara vez en operación normal.
     """
+    response.headers["Cache-Control"] = _PLAN_CACHE_HEADER
+    if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
+
     where_parts: list[str] = []
     params: dict[str, Any] = {}
 
@@ -369,6 +386,7 @@ async def list_plan_cuentas(
 async def plan_cuentas_tree(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
     empresa_codigo: str | None = Query(default=None),
     only_active: bool = Query(default=True),
 ) -> list[PlanCuentaTreeNode]:
@@ -377,7 +395,14 @@ async def plan_cuentas_tree(
     Útil para el componente `PlanCuentasTree` de la UI. Performance: una
     sola query trae todas las cuentas; el armado del árbol es O(n) en
     Python.
+
+    V5++ ola CG security: si filtro `empresa_codigo` viene, scope check.
+    V5++ ola CG perf: cache 5 min.
     """
+    response.headers["Cache-Control"] = _PLAN_CACHE_HEADER
+    if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
+
     join_clause = ""
     params: dict[str, Any] = {}
     where_parts: list[str] = []
@@ -535,7 +560,13 @@ async def toggle_cuenta_empresa(
     empresa_codigo: str,
     body: PlanCuentaEmpresaUpdate,
 ) -> PlanCuentaEmpresaRead:
-    """Habilita o deshabilita una cuenta para una empresa específica."""
+    """Habilita o deshabilita una cuenta para una empresa específica.
+
+    V5++ ola CG security: scope check sobre `empresa_codigo`. Sin esto, un
+    user con `legal:write` pero scoped a empresa A podía manipular cuentas
+    habilitadas en empresa B.
+    """
+    await assert_empresa_access(user, db, empresa_codigo)
     await db.execute(
         text(
             """

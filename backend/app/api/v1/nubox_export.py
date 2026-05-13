@@ -26,6 +26,10 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 from app.services.nubox_export_service import (
     NoVouchersToExportError,
     aggregate_batch_summary,
@@ -96,15 +100,26 @@ _BATCH_COLS = (
 async def list_export_batches(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     empresa_codigo: str | None = Query(default=None),
     status_filter: str | None = Query(default=None, alias="status"),
     limit: int = Query(default=50, ge=1, le=200),
 ) -> list[NuboxBatchRead]:
+    """V5++ ola CG security: aplica scope multi-tenant. Sin filtro, devuelve
+    solo batches de las empresas que el user puede ver."""
     where_parts: list[str] = []
     params: dict[str, Any] = {"limit": limit}
     if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
         where_parts.append("empresa_codigo = :e")
         params["e"] = empresa_codigo
+    else:
+        codes = scope.filter_codes(None)
+        if codes is not None:
+            if not codes:
+                return []
+            where_parts.append("empresa_codigo = ANY(CAST(:codes AS text[]))")
+            params["codes"] = codes
     if status_filter:
         where_parts.append("status = :st")
         params["st"] = status_filter
@@ -141,6 +156,8 @@ async def get_export_batch(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Batch no encontrado"
         )
+    # V5++ ola CG security: scope check sobre la empresa del batch.
+    await assert_empresa_access(user, db, row["empresa_codigo"])
     return NuboxBatchRead.model_validate(dict(row))
 
 
@@ -155,7 +172,11 @@ async def create_export_batch_endpoint(
     db: DBSession,
     body: GenerateBatchRequest,
 ) -> NuboxBatchRead:
-    """Genera batch de exportación con vouchers APPROVED no exportados."""
+    """Genera batch de exportación con vouchers APPROVED no exportados.
+
+    V5++ ola CG security: scope check sobre `body.empresa_codigo`.
+    """
+    await assert_empresa_access(user, db, body.empresa_codigo)
     rows = await select_pending_vouchers(
         db,
         empresa_codigo=body.empresa_codigo,
@@ -220,6 +241,8 @@ async def download_batch_csv(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Batch no encontrado"
         )
+    # V5++ ola CG security: scope check sobre la empresa del batch.
+    await assert_empresa_access(user, db, batch["empresa_codigo"])
 
     # Re-fetch rows del batch (vouchers que estaban pending al generarlo)
     rows = (
@@ -293,7 +316,7 @@ async def confirm_batch(
     batch = (
         await db.execute(
             text(
-                "SELECT status FROM core.nubox_export_batches WHERE batch_id = :b"
+                "SELECT status, empresa_codigo FROM core.nubox_export_batches WHERE batch_id = :b"
             ),
             {"b": batch_id},
         )
@@ -302,6 +325,8 @@ async def confirm_batch(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Batch no encontrado"
         )
+    # V5++ ola CG security: scope check.
+    await assert_empresa_access(user, db, batch["empresa_codigo"])
     if batch["status"] != "GENERATED":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
