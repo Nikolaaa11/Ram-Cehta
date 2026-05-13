@@ -247,6 +247,14 @@ export default function OrdenesCompraPage() {
             Importar con IA
           </Link>
           <Link
+            href="/ordenes-compra/desde-mensaje"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+            title="Pegá un email, WhatsApp o texto y la IA arma la OC"
+          >
+            <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
+            Desde mensaje
+          </Link>
+          <Link
             href="/ordenes-compra/nueva"
             className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green focus-visible:ring-offset-2 disabled:opacity-60"
           >

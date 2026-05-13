@@ -131,6 +131,7 @@ export default async function OcDetallePage({
             <OcActions
               ocId={oc.oc_id}
               numeroOc={oc.numero_oc}
+              estado={oc.estado}
               allowedActions={oc.allowed_actions ?? []}
             />
           </div>

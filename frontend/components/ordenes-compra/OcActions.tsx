@@ -8,7 +8,7 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle, Copy, Edit, FileDown, XCircle } from "lucide-react";
+import { CheckCircle, Copy, Edit, FileDown, Trash2, XCircle } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
@@ -19,6 +19,7 @@ import { DuplicateOcDialog } from "@/components/ordenes-compra/DuplicateOcDialog
 interface Props {
   ocId: number;
   numeroOc: string;
+  estado?: string;
   allowedActions: string[];
 }
 
@@ -29,7 +30,7 @@ const successBtn =
 const dangerBtn =
   "inline-flex items-center gap-2 rounded-xl bg-negative/10 px-3.5 py-2 text-sm font-medium text-negative ring-1 ring-negative/20 transition-colors hover:bg-negative/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-negative focus-visible:ring-offset-2";
 
-export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
+export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
   const router = useRouter();
   const { session } = useSession();
   const queryClient = useQueryClient();
@@ -40,6 +41,30 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
   // Si el user puede editar esta OC, asumimos que tambien puede crear OCs en
   // esta empresa — el endpoint backend valida igualmente con require_scope.
   const canDuplicate = canEdit;
+  // Eliminacion fisica: solo OC en 'emitida' (no pagada) o 'anulada' (sin
+  // movimientos) — el backend valida estricto. Esto solo decide si mostramos
+  // el boton, no si la API permite.
+  const canDelete =
+    canEdit && (estado === "emitida" || estado === "anulada");
+
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      apiClient.delete<void>(`/ordenes-compra/${ocId}`, session),
+    onSuccess: async () => {
+      toast.success(`OC ${numeroOc} eliminada`);
+      await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
+      router.push("/ordenes-compra");
+    },
+    onError: (err) => {
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "Error al eliminar la OC",
+      );
+    },
+  });
 
   const estadoMutation = useMutation({
     mutationFn: (estado: "pagada" | "anulada") =>
@@ -69,7 +94,8 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
     },
   });
 
-  if (!canEdit && !canCancel && !canMarkPaid && !canDuplicate) return null;
+  if (!canEdit && !canCancel && !canMarkPaid && !canDuplicate && !canDelete)
+    return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -166,6 +192,34 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
           }
           confirmText="Anular OC"
           onConfirm={() => estadoMutation.mutateAsync("anulada")}
+        />
+      )}
+      {canDelete && (
+        <ConfirmDeleteDialog
+          trigger={
+            <button
+              type="button"
+              className={dangerBtn}
+              disabled={deleteMutation.isPending}
+              aria-label={`Eliminar OC ${numeroOc}`}
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+              {deleteMutation.isPending ? "Eliminando…" : "Eliminar"}
+            </button>
+          }
+          title={`¿Eliminar OC ${numeroOc}?`}
+          description={
+            <>
+              La orden de compra se{" "}
+              <span className="font-medium text-ink-900">borra fisicamente</span>{" "}
+              (no se puede recuperar). Solo permitido si estado{" "}
+              <span className="font-mono text-xs">emitida</span> o{" "}
+              <span className="font-mono text-xs">anulada</span>. Para detener
+              pagos sin perder el rastro, usá <em>Anular</em>.
+            </>
+          }
+          confirmText="Eliminar definitivo"
+          onConfirm={() => deleteMutation.mutateAsync()}
         />
       )}
     </div>

@@ -493,6 +493,65 @@ async def update_oc(
     return _to_read(user, refreshed)
 
 
+# =====================================================================
+# DELETE /ordenes-compra/{oc_id} — borrar OC (solo emitida o anulada)
+# =====================================================================
+#
+# Permitimos eliminacion fisica solo si la OC todavia no tiene impacto
+# financiero, es decir si esta en `emitida` (recien creada, sin pagos)
+# o `anulada` (cancelada antes de pagar). Las `parcial` y `pagada`
+# tienen movimientos contables asociados y no se borran — para esos
+# casos usar el flujo de `anular` (PATCH /estado anulada) que mantiene
+# el rastro auditable.
+@router.delete(
+    "/{oc_id:int}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    dependencies=[Depends(require_scope("oc:update"))],
+)
+async def delete_oc(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:update"))],
+    db: DBSession,
+    request: Request,
+    oc_id: int,
+) -> Response:
+    """Borra una OC. Solo permitido si estado in ('emitida', 'anulada')."""
+    repo = OrdenCompraRepository(db)
+    oc = await repo.get(oc_id)
+    if not oc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
+        )
+    if oc.estado not in {"emitida", "anulada"}:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Solo OCs en estado 'emitida' o 'anulada' pueden borrarse "
+                f"(esta esta en '{oc.estado}'). Para detener pagos usar "
+                f"PATCH /{oc_id}/estado con estado='anulada'."
+            ),
+        )
+    numero_oc = oc.numero_oc
+    estado_prev = oc.estado
+    empresa_prev = oc.empresa_codigo
+    before = _to_read(user, oc).model_dump(mode="json")
+    await db.delete(oc)
+    await db.commit()
+    await audit_log(
+        db,
+        request,
+        user,
+        action="delete",
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=numero_oc,
+        summary=f"OC {numero_oc} eliminada (estado previo: {estado_prev}, empresa: {empresa_prev})",
+        before=before,
+        after=None,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.patch("/{oc_id}/estado", response_model=OrdenCompraRead)
 async def update_estado(
     user: CurrentUser,
