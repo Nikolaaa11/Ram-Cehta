@@ -130,6 +130,22 @@ export default function VoucherDetailPage({ params }: PageProps) {
     enabled: !!session && !!voucherId,
   });
 
+  // V5++ ola CH fase 2: traer set de tipos afectos a IVA del backend para
+  // calcular Total Bruto en la tabla de lineas (disciplina 1: no hardcode).
+  // staleTime 30min — el catalogo cambia rara vez.
+  const { data: formMeta } = useQuery<{
+    tipos_documento_afectos_iva: string[];
+  }>({
+    queryKey: ["vouchers", "form-metadata-iva"],
+    queryFn: () =>
+      apiClient.get<{ tipos_documento_afectos_iva: string[] }>(
+        "/vouchers/form-metadata",
+        session,
+      ),
+    enabled: !!session,
+    staleTime: 30 * 60_000,
+  });
+
   const submitMut = useMutation({
     mutationFn: async () =>
       apiClient.post<{ codigo: string; new_status: string }>(
@@ -500,7 +516,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
               <tfoot>
                 <tr className="border-t-2 border-ink-900/20 bg-ink-50/40 font-semibold">
                   <td colSpan={5} className="px-4 py-3 text-right text-xs uppercase tracking-wider text-ink-500">
-                    Totales
+                    Totales (Neto)
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink-900">
                     {fmt(Number(voucher.total_debit), voucher.moneda)}
@@ -512,6 +528,52 @@ export default function VoucherDetailPage({ params }: PageProps) {
               </tfoot>
             </table>
           </div>
+          {/* V5++ ola CH fase 2: panel "Total con IVA" — solo aparece si el
+              tipo de documento es afecto Y la moneda es CLP. Es informativo
+              (read-only). El asiento contable sigue con Neto/Neto cuadrado;
+              el bruto es el monto efectivamente pagado al proveedor. */}
+          {(() => {
+            const tipo = voucher.doc_tributario_tipo;
+            const aplicaIva =
+              tipo &&
+              voucher.moneda === "CLP" &&
+              (formMeta?.tipos_documento_afectos_iva ?? []).includes(tipo);
+            if (!aplicaIva) return null;
+            const neto = Number(voucher.total_debit);
+            const iva = Math.round(neto * 0.19);
+            const bruto = neto + iva;
+            return (
+              <div className="mt-4 rounded-xl bg-cehta-green/5 ring-1 ring-cehta-green/20 p-4">
+                <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-cehta-green mb-2">
+                  Total con IVA (informativo)
+                </p>
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-ink-500">Neto</div>
+                    <div className="font-mono font-medium tabular-nums">
+                      {fmt(neto, voucher.moneda)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-ink-500">IVA (19%)</div>
+                    <div className="font-mono font-medium tabular-nums">
+                      {fmt(iva, voucher.moneda)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-ink-500">Bruto</div>
+                    <div className="font-mono font-semibold tabular-nums text-cehta-green">
+                      {fmt(bruto, voucher.moneda)}
+                    </div>
+                  </div>
+                </div>
+                <p className="mt-2 text-[11px] text-ink-500">
+                  El asiento contable cuadra a nivel Neto. El IVA viaja por
+                  la cuenta de IVA Crédito Fiscal (cuenta 1-04-* ó 5-99-*).
+                </p>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Aprobaciones (firma digital) */}

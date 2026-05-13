@@ -125,7 +125,17 @@ SCHEMAS: dict[str, dict[str, str]] = {
         "moneda": "Codigo ISO de moneda: CLP / USD / UF / EUR. Default CLP.",
         "descripcion": "Glosa o detalle resumido del bien/servicio.",
         "subtipo_documento": (
-            "Subtipo: FACTURA / BOLETA / NOTA_CREDITO / NOTA_DEBITO / HONORARIOS / COTIZACION / NA."
+            "Subtipo SII del documento. Elegí EXACTAMENTE uno de la lista: "
+            "FACTURA, FACTURA_ELECTRONICA, FACTURA_EXENTA, FACTURA_ELECTRONICA_EXENTA, "
+            "FACTURA_COMPRA, FACTURA_COMPRA_ELECTRONICA, FACTURA_INICIO, "
+            "LIQUIDACION_FACTURA, LIQUIDACION_FACTURA_ELECTRONICA, "
+            "NOTA_CREDITO, NOTA_CREDITO_ELECTRONICA, NOTA_DEBITO, NOTA_DEBITO_ELECTRONICA, "
+            "DECLARACION_INGRESO, SOLICITUD_REGISTRO_FACTURA, "
+            "BOLETA (boleta de venta), HONORARIOS (boleta de honorarios), NA. "
+            "Reglas: si el doc dice 'Factura Electrónica' y NO es exenta -> FACTURA_ELECTRONICA. "
+            "Si dice 'Factura Exenta' o 'Electrónica Exenta' -> FACTURA_EXENTA / FACTURA_ELECTRONICA_EXENTA. "
+            "Si es una Nota de Crédito Electrónica -> NOTA_CREDITO_ELECTRONICA, "
+            "sino NOTA_CREDITO. Default FACTURA."
         ),
         "forma_pago_sugerida": (
             "Forma de pago sugerida si aparece en el doc: TRANSFERENCIA, "

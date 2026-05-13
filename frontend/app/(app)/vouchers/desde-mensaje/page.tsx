@@ -31,6 +31,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
+import { VoucherLineSection } from "@/components/vouchers/VoucherLineSection";
 
 interface EmpresaMetadata {
   codigo: string;
@@ -39,6 +40,8 @@ interface EmpresaMetadata {
 interface FormMetadata {
   formas_pago: string[];
   tipos_documento: string[];
+  tipo_documento_labels: Record<string, string>;
+  tipos_documento_afectos_iva: string[];
   empresas: EmpresaMetadata[];
 }
 interface ExtractedLine {
@@ -498,11 +501,26 @@ export default function DesdeMensajePage() {
                   onChange={(e) => setTipoDocumento(e.target.value)}
                   className="form-input"
                 >
-                  {meta?.tipos_documento.map((t) => (
-                    <option key={t} value={t}>
-                      {TIPO_DOC_LABELS[t] || t}
-                    </option>
-                  ))}
+                  {(meta?.tipos_documento ?? [])
+                    .filter((t) => !["BOLETA", "HONORARIOS", "NA"].includes(t))
+                    .sort((a, b) => {
+                      const la =
+                        meta?.tipo_documento_labels?.[a] ??
+                        TIPO_DOC_LABELS[a] ??
+                        a;
+                      const lb =
+                        meta?.tipo_documento_labels?.[b] ??
+                        TIPO_DOC_LABELS[b] ??
+                        b;
+                      return la.localeCompare(lb, "es");
+                    })
+                    .map((t) => (
+                      <option key={t} value={t}>
+                        {meta?.tipo_documento_labels?.[t] ??
+                          TIPO_DOC_LABELS[t] ??
+                          t}
+                      </option>
+                    ))}
                 </select>
               </div>
               <div>
@@ -578,18 +596,23 @@ export default function DesdeMensajePage() {
             </div>
           </Surface>
 
-          <LineSection
-            title="Información Contable (DEBE)"
-            subtitle="Gasto. Cuentas 5-* — completá según tu plan."
+          {/* V5++ ola CH fase 2: LineSection compartido con Total Bruto auto */}
+          <VoucherLineSection
+            title="Información Contable"
+            tone="contable"
             lines={contable}
+            tipoDocumento={tipoDocumento}
+            tiposAfectosIva={meta?.tipos_documento_afectos_iva ?? []}
             onAdd={() => addLine("contable")}
             onRemove={(i) => removeLine("contable", i)}
             onUpdate={(i, f, v) => updateLine("contable", i, f, v)}
           />
-          <LineSection
-            title="Información Financiera (HABER)"
-            subtitle="Banco o CxP. Cuentas 1-01-* o 2-02-*."
+          <VoucherLineSection
+            title="Información Financiera"
+            tone="financiera"
             lines={financiera}
+            tipoDocumento={tipoDocumento}
+            tiposAfectosIva={meta?.tipos_documento_afectos_iva ?? []}
             onAdd={() => addLine("financiera")}
             onRemove={(i) => removeLine("financiera", i)}
             onUpdate={(i, f, v) => updateLine("financiera", i, f, v)}
@@ -680,91 +703,6 @@ function Stat({
     </div>
   );
 }
-function LineSection({
-  title,
-  subtitle,
-  lines,
-  onAdd,
-  onRemove,
-  onUpdate,
-}: {
-  title: string;
-  subtitle: string;
-  lines: ExtractedLine[];
-  onAdd: () => void;
-  onRemove: (idx: number) => void;
-  onUpdate: (idx: number, field: keyof ExtractedLine, value: string) => void;
-}) {
-  return (
-    <Surface className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
-            {title}
-          </h2>
-          <p className="text-xs text-ink-500">{subtitle}</p>
-        </div>
-        <Button type="button" variant="outline" size="sm" onClick={onAdd}>
-          <Plus className="size-4 mr-1" /> Agregar línea
-        </Button>
-      </div>
-      <table className="w-full text-sm">
-        <thead className="text-ink-500 text-xs uppercase">
-          <tr>
-            <th className="text-left px-2 py-1.5 w-12">#</th>
-            <th className="text-left px-2 py-1.5">Comentario *</th>
-            <th className="text-left px-2 py-1.5 w-44">Cuenta *</th>
-            <th className="text-right px-2 py-1.5 w-40">Total línea *</th>
-            <th className="w-10"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-          {lines.map((line, idx) => (
-            <tr key={idx}>
-              <td className="px-2 py-1.5 text-ink-500">{idx + 1}</td>
-              <td className="px-2 py-1.5">
-                <input
-                  required
-                  value={line.comentario}
-                  onChange={(e) => onUpdate(idx, "comentario", e.target.value)}
-                  className="form-input"
-                />
-              </td>
-              <td className="px-2 py-1.5">
-                <input
-                  required
-                  value={line.cuenta_codigo}
-                  onChange={(e) => onUpdate(idx, "cuenta_codigo", e.target.value)}
-                  placeholder="5-01-01-001"
-                  className="form-input font-mono"
-                />
-              </td>
-              <td className="px-2 py-1.5">
-                <input
-                  required
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={line.total}
-                  onChange={(e) => onUpdate(idx, "total", e.target.value)}
-                  className="form-input text-right"
-                />
-              </td>
-              <td className="px-2 py-1.5 text-right">
-                <button
-                  type="button"
-                  onClick={() => onRemove(idx)}
-                  disabled={lines.length === 1}
-                  className="text-ink-400 hover:text-red-500 disabled:opacity-30"
-                  aria-label="Quitar línea"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Surface>
-  );
-}
+// V5++ ola CH fase 2: LineSection local removido — ahora vive en
+// `components/vouchers/VoucherLineSection.tsx` y se comparte con las
+// 3 pantallas de creacion de vouchers.

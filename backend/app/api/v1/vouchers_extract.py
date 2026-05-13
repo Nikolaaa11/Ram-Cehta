@@ -230,11 +230,27 @@ def _parse_amount(raw: Any) -> Decimal | None:
     return value
 
 
+# V5++ ola CH — catalogo SII expandido (15 tipos + 3 backward compat).
+# Si la IA detecta un tipo del catalogo nuevo (ej FACTURA_ELECTRONICA), se
+# acepta. Sino, fallback a FACTURA (la mas comun).
 _VALID_TIPO_DOC = {
+    "DECLARACION_INGRESO",
     "FACTURA",
-    "BOLETA",
+    "FACTURA_COMPRA",
+    "FACTURA_COMPRA_ELECTRONICA",
+    "FACTURA_INICIO",
+    "FACTURA_ELECTRONICA",
+    "FACTURA_ELECTRONICA_EXENTA",
+    "FACTURA_EXENTA",
+    "LIQUIDACION_FACTURA",
+    "LIQUIDACION_FACTURA_ELECTRONICA",
     "NOTA_CREDITO",
+    "NOTA_CREDITO_ELECTRONICA",
     "NOTA_DEBITO",
+    "NOTA_DEBITO_ELECTRONICA",
+    "SOLICITUD_REGISTRO_FACTURA",
+    # Backward compat (vouchers viejos)
+    "BOLETA",
     "HONORARIOS",
     "NA",
 }
