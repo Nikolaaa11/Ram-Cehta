@@ -125,18 +125,11 @@ export function MailboxClientView({ initialItems }: Props) {
 
   async function handleToVoucher(inboxId: number) {
     if (toVoucherPending) return;
-    // Pedimos la empresa al user con un prompt simple. Si el system tiene
-    // multi-empresa, idealmente seria un picker — esto es la version mvp.
-    const empresa = window.prompt(
-      "Empresa receptora del voucher (código, ej. EVOQUE):",
-      "",
-    );
-    if (!empresa) return;
     setToVoucherPending(true);
     try {
-      // Trigger extract para validar el flujo + dejar log en backend.
-      // El FE redirige a /vouchers/desde-mensaje con el body precargado
-      // (mas adelante podriamos pasar la suggestion completa via session storage).
+      // Componemos el texto del email como "From / Subject / Body" canonico
+      // y dejamos al user elegir la empresa en /vouchers/desde-mensaje (no
+      // prompteamos aca con prompt() — UX horrible).
       const detailRow = await apiClient.get<{
         body_text: string | null;
         from_email: string;
@@ -149,28 +142,27 @@ export function MailboxClientView({ initialItems }: Props) {
         "",
         detailRow.body_text ?? "",
       ].join("\n");
-      // Guardamos el texto en sessionStorage para que /vouchers/desde-mensaje
-      // lo lea al montar (auto-fill del textarea).
       try {
         window.sessionStorage.setItem(
           "voucher-desde-mensaje:prefill",
           JSON.stringify({
-            empresa_codigo: empresa.toUpperCase(),
+            // empresa_codigo: deliberadamente sin valor — el user elige en
+            // la pantalla siguiente desde el select de empresas reales.
             text: composed,
             source_hint: "email",
             inbox_id: inboxId,
           }),
         );
       } catch {
-        // sessionStorage puede fallar en modo privado — fallback: navegar igual.
+        // sessionStorage falla en modo privado — el navigate sigue igual.
       }
-      toast.success("Email preparado. Te llevo a la pantalla de voucher.");
-      window.location.href = "/vouchers/desde-mensaje?prefill=1";
+      toast.success("Email cargado. Elegí empresa y dale a 'Analizar con IA'.");
+      window.location.href = "/vouchers/desde-mensaje?from=mailbox";
     } catch (err) {
       toast.error(
         err instanceof ApiError
           ? err.detail
-          : "No pude armar el voucher desde este email.",
+          : "No pude leer el email del inbox.",
       );
     } finally {
       setToVoucherPending(false);
