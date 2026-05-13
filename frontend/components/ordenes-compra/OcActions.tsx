@@ -8,7 +8,7 @@
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle, Copy, Edit, XCircle } from "lucide-react";
+import { CheckCircle, Copy, Edit, FileDown, XCircle } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
@@ -83,6 +83,41 @@ export function OcActions({ ocId, numeroOc, allowedActions }: Props) {
           Editar
         </Link>
       )}
+      <button
+        type="button"
+        onClick={async () => {
+          if (!session) {
+            toast.error("Sesión expirada");
+            return;
+          }
+          try {
+            const base =
+              process.env.NEXT_PUBLIC_API_URL ??
+              "https://cehta-backend.fly.dev/api/v1";
+            const resp = await fetch(`${base}/ordenes-compra/${ocId}.html`, {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const html = await resp.text();
+            const blob = new Blob([html], { type: "text/html" });
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank", "noopener,noreferrer");
+            // Liberar después de un rato (5s para que el browser cargue)
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+          } catch (err) {
+            toast.error(
+              err instanceof Error
+                ? `No pude abrir el PDF: ${err.message}`
+                : "Error desconocido",
+            );
+          }
+        }}
+        className={linkBtn}
+        title="Abre la OC con branding listo para imprimir/exportar a PDF (Cmd+P)"
+      >
+        <FileDown className="h-4 w-4" strokeWidth={1.5} />
+        Descargar PDF
+      </button>
       {canDuplicate && (
         <DuplicateOcDialog
           ocId={ocId}
