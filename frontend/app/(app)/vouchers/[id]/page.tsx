@@ -530,6 +530,33 @@ export default function VoucherDetailPage({ params }: PageProps) {
         {/* Conciliación bancaria (solo EXECUTED+) */}
         <VoucherReconcileCard voucher={voucher} />
 
+        {/* V5++ ola CF — Documento origen: si el voucher tiene un dropbox_path
+            (viene del flujo /vouchers/importar), mostrarlo como link directo
+            arriba del card de adjuntos.
+            Cast: documento_dropbox_path es campo del voucher pero el schema
+            generado puede no exponerlo, asi que usamos cast string indexada. */}
+        {(() => {
+          const dropboxPath = (voucher as unknown as { documento_dropbox_path?: string | null })
+            .documento_dropbox_path;
+          if (!dropboxPath) return null;
+          return (
+            <div className="rounded-2xl border border-sf-blue/20 bg-sf-blue/5 p-4">
+              <p className="text-xs uppercase tracking-wider text-sf-blue mb-2">
+                Documento origen
+              </p>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-ink-700">📎</span>
+                <code className="font-mono text-xs text-ink-600 break-all">
+                  {dropboxPath}
+                </code>
+              </div>
+              <p className="mt-2 text-xs text-ink-500">
+                Archivo original procesado con IA al crear este voucher (Dropbox).
+              </p>
+            </div>
+          );
+        })()}
+
         {/* Adjuntos (Dropbox) */}
         <VoucherAttachmentsCard
           voucherId={voucher.voucher_id}
