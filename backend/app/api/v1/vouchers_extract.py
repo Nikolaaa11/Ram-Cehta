@@ -24,22 +24,29 @@ de 1-5MB; PPT puede llegar a 10MB).
 """
 from __future__ import annotations
 
+import re
+import time
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
+import structlog
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.domain.value_objects.rut import format_rut, validate_rut
+from app.infrastructure.repositories.integration_repository import IntegrationRepository
 from app.services.document_analyzer_service import (
     DocumentAnalyzerNotConfigured,
     analyze_document,
     extract_text,
 )
+from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 from app.services.empresa_scope_service import assert_empresa_access
+
+log = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -100,12 +107,72 @@ class ExtractFromUploadResponse(BaseModel):
     ocr_pages: int | None
     filename: str
     file_size_bytes: int
+    # V5++ ola CE — Si save_to_dropbox=true y la integracion esta activa,
+    # el archivo se sube a /Apps/CehtaCapital/Adjuntos-Vouchers/{empresa}/{año}/
+    # y aca devolvemos el path para que el FE lo pase al nubox-form como
+    # documento_dropbox_path.
+    dropbox_path: str | None = None
+    dropbox_warning: str | None = None
 
 
 def _ext_from_filename(filename: str) -> str:
     if "." not in filename:
         return ""
     return filename.rsplit(".", 1)[-1].lower()
+
+
+_SAFE_FILENAME_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _safe_filename(name: str) -> str:
+    """Normaliza un filename para path Dropbox: ASCII-ish, sin espacios/raros."""
+    base = name.strip().replace(" ", "_")
+    safe = _SAFE_FILENAME_RE.sub("-", base)
+    return safe[:120] or "upload.bin"
+
+
+async def _try_upload_to_dropbox(
+    db: Any, content: bytes, filename: str, empresa_codigo: str
+) -> tuple[str | None, str | None]:
+    """Sube `content` a Dropbox bajo Adjuntos-Vouchers/{empresa}/{año}/.
+
+    Devuelve (path, warning):
+      - (path, None) si exitoso
+      - (None, "razon") si la integracion no esta activa o falla algo
+
+    Soft-fail: nunca lanza. El endpoint sigue funcionando si Dropbox falla.
+    """
+    try:
+        integration_repo = IntegrationRepository(db)
+        integration = await integration_repo.get_by_provider("dropbox")
+    except Exception as exc:  # noqa: BLE001
+        return None, f"No pude consultar la integracion Dropbox: {exc}"
+    if integration is None or not integration.access_token:
+        return None, (
+            "Dropbox no esta conectado. Conectalo en /admin/integraciones "
+            "para que los archivos importados se archiven automaticamente."
+        )
+    try:
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+    except DropboxNotConfigured as exc:
+        return None, f"Dropbox client no configurado: {exc}"
+    safe = _safe_filename(filename)
+    year = date.today().year
+    ts = int(time.time() * 1000)
+    path = f"/Apps/CehtaCapital/Adjuntos-Vouchers/{empresa_codigo}/{year}/{ts}_{safe}"
+    try:
+        # upload_file es sync — Fastapi corre el endpoint async, asi que
+        # tecnicamente bloquea el event loop. Para uploads de hasta 15MB es
+        # aceptable; si crece, mover a run_in_threadpool.
+        dbx.upload_file(path, content, overwrite=False)
+        log.info("vouchers_extract.dropbox.uploaded", path=path, size=len(content))
+        return path, None
+    except Exception as exc:  # noqa: BLE001
+        log.warning("vouchers_extract.dropbox.upload_failed", error=str(exc))
+        return None, f"Falle subiendo a Dropbox: {exc}"
 
 
 def _parse_amount(raw: Any) -> Decimal | None:
@@ -199,6 +266,7 @@ async def extract_from_upload(
     db: DBSession,
     file: Annotated[UploadFile, File(description="Archivo PDF/JPG/PNG/DOCX/PPTX")],
     empresa_codigo: Annotated[str, Form(min_length=2, max_length=20)],
+    save_to_dropbox: Annotated[bool, Form()] = True,
 ) -> ExtractFromUploadResponse:
     """Lee imagen / PDF / DOCX / PPTX, lo analiza con Claude y sugiere campos
     para el form Nubox de creacion de voucher.
@@ -269,6 +337,16 @@ async def extract_from_upload(
     # 4) Construir sugerencia precargada para el form
     suggestion = _build_suggestion(extraction.fields, empresa_codigo)
 
+    # 5) Si el user pidio archivar, subimos a Dropbox y devolvemos el path
+    #    en la response. El FE lo persiste como documento_dropbox_path al
+    #    confirmar el voucher en nubox-form.
+    dropbox_path: str | None = None
+    dropbox_warning: str | None = None
+    if save_to_dropbox:
+        dropbox_path, dropbox_warning = await _try_upload_to_dropbox(
+            db, content, filename, empresa_codigo
+        )
+
     return ExtractFromUploadResponse(
         suggestion=suggestion,
         raw_fields=extraction.fields,
@@ -279,4 +357,6 @@ async def extract_from_upload(
         ocr_pages=extraction.ocr_pages,
         filename=filename,
         file_size_bytes=len(content),
+        dropbox_path=dropbox_path,
+        dropbox_warning=dropbox_warning,
     )

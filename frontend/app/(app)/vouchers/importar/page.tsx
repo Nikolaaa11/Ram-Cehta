@@ -78,6 +78,8 @@ interface ExtractResponse {
   ocr_pages: number | null;
   filename: string;
   file_size_bytes: number;
+  dropbox_path: string | null;
+  dropbox_warning: string | null;
 }
 
 const ACCEPT =
@@ -321,6 +323,9 @@ export default function ImportarVoucherPage() {
         // V5++ ola CE — marca como creado desde el flujo de IA para que el
         // badge "IA" aparezca en la lista y se publique webhook voucher.imported.
         source: "ai_import",
+        // Si el extract subio el archivo a Dropbox, lo persistimos en el
+        // voucher como evidencia (queda accesible via el detalle).
+        documento_dropbox_path: extraction?.dropbox_path ?? null,
         informacion_contable: contable.map((l) => ({
           comentario: l.comentario,
           cuenta_codigo: l.cuenta_codigo,
@@ -506,6 +511,22 @@ export default function ImportarVoucherPage() {
                   ? ` · OCR ${extraction.ocr_pages} págs`
                   : ""}
               </span>
+              {extraction.dropbox_path && (
+                <span
+                  title={`Archivo guardado en ${extraction.dropbox_path}`}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-sf-blue/10 px-2.5 py-0.5 text-xs text-sf-blue"
+                >
+                  📎 Archivado en Dropbox
+                </span>
+              )}
+              {extraction.dropbox_warning && !extraction.dropbox_path && (
+                <span
+                  title={extraction.dropbox_warning}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-700"
+                >
+                  ⚠ Dropbox no disponible
+                </span>
+              )}
               <button
                 type="button"
                 onClick={resetToPick}
