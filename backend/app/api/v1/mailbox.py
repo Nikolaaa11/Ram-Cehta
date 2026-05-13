@@ -321,6 +321,121 @@ async def get_mailbox_item(
     )
 
 
+# V5++ ola CF — extraccion de voucher desde un email del inbox.
+class MailboxToVoucherRequest(BaseModel):
+    """Body para POST /admin/mailbox/{inbox_id}/to-voucher.
+
+    `empresa_codigo` es el target del voucher (el email puede venir a
+    contactocehta@gmail.com pero la factura es para una empresa portfolio
+    especifica que el user elige). Si no viene, el endpoint intenta inferir
+    desde el body — fallback a la primera empresa activa.
+    """
+
+    empresa_codigo: str
+
+
+@router.post(
+    "/admin/mailbox/{inbox_id}/to-voucher",
+)
+async def mailbox_to_voucher(
+    inbox_id: int,
+    body: MailboxToVoucherRequest,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+) -> dict:
+    """Genera la sugerencia de voucher desde un email del inbox.
+
+    El email ya esta clasificado (Claude lo mar como factura/recibo/etc.
+    durante /classify). Este endpoint:
+
+      1. Lee el row del inbox (subject + from + body_text).
+      2. Concatena los campos en un texto canonico.
+      3. Pasa el texto a /vouchers/extract-from-text logic (analyze_document
+         con schema 'factura').
+      4. Devuelve la misma ExtractedVoucherSuggestion para que el FE muestre
+         el form editable y el user confirme.
+
+    NO crea el voucher; el FE redirige a /vouchers/desde-mensaje con los
+    datos precargados, o muestra el form inline en el mailbox detail.
+    """
+    from app.services.empresa_scope_service import assert_empresa_access
+
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT inbox_id, from_email, from_name, subject, body_text,
+                       received_at, category
+                FROM core.inbox_messages
+                WHERE inbox_id = :id
+                """
+            ),
+            {"id": inbox_id},
+        )
+    ).fetchone()
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Email {inbox_id} no encontrado en el inbox",
+        )
+
+    # Armamos un texto canonico que matchee el formato esperado por el LLM:
+    # un email forwarded con headers + body. Asi Claude lo extrae igual que
+    # un .eml subido manualmente.
+    parts: list[str] = [
+        f"From: {row[2] or ''} <{row[1] or ''}>",
+        f"Subject: {row[3] or ''}",
+        f"Date: {row[5].isoformat() if row[5] else ''}",
+        "",
+        (row[4] or "").strip(),
+    ]
+    text_input = "\n".join(parts).strip()
+    if len(text_input) < 30:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El email no tiene contenido suficiente para extraer datos. "
+                "Probá adjuntar la factura como archivo y usar /vouchers/importar."
+            ),
+        )
+
+    from app.services.document_analyzer_service import (
+        DocumentAnalyzerNotConfigured,
+        analyze_document,
+    )
+
+    try:
+        extraction = await analyze_document(
+            text_input,
+            tipo="factura",
+            filename=f"inbox-{inbox_id}.txt",
+            extraction_method="inbox_email",
+        )
+    except DocumentAnalyzerNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
+
+    # Reusamos el helper de vouchers_extract para mappear al shape del form.
+    from app.api.v1.vouchers_extract import _build_suggestion
+
+    suggestion = _build_suggestion(extraction.fields, body.empresa_codigo)
+
+    return {
+        "inbox_id": inbox_id,
+        "suggestion": suggestion.model_dump(),
+        "raw_fields": extraction.fields,
+        "warnings": extraction.warnings,
+        "tipo_detectado": extraction.tipo_detectado,
+        "confidence": extraction.confidence,
+        "extraction_method": "inbox_email",
+        "filename": f"inbox-{inbox_id}",
+        "preview_text": text_input[:500],
+    }
+
+
 @router.post(
     "/admin/mailbox/{inbox_id}/reply",
     response_model=MailboxDetail,

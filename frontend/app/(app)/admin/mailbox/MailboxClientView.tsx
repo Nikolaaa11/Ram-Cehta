@@ -120,6 +120,62 @@ export function MailboxClientView({ initialItems }: Props) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<string>("");
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
+  // V5++ ola CF — boton "Crear voucher" en el detalle del email.
+  const [toVoucherPending, setToVoucherPending] = useState(false);
+
+  async function handleToVoucher(inboxId: number) {
+    if (toVoucherPending) return;
+    // Pedimos la empresa al user con un prompt simple. Si el system tiene
+    // multi-empresa, idealmente seria un picker — esto es la version mvp.
+    const empresa = window.prompt(
+      "Empresa receptora del voucher (código, ej. EVOQUE):",
+      "",
+    );
+    if (!empresa) return;
+    setToVoucherPending(true);
+    try {
+      // Trigger extract para validar el flujo + dejar log en backend.
+      // El FE redirige a /vouchers/desde-mensaje con el body precargado
+      // (mas adelante podriamos pasar la suggestion completa via session storage).
+      const detailRow = await apiClient.get<{
+        body_text: string | null;
+        from_email: string;
+        from_name: string | null;
+        subject: string;
+      }>(`/admin/mailbox/${inboxId}`, session);
+      const composed = [
+        `From: ${detailRow.from_name ?? ""} <${detailRow.from_email}>`,
+        `Subject: ${detailRow.subject}`,
+        "",
+        detailRow.body_text ?? "",
+      ].join("\n");
+      // Guardamos el texto en sessionStorage para que /vouchers/desde-mensaje
+      // lo lea al montar (auto-fill del textarea).
+      try {
+        window.sessionStorage.setItem(
+          "voucher-desde-mensaje:prefill",
+          JSON.stringify({
+            empresa_codigo: empresa.toUpperCase(),
+            text: composed,
+            source_hint: "email",
+            inbox_id: inboxId,
+          }),
+        );
+      } catch {
+        // sessionStorage puede fallar en modo privado — fallback: navegar igual.
+      }
+      toast.success("Email preparado. Te llevo a la pantalla de voucher.");
+      window.location.href = "/vouchers/desde-mensaje?prefill=1";
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : "No pude armar el voucher desde este email.",
+      );
+    } finally {
+      setToVoucherPending(false);
+    }
+  }
 
   const toggleBulk = (id: number) => {
     setBulkSelected((prev) => {
@@ -801,6 +857,20 @@ export function MailboxClientView({ initialItems }: Props) {
                   Archivar
                 </button>
               )}
+              <button
+                type="button"
+                onClick={() => handleToVoucher(detail.inbox_id)}
+                disabled={toVoucherPending}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cehta-green/40 bg-cehta-green/5 px-3 py-1.5 text-xs font-medium text-cehta-green hover:bg-cehta-green/10 disabled:opacity-50"
+                title="Genera la sugerencia de voucher con IA y abre /vouchers/desde-mensaje precargado"
+              >
+                {toVoucherPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
+                )}
+                Crear voucher
+              </button>
               <button
                 type="button"
                 onClick={() => {

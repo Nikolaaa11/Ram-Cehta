@@ -150,6 +150,29 @@ export default function DesdeMensajePage() {
       .catch(() => toast.error("No pude cargar las empresas."));
   }, [session]);
 
+  // V5++ ola CF — Prefill desde sessionStorage cuando venimos de /admin/mailbox
+  // ("Crear voucher desde este email"). El otro lado deja un JSON con
+  // {empresa_codigo, text, source_hint, inbox_id}.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem("voucher-desde-mensaje:prefill");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        empresa_codigo?: string;
+        text?: string;
+        source_hint?: SourceHint;
+      };
+      if (parsed.empresa_codigo) setEmpresaCodigo(parsed.empresa_codigo);
+      if (parsed.text) setText(parsed.text);
+      if (parsed.source_hint) setHint(parsed.source_hint);
+      window.sessionStorage.removeItem("voucher-desde-mensaje:prefill");
+      toast.info("Email del inbox precargado. Click 'Analizar con IA' cuando quieras.");
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
   const applySuggestion = useCallback((data: ExtractResponse) => {
     const s = data.suggestion;
     setEmpresaCodigo(s.empresa_codigo);
