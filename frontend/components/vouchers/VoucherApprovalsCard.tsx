@@ -52,6 +52,11 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
   const { session } = useSession();
   const qc = useQueryClient();
   const [showReject, setShowReject] = useState(false);
+  // V5++ ola CI — modal de firma con comentarios opcionales (antes era
+  // un confirm() js feo). Si el user pone un comentario, viaja al backend
+  // y queda visible en el timeline + audit log.
+  const [showSignModal, setShowSignModal] = useState(false);
+  const [signComments, setSignComments] = useState("");
 
   const { data, isLoading } = useQuery<VoucherApprovalsState>({
     queryKey: ["voucher-approvals", voucherId],
@@ -270,17 +275,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
           {data.can_current_user_sign && data.current_user_eligible_role && (
             <button
               type="button"
-              onClick={() => {
-                if (
-                  confirm(
-                    `Firmar este voucher como ${ROLE_LABEL[data.current_user_eligible_role!]}? La firma queda registrada con tu IP y timestamp.`,
-                  )
-                ) {
-                  approveMut.mutate({
-                    role: data.current_user_eligible_role!,
-                  });
-                }
-              }}
+              onClick={() => setShowSignModal(true)}
               disabled={approveMut.isPending}
               className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-60"
             >
@@ -318,6 +313,84 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
             qc.invalidateQueries({ queryKey: ["voucher", voucherId] });
           }}
         />
+      )}
+
+      {/* V5++ ola CI — Modal de confirmacion de firma con comentarios. */}
+      {showSignModal && data.current_user_eligible_role && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowSignModal(false)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              approveMut.mutate(
+                {
+                  role: data.current_user_eligible_role!,
+                  comments: signComments.trim() || undefined,
+                },
+                {
+                  onSettled: () => {
+                    setShowSignModal(false);
+                    setSignComments("");
+                  },
+                },
+              );
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+          >
+            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+              <FileSignature className="h-3.5 w-3.5" strokeWidth={2.25} />
+              Confirmar firma
+            </div>
+            <p className="text-sm text-ink-700">
+              Voy a firmar este voucher como{" "}
+              <span className="font-semibold text-cehta-green">
+                {ROLE_LABEL[data.current_user_eligible_role]}
+              </span>
+              .
+            </p>
+            <p className="text-xs text-ink-500">
+              La firma queda registrada con tu IP, timestamp y un hash
+              SHA-256 que sirve de evidencia. No se puede revertir — para
+              invalidar habría que anular el voucher.
+            </p>
+            <div>
+              <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                Comentarios (opcional)
+              </label>
+              <textarea
+                value={signComments}
+                onChange={(e) => setSignComments(e.target.value)}
+                rows={2}
+                maxLength={500}
+                placeholder="Ej: Verificado contra OC-2026-0123"
+                className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSignModal(false)}
+                disabled={approveMut.isPending}
+                className="rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={approveMut.isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
+              >
+                <FileSignature className="h-4 w-4" strokeWidth={1.75} />
+                {approveMut.isPending ? "Firmando…" : "Confirmar firma"}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

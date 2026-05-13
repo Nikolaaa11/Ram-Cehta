@@ -37,6 +37,7 @@ import {
   Webhook,
   Inbox,
   Key,
+  PenTool,
   DollarSign,
   Book,
   ClipboardList,
@@ -136,6 +137,13 @@ const GROUPS: NavGroup[] = [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       // V5++ ola AV — Bandeja personal: vouchers que requieren tu acción
       { href: "/mis-pendientes" as Route, label: "Mis pendientes", icon: Inbox },
+      // V5++ ola CI — Cola dedicada de aprobaciones (solo lo que requiere
+      // tu firma como proximo paso). Pensado para el rol aprobador.
+      {
+        href: "/aprobaciones" as Route,
+        label: "Aprobaciones",
+        icon: PenTool,
+      },
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
@@ -477,6 +485,11 @@ export function AppSidebar({ email }: AppSidebarProps) {
                   voucherDraftsMine + voucherPendingApprovals;
                 const showVoucherBadge =
                   String(item.href) === "/vouchers" && voucherBadgeTotal > 0;
+                // V5++ ola CI — badge en /aprobaciones: solo lo que requiere
+                // MI firma como proximo paso (sin drafts).
+                const showAprobacionesBadge =
+                  String(item.href) === "/aprobaciones" &&
+                  voucherPendingApprovals > 0;
                 // Prefetch on hover para rutas con datos pesados.
                 // V4 fase 7.5 — calienta cache TanStack antes del click.
                 // V5+ extendido a /admin/mailbox y /f22 (lists costosas).
@@ -574,6 +587,17 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         )}
                       >
                         {voucherBadgeTotal > 99 ? "99+" : voucherBadgeTotal}
+                      </span>
+                    )}
+                    {showAprobacionesBadge && (
+                      <span
+                        aria-label={`${voucherPendingApprovals} vouchers esperando tu firma`}
+                        title={`${voucherPendingApprovals} vouchers esperando tu firma`}
+                        className="relative inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[10px] font-semibold text-white tabular-nums shadow-sm pulse-glow"
+                      >
+                        {voucherPendingApprovals > 99
+                          ? "99+"
+                          : voucherPendingApprovals}
                       </span>
                     )}
                   </Link>
