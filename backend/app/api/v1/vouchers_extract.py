@@ -213,6 +213,28 @@ def _parse_amount(raw: Any) -> Decimal | None:
     return value
 
 
+_VALID_TIPO_DOC = {
+    "FACTURA",
+    "BOLETA",
+    "NOTA_CREDITO",
+    "NOTA_DEBITO",
+    "HONORARIOS",
+    "NA",
+}
+_VALID_FORMA_PAGO = {
+    "TRANSFERENCIA",
+    "CHEQUE",
+    "CONTADO",
+    "EFECTIVO",
+    "CREDITO_30D",
+    "CREDITO_60D",
+    "CREDITO_90D",
+    "TARJETA_CREDITO",
+    "TARJETA_DEBITO",
+    "OTRO",
+}
+
+
 def _build_suggestion(
     fields: dict[str, Any],
     empresa_codigo: str,
@@ -229,26 +251,72 @@ def _build_suggestion(
     except ValueError:
         fecha_doc = date.today()
 
+    fecha_venc_raw = str(fields.get("fecha_vencimiento") or "").strip()
+    try:
+        fecha_venc = (
+            date.fromisoformat(fecha_venc_raw).isoformat()
+            if fecha_venc_raw and fecha_venc_raw.lower() != "null"
+            else ""
+        )
+    except ValueError:
+        fecha_venc = ""
+
     total = _parse_amount(fields.get("total"))
     if total is None:
-        total = _parse_amount(fields.get("monto_neto"))  # fallback
+        total = _parse_amount(fields.get("monto_neto"))
     total_str = str(total) if total else "0"
 
     proveedor_nombre = str(fields.get("proveedor_nombre") or "").strip()
     numero_doc = str(fields.get("numero_factura") or "").strip()
     glosa = str(fields.get("descripcion") or "").strip()
-    if not glosa and proveedor_nombre and numero_doc:
-        glosa = f"Compra a {proveedor_nombre} — FACTURA folio {numero_doc}"
 
-    # Una linea contable con la descripcion (DEBE = gasto). Cuenta queda
-    # vacia para que el user la complete con su plan de cuentas.
-    linea_contable = ExtractedLine(
-        comentario=glosa or proveedor_nombre or "Compra",
-        cuenta_codigo="",
-        total=total_str,
-    )
-    # Una linea financiera con el mismo total (HABER = banco / CxP). Tambien
-    # con cuenta vacia.
+    # V5++ ola CF — Subtipo detectado por la IA
+    subtipo_raw = str(fields.get("subtipo_documento") or "FACTURA").strip().upper()
+    tipo_documento = subtipo_raw if subtipo_raw in _VALID_TIPO_DOC else "FACTURA"
+
+    # V5++ ola CF — Forma de pago sugerida
+    forma_pago_raw = str(fields.get("forma_pago_sugerida") or "TRANSFERENCIA").strip().upper()
+    forma_pago = forma_pago_raw if forma_pago_raw in _VALID_FORMA_PAGO else "TRANSFERENCIA"
+
+    if not glosa and proveedor_nombre and numero_doc:
+        glosa = f"Compra a {proveedor_nombre} — {tipo_documento} folio {numero_doc}"
+
+    # V5++ ola CF — Lineas detalladas si la IA las extrajo.
+    items_raw = fields.get("items")
+    informacion_contable: list[ExtractedLine] = []
+    if isinstance(items_raw, list) and items_raw:
+        for item in items_raw[:30]:  # cap defensivo
+            if not isinstance(item, dict):
+                continue
+            desc = str(item.get("descripcion") or item.get("description") or "").strip()
+            item_total = _parse_amount(item.get("total"))
+            if item_total is None:
+                # Si no hay total, calcular desde precio*cantidad
+                qty = _parse_amount(item.get("cantidad")) or Decimal("1")
+                price = _parse_amount(item.get("precio_unitario"))
+                if price is not None:
+                    item_total = qty * price
+            if not desc or item_total is None:
+                continue
+            informacion_contable.append(
+                ExtractedLine(
+                    comentario=desc[:500],
+                    cuenta_codigo="",
+                    total=str(item_total),
+                )
+            )
+
+    # Fallback: si no hay items, una sola linea con la glosa + total agregado.
+    if not informacion_contable:
+        informacion_contable = [
+            ExtractedLine(
+                comentario=glosa or proveedor_nombre or "Compra",
+                cuenta_codigo="",
+                total=total_str,
+            )
+        ]
+
+    # Linea financiera: una sola con el total agregado.
     linea_financiera = ExtractedLine(
         comentario=f"Pago a {proveedor_nombre}" if proveedor_nombre else "Pago proveedor",
         cuenta_codigo="",
@@ -260,13 +328,13 @@ def _build_suggestion(
         proveedor_rut=proveedor_rut,
         proveedor_nombre=proveedor_nombre,
         rut_es_valido=rut_valido,
-        tipo_documento="FACTURA",
+        tipo_documento=tipo_documento,
         numero_documento=numero_doc,
-        forma_pago="TRANSFERENCIA",
+        forma_pago=forma_pago,
         fecha_documento=fecha_doc.isoformat(),
-        fecha_vencimiento="",
+        fecha_vencimiento=fecha_venc,
         glosa=glosa,
-        informacion_contable=[linea_contable],
+        informacion_contable=informacion_contable,
         informacion_financiera=[linea_financiera],
     )
 

@@ -115,6 +115,19 @@ SCHEMAS: dict[str, dict[str, str]] = {
         "iva": "Monto del IVA, número entero.",
         "total": "Total con IVA incluido, número entero.",
         "descripcion": "Glosa o detalle resumido del bien/servicio.",
+        "subtipo_documento": (
+            "Subtipo: FACTURA / BOLETA / NOTA_CREDITO / NOTA_DEBITO / HONORARIOS / COTIZACION / NA."
+        ),
+        "forma_pago_sugerida": (
+            "Forma de pago sugerida si aparece en el doc: TRANSFERENCIA, "
+            "CHEQUE, CONTADO, EFECTIVO, CREDITO_30D, CREDITO_60D, CREDITO_90D, TARJETA_CREDITO, TARJETA_DEBITO, OTRO."
+        ),
+        "fecha_vencimiento": "Fecha de vencimiento (YYYY-MM-DD) si aparece, null si no.",
+        "items": (
+            "Lista de items/lineas del documento. Cada item es un objeto con "
+            "{descripcion: string, cantidad: number, precio_unitario: number, total: number}. "
+            "Si el documento solo tiene un total agregado sin desglose, devolvé []."
+        ),
     },
     "liquidacion": {
         "trabajador_nombre": "Nombre completo del trabajador.",
