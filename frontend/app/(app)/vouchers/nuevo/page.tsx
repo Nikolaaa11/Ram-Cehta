@@ -553,14 +553,17 @@ export default function NuevoVoucherPage() {
 
               <div className="sm:col-span-2 lg:col-span-3">
                 <Field label="Glosa (descripción del asiento)" required>
-                  {/* Observaciones 13/05/2026 #5: comentario más chico — rows=1 */}
-                  <input
+                  {/* Prompt maestro B.4: campo de 2 lineas visibles con scroll
+                      interno si se excede, capacidad full (no truncar dato). */}
+                  <textarea
                     required
                     minLength={5}
                     value={glosa}
                     onChange={(e) => setGlosa(e.target.value)}
+                    rows={2}
+                    maxLength={500}
                     placeholder="Ej: Pago factura 12345 — Servicios consultoría enero RHO"
-                    className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                    className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green resize-none overflow-y-auto"
                   />
                 </Field>
               </div>

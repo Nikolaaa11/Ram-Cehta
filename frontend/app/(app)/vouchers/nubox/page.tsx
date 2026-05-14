@@ -764,17 +764,19 @@ export default function NuboxFormPage() {
               />
             </div>
 
-            {/* Comentario (glosa) — Observaciones 13/05/2026 #5: 1 linea
-                (más chico), capacidad full del modelo (500 chars). */}
+            {/* Comentario (glosa) — Prompt maestro B.4: campo de 2 lineas
+                visibles con scroll interno si se excede, manteniendo
+                capacidad full del modelo (500 chars). NO truncar el dato,
+                solo el área visible. */}
             <div className="md:col-span-2">
               <Label>Comentario (opcional — se autogenera si está vacío)</Label>
-              <input
-                type="text"
+              <textarea
                 value={glosa}
                 onChange={(e) => setGlosa(e.target.value)}
                 placeholder="Compra a {proveedor} folio {n}"
+                rows={2}
                 maxLength={500}
-                className="form-input"
+                className="form-input resize-none overflow-y-auto"
               />
             </div>
           </div>
@@ -1118,14 +1120,18 @@ function LineSection({
               <tr key={idx}>
                 <td className="px-2 py-1.5 text-ink-500">{idx + 1}</td>
                 <td className="px-2 py-1.5">
-                  <input
+                  {/* Prompt maestro C.1.6/C.2.6: comentario de línea — 2 líneas
+                      visibles con scroll interno, capacidad full (500). */}
+                  <textarea
                     required
                     value={line.comentario}
                     onChange={(e) =>
                       onUpdate(idx, "comentario", e.target.value)
                     }
                     placeholder="Descripción"
-                    className="form-input"
+                    rows={2}
+                    maxLength={500}
+                    className="form-input resize-none overflow-y-auto"
                   />
                 </td>
                 <td className="px-2 py-1.5">

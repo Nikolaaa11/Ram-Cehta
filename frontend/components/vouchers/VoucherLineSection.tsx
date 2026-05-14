@@ -126,14 +126,19 @@ export function VoucherLineSection({
               <tr key={idx}>
                 <td className="px-2 py-1.5 text-ink-500">{idx + 1}</td>
                 <td className="px-2 py-1.5">
-                  <input
+                  {/* Prompt maestro C.1.6/C.2.6: comentario de línea sigue el
+                      mismo criterio que B.4 — 2 líneas visibles con scroll
+                      interno si excede, mantiene capacidad full del modelo. */}
+                  <textarea
                     required
                     value={line.comentario}
                     onChange={(e) =>
                       onUpdate(idx, "comentario", e.target.value)
                     }
                     placeholder="Descripción"
-                    className="form-input"
+                    rows={2}
+                    maxLength={500}
+                    className="form-input resize-none overflow-y-auto"
                   />
                 </td>
                 <td className="px-2 py-1.5">
