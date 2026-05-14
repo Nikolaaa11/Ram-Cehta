@@ -441,8 +441,8 @@ export default function ProveedoresPage() {
                 </p>
                 <p className="mt-1 text-ink-500">
                   Agrupamos por razón social normalizada. En cada fila tenés
-                  un botón <b>"Fusionar en →"</b> que mueve todos los vouchers
-                  y OCs de ese duplicado al "ganador" que elijas, y soft-deleta
+                  un botón <b>&ldquo;Fusionar en →&rdquo;</b> que mueve todos los vouchers
+                  y OCs de ese duplicado al &ldquo;ganador&rdquo; que elijas, y soft-deleta
                   el duplicado. Esto es <b>reversible</b> via /admin/audit
                   (action=merge) pero es una operación delicada — verificá
                   bien antes.

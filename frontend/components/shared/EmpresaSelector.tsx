@@ -53,11 +53,9 @@ export function EmpresaSelector({
   const { data, isLoading } = useMyEmpresas();
   const empresas = data?.empresas ?? [];
 
-  // Si el user tiene 1 sola empresa y hideIfSingle=true → no renderear
-  if (hideIfSingle && empresas.length === 1 && !data?.is_admin) {
-    return null;
-  }
-
+  // Fix Vercel build: el useMemo debe llamarse SIEMPRE (rules-of-hooks).
+  // Antes el early-return de hideIfSingle estaba ANTES del hook, lo que
+  // disparaba "React Hook called conditionally" y rompía el build.
   const items = React.useMemo(() => {
     const list = empresas.map((e) => ({
       value: e.codigo,
@@ -70,6 +68,12 @@ export function EmpresaSelector({
     }
     return list;
   }, [empresas, required, allLabel]);
+
+  // Si el user tiene 1 sola empresa y hideIfSingle=true → no renderear.
+  // IMPORTANTE: este early-return DEBE estar DESPUÉS de todos los hooks.
+  if (hideIfSingle && empresas.length === 1 && !data?.is_admin) {
+    return null;
+  }
 
   return (
     <Combobox
