@@ -31,7 +31,29 @@ async function coreFetch<T>(
     let detail = `HTTP ${res.status}`;
     try {
       const body = await res.json();
-      detail = body?.detail ?? body?.message ?? detail;
+      const rawDetail = body?.detail ?? body?.message;
+      if (Array.isArray(rawDetail)) {
+        // FastAPI/Pydantic 422 — detail es array de objetos
+        // { loc: ["body","campo"], msg: "Field required", type: "missing" }
+        // Lo formateamos como "campo: msg · otroCampo: msg" para que el
+        // toast muestre exactamente qué falla en vez de "[object Object]".
+        const lines = rawDetail
+          .map((e: unknown) => {
+            if (typeof e !== "object" || e === null) return String(e);
+            const obj = e as { loc?: unknown[]; msg?: string };
+            const field = Array.isArray(obj.loc)
+              ? obj.loc.filter((p) => p !== "body").join(".")
+              : "";
+            const msg = typeof obj.msg === "string" ? obj.msg : "error";
+            return field ? `${field}: ${msg}` : msg;
+          })
+          .filter(Boolean);
+        detail = lines.length ? lines.join(" · ") : detail;
+      } else if (typeof rawDetail === "string") {
+        detail = rawDetail;
+      } else if (rawDetail && typeof rawDetail === "object") {
+        detail = JSON.stringify(rawDetail);
+      }
     } catch {
       // non-JSON response body — keep default
     }
