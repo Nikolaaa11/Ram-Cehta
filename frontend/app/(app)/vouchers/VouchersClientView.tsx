@@ -39,6 +39,7 @@ import { toast } from "@/components/ui/toast";
 import { exportCsv, csvFilename } from "@/lib/csv-export";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
+import { Currency } from "@/components/shared/Currency";
 import type {
   VoucherListItem,
   VoucherStatus,
@@ -803,8 +804,12 @@ export function VouchersClientView({
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-xs tabular-nums">
-                        {fmt(Number(v.total_debit), v.moneda)}
+                      <td className="px-4 py-3 text-right">
+                        <Currency
+                          value={Number(v.total_debit)}
+                          moneda={v.moneda}
+                          size="sm"
+                        />
                       </td>
                       <td className="px-4 py-3">
                         <span

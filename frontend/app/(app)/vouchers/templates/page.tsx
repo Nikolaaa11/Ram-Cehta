@@ -50,6 +50,18 @@ interface TemplateListItem {
 
 type SortMode = "recent" | "most_used" | "alpha";
 
+// Tonal pill colors per voucher tipo — matches TIPO_META in VouchersClientView.
+const TIPO_PILL_COLOR: Record<string, string> = {
+  INGRESO: "bg-positive/10 text-positive ring-1 ring-inset ring-positive/20",
+  EGRESO: "bg-rose-100 text-rose-700 ring-1 ring-inset ring-rose-200",
+  TRASPASO: "bg-blue-100 text-blue-700 ring-1 ring-inset ring-blue-200",
+  COMPRA: "bg-amber-100 text-amber-700 ring-1 ring-inset ring-amber-200",
+  VENTA: "bg-emerald-100 text-emerald-700 ring-1 ring-inset ring-emerald-200",
+  APERTURA: "bg-purple-100 text-purple-700 ring-1 ring-inset ring-purple-200",
+  CIERRE: "bg-purple-100 text-purple-700 ring-1 ring-inset ring-purple-200",
+  REVERSO: "bg-slate-200 text-slate-700 ring-1 ring-inset ring-slate-300",
+};
+
 export default function VoucherTemplatesPage() {
   const { session } = useSession();
   const queryClient = useQueryClient();
@@ -170,10 +182,15 @@ export default function VoucherTemplatesPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
                     <code className="text-xs font-mono text-ink-500">{tpl.codigo}</code>
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-300">
+                    <span
+                      className={`text-xs px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider ${
+                        TIPO_PILL_COLOR[tpl.tipo] ??
+                        "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-300"
+                      }`}
+                    >
                       {tpl.tipo}
                     </span>
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-300">
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-cehta-green/10 text-cehta-green ring-1 ring-inset ring-cehta-green/20">
                       {tpl.empresa_codigo}
                     </span>
                   </div>

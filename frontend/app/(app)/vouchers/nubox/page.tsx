@@ -35,6 +35,7 @@ import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
+import { Currency } from "@/components/shared/Currency";
 
 interface EmpresaMetadata {
   codigo: string;
@@ -790,22 +791,29 @@ export default function NuboxFormPage() {
 
         {/* FOOTER: totales + submit */}
         <Surface className="p-6">
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <Stat
-              label="Σ Contable"
-              value={`$${totalContable.toLocaleString("es-CL")}`}
-            />
-            <Stat
-              label="Σ Financiera"
-              value={`$${totalFinanciera.toLocaleString("es-CL")}`}
-            />
-            <Stat
-              label="Diferencia"
-              value={`$${(totalContable - totalFinanciera).toLocaleString(
-                "es-CL",
-              )}`}
-              tone={cuadrado ? "success" : "danger"}
-            />
+          <div className="grid grid-cols-3 gap-4 mb-4" aria-live="polite">
+            <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+              <div className="text-xs text-ink-500">Σ Contable</div>
+              <div className="mt-1">
+                <Currency value={totalContable} size="xl" />
+              </div>
+            </div>
+            <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+              <div className="text-xs text-ink-500">Σ Financiera</div>
+              <div className="mt-1">
+                <Currency value={totalFinanciera} size="xl" />
+              </div>
+            </div>
+            <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+              <div className="text-xs text-ink-500">Diferencia</div>
+              <div className="mt-1">
+                <Currency
+                  value={totalContable - totalFinanciera}
+                  size="xl"
+                  tone={cuadrado ? "success" : "danger"}
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-between">
@@ -854,29 +862,6 @@ function Label({ children }: { children: React.ReactNode }) {
     <label className="block text-xs font-medium text-ink-700 dark:text-ink-300 mb-1">
       {children}
     </label>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "success" | "danger";
-}) {
-  const color =
-    tone === "success"
-      ? "text-cehta-green"
-      : tone === "danger"
-        ? "text-red-500"
-        : "text-ink-900 dark:text-ink-100";
-  return (
-    <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
-      <div className="text-xs text-ink-500">{label}</div>
-      <div className={`text-xl font-semibold mt-1 ${color}`}>{value}</div>
-    </div>
   );
 }
 

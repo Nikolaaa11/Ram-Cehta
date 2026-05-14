@@ -41,6 +41,9 @@ import { toast } from "@/components/ui/toast";
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
 import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
 import { VoucherReconcileCard } from "@/components/vouchers/VoucherReconcileCard";
+import { Currency } from "@/components/shared/Currency";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Surface } from "@/components/ui/surface";
 import type { VoucherFull, VoucherStatus, VoucherTipo } from "@/lib/api/schema";
 
 const TIPO_LABEL: Record<VoucherTipo, string> = {
@@ -223,8 +226,29 @@ export default function VoucherDetailPage({ params }: PageProps) {
 
   if (isLoading || !voucher) {
     return (
-      <div className="mx-auto max-w-[1280px] px-6 py-12">
-        <p className="text-sm text-ink-500">Cargando voucher…</p>
+      <div className="mx-auto max-w-[1280px] px-6 lg:px-10 pt-8 pb-20 space-y-6">
+        <Surface>
+          <Skeleton className="h-7 w-72" />
+          <Skeleton className="mt-2 h-4 w-48" />
+        </Surface>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Surface key={i}>
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="mt-2 h-6 w-32" />
+            </Surface>
+          ))}
+        </div>
+        <Surface padding="none">
+          <div className="border-b border-hairline p-4">
+            <Skeleton className="h-5 w-32" />
+          </div>
+          <div className="p-4 space-y-2">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-12 w-full rounded-xl" />
+            ))}
+          </div>
+        </Surface>
       </div>
     );
   }
@@ -311,6 +335,67 @@ export default function VoucherDetailPage({ params }: PageProps) {
                 </Link>
               )}
             </div>
+            {/* Resumen prominente de montos (Bruto/Neto/IVA inline). */}
+            {(() => {
+              const tipo = voucher.doc_tributario_tipo;
+              const aplicaIva =
+                tipo &&
+                voucher.moneda === "CLP" &&
+                (formMeta?.tipos_documento_afectos_iva ?? []).includes(tipo);
+              const neto = Number(voucher.total_debit);
+              if (aplicaIva) {
+                const iva = Math.round(neto * 0.19);
+                const bruto = neto + iva;
+                return (
+                  <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                        Bruto
+                      </span>
+                      <Currency
+                        value={bruto}
+                        moneda={voucher.moneda}
+                        size="lg"
+                        tone="success"
+                      />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                        Neto
+                      </span>
+                      <Currency
+                        value={neto}
+                        moneda={voucher.moneda}
+                        size="lg"
+                      />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                        IVA
+                      </span>
+                      <Currency
+                        value={iva}
+                        moneda={voucher.moneda}
+                        size="lg"
+                        tone="muted"
+                      />
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                    Total
+                  </span>
+                  <Currency
+                    value={neto}
+                    moneda={voucher.moneda}
+                    size="lg"
+                  />
+                </div>
+              );
+            })()}
           </div>
 
           {/* Acciones según status */}
@@ -560,11 +645,19 @@ export default function VoucherDetailPage({ params }: PageProps) {
                   <td colSpan={5} className="px-4 py-3 text-right text-xs uppercase tracking-wider text-ink-500">
                     Totales (Neto)
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink-900">
-                    {fmt(Number(voucher.total_debit), voucher.moneda)}
+                  <td className="px-4 py-3 text-right">
+                    <Currency
+                      value={Number(voucher.total_debit)}
+                      moneda={voucher.moneda}
+                      size="2xl"
+                    />
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-sm tabular-nums text-ink-900">
-                    {fmt(Number(voucher.total_credit), voucher.moneda)}
+                  <td className="px-4 py-3 text-right">
+                    <Currency
+                      value={Number(voucher.total_credit)}
+                      moneda={voucher.moneda}
+                      size="2xl"
+                    />
                   </td>
                 </tr>
               </tfoot>

@@ -44,6 +44,7 @@ import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
+import { Currency } from "@/components/shared/Currency";
 import type {
   Area,
   ContraparteTipo,
@@ -789,40 +790,30 @@ export default function NuevoVoucherPage() {
         <div className="sticky bottom-4 z-30 rounded-3xl border border-hairline bg-white/85 p-4 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Sumas */}
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4" aria-live="polite">
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-500">
                   Σ Debe
                 </p>
-                <p className="font-display text-lg font-semibold tabular-nums text-ink-900">
-                  ${totalDebit.toLocaleString("es-CL")}
-                </p>
+                <Currency value={totalDebit} size="xl" />
               </div>
               <div className="text-ink-300">·</div>
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-500">
                   Σ Haber
                 </p>
-                <p className="font-display text-lg font-semibold tabular-nums text-ink-900">
-                  ${totalCredit.toLocaleString("es-CL")}
-                </p>
+                <Currency value={totalCredit} size="xl" />
               </div>
               <div className="text-ink-300">=</div>
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-500">
                   Diferencia
                 </p>
-                <p
-                  className={`font-display text-lg font-semibold tabular-nums ${
-                    isBalanced
-                      ? "text-positive"
-                      : delta === 0
-                        ? "text-ink-400"
-                        : "text-negative"
-                  }`}
-                >
-                  ${delta.toLocaleString("es-CL")}
-                </p>
+                <Currency
+                  value={delta}
+                  size="xl"
+                  tone={delta === 0 ? "success" : "danger"}
+                />
               </div>
               {isBalanced && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-positive/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-positive ring-1 ring-positive/20">
