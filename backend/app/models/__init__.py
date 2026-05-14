@@ -1,6 +1,7 @@
 from app.models.ai_conversation import AiConversation
 from app.models.ai_document import AiDocument
 from app.models.ai_message import AiMessage
+from app.models.area import Area
 from app.models.audit_log import ActionLog
 from app.models.base import Base
 from app.models.currency_rate import CurrencyRate
@@ -13,7 +14,9 @@ from app.models.lp_contrato import LpContrato
 from app.models.movimiento import Movimiento
 from app.models.notification import Notification
 from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
+from app.models.plan_cuenta import PlanCuenta
 from app.models.proveedor import Proveedor
+from app.models.proyecto_contable import ProyectoContable
 from app.models.rejected_row import RejectedRow
 from app.models.saved_view import SavedView
 from app.models.suscripcion_accion import SuscripcionAccion
@@ -21,6 +24,12 @@ from app.models.trabajador import Trabajador, TrabajadorDocumento
 from app.models.two_factor import TwoFactor
 from app.models.user_preference import UserPreference
 from app.models.user_role import UserRole
+from app.models.voucher import (
+    Voucher,
+    VoucherApproval,
+    VoucherAttachment,
+    VoucherLine,
+)
 from app.models.voucher_template import VoucherTemplate
 
 __all__ = [
@@ -28,6 +37,7 @@ __all__ = [
     "AiConversation",
     "AiDocument",
     "AiMessage",
+    "Area",
     "Base",
     "CurrencyRate",
     "Empresa",
@@ -40,7 +50,9 @@ __all__ = [
     "Notification",
     "OrdenCompra",
     "OrdenCompraDetalle",
+    "PlanCuenta",
     "Proveedor",
+    "ProyectoContable",
     "RejectedRow",
     "SavedView",
     "SuscripcionAccion",
@@ -49,5 +61,9 @@ __all__ = [
     "TwoFactor",
     "UserPreference",
     "UserRole",
+    "Voucher",
+    "VoucherApproval",
+    "VoucherAttachment",
+    "VoucherLine",
     "VoucherTemplate",
 ]
