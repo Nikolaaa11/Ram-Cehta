@@ -27,6 +27,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
+  Copy,
   FileSignature,
   Printer,
   RotateCcw,
@@ -455,6 +456,45 @@ export default function VoucherDetailPage({ params }: PageProps) {
             >
               <Printer className="h-4 w-4" strokeWidth={1.75} />
               Imprimir
+            </button>
+            {/* Skill nueva: Duplicar voucher (POST /vouchers/{id}/duplicate)
+                Crea un DRAFT clon con todas las líneas/imputación, fechas
+                hoy, status DRAFT. Use case: vouchers recurrentes. */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!session) return;
+                if (
+                  !confirm(
+                    `¿Crear una copia DRAFT de ${voucher.codigo}?\n\nSe copian: líneas, cuentas, proyecto, área, contraparte y glosa.\nSe resetea: folio, fechas (hoy), status (DRAFT), aprobaciones.`,
+                  )
+                )
+                  return;
+                const t = toast.loading("Duplicando voucher...");
+                try {
+                  const result = await apiClient.post<{
+                    voucher_id: number;
+                    codigo: string;
+                  }>(`/vouchers/${voucher.voucher_id}/duplicate`, {}, session);
+                  toast.success(
+                    `Copia ${result.codigo} creada en DRAFT — editá y enviá a aprobación`,
+                    { id: t },
+                  );
+                  router.push(`/vouchers/${result.voucher_id}` as Route);
+                } catch (err) {
+                  toast.error(
+                    err instanceof ApiError
+                      ? err.detail
+                      : "No se pudo duplicar",
+                    { id: t },
+                  );
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-cehta-green/5 px-3 py-2 text-sm font-medium text-cehta-green hover:bg-cehta-green/10"
+              title="Duplica el voucher como nuevo DRAFT (útil para vouchers recurrentes)"
+            >
+              <Copy className="h-4 w-4" strokeWidth={1.75} />
+              Duplicar voucher
             </button>
             {/* V5++ ola AB: Guardar como plantilla — útil para vouchers
                 recurrentes (sueldos, arriendos, servicios mensuales). */}

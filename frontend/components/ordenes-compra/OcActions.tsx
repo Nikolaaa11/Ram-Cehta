@@ -116,30 +116,42 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
             toast.error("Sesión expirada");
             return;
           }
+          const toastId = toast.loading(`Generando PDF de OC ${numeroOc}...`);
           try {
             const base =
               process.env.NEXT_PUBLIC_API_URL ??
               "https://cehta-backend.fly.dev/api/v1";
-            const resp = await fetch(`${base}/ordenes-compra/${ocId}.html`, {
-              headers: { Authorization: `Bearer ${session.access_token}` },
-            });
+            // Nuevo endpoint real PDF con branding empresa + adjuntos
+            // anexados (oc_pdf_service.py). Antes generaba HTML para que
+            // el user usara Cmd+P; ahora devuelve PDF directo descargable.
+            const resp = await fetch(
+              `${base}/ordenes-compra/${ocId}/pdf?include_attachments=true`,
+              {
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              },
+            );
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const html = await resp.text();
-            const blob = new Blob([html], { type: "text/html" });
+            const blob = await resp.blob();
             const url = URL.createObjectURL(blob);
-            window.open(url, "_blank", "noopener,noreferrer");
-            // Liberar después de un rato (5s para que el browser cargue)
-            setTimeout(() => URL.revokeObjectURL(url), 5000);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `oc-${numeroOc}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+            toast.success(`OC ${numeroOc} descargada`, { id: toastId });
           } catch (err) {
             toast.error(
               err instanceof Error
-                ? `No pude abrir el PDF: ${err.message}`
+                ? `No pude generar el PDF: ${err.message}`
                 : "Error desconocido",
+              { id: toastId },
             );
           }
         }}
         className={linkBtn}
-        title="Abre la OC con branding listo para imprimir/exportar a PDF (Cmd+P)"
+        title="Descarga PDF con branding empresa + adjuntos anexados (para mandar al proveedor)"
       >
         <FileDown className="h-4 w-4" strokeWidth={1.5} />
         Descargar PDF

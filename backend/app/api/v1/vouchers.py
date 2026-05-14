@@ -586,6 +586,114 @@ async def download_voucher_pdf(
 
 
 # =====================================================================
+# POST /vouchers/{id}/duplicate — skill "Crear voucher similar"
+# =====================================================================
+#
+# Crea un voucher nuevo en DRAFT copiando todos los campos del original
+# (incluyendo lines + imputación triple), con código nuevo y fechas hoy.
+# No copia: status (DRAFT siempre), approvals, attachments, signature_hash,
+# voucher_id, codigo. Use case típico: gastos recurrentes (arriendo,
+# servicios mensuales), facturas similares entre periodos.
+
+
+@router.post(
+    "/vouchers/{voucher_id}/duplicate",
+    response_model=VoucherRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def duplicate_voucher(
+    voucher_id: int,
+    user: CurrentUser,
+    db: DBSession,
+) -> VoucherRead:
+    """Skill: duplica un voucher existente como nuevo DRAFT.
+
+    El nuevo voucher conserva: empresa_codigo, tipo, contraparte_rut/nombre/tipo,
+    doc_tributario_tipo, banco, glosa, moneda, lineas (con cuenta+proyecto+
+    area+debit+credit+descripcion). No conserva: codigo (se genera nuevo),
+    status (siempre DRAFT), folio (vacio), fecha_documento/contable (hoy),
+    approvals, attachments, signature_hash, threshold_aplicado.
+
+    Validación: scope check sobre la empresa del original.
+    """
+    # 1. Fetch original con scope check
+    original = await db.scalar(
+        select(Voucher).where(Voucher.voucher_id == voucher_id)
+    )
+    if original is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    await assert_empresa_access(user, db, original.empresa_codigo)
+
+    # 2. Fetch lines del original
+    lines_rows = await db.execute(
+        select(VoucherLine)
+        .where(VoucherLine.voucher_id == voucher_id)
+        .order_by(VoucherLine.line_number)
+    )
+    original_lines = list(lines_rows.scalars().all())
+
+    # 3. Generar codigo correlativo nuevo via función Postgres
+    today = date.today()
+    new_codigo = await db.scalar(
+        text(
+            "SELECT core.next_voucher_code(:emp, :year, :tipo)"
+        ),
+        {
+            "emp": original.empresa_codigo,
+            "year": today.year,
+            "tipo": original.tipo,
+        },
+    )
+
+    # 4. Crear voucher clon en DRAFT
+    clone = Voucher(
+        codigo=new_codigo,
+        empresa_codigo=original.empresa_codigo,
+        tipo=original.tipo,
+        status="DRAFT",
+        fecha_documento=today,
+        fecha_contable=today,
+        glosa=f"[COPIA de {original.codigo}] {original.glosa}",
+        moneda=original.moneda,
+        contraparte_rut=original.contraparte_rut,
+        contraparte_nombre=original.contraparte_nombre,
+        contraparte_tipo=original.contraparte_tipo,
+        doc_tributario_tipo=original.doc_tributario_tipo,
+        doc_tributario_folio=None,  # nuevo voucher, nuevo folio
+        banco=original.banco,
+        banco_cuenta_alias=original.banco_cuenta_alias,
+        threshold_aplicado=False,
+        source="duplicate",
+        created_by_user_id=str(user.sub),
+    )
+    db.add(clone)
+    await db.flush()
+
+    # 5. Clonar lines
+    for orig_line in original_lines:
+        clone_line = VoucherLine(
+            voucher_id=clone.voucher_id,
+            line_number=orig_line.line_number,
+            cuenta_codigo=orig_line.cuenta_codigo,
+            proyecto_codigo=orig_line.proyecto_codigo,
+            area_codigo=orig_line.area_codigo,
+            debit=orig_line.debit,
+            credit=orig_line.credit,
+            descripcion=orig_line.descripcion,
+            balance_treatment=orig_line.balance_treatment,
+        )
+        db.add(clone_line)
+
+    await db.commit()
+    await db.refresh(clone)
+
+    return VoucherRead.model_validate(clone)
+
+
+# =====================================================================
 # POST /vouchers — crear con líneas en una transacción
 # =====================================================================
 

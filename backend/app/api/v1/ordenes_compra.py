@@ -356,6 +356,70 @@ async def get_oc_html(
     return Response(content=html, media_type="text/html")
 
 
+# =====================================================================
+# GET /ordenes-compra/{oc_id}/pdf — descarga PDF branded + attachments
+# =====================================================================
+
+
+@router.get("/{oc_id:int}/pdf")
+async def download_oc_pdf(
+    oc_id: int,
+    user: CurrentUser,
+    db: DBSession,
+    include_attachments: bool = True,
+):
+    """Genera un PDF branded de la OC con (opcional) adjuntos incrustados.
+
+    El cover trae header de la empresa emisora (logo + razón social + RUT),
+    título "ORDEN DE COMPRA", ficha del proveedor, info grid de fechas y
+    forma de pago, tabla de items con totales, observaciones (si las hay)
+    y placeholder de firma.
+
+    Si `include_attachments=True` (default) y existe la tabla
+    `core.oc_attachments`, los adjuntos se mergean al final del PDF.
+    Falla silenciosa: errores fetching del logo o de adjuntos no rompen
+    la generación.
+    """
+    from fastapi.responses import StreamingResponse
+
+    from app.services.oc_pdf_service import generate_oc_pdf_bundle
+
+    repo = OrdenCompraRepository(db)
+    oc = await repo.get(oc_id)
+    if not oc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="OC no encontrada",
+        )
+    await assert_empresa_access(user, db, oc.empresa_codigo)
+
+    try:
+        pdf_bytes = await generate_oc_pdf_bundle(
+            oc_id=oc_id,
+            db=db,
+            include_attachments=include_attachments,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generando PDF de la OC: {exc}",
+        ) from exc
+
+    filename = f"oc-{oc.numero_oc}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
 @router.post(
     "/{oc_id}/duplicate",
     response_model=OrdenCompraRead,
