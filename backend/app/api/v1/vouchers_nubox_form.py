@@ -669,10 +669,17 @@ async def create_voucher_nubox_form(
     total_financiera = sum(l.total for l in body.informacion_financiera)
     # Ya validado en Pydantic que son iguales
 
-    glosa = body.glosa or (
-        f"Compra a {body.proveedor_nombre} — "
-        f"{body.tipo_documento} folio {body.numero_documento}"
-    )
+    # DB check constraint vouchers_glosa_check exige length(glosa) >= 5.
+    # Si user manda glosa < 5 chars (o vacia), usamos la auto-generada que
+    # siempre es mas larga. Evita 500 IntegrityError opaco al usuario.
+    glosa_input = (body.glosa or "").strip()
+    if len(glosa_input) < 5:
+        glosa = (
+            f"Compra a {body.proveedor_nombre} — "
+            f"{body.tipo_documento} folio {body.numero_documento}"
+        )
+    else:
+        glosa = glosa_input
 
     # 5. Generar código
     codigo = await generate_voucher_code(
