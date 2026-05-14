@@ -713,17 +713,17 @@ export default function NuboxFormPage() {
               />
             </div>
 
-            {/* Comentario (glosa) — V5++ ola CH B.4: 2 lineas visibles, capacidad
-                full del modelo (500 chars), scroll interno si se excede. */}
+            {/* Comentario (glosa) — Observaciones 13/05/2026 #5: 1 linea
+                (más chico), capacidad full del modelo (500 chars). */}
             <div className="md:col-span-2">
               <Label>Comentario (opcional — se autogenera si está vacío)</Label>
-              <textarea
+              <input
+                type="text"
                 value={glosa}
                 onChange={(e) => setGlosa(e.target.value)}
                 placeholder="Compra a {proveedor} folio {n}"
-                rows={2}
                 maxLength={500}
-                className="form-input resize-none"
+                className="form-input"
               />
             </div>
           </div>

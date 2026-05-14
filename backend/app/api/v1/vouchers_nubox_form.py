@@ -145,25 +145,28 @@ def tipo_doc_aplica_iva(tipo: str) -> bool:
 
 # Labels human-readable para FE (titulos UI). Mantenido en backend para
 # que un cambio sea idempotente (el FE solo expone, no hardcodea).
+# Observaciones 13/05/2026 — labels en UPPERCASE matchean convención SII/Nubox
+# y el documento de observaciones del usuario. Los 15 tipos son la lista oficial
+# del catálogo SII para vouchers de compra/venta.
 TIPO_DOCUMENTO_LABELS: dict[str, str] = {
-    "DECLARACION_INGRESO": "Declaración de ingreso",
-    "FACTURA": "Factura",
-    "FACTURA_COMPRA": "Factura de compra",
-    "FACTURA_COMPRA_ELECTRONICA": "Factura de compra electrónica",
-    "FACTURA_INICIO": "Factura de inicio",
-    "FACTURA_ELECTRONICA": "Factura electrónica",
-    "FACTURA_ELECTRONICA_EXENTA": "Factura electrónica exenta",
-    "FACTURA_EXENTA": "Factura exenta",
-    "LIQUIDACION_FACTURA": "Liquidación factura",
-    "LIQUIDACION_FACTURA_ELECTRONICA": "Liquidación factura electrónica",
-    "NOTA_CREDITO": "Nota de crédito",
-    "NOTA_CREDITO_ELECTRONICA": "Nota de crédito electrónica",
-    "NOTA_DEBITO": "Nota de débito",
-    "NOTA_DEBITO_ELECTRONICA": "Nota de débito electrónica",
-    "SOLICITUD_REGISTRO_FACTURA": "Solicitud registro factura",
+    "DECLARACION_INGRESO": "DECLARACION DE INGRESO",
+    "FACTURA": "FACTURA",
+    "FACTURA_COMPRA": "FACTURA DE COMPRA",
+    "FACTURA_COMPRA_ELECTRONICA": "FACTURA DE COMPRA ELECTRONICA",
+    "FACTURA_INICIO": "FACTURA DE INICIO",
+    "FACTURA_ELECTRONICA": "FACTURA ELECTRONICA",
+    "FACTURA_ELECTRONICA_EXENTA": "FACTURA ELECTRONICA EXENTA",
+    "FACTURA_EXENTA": "FACTURA EXENTA",
+    "LIQUIDACION_FACTURA": "LIQUIDACION FACTURA",
+    "LIQUIDACION_FACTURA_ELECTRONICA": "LIQUIDACION FACTURA ELECTRONICA",
+    "NOTA_CREDITO": "NOTA DE CREDITO",
+    "NOTA_CREDITO_ELECTRONICA": "NOTA DE CREDITO ELECTRONICA",
+    "NOTA_DEBITO": "NOTA DE DEBITO",
+    "NOTA_DEBITO_ELECTRONICA": "NOTA DE DEBITO ELECTRONICA",
+    "SOLICITUD_REGISTRO_FACTURA": "SOLICITUD REGISTRO FACTURA",
     # Backward compat (no se muestra en form nuevo, solo lectura).
-    "BOLETA": "Boleta",
-    "HONORARIOS": "Boleta honorarios",
+    "BOLETA": "BOLETA",
+    "HONORARIOS": "BOLETA HONORARIOS",
     "NA": "No aplica",
 }
 

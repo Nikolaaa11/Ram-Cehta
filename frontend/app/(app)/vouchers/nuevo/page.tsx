@@ -212,11 +212,23 @@ export default function NuevoVoucherPage() {
 
   const tipoMeta = TIPOS.find((t) => t.value === tipo)!;
 
-  // Empresas
+  // Empresas — SCOPE FIX (Observaciones 13/05/2026 #1): un contador no debe
+  // ver empresas que no le corresponden en el dropdown. Antes usaba /empresa
+  // (lista plana sin filtro). Ahora usa /me/empresas que ya filtra por
+  // core.user_company_roles + agrega admin global override.
   const { data: empresas } = useQuery<Empresa[]>({
-    queryKey: ["empresas"],
-    queryFn: () => apiClient.get<Empresa[]>("/empresa", session),
+    queryKey: ["me", "empresas", "for-voucher-form"],
+    queryFn: async () => {
+      const resp = await apiClient.get<{
+        empresas: Array<{ codigo: string; razon_social: string }>;
+      }>("/me/empresas", session);
+      return resp.empresas.map((e) => ({
+        codigo: e.codigo,
+        razon_social: e.razon_social,
+      }));
+    },
     enabled: !!session,
+    staleTime: 5 * 60_000,
   });
 
   // Set default empresa al cargar
@@ -540,12 +552,12 @@ export default function NuevoVoucherPage() {
 
               <div className="sm:col-span-2 lg:col-span-3">
                 <Field label="Glosa (descripción del asiento)" required>
-                  <textarea
+                  {/* Observaciones 13/05/2026 #5: comentario más chico — rows=1 */}
+                  <input
                     required
                     minLength={5}
                     value={glosa}
                     onChange={(e) => setGlosa(e.target.value)}
-                    rows={2}
                     placeholder="Ej: Pago factura 12345 — Servicios consultoría enero RHO"
                     className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                   />
