@@ -67,7 +67,12 @@ async def assign_user(
     return result
 
 
-@router.patch("/users/{user_id}/role", response_model=UserRoleRead)
+@router.patch(
+    "/users/{user_id}/role",
+    response_model=UserRoleRead,
+    # V4 fase 2: high-impact endpoint — si es admin, exige 2FA activo.
+    dependencies=[Depends(current_admin_with_2fa)],
+)
 async def update_role(
     user_id: str,
     body: UserRoleUpdateRequest,
@@ -87,7 +92,11 @@ async def update_role(
 
 
 @router.delete(
-    "/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+    # V4 fase 2: high-impact endpoint — si es admin, exige 2FA activo.
+    dependencies=[Depends(current_admin_with_2fa)],
 )
 async def remove_user(
     user_id: str,

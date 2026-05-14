@@ -15,6 +15,7 @@ from app.infrastructure.repositories.proveedor_repository import ProveedorReposi
 from app.schemas.common import Page
 from app.schemas.proveedor import ProveedorCreate, ProveedorRead, ProveedorUpdate
 from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import EmpresaScopeDep
 
 router = APIRouter()
 
@@ -86,6 +87,7 @@ class MergeProveedorResponse(BaseModel):
 async def list_proveedores(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     page: Annotated[int, Query(ge=1)] = 1,
     size: Annotated[int, Query(ge=1, le=100)] = 20,
     search: str | None = None,
@@ -94,13 +96,19 @@ async def list_proveedores(
     """Lista proveedores activos paginados. Si `with_counts=true`, agrega
     `vouchers_count` y `ordenes_compra_count` a cada item (1 query extra
     agregada). Util para la pantalla /admin/proveedores donde queremos
-    ver el uso real de cada proveedor."""
+    ver el uso real de cada proveedor.
+
+    Los counts se filtran por las empresas accesibles al user (multi-tenant)
+    para evitar leak de usage patterns cross-tenant.
+    """
     repo = ProveedorRepository(db)
     items, total = await repo.list(page=page, size=size, search=search)
     counts_map: dict[int, dict[str, int]] = {}
     if with_counts and items:
+        scoped_codes = scope.filter_codes(None)
         counts_map = await repo.counts_by_proveedor(
-            [p.proveedor_id for p in items]
+            [p.proveedor_id for p in items],
+            empresa_codigos=scoped_codes,
         )
     enriched: list[ProveedorRead] = []
     for p in items:

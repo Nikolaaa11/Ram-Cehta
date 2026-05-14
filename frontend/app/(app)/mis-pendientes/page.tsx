@@ -61,25 +61,23 @@ export default function MisPendientesPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      // Drafts propios (status=DRAFT created by me)
-      const draftRes = await apiClient.get<Voucher[]>(
-        "/vouchers?status=DRAFT&limit=100",
-        session,
-      );
+      // Fetch en paralelo: drafts, pendientes y empresas son independientes.
+      const [draftRes, pendingRes, empResp] = await Promise.all([
+        apiClient.get<Voucher[]>(
+          "/vouchers?status=DRAFT&limit=100",
+          session,
+        ),
+        apiClient.get<Voucher[]>(
+          "/vouchers?status=PENDING&limit=100",
+          session,
+        ),
+        apiClient.get<{ empresas: MyEmpresa[] }>(
+          "/me/empresas",
+          session,
+        ),
+      ]);
       setDrafts(draftRes);
-
-      // Pendientes de aprobación (status=PENDING en mis empresas)
-      const pendingRes = await apiClient.get<Voucher[]>(
-        "/vouchers?status=PENDING&limit=100",
-        session,
-      );
       setPending(pendingRes);
-
-      // Mis empresas
-      const empResp = await apiClient.get<{ empresas: MyEmpresa[] }>(
-        "/me/empresas",
-        session,
-      );
       setEmpresas(empResp.empresas || []);
     } catch (err) {
       // V5++ ola CJ + Round 1 polish — antes silenciado; ahora propagamos

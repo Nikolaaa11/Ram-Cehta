@@ -19,7 +19,7 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.infrastructure.repositories.calendar_repository import (
     CalendarRepository,
 )
-from app.services.empresa_scope_service import EmpresaScopeDep
+from app.services.empresa_scope_service import EmpresaScopeDep, assert_empresa_access
 from app.schemas.calendar import (
     AgentRunReport,
     CalendarEventCreate,
@@ -616,16 +616,21 @@ async def _query_entregables(
 async def list_events(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     date_from: date | None = Query(default=None, alias="from"),
     date_to: date | None = Query(default=None, alias="to"),
     empresa: str | None = None,
     tipo: str | None = None,
 ) -> list[CalendarEventRead]:
+    # V5++ ola CB: multi-tenant scope filter — admin = None (sin restricción),
+    # scoped user = lista de empresas permitidas (intersección con `empresa`).
+    scoped_codes = scope.filter_codes(empresa)
     events = await CalendarRepository(db).list(
         date_from=date_from,
         date_to=date_to,
         empresa_codigo=empresa,
         tipo=tipo,
+        empresa_codes=scoped_codes,
     )
     return [CalendarEventRead.model_validate(e) for e in events]
 
@@ -663,6 +668,9 @@ async def update_event(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado"
         )
+    # V5++ ola CB: scope check sobre empresa del evento.
+    if ev.empresa_codigo is not None:
+        await assert_empresa_access(user, db, ev.empresa_codigo)
     updated = await repo.update(ev, body)
     await db.commit()
     return CalendarEventRead.model_validate(updated)
@@ -681,9 +689,15 @@ async def delete_event(
 ) -> Response:
     repo = CalendarRepository(db)
     ev = await repo.get(event_id)
-    if ev is not None:
-        await repo.delete(ev)
-        await db.commit()
+    if ev is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado"
+        )
+    # V5++ ola CB: scope check sobre empresa del evento.
+    if ev.empresa_codigo is not None:
+        await assert_empresa_access(user, db, ev.empresa_codigo)
+    await repo.delete(ev)
+    await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -703,6 +717,9 @@ async def complete_event(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Evento no encontrado"
         )
+    # V5++ ola CB: scope check sobre empresa del evento.
+    if ev.empresa_codigo is not None:
+        await assert_empresa_access(user, db, ev.empresa_codigo)
     updated = await repo.mark_completed(ev)
     await db.commit()
     return CalendarEventRead.model_validate(updated)

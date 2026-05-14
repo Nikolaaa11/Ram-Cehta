@@ -9,6 +9,7 @@ devuelve 503 con mensaje accionable.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
@@ -26,7 +27,7 @@ from app.infrastructure.repositories.integration_repository import (
     IntegrationRepository,
 )
 from app.models.empresa import Empresa
-from app.models.proyecto import Hito, ProyectoEmpresa
+from app.models.proyecto import Hito, ProyectoEmpresa, Riesgo
 from app.schemas.avance import (
     EmpresaCount,
     GanttHitoPreview,
@@ -106,19 +107,46 @@ async def list_proyectos(
     # V5++ ola CB: solo proyectos de empresas en scope
     await assert_empresa_access(user, db, empresa_codigo)
     proyecto_repo = ProyectoRepository(db)
-    hito_repo = HitoRepository(db)
-    riesgo_repo = RiesgoRepository(db)
 
     proyectos = await proyecto_repo.list_for_empresa(empresa_codigo)
+    if not proyectos:
+        return []
+
+    # Batch fetch para evitar N+1: una query para todos los hitos y otra
+    # para los conteos de riesgos abiertos.
+    proyecto_ids = [p.proyecto_id for p in proyectos]
+
+    hitos_rows = (
+        await db.execute(
+            select(Hito)
+            .where(Hito.proyecto_id.in_(proyecto_ids))
+            .order_by(Hito.orden, Hito.fecha_planificada)
+        )
+    ).scalars().all()
+    hitos_by_proy: dict[int, list[Hito]] = defaultdict(list)
+    for h in hitos_rows:
+        hitos_by_proy[h.proyecto_id].append(h)
+
+    riesgos_rows = (
+        await db.execute(
+            select(Riesgo.proyecto_id, func.count(Riesgo.riesgo_id))
+            .where(Riesgo.proyecto_id.in_(proyecto_ids))
+            .where(Riesgo.estado == "abierto")
+            .group_by(Riesgo.proyecto_id)
+        )
+    ).all()
+    riesgos_counts: dict[int, int] = {pid: int(n) for pid, n in riesgos_rows}
+
     items: list[ProyectoListItem] = []
     for p in proyectos:
-        hitos = await hito_repo.list_for_proyecto(p.proyecto_id)
-        riesgos_abiertos = await riesgo_repo.count_abiertos_for_proyecto(p.proyecto_id)
         item = ProyectoListItem.model_validate(
             {
                 **{c.name: getattr(p, c.name) for c in p.__table__.columns},
-                "hitos": [HitoRead.model_validate(h) for h in hitos],
-                "riesgos_abiertos": riesgos_abiertos,
+                "hitos": [
+                    HitoRead.model_validate(h)
+                    for h in hitos_by_proy.get(p.proyecto_id, [])
+                ],
+                "riesgos_abiertos": riesgos_counts.get(p.proyecto_id, 0),
             }
         )
         items.append(item)
@@ -264,10 +292,14 @@ async def update_hito(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Hito no encontrado"
         )
-    # V5++ ola CB: scope check via empresa del proyecto padre
+    # V5++ ola CB: scope check via empresa del proyecto padre — enforce always.
     proyecto = await ProyectoRepository(db).get(hito.proyecto_id)
-    if proyecto:
-        await assert_empresa_access(user, db, proyecto.empresa_codigo)
+    if not proyecto:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Proyecto padre no encontrado",
+        )
+    await assert_empresa_access(user, db, proyecto.empresa_codigo)
     updated = await repo.update(hito, body)
     await db.commit()
     return HitoRead.model_validate(updated)
@@ -287,10 +319,14 @@ async def delete_hito(
     repo = HitoRepository(db)
     hito = await repo.get(hito_id)
     if hito is not None:
-        # V5++ ola CB: scope check via empresa del proyecto padre
+        # V5++ ola CB: scope check via empresa del proyecto padre — enforce always.
         proyecto = await ProyectoRepository(db).get(hito.proyecto_id)
-        if proyecto:
-            await assert_empresa_access(user, db, proyecto.empresa_codigo)
+        if not proyecto:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proyecto padre no encontrado",
+            )
+        await assert_empresa_access(user, db, proyecto.empresa_codigo)
         await repo.delete(hito)
         await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -363,13 +399,17 @@ async def create_riesgo_empresa(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Falta empresa_codigo o proyecto_id",
         )
-    # V5++ ola CB: scope check
+    # V5++ ola CB: scope check — enforce always (no bypass cuando falta padre).
     if body.empresa_codigo:
         await assert_empresa_access(user, db, body.empresa_codigo)
-    elif body.proyecto_id:
+    else:
         proyecto = await ProyectoRepository(db).get(body.proyecto_id)
-        if proyecto:
-            await assert_empresa_access(user, db, proyecto.empresa_codigo)
+        if not proyecto:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Proyecto padre no encontrado",
+            )
+        await assert_empresa_access(user, db, proyecto.empresa_codigo)
     riesgo = await RiesgoRepository(db).create(body)
     await db.commit()
     return RiesgoRead.model_validate(riesgo)
@@ -392,9 +432,18 @@ async def update_riesgo(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Riesgo no encontrado"
         )
-    # V5++ ola CB: scope check
-    if riesgo.empresa_codigo:
-        await assert_empresa_access(user, db, riesgo.empresa_codigo)
+    # V5++ ola CB: scope check — derive empresa from project if needed, always enforce.
+    target_empresa = riesgo.empresa_codigo
+    if not target_empresa and riesgo.proyecto_id:
+        proyecto = await ProyectoRepository(db).get(riesgo.proyecto_id)
+        if proyecto:
+            target_empresa = proyecto.empresa_codigo
+    if not target_empresa:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Riesgo sin empresa derivable",
+        )
+    await assert_empresa_access(user, db, target_empresa)
     updated = await repo.update(riesgo, body)
     await db.commit()
     return RiesgoRead.model_validate(updated)
@@ -414,9 +463,18 @@ async def delete_riesgo(
     repo = RiesgoRepository(db)
     riesgo = await repo.get(riesgo_id)
     if riesgo is not None:
-        # V5++ ola CB: scope check
-        if riesgo.empresa_codigo:
-            await assert_empresa_access(user, db, riesgo.empresa_codigo)
+        # V5++ ola CB: scope check — derive empresa from project if needed, always enforce.
+        target_empresa = riesgo.empresa_codigo
+        if not target_empresa and riesgo.proyecto_id:
+            proyecto = await ProyectoRepository(db).get(riesgo.proyecto_id)
+            if proyecto:
+                target_empresa = proyecto.empresa_codigo
+        if not target_empresa:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Riesgo sin empresa derivable",
+            )
+        await assert_empresa_access(user, db, target_empresa)
         await repo.delete(riesgo)
         await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

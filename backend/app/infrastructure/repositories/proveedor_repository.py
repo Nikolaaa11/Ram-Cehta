@@ -86,7 +86,9 @@ class ProveedorRepository:
         return list((await self._session.scalars(stmt)).all())
 
     async def counts_by_proveedor(
-        self, proveedor_ids: list[int]
+        self,
+        proveedor_ids: list[int],
+        empresa_codigos: list[str] | None = None,
     ) -> dict[int, dict[str, int]]:
         """Cuenta vouchers (por contraparte_rut) y OCs (por proveedor_id)
         asociados a cada proveedor en la lista.
@@ -97,6 +99,9 @@ class ProveedorRepository:
         - Vouchers se vinculan por `contraparte_rut` (string), no por FK.
         - OCs se vinculan por `proveedor_id` (FK).
         - Si la lista esta vacia, devuelve dict vacio sin tocar la DB.
+        - Si `empresa_codigos` se pasa, filtra los conteos de vouchers y OCs
+          a esos códigos de empresa (scoping multi-tenant: evita leak de
+          usage patterns cross-tenant).
         """
         if not proveedor_ids:
             return {}
@@ -114,36 +119,36 @@ class ProveedorRepository:
         from sqlalchemy import text
 
         if rut_to_id:
+            voucher_sql = """
+                SELECT contraparte_rut, COUNT(*) AS n
+                FROM core.vouchers
+                WHERE contraparte_rut = ANY(CAST(:ruts AS text[]))
+            """
+            voucher_params: dict[str, object] = {"ruts": list(rut_to_id.keys())}
+            if empresa_codigos is not None:
+                voucher_sql += " AND empresa_codigo = ANY(CAST(:codes AS text[]))"
+                voucher_params["codes"] = empresa_codigos
+            voucher_sql += " GROUP BY contraparte_rut"
             rows = (
-                await self._session.execute(
-                    text(
-                        """
-                        SELECT contraparte_rut, COUNT(*) AS n
-                        FROM core.vouchers
-                        WHERE contraparte_rut = ANY(CAST(:ruts AS text[]))
-                        GROUP BY contraparte_rut
-                        """
-                    ),
-                    {"ruts": list(rut_to_id.keys())},
-                )
+                await self._session.execute(text(voucher_sql), voucher_params)
             ).all()
             for rut, n in rows:
                 pid = rut_to_id.get(rut)
                 if pid is not None:
                     result[pid]["vouchers"] = int(n)
 
+        oc_sql = """
+            SELECT proveedor_id, COUNT(*) AS n
+            FROM core.ordenes_compra
+            WHERE proveedor_id = ANY(CAST(:ids AS int[]))
+        """
+        oc_params: dict[str, object] = {"ids": proveedor_ids}
+        if empresa_codigos is not None:
+            oc_sql += " AND empresa_codigo = ANY(CAST(:codes AS text[]))"
+            oc_params["codes"] = empresa_codigos
+        oc_sql += " GROUP BY proveedor_id"
         rows_oc = (
-            await self._session.execute(
-                text(
-                    """
-                    SELECT proveedor_id, COUNT(*) AS n
-                    FROM core.ordenes_compra
-                    WHERE proveedor_id = ANY(CAST(:ids AS int[]))
-                    GROUP BY proveedor_id
-                    """
-                ),
-                {"ids": proveedor_ids},
-            )
+            await self._session.execute(text(oc_sql), oc_params)
         ).all()
         for pid, n in rows_oc:
             if pid in result:

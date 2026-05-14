@@ -20,6 +20,7 @@ class CalendarRepository:
         date_to: date | None = None,
         empresa_codigo: str | None = None,
         tipo: str | None = None,
+        empresa_codes: list[str] | None = None,
     ) -> list[CalendarEvent]:
         q = select(CalendarEvent)
         conditions = []
@@ -35,6 +36,9 @@ class CalendarRepository:
             conditions.append(CalendarEvent.empresa_codigo == empresa_codigo)
         if tipo:
             conditions.append(CalendarEvent.tipo == tipo)
+        # V5++ ola CB: multi-tenant scope filter (admin = None = sin filtro).
+        if empresa_codes is not None:
+            conditions.append(CalendarEvent.empresa_codigo.in_(empresa_codes))
         if conditions:
             q = q.where(and_(*conditions))
         q = q.order_by(CalendarEvent.fecha_inicio.asc())

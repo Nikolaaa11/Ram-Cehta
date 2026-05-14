@@ -17,6 +17,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -171,13 +172,22 @@ async def create_oc(
         body = body.model_copy(update={"proveedor_id": proveedor.proveedor_id})
 
     repo = OrdenCompraRepository(db)
+    # Optimistic check para feedback rápido — pero el verdadero gate es el
+    # IntegrityError abajo (cierra ventana TOCTOU en alta concurrencia).
     if await repo.exists_numero_oc(body.empresa_codigo, body.numero_oc):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"OC {body.numero_oc} ya existe para empresa {body.empresa_codigo}",
         )
-    oc = await repo.create(body)
-    await db.commit()
+    try:
+        oc = await repo.create(body)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"OC {body.numero_oc} ya existe para empresa {body.empresa_codigo}",
+        ) from exc
     oc = await repo.get(oc.oc_id)  # re-fetch para cargar items via selectin
     if not oc:
         raise HTTPException(status_code=500, detail="Error al recuperar OC creada")
@@ -421,7 +431,7 @@ async def download_oc_pdf(
 
 
 @router.post(
-    "/{oc_id}/duplicate",
+    "/{oc_id:int}/duplicate",
     response_model=OrdenCompraRead,
     status_code=status.HTTP_201_CREATED,
 )
@@ -477,8 +487,15 @@ async def duplicate_oc(
             for d in (original.items or [])
         ],
     )
-    new_oc = await repo.create(duplicate_payload)
-    await db.commit()
+    try:
+        new_oc = await repo.create(duplicate_payload)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"OC {body.numero_oc} ya existe para empresa {original.empresa_codigo}",
+        ) from exc
     new_oc = await repo.get(new_oc.oc_id)
     if not new_oc:  # pragma: no cover — invariant
         raise HTTPException(status_code=500, detail="Error al recuperar OC duplicada")
