@@ -712,6 +712,13 @@ async def create_voucher_nubox_form(
         db.add(vl)
         line_num += 1
 
+    # Capturar IDs ANTES del commit (que en async puede expirar la instancia
+    # despite expire_on_commit=False cuando operaciones subsiguientes ejecutan
+    # raw SQL en la misma session). Acceder a voucher.voucher_id después
+    # del commit triggea lazy-load → pool.connect() → 500.
+    voucher_id_local = voucher.voucher_id
+    proveedor_id_local = proveedor.proveedor_id
+
     await db.commit()
 
     # 9. Audit log
@@ -720,7 +727,7 @@ async def create_voucher_nubox_form(
             db, None, user,
             action="create_nubox_form",
             entity_type="voucher",
-            entity_id=str(voucher.voucher_id),
+            entity_id=str(voucher_id_local),
             entity_label=codigo,
             summary=(
                 f"Voucher COMPRA Nubox-form creado: {body.proveedor_nombre} — "
@@ -750,7 +757,7 @@ async def create_voucher_nubox_form(
                 db,
                 "voucher.imported",
                 {
-                    "voucher_id": voucher.voucher_id,
+                    "voucher_id": voucher_id_local,
                     "codigo": codigo,
                     "empresa_codigo": body.empresa_codigo,
                     "proveedor_rut": proveedor_rut_canonical,
@@ -766,7 +773,7 @@ async def create_voucher_nubox_form(
             pass
 
     return NuboxFormResponse(
-        voucher_id=voucher.voucher_id,
+        voucher_id=voucher_id_local,
         codigo=codigo,
         status="DRAFT",
         empresa_codigo=body.empresa_codigo,
@@ -777,7 +784,7 @@ async def create_voucher_nubox_form(
             "El voucher está en DRAFT. Click 'Enviar a aprobación' para "
             "que pase a PENDING y los aprobadores firmen."
         ),
-        proveedor_id=proveedor.proveedor_id,
+        proveedor_id=proveedor_id_local,
         proveedor_creado_automatico=proveedor_creado_automatico,
         proveedor_rut_canonical=proveedor_rut_canonical,
     )
