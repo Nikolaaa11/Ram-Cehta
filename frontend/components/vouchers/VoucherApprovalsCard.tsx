@@ -58,6 +58,11 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
   const [showSignModal, setShowSignModal] = useState(false);
   const [signComments, setSignComments] = useState("");
 
+  // Observaciones 14/05/2026 — en DRAFT no fetcheamos approvals reales
+  // (todavía no existen), pero igualmente queremos mostrar el preview del
+  // flujo. El backend devuelve required_roles + approvals=[] cuando es
+  // DRAFT, así que hacemos el fetch siempre y dejamos que el render
+  // diferencie por voucherStatus.
   const { data, isLoading } = useQuery<VoucherApprovalsState>({
     queryKey: ["voucher-approvals", voucherId],
     queryFn: () =>
@@ -66,6 +71,9 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
         session,
       ),
     enabled: !!session,
+    // En DRAFT permitimos fallar silenciosamente — el card sigue mostrando
+    // el header informativo aunque no haya data.
+    retry: voucherStatus === "DRAFT" ? false : 2,
   });
 
   const approveMut = useMutation({
@@ -109,7 +117,36 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
     );
   }
 
-  if (!data) return null;
+  // En DRAFT sin data del backend, mostramos un placeholder visible
+  // — Observaciones 14/05/2026 #3.
+  if (!data) {
+    return (
+      <div className="rounded-3xl border border-hairline bg-white p-5 shadow-card">
+        <header className="flex items-baseline justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+              Flujo de aprobación
+            </p>
+            <p className="mt-1 text-xs text-ink-500">
+              {voucherStatus === "DRAFT"
+                ? "Se calculará cuando envíes a aprobación. Las reglas dependen del monto + tipo + empresa."
+                : "Sin información disponible."}
+            </p>
+          </div>
+        </header>
+        {voucherStatus === "DRAFT" && (
+          <div className="mt-4 rounded-xl border border-dashed border-cehta-green/30 bg-cehta-green/5 p-3">
+            <p className="text-[11px] text-cehta-green">
+              <strong className="font-semibold">Tip:</strong> apenas hagas
+              click en <span className="font-mono">Enviar a aprobación</span>,
+              acá aparecen los aprobadores requeridos (Líder + Director) y
+              pueden firmar uno por uno.
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const approvedOrders = new Set(
     data.approvals

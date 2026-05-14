@@ -516,6 +516,76 @@ async def get_voucher_html(
 
 
 # =====================================================================
+# GET /vouchers/{id}/pdf — descarga PDF branded + attachments mergeados
+# =====================================================================
+
+
+@router.get("/vouchers/{voucher_id}/pdf")
+async def download_voucher_pdf(
+    voucher_id: int,
+    user: CurrentUser,
+    db: DBSession,
+    include_attachments: bool = True,
+):
+    """Genera un PDF branded del voucher con los adjuntos incrustados.
+
+    El PDF cover trae header de la empresa (logo + razón social + RUT + dir),
+    detalle del voucher (info grid, glosa, líneas, totales, aprobaciones).
+    Si include_attachments=True (default), descarga cada adjunto desde Dropbox
+    y los anexa al PDF final: PDFs nativos se merge-an, imágenes se renderizan
+    a A4, otros formatos producen una página placeholder.
+
+    Falla silenciosa: errores fetching del logo o de adjuntos no rompen el PDF.
+    """
+    from fastapi.responses import StreamingResponse
+
+    from app.services.voucher_pdf_service import generate_voucher_pdf_bundle
+
+    # Validar voucher existe + scope
+    row = (
+        await db.execute(
+            text(
+                "SELECT codigo, empresa_codigo FROM core.vouchers "
+                "WHERE voucher_id = :id"
+            ),
+            {"id": voucher_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Voucher no encontrado",
+        )
+    await assert_empresa_access(user, db, row["empresa_codigo"])
+
+    try:
+        pdf_bytes = await generate_voucher_pdf_bundle(
+            voucher_id=voucher_id,
+            db=db,
+            include_attachments=include_attachments,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generando PDF del voucher: {exc}",
+        ) from exc
+
+    filename = f"voucher-{row['codigo']}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
+# =====================================================================
 # POST /vouchers — crear con líneas en una transacción
 # =====================================================================
 

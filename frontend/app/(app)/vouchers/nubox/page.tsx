@@ -14,7 +14,7 @@
  * Al submit: POST /vouchers/nubox-form → crea voucher COMPRA DRAFT.
  * Después se aprueba con el flujo estándar (Líder + Director).
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,6 +26,10 @@ import {
   CheckCircle2,
   CreditCard,
   Cloud,
+  Paperclip,
+  FileText,
+  Image as ImageIcon,
+  X as XIcon,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -160,6 +164,14 @@ export default function NuboxFormPage() {
   const [financiera, setFinanciera] = useState<LineRow[]>([
     { comentario: "", cuenta_codigo: "", total: "" },
   ]);
+
+  // Observaciones 14/05/2026 — adjuntar archivos directamente al crear.
+  // Los archivos quedan en memoria hasta que el voucher se crea con éxito,
+  // y después se suben uno por uno via POST /vouchers/{id}/attachments.
+  const [pendingFiles, setPendingFiles] = useState<
+    Array<{ file: File; tipo: string }>
+  >([]);
+  const filePickerRef = useRef<HTMLInputElement | null>(null);
 
   // Lookup en vivo del proveedor por RUT (debounced 400ms).
   // Avisa al usuario si el proveedor ya existe (precarga nombre), si es nuevo
@@ -423,11 +435,50 @@ export default function NuboxFormPage() {
         proveedor_creado_automatico: boolean;
         proveedor_rut_canonical: string;
       }>("/vouchers/nubox-form", payload, session);
-      toast.success(
-        resp.proveedor_creado_automatico
-          ? `Voucher ${resp.codigo} creado · Proveedor "${proveedorNombre.trim()}" agregado al catálogo`
-          : `Voucher ${resp.codigo} creado en DRAFT`,
-      );
+
+      // Observaciones 14/05/2026 — subir adjuntos seleccionados ahora que
+      // tenemos voucher_id. Se sube uno por uno, si falla alguno seguimos
+      // con los demás y reportamos al final.
+      let attachedOk = 0;
+      let attachedFail = 0;
+      if (pendingFiles.length > 0) {
+        const API_BASE =
+          process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+        for (const pf of pendingFiles) {
+          try {
+            const fd = new FormData();
+            fd.append("file", pf.file);
+            fd.append("tipo", pf.tipo);
+            const r = await fetch(
+              `${API_BASE}/vouchers/${resp.voucher_id}/attachments`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${session?.access_token ?? ""}`,
+                },
+                body: fd,
+                cache: "no-store",
+              },
+            );
+            if (r.ok) attachedOk++;
+            else attachedFail++;
+          } catch {
+            attachedFail++;
+          }
+        }
+      }
+
+      const baseMsg = resp.proveedor_creado_automatico
+        ? `Voucher ${resp.codigo} creado · Proveedor "${proveedorNombre.trim()}" agregado al catálogo`
+        : `Voucher ${resp.codigo} creado en DRAFT`;
+      const attachMsg =
+        pendingFiles.length === 0
+          ? ""
+          : attachedFail === 0
+            ? ` · ${attachedOk} adjunto${attachedOk === 1 ? "" : "s"} subido${attachedOk === 1 ? "" : "s"}`
+            : ` · ${attachedOk} adjuntos OK, ${attachedFail} fallaron (subirlos manualmente)`;
+      toast.success(baseMsg + attachMsg);
+
       clearDraft();
       window.location.href = `/vouchers/${resp.voucher_id}`;
     } catch (err) {
@@ -788,6 +839,133 @@ export default function NuboxFormPage() {
           onRemove={(i) => removeLine("financiera", i)}
           onUpdate={(i, f, v) => updateLine("financiera", i, f, v)}
         />
+
+        {/* ADJUNTOS — Observaciones 14/05/2026 — selección antes de crear.
+            Se suben automáticamente apenas el voucher se crea con éxito. */}
+        <Surface className="p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Paperclip className="size-5 text-cehta-green" />
+            <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+              Adjuntar archivos
+            </h2>
+            <span className="ml-auto text-xs text-ink-500">
+              {pendingFiles.length}{" "}
+              {pendingFiles.length === 1 ? "archivo seleccionado" : "archivos seleccionados"}
+            </span>
+          </div>
+          <p className="text-[11px] text-ink-500 mb-3">
+            Adjuntá factura, boleta, contrato o cualquier respaldo. Los archivos
+            se suben automáticamente al crear el voucher y se anexan en el PDF
+            final (cuando lo descargues).
+          </p>
+
+          {/* Lista de archivos pendientes */}
+          {pendingFiles.length > 0 && (
+            <ul className="mb-3 space-y-2">
+              {pendingFiles.map((pf, idx) => {
+                const Icon = pf.file.type.startsWith("image/")
+                  ? ImageIcon
+                  : pf.file.type.includes("pdf")
+                    ? FileText
+                    : Paperclip;
+                const sizeKb = (pf.file.size / 1024).toFixed(1);
+                return (
+                  <li
+                    key={idx}
+                    className="group flex items-center gap-3 rounded-xl border border-hairline bg-ink-50/30 px-3 py-2"
+                  >
+                    <Icon
+                      className="h-4 w-4 shrink-0 text-ink-400"
+                      strokeWidth={1.75}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-ink-900">
+                        {pf.file.name}
+                      </p>
+                      <p className="text-[10px] text-ink-500">
+                        <span className="rounded bg-cehta-green/10 px-1.5 py-0.5 font-semibold uppercase tracking-wider text-cehta-green">
+                          {pf.tipo}
+                        </span>{" "}
+                        · {sizeKb} KB
+                      </p>
+                    </div>
+                    <select
+                      value={pf.tipo}
+                      onChange={(e) =>
+                        setPendingFiles((prev) =>
+                          prev.map((p, i) =>
+                            i === idx ? { ...p, tipo: e.target.value } : p,
+                          ),
+                        )
+                      }
+                      className="rounded-lg border-0 bg-white px-2 py-1 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                    >
+                      <option value="FACTURA">Factura</option>
+                      <option value="BOLETA">Boleta</option>
+                      <option value="CONTRATO">Contrato</option>
+                      <option value="COTIZACION">Cotización</option>
+                      <option value="TRANSFERENCIA">Comprobante transferencia</option>
+                      <option value="LIQUIDACION_SUELDO">Liquidación de sueldo</option>
+                      <option value="ACTA">Acta</option>
+                      <option value="RESPALDO_TECNICO">Respaldo técnico</option>
+                      <option value="OTRO">Otro</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPendingFiles((prev) =>
+                          prev.filter((_, i) => i !== idx),
+                        )
+                      }
+                      className="inline-flex h-7 w-7 items-center justify-center rounded text-negative hover:bg-negative/10"
+                      aria-label="Quitar archivo"
+                    >
+                      <XIcon className="h-4 w-4" strokeWidth={1.75} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <input
+            ref={filePickerRef}
+            type="file"
+            multiple
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc"
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              if (files.length === 0) return;
+              setPendingFiles((prev) => [
+                ...prev,
+                ...files.map((f) => ({
+                  file: f,
+                  tipo:
+                    tipoDocumento.startsWith("FACTURA")
+                      ? "FACTURA"
+                      : tipoDocumento.startsWith("BOLETA")
+                        ? "BOLETA"
+                        : tipoDocumento.includes("NOTA_CREDITO")
+                          ? "OTRO"
+                          : "FACTURA",
+                })),
+              ]);
+              if (filePickerRef.current) filePickerRef.current.value = "";
+            }}
+            className="hidden"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => filePickerRef.current?.click()}
+          >
+            <Paperclip className="size-4 mr-2" />
+            Seleccionar archivos
+          </Button>
+          <p className="mt-2 text-[10px] italic text-ink-400">
+            Max 50 MB cada uno · PDF, JPG, PNG, Excel, Word
+          </p>
+        </Surface>
 
         {/* FOOTER: totales + submit */}
         <Surface className="p-6">

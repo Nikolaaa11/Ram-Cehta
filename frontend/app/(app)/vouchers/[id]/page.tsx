@@ -400,15 +400,61 @@ export default function VoucherDetailPage({ params }: PageProps) {
 
           {/* Acciones según status */}
           <div className="flex flex-wrap gap-2 print:hidden">
-            {/* Imprimir / PDF — disponible siempre, también en DRAFT */}
+            {/* Observaciones 14/05/2026 — botón "Descargar PDF" con branding
+                empresa + adjuntos anexados como páginas. */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!session) return;
+                try {
+                  const API_BASE =
+                    process.env.NEXT_PUBLIC_API_URL ??
+                    "http://localhost:8000/api/v1";
+                  const t = toast.loading("Generando PDF con adjuntos...");
+                  const res = await fetch(
+                    `${API_BASE}/vouchers/${voucher.voucher_id}/pdf?include_attachments=true`,
+                    {
+                      headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                      },
+                    },
+                  );
+                  if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `voucher-${voucher.codigo}.pdf`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                  toast.success("PDF descargado", { id: t });
+                } catch (err) {
+                  toast.error(
+                    err instanceof Error
+                      ? err.message
+                      : "No se pudo generar el PDF",
+                  );
+                }
+              }}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-3 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
+              title="Generar PDF con branding de la empresa + adjuntos anexados"
+            >
+              <Printer className="h-4 w-4" strokeWidth={1.75} />
+              Descargar PDF
+            </button>
+            {/* Imprimir directo (sin merge de adjuntos) — fallback */}
             <button
               type="button"
               onClick={() => window.print()}
               className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
-              title="Imprimir / Guardar como PDF (Ctrl+P)"
+              title="Imprimir vista actual (sin adjuntos, usá Descargar PDF para incluirlos)"
             >
               <Printer className="h-4 w-4" strokeWidth={1.75} />
-              Imprimir / PDF
+              Imprimir
             </button>
             {/* V5++ ola AB: Guardar como plantilla — útil para vouchers
                 recurrentes (sueldos, arriendos, servicios mensuales). */}
@@ -711,17 +757,23 @@ export default function VoucherDetailPage({ params }: PageProps) {
           })()}
         </div>
 
-        {/* Aprobaciones (firma digital) */}
-        {(voucher.status === "PENDING" ||
-          voucher.status === "APPROVED" ||
-          voucher.status === "EXECUTED" ||
-          voucher.status === "SYNCED" ||
-          voucher.status === "RECONCILED" ||
-          voucher.status === "REJECTED") && (
-          <VoucherApprovalsCard
-            voucherId={voucher.voucher_id}
-            voucherStatus={voucher.status}
-          />
+        {/* Aprobaciones (firma digital)
+            Observaciones 14/05/2026 — antes solo se mostraba en PENDING+.
+            Ahora también se muestra en DRAFT con preview del flujo que va
+            a aplicar al hacer submit. Así Nicolás ve siempre la zona de
+            aprobación. */}
+        <VoucherApprovalsCard
+          voucherId={voucher.voucher_id}
+          voucherStatus={voucher.status}
+        />
+        {voucher.status === "DRAFT" && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] text-amber-800">
+            <strong className="font-semibold">Vista previa del flujo</strong> ·
+            este voucher está en borrador. Cuando lo envíes a aprobación con
+            el botón <span className="font-semibold">&quot;Enviar a aprobación&quot;</span>,
+            arranca el flujo de firmas y los aprobadores podrán firmar aquí
+            mismo.
+          </div>
         )}
 
         {/* Conciliación bancaria (solo EXECUTED+) */}

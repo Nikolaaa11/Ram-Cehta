@@ -33,6 +33,10 @@ dependencies = [
     "pgvector>=0.3,<0.4",
     "tiktoken>=0.8,<0.10",
     "pypdf>=5.0,<6.0",
+    # PDF branded generation (V5++ ola voucher-pdf): cover branded de vouchers
+    # con logo empresa + líneas + totales + approvals. Pure Python, sin deps
+    # de sistema. ~3 MB. Usado por app/services/voucher_pdf_service.py.
+    "reportlab>=4.0,<5.0",
     "python-docx>=1.1,<2.0",
     # PPTX para extraer texto e imagenes de presentaciones (V5++ ola CE —
     # /vouchers/extract-from-upload). Liviano (~200KB), pure python.
@@ -114,7 +118,7 @@ plugins = ["pydantic.mypy"]
 exclude = ["alembic/versions"]
 
 [[tool.mypy.overrides]]
-module = ["testcontainers.*", "jose.*", "dropbox.*"]
+module = ["testcontainers.*", "jose.*", "dropbox.*", "reportlab.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
