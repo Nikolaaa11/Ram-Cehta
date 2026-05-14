@@ -455,17 +455,23 @@ export function VouchersClientView({
               <MessageSquare className="h-4 w-4" strokeWidth={1.75} />
               Desde mensaje
             </Link>
-            <Link
-              href={"/vouchers/nubox" as Route}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green bg-cehta-green/5 px-3 py-2 text-sm font-medium text-cehta-green hover:bg-cehta-green/10"
-              title="Form Nubox-style (Información Contable + Financiera)"
-            >
-              <FileSignature className="h-4 w-4" strokeWidth={1.75} />
-              Form Nubox
-            </Link>
+            {/* Observaciones 13/05/2026: el form Nubox tiene TODAS las
+                observaciones aplicadas (15 tipos UPPERCASE, Proveedor combobox,
+                RUT auto, Plan de Cuenta, Total Neto + Total Bruto, sin DEBE/HABER).
+                Lo promovemos a botón primario verde. El asiento manual queda
+                como secundario para apertura/cierre/traspaso. */}
             <Link
               href={"/vouchers/nuevo" as Route}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              title="Asiento manual (apertura, cierre, traspaso interno, sin factura)"
+            >
+              <FileSignature className="h-4 w-4" strokeWidth={1.75} />
+              Asiento manual
+            </Link>
+            <Link
+              href={"/vouchers/nubox" as Route}
               className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
+              title="Form Nubox — el flujo recomendado para facturas (Información Contable + Financiera con IVA automático)"
             >
               <Plus className="h-4 w-4" strokeWidth={2.25} />
               Nuevo voucher
@@ -652,7 +658,8 @@ export function VouchersClientView({
             body="Cada operación contable (compra, venta, pago, traspaso) se registra como voucher con líneas debe/haber e imputación triple. La partida doble se valida automáticamente — no hay forma de guardar descuadrado fuera de borrador."
             ctaLabel="Crear primer voucher"
             onCta={() => {
-              window.location.href = "/vouchers/nuevo";
+              // Apunta al form Nubox (default recomendado para facturas).
+              window.location.href = "/vouchers/nubox";
             }}
             hint="Antes de crear vouchers, asegurate de haber importado el plan de cuentas en /admin/etl."
           />

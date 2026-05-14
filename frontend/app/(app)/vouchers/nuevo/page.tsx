@@ -566,7 +566,11 @@ export default function NuevoVoucherPage() {
               </div>
             </div>
 
-            {/* Contraparte (si aplica) */}
+            {/* Contraparte (si aplica) — Observaciones 13/05/2026 #3,#4:
+                cuando es PROVEEDOR + COMPRA, usamos typeahead contra el
+                catálogo de proveedores con auto-completado de RUT. Para
+                otros tipos (CLIENTE/BANCO/INTERNO/OTRO) mantenemos input
+                libre. */}
             {tipoMeta.needsCounterparty && (
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-2xl bg-ink-50/40 p-4">
                 <p className="sm:col-span-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
@@ -586,6 +590,35 @@ export default function NuevoVoucherPage() {
                     <option value="OTRO">Otro</option>
                   </select>
                 </Field>
+                {contraparteTipo === "PROVEEDOR" ? (
+                  <>
+                    <Field label="Nombre (buscar en catálogo)">
+                      <ProveedorTypeaheadNuevo
+                        value={contraparteNombre}
+                        rutValue={contraparteRut}
+                        onSelect={(hit) => {
+                          setContraparteNombre(hit.razon_social);
+                          setContraparteRut(hit.rut ?? "");
+                        }}
+                        onClear={() => {
+                          setContraparteNombre("");
+                          setContraparteRut("");
+                        }}
+                      />
+                    </Field>
+                    <Field label="RUT (auto-completa)">
+                      <input
+                        type="text"
+                        value={contraparteRut}
+                        readOnly={!!contraparteNombre && !!contraparteRut}
+                        onChange={(e) => setContraparteRut(e.target.value)}
+                        placeholder="Se completa al seleccionar"
+                        className="w-full rounded-xl border-0 bg-ink-100 px-3 py-2 text-sm ring-1 ring-hairline read-only:cursor-not-allowed read-only:text-ink-600 focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                      />
+                    </Field>
+                  </>
+                ) : (
+                  <>
                 <Field label="RUT">
                   <input
                     type="text"
@@ -604,6 +637,8 @@ export default function NuevoVoucherPage() {
                     className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
                   />
                 </Field>
+                  </>
+                )}
               </div>
             )}
 
@@ -894,6 +929,126 @@ function Field({
         {required && <span className="ml-0.5 text-negative">*</span>}
       </label>
       {children}
+    </div>
+  );
+}
+
+// Observaciones 13/05/2026 #3,#4 — Typeahead de proveedor con auto-RUT
+// Replica el ProveedorTypeahead del form Nubox pero scoped al form /nuevo.
+interface ProveedorSearchHit {
+  proveedor_id: number;
+  razon_social: string;
+  rut: string | null;
+}
+
+function ProveedorTypeaheadNuevo({
+  value,
+  rutValue,
+  onSelect,
+  onClear,
+}: {
+  value: string;
+  rutValue: string;
+  onSelect: (hit: ProveedorSearchHit) => void;
+  onClear: () => void;
+}) {
+  const { session } = useSession();
+  const [query, setQuery] = useState(value);
+  const [results, setResults] = useState<ProveedorSearchHit[]>([]);
+  const [open, setOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (!session) return;
+    const q = query.trim();
+    if (q.length < 2 || q === value) {
+      setResults([]);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const timer = setTimeout(() => {
+      apiClient
+        .get<ProveedorSearchHit[]>(
+          `/proveedores/search?q=${encodeURIComponent(q)}&limit=8`,
+          session,
+        )
+        .then((hits) => {
+          if (!cancelled) {
+            setResults(hits);
+            setOpen(hits.length > 0);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setSearching(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [query, session, value]);
+
+  return (
+    <div className="relative">
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (e.target.value.trim() === "") {
+            onClear();
+          } else if (rutValue && e.target.value !== value) {
+            onClear();
+          }
+        }}
+        onFocus={() => {
+          if (results.length > 0) setOpen(true);
+        }}
+        onBlur={() => {
+          setTimeout(() => setOpen(false), 150);
+        }}
+        placeholder="Escribí razón social o RUT…"
+        className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+        autoComplete="off"
+      />
+      {open && results.length > 0 && (
+        <ul
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
+          role="listbox"
+        >
+          {results.map((hit) => (
+            <li
+              key={hit.proveedor_id}
+              role="option"
+              aria-selected={hit.razon_social === value}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(hit);
+                setQuery(hit.razon_social);
+                setOpen(false);
+              }}
+              className="cursor-pointer px-3 py-2 text-sm hover:bg-cehta-green/10"
+            >
+              <div className="font-medium text-ink-900">{hit.razon_social}</div>
+              {hit.rut && (
+                <div className="text-xs text-ink-500 font-mono">{hit.rut}</div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {searching && query.trim().length >= 2 && !open && (
+        <p className="absolute -bottom-4 left-0 text-[10px] text-ink-400">
+          Buscando…
+        </p>
+      )}
     </div>
   );
 }
