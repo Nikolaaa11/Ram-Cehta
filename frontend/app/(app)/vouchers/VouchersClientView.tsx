@@ -15,7 +15,7 @@
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -32,6 +32,7 @@ import {
   Search,
   Sparkles,
   Wallet,
+  X,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -41,6 +42,7 @@ import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { Currency } from "@/components/shared/Currency";
 import type {
+  CompanyRole,
   VoucherListItem,
   VoucherStatus,
   VoucherTipo,
@@ -197,9 +199,14 @@ export function VouchersClientView({
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
   const [search, setSearch] = useState("");
-  // Bulk approve state — solo aparece cuando estado=PENDING está seleccionado
+  // Bulk approve state — checkbox visible cuando hay >=1 fila PENDING visible.
+  // Iteramos POST /vouchers/{id}/approve en secuencia (no hay endpoint bulk
+  // en el backend; mantenemos coherencia con el flujo manual de firma).
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [bulkRole, setBulkRole] = useState<string>("CONTADOR");
+  const [bulkRole, setBulkRole] = useState<CompanyRole>("CONTADOR");
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkComments, setBulkComments] = useState("");
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const toggleSelect = (id: number) => {
     setSelectedIds((prev) => {
@@ -210,37 +217,60 @@ export function VouchersClientView({
     });
   };
 
-  const bulkApproveMut = useMutation({
-    mutationFn: (payload: { voucher_ids: number[]; role: string }) =>
-      apiClient.post<{
-        total: number;
-        succeeded: number;
-        failed: number;
-        items: { voucher_id: number; success: boolean; error: string | null }[];
-      }>("/vouchers/bulk-approve", payload, session),
-    onSuccess: (data) => {
-      if (data.failed === 0) {
-        toast.success(
-          `${data.succeeded}/${data.total} vouchers firmados como ${bulkRole}`,
+  const runBulkApprove = async (ids: number[]) => {
+    if (!session) {
+      toast.error("Sesión expirada");
+      return;
+    }
+    setBulkRunning(true);
+    const toastId = toast.loading(`Firmando 0/${ids.length} vouchers…`);
+    let ok = 0;
+    let skipped = 0;
+    let errors = 0;
+    for (let i = 0; i < ids.length; i++) {
+      const id = ids[i];
+      try {
+        await apiClient.post(
+          `/vouchers/${id}/approve`,
+          {
+            role: bulkRole,
+            comments: bulkComments.trim() || undefined,
+          },
+          session,
         );
-      } else {
-        toast.success(
-          `${data.succeeded} firmados · ${data.failed} fallaron — revisar detalles en consola`,
-        );
-        // Mostramos los errores en consola para debug
-        const errors = data.items.filter((i) => !i.success);
-        // eslint-disable-next-line no-console
-        console.warn("Bulk approve errors:", errors);
+        ok++;
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 403) {
+          skipped++;
+        } else {
+          errors++;
+          // eslint-disable-next-line no-console
+          console.warn(`Bulk approve falló para voucher ${id}:`, e);
+        }
       }
-      setSelectedIds(new Set());
-      qc.invalidateQueries({ queryKey: ["vouchers"] });
-      qc.invalidateQueries({ queryKey: ["vouchers-kpis"] });
-    },
-    onError: (e: unknown) => {
-      const detail = e instanceof ApiError ? e.detail : "Error desconocido";
-      toast.error(`Bulk approve falló: ${detail}`);
-    },
-  });
+      toast.loading(
+        `Firmando ${i + 1}/${ids.length} vouchers…`,
+        { id: toastId },
+      );
+    }
+    toast.dismiss(toastId);
+    const summary = `${ok} firmados OK${
+      skipped > 0 ? ` · ${skipped} omitidos (no eras el firmante elegible)` : ""
+    }${errors > 0 ? ` · ${errors} con error` : ""}`;
+    if (errors > 0) {
+      toast.error(summary);
+    } else if (skipped > 0) {
+      toast.info(summary);
+    } else {
+      toast.success(summary);
+    }
+    setSelectedIds(new Set());
+    setBulkConfirmOpen(false);
+    setBulkComments("");
+    setBulkRunning(false);
+    qc.invalidateQueries({ queryKey: ["vouchers"] });
+    qc.invalidateQueries({ queryKey: ["vouchers-kpis"] });
+  };
 
   const { data: empresas } = useQuery<Empresa[]>({
     queryKey: ["empresas"],
@@ -319,6 +349,39 @@ export function VouchersClientView({
         (v.contraparte_nombre ?? "").toLowerCase().includes(q),
     );
   }, [vouchers, search, useServerSearch, searchResults]);
+
+  // Bulk-approve derivations sobre la lista visible.
+  const pendingVisible = useMemo(
+    () => filteredVouchers.filter((v) => v.status === "PENDING"),
+    [filteredVouchers],
+  );
+  const hasPendingVisible = pendingVisible.length > 0;
+  const selectedTotal = useMemo(() => {
+    let sum = 0;
+    for (const v of filteredVouchers) {
+      if (selectedIds.has(v.voucher_id)) {
+        sum += Number(v.total_debit ?? 0);
+      }
+    }
+    return sum;
+  }, [filteredVouchers, selectedIds]);
+  const allPendingSelected =
+    hasPendingVisible &&
+    pendingVisible.every((v) => selectedIds.has(v.voucher_id));
+  const toggleSelectAllPending = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const everySelected = pendingVisible.every((v) =>
+        next.has(v.voucher_id),
+      );
+      if (everySelected) {
+        for (const v of pendingVisible) next.delete(v.voucher_id);
+      } else {
+        for (const v of pendingVisible) next.add(v.voucher_id);
+      }
+      return next;
+    });
+  };
 
   // V5++ ola CE — Stats de origen (widget de automatizacion).
   const { data: sourceStats } = useQuery<{
@@ -669,60 +732,6 @@ export function VouchersClientView({
           </p>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
-            {/* Bulk approve toolbar — aparece cuando hay seleccionados.
-                El checkbox por fila solo aparece cuando estadoFilter="PENDING". */}
-            {estadoFilter === "PENDING" && selectedIds.size > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-b border-cehta-green/30 bg-cehta-green/5 px-4 py-3">
-                <FileSignature
-                  className="h-4 w-4 text-cehta-green"
-                  strokeWidth={1.75}
-                />
-                <span className="text-sm font-semibold text-cehta-green">
-                  {selectedIds.size} vouchers seleccionados
-                </span>
-                <span className="text-xs text-ink-500">
-                  · Firmar como rol:
-                </span>
-                <select
-                  value={bulkRole}
-                  onChange={(e) => setBulkRole(e.target.value)}
-                  className="rounded-lg border-0 bg-white px-3 py-1 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
-                >
-                  <option value="CONTADOR">CONTADOR</option>
-                  <option value="COO">COO</option>
-                  <option value="CEO">CEO</option>
-                  <option value="GP">GP (Director)</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() =>
-                    bulkApproveMut.mutate({
-                      voucher_ids: Array.from(selectedIds),
-                      role: bulkRole,
-                    })
-                  }
-                  disabled={bulkApproveMut.isPending}
-                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                >
-                  {bulkApproveMut.isPending ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <CheckCircle2
-                      className="h-3.5 w-3.5"
-                      strokeWidth={1.75}
-                    />
-                  )}
-                  Firmar todos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSelectedIds(new Set())}
-                  className="text-xs text-cehta-green/70 hover:text-cehta-green"
-                >
-                  Limpiar
-                </button>
-              </div>
-            )}
             {/* V5++ ola CJ — wrapper overflow-x para que la tabla no rompa
                 el viewport en mobile (los contadores pueden mirar la lista
                 desde celular). */}
@@ -730,8 +739,17 @@ export function VouchersClientView({
             <table className="w-full text-sm min-w-[800px]">
               <thead className="bg-ink-50/60 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
-                  {estadoFilter === "PENDING" && (
-                    <th className="w-8 px-3 py-3"></th>
+                  {hasPendingVisible && (
+                    <th className="w-8 px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allPendingSelected}
+                        onChange={toggleSelectAllPending}
+                        aria-label="Seleccionar todos los PENDING visibles"
+                        title="Seleccionar todos los PENDING visibles"
+                        className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
+                      />
+                    </th>
                   )}
                   <th className="px-4 py-3">Código</th>
                   <th className="px-4 py-3">Tipo</th>
@@ -758,16 +776,18 @@ export function VouchersClientView({
                         window.location.href = `/vouchers/${v.voucher_id}`;
                       }}
                     >
-                      {estadoFilter === "PENDING" && (
+                      {hasPendingVisible && (
                         <td className="w-8 px-3 py-3">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.has(v.voucher_id)}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => toggleSelect(v.voucher_id)}
-                            aria-label={`Seleccionar voucher ${v.codigo}`}
-                            className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
-                          />
+                          {v.status === "PENDING" && (
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(v.voucher_id)}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => toggleSelect(v.voucher_id)}
+                              aria-label={`Seleccionar voucher ${v.codigo}`}
+                              className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
+                            />
+                          )}
                         </td>
                       )}
                       <td className="px-4 py-3">
@@ -840,6 +860,139 @@ export function VouchersClientView({
           </div>
         )}
       </div>
+
+      {/* Sticky bottom bulk-action bar — solo visible si hay PENDING en la
+          lista filtrada Y hay items seleccionados. */}
+      {hasPendingVisible && selectedIds.size > 0 && (
+        <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 pointer-events-none">
+          <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-2xl border border-cehta-green/30 bg-white/95 px-4 py-3 shadow-elevated-lg ring-1 ring-cehta-green/10 backdrop-blur-md">
+            <FileSignature
+              className="h-4 w-4 text-cehta-green"
+              strokeWidth={1.75}
+            />
+            <span className="text-sm font-semibold text-ink-900">
+              {selectedIds.size} voucher
+              {selectedIds.size === 1 ? "" : "s"} seleccionado
+              {selectedIds.size === 1 ? "" : "s"}
+            </span>
+            <span className="text-xs text-ink-400">·</span>
+            <span className="inline-flex items-center gap-1 text-xs text-ink-500">
+              <span>Σ total:</span>
+              <Currency value={selectedTotal} moneda="CLP" size="sm" />
+            </span>
+            <button
+              type="button"
+              onClick={() => setBulkConfirmOpen(true)}
+              disabled={bulkRunning}
+              className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-50"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
+              Firmar todos
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkRunning}
+              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-ink-500 hover:bg-ink-100/60 disabled:opacity-50"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2} />
+              Cancelar selección
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación de firma masiva. */}
+      {bulkConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 px-4 backdrop-blur-sm"
+          onClick={() => {
+            if (!bulkRunning) setBulkConfirmOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-hairline bg-white p-6 shadow-elevated-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="font-display text-lg font-semibold tracking-tight text-ink-900">
+              Firmar {selectedIds.size} voucher
+              {selectedIds.size === 1 ? "" : "s"}
+            </h2>
+            <p className="mt-1 text-sm text-ink-600">
+              Vas a firmar {selectedIds.size} voucher
+              {selectedIds.size === 1 ? "" : "s"} como{" "}
+              <span className="font-semibold text-cehta-green">{bulkRole}</span>
+              . Los vouchers donde no seas el firmante elegible se omitirán
+              automáticamente.
+            </p>
+            <div className="mt-4 space-y-3">
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wider text-ink-500">
+                  Rol
+                </span>
+                <select
+                  value={bulkRole}
+                  onChange={(e) =>
+                    setBulkRole(e.target.value as CompanyRole)
+                  }
+                  disabled={bulkRunning}
+                  className="mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                >
+                  <option value="CONTADOR">CONTADOR</option>
+                  <option value="OPERADOR">OPERADOR</option>
+                  <option value="TESORERIA">TESORERIA</option>
+                  <option value="COO">COO</option>
+                  <option value="GG">GG</option>
+                  <option value="DIRECTOR">DIRECTOR</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium uppercase tracking-wider text-ink-500">
+                  Comentario (opcional, aplicado a todos)
+                </span>
+                <textarea
+                  value={bulkComments}
+                  onChange={(e) => setBulkComments(e.target.value)}
+                  disabled={bulkRunning}
+                  rows={3}
+                  placeholder="Ej: Revisado · OK firma masiva fin de mes"
+                  className="mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                />
+              </label>
+              <p className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning ring-1 ring-warning/20">
+                Σ total: <Currency value={selectedTotal} moneda="CLP" size="xs" />
+                {" "}— esta acción queda firmada con tu usuario y no se puede
+                deshacer.
+              </p>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkConfirmOpen(false)}
+                disabled={bulkRunning}
+                className="rounded-lg border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkApprove(Array.from(selectedIds))}
+                disabled={bulkRunning}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-50"
+              >
+                {bulkRunning ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
+                )}
+                Confirmar firma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

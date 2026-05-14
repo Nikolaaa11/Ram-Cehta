@@ -43,6 +43,25 @@ const ROLE_LABEL: Record<CompanyRole, string> = {
   TESORERIA: "Tesorería",
 };
 
+// Round 4 — avatares premium por rol
+const ROLE_INITIAL: Record<CompanyRole, string> = {
+  GG: "G",
+  COO: "C",
+  CONTADOR: "K",
+  OPERADOR: "O",
+  DIRECTOR: "D",
+  TESORERIA: "T",
+};
+
+const ROLE_GRADIENT: Record<CompanyRole, string> = {
+  GG: "from-sf-blue to-blue-600",
+  COO: "from-cehta-green-700 to-cehta-green",
+  CONTADOR: "from-amber-500 to-amber-700",
+  OPERADOR: "from-slate-500 to-slate-700",
+  DIRECTOR: "from-purple-600 to-purple-800",
+  TESORERIA: "from-emerald-500 to-teal-600",
+};
+
 interface Props {
   voucherId: number;
   voucherStatus: VoucherStatus;
@@ -157,24 +176,74 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
     (a) => a.decision === "REJECTED",
   );
 
+  // Round 4 premium — métricas para el header
+  const totalSteps = data.required_roles.length;
+  const signedSteps = data.approvals.filter(
+    (a) => a.decision === "APPROVED",
+  ).length;
+  const progressPct =
+    totalSteps > 0 ? Math.round((signedSteps / totalSteps) * 100) : 0;
+
   return (
-    <div className="rounded-3xl border border-hairline bg-white p-5 shadow-card">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-            Flujo de aprobación
-          </p>
-          {data.matched_rule_descripcion && (
-            <p className="mt-1 text-xs text-ink-500">
-              {data.matched_rule_descripcion}
-            </p>
+    <div className="relative overflow-hidden rounded-3xl border border-hairline bg-gradient-to-br from-white via-cehta-green/[0.02] to-cehta-green/[0.04] p-6 shadow-card">
+      {/* Decoración halo verde */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-24 -top-24 h-48 w-48 rounded-full bg-cehta-green/10 blur-3xl"
+      />
+
+      {/* HEADER PREMIUM */}
+      <header className="relative">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
+              <FileSignature
+                className="h-3.5 w-3.5 text-cehta-green"
+                strokeWidth={2.25}
+              />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                Flujo de aprobación
+              </p>
+            </div>
+            <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-ink-900">
+              {voucherStatus === "APPROVED" ||
+              voucherStatus === "EXECUTED" ||
+              voucherStatus === "SYNCED" ||
+              voucherStatus === "RECONCILED"
+                ? "Voucher aprobado"
+                : voucherStatus === "REJECTED"
+                  ? "Voucher rechazado"
+                  : signedSteps === 0
+                    ? "Esperando primera firma"
+                    : `${signedSteps} de ${totalSteps} firmas registradas`}
+            </h2>
+            {data.matched_rule_descripcion && (
+              <p className="mt-1 text-xs text-ink-500">
+                {data.matched_rule_descripcion}
+              </p>
+            )}
+          </div>
+          {data.reinforced && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-800 ring-1 ring-amber-200">
+              <Sparkles className="h-3 w-3" strokeWidth={2.5} />
+              Reforzado · Doble firma
+            </span>
           )}
         </div>
-        {data.reinforced && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-yellow-800 ring-1 ring-yellow-200">
-            <Sparkles className="h-3 w-3" strokeWidth={2.5} />
-            Reforzado · Doble firma
-          </span>
+
+        {/* Progress bar premium */}
+        {totalSteps > 0 && voucherStatus !== "REJECTED" && (
+          <div className="mt-4 flex items-center gap-3">
+            <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-ink-100">
+              <div
+                className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-cehta-green-700 via-cehta-green to-positive transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-xs font-semibold tabular-nums text-ink-700">
+              {progressPct}%
+            </span>
+          </div>
         )}
       </header>
 
@@ -193,9 +262,9 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
         </div>
       )}
 
-      {/* Timeline */}
+      {/* Timeline PREMIUM con avatares + conectores verticales */}
       {data.required_roles.length > 0 && (
-        <ol className="mt-4 space-y-2">
+        <ol className="relative mt-5 space-y-0">
           {data.required_roles.map((role, idx) => {
             const orderNum = idx + 1;
             const approval = data.approvals.find(
@@ -208,74 +277,125 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
               !isApproved &&
               data.next_pending_order !== null &&
               orderNum > data.next_pending_order;
+            const isLast = idx === data.required_roles.length - 1;
 
             return (
-              <li
-                key={orderNum}
-                className={`flex items-start gap-3 rounded-xl border p-3 ${
-                  isApproved
-                    ? "border-positive/20 bg-positive/5"
-                    : isPending
-                      ? "border-cehta-green/30 bg-cehta-green/5 ring-2 ring-cehta-green/15"
-                      : "border-hairline bg-ink-50/30"
-                }`}
-              >
+              <li key={orderNum} className="relative">
+                {/* Conector vertical entre items */}
+                {!isLast && (
+                  <span
+                    aria-hidden
+                    className={`absolute left-[26px] top-14 h-[calc(100%-32px)] w-0.5 ${
+                      isApproved ? "bg-positive/40" : "bg-ink-200"
+                    }`}
+                  />
+                )}
+
                 <div
-                  className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold tabular-nums ${
+                  className={`group relative flex items-start gap-4 rounded-2xl p-4 transition-all ${
                     isApproved
-                      ? "bg-positive text-white"
+                      ? "bg-positive/5 ring-1 ring-positive/15"
                       : isPending
-                        ? "bg-cehta-green text-white"
-                        : "bg-ink-200 text-ink-500"
-                  }`}
+                        ? "bg-gradient-to-br from-cehta-green/8 via-cehta-green/4 to-transparent ring-2 ring-cehta-green/30 shadow-card"
+                        : "bg-ink-50/40 ring-1 ring-hairline"
+                  } ${idx > 0 ? "mt-3" : ""}`}
                 >
-                  {isApproved ? (
-                    <CheckCircle2 className="h-4 w-4" strokeWidth={2.5} />
-                  ) : isPending ? (
-                    <span className="relative flex h-3 w-3">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/60" />
-                      <span className="relative inline-flex h-3 w-3 rounded-full bg-white" />
-                    </span>
-                  ) : (
-                    orderNum
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-sm font-semibold text-ink-900">
-                      {ROLE_LABEL[role]}
-                      <span className="ml-1.5 font-mono text-[10px] tabular-nums text-ink-500">
-                        ({role})
-                      </span>
-                    </p>
-                    {isApproved && approval && (
-                      <p className="font-mono text-[10px] tabular-nums text-positive">
-                        Firmado · {new Date(approval.signed_at).toLocaleString("es-CL")}
-                      </p>
-                    )}
-                    {isPending && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-cehta-green/15 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-cehta-green">
-                        <Clock className="h-3 w-3" strokeWidth={2.5} />
-                        Próximo paso
-                      </span>
-                    )}
-                    {isFuture && (
-                      <span className="text-[10px] uppercase tracking-wider text-ink-400">
-                        Esperando
-                      </span>
+                  {/* AVATAR grande con gradient + estado */}
+                  <div className="relative shrink-0">
+                    {isApproved ? (
+                      <div
+                        className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${ROLE_GRADIENT[role]} text-white shadow-lg`}
+                      >
+                        <CheckCircle2 className="h-7 w-7" strokeWidth={2.5} />
+                      </div>
+                    ) : isPending ? (
+                      <div className="relative">
+                        <span
+                          aria-hidden
+                          className="absolute inset-0 rounded-2xl bg-cehta-green/30 blur-md animate-pulse"
+                        />
+                        <div
+                          className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${ROLE_GRADIENT[role]} text-white font-display text-2xl font-bold shadow-lg`}
+                        >
+                          {ROLE_INITIAL[role]}
+                        </div>
+                        {/* Dot pulsante de "active" */}
+                        <span
+                          aria-hidden
+                          className="absolute -right-1 -top-1 flex h-4 w-4"
+                        >
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cehta-green opacity-75" />
+                          <span className="relative inline-flex h-4 w-4 rounded-full bg-cehta-green ring-2 ring-white" />
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 font-display text-2xl font-bold text-ink-400 ring-1 ring-ink-200">
+                        {ROLE_INITIAL[role]}
+                      </div>
                     )}
                   </div>
-                  {approval?.comments && (
-                    <p className="mt-1 text-xs italic text-ink-600">
-                      &ldquo;{approval.comments}&rdquo;
-                    </p>
-                  )}
-                  {approval?.signature_hash && (
-                    <p className="mt-1 truncate font-mono text-[9px] text-ink-400">
-                      sig: {approval.signature_hash.slice(0, 16)}…
-                      {approval.ip_address ? ` · ${approval.ip_address}` : ""}
-                    </p>
-                  )}
+
+                  {/* CONTENIDO */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <div>
+                        <p className="font-display text-lg font-semibold tracking-tight text-ink-900">
+                          {ROLE_LABEL[role]}
+                        </p>
+                        <p className="text-[10px] font-mono uppercase tracking-wider text-ink-500">
+                          Paso {orderNum} / {totalSteps} · {role}
+                        </p>
+                      </div>
+                      {isApproved && approval && (
+                        <div className="text-right">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-positive/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-positive ring-1 ring-positive/20">
+                            <CheckCircle2 className="h-3 w-3" strokeWidth={2.5} />
+                            Firmado
+                          </span>
+                          <p className="mt-1 font-mono text-[10px] tabular-nums text-ink-500">
+                            {new Date(approval.signed_at).toLocaleString(
+                              "es-CL",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )}
+                          </p>
+                        </div>
+                      )}
+                      {isPending && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-cehta-green/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-cehta-green ring-1 ring-cehta-green/30">
+                          <Clock className="h-3 w-3" strokeWidth={2.5} />
+                          Esperando firma ahora
+                        </span>
+                      )}
+                      {isFuture && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-400">
+                          En cola
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Comentario del firmante */}
+                    {approval?.comments && (
+                      <div className="mt-2 rounded-lg bg-white/70 px-3 py-2 ring-1 ring-positive/15">
+                        <p className="text-sm italic text-ink-700">
+                          &ldquo;{approval.comments}&rdquo;
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Evidencia técnica de la firma */}
+                    {approval?.signature_hash && (
+                      <p className="mt-1.5 flex flex-wrap gap-x-2 truncate font-mono text-[9px] text-ink-400">
+                        <span>sig: {approval.signature_hash.slice(0, 12)}…</span>
+                        {approval.ip_address && <span>IP {approval.ip_address}</span>}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </li>
             );
