@@ -23,6 +23,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SimpleTooltip } from "@/components/ui/tooltip";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +85,7 @@ export function UsersTable() {
   const { session } = useSession();
   const queryClient = useQueryClient();
   const { data: me } = useMe();
-  const { data, isLoading, error } = useApiQuery<UserRoleRead[]>(
+  const { data, isLoading, error, refetch } = useApiQuery<UserRoleRead[]>(
     ["admin-users"],
     ADMIN_ENDPOINTS.users(),
   );
@@ -195,30 +197,19 @@ export function UsersTable() {
       )}
 
       {!isLoading && error && !isEndpointMissing && (
-        <Surface className="bg-negative/5 ring-negative/20">
-          <p className="text-sm font-medium text-negative">
-            Error al cargar usuarios
-          </p>
-          <p className="mt-1 text-xs text-negative/80">
-            {error instanceof Error ? error.message : "Error desconocido"}
-          </p>
-        </Surface>
+        <ErrorState
+          title="No se pudieron cargar los usuarios"
+          error={error}
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && !error && items.length === 0 && (
-        <Surface className="py-16">
-          <div className="flex flex-col items-center text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
-              <UserPlus className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
-            </div>
-            <p className="text-base font-semibold text-ink-900">
-              Sin usuarios con rol asignado
-            </p>
-            <p className="mt-1 max-w-md text-sm text-ink-500">
-              Asigná el primer rol con el botón &ldquo;Invitar usuario&rdquo;.
-            </p>
-          </div>
-        </Surface>
+        <EmptyState
+          icon={UserPlus}
+          title="Sin usuarios"
+          description="No hay usuarios registrados. Agregá el primero con el botón “Invitar usuario”."
+        />
       )}
 
       {!isLoading && !error && items.length > 0 && (

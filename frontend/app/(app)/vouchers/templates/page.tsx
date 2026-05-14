@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   Copy,
   FileEdit,
+  FileText,
   Loader2,
   Plus,
   Search,
@@ -31,6 +32,8 @@ import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/ui/surface";
 import { Input } from "@/components/ui/input";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { UseTemplateDialog } from "@/components/vouchers/UseTemplateDialog";
 
 interface TemplateListItem {
@@ -54,7 +57,7 @@ export default function VoucherTemplatesPage() {
   const [search, setSearch] = useState("");
   const [usingTemplate, setUsingTemplate] = useState<TemplateListItem | null>(null);
 
-  const { data: templates = [], isLoading } = useQuery({
+  const { data: templates = [], isLoading, error, refetch } = useQuery({
     queryKey: ["voucher-templates", { sort }],
     queryFn: () =>
       apiClient.get<TemplateListItem[]>(
@@ -134,25 +137,27 @@ export default function VoucherTemplatesPage() {
           <Loader2 className="size-5 mx-auto animate-spin mb-2" />
           Cargando plantillas...
         </Surface>
+      ) : error ? (
+        <ErrorState
+          title="No se pudieron cargar las plantillas"
+          error={error as Error}
+          onRetry={() => refetch()}
+        />
       ) : filtered.length === 0 ? (
-        <Surface className="p-8 text-center">
-          <Sparkles className="size-8 text-ink-400 mx-auto mb-2" />
-          <p className="text-sm text-ink-700 dark:text-ink-300 font-medium">
-            {search ? "Sin resultados" : "Aún no creaste plantillas"}
-          </p>
-          <p className="text-xs text-ink-500 mt-1 mb-4">
-            {search
-              ? "Probá con otro término"
-              : 'Desde un voucher existente, click en "Guardar como plantilla"'}
-          </p>
-          {!search && (
-            <Link href="/vouchers">
-              <Button variant="outline" size="sm">
-                Ir a vouchers
-              </Button>
-            </Link>
-          )}
-        </Surface>
+        search ? (
+          <EmptyState
+            icon={Sparkles}
+            title="Sin resultados"
+            description="Probá con otro término."
+          />
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title="Sin templates aún"
+            description="Creá un template para acelerar la creación de vouchers recurrentes."
+            primaryAction={{ label: "Ir a vouchers", href: "/vouchers" }}
+          />
+        )
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {filtered.map((tpl) => (

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /mis-pendientes — V5++ ola AV
+ * /mis-pendientes — V5++ ola AV + Round 1 polish
  *
  * Página personal "bandeja de entrada" que muestra todo lo que requiere
  * acción del usuario actual:
@@ -11,11 +11,10 @@
  *
  * Es la primera página que un líder/director debe abrir al loguear.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import {
-  AlertCircle,
   CheckCircle2,
   FileEdit,
   PenTool,
@@ -23,10 +22,12 @@ import {
   Inbox,
   ArrowRight,
 } from "lucide-react";
-import { apiClient, ApiError } from "@/lib/api/client";
+import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { Surface } from "@/components/ui/surface";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 
 interface Voucher {
   voucher_id: number;
@@ -53,74 +54,54 @@ export default function MisPendientesPage() {
   const [pending, setPending] = useState<Voucher[]>([]);
   const [empresas, setEmpresas] = useState<MyEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<Error | null>(null);
+
+  const load = useCallback(async () => {
+    if (!session) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      // Drafts propios (status=DRAFT created by me)
+      const draftRes = await apiClient.get<Voucher[]>(
+        "/vouchers?status=DRAFT&limit=100",
+        session,
+      );
+      setDrafts(draftRes);
+
+      // Pendientes de aprobación (status=PENDING en mis empresas)
+      const pendingRes = await apiClient.get<Voucher[]>(
+        "/vouchers?status=PENDING&limit=100",
+        session,
+      );
+      setPending(pendingRes);
+
+      // Mis empresas
+      const empResp = await apiClient.get<{ empresas: MyEmpresa[] }>(
+        "/me/empresas",
+        session,
+      );
+      setEmpresas(empResp.empresas || []);
+    } catch (err) {
+      // V5++ ola CJ + Round 1 polish — antes silenciado; ahora propagamos
+      // como Error para que ErrorState extraiga detalle de ApiError y user
+      // pueda reintentar via callback (no falso positivo "sin pendientes").
+      setLoadError(
+        err instanceof Error
+          ? err
+          : new Error("No pude cargar tus pendientes. Reintentá en unos segundos."),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [session]);
 
   useEffect(() => {
     if (!session) return;
-    const load = async () => {
-      try {
-        // Drafts propios (status=DRAFT created by me)
-        const draftRes = await apiClient.get<Voucher[]>(
-          "/vouchers?status=DRAFT&limit=100",
-          session,
-        );
-        setDrafts(draftRes);
-
-        // Pendientes de aprobación (status=PENDING en mis empresas)
-        const pendingRes = await apiClient.get<Voucher[]>(
-          "/vouchers?status=PENDING&limit=100",
-          session,
-        );
-        setPending(pendingRes);
-
-        // Mis empresas
-        const empResp = await apiClient.get<{ empresas: MyEmpresa[] }>(
-          "/me/empresas",
-          session,
-        );
-        setEmpresas(empResp.empresas || []);
-      } catch (err) {
-        // V5++ ola CJ — antes silenciado; ahora propagamos para que el
-        // user vea el error y pueda reintentar (no quede "sin pendientes"
-        // como falso positivo cuando hay un 401/500).
-        const message =
-          err instanceof ApiError
-            ? err.detail
-            : err instanceof Error
-              ? err.message
-              : "No pude cargar tus pendientes. Reintentá en unos segundos.";
-        setLoadError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
     load();
-  }, [session]);
+  }, [session, load]);
 
   const draftsCount = state?.voucher_drafts_mine ?? drafts.length;
   const pendingCount = state?.voucher_pending_approvals ?? pending.length;
-
-  // V5++ ola CJ — manejo de error explícito (antes se silenciaba).
-  if (loadError && !loading) {
-    return (
-      <div className="max-w-3xl mx-auto p-6 space-y-4">
-        <Surface className="p-8 bg-negative/5 border border-negative/20 text-center">
-          <AlertCircle className="mx-auto size-12 text-negative" />
-          <h2 className="mt-3 text-lg font-semibold text-ink-900">
-            No pude cargar tus pendientes
-          </h2>
-          <p className="mt-2 text-sm text-ink-600">{loadError}</p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700"
-          >
-            Reintentar
-          </button>
-        </Surface>
-      </div>
-    );
-  }
 
   // V5++ ola AX: skeleton mientras carga
   if (loading && pending.length === 0 && drafts.length === 0) {
@@ -256,17 +237,23 @@ export default function MisPendientesPage() {
         </Surface>
       )}
 
+      {/* Error state */}
+      {loadError && !loading && (
+        <ErrorState
+          title="No se pudieron cargar tus pendientes"
+          error={loadError}
+          onRetry={() => load()}
+        />
+      )}
+
       {/* Empty state */}
-      {pending.length === 0 && drafts.length === 0 && !loading && (
-        <Surface className="p-12 text-center">
-          <CheckCircle2 className="size-12 text-cehta-green mx-auto mb-3" />
-          <h3 className="text-lg font-medium text-ink-900 dark:text-ink-100 mb-1">
-            ¡Todo al día!
-          </h3>
-          <p className="text-sm text-ink-500">
-            No tenés borradores pendientes ni vouchers esperando tu firma.
-          </p>
-        </Surface>
+      {!loadError && pending.length === 0 && drafts.length === 0 && !loading && (
+        <EmptyState
+          icon={CheckCircle2}
+          title="Sin pendientes"
+          description="¡Estás al día! No tenés tareas pendientes."
+          tone="positive"
+        />
       )}
 
       {/* Mis empresas */}

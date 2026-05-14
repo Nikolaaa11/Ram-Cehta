@@ -16,6 +16,8 @@ import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import {
   useWebhookSubscriptions,
   useWebhookEventTypes,
@@ -364,21 +366,18 @@ export default function WebhooksPage() {
             <Skeleton key={i} className="h-24 rounded-2xl" />
           ))}
         </div>
+      ) : subsQ.error ? (
+        <ErrorState
+          title="No se pudieron cargar los webhooks"
+          error={subsQ.error as Error}
+          onRetry={() => subsQ.refetch()}
+        />
       ) : (subsQ.data ?? []).length === 0 ? (
-        <Surface className="py-12">
-          <div className="flex flex-col items-center text-center">
-            <span className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/60">
-              <Webhook className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
-            </span>
-            <p className="text-base font-semibold text-ink-900">
-              Sin webhooks configurados
-            </p>
-            <p className="mt-1 max-w-md text-sm text-ink-500">
-              Creá tu primer webhook para conectar Cehta con Slack, Zapier, n8n
-              o cualquier sistema que reciba HTTP POST.
-            </p>
-          </div>
-        </Surface>
+        <EmptyState
+          icon={Webhook}
+          title="Sin webhooks configurados"
+          description="Configurá webhooks para integrarte con sistemas externos."
+        />
       ) : (
         <div className="space-y-3">
           {subsQ.data?.map((sub) => (

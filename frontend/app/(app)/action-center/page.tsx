@@ -19,6 +19,8 @@ import {
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { useObligations } from "@/hooks/use-obligations";
 import type { ObligationItem } from "@/lib/api/schema";
@@ -154,7 +156,7 @@ function ActionRow({ item }: { item: ObligationItem }) {
 
 export default function ActionCenterPage() {
   const [empresa, setEmpresa] = useState<string | null>(null);
-  const { data, isLoading, error } = useObligations(
+  const { data, isLoading, error, refetch } = useObligations(
     empresa ? { empresa_codigo: empresa } : {},
   );
 
@@ -339,30 +341,21 @@ export default function ActionCenterPage() {
 
       {/* Error */}
       {error && !isLoading && (
-        <Surface className="border border-negative/20 bg-negative/5 ring-1 ring-negative/20">
-          <Surface.Title className="text-negative">
-            No se pudo cargar el Action Center
-          </Surface.Title>
-          <Surface.Subtitle>{error.message}</Surface.Subtitle>
-        </Surface>
+        <ErrorState
+          title="No se pudo cargar el Action Center"
+          error={error}
+          onRetry={() => refetch()}
+        />
       )}
 
       {/* Empty state — inbox zero! */}
       {!isLoading && !error && counts.total === 0 && (
-        <Surface className="py-16">
-          <div className="flex flex-col items-center text-center">
-            <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-cehta-green/15 text-cehta-green">
-              <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} />
-            </span>
-            <p className="text-base font-semibold text-ink-900">
-              Inbox zero · sin pendientes
-            </p>
-            <p className="mt-1 max-w-md text-sm text-ink-500">
-              No hay F29 vencidos, OCs estancadas, contratos próximos a vencer
-              ni suscripciones pendientes de firmar. Todo al día.
-            </p>
-          </div>
-        </Surface>
+        <EmptyState
+          icon={CheckCircle2}
+          title="Sin acciones pendientes"
+          description="No hay alertas críticas en este momento."
+          tone="positive"
+        />
       )}
 
       {/* Grouped sections */}

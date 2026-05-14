@@ -9,10 +9,13 @@
  */
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Layers, Minus } from "lucide-react";
+import { CheckCircle2, LayoutGrid, Layers, Minus } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/shared/EmptyState";
+import { ErrorState } from "@/components/shared/ErrorState";
 import type { Area, AreaEmpresaMatrix } from "@/lib/api/schema";
 
 interface Empresa {
@@ -37,25 +40,39 @@ export default function AreasPage() {
   const { session } = useSession();
   const qc = useQueryClient();
 
-  const { data: areas } = useQuery<Area[]>({
+  const areasQ = useQuery<Area[]>({
     queryKey: ["areas-all"],
     queryFn: () =>
       apiClient.get<Area[]>("/areas?only_active=false", session),
     enabled: !!session,
   });
+  const areas = areasQ.data;
 
-  const { data: empresas } = useQuery<Empresa[]>({
+  const empresasQ = useQuery<Empresa[]>({
     queryKey: ["empresas"],
     queryFn: () => apiClient.get<Empresa[]>("/empresa", session),
     enabled: !!session,
   });
+  const empresas = empresasQ.data;
 
-  const { data: matrixData } = useQuery<AreaEmpresaMatrix>({
+  const matrixQ = useQuery<AreaEmpresaMatrix>({
     queryKey: ["areas-empresas-matrix"],
     queryFn: () =>
       apiClient.get<AreaEmpresaMatrix>("/areas/empresas-matrix", session),
     enabled: !!session,
   });
+  const matrixData = matrixQ.data;
+
+  const isLoading = areasQ.isLoading || empresasQ.isLoading || matrixQ.isLoading;
+  const loadError =
+    (areasQ.error as Error | null) ??
+    (empresasQ.error as Error | null) ??
+    (matrixQ.error as Error | null);
+  const retryAll = () => {
+    areasQ.refetch();
+    empresasQ.refetch();
+    matrixQ.refetch();
+  };
 
   const matrix = matrixData?.matrix ?? {};
 
@@ -175,8 +192,25 @@ export default function AreasPage() {
         </div>
 
         {/* Matriz */}
-        {!areas || !empresas ? (
-          <p className="text-sm text-ink-500">Cargando…</p>
+        {loadError ? (
+          <ErrorState
+            title="No se pudo cargar la matriz de áreas"
+            error={loadError}
+            onRetry={retryAll}
+          />
+        ) : isLoading || !areas || !empresas ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 rounded-2xl" />
+            <Skeleton className="h-16 rounded-2xl" />
+            <Skeleton className="h-16 rounded-2xl" />
+            <Skeleton className="h-16 rounded-2xl" />
+          </div>
+        ) : areas.length === 0 ? (
+          <EmptyState
+            icon={LayoutGrid}
+            title="Sin áreas"
+            description="No hay áreas configuradas todavía. Importá el plan de cuentas para crear las áreas estándar."
+          />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-hairline bg-white">
             <table className="w-full text-sm">
