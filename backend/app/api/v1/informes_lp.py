@@ -494,6 +494,74 @@ async def get_informe(
     return InformeLpRead.model_validate(informe)
 
 
+# ---------------------------------------------------------------------------
+# GET /informes-lp/{informe_id}/pdf — descarga PDF branded del informe
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/informes-lp/{informe_id}/pdf",
+    dependencies=[Depends(require_scope("informe_lp:read"))],
+)
+async def download_informe_pdf(
+    informe_id: int,
+    user: CurrentUser,
+    db: DBSession,
+):
+    """Renderiza el informe LP como PDF profesional listo para mandar a
+    inversores institucionales.
+
+    Layout:
+      - Header band con razón social FIP CEHTA ESG + RUT.
+      - Cover: título, período, destinatario.
+      - Caja "Tus datos" del LP (nombre, email, empresa, % participación,
+        capital comprometido/aportado).
+      - Caja "Métricas del fondo" (NAV, IRR, MOIC, distribuciones LTD,
+        proyectos activos, avance global).
+      - Resumen ejecutivo (hero_titulo + hero_narrativa).
+      - Tabla de holdings (empresas destacadas).
+      - Impacto ESG (CO₂, MW, hogares, empleos).
+      - Próximos hitos + CTA.
+      - Footer "Confidencial · página X de N".
+    """
+    from fastapi.responses import StreamingResponse
+
+    from app.services.informe_lp_pdf_service import generate_informe_lp_pdf
+
+    repo = InformeLpRepository(db)
+    informe = await repo.get(informe_id)
+    if informe is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Informe no encontrado",
+        )
+
+    try:
+        pdf_bytes = await generate_informe_lp_pdf(
+            informe_id=informe_id, db=db
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error generando PDF del informe: {exc}",
+        ) from exc
+
+    fecha_str = datetime.utcnow().strftime("%Y-%m-%d")
+    filename = f"informe-lp-{informe_id}-{fecha_str}.pdf"
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(pdf_bytes)),
+        },
+    )
+
+
 @router.patch(
     "/informes-lp/{informe_id}",
     response_model=InformeLpRead,

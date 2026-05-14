@@ -344,6 +344,51 @@ export default function InformeEditorPage({
               Ver público
             </a>
           )}
+          {/* Round 6: Descargar PDF del informe con branding FIP CEHTA ESG.
+              Use case: mandar a inversores institucionales por mail/whatsapp. */}
+          <button
+            type="button"
+            onClick={async () => {
+              if (!session) return;
+              const t = toast.loading("Generando PDF del informe...");
+              try {
+                const API_BASE =
+                  process.env.NEXT_PUBLIC_API_URL ??
+                  "https://cehta-backend.fly.dev/api/v1";
+                const res = await fetch(
+                  `${API_BASE}/informes-lp/${view.informe_id}/pdf`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${session.access_token}`,
+                    },
+                  },
+                );
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `informe-lp-${view.informe_id}-${new Date().toISOString().slice(0, 10)}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast.success("PDF descargado", { id: t });
+              } catch (err) {
+                toast.error(
+                  err instanceof Error
+                    ? `No pude generar el PDF: ${err.message}`
+                    : "Error desconocido",
+                  { id: t },
+                );
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-white px-3 py-1.5 text-xs font-medium text-cehta-green hover:bg-cehta-green/5"
+            title="Descarga PDF con branding FIP CEHTA ESG para mandar al inversor"
+          >
+            <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Descargar PDF
+          </button>
           {!isArchivado && (
             <button
               type="button"

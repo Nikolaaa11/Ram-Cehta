@@ -274,3 +274,14 @@ class VoucherAttachmentRead(VoucherAttachmentCreate):
     voucher_id: int
     uploaded_by: str | None
     uploaded_at: datetime
+
+
+class BulkPdfRequest(BaseModel):
+    """Body de `POST /vouchers/bulk-pdf` — descarga ZIP con PDFs de varios vouchers.
+
+    Cap defensivo de 50 elementos para no saturar Dropbox / la pool DB durante
+    el cierre mensual. Si la operativa necesita más, se mueve a job async.
+    """
+
+    voucher_ids: list[int] = Field(..., min_length=1, max_length=50)
+    include_attachments: bool = True

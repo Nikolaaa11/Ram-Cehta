@@ -76,6 +76,7 @@ from app.models.voucher import (
     VoucherLine,
 )
 from app.schemas.voucher import (
+    BulkPdfRequest,
     VoucherCreate,
     VoucherListItem,
     VoucherRead,
@@ -388,6 +389,179 @@ async def vouchers_counts(
     counts = {row.status: row.n for row in rows}
     total = sum(counts.values())
     return {"total": total, "by_status": counts}
+
+
+# =====================================================================
+# POST /vouchers/bulk-pdf — descarga ZIP con varios PDFs en una sola pasada
+# =====================================================================
+#
+# Use case: cierre mensual. El COO selecciona 10-30 vouchers del mes y
+# baja todos los PDFs en un ZIP. Cap defensivo de 50 elementos por request.
+#
+# IMPORTANTE: este endpoint DEBE estar registrado antes de /vouchers/{voucher_id}
+# porque "bulk-pdf" matchearía como string ante {voucher_id: int} y produciría
+# un 422.
+
+
+@router.post("/vouchers/bulk-pdf")
+async def bulk_voucher_pdf(
+    user: CurrentUser,
+    db: DBSession,
+    body: BulkPdfRequest,
+):
+    """Genera un ZIP con los PDFs de varios vouchers (max 50 por request).
+
+    Comportamiento robusto: si un voucher individual falla (no existe, no hay
+    acceso, error de generación), agregamos `voucher-{id}-error.txt` al ZIP
+    con el motivo y seguimos con el resto. El ZIP siempre se devuelve aunque
+    todos hayan fallado — el cliente ve los errores y reintenta.
+
+    Generación secuencial deliberada: en paralelo saturaríamos la pool de DB
+    (cada voucher hace varias queries) y a Dropbox (descarga de adjuntos).
+    Si el bundle toma >5s loggeamos progreso vía structured logging para que
+    se vea en observability.
+    """
+    import io
+    import logging
+    import time
+    import zipfile
+    from datetime import datetime as _dt
+
+    from fastapi.responses import StreamingResponse
+
+    from app.services.voucher_pdf_service import generate_voucher_pdf_bundle
+
+    log = logging.getLogger("app.api.vouchers.bulk_pdf")
+
+    voucher_ids = body.voucher_ids
+    # Dedup preservando orden (cap ya validado por pydantic 1..50)
+    seen: set[int] = set()
+    ordered_ids: list[int] = []
+    for vid in voucher_ids:
+        if vid not in seen:
+            seen.add(vid)
+            ordered_ids.append(vid)
+
+    started = time.monotonic()
+    progress_logged = False
+
+    zip_buf = io.BytesIO()
+    successes = 0
+    failures = 0
+
+    with zipfile.ZipFile(
+        zip_buf,
+        mode="w",
+        compression=zipfile.ZIP_DEFLATED,
+        compresslevel=6,
+    ) as zf:
+        for idx, vid in enumerate(ordered_ids, start=1):
+            # 1) Fetch voucher meta (existence + empresa)
+            row = (
+                await db.execute(
+                    text(
+                        "SELECT codigo, empresa_codigo FROM core.vouchers "
+                        "WHERE voucher_id = :id"
+                    ),
+                    {"id": vid},
+                )
+            ).mappings().first()
+
+            if row is None:
+                msg = f"Voucher {vid} no encontrado"
+                log.info(
+                    "vouchers.bulk_pdf.skip_missing",
+                    extra={"voucher_id": vid},
+                )
+                zf.writestr(f"voucher-{vid}-error.txt", msg)
+                failures += 1
+            else:
+                # 2) Scope check — si falla, agregamos error.txt sin romper el ZIP
+                try:
+                    await assert_empresa_access(user, db, row["empresa_codigo"])
+                except HTTPException as exc:
+                    detail = (
+                        exc.detail
+                        if isinstance(exc.detail, str)
+                        else "Sin acceso a la empresa del voucher"
+                    )
+                    log.warning(
+                        "vouchers.bulk_pdf.scope_denied",
+                        extra={
+                            "voucher_id": vid,
+                            "empresa": row["empresa_codigo"],
+                        },
+                    )
+                    zf.writestr(
+                        f"voucher-{vid}-error.txt",
+                        f"Sin acceso: {detail}",
+                    )
+                    failures += 1
+                else:
+                    # 3) Generación PDF (best-effort)
+                    try:
+                        pdf_bytes = await generate_voucher_pdf_bundle(
+                            voucher_id=vid,
+                            db=db,
+                            include_attachments=body.include_attachments,
+                        )
+                        # Normalizar codigo a un nombre de archivo seguro
+                        codigo = str(row["codigo"] or vid)
+                        safe = "".join(
+                            ch if ch.isalnum() or ch in ("-", "_", ".") else "_"
+                            for ch in codigo
+                        )
+                        zf.writestr(f"voucher-{safe}.pdf", pdf_bytes)
+                        successes += 1
+                    except Exception as exc:  # noqa: BLE001
+                        log.warning(
+                            "vouchers.bulk_pdf.generation_failed",
+                            extra={"voucher_id": vid, "err": str(exc)},
+                        )
+                        zf.writestr(
+                            f"voucher-{vid}-error.txt",
+                            f"Error generando PDF: {exc}",
+                        )
+                        failures += 1
+
+            # Structured progress log si tarda
+            elapsed = time.monotonic() - started
+            if not progress_logged and elapsed > 5.0:
+                progress_logged = True
+                log.info(
+                    "vouchers.bulk_pdf.progress",
+                    extra={
+                        "processed": idx,
+                        "total": len(ordered_ids),
+                        "elapsed_s": round(elapsed, 2),
+                    },
+                )
+
+    total_elapsed = time.monotonic() - started
+    log.info(
+        "vouchers.bulk_pdf.complete",
+        extra={
+            "total": len(ordered_ids),
+            "succeeded": successes,
+            "failed": failures,
+            "elapsed_s": round(total_elapsed, 2),
+            "include_attachments": body.include_attachments,
+        },
+    )
+
+    zip_bytes = zip_buf.getvalue()
+    filename = f"vouchers-bundle-{_dt.utcnow().strftime('%Y-%m-%d')}.zip"
+    return StreamingResponse(
+        iter([zip_bytes]),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Length": str(len(zip_bytes)),
+            "X-Bulk-Total": str(len(ordered_ids)),
+            "X-Bulk-Succeeded": str(successes),
+            "X-Bulk-Failed": str(failures),
+        },
+    )
 
 
 # =====================================================================

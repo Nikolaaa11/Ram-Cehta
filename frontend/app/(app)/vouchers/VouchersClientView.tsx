@@ -28,6 +28,7 @@ import {
   Loader2,
   Plus,
   Receipt,
+  Package,
   RotateCcw,
   Search,
   Sparkles,
@@ -888,6 +889,70 @@ export function VouchersClientView({
             >
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               Firmar todos
+            </button>
+            {/* Round 6: Bulk PDF — descarga N PDFs en un ZIP. Use case
+                cierre mensual. Backend cap 50 IDs por request. */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!session) return;
+                const ids = Array.from(selectedIds);
+                if (ids.length === 0) return;
+                if (ids.length > 50) {
+                  toast.error("Máximo 50 vouchers por bulk PDF");
+                  return;
+                }
+                const t = toast.loading(
+                  `Generando ZIP con ${ids.length} PDFs (puede tardar ~${Math.ceil(ids.length * 2)}s)...`,
+                );
+                try {
+                  const API_BASE =
+                    process.env.NEXT_PUBLIC_API_URL ??
+                    "https://cehta-backend.fly.dev/api/v1";
+                  const res = await fetch(`${API_BASE}/vouchers/bulk-pdf`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({
+                      voucher_ids: ids,
+                      include_attachments: true,
+                    }),
+                  });
+                  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                  const okHeader = res.headers.get("X-Bulk-Succeeded");
+                  const failHeader = res.headers.get("X-Bulk-Failed");
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `vouchers-bundle-${new Date().toISOString().slice(0, 10)}.zip`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  URL.revokeObjectURL(url);
+                  const ok = okHeader ? `${okHeader} OK` : "ZIP descargado";
+                  const fail =
+                    failHeader && Number(failHeader) > 0
+                      ? ` · ${failHeader} con error (revisá los .txt dentro del ZIP)`
+                      : "";
+                  toast.success(`${ok}${fail}`, { id: t });
+                } catch (err) {
+                  toast.error(
+                    err instanceof Error
+                      ? `No pude generar el ZIP: ${err.message}`
+                      : "Error desconocido",
+                    { id: t },
+                  );
+                }
+              }}
+              disabled={bulkRunning}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-cehta-green/30 bg-white px-3 py-1.5 text-xs font-semibold text-cehta-green hover:bg-cehta-green/5 disabled:opacity-50"
+              title="Descarga los PDFs de los vouchers seleccionados en un ZIP (con branding empresa + adjuntos)"
+            >
+              <Package className="h-3.5 w-3.5" strokeWidth={2} />
+              Descargar PDFs
             </button>
             <button
               type="button"
