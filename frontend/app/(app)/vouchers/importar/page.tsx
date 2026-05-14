@@ -845,13 +845,16 @@ export default function ImportarVoucherPage() {
             </div>
           </Surface>
 
-          {/* V5++ ola CH fase 2: LineSection compartido con Total Bruto auto */}
+          {/* V5++ ola CH fase 2: LineSection compartido con Total Bruto auto
+              AJUSTE 10: empresaCodigo se pasa para que el typeahead filtre
+              el plan de cuentas correcto. */}
           <VoucherLineSection
             title="Información Contable"
             tone="contable"
             lines={contable}
             tipoDocumento={tipoDocumento}
             tiposAfectosIva={meta?.tipos_documento_afectos_iva ?? []}
+            empresaCodigo={empresaCodigo}
             onAdd={() => addLine("contable")}
             onRemove={(i) => removeLine("contable", i)}
             onUpdate={(i, f, v) => updateLine("contable", i, f, v)}
@@ -862,6 +865,7 @@ export default function ImportarVoucherPage() {
             lines={financiera}
             tipoDocumento={tipoDocumento}
             tiposAfectosIva={meta?.tipos_documento_afectos_iva ?? []}
+            empresaCodigo={empresaCodigo}
             onAdd={() => addLine("financiera")}
             onRemove={(i) => removeLine("financiera", i)}
             onUpdate={(i, f, v) => updateLine("financiera", i, f, v)}

@@ -40,6 +40,7 @@ import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
 import { Currency } from "@/components/shared/Currency";
+import { CuentaTypeahead } from "@/components/vouchers/CuentaTypeahead";
 
 interface EmpresaMetadata {
   codigo: string;
@@ -57,6 +58,9 @@ interface FormMetadata {
   // el FE no hardcodee reglas de negocio (disciplina 1).
   tipo_documento_labels: Record<string, string>;
   tipos_documento_afectos_iva: string[];
+  // Spec maestro AJUSTE 6/12: factor IVA viene del backend (no hardcoded
+  // 1.19). Si el SII cambia la tasa, se actualiza en el backend.
+  iva_porcentaje?: number;
   cuentas_contables_sample: Array<{
     codigo: string;
     nombre: string;
@@ -354,20 +358,51 @@ export default function NuboxFormPage() {
     [meta, empresaCodigo],
   );
 
-  const totalContable = useMemo(
+  // AJUSTE 13 — Cuadratura sobre Total Bruto.
+  // Spec AJUSTE 6/12: factor IVA viene del backend (meta.iva_porcentaje),
+  // no hardcodeado. Si SII cambia tasa 19%→X%, se actualiza ahí.
+  const aplicaIvaTotales = meta?.tipos_documento_afectos_iva.includes(
+    tipoDocumento,
+  ) ?? false;
+  const ivaFactor = 1 + (meta?.iva_porcentaje ?? 0.19);
+  const toBruto = (neto: number) =>
+    aplicaIvaTotales ? neto * ivaFactor : neto;
+
+  const totalContableNeto = useMemo(
     () => contable.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [contable],
   );
-  const totalFinanciera = useMemo(
+  const totalFinancieraNeto = useMemo(
     () => financiera.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [financiera],
   );
+  const totalContableBruto = useMemo(
+    () =>
+      contable.reduce(
+        (sum, l) => sum + toBruto(parseFloat(l.total) || 0),
+        0,
+      ),
+    // toBruto depende de aplicaIvaTotales, que viene de tipoDocumento/meta
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contable, aplicaIvaTotales],
+  );
+  const totalFinancieraBruto = useMemo(
+    () =>
+      financiera.reduce(
+        (sum, l) => sum + toBruto(parseFloat(l.total) || 0),
+        0,
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [financiera, aplicaIvaTotales],
+  );
+
   // V5++ ola CJ — comparar floats con tolerancia (0.01) para evitar
   // `0.1+0.2 === 0.3 // false`. En CLP los montos son enteros normalmente
   // pero en UF/USD pueden tener decimales y romper el cuadre por epsilon.
+  // AJUSTE 13: el cuadre se mide en Bruto (no en Neto).
   const cuadrado =
-    totalContable > 0 &&
-    Math.abs(totalContable - totalFinanciera) < 0.01;
+    totalContableBruto > 0 &&
+    Math.abs(totalContableBruto - totalFinancieraBruto) < 0.01;
 
   const addLine = (which: "contable" | "financiera") => {
     const row: LineRow = { comentario: "", cuenta_codigo: "", total: "" };
@@ -402,7 +437,10 @@ export default function NuboxFormPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cuadrado) {
-      toast.error("Σ Contable debe ser igual a Σ Financiera");
+      // AJUSTE 13: el cuadre es sobre Bruto, no Neto.
+      toast.error(
+        "Σ Contable (Bruto) debe ser igual a Σ Financiera (Bruto)",
+      );
       return;
     }
     setSubmitting(true);
@@ -825,6 +863,8 @@ export default function NuboxFormPage() {
           lines={contable}
           tipoDocumento={tipoDocumento}
           tiposAfectosIva={meta.tipos_documento_afectos_iva}
+          ivaFactor={ivaFactor}
+          empresaCodigo={empresaCodigo}
           onAdd={() => addLine("contable")}
           onRemove={(i) => removeLine("contable", i)}
           onUpdate={(i, f, v) => updateLine("contable", i, f, v)}
@@ -837,6 +877,8 @@ export default function NuboxFormPage() {
           lines={financiera}
           tipoDocumento={tipoDocumento}
           tiposAfectosIva={meta.tipos_documento_afectos_iva}
+          ivaFactor={ivaFactor}
+          empresaCodigo={empresaCodigo}
           onAdd={() => addLine("financiera")}
           onRemove={(i) => removeLine("financiera", i)}
           onUpdate={(i, f, v) => updateLine("financiera", i, f, v)}
@@ -969,27 +1011,49 @@ export default function NuboxFormPage() {
           </p>
         </Surface>
 
-        {/* FOOTER: totales + submit */}
+        {/* FOOTER: totales + submit
+            AJUSTE 13 — Mostramos Neto y Bruto en cada card. El cuadre se
+            mide sobre Bruto (la columna de la derecha es la que tiene que
+            empatar). El badge de cuadre y el botón de submit usan `cuadrado`
+            calculado en Bruto. */}
         <Surface className="p-6">
           <div className="grid grid-cols-3 gap-4 mb-4" aria-live="polite">
             <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
               <div className="text-xs text-ink-500">Σ Contable</div>
-              <div className="mt-1">
-                <Currency value={totalContable} size="xl" />
+              <div className="mt-1 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-500">Neto:</span>
+                <Currency value={totalContableNeto} size="md" />
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-500">Bruto:</span>
+                <Currency value={totalContableBruto} size="lg" />
               </div>
             </div>
             <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
               <div className="text-xs text-ink-500">Σ Financiera</div>
-              <div className="mt-1">
-                <Currency value={totalFinanciera} size="xl" />
+              <div className="mt-1 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-500">Neto:</span>
+                <Currency value={totalFinancieraNeto} size="md" />
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-500">Bruto:</span>
+                <Currency value={totalFinancieraBruto} size="lg" />
               </div>
             </div>
             <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
               <div className="text-xs text-ink-500">Diferencia</div>
-              <div className="mt-1">
+              <div className="mt-1 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-500">Neto:</span>
                 <Currency
-                  value={totalContable - totalFinanciera}
-                  size="xl"
+                  value={totalContableNeto - totalFinancieraNeto}
+                  size="md"
+                />
+              </div>
+              <div className="mt-0.5 flex items-baseline justify-between gap-2">
+                <span className="text-[11px] text-ink-500">Bruto:</span>
+                <Currency
+                  value={totalContableBruto - totalFinancieraBruto}
+                  size="lg"
                   tone={cuadrado ? "success" : "danger"}
                 />
               </div>
@@ -1010,7 +1074,7 @@ export default function NuboxFormPage() {
               ) : (
                 <>
                   <AlertCircle className="size-5" />
-                  Descuadrado — corregí líneas antes de enviar
+                  Descuadrado en Bruto — corregí líneas antes de enviar
                 </>
               )}
             </div>
@@ -1051,6 +1115,8 @@ function LineSection({
   lines,
   tipoDocumento,
   tiposAfectosIva,
+  ivaFactor,
+  empresaCodigo,
   onAdd,
   onRemove,
   onUpdate,
@@ -1060,19 +1126,23 @@ function LineSection({
   lines: LineRow[];
   tipoDocumento: string;
   tiposAfectosIva: string[];
+  /** Spec maestro AJUSTE 6/12: factor IVA del backend, ej 1.19. */
+  ivaFactor: number;
+  /** AJUSTE 10: empresa para filtrar plan de cuentas en el typeahead. */
+  empresaCodigo: string;
   onAdd: () => void;
   onRemove: (idx: number) => void;
   onUpdate: (idx: number, field: keyof LineRow, value: string) => void;
 }) {
   const Icon = tone === "contable" ? Receipt : CreditCard;
-  // V5++ ola CH C.1.5/C.2.5: Total Bruto = Neto si exento, Neto*1.19 si
-  // afecto. Backend marca qué tipos llevan IVA en tiposAfectosIva (FE no
-  // hardcodea el set — disciplina 1).
+  // V5++ ola CH C.1.5/C.2.5: Total Bruto = Neto si exento, Neto*factor si
+  // afecto. Backend marca qué tipos llevan IVA en tiposAfectosIva, y el
+  // factor IVA viene de meta.iva_porcentaje (no hardcoded — spec maestro).
   const aplicaIva = tiposAfectosIva.includes(tipoDocumento);
 
   const formatBruto = (neto: number): string => {
     if (!neto || neto === 0) return "—";
-    const bruto = aplicaIva ? neto * 1.19 : neto;
+    const bruto = aplicaIva ? neto * ivaFactor : neto;
     return `$${Math.round(bruto).toLocaleString("es-CL")}`;
   };
 
@@ -1093,91 +1163,98 @@ function LineSection({
         </Button>
       </div>
 
-      <table className="w-full text-sm">
-        <thead className="text-ink-500 text-xs uppercase">
-          <tr>
-            <th className="text-left px-2 py-1.5 w-12">#</th>
-            <th className="text-left px-2 py-1.5">Comentario *</th>
-            <th className="text-left px-2 py-1.5 w-44">Plan de Cuenta *</th>
-            <th className="text-right px-2 py-1.5 w-36">Total Neto *</th>
-            <th
-              className="text-right px-2 py-1.5 w-36"
-              title={
-                aplicaIva
-                  ? "Total Neto × 1.19 (IVA 19%). Read-only — se recalcula automáticamente."
-                  : "Tipo de documento exento o sin IVA aplicable. Bruto = Neto."
-              }
-            >
-              Total Bruto
-            </th>
-            <th className="w-10"></th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
-          {lines.map((line, idx) => {
-            const neto = parseFloat(line.total) || 0;
-            return (
-              <tr key={idx}>
-                <td className="px-2 py-1.5 text-ink-500">{idx + 1}</td>
-                <td className="px-2 py-1.5">
-                  {/* Prompt maestro C.1.6/C.2.6: comentario de línea — 2 líneas
-                      visibles con scroll interno, capacidad full (500). */}
-                  <textarea
-                    required
-                    value={line.comentario}
-                    onChange={(e) =>
-                      onUpdate(idx, "comentario", e.target.value)
-                    }
-                    placeholder="Descripción"
-                    rows={2}
-                    maxLength={500}
-                    className="form-input resize-none overflow-y-auto"
-                  />
-                </td>
-                <td className="px-2 py-1.5">
-                  <input
-                    required
-                    value={line.cuenta_codigo}
-                    onChange={(e) =>
-                      onUpdate(idx, "cuenta_codigo", e.target.value)
-                    }
-                    placeholder="5-01-01-001"
-                    className="form-input font-mono"
-                  />
-                </td>
-                <td className="px-2 py-1.5">
-                  <input
-                    required
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={line.total}
-                    onChange={(e) => onUpdate(idx, "total", e.target.value)}
-                    className="form-input text-right"
-                  />
-                </td>
-                <td
-                  className="px-2 py-1.5 text-right font-mono text-ink-600 dark:text-ink-400 tabular-nums"
-                  aria-readonly="true"
-                >
-                  {formatBruto(neto)}
-                </td>
-                <td className="px-2 py-1.5 text-right">
-                  <button
-                    type="button"
-                    onClick={() => onRemove(idx)}
-                    disabled={lines.length === 1}
-                    className="text-ink-400 hover:text-red-500 disabled:opacity-30"
-                    aria-label="Quitar línea"
+      {/* AJUSTE 1: en mobile la tabla scrollea horizontal (min-w 768px)
+          en vez de romper layout. Columnas en %: # 4 / Coment 30 / Cuenta 35
+          / Neto 13 / Bruto 13 / 🗑 ~5 */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[768px]">
+          <thead className="text-ink-500 text-xs uppercase">
+            <tr>
+              <th className="text-left px-2 py-1.5 w-12">#</th>
+              <th className="text-left px-2 py-1.5 w-[30%]">Comentario *</th>
+              <th className="text-left px-2 py-1.5 w-[35%]">Plan de Cuenta *</th>
+              <th className="text-right px-2 py-1.5 w-[13%]">Total Neto *</th>
+              <th
+                className="text-right px-2 py-1.5 w-[13%]"
+                title={
+                  aplicaIva
+                    ? "Total Neto × 1.19 (IVA 19%). Read-only — se recalcula automáticamente."
+                    : "Tipo de documento exento o sin IVA aplicable. Bruto = Neto."
+                }
+              >
+                Total Bruto
+              </th>
+              <th className="w-10"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+            {lines.map((line, idx) => {
+              const neto = parseFloat(line.total) || 0;
+              return (
+                <tr key={idx}>
+                  <td className="px-2 py-1.5 text-ink-500">{idx + 1}</td>
+                  <td className="px-2 py-1.5">
+                    {/* Prompt maestro C.1.6/C.2.6: comentario de línea — 2 líneas
+                        visibles con scroll interno, capacidad full (500). */}
+                    <textarea
+                      required
+                      value={line.comentario}
+                      onChange={(e) =>
+                        onUpdate(idx, "comentario", e.target.value)
+                      }
+                      placeholder="Descripción"
+                      rows={2}
+                      maxLength={500}
+                      className="form-input resize-none overflow-y-auto"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    {/* AJUSTE 10: combobox typeahead reemplaza al input plano. */}
+                    <CuentaTypeahead
+                      required
+                      value={line.cuenta_codigo}
+                      onChange={(codigo) =>
+                        onUpdate(idx, "cuenta_codigo", codigo)
+                      }
+                      empresaCodigo={empresaCodigo}
+                      tone={tone}
+                      placeholder="Código o nombre…"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5">
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={line.total}
+                      onChange={(e) => onUpdate(idx, "total", e.target.value)}
+                      className="form-input text-right"
+                    />
+                  </td>
+                  <td
+                    className="px-2 py-1.5 text-right font-mono text-ink-600 dark:text-ink-400 tabular-nums"
+                    aria-readonly="true"
                   >
-                    <Trash2 className="size-4" />
-                  </button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                    {formatBruto(neto)}
+                  </td>
+                  <td className="px-2 py-1.5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => onRemove(idx)}
+                      disabled={lines.length === 1}
+                      className="text-ink-400 hover:text-red-500 disabled:opacity-30"
+                      aria-label="Quitar línea"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {/* Hint sutil sobre el calculo IVA */}
       <p className="mt-2 text-[11px] text-ink-400">
         {aplicaIva

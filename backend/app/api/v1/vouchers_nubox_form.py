@@ -289,8 +289,11 @@ class FormMetadataResponse(BaseModel):
     # V5++ ola CH — label + clasificacion IVA por tipo doc, para que el FE
     # muestre nombre humano y calcule Total Bruto sin hardcodear logica.
     tipo_documento_labels: dict[str, str] = {}
-    # Subset de tipos que aplican IVA 19% (Total Bruto = Neto * 1.19).
+    # Subset de tipos que aplican IVA 19% (Total Bruto = Neto * (1 + iva_porcentaje)).
     tipos_documento_afectos_iva: list[str] = []
+    # AJUSTE 6/12 spec: NO hardcodear 1.19 en el FE — el factor IVA es
+    # un parametro del sistema. Si SII cambia la tasa, se actualiza acá.
+    iva_porcentaje: float = 0.19
     cuentas_contables_sample: list[dict]  # primeras N cuentas imputables
     empresas: list[EmpresaMetadata]
 
