@@ -648,7 +648,7 @@ export default function DesdeMensajePage() {
           />
 
           <Surface className="p-6">
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <Stat
                 label="Σ Contable"
                 value={`$${totalContable.toLocaleString("es-CL")}`}

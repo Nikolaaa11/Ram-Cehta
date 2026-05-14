@@ -768,7 +768,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
                 <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-cehta-green mb-2">
                   Total con IVA (informativo)
                 </p>
-                <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                   <div>
                     <div className="text-xs text-ink-500">Neto</div>
                     <div className="font-mono font-medium tabular-nums">

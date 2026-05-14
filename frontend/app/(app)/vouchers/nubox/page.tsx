@@ -1024,7 +1024,7 @@ export default function NuboxFormPage() {
             empatar). El badge de cuadre y el botón de submit usan `cuadrado`
             calculado en Bruto. */}
         <Surface className="p-6">
-          <div className="grid grid-cols-3 gap-4 mb-4" aria-live="polite">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4" aria-live="polite">
             <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
               <div className="text-xs text-ink-500">Σ Contable</div>
               <div className="mt-1 flex items-baseline justify-between gap-2">

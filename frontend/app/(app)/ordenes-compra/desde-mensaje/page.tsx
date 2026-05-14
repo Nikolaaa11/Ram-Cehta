@@ -638,7 +638,7 @@ export default function DesdeMensajeOcPage() {
           </Surface>
 
           <Surface className="p-6">
-            <div className="grid grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
               <Stat
                 label="Neto"
                 value={`${moneda === "CLP" ? "$" : moneda + " "}${totalNeto.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`}
