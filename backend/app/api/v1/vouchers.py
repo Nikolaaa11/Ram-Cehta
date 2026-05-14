@@ -1016,8 +1016,8 @@ async def create_voucher(
     codigo = await generate_voucher_code(db, body.empresa_codigo, anio, body.tipo)
 
     # 9. Insertar voucher + lines
-    total_debit = sum((line.debit for line in body.lines), start=type(body.lines[0].debit)(0))
-    total_credit = sum((line.credit for line in body.lines), start=type(body.lines[0].credit)(0))
+    total_debit = sum((line.debit for line in body.lines), start=Decimal("0"))
+    total_credit = sum((line.credit for line in body.lines), start=Decimal("0"))
 
     voucher = Voucher(
         codigo=codigo,
@@ -1142,6 +1142,7 @@ async def update_voucher(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
+    await assert_empresa_access(user, db, v.empresa_codigo)
     if v.status != "DRAFT":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -1199,6 +1200,7 @@ async def submit_voucher(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
+    await assert_empresa_access(user, db, v.empresa_codigo)
     if v.status != "DRAFT":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

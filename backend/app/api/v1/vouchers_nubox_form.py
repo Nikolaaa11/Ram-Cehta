@@ -53,7 +53,11 @@ from app.services.empresa_scope_service import (
     EmpresaScopeDep,
     assert_empresa_access,
 )
-from app.services.voucher_service import generate_voucher_code
+from app.services.voucher_service import (
+    generate_voucher_code,
+    is_cuenta_habilitada_para_empresa,
+    is_period_locked_for,
+)
 
 router = APIRouter()
 
@@ -240,7 +244,7 @@ class NuboxFormCreate(BaseModel):
         """Σ Contable debe ser igual a Σ Financiera (partida doble)."""
         total_contable = sum(l.total for l in self.informacion_contable)
         total_financiera = sum(l.total for l in self.informacion_financiera)
-        if total_contable != total_financiera:
+        if abs(total_contable - total_financiera) >= Decimal("0.01"):
             raise ValueError(
                 f"Partida doble descuadrada: Información Contable suma "
                 f"${total_contable:,} pero Información Financiera suma "
@@ -637,6 +641,29 @@ async def create_voucher_nubox_form(
         if not c["activa"]:
             raise HTTPException(400, detail=f"Cuenta '{codigo}' está inactiva")
 
+    # 3.1 Validar habilitación cuenta-empresa (matriz plan_cuenta_empresa)
+    for codigo in set(todas_cuentas):
+        if not await is_cuenta_habilitada_para_empresa(
+            db, codigo, body.empresa_codigo
+        ):
+            raise HTTPException(
+                400,
+                detail=(
+                    f"Cuenta '{codigo}' no está habilitada para empresa "
+                    f"{body.empresa_codigo}"
+                ),
+            )
+
+    # 3.2 Validar período contable cerrado
+    if await is_period_locked_for(db, body.empresa_codigo, body.fecha_documento):
+        raise HTTPException(
+            400,
+            detail=(
+                f"Fecha documento {body.fecha_documento} está en período cerrado "
+                f"para empresa {body.empresa_codigo}."
+            ),
+        )
+
     # 4. Total y glosa
     total_contable = sum(l.total for l in body.informacion_contable)
     total_financiera = sum(l.total for l in body.informacion_financiera)
@@ -744,8 +771,13 @@ async def create_voucher_nubox_form(
                 "lineas_financieras": len(body.informacion_financiera),
             },
         )
-    except Exception:
-        pass  # audit es best-effort
+    except Exception as exc:
+        import structlog
+        structlog.get_logger(__name__).warning(
+            "voucher_nubox_audit_failed",
+            voucher_id=voucher_id_local,
+            error=str(exc),
+        )
 
     # V5++ ola CE — Webhook voucher.imported para vouchers que vienen del
     # flujo de IA. Best-effort (no rompe la creacion si el dispatcher falla).

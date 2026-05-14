@@ -301,7 +301,7 @@ export default function NuevoVoucherPage() {
     [lines],
   );
   const delta = totalDebit - totalCredit;
-  const isBalanced = delta === 0 && totalDebit > 0;
+  const isBalanced = Math.abs(delta) < 0.01 && totalDebit > 0;
 
   const updateLine = (localId: string, patch: Partial<LineDraft>) => {
     setLines((prev) =>

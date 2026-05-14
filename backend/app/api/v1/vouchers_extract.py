@@ -44,7 +44,11 @@ from app.services.document_analyzer_service import (
     extract_text,
 )
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
-from app.services.empresa_scope_service import assert_empresa_access
+from app.services.empresa_scope_service import (
+    EmpresaScope,
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -386,10 +390,16 @@ def _build_suggestion(
 
 
 async def _maybe_match_empresa(
-    suggestion: ExtractedVoucherSuggestion, db: Any
+    suggestion: ExtractedVoucherSuggestion,
+    db: Any,
+    scope: "EmpresaScope | None" = None,
 ) -> ExtractedVoucherSuggestion:
     """Si la IA detecto receptor_rut y matchea con una empresa activa,
-    actualiza `empresa_codigo` con la detectada y marca el flag."""
+    actualiza `empresa_codigo` con la detectada y marca el flag.
+
+    Si `scope` viene y el user no tiene acceso al candidato, no override:
+    evita filtrar codigos de empresas fuera del scope via el flujo de IA.
+    """
     if not suggestion.empresa_receptor_rut_detectado:
         return suggestion
     from sqlalchemy import text as _text
@@ -408,9 +418,12 @@ async def _maybe_match_empresa(
     ).fetchone()
     if not row:
         return suggestion
+    candidate = str(row[0])
+    if scope is not None and not scope.can_access(candidate):
+        return suggestion
     return suggestion.model_copy(
         update={
-            "empresa_codigo": str(row[0]),
+            "empresa_codigo": candidate,
             "empresa_auto_detectada": True,
         }
     )
@@ -438,6 +451,7 @@ class ExtractFromTextRequest(BaseModel):
 async def extract_from_text(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    scope: EmpresaScopeDep,
     body: ExtractFromTextRequest,
 ) -> ExtractFromUploadResponse:
     """Extrae datos de factura desde un texto pegado (sin archivo).
@@ -482,7 +496,7 @@ async def extract_from_text(
         ) from exc
 
     suggestion = _build_suggestion(extraction.fields, body.empresa_codigo)
-    suggestion = await _maybe_match_empresa(suggestion, db)
+    suggestion = await _maybe_match_empresa(suggestion, db, scope)
 
     return ExtractFromUploadResponse(
         suggestion=suggestion,
@@ -508,6 +522,7 @@ async def extract_from_text(
 async def extract_from_upload(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    scope: EmpresaScopeDep,
     file: Annotated[UploadFile, File(description="Archivo PDF/JPG/PNG/DOCX/PPTX")],
     empresa_codigo: Annotated[str, Form(min_length=2, max_length=20)],
     save_to_dropbox: Annotated[bool, Form()] = True,
@@ -609,7 +624,7 @@ async def extract_from_upload(
 
     # 4) Construir sugerencia precargada para el form
     suggestion = _build_suggestion(extraction.fields, empresa_codigo)
-    suggestion = await _maybe_match_empresa(suggestion, db)
+    suggestion = await _maybe_match_empresa(suggestion, db, scope)
 
     # 5) Si el user pidio archivar, subimos a Dropbox y devolvemos el path
     #    en la response. El FE lo persiste como documento_dropbox_path al

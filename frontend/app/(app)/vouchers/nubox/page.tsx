@@ -259,7 +259,13 @@ export default function NuboxFormPage() {
         if (saved.empresaCodigo) setEmpresaCodigo(saved.empresaCodigo);
         if (saved.proveedorRut) setProveedorRut(saved.proveedorRut);
         if (saved.proveedorNombre) setProveedorNombre(saved.proveedorNombre);
-        if (saved.tipoDocumento) setTipoDocumento(saved.tipoDocumento);
+        if (saved.tipoDocumento) {
+          // Restore drafts may carry legacy tipos (BOLETA/HONORARIOS/NA).
+          const LEGACY_TIPOS = new Set(["BOLETA", "HONORARIOS", "NA"]);
+          setTipoDocumento(
+            LEGACY_TIPOS.has(saved.tipoDocumento) ? "FACTURA" : saved.tipoDocumento,
+          );
+        }
         if (saved.numeroDocumento) setNumeroDocumento(saved.numeroDocumento);
         if (saved.formaPago) setFormaPago(saved.formaPago);
         if (saved.fechaDocumento) setFechaDocumento(saved.fechaDocumento);
@@ -518,6 +524,7 @@ export default function NuboxFormPage() {
       toast.success(baseMsg + attachMsg);
 
       clearDraft();
+      // TODO: replace with router.push once useRouter is wired in (forces full reload today).
       window.location.href = `/vouchers/${resp.voucher_id}`;
     } catch (err) {
       toast.error(

@@ -184,7 +184,10 @@ export default function DesdeMensajePage() {
     setEmpresaCodigo(s.empresa_codigo);
     setProveedorRut(s.proveedor_rut);
     setProveedorNombre(s.proveedor_nombre);
-    setTipoDocumento(s.tipo_documento || "FACTURA");
+    // AI sometimes returns legacy types (BOLETA/HONORARIOS/NA). Force fallback.
+    const LEGACY_TIPOS = new Set(["BOLETA", "HONORARIOS", "NA"]);
+    const tipoFromAI = s.tipo_documento || "FACTURA";
+    setTipoDocumento(LEGACY_TIPOS.has(tipoFromAI) ? "FACTURA" : tipoFromAI);
     setNumeroDocumento(s.numero_documento);
     setFormaPago(s.forma_pago || "TRANSFERENCIA");
     setFechaDocumento(
@@ -289,6 +292,24 @@ export default function DesdeMensajePage() {
     e.preventDefault();
     if (!cuadrado) {
       toast.error("Σ Contable debe ser igual a Σ Financiera.");
+      return;
+    }
+    // Pre-submit: catch obvious 422s with clear toast
+    const lineErrors: string[] = [];
+    contable.forEach((l, i) => {
+      if (!l.cuenta_codigo) lineErrors.push(`Línea contable ${i + 1}: falta cuenta`);
+      if (!l.comentario?.trim()) lineErrors.push(`Línea contable ${i + 1}: falta comentario`);
+      const t = parseFloat(l.total);
+      if (!t || t <= 0) lineErrors.push(`Línea contable ${i + 1}: total debe ser > 0`);
+    });
+    financiera.forEach((l, i) => {
+      if (!l.cuenta_codigo) lineErrors.push(`Línea financiera ${i + 1}: falta cuenta`);
+      if (!l.comentario?.trim()) lineErrors.push(`Línea financiera ${i + 1}: falta comentario`);
+      const t = parseFloat(l.total);
+      if (!t || t <= 0) lineErrors.push(`Línea financiera ${i + 1}: total debe ser > 0`);
+    });
+    if (lineErrors.length > 0) {
+      toast.error(lineErrors.join(" · "));
       return;
     }
     setStep("creating");
