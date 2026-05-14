@@ -27,6 +27,7 @@ import type { Route } from "next";
  * Si enviás directamente a PENDING, el backend rechaza con error legible.
  */
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { extractMontoFromText, extractRutFromText } from "@/lib/extract";
@@ -618,11 +619,11 @@ export default function NuevoVoucherPage() {
                     onChange={(e) => setDocTributarioTipo(e.target.value as DocTributarioTipo)}
                     className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
                   >
-                    <option value="FACTURA">Factura</option>
-                    <option value="BOLETA">Boleta</option>
-                    <option value="NOTA_CREDITO">Nota de crédito</option>
-                    <option value="NOTA_DEBITO">Nota de débito</option>
-                    <option value="HONORARIOS">Honorarios</option>
+                    <option value="FACTURA">FACTURA</option>
+                    <option value="BOLETA">BOLETA</option>
+                    <option value="NOTA_CREDITO">NOTA DE CREDITO</option>
+                    <option value="NOTA_DEBITO">NOTA DE DEBITO</option>
+                    <option value="HONORARIOS">BOLETA HONORARIOS</option>
                   </select>
                 </Field>
                 <Field label="Folio" required>
@@ -635,6 +636,13 @@ export default function NuevoVoucherPage() {
                     className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
                   />
                 </Field>
+                <p className="sm:col-span-3 text-right text-[11px] text-ink-500">
+                  Para los 15 tipos SII completos (FACTURA DE COMPRA, FACTURA ELECTRONICA, etc.) usá el{" "}
+                  <Link href="/vouchers/nubox" className="font-medium text-cehta-green hover:underline">
+                    Form Nubox
+                  </Link>
+                  .
+                </p>
               </div>
             )}
 
@@ -670,10 +678,10 @@ export default function NuevoVoucherPage() {
           <div className="rounded-3xl border border-hairline bg-white p-6 shadow-card">
             <div className="flex items-baseline justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-                Líneas debe / haber · imputación triple
+                Líneas del asiento · imputación triple
               </p>
               <p className="text-[11px] text-ink-500">
-                Cada línea: cuenta · proyecto · área · debe O haber
+                Cada línea: cuenta · proyecto · área · cargo O abono
               </p>
             </div>
 
@@ -682,11 +690,11 @@ export default function NuevoVoucherPage() {
                 <thead className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                   <tr>
                     <th className="w-8 pb-2">#</th>
-                    <th className="pb-2">Cuenta contable</th>
+                    <th className="pb-2">Plan de Cuenta</th>
                     <th className="pb-2">Proyecto</th>
                     <th className="pb-2">Área</th>
-                    <th className="pb-2 text-right">Debe</th>
-                    <th className="pb-2 text-right">Haber</th>
+                    <th className="pb-2 text-right">Cargo</th>
+                    <th className="pb-2 text-right">Abono</th>
                     <th className="w-8 pb-2"></th>
                   </tr>
                 </thead>
@@ -805,14 +813,14 @@ export default function NuevoVoucherPage() {
             <div className="flex flex-wrap items-center gap-4" aria-live="polite">
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-500">
-                  Σ Debe
+                  Σ Cargo
                 </p>
                 <Currency value={totalDebit} size="xl" />
               </div>
               <div className="text-ink-300">·</div>
               <div>
                 <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-ink-500">
-                  Σ Haber
+                  Σ Abono
                 </p>
                 <Currency value={totalCredit} size="xl" />
               </div>
