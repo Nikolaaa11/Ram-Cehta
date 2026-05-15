@@ -57,6 +57,7 @@ from app.api.v1 import (
     two_factor,
     validate,
     voucher_templates,
+    voucher_comments,
     vouchers,
     vouchers_anomaly,
     vouchers_demo,
@@ -190,6 +191,10 @@ api_router.include_router(
 # de orden: /vouchers/anomaly-radar antes que /vouchers/{voucher_id}.
 api_router.include_router(
     vouchers_anomaly.router, tags=["vouchers-anomaly"]
+)
+# Etapa M — Comments thread por voucher.
+api_router.include_router(
+    voucher_comments.router, tags=["voucher-comments"]
 )
 # V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
 # arriendos, servicios mensuales). save-as-template + use-template flow.

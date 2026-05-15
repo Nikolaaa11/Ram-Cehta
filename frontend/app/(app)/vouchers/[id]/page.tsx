@@ -45,6 +45,7 @@ import { VoucherReconcileCard } from "@/components/vouchers/VoucherReconcileCard
 import { VoucherTimelineCard } from "@/components/vouchers/VoucherTimelineCard";
 import { VoucherNavigation } from "@/components/vouchers/VoucherNavigation";
 import { VoucherAnomaliesCard } from "@/components/vouchers/VoucherAnomaliesCard";
+import { VoucherCommentsCard } from "@/components/vouchers/VoucherCommentsCard";
 import { Currency } from "@/components/shared/Currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
@@ -853,6 +854,9 @@ export default function VoucherDetailPage({ params }: PageProps) {
         {/* Etapa H — Anomaly detection card. Solo se renderiza si hay
             warnings (>= 1); para vouchers limpios no agrega ruido. */}
         <VoucherAnomaliesCard voucherId={voucher.voucher_id} />
+
+        {/* Etapa M — Comments thread (discusion operativa). */}
+        <VoucherCommentsCard voucherId={voucher.voucher_id} />
 
         {/* Etapa B — Timeline visual de la actividad del voucher. */}
         <VoucherTimelineCard voucherId={voucher.voucher_id} />
