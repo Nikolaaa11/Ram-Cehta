@@ -398,29 +398,38 @@ async def get_form_metadata(
             {"scope": empresa_scope},
         )).mappings().all()
 
+    # QA fix 14/05/2026 — antes hacia 1 SELECT de approvers por empresa
+    # (N queries = N round-trips). Ahora 1 query batched con
+    # WHERE empresa_codigo = ANY(:codigos) GROUP BY (empresa, role).
+    codigos = [er["codigo"] for er in empresas_rows]
+    approvers_rows = []
+    if codigos:
+        approvers_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT ucr.empresa_codigo, ucr.role,
+                           ARRAY_AGG(au.email ORDER BY au.email) AS emails
+                    FROM core.user_company_roles ucr
+                    LEFT JOIN auth.users au ON au.id::TEXT = ucr.user_id::TEXT
+                    WHERE ucr.empresa_codigo = ANY(CAST(:codigos AS text[]))
+                      AND ucr.active = TRUE
+                    GROUP BY ucr.empresa_codigo, ucr.role
+                    ORDER BY ucr.empresa_codigo, ucr.role
+                    """
+                ),
+                {"codigos": codigos},
+            )
+        ).mappings().all()
+    approvers_by_empresa: dict[str, list[dict]] = {}
+    for r in approvers_rows:
+        approvers_by_empresa.setdefault(r["empresa_codigo"], []).append(
+            {"role": r["role"], "emails": r["emails"] or []}
+        )
+
     empresas_list = []
     for er in empresas_rows:
-        # Aprobadores: roles en user_company_roles + matching de approval_rules
-        approvers_by_role = (await db.execute(
-            text(
-                """
-                SELECT ucr.role,
-                       ARRAY_AGG(au.email ORDER BY au.email) as emails
-                FROM core.user_company_roles ucr
-                LEFT JOIN auth.users au ON au.id::TEXT = ucr.user_id::TEXT
-                WHERE ucr.empresa_codigo = :empresa
-                  AND ucr.active = TRUE
-                GROUP BY ucr.role
-                """
-            ),
-            {"empresa": er["codigo"]},
-        )).mappings().all()
-
-        aprobadores = [
-            {"role": a["role"], "emails": a["emails"] or []}
-            for a in approvers_by_role
-        ]
-
+        aprobadores = approvers_by_empresa.get(er["codigo"], [])
         empresas_list.append(
             EmpresaMetadata(
                 codigo=er["codigo"],

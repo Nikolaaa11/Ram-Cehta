@@ -328,12 +328,27 @@ export default function TransferenciasPage() {
         </div>
       </div>
 
-      {/* Loading / Error */}
+      {/* Loading skeleton matching layout (KPI cards + tabla)
+          QA fix 14/05/2026 — antes Loader2 + texto genérico. */}
       {isLoading && (
-        <Surface className="p-10 text-center">
-          <Loader2 className="mx-auto mb-3 size-6 animate-spin text-cehta-green" />
-          <p className="text-sm text-ink-500">Cargando vouchers aprobados…</p>
-        </Surface>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Surface key={i} className="p-4">
+                <div className="h-4 w-32 mb-2 animate-pulse rounded bg-ink-100" />
+                <div className="h-8 w-40 animate-pulse rounded bg-ink-100" />
+              </Surface>
+            ))}
+          </div>
+          <div className="mt-6 space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div
+                key={i}
+                className="h-16 w-full animate-pulse rounded-xl bg-ink-100"
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {error && (

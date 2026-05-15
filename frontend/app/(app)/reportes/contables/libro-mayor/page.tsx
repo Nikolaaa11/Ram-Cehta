@@ -7,6 +7,7 @@ import { ReportShell } from "@/components/reportes/ReportShell";
 import { ContableFilters, fmtCLP } from "@/components/reportes/ContableFilters";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { LibroMayorReport, PlanCuenta } from "@/lib/api/schema";
 
 export default function LibroMayorPage() {
@@ -83,7 +84,58 @@ export default function LibroMayorPage() {
           Elegí una cuenta del selector arriba para ver su libro mayor.
         </p>
       ) : isLoading ? (
-        <p className="text-sm text-ink-500">Cargando…</p>
+        // QA fix 14/05/2026 — skeleton matching layout para evitar
+        // layout shift al cargar el report. Antes era plain "Cargando…".
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-hairline bg-white p-4"
+              >
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="mt-2 h-6 w-28" />
+              </div>
+            ))}
+          </div>
+          <div className="mt-6 overflow-hidden rounded-2xl border border-hairline bg-white">
+            <header className="border-b border-hairline bg-ink-50/40 px-4 py-2">
+              <Skeleton className="h-3 w-40" />
+            </header>
+            <table className="w-full text-xs">
+              <thead className="bg-ink-50/30">
+                <tr>
+                  {["Fecha", "Glosa", "Proy/Area", "Debe", "Haber"].map((h) => (
+                    <th key={h} className="px-3 py-2">
+                      <Skeleton className="h-3 w-16" />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2">
+                      <Skeleton className="h-3 w-20" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Skeleton className="h-3 w-48" />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Skeleton className="h-3 w-16" />
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Skeleton className="ml-auto h-3 w-20" />
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <Skeleton className="ml-auto h-3 w-20" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : !data || !data.cuenta ? (
         <p className="text-sm text-ink-500">Cuenta no encontrada o sin movimientos.</p>
       ) : (

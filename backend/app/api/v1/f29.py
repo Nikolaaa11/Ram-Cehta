@@ -401,32 +401,43 @@ async def bulk_update_estado_f29(
     failed: list[BulkItemError] = []
     succeeded = 0
 
-    for f29_id in body.ids:
-        row = (
+    # QA fix 14/05/2026 — antes hacia 2 queries por id (200 ids = 400
+    # round-trips). Ahora 1 SELECT batched para validar + 1 UPDATE
+    # batched. Mismo contract (BulkUpdateResult), mismas validaciones.
+    existing = {
+        r[0]: r[1]
+        for r in (
             await db.execute(
                 text(
-                    "SELECT estado FROM core.f29_obligaciones WHERE f29_id = :id"
+                    "SELECT f29_id, estado FROM core.f29_obligaciones "
+                    "WHERE f29_id = ANY(:ids)"
                 ),
-                {"id": f29_id},
+                {"ids": body.ids},
             )
-        ).first()
-        if not row:
+        ).all()
+    }
+    to_update: list = []
+    for f29_id in body.ids:
+        if f29_id not in existing:
             failed.append(BulkItemError(id=f29_id, detail="not found"))
             continue
-        if row[0] == body.estado:
+        if existing[f29_id] == body.estado:
             failed.append(BulkItemError(id=f29_id, detail="ya en ese estado"))
             continue
+        to_update.append(f29_id)
+
+    if to_update:
         await db.execute(
             text(
                 """
                 UPDATE core.f29_obligaciones
                 SET estado = :estado, updated_at = now()
-                WHERE f29_id = :id
+                WHERE f29_id = ANY(:ids)
                 """
             ),
-            {"estado": body.estado, "id": f29_id},
+            {"estado": body.estado, "ids": to_update},
         )
-        succeeded += 1
+        succeeded = len(to_update)
 
     if succeeded:
         await db.commit()

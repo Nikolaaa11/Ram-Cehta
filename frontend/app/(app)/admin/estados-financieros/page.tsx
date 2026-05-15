@@ -35,6 +35,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AdminEmptyState,
   AdminFilteredEmpty,
@@ -278,9 +279,56 @@ export default function EstadosFinancierosPage() {
         )}
       </div>
 
-      {/* Lista */}
+      {/* Lista — QA fix 14/05/2026: skeleton matching layout */}
       {isLoading ? (
-        <p className="text-sm text-ink-500">Cargando…</p>
+        <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-ink-50/60">
+              <tr>
+                {[
+                  "Empresa",
+                  "Tipo EF",
+                  "Periodo",
+                  "Fecha corte",
+                  "Auditado",
+                  "Aprobado dir.",
+                  "Acción",
+                ].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left">
+                    <Skeleton className="h-3 w-20" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-24" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-20" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-20" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-10" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-10" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Skeleton className="ml-auto h-3 w-16" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : filtered.length === 0 ? (
         empresaFilter || tipoFilter || periodoTipoFilter || auditadoFilter ? (
           <AdminFilteredEmpty

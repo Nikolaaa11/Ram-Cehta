@@ -220,9 +220,25 @@ export function VoucherCommentsCard({ voucherId }: { voucherId: number }) {
         </div>
       </div>
 
-      {/* Lista de comments */}
+      {/* Lista de comments — skeleton de 2 comentarios mientras carga */}
       {isLoading && (
-        <p className="text-xs text-ink-500">Cargando comentarios…</p>
+        <ul className="space-y-3">
+          {[1, 2].map((i) => (
+            <li
+              key={i}
+              className="rounded-xl border border-hairline bg-white p-3"
+            >
+              <div className="flex items-center gap-2">
+                <div className="h-3 w-32 animate-pulse rounded bg-ink-100" />
+                <div className="h-3 w-12 animate-pulse rounded bg-ink-100" />
+              </div>
+              <div className="mt-2 space-y-1.5">
+                <div className="h-3 w-full animate-pulse rounded bg-ink-100" />
+                <div className="h-3 w-3/4 animate-pulse rounded bg-ink-100" />
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       {!isLoading && comments.length === 0 && (
