@@ -463,8 +463,45 @@ export default function NuboxFormPage() {
     setter(next);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Round 32 — generación veloz de vouchers: si `createAnother=true`,
+  // después de crear no navegamos a /vouchers/[id] sino que limpiamos
+  // campos volátiles (numero_documento, proveedor, líneas, fecha_venc,
+  // glosa, archivos) y dejamos los de "config" (empresa, tipo_doc,
+  // forma_pago, fecha_documento) para encadenar otra carga rápida.
+  const resetForCreateAnother = (lastCodigo: string) => {
+    setNumeroDocumento("");
+    setProveedorRut("");
+    setProveedorNombre("");
+    setFechaVencimiento("");
+    setGlosa("");
+    setDocumentoDropboxPath("");
+    setContable([{ comentario: "", cuenta_codigo: "", total: "" }]);
+    setFinanciera([{ comentario: "", cuenta_codigo: "", total: "" }]);
+    setPendingFiles([]);
+    setDuplicates([]);
+    setProveedorLookup({ status: "idle" });
+    // Foco al campo más probable de tipear primero (numero_documento).
+    // Hace setTimeout(0) para que React monte el DOM limpio antes.
+    setTimeout(() => {
+      const el = document.querySelector<HTMLInputElement>(
+        'input[name="numero_documento"]',
+      );
+      el?.focus();
+      el?.select();
+    }, 0);
+    // Toast persistente con link al voucher recién creado por si lo querés revisar.
+    toast.success(
+      `Voucher ${lastCodigo} creado · listo para cargar el siguiente`,
+      { duration: 5000 },
+    );
+  };
+
+  const handleSubmit = async (
+    e: React.FormEvent,
+    opts: { createAnother?: boolean } = {},
+  ) => {
     e.preventDefault();
+    const createAnother = opts.createAnother === true;
     if (!cuadrado) {
       // AJUSTE 13: el cuadre es sobre Bruto, no Neto.
       toast.error(
@@ -551,7 +588,6 @@ export default function NuboxFormPage() {
           : attachedFail === 0
             ? ` · ${attachedOk} adjunto${attachedOk === 1 ? "" : "s"} subido${attachedOk === 1 ? "" : "s"}`
             : ` · ${attachedOk} adjuntos OK, ${attachedFail} fallaron (subirlos manualmente)`;
-      toast.success(baseMsg + attachMsg);
 
       clearDraft();
       // Round 7 — SPA navigation + cache invalidation.
@@ -561,7 +597,16 @@ export default function NuboxFormPage() {
       queryClient.invalidateQueries({ queryKey: ["vouchers"] });
       queryClient.invalidateQueries({ queryKey: ["vouchers-kpis"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-state"] });
-      router.push(`/vouchers/${resp.voucher_id}` as Route);
+
+      // Round 32 — branch: si createAnother, reseteamos el form y nos
+      // quedamos acá. Si no, navegamos al detalle del voucher recién creado.
+      if (createAnother) {
+        toast.success(baseMsg + attachMsg);
+        resetForCreateAnother(resp.codigo);
+      } else {
+        toast.success(baseMsg + attachMsg);
+        router.push(`/vouchers/${resp.voucher_id}` as Route);
+      }
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.detail : "Error al crear voucher",
@@ -571,14 +616,26 @@ export default function NuboxFormPage() {
     }
   };
 
-  // Atajos de teclado: Ctrl/Cmd+S para submit, Ctrl/Cmd+Enter para agregar
-  // linea contable (la mas usada). El hook ignora el handler si el form
-  // todavia esta cargando metadata o ya esta enviando.
+  // Atajos de teclado:
+  //  - Ctrl/Cmd+S        → Guardar (navega al detalle del voucher)
+  //  - Ctrl/Cmd+Shift+S  → Guardar y crear otro (Round 32, queda en form)
+  //  - Ctrl/Cmd+Enter    → Agregar línea contable (la mas usada)
+  // El hook ignora el handler si el form todavia esta cargando metadata
+  // o ya esta enviando.
   useFormShortcuts({
     "mod+s": (e) => {
       e.preventDefault();
       if (!submitting && cuadrado) {
         handleSubmit(new Event("submit") as unknown as React.FormEvent);
+      }
+    },
+    "mod+shift+s": (e) => {
+      e.preventDefault();
+      if (!submitting && cuadrado) {
+        handleSubmit(
+          new Event("submit") as unknown as React.FormEvent,
+          { createAnother: true },
+        );
       }
     },
     "mod+enter": (e) => {
@@ -792,6 +849,10 @@ export default function NuboxFormPage() {
               <Label>Número documento (folio) *</Label>
               <input
                 required
+                /* Round 32 — name="numero_documento" para que el reset
+                   tras "Guardar y crear otro" pueda enfocar este campo
+                   con querySelector. */
+                name="numero_documento"
                 value={numeroDocumento}
                 onChange={(e) => setNumeroDocumento(e.target.value)}
                 placeholder="12345"
@@ -1141,14 +1202,38 @@ export default function NuboxFormPage() {
                 </>
               )}
             </div>
-            <Button
-              type="submit"
-              disabled={!cuadrado || submitting}
-              className="px-6"
-            >
-              <Save className="size-4 mr-2" />
-              {submitting ? "Creando…" : "Crear voucher DRAFT"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Round 32 — generación veloz. "Guardar y crear otro"
+                  preserva empresa+tipo_doc+forma_pago+fecha para encadenar
+                  cargas rápidas sin navegar. Atajo: Ctrl/Cmd+Shift+S. */}
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={!cuadrado || submitting}
+                onClick={() =>
+                  handleSubmit(
+                    new Event("submit") as unknown as React.FormEvent,
+                    { createAnother: true },
+                  )
+                }
+                title="Guardar este voucher y limpiar el form para cargar el siguiente (Ctrl/Cmd+Shift+S)"
+              >
+                <Save className="size-4 mr-2" />
+                {submitting ? "Creando…" : "Guardar y crear otro"}
+                <kbd className="ml-2 hidden md:inline rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-mono text-ink-600">
+                  ⌘⇧S
+                </kbd>
+              </Button>
+              <Button
+                type="submit"
+                disabled={!cuadrado || submitting}
+                className="px-6"
+                title="Guardar el voucher y abrir su detalle (Ctrl/Cmd+S)"
+              >
+                <Save className="size-4 mr-2" />
+                {submitting ? "Creando…" : "Crear voucher DRAFT"}
+              </Button>
+            </div>
           </div>
         </Surface>
       </form>
