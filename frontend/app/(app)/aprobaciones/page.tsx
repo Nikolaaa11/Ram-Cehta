@@ -761,7 +761,11 @@ function SignDialog({
   onSuccess: () => void;
 }) {
   const { session } = useSession();
+  const qc = useQueryClient();
   const [comments, setComments] = useState("");
+  // Round 7 — optimistic update: removemos el voucher de la lista
+  // ANTES de que el server confirme. Si falla, rollback y reaparece.
+  // Reduce perceived latency de ~500ms a 0ms (instantaneo).
   const mut = useMutation({
     mutationFn: async () =>
       apiClient.post(
@@ -772,14 +776,44 @@ function SignDialog({
         },
         session,
       ),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["vouchers", "mis-pendientes"] });
+      const prev = qc.getQueryData<MisPendientesResponse>([
+        "vouchers",
+        "mis-pendientes",
+      ]);
+      if (prev) {
+        qc.setQueryData<MisPendientesResponse>(
+          ["vouchers", "mis-pendientes"],
+          {
+            ...prev,
+            items: prev.items.filter(
+              (i) => i.voucher_id !== item.voucher_id,
+            ),
+          },
+        );
+      }
+      // Cerrar modal inmediatamente para sentir velocidad.
+      onClose();
+      return { prev };
+    },
     onSuccess: () => {
       toast.success(`Firmado ${item.codigo} como ${item.rol_label}`);
       onSuccess();
     },
-    onError: (err) =>
+    onError: (err, _vars, ctx) => {
+      // Rollback: el voucher vuelve a la lista.
+      if (ctx?.prev) {
+        qc.setQueryData(["vouchers", "mis-pendientes"], ctx.prev);
+      }
       toast.error(err instanceof ApiError ? err.detail : "No se pudo firmar", {
         duration: 8000,
-      }),
+      });
+    },
+    onSettled: () => {
+      // Re-sync con el server por si nuestra prediccion fue incorrecta.
+      qc.invalidateQueries({ queryKey: ["vouchers", "mis-pendientes"] });
+    },
   });
 
   return (
@@ -888,7 +922,9 @@ function RejectDialog({
   onSuccess: () => void;
 }) {
   const { session } = useSession();
+  const qc = useQueryClient();
   const [reason, setReason] = useState("");
+  // Round 7 — optimistic remove para sentir velocidad. Rollback en error.
   const mut = useMutation({
     mutationFn: async () =>
       apiClient.post(
@@ -896,11 +932,34 @@ function RejectDialog({
         { reason: reason.trim() },
         session,
       ),
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ["vouchers", "mis-pendientes"] });
+      const prev = qc.getQueryData<MisPendientesResponse>([
+        "vouchers",
+        "mis-pendientes",
+      ]);
+      if (prev) {
+        qc.setQueryData<MisPendientesResponse>(
+          ["vouchers", "mis-pendientes"],
+          {
+            ...prev,
+            items: prev.items.filter(
+              (i) => i.voucher_id !== item.voucher_id,
+            ),
+          },
+        );
+      }
+      onClose();
+      return { prev };
+    },
     onSuccess: () => {
       toast.success(`Voucher ${item.codigo} rechazado`);
       onSuccess();
     },
-    onError: (err) =>
+    onError: (err, _vars, ctx) => {
+      if (ctx?.prev) {
+        qc.setQueryData(["vouchers", "mis-pendientes"], ctx.prev);
+      }
       toast.error(
         err instanceof ApiError
           ? err.detail
@@ -908,7 +967,11 @@ function RejectDialog({
             ? err.message
             : "No se pudo rechazar el voucher. Reintentá en unos segundos.",
         { duration: 8000 },
-      ),
+      );
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["vouchers", "mis-pendientes"] });
+    },
   });
 
   return (

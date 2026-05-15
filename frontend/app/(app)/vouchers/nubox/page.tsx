@@ -16,6 +16,9 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import type { Route } from "next";
 import {
   ArrowLeft,
   Plus,
@@ -143,6 +146,8 @@ const TIPO_DOC_FALLBACK_LABELS: Record<string, string> = {
 
 export default function NuboxFormPage() {
   const { session } = useSession();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [meta, setMeta] = useState<FormMetadata | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -541,8 +546,14 @@ export default function NuboxFormPage() {
       toast.success(baseMsg + attachMsg);
 
       clearDraft();
-      // TODO: replace with router.push once useRouter is wired in (forces full reload today).
-      window.location.href = `/vouchers/${resp.voucher_id}`;
+      // Round 7 — SPA navigation + cache invalidation.
+      // Antes: window.location.href forzaba full reload (pierde TanStack
+      // cache, ~800ms+ a TTI). Ahora invalidamos las queries afectadas y
+      // navegamos via router.push (instantaneo, mantiene state).
+      queryClient.invalidateQueries({ queryKey: ["vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["vouchers-kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-state"] });
+      router.push(`/vouchers/${resp.voucher_id}` as Route);
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.detail : "Error al crear voucher",

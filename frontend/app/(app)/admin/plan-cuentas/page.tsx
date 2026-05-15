@@ -22,6 +22,8 @@
  * micro-interacciones, motion-reduce respetado.
  */
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -59,6 +61,7 @@ interface Empresa {
 
 export default function PlanCuentasPage() {
   const { session } = useSession();
+  const router = useRouter();
   const [empresaFilter, setEmpresaFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [selectedCuenta, setSelectedCuenta] = useState<string | null>(null);
@@ -194,7 +197,8 @@ export default function PlanCuentasPage() {
             body="Andá a /admin/etl y subí Plan_de_cuentas_v2.xlsx. El importer carga las 469 cuentas + habilitación por empresa + proyectos contables + áreas en una sola pasada. Idempotente: re-correr con el Excel actualizado no duplica nada."
             ctaLabel="Ir a Importar"
             onCta={() => {
-              window.location.href = "/admin/etl";
+              // Round 7 — SPA navigation.
+              router.push("/admin/etl" as Route);
             }}
           />
         )}

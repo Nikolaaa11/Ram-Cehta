@@ -13,6 +13,8 @@
  */
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -64,6 +66,7 @@ const TIPO_PILL_COLOR: Record<string, string> = {
 
 export default function VoucherTemplatesPage() {
   const { session } = useSession();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [sort, setSort] = useState<SortMode>("recent");
   const [search, setSearch] = useState("");
@@ -250,7 +253,9 @@ export default function VoucherTemplatesPage() {
           onSuccess={(voucherId) => {
             setUsingTemplate(null);
             queryClient.invalidateQueries({ queryKey: ["voucher-templates"] });
-            window.location.href = `/vouchers/${voucherId}`;
+            queryClient.invalidateQueries({ queryKey: ["vouchers"] });
+            // Round 7 — SPA navigation (antes hard reload).
+            router.push(`/vouchers/${voucherId}` as Route);
           }}
         />
       )}

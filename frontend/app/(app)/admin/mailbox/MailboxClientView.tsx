@@ -17,6 +17,7 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -114,6 +115,7 @@ interface Props {
 export function MailboxClientView({ initialItems }: Props) {
   const { session } = useSession();
   const qc = useQueryClient();
+  const router = useRouter();
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
@@ -157,7 +159,8 @@ export function MailboxClientView({ initialItems }: Props) {
         // sessionStorage falla en modo privado — el navigate sigue igual.
       }
       toast.success("Email cargado. Elegí empresa y dale a 'Analizar con IA'.");
-      window.location.href = "/vouchers/desde-mensaje?from=mailbox";
+      // Round 7 — SPA navigation (antes hard reload).
+      router.push("/vouchers/desde-mensaje?from=mailbox" as Route);
     } catch (err) {
       toast.error(
         err instanceof ApiError

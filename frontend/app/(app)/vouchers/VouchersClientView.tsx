@@ -15,6 +15,7 @@
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -193,6 +194,7 @@ export function VouchersClientView({
 }: Props) {
   const { session } = useSession();
   const qc = useQueryClient();
+  const router = useRouter();
   const [empresaFilter, setEmpresaFilter] = useState("");
   const [tipoFilter, setTipoFilter] = useState<VoucherTipo | "">("");
   const [estadoFilter, setEstadoFilter] = useState<VoucherStatus | "">("");
@@ -727,8 +729,9 @@ export function VouchersClientView({
             body="Cada operación contable (compra, venta, pago, traspaso) se registra como voucher con líneas debe/haber e imputación triple. La partida doble se valida automáticamente — no hay forma de guardar descuadrado fuera de borrador."
             ctaLabel="Crear primer voucher"
             onCta={() => {
+              // Round 7 perf — SPA nav en vez de hard reload.
               // Apunta al form Nubox (default recomendado para facturas).
-              window.location.href = "/vouchers/nubox";
+              router.push("/vouchers/nubox" as Route);
             }}
             hint="Antes de crear vouchers, asegurate de haber importado el plan de cuentas en /admin/etl."
           />
@@ -778,8 +781,16 @@ export function VouchersClientView({
                           ? "bg-cehta-green/5"
                           : ""
                       }`}
+                      // Round 7 perf — antes usabamos window.location.href que
+                      // dispara hard navigation (pierde TanStack cache, full
+                      // page reload, ~500ms+). Ahora router.push hace SPA nav
+                      // instantanea. onMouseEnter dispara prefetch del bundle
+                      // de la ruta /vouchers/[id] (Next.js cachea por 30s).
                       onClick={() => {
-                        window.location.href = `/vouchers/${v.voucher_id}`;
+                        router.push(`/vouchers/${v.voucher_id}` as Route);
+                      }}
+                      onMouseEnter={() => {
+                        router.prefetch(`/vouchers/${v.voucher_id}` as Route);
                       }}
                     >
                       {hasPendingVisible && (
