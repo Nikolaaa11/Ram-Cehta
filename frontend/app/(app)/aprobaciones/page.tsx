@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
+import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
@@ -155,6 +157,11 @@ export default function AprobacionesPage() {
       staleTime: 60_000,
     });
 
+  // Etapa C — pull-to-refresh en mobile.
+  const pull = usePullToRefresh(async () => {
+    await refetch();
+  });
+
   // Agrupar por empresa para visual claro
   const grouped = useMemo(() => {
     const map = new Map<string, MisPendientesItem[]>();
@@ -237,6 +244,11 @@ export default function AprobacionesPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+      <PullToRefreshIndicator
+        pullDistance={pull.pullDistance}
+        isRefreshing={pull.isRefreshing}
+        isPulling={pull.isPulling}
+      />
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">

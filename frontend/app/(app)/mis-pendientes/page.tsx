@@ -25,9 +25,11 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { Surface } from "@/components/ui/surface";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 
 interface Voucher {
   voucher_id: number;
@@ -98,6 +100,12 @@ export default function MisPendientesPage() {
     load();
   }, [session, load]);
 
+  // Etapa C — pull-to-refresh en mobile. Gesto nativo iOS/Android para
+  // refrescar la lista. En desktop el hook no engancha listeners.
+  const pull = usePullToRefresh(async () => {
+    await load();
+  });
+
   const draftsCount = state?.voucher_drafts_mine ?? drafts.length;
   const pendingCount = state?.voucher_pending_approvals ?? pending.length;
 
@@ -139,6 +147,11 @@ export default function MisPendientesPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PullToRefreshIndicator
+        pullDistance={pull.pullDistance}
+        isRefreshing={pull.isRefreshing}
+        isPulling={pull.isPulling}
+      />
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
         <div
           aria-hidden

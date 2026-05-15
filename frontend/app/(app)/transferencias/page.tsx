@@ -39,9 +39,11 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { Surface } from "@/components/ui/surface";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 import { toast } from "@/components/ui/toast";
 import { toCLP, toDate } from "@/lib/format";
 
@@ -102,6 +104,11 @@ export default function TransferenciasPage() {
       ),
     enabled: !!session,
     staleTime: 30_000,
+  });
+
+  // Etapa C — pull-to-refresh en mobile.
+  const pull = usePullToRefresh(async () => {
+    await refetch();
   });
 
   const items = useMemo(() => {
@@ -292,6 +299,11 @@ export default function TransferenciasPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <PullToRefreshIndicator
+        pullDistance={pull.pullDistance}
+        isRefreshing={pull.isRefreshing}
+        isPulling={pull.isPulling}
+      />
       {/* Hero */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
         <div
