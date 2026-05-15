@@ -244,6 +244,46 @@ export function VouchersClientView({
     fechaHasta,
     search,
   ]);
+  // Round 9 — helper para resetear todos los filtros de una. Lo usan los
+  // quick filter chips y el empty state "limpiar filtros".
+  const hasActiveFilters =
+    !!empresaFilter ||
+    !!tipoFilter ||
+    !!estadoFilter ||
+    !!sourceFilter ||
+    !!fechaDesde ||
+    !!fechaHasta ||
+    !!search.trim();
+  const clearAllFilters = () => {
+    setEmpresaFilter("");
+    setTipoFilter("");
+    setEstadoFilter("");
+    setSourceFilter("");
+    setFechaDesde("");
+    setFechaHasta("");
+    setSearch("");
+  };
+
+  // Round 9 — quick filter chips. Presets de uso diario que aplican una
+  // combinacion comun en 1 click. Cada chip resetea + aplica un set
+  // especifico. El user puede personalizar cualquier filtro despues.
+  const applyPreset = (preset: "pending" | "draft" | "this-month" | "ai") => {
+    clearAllFilters();
+    if (preset === "pending") {
+      setEstadoFilter("PENDING");
+    } else if (preset === "draft") {
+      setEstadoFilter("DRAFT");
+    } else if (preset === "this-month") {
+      const now = new Date();
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      setFechaDesde(first.toISOString().slice(0, 10));
+      setFechaHasta(last.toISOString().slice(0, 10));
+    } else if (preset === "ai") {
+      setSourceFilter("ai_import");
+    }
+  };
+
   // Bulk approve state — checkbox visible cuando hay >=1 fila PENDING visible.
   // Iteramos POST /vouchers/{id}/approve en secuencia (no hay endpoint bulk
   // en el backend; mantenemos coherencia con el flujo manual de firma).
@@ -679,6 +719,69 @@ export function VouchersClientView({
           </div>
         )}
 
+        {/* Round 9 — Quick filter chips: presets de uso diario aplicables
+            con 1 click. Cada chip resetea los filtros actuales y aplica
+            la combinacion del preset. El user puede ajustar despues. */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+            Vistas rápidas:
+          </span>
+          <button
+            type="button"
+            onClick={() => applyPreset("pending")}
+            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              estadoFilter === "PENDING" && !empresaFilter && !tipoFilter
+                ? "bg-cehta-green/10 text-cehta-green ring-cehta-green/30"
+                : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+            }`}
+          >
+            🔔 Pendientes de firma
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("draft")}
+            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              estadoFilter === "DRAFT" && !empresaFilter && !tipoFilter
+                ? "bg-amber-50 text-amber-700 ring-amber-200"
+                : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+            }`}
+          >
+            ✏️ Borradores
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("this-month")}
+            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              fechaDesde && fechaHasta
+                ? "bg-blue-50 text-blue-700 ring-blue-200"
+                : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+            }`}
+          >
+            📅 Este mes
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("ai")}
+            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              sourceFilter === "ai_import"
+                ? "bg-purple-50 text-purple-700 ring-purple-200"
+                : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+            }`}
+          >
+            🤖 Importados por IA
+          </button>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="ml-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-500 ring-1 ring-hairline hover:bg-negative/5 hover:text-negative hover:ring-negative/20"
+              title="Quitar todos los filtros aplicados"
+            >
+              ✕ Limpiar filtros
+            </button>
+          )}
+        </div>
+
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-white p-4">
           <select
@@ -777,9 +880,41 @@ export function VouchersClientView({
             hint="Antes de crear vouchers, asegurate de haber importado el plan de cuentas en /admin/etl."
           />
         ) : filteredVouchers.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
-            Sin resultados con esos filtros.
-          </p>
+          // Round 9 — empty state accionable. Antes solo decia "Sin
+          // resultados" sin nada para hacer. Ahora ofrece CTA de
+          // resetear filtros (>90% de los casos en que esto aparece).
+          <div className="rounded-2xl border border-dashed border-hairline bg-white p-10 text-center">
+            <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
+              <Search className="size-5" strokeWidth={1.5} />
+            </div>
+            <p className="text-sm font-medium text-ink-700">
+              Sin vouchers que matcheen
+            </p>
+            <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
+              Probaste{" "}
+              {[
+                empresaFilter && `empresa=${empresaFilter}`,
+                tipoFilter && `tipo=${tipoFilter}`,
+                estadoFilter && `estado=${estadoFilter}`,
+                sourceFilter && `origen=${sourceFilter}`,
+                fechaDesde && `desde=${fechaDesde}`,
+                fechaHasta && `hasta=${fechaHasta}`,
+                search.trim() && `búsqueda="${search.trim()}"`,
+              ]
+                .filter(Boolean)
+                .join(", ") || "estos filtros"}
+              . Ajustá los filtros o limpiá todo para ver la lista completa.
+            </p>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
+              >
+                Limpiar todos los filtros
+              </button>
+            )}
+          </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
             {/* V5++ ola CJ — wrapper overflow-x para que la tabla no rompa
@@ -787,7 +922,11 @@ export function VouchersClientView({
                 desde celular). */}
             <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[800px]">
-              <thead className="bg-ink-50/60 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+              {/* Round 9 — sticky header. En listas >20 filas el header se
+                  iba al scrollear y el user perdia contexto de las columnas.
+                  Con sticky el header queda visible mientras se navega la
+                  tabla. z-10 evita que badges/checkboxes lo tapen. */}
+              <thead className="sticky top-0 z-10 bg-ink-50/95 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 backdrop-blur-sm">
                 <tr>
                   {hasPendingVisible && (
                     <th className="w-8 px-3 py-3">
