@@ -58,6 +58,7 @@ from app.api.v1 import (
     validate,
     voucher_templates,
     vouchers,
+    vouchers_anomaly,
     vouchers_demo,
     vouchers_extract,
     vouchers_nubox_form,
@@ -184,6 +185,11 @@ api_router.include_router(
     vouchers_transferencia.router,
     prefix="/vouchers",
     tags=["vouchers-transferencia"],
+)
+# Etapa H — Anomaly detection radar + check individual. Mismo motivo
+# de orden: /vouchers/anomaly-radar antes que /vouchers/{voucher_id}.
+api_router.include_router(
+    vouchers_anomaly.router, tags=["vouchers-anomaly"]
 )
 # V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
 # arriendos, servicios mensuales). save-as-template + use-template flow.
