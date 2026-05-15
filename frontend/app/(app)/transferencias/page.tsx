@@ -579,6 +579,7 @@ export default function TransferenciasPage() {
                     type="button"
                     onClick={() => setShowExecuteConfirm(false)}
                     disabled={executing}
+                    aria-disabled={executing}
                     className="rounded-xl px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50"
                   >
                     Cancelar
@@ -587,6 +588,7 @@ export default function TransferenciasPage() {
                     type="button"
                     onClick={handleBulkExecute}
                     disabled={executing}
+                    aria-disabled={executing}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
                   >
                     {executing ? (

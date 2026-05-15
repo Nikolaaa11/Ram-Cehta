@@ -941,10 +941,13 @@ function SignDialog({
           </p>
         </div>
         <div className="flex justify-end gap-2 pt-2">
+          {/* QA fix 14/05/2026 — aria-disabled paralelo a disabled para
+              screen readers que ignoran disabled HTML en buttons. */}
           <button
             type="button"
             onClick={onClose}
             disabled={mut.isPending}
+            aria-disabled={mut.isPending}
             className="rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50"
           >
             Cancelar
@@ -952,6 +955,7 @@ function SignDialog({
           <Button
             type="submit"
             disabled={mut.isPending}
+            aria-disabled={mut.isPending}
             className="inline-flex items-center gap-1.5 px-5"
           >
             <FileSignature className="size-4" />
