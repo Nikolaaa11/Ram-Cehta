@@ -25,6 +25,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   ApprovalRule,
   CompanyRole,
@@ -164,9 +165,21 @@ export default function ApprovalRulesPage() {
           </select>
         </div>
 
-        {/* Lista */}
+        {/* Lista — QA fix: skeleton matching layout */}
         {isLoading ? (
-          <p className="text-sm text-ink-500">Cargando reglas…</p>
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-2xl border border-hairline bg-white p-4"
+              >
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="ml-auto h-3 w-20" />
+              </div>
+            ))}
+          </div>
         ) : !rules || rules.length === 0 ? (
           <AdminEmptyState
             icon={<Gavel strokeWidth={1.5} />}

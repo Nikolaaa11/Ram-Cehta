@@ -29,6 +29,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   NuboxBatch,
   NuboxBatchStatus,
@@ -250,9 +251,22 @@ export default function NuboxExportsPage() {
           </select>
         </div>
 
-        {/* Lista */}
+        {/* Lista — QA fix: skeleton matching layout (batches con info compact) */}
         {isLoading ? (
-          <p className="text-sm text-ink-500">Cargando batches…</p>
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 rounded-xl border border-hairline bg-white p-3"
+              >
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="ml-auto h-3 w-32" />
+                <Skeleton className="h-7 w-16 rounded-lg" />
+              </div>
+            ))}
+          </div>
         ) : !batches || batches.length === 0 ? (
           empresaFilter || statusFilter ? (
             <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
