@@ -356,7 +356,7 @@ export default function LpDetailPage({
 
         {/* Aportes destacados */}
         {(aporteTotal > 0 || editMode) && (
-          <div className="mt-6 grid grid-cols-3 gap-3">
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-xl border border-hairline bg-white p-3">
               <p className="text-[10px] uppercase tracking-wider text-ink-400">
                 Comprometido

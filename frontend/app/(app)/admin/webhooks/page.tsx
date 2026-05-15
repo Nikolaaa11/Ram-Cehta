@@ -471,7 +471,7 @@ export default function WebhooksPage() {
 
                   {/* KPI strip — success rate + breakdown */}
                   {deliveryStats.total > 0 && (
-                    <div className="mb-3 grid grid-cols-4 gap-2">
+                    <div className="mb-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <DeliveryStat
                         label="Success rate"
                         value={`${deliveryStats.successRate}%`}

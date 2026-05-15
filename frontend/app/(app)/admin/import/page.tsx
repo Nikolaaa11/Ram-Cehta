@@ -300,7 +300,7 @@ function PreviewSection({ report, executing, onExecute }: PreviewSectionProps) {
 
       <Surface.Body className="space-y-4">
         {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             label="Válidos"
             value={report.valid_rows}

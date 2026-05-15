@@ -178,7 +178,7 @@ export default function NuevoInformePage() {
               <label className="mb-1 block text-xs font-medium text-ink-700">
                 Tono de la narrativa AI
               </label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {(["ejecutivo", "narrativo", "tecnico"] as const).map((t) => (
                   <button
                     key={t}

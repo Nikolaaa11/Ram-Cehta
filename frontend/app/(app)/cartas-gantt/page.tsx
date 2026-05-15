@@ -285,14 +285,14 @@ export default function CartasGanttPage() {
       {/* Toolbar: tabs + filtros */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <ViewSwitcher view={view} onChange={setView} />
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <Filter className="h-4 w-4 text-ink-400" strokeWidth={1.75} />
           <Combobox
             items={empresaItems}
             value={empresaFiltro}
             onValueChange={setEmpresaFiltro}
             placeholder="Empresa"
-            triggerClassName="min-w-[200px]"
+            triggerClassName="w-full sm:min-w-[200px]"
           />
           {view === "empresas" && (
             <Combobox
@@ -300,7 +300,7 @@ export default function CartasGanttPage() {
               value={filter}
               onValueChange={(v) => setFilter(v as ViewFilter)}
               placeholder="Filtro"
-              triggerClassName="min-w-[200px]"
+              triggerClassName="w-full sm:min-w-[200px]"
             />
           )}
         </div>
