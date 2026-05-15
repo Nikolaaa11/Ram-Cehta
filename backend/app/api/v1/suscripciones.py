@@ -160,7 +160,14 @@ async def delete_suscripcion(
 async def totals_per_empresa(
     user: Annotated[AuthenticatedUser, Depends(require_scope("suscripcion:read"))],
     db: DBSession,
+    scope: EmpresaScopeDep,
 ) -> list[SuscripcionResumen]:
-    """Reporte agregado para inversionistas: totales por empresa emisora."""
+    """Reporte agregado para inversionistas: totales por empresa emisora.
+
+    QA fix 14/05/2026 — antes devolvia totals de TODAS las empresas a
+    cualquier user con suscripcion:read. Ahora respeta scope: admin
+    global ve todas, user con scope a N empresas ve solo esas.
+    """
     repo = SuscripcionRepository(db)
-    return await repo.totals_by_empresa()
+    allowed = None if scope.is_global else list(scope.allowed_codes or [])
+    return await repo.totals_by_empresa(allowed_codes=allowed)

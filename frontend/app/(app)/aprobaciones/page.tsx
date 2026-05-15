@@ -682,11 +682,11 @@ function BulkSignDialog({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+        className="my-4 w-full max-w-2xl space-y-4 rounded-3xl bg-white p-6 shadow-2xl sm:my-auto"
       >
         <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
           <FileSignature className="size-3.5" />
@@ -845,7 +845,7 @@ function SignDialog({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
     >
       <form
         onSubmit={(e) => {
@@ -853,7 +853,7 @@ function SignDialog({
           mut.mutate();
         }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-lg space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+        className="my-4 w-full max-w-lg space-y-4 rounded-3xl bg-white p-6 shadow-2xl sm:my-auto"
       >
         <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
           <FileSignature className="size-3.5" />
@@ -1003,7 +1003,7 @@ function RejectDialog({
       role="dialog"
       aria-modal="true"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm sm:items-center"
     >
       <form
         onSubmit={(e) => {
@@ -1015,7 +1015,7 @@ function RejectDialog({
           mut.mutate();
         }}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+        className="my-4 w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl sm:my-auto"
       >
         <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-negative">
           <XCircle className="size-3.5" />

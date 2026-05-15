@@ -211,7 +211,13 @@ async def get_cartola_run(
     user: CurrentUser,
     db: DBSession,
 ) -> CartolaRunRead:
-    """Detalle de un run específico."""
+    """Detalle de un run específico.
+
+    QA fix 14/05/2026 — antes cualquier user autenticado podia leer
+    cartolas (banco, dropbox_path, montos) de cualquier empresa con un
+    run_id valido. Ahora chequea scope multi-tenant via
+    assert_empresa_access sobre la empresa_codigo del run.
+    """
     row = (
         await db.execute(
             text(
@@ -234,4 +240,5 @@ async def get_cartola_run(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Run {run_id} no encontrado",
         )
+    await assert_empresa_access(user, db, row["empresa_codigo"])
     return CartolaRunRead.model_validate(dict(row))

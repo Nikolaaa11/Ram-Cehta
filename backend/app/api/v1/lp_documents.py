@@ -90,6 +90,7 @@ async def _get_doc_or_404(db, lp_id: int, lp_doc_id: int) -> LpDocument:
 @router.get(
     "/lps/{lp_id}/documents",
     response_model=list[LpDocumentRead],
+    dependencies=[Depends(require_scope("lp:read"))],
 )
 async def list_lp_documents(
     user: CurrentUser,
@@ -98,6 +99,11 @@ async def list_lp_documents(
     tipo: LpDocumentTipo | None = Query(default=None),
     estado: LpDocumentEstado | None = Query(default=None),
 ) -> list[LpDocumentRead]:
+    # QA fix 14/05/2026 — antes solo CurrentUser sin scope. Ahora
+    # require_scope("lp:read") al menos limita a admins/managers del
+    # fondo (los unicos con ese scope). LP no tiene fondo_codigo en
+    # el modelo aun, por eso no agregamos filtro multi-tenant per-fila;
+    # cuando se agregue, hay que pasar a EmpresaScopeDep.
     """Lista documentos del LP. Default: todos, ordenados por
     `created_at` DESC (último subido primero).
     """
@@ -115,6 +121,7 @@ async def list_lp_documents(
 @router.get(
     "/lps/{lp_id}/documents/{lp_doc_id}",
     response_model=LpDocumentRead,
+    dependencies=[Depends(require_scope("lp:read"))],
 )
 async def get_lp_document(
     user: CurrentUser,
@@ -122,6 +129,7 @@ async def get_lp_document(
     lp_id: int,
     lp_doc_id: int,
 ) -> LpDocumentRead:
+    # QA fix 14/05/2026 — require_scope("lp:read") agregado.
     await _get_lp_or_404(db, lp_id)
     doc = await _get_doc_or_404(db, lp_id, lp_doc_id)
     return _to_read(doc)

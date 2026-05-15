@@ -114,12 +114,16 @@ export default function LpDetailPage({
   );
   const [showCreateDoc, setShowCreateDoc] = useState(false);
 
+  // QA fix 14/05/2026 — cache invalidations completas para que las
+  // listas hermanas y el padre se mantengan sync.
   const deleteDocMutation = useMutation({
     mutationFn: (lpDocId: number) =>
       apiClient.delete(`/lps/${id}/documents/${lpDocId}`, session),
     onSuccess: () => {
       toast.success("Documento eliminado");
       qc.invalidateQueries({ queryKey: ["lp-documents", id] });
+      // Invalidar también el LP padre — counts/timestamps cambian.
+      qc.invalidateQueries({ queryKey: ["lp", id] });
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.detail : "Error al eliminar");
@@ -144,6 +148,8 @@ export default function LpDetailPage({
     onSuccess: (data) => {
       toast.success("LP actualizado");
       qc.setQueryData(["lp", id], data);
+      // Invalidar lista admin para que reflect el LP editado.
+      qc.invalidateQueries({ queryKey: ["lps"] });
       setEditMode(false);
       setDraft({});
     },
@@ -156,6 +162,9 @@ export default function LpDetailPage({
     mutationFn: () => apiClient.delete(`/lps/${id}`, session),
     onSuccess: () => {
       toast.success("LP eliminado");
+      // Invalidar la lista admin antes de navegar — al volver con back
+      // no aparece el LP borrado.
+      qc.invalidateQueries({ queryKey: ["lps"] });
       router.push(`/admin/lps` as never);
     },
     onError: (err) => {

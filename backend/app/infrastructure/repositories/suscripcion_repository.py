@@ -80,8 +80,15 @@ class SuscripcionRepository:
         await self._session.delete(obj)
         await self._session.flush()
 
-    async def totals_by_empresa(self) -> builtins.list[SuscripcionResumen]:
-        """Agregado por empresa para reporte a inversionistas."""
+    async def totals_by_empresa(
+        self, allowed_codes: builtins.list[str] | None = None
+    ) -> builtins.list[SuscripcionResumen]:
+        """Agregado por empresa para reporte a inversionistas.
+
+        QA fix 14/05/2026 — acepta filtro `allowed_codes` para respetar
+        scope multi-tenant. Si None → admin global (todas las empresas).
+        Si [] → vacío. Si lista → filtra IN (allowed_codes).
+        """
         q = (
             select(
                 SuscripcionAccion.empresa_codigo,
@@ -101,6 +108,10 @@ class SuscripcionRepository:
             .group_by(SuscripcionAccion.empresa_codigo)
             .order_by(SuscripcionAccion.empresa_codigo)
         )
+        if allowed_codes is not None:
+            if not allowed_codes:
+                return []
+            q = q.where(SuscripcionAccion.empresa_codigo.in_(allowed_codes))
         rows = (await self._session.execute(q)).all()
         result: list[SuscripcionResumen] = []
         for row in rows:

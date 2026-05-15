@@ -34,6 +34,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AdminEmptyState,
   AdminFilteredEmpty,
@@ -208,9 +209,52 @@ export default function FondoActasPage() {
         </select>
       </div>
 
-      {/* Lista */}
+      {/* Lista — QA fix 14/05/2026: skeleton matching layout */}
       {isLoading ? (
-        <p className="text-sm text-ink-500">Cargando…</p>
+        <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-ink-50/60">
+              <tr>
+                {[
+                  "Órgano",
+                  "N°",
+                  "Fecha",
+                  "Quórum",
+                  "Estado",
+                  "Acción",
+                ].map((h) => (
+                  <th key={h} className="px-4 py-3 text-left">
+                    <Skeleton className="h-3 w-16" />
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline">
+              {[1, 2, 3, 4].map((i) => (
+                <tr key={i}>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-10" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-24" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-3 w-12" />
+                  </td>
+                  <td className="px-4 py-3">
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Skeleton className="ml-auto h-3 w-12" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : !actas || actas.length === 0 ? (
         tipoFilter || estadoFilter ? (
           <AdminFilteredEmpty
