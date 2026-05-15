@@ -67,7 +67,7 @@ const COLUMNS = [
 function TableSkeleton() {
   return (
     <Surface padding="none">
-      <div className="overflow-hidden">
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-hairline text-sm">
           <thead className="bg-ink-100/40">
             <tr>
@@ -483,6 +483,7 @@ export default function ProveedoresPage() {
                   </span>{" "}
                   · {g.members.length} candidatos
                 </div>
+                <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-hairline text-sm">
                   <thead className="text-xs uppercase tracking-wide text-ink-500">
                     <tr>
@@ -583,6 +584,7 @@ export default function ProveedoresPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </Surface>
             ))}
         </div>
