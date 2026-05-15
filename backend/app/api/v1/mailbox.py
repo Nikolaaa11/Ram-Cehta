@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
@@ -25,6 +25,7 @@ from sqlalchemy import text
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.config import settings
 from app.core.security import AuthenticatedUser
+from app.services.audit_service import audit_log
 from app.services.email_service import EmailService
 from app.services.inbox_processor_service import (
     InboxNotConfigured,
@@ -746,3 +747,251 @@ async def link_oc(
         )
     await db.commit()
     return await get_mailbox_item(inbox_id, user, db)
+
+
+# =====================================================================
+# Round 59 — Bulk auto-create drafts desde inbox
+# =====================================================================
+
+
+class AutoCreateDraftsRequest(BaseModel):
+    """POST /admin/mailbox/auto-create-drafts
+
+    Itera sobre los emails clasificados como factura (status='classified',
+    category='factura' u 'orden_compra', linked_voucher_id IS NULL) con
+    confidence >= min_confidence y crea un voucher COMPRA en DRAFT para
+    cada uno. Liga el inbox_messages.linked_voucher_id al voucher creado.
+    """
+
+    empresa_codigo: str
+    min_confidence: float = Field(default=0.75, ge=0.0, le=1.0)
+    max_emails: int = Field(default=50, ge=1, le=200)
+
+
+class AutoCreateDraftsResponse(BaseModel):
+    """Stats del bulk run."""
+
+    candidates: int  # emails inspeccionados
+    created: int  # vouchers DRAFT creados con éxito
+    skipped_low_confidence: int  # confidence < min_confidence
+    skipped_empty: int  # email sin contenido o sin datos extraíbles
+    failed: int  # errores procesando (loggeados)
+    created_voucher_ids: list[int] = []
+    errors: list[dict] = []  # [{inbox_id, message}, ...]
+
+
+@router.post(
+    "/admin/mailbox/auto-create-drafts",
+    response_model=AutoCreateDraftsResponse,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def auto_create_drafts_from_inbox(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    body: AutoCreateDraftsRequest,
+    db: DBSession,
+    request: Request,
+) -> AutoCreateDraftsResponse:
+    """Round 59 — bulk creación de vouchers DRAFT desde emails clasificados.
+
+    Cierra el ciclo de automatización inbox → voucher:
+      1. cron inbox_cron.py ya pollea IMAP + clasifica con Claude.
+      2. Este endpoint toma todos los clasificados como factura con
+         confidence alta y crea drafts sin intervención manual.
+      3. Operador entra a /vouchers y revisa los DRAFT, ajusta cuentas
+         contables, y aprueba.
+
+    Soft-fail por email: si uno falla (Claude error, datos faltantes),
+    se loggea en errors[] y seguimos con el siguiente.
+
+    Idempotencia: los emails con linked_voucher_id no nulo se saltan
+    (ya tienen voucher creado). Re-correr no duplica.
+    """
+    from app.api.v1.vouchers_extract import _build_suggestion
+    from app.services.document_analyzer_service import (
+        DocumentAnalyzerNotConfigured,
+        analyze_document,
+    )
+    from app.services.empresa_scope_service import assert_empresa_access
+
+    await assert_empresa_access(user, db, body.empresa_codigo)
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT inbox_id, from_email, from_name, subject, body_text,
+                       received_at, ai_confidence
+                FROM core.inbox_messages
+                WHERE status = 'classified'
+                  AND category IN ('factura', 'orden_compra')
+                  AND linked_voucher_id IS NULL
+                  AND COALESCE(ai_confidence, 0) >= :minconf
+                ORDER BY received_at ASC
+                LIMIT :lim
+                """
+            ),
+            {"minconf": body.min_confidence, "lim": body.max_emails},
+        )
+    ).fetchall()
+
+    candidates = len(rows)
+    if candidates == 0:
+        return AutoCreateDraftsResponse(
+            candidates=0,
+            created=0,
+            skipped_low_confidence=0,
+            skipped_empty=0,
+            failed=0,
+        )
+
+    created: list[int] = []
+    skipped_empty = 0
+    failed: list[dict] = []
+
+    import structlog as _structlog
+    _log = _structlog.get_logger(__name__)
+
+    for r in rows:
+        inbox_id, from_email, from_name, subject, body_text, received_at, _ = r
+        try:
+            parts = [
+                f"From: {from_name or ''} <{from_email or ''}>",
+                f"Subject: {subject or ''}",
+                f"Date: {received_at.isoformat() if received_at else ''}",
+                "",
+                (body_text or "").strip(),
+            ]
+            text_input = "\n".join(parts).strip()
+            if len(text_input) < 30:
+                skipped_empty += 1
+                continue
+
+            try:
+                extraction = await analyze_document(
+                    text_input,
+                    tipo="factura",
+                    filename=f"inbox-{inbox_id}.txt",
+                    extraction_method="inbox_bulk_auto",
+                )
+            except DocumentAnalyzerNotConfigured:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Claude no configurado, no puedo hacer extract bulk",
+                )
+
+            sugg = _build_suggestion(extraction.fields, body.empresa_codigo)
+
+            from app.models.voucher import Voucher
+            from app.services.voucher_service import generate_voucher_code
+
+            anio = received_at.year if received_at else 2026
+            codigo = await generate_voucher_code(
+                db, body.empresa_codigo, anio, "COMPRA"
+            )
+            glosa_str = (sugg.glosa or "").strip()
+            if len(glosa_str) < 5:
+                glosa_str = (
+                    f"Email inbox#{inbox_id} - "
+                    f"{(subject or 'sin asunto')[:80]}"
+                )
+            from datetime import date as _date
+            fecha_doc_str = sugg.fecha_documento or ""
+            fecha_doc = None
+            if fecha_doc_str:
+                try:
+                    fecha_doc = _date.fromisoformat(fecha_doc_str)
+                except ValueError:
+                    fecha_doc = None
+            if fecha_doc is None and received_at:
+                fecha_doc = received_at.date()
+            if fecha_doc is None:
+                from datetime import datetime as _dt
+                fecha_doc = _dt.now().date()
+
+            voucher = Voucher(
+                codigo=codigo,
+                empresa_codigo=body.empresa_codigo,
+                tipo="COMPRA",
+                status="DRAFT",
+                fecha_documento=fecha_doc,
+                fecha_contable=fecha_doc,
+                glosa=glosa_str[:500],
+                total_debit=0,
+                total_credit=0,
+                moneda=(sugg.moneda or "CLP"),
+                contraparte_rut=(sugg.proveedor_rut or None),
+                contraparte_nombre=(sugg.proveedor_nombre or None),
+                contraparte_tipo=(
+                    "PROVEEDOR"
+                    if (sugg.proveedor_rut or sugg.proveedor_nombre)
+                    else None
+                ),
+                doc_tributario_tipo=(sugg.tipo_documento or None),
+                doc_tributario_folio=(sugg.numero_documento or None),
+                forma_pago=(sugg.forma_pago or None),
+                source="inbox_bulk_auto",
+                created_by=str(user.sub),
+                requested_by=str(user.sub),
+            )
+            db.add(voucher)
+            await db.flush()
+            new_vid = voucher.voucher_id
+
+            await db.execute(
+                text(
+                    """
+                    UPDATE core.inbox_messages
+                    SET linked_voucher_id = :vid,
+                        updated_at = NOW()
+                    WHERE inbox_id = :iid
+                    """
+                ),
+                {"vid": new_vid, "iid": inbox_id},
+            )
+            await db.commit()
+            created.append(new_vid)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            await db.rollback()
+            _log.warning(
+                "mailbox.auto_create_drafts.failed_one",
+                inbox_id=inbox_id,
+                error=str(exc),
+            )
+            failed.append({"inbox_id": inbox_id, "message": str(exc)[:200]})
+
+    try:
+        await audit_log(
+            db,
+            request,
+            user,
+            action="bulk_auto_create_drafts",
+            entity_type="voucher_bulk",
+            entity_id=str(len(created)),
+            entity_label=f"inbox->{len(created)}drafts",
+            summary=(
+                f"Bulk auto-drafts desde inbox: {len(created)} creados, "
+                f"{skipped_empty} sin contenido, {len(failed)} fallaron - "
+                f"empresa {body.empresa_codigo}, conf>={body.min_confidence}"
+            ),
+            before=None,
+            after={
+                "created": len(created),
+                "created_voucher_ids": created[:20],
+                "skipped_empty": skipped_empty,
+                "failed": len(failed),
+            },
+        )
+    except Exception:
+        pass
+
+    return AutoCreateDraftsResponse(
+        candidates=candidates,
+        created=len(created),
+        skipped_low_confidence=0,
+        skipped_empty=skipped_empty,
+        failed=len(failed),
+        created_voucher_ids=created,
+        errors=failed,
+    )
