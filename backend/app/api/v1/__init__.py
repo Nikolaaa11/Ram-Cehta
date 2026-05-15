@@ -61,6 +61,7 @@ from app.api.v1 import (
     vouchers_demo,
     vouchers_extract,
     vouchers_nubox_form,
+    vouchers_transferencia,
     webhooks,
 )
 from app.api.v1 import (
@@ -175,6 +176,14 @@ api_router.include_router(
 # editable. Mismo motivo de orden: ruta estatica antes que vouchers.router.
 api_router.include_router(
     vouchers_extract.router, prefix="/vouchers", tags=["vouchers-extract"]
+)
+# Round 11 — Generador Excel transferencia masiva desde vouchers APPROVED.
+# Tambien debe registrarse antes de vouchers.router porque
+# /vouchers/transferencia-masiva chocaria con /vouchers/{voucher_id}.
+api_router.include_router(
+    vouchers_transferencia.router,
+    prefix="/vouchers",
+    tags=["vouchers-transferencia"],
 )
 # V5++ ola AB: Plantillas reutilizables para vouchers recurrentes (sueldos,
 # arriendos, servicios mensuales). save-as-template + use-template flow.

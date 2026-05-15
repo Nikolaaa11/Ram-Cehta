@@ -12,6 +12,7 @@ import {
   BarChart3,
   Receipt,
   Wallet,
+  Download,
   FileBarChart,
   LogOut,
   Sparkles,
@@ -147,6 +148,13 @@ const GROUPS: NavGroup[] = [
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
+      // Round 11 — Transferencias masivas: vouchers APPROVED listos para
+      // pago + generador de Excel para cargar al banco.
+      {
+        href: "/transferencias" as Route,
+        label: "Transferencias",
+        icon: Download,
+      },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
       { href: "/f29", label: "F29 / Mensual", icon: Receipt },
       { href: "/f22" as Route, label: "F22 / Anual", icon: Receipt },

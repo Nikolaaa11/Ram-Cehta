@@ -36,6 +36,7 @@ import {
   RefreshCw,
   Sparkles,
   Square,
+  Wallet,
   XCircle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
@@ -256,6 +257,17 @@ export default function AprobacionesPage() {
               {data.total} pendiente{data.total === 1 ? "" : "s"}
             </span>
           )}
+          {/* Round 11 — link al flujo de pago. Una vez firmados, los
+              vouchers APPROVED se pagan desde /transferencias. */}
+          <Link
+            href={"/transferencias" as Route}
+            prefetch={true}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-medium text-cehta-green ring-1 ring-cehta-green/30 hover:bg-cehta-green/5"
+            title="Ir a generar Excel de transferencia masiva para vouchers ya aprobados"
+          >
+            <Wallet className="size-3.5" />
+            Pagar aprobados
+          </Link>
           <button
             type="button"
             onClick={() => refetch()}
