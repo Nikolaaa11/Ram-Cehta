@@ -14,7 +14,7 @@
  * Al submit: POST /vouchers/nubox-form → crea voucher COMPRA DRAFT.
  * Después se aprueba con el flujo estándar (Líder + Director).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -33,6 +33,9 @@ import {
   FileText,
   Image as ImageIcon,
   X as XIcon,
+  Sparkles,
+  UploadCloud,
+  Loader2,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -237,6 +240,19 @@ export default function NuboxFormPage() {
     Array<{ file: File; tipo: string }>
   >([]);
   const filePickerRef = useRef<HTMLInputElement | null>(null);
+
+  // Round 54 — drag-and-drop AI auto-fill. Cuando el operador suelta un
+  // PDF/imagen sobre el form, llamamos /vouchers/extract-from-upload,
+  // pre-llenamos todos los campos del header + líneas con lo extraído,
+  // y dejamos el archivo en `pendingFiles` para subir como adjunto al guardar.
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiDragActive, setAiDragActive] = useState(false);
+  const [aiBanner, setAiBanner] = useState<
+    | { type: "success"; msg: string; confidence?: number }
+    | { type: "error"; msg: string }
+    | null
+  >(null);
+  const aiFilePickerRef = useRef<HTMLInputElement | null>(null);
 
   // Lookup en vivo del proveedor por RUT (debounced 400ms).
   // Avisa al usuario si el proveedor ya existe (precarga nombre), si es nuevo
@@ -470,6 +486,137 @@ export default function NuboxFormPage() {
   const cuadrado =
     totalContableBruto > 0 &&
     Math.abs(totalContableBruto - totalFinancieraBruto) < 0.01;
+
+  // Round 54 — handler AI: sube un archivo a /vouchers/extract-from-upload,
+  // pre-llena todos los campos del form Nubox con la sugerencia, y deja el
+  // mismo archivo en pendingFiles para que se adjunte al voucher al guardar.
+  // Soft-fail si Claude no está configurado, no crashea el form.
+  const handleAiExtract = useCallback(
+    async (file: File) => {
+      if (!session) return;
+      if (!empresaCodigo) {
+        toast.error(
+          "Elegí primero la empresa receptora antes de subir el documento",
+        );
+        return;
+      }
+      const MAX_BYTES = 15 * 1024 * 1024;
+      if (file.size > MAX_BYTES) {
+        toast.error("El archivo supera 15MB — comprimilo o subilo manual");
+        return;
+      }
+      setAiAnalyzing(true);
+      setAiBanner(null);
+      try {
+        const API_BASE =
+          process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+        const fd = new FormData();
+        fd.append("file", file);
+        fd.append("empresa_codigo", empresaCodigo);
+        const r = await fetch(`${API_BASE}/vouchers/extract-from-upload`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: fd,
+        });
+        if (!r.ok) {
+          const detail = await r
+            .json()
+            .then((j: { detail?: string }) => j.detail ?? "")
+            .catch(() => "");
+          throw new Error(detail || `Error ${r.status}`);
+        }
+        const data: {
+          suggestion: {
+            empresa_codigo: string;
+            empresa_auto_detectada?: boolean;
+            proveedor_rut: string;
+            proveedor_nombre: string;
+            tipo_documento: string;
+            numero_documento: string;
+            forma_pago: string;
+            fecha_documento: string;
+            fecha_vencimiento: string;
+            glosa: string;
+            informacion_contable: Array<{
+              comentario: string;
+              cuenta_codigo: string;
+              total: string;
+            }>;
+            informacion_financiera: Array<{
+              comentario: string;
+              cuenta_codigo: string;
+              total: string;
+            }>;
+          };
+          confidence?: number;
+          warnings: string[];
+        } = await r.json();
+
+        const s = data.suggestion;
+        // Mergeamos: solo seteamos los campos que vienen no-vacíos para
+        // no pisar lo que el operador ya hubiera escrito antes del drop.
+        if (s.empresa_codigo && s.empresa_auto_detectada) {
+          setEmpresaCodigo(s.empresa_codigo);
+        }
+        if (s.proveedor_rut) setProveedorRut(s.proveedor_rut);
+        if (s.proveedor_nombre) setProveedorNombre(s.proveedor_nombre);
+        if (s.tipo_documento) setTipoDocumento(s.tipo_documento);
+        if (s.numero_documento) setNumeroDocumento(s.numero_documento);
+        if (s.forma_pago) setFormaPago(s.forma_pago);
+        if (s.fecha_documento) setFechaDocumento(s.fecha_documento);
+        if (s.fecha_vencimiento) setFechaVencimiento(s.fecha_vencimiento);
+        if (s.glosa) setGlosa(s.glosa);
+        if (s.informacion_contable?.length) {
+          setContable(
+            s.informacion_contable.map((l) => ({
+              comentario: l.comentario || "",
+              cuenta_codigo: l.cuenta_codigo || "",
+              total: l.total || "",
+            })),
+          );
+        }
+        if (s.informacion_financiera?.length) {
+          setFinanciera(
+            s.informacion_financiera.map((l) => ({
+              comentario: l.comentario || "",
+              cuenta_codigo: l.cuenta_codigo || "",
+              total: l.total || "",
+            })),
+          );
+        }
+        // Adjuntar el mismo archivo como FACTURA al voucher.
+        setPendingFiles((prev) => [...prev, { file, tipo: "FACTURA" }]);
+
+        const confidence = data.confidence ?? null;
+        const confPct = confidence ? Math.round(confidence * 100) : null;
+        setAiBanner({
+          type: "success",
+          msg:
+            `Datos extraídos de ${file.name}. Revisá los campos y completá ` +
+            `cuenta contable + financiera antes de guardar.` +
+            (data.warnings?.length
+              ? ` Avisos: ${data.warnings.join(" · ")}`
+              : ""),
+          confidence: confPct ?? undefined,
+        });
+        toast.success(
+          confPct
+            ? `Extraído con ${confPct}% de confianza — revisá y guardá`
+            : "Datos extraídos — revisá y guardá",
+        );
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Error desconocido al extraer";
+        setAiBanner({ type: "error", msg });
+        toast.error(`No se pudo extraer: ${msg}`);
+      } finally {
+        setAiAnalyzing(false);
+      }
+    },
+    [session, empresaCodigo],
+  );
 
   // Round 36 — auto-llenar el total de la línea financiera cuando el
   // voucher es "simple" (1 línea contable + 1 línea financiera) y la
@@ -907,6 +1054,110 @@ export default function NuboxFormPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Round 54 — drag-and-drop AI auto-fill.
+            Operador suelta un PDF/imagen/email → backend extrae los campos
+            con Claude y pre-llena el form. Sin recargar, sin navegar. */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!aiDragActive) setAiDragActive(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setAiDragActive(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setAiDragActive(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) void handleAiExtract(f);
+          }}
+          className={`rounded-2xl border-2 border-dashed p-4 transition-colors ${
+            aiDragActive
+              ? "border-cehta-green bg-cehta-green/5"
+              : "border-hairline bg-ink-50/40 dark:bg-ink-900/40"
+          }`}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Sparkles className="size-5 text-cehta-green" />
+              <span className="font-medium text-ink-900 dark:text-ink-100">
+                ¿Tenés la factura en PDF/imagen?
+              </span>
+              <span className="text-ink-500">
+                Arrastrala acá o
+              </span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => aiFilePickerRef.current?.click()}
+              disabled={aiAnalyzing}
+              className="text-cehta-green"
+            >
+              {aiAnalyzing ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Analizando…
+                </>
+              ) : (
+                <>
+                  <UploadCloud className="mr-2 size-4" />
+                  Elegir archivo
+                </>
+              )}
+            </Button>
+            <span className="text-xs text-ink-400">
+              PDF, JPG, PNG, DOCX (máx 15MB) · IA autollena todos los campos
+            </span>
+            <input
+              ref={aiFilePickerRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.eml,.heic"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleAiExtract(f);
+                e.target.value = ""; // reset para permitir mismo archivo
+              }}
+            />
+          </div>
+          {aiBanner && (
+            <div
+              className={`mt-3 flex items-start gap-2 rounded-lg p-2.5 text-xs ${
+                aiBanner.type === "success"
+                  ? "bg-positive/10 text-positive ring-1 ring-positive/20"
+                  : "bg-negative/10 text-negative ring-1 ring-negative/20"
+              }`}
+            >
+              {aiBanner.type === "success" ? (
+                <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
+              ) : (
+                <AlertCircle className="size-4 shrink-0 mt-0.5" />
+              )}
+              <div className="flex-1">
+                {aiBanner.msg}
+                {aiBanner.type === "success" && aiBanner.confidence && (
+                  <span className="ml-2 rounded bg-positive/20 px-1.5 py-0.5 font-mono">
+                    {aiBanner.confidence}% confianza
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiBanner(null)}
+                className="text-ink-500 hover:text-ink-700"
+                aria-label="Cerrar aviso"
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* V5++ ola CE — Warning si el backend detecta vouchers con la
             misma firma (empresa+RUT+folio+tipo). NO bloquea — solo avisa. */}
         {duplicates.length > 0 && (
