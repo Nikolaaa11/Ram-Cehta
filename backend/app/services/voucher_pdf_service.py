@@ -122,6 +122,15 @@ async def generate_voucher_pdf_bundle(
     # Inyectamos el email en el dict de data para que _build_cover_pdf
     # pueda renderearlo en el footer. None = no muestra "Por: ...".
     data["generated_by_email"] = generated_by_email
+    # Round 21 — QR de verificación. URL pública del voucher en la app.
+    # Soft-fail: si frontend_url no está, o qrcode no instalado, sin QR.
+    try:
+        from app.core.config import settings
+        base = (settings.frontend_url or "").rstrip("/")
+        if base:
+            data["verify_url"] = f"{base}/vouchers/{voucher_id}"
+    except Exception:  # noqa: BLE001
+        pass
 
     # 1. Build cover PDF in worker thread (reportlab is sync)
     logo_bytes = await _try_fetch_logo(db, data["empresa"])
@@ -395,7 +404,8 @@ class _CoverDoc(BaseDocTemplate):
 
     def __init__(self, buf: io.BytesIO, *, empresa: dict, voucher: dict,
                  logo_bytes: bytes | None,
-                 generated_by_email: str | None = None) -> None:
+                 generated_by_email: str | None = None,
+                 verify_url: str | None = None) -> None:
         super().__init__(
             buf,
             pagesize=A4,
@@ -410,6 +420,16 @@ class _CoverDoc(BaseDocTemplate):
         self._voucher = voucher
         self._logo_bytes = logo_bytes
         self._generated_by_email = generated_by_email
+        # Round 21 — QR de verificación (cacheado por instancia para no
+        # regenerar el PNG en cada onPage de cada página).
+        self._verify_url = verify_url
+        self._qr_png: bytes | None = None
+        if verify_url:
+            try:
+                from app.services.pdf_qr_util import qr_png_bytes
+                self._qr_png = qr_png_bytes(verify_url)
+            except Exception:  # noqa: BLE001
+                self._qr_png = None
         frame = Frame(
             self.leftMargin,
             self.bottomMargin,
@@ -431,7 +451,13 @@ class _CoverDoc(BaseDocTemplate):
         # se procese como vigente cuando se imprime y mezcla con otros.
         _draw_status_watermark(canv, self._voucher.get("status"))
         _draw_header(canv, self._empresa, self._logo_bytes)
-        _draw_footer(canv, doc.page, self._generated_by_email)
+        _draw_footer(
+            canv,
+            doc.page,
+            self._generated_by_email,
+            qr_png=self._qr_png,
+            verify_url=self._verify_url,
+        )
 
 
 def _draw_header(canv: rl_canvas.Canvas, empresa: dict, logo_bytes: bytes | None) -> None:
@@ -546,12 +572,18 @@ def _draw_footer(
     canv: rl_canvas.Canvas,
     page_num: int,
     generated_by_email: str | None = None,
+    qr_png: bytes | None = None,
+    verify_url: str | None = None,
 ) -> None:
     """Round 13 — footer notarial enriquecido.
 
     Antes solo timestamp UTC + page. Ahora tambien `Por: {user_email}`
     si se proveyo. Util para auditoria forense (saber QUE user descargo
     el PDF cuando se distribuye externamente).
+
+    Round 21 — opcionalmente dibuja un QR a la derecha del footer con
+    la URL del registro en la plataforma. Si qr_png es None (lib no
+    instalada o sin URL), simplemente omite el QR.
     """
     canv.saveState()
     y = MARGIN_B - 2 * mm
@@ -577,6 +609,26 @@ def _draw_footer(
     canv.setFont("Helvetica-Bold", 7)
     canv.drawCentredString(PAGE_W / 2, y - 1 * mm,
                            "Cehta Capital · FIP CEHTA ESG")
+
+    # Round 21 — QR de verificación arriba del footer (esquina sup-der).
+    # Solo se dibuja en la primera página para no inundar el bundle.
+    if qr_png and page_num == 1:
+        try:
+            from app.services.pdf_qr_util import draw_qr_on_canvas
+            qr_x_mm = (PAGE_W - MARGIN_R) / mm - 22
+            qr_y_mm = (y + 10 * mm) / mm
+            draw_qr_on_canvas(canv, qr_png, x_mm=qr_x_mm, y_mm=qr_y_mm,
+                              size_mm=20)
+            canv.setFont("Helvetica", 6)
+            canv.setFillColor(CEHTA_GREY)
+            canv.drawRightString(
+                PAGE_W - MARGIN_R,
+                qr_y_mm * mm - 2.5 * mm,
+                "Verificar en plataforma",
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
     canv.restoreState()
 
 
@@ -599,6 +651,8 @@ def _build_cover_pdf(data: dict[str, Any], logo_bytes: bytes | None) -> bytes:
     approvals = data["approvals"]
     # Round 13 — propagamos el user que genero el PDF al footer notarial.
     generated_by_email = data.get("generated_by_email")
+    # Round 21 — URL para QR de verificación (opcional).
+    verify_url = data.get("verify_url")
 
     buf = io.BytesIO()
     doc = _CoverDoc(
@@ -607,6 +661,7 @@ def _build_cover_pdf(data: dict[str, Any], logo_bytes: bytes | None) -> bytes:
         voucher=voucher,
         logo_bytes=logo_bytes,
         generated_by_email=generated_by_email,
+        verify_url=verify_url,
     )
 
     styles = getSampleStyleSheet()

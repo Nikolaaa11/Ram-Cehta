@@ -121,6 +121,14 @@ async def generate_oc_pdf_bundle(
     if data is None:
         raise ValueError(f"OC {oc_id} no encontrada")
     data["generated_by_email"] = generated_by_email
+    # Round 21 — URL QR de verificación.
+    try:
+        from app.core.config import settings
+        base = (settings.frontend_url or "").rstrip("/")
+        if base:
+            data["verify_url"] = f"{base}/ordenes-compra/{oc_id}"
+    except Exception:  # noqa: BLE001
+        pass
 
     logo_bytes = await _try_fetch_logo(db, data["empresa"])
     cover_bytes = await asyncio.to_thread(_build_cover_pdf, data, logo_bytes)
@@ -320,6 +328,7 @@ class _OcCoverDoc(BaseDocTemplate):
         oc: dict[str, Any],
         logo_bytes: bytes | None,
         generated_by_email: str | None = None,
+        verify_url: str | None = None,
     ) -> None:
         super().__init__(
             buf,
@@ -335,6 +344,15 @@ class _OcCoverDoc(BaseDocTemplate):
         self._oc = oc
         self._logo_bytes = logo_bytes
         self._generated_by_email = generated_by_email
+        # Round 21 — pre-generamos PNG QR una vez por instancia.
+        self._verify_url = verify_url
+        self._qr_png: bytes | None = None
+        if verify_url:
+            try:
+                from app.services.pdf_qr_util import qr_png_bytes
+                self._qr_png = qr_png_bytes(verify_url)
+            except Exception:  # noqa: BLE001
+                self._qr_png = None
         frame = Frame(
             self.leftMargin, self.bottomMargin, self.width, self.height,
             id="content", showBoundary=0,
@@ -358,7 +376,10 @@ class _OcCoverDoc(BaseDocTemplate):
         if mapped:
             _draw_status_watermark(canv, mapped)
         _draw_oc_header(canv, self._empresa, self._logo_bytes)
-        _draw_oc_footer(canv, doc.page, self._empresa, self._generated_by_email)
+        _draw_oc_footer(
+            canv, doc.page, self._empresa, self._generated_by_email,
+            qr_png=self._qr_png,
+        )
 
 
 def _draw_oc_header(
@@ -428,11 +449,14 @@ def _draw_oc_footer(
     page_num: int,
     empresa: dict[str, Any],
     generated_by_email: str | None = None,
+    qr_png: bytes | None = None,
 ) -> None:
     """Round 14 — footer notarial OC con email del user.
 
     Mismo patron que voucher_pdf_service._draw_footer pero scoped a OC
     (centro muestra razon_social de la empresa + Cehta Capital brand).
+
+    Round 21 — QR opcional en esquina sup-derecha del footer (solo page 1).
     """
     canv.saveState()
     y = MARGIN_B - 2 * mm
@@ -458,6 +482,24 @@ def _draw_oc_footer(
         PAGE_W / 2, y - 1 * mm,
         f"Cehta Capital · {_truncate(empresa.get('razon_social') or '', 60)}",
     )
+
+    if qr_png and page_num == 1:
+        try:
+            from app.services.pdf_qr_util import draw_qr_on_canvas
+            qr_x_mm = (PAGE_W - MARGIN_R) / mm - 22
+            qr_y_mm = (y + 10 * mm) / mm
+            draw_qr_on_canvas(canv, qr_png, x_mm=qr_x_mm, y_mm=qr_y_mm,
+                              size_mm=20)
+            canv.setFont("Helvetica", 6)
+            canv.setFillColor(CEHTA_GREY)
+            canv.drawRightString(
+                PAGE_W - MARGIN_R,
+                qr_y_mm * mm - 2.5 * mm,
+                "Verificar en plataforma",
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
     canv.restoreState()
 
 
@@ -476,6 +518,8 @@ def _build_cover_pdf(
     moneda = (oc.get("moneda") or "CLP").upper()
     # Round 14 — email del user que genero el PDF (forensic footer).
     generated_by_email = data.get("generated_by_email")
+    # Round 21 — URL para QR de verificación (opcional).
+    verify_url = data.get("verify_url")
 
     buf = io.BytesIO()
     doc = _OcCoverDoc(
@@ -484,6 +528,7 @@ def _build_cover_pdf(
         oc=oc,
         logo_bytes=logo_bytes,
         generated_by_email=generated_by_email,
+        verify_url=verify_url,
     )
 
     styles = getSampleStyleSheet()
