@@ -488,7 +488,13 @@ function CreateEfDialog({
       toast.success("EEFF creado");
       onCreated();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.detail : "Error");
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudo crear el EEFF. Reintentá en unos segundos.",
+      );
     } finally {
       setLoading(false);
     }
