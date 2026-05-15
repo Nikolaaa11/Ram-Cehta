@@ -37,6 +37,14 @@ const API_BASE =
 
 const RECONNECT_BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000];
 
+// Round 43 — máximo de intentos consecutivos sin haber tenido nunca un
+// `onopen` exitoso. Cuando el JWT expira, EventSource se reconecta con
+// el mismo token caducado y el server devuelve 401 indefinidamente
+// llenando los logs cada 30s. Si después de 6 intentos seguidos no
+// abrimos ni una vez, paramos y dejamos que el user refresque la página
+// (el toast lo avisa una sola vez).
+const MAX_FAILED_RECONNECTS_WITHOUT_OPEN = 6;
+
 export interface LastEvent {
   type: string;
   at: number; // Date.now() del evento
@@ -66,6 +74,10 @@ export function useEventStream(): UseEventStreamResult {
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teardownRef = useRef(false);
+  // Round 43 — flag para abandonar reconexión si nunca se abrió correctamente.
+  const everOpenedRef = useRef(false);
+  const stoppedRef = useRef(false);
+  const stoppedToastShownRef = useRef(false);
 
   useEffect(() => {
     // SSR guard.
@@ -81,6 +93,12 @@ export function useEventStream(): UseEventStreamResult {
     }
 
     teardownRef.current = false;
+    // Round 43 — reset por cada nuevo effect run (token cambió o se restablece).
+    // Si el JWT fresco SÍ funciona, el bucle de reconnect arranca limpio.
+    everOpenedRef.current = false;
+    stoppedRef.current = false;
+    stoppedToastShownRef.current = false;
+    reconnectAttemptRef.current = 0;
 
     const connect = () => {
       if (teardownRef.current) return;
@@ -106,6 +124,9 @@ export function useEventStream(): UseEventStreamResult {
       es.onopen = () => {
         setConnected(true);
         reconnectAttemptRef.current = 0;
+        // Round 43 — vimos al menos una conexión OK; futuros errores
+        // serán tratados como cortes normales (reconectar con backoff).
+        everOpenedRef.current = true;
       };
 
       // El evento default cubre frames `data:` sin `event:` propio. El
@@ -211,6 +232,22 @@ export function useEventStream(): UseEventStreamResult {
 
     const scheduleReconnect = () => {
       if (teardownRef.current) return;
+      // Round 43 — si nunca abrimos y ya intentamos N veces, asumimos JWT
+      // expirado/inválido y abandonamos. Evita spam de 401 cada 30s en logs.
+      if (
+        !everOpenedRef.current &&
+        reconnectAttemptRef.current >= MAX_FAILED_RECONNECTS_WITHOUT_OPEN
+      ) {
+        stoppedRef.current = true;
+        if (!stoppedToastShownRef.current) {
+          stoppedToastShownRef.current = true;
+          toast.error(
+            "Conexión en tiempo real perdida — actualizá la página para reconectar",
+            { duration: 10_000 },
+          );
+        }
+        return;
+      }
       const idx = Math.min(
         reconnectAttemptRef.current,
         RECONNECT_BACKOFF_MS.length - 1,
@@ -221,6 +258,7 @@ export function useEventStream(): UseEventStreamResult {
         clearTimeout(reconnectTimerRef.current);
       }
       reconnectTimerRef.current = setTimeout(() => {
+        if (stoppedRef.current) return;
         connect();
       }, delay);
     };
