@@ -170,13 +170,46 @@ export default function NuboxFormPage() {
     return d.toISOString().slice(0, 10);
   })();
 
+  // Round 33 — config persistente entre sesiones (separada del draft, que
+  // se borra al crear). Guarda empresa+tipo_doc+forma_pago para que al
+  // volver al form mañana ya estén pre-seleccionadas como ayer.
+  // Si el browser bloquea localStorage, fallback silencioso a defaults.
+  const LAST_CONFIG_KEY = "voucher-nubox-last-config-v1";
+  type LastConfig = {
+    empresa_codigo?: string;
+    tipo_documento?: string;
+    forma_pago?: string;
+  };
+  const lastConfig: LastConfig = (() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem(LAST_CONFIG_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  })();
+  const saveLastConfig = (cfg: LastConfig) => {
+    try {
+      window.localStorage.setItem(LAST_CONFIG_KEY, JSON.stringify(cfg));
+    } catch {
+      // ignore (quota / private mode)
+    }
+  };
+
   // Header state
-  const [empresaCodigo, setEmpresaCodigo] = useState("");
+  const [empresaCodigo, setEmpresaCodigo] = useState(
+    lastConfig.empresa_codigo ?? "",
+  );
   const [proveedorRut, setProveedorRut] = useState("");
   const [proveedorNombre, setProveedorNombre] = useState("");
-  const [tipoDocumento, setTipoDocumento] = useState("FACTURA");
+  const [tipoDocumento, setTipoDocumento] = useState(
+    lastConfig.tipo_documento ?? "FACTURA",
+  );
   const [numeroDocumento, setNumeroDocumento] = useState("");
-  const [formaPago, setFormaPago] = useState("TRANSFERENCIA");
+  const [formaPago, setFormaPago] = useState(
+    lastConfig.forma_pago ?? "TRANSFERENCIA",
+  );
   const [fechaDocumento, setFechaDocumento] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -510,6 +543,13 @@ export default function NuboxFormPage() {
       return;
     }
     setSubmitting(true);
+    // Round 33 — antes de mandar, guardamos la "config" en localStorage
+    // para que la próxima sesión arranque pre-seleccionada.
+    saveLastConfig({
+      empresa_codigo: empresaCodigo,
+      tipo_documento: tipoDocumento,
+      forma_pago: formaPago,
+    });
     try {
       const payload = {
         empresa_codigo: empresaCodigo,
