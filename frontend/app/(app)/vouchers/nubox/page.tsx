@@ -42,6 +42,7 @@ import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
+import { FieldHint } from "@/components/ui/field-hint";
 import { Currency } from "@/components/shared/Currency";
 import { CuentaTypeahead } from "@/components/vouchers/CuentaTypeahead";
 
@@ -790,7 +791,9 @@ export default function NuboxFormPage() {
 
             {/* Forma de pago */}
             <div>
-              <Label>Forma de pago *</Label>
+              <Label hint="Cómo vas a pagar este voucher: transferencia bancaria (lo más común), cheque, contado o crédito. La opción TRANSFERENCIA habilita exportar al Excel masivo desde /transferencias.">
+                Forma de pago *
+              </Label>
               <select
                 required
                 value={formaPago}
@@ -807,7 +810,9 @@ export default function NuboxFormPage() {
 
             {/* Fechas — Round 6: min/max para prevenir typos (1900/2099). */}
             <div>
-              <Label>Fecha documento *</Label>
+              <Label hint="Fecha que figura impresa en la factura/documento tributario. NO la fecha de pago. Usá la fecha de emisión real del proveedor.">
+                Fecha documento *
+              </Label>
               <input
                 required
                 type="date"
@@ -822,7 +827,9 @@ export default function NuboxFormPage() {
               </p>
             </div>
             <div>
-              <Label>Fecha vencimiento (opcional)</Label>
+              <Label hint="Fecha en que vence el plazo de pago según el documento. Si el proveedor dice 'pago a 30 días', sumá 30 días a la fecha del documento. Útil para alertas de vencimiento.">
+                Fecha vencimiento (opcional)
+              </Label>
               <input
                 type="date"
                 value={fechaVencimiento}
@@ -1147,10 +1154,19 @@ export default function NuboxFormPage() {
   );
 }
 
-function Label({ children }: { children: React.ReactNode }) {
+function Label({
+  children,
+  hint,
+}: {
+  children: React.ReactNode;
+  hint?: string;
+}) {
   return (
     <label className="block text-xs font-medium text-ink-700 dark:text-ink-300 mb-1">
-      {children}
+      <span className="inline-flex items-center gap-1.5">
+        {children}
+        {hint && <FieldHint text={hint} />}
+      </span>
     </label>
   );
 }
