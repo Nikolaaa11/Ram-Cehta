@@ -44,7 +44,11 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
-import { useProveedoresCache, useFilterProveedores } from "@/hooks/use-proveedores-cache";
+import {
+  useProveedoresCache,
+  useFilterProveedores,
+  highlightMatch,
+} from "@/hooks/use-proveedores-cache";
 import { toast } from "@/components/ui/toast";
 import { Currency } from "@/components/shared/Currency";
 import type {
@@ -989,7 +993,10 @@ function ProveedorTypeaheadNuevo({
 
   // Si el query es exactamente el nombre ya seleccionado, no resultados.
   const searchQuery = query.trim() === value.trim() ? "" : query;
-  const { results, cacheSize } = useFilterProveedores(searchQuery, 8);
+  const { results, cacheSize, totalMatches } = useFilterProveedores(
+    searchQuery,
+    8,
+  );
 
   useEffect(() => {
     setQuery(value);
@@ -1091,7 +1098,20 @@ function ProveedorTypeaheadNuevo({
                     : "hover:bg-cehta-green/10"
                 }`}
               >
-                <div className="font-medium text-ink-900">{hit.razon_social}</div>
+                <div className="font-medium text-ink-900">
+                  {highlightMatch(hit.razon_social, searchQuery).map((seg, i) =>
+                    seg.highlight ? (
+                      <mark
+                        key={i}
+                        className="bg-cehta-green/30 text-ink-900 rounded-sm px-0.5"
+                      >
+                        {seg.text}
+                      </mark>
+                    ) : (
+                      <span key={i}>{seg.text}</span>
+                    ),
+                  )}
+                </div>
                 <div className="flex items-baseline gap-2 text-xs text-ink-500">
                   {hit.rut && (
                     <span className="font-mono">{hit.rut}</span>
@@ -1105,6 +1125,11 @@ function ProveedorTypeaheadNuevo({
               </li>
             );
           })}
+          {totalMatches > results.length && (
+            <li className="border-t border-hairline bg-ink-50/60 px-3 py-1.5 text-[11px] text-ink-500">
+              Mostrando {results.length} de {totalMatches} — afiná la búsqueda
+            </li>
+          )}
         </ul>
       )}
     </div>

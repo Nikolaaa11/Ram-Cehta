@@ -62,27 +62,75 @@ export function useProveedoresCache() {
  */
 export function useFilterProveedores(query: string, limit = 8) {
   const { data: cache = [], isLoading } = useProveedoresCache();
-  const filtered = useMemo(() => {
+  // Round 51 — retornamos también `totalMatches` (cuántos coinciden en
+  // total, no solo los primeros `limit`) para que el typeahead pueda
+  // mostrar "8 de 23" cuando hay más matches que el cap visible.
+  const { filtered, totalMatches } = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) {
       // Sin query — primeros N alfabético (descubrimiento al hacer focus).
-      return cache.slice(0, limit);
+      return {
+        filtered: cache.slice(0, limit),
+        totalMatches: cache.length,
+      };
     }
     // Normalización simple: pasar a lower y quitar puntos/guiones del RUT
     // para que "12345678" matchee "12.345.678-9".
     const qNorm = q.replace(/[.\-\s]/g, "");
     const out: ProveedorCacheItem[] = [];
+    let count = 0;
     for (const p of cache) {
       const razonHit = p.razon_social.toLowerCase().includes(q);
       const rutHit = p.rut
         ? p.rut.toLowerCase().replace(/[.\-\s]/g, "").includes(qNorm)
         : false;
       if (razonHit || rutHit) {
-        out.push(p);
-        if (out.length >= limit) break;
+        count += 1;
+        if (out.length < limit) out.push(p);
       }
     }
-    return out;
+    return { filtered: out, totalMatches: count };
   }, [cache, query, limit]);
-  return { results: filtered, isLoading, cacheSize: cache.length };
+  return {
+    results: filtered,
+    isLoading,
+    cacheSize: cache.length,
+    totalMatches,
+  };
+}
+
+/**
+ * Helper para resaltar el query dentro de un string. Devuelve un array
+ * de segments {text, highlight}. El componente puede mapear esto a
+ * <span> con bold/color para mostrar la parte que matchea.
+ *
+ * Match case-insensitive. Si query vacía, devuelve un solo segment
+ * sin highlight.
+ */
+export function highlightMatch(
+  text: string,
+  query: string,
+): Array<{ text: string; highlight: boolean }> {
+  const q = query.trim();
+  if (!q || !text) return [{ text, highlight: false }];
+  const lower = text.toLowerCase();
+  const qLower = q.toLowerCase();
+  const segments: Array<{ text: string; highlight: boolean }> = [];
+  let i = 0;
+  while (i < text.length) {
+    const idx = lower.indexOf(qLower, i);
+    if (idx === -1) {
+      segments.push({ text: text.slice(i), highlight: false });
+      break;
+    }
+    if (idx > i) {
+      segments.push({ text: text.slice(i, idx), highlight: false });
+    }
+    segments.push({
+      text: text.slice(idx, idx + q.length),
+      highlight: true,
+    });
+    i = idx + q.length;
+  }
+  return segments;
 }

@@ -42,6 +42,7 @@ import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import {
   useProveedoresCache,
   useFilterProveedores,
+  highlightMatch,
 } from "@/hooks/use-proveedores-cache";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
@@ -1684,7 +1685,10 @@ function ProveedorTypeahead({
   // Si el query es exactamente el nombre ya seleccionado, no resultados
   // (evita mostrar dropdown vacío tras select).
   const searchQuery = query.trim() === value.trim() ? "" : query;
-  const { results, cacheSize } = useFilterProveedores(searchQuery, 8);
+  const { results, cacheSize, totalMatches } = useFilterProveedores(
+    searchQuery,
+    8,
+  );
 
   // Sync exterior -> interior cuando el padre setea el nombre programaticamente.
   useEffect(() => {
@@ -1799,8 +1803,21 @@ function ProveedorTypeahead({
                     : "hover:bg-cehta-green/10"
                 }`}
               >
+                {/* Round 51 — highlight del query dentro del nombre */}
                 <div className="font-medium text-ink-900 dark:text-ink-100">
-                  {hit.razon_social}
+                  {highlightMatch(hit.razon_social, searchQuery).map(
+                    (seg, i) =>
+                      seg.highlight ? (
+                        <mark
+                          key={i}
+                          className="bg-cehta-green/30 text-ink-900 dark:text-ink-100 rounded-sm px-0.5"
+                        >
+                          {seg.text}
+                        </mark>
+                      ) : (
+                        <span key={i}>{seg.text}</span>
+                      ),
+                  )}
                 </div>
                 <div className="flex items-baseline gap-2 text-xs text-ink-500">
                   {hit.rut && (
@@ -1816,6 +1833,12 @@ function ProveedorTypeahead({
               </li>
             );
           })}
+          {/* Round 51 — footer con conteo cuando hay más matches que el cap */}
+          {totalMatches > results.length && (
+            <li className="border-t border-hairline bg-ink-50/60 dark:bg-ink-800/60 px-3 py-1.5 text-[11px] text-ink-500">
+              Mostrando {results.length} de {totalMatches} resultados — afiná la búsqueda
+            </li>
+          )}
         </ul>
       )}
     </div>
