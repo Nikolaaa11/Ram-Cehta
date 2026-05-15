@@ -46,7 +46,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -55,6 +55,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.limiter import limiter
 from app.core.security import AuthenticatedUser
 from app.services.audit_service import audit_log
 from app.services.empresa_scope_service import EmpresaScopeDep
@@ -242,7 +243,9 @@ def _build_workbook(
     "/transferencia-masiva",
     dependencies=[Depends(require_scope("voucher:execute"))],
 )
+@limiter.limit("5/minute")
 async def export_transferencia_masiva(
+    request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("voucher:execute"))],
     db: DBSession,
     scope: EmpresaScopeDep,

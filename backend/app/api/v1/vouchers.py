@@ -68,6 +68,7 @@ from app.services.empresa_scope_service import (
 )
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.core.limiter import limiter
 from app.core.security import AuthenticatedUser
 from app.models.voucher import (
     Voucher,
@@ -2921,6 +2922,7 @@ async def execute_voucher(
     response_model=BulkExecuteResponse,
     dependencies=[Depends(require_scope("voucher:execute"))],
 )
+@limiter.limit("10/minute")
 async def bulk_execute_vouchers(
     user: Annotated[AuthenticatedUser, Depends(require_scope("voucher:execute"))],
     db: DBSession,
@@ -3285,6 +3287,7 @@ class BulkApproveResponse(BaseModel):
     response_model=BulkApproveResponse,
     dependencies=[Depends(require_scope("legal:write"))],
 )
+@limiter.limit("10/minute")
 async def bulk_approve_vouchers(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
