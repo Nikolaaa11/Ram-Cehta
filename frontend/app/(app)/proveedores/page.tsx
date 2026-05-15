@@ -150,6 +150,11 @@ export default function ProveedoresPage() {
       );
       await queryClient.invalidateQueries({ queryKey: ["proveedores-duplicates"] });
       await queryClient.invalidateQueries({ queryKey: ["proveedores"] });
+      // QA fix 14/05/2026 — la fusión mueve vouchers + OCs entre
+      // proveedores. Las listas en /vouchers y /ordenes-compra
+      // quedaban stale (contraparte_nombre del source seguía mostrándose).
+      await queryClient.invalidateQueries({ queryKey: ["vouchers"] });
+      await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.detail : "Error al fusionar el proveedor.",

@@ -1056,7 +1056,15 @@ function CreateLpDocumentDialog({
           disabled={loading || !nombre.trim()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
         >
-          {loading ? "Cargando…" : "Agregar documento"}
+          {/* QA fix 14/05/2026 — Loader2 spinning en lugar de string plain. */}
+          {loading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+              Agregando…
+            </>
+          ) : (
+            "Agregar documento"
+          )}
         </button>
       </form>
     </div>

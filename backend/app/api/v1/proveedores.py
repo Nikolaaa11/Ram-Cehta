@@ -439,7 +439,10 @@ async def get_proveedor(
     repo = ProveedorRepository(db)
     proveedor = await repo.get(proveedor_id)
     if not proveedor or not proveedor.activo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proveedor {proveedor_id} no encontrado o inactivo",
+        )
     return ProveedorRead.model_validate(proveedor)
 
 
@@ -454,7 +457,10 @@ async def update_proveedor(
     repo = ProveedorRepository(db)
     proveedor = await repo.get(proveedor_id)
     if not proveedor or not proveedor.activo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proveedor {proveedor_id} no encontrado o inactivo",
+        )
     if body.rut:
         existing = await repo.get_by_rut(body.rut)
         if existing and existing.proveedor_id != proveedor_id:
@@ -491,7 +497,10 @@ async def delete_proveedor(
     repo = ProveedorRepository(db)
     proveedor = await repo.get(proveedor_id)
     if not proveedor or not proveedor.activo:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No encontrado")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proveedor {proveedor_id} no encontrado o inactivo",
+        )
     before = ProveedorRead.model_validate(proveedor).model_dump(mode="json")
     nombre = before.get("razon_social")
     await repo.soft_delete(proveedor)
