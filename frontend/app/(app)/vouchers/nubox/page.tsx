@@ -684,6 +684,31 @@ export default function NuboxFormPage() {
     },
   });
 
+  // Round 34 — autofocus inteligente al cargar el form. Si ya tenemos
+  // empresa pre-seleccionada (config persistente de Round 33), enfocamos
+  // numero_documento (el campo que sí cambia). Si no, foco al combo
+  // empresa. Skip si hay draft restaurado para no robarle foco al user
+  // que está viendo qué tiene cargado.
+  useEffect(() => {
+    if (loading || !meta) return;
+    if (hasSaved) return; // draft restaurado → respetar lo que tiene
+    const t = window.setTimeout(() => {
+      if (empresaCodigo) {
+        const el = document.querySelector<HTMLInputElement>(
+          'input[name="numero_documento"]',
+        );
+        el?.focus();
+      } else {
+        const el = document.querySelector<HTMLSelectElement>(
+          'select[name="empresa_codigo"]',
+        );
+        el?.focus();
+      }
+    }, 50);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, meta, hasSaved]);
+
   if (loading) {
     return (
       <div className="p-6 text-center text-ink-500">Cargando metadata…</div>
@@ -721,8 +746,13 @@ export default function NuboxFormPage() {
             Compra con factura proveedor. Σ Contable = Σ Financiera (partida
             doble). Inicia en DRAFT y requiere aprobación de Líder + Director.
             <span className="ml-2 hidden text-xs text-ink-400 sm:inline">
-              · Atajos: <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘S</kbd> guardar ·{" "}
-              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘↵</kbd> agregar línea
+              · Atajos:{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘S</kbd>{" "}
+              guardar ·{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘⇧S</kbd>{" "}
+              guardar y crear otro ·{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘↵</kbd>{" "}
+              agregar línea
             </span>
           </p>
         </div>
@@ -779,6 +809,10 @@ export default function NuboxFormPage() {
               <Label>Empresa origen *</Label>
               <select
                 required
+                /* Round 34 — name="empresa_codigo" para que el autofocus
+                   al cargar pueda enfocar este combo cuando no hay
+                   empresa pre-seleccionada. */
+                name="empresa_codigo"
                 value={empresaCodigo}
                 onChange={(e) => setEmpresaCodigo(e.target.value)}
                 className="form-input"
