@@ -32,6 +32,7 @@ import {
   Package,
   RotateCcw,
   Search,
+  Trash2,
   Sparkles,
   Wallet,
   X,
@@ -445,6 +446,61 @@ export function VouchersClientView({
     [filteredVouchers],
   );
   const hasPendingVisible = pendingVisible.length > 0;
+  // Etapa K — bulk-delete drafts: solo aplica si TODOS los seleccionados
+  // son DRAFT (evita confusion: un mix DRAFT+PENDING no se borra parcial).
+  const selectedItems = useMemo(
+    () => filteredVouchers.filter((v) => selectedIds.has(v.voucher_id)),
+    [filteredVouchers, selectedIds],
+  );
+  const allSelectedAreDrafts =
+    selectedItems.length > 0 &&
+    selectedItems.every((v) => v.status === "DRAFT");
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleteRunning, setBulkDeleteRunning] = useState(false);
+  const runBulkDeleteDrafts = async (ids: number[]) => {
+    if (!session) return;
+    setBulkDeleteRunning(true);
+    try {
+      const resp = await apiClient.post<{
+        succeeded: number;
+        failed: number;
+        deleted_codes: string[];
+        failures: Array<{ voucher_id: number; codigo?: string; reason: string }>;
+      }>(
+        "/vouchers/bulk-delete-drafts",
+        { voucher_ids: ids },
+        session,
+      );
+      if (resp.failed === 0) {
+        toast.success(`✓ ${resp.succeeded} borradores eliminados`);
+      } else {
+        toast.info(
+          `${resp.succeeded} eliminados · ${resp.failed} fallaron`,
+          { duration: 10000 },
+        );
+        for (const f of resp.failures.slice(0, 3)) {
+          toast.error(`${f.codigo ?? f.voucher_id}: ${f.reason}`, {
+            duration: 8000,
+          });
+        }
+      }
+      setSelectedIds(new Set());
+      setBulkDeleteOpen(false);
+      qc.invalidateQueries({ queryKey: ["vouchers"] });
+      qc.invalidateQueries({ queryKey: ["vouchers-kpis"] });
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudieron borrar los drafts",
+        { duration: 10000 },
+      );
+    } finally {
+      setBulkDeleteRunning(false);
+    }
+  };
   const selectedTotal = useMemo(() => {
     let sum = 0;
     for (const v of filteredVouchers) {
@@ -928,16 +984,18 @@ export function VouchersClientView({
                   tabla. z-10 evita que badges/checkboxes lo tapen. */}
               <thead className="sticky top-0 z-10 bg-ink-50/95 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 backdrop-blur-sm">
                 <tr>
-                  {hasPendingVisible && (
+                  {(hasPendingVisible || estadoFilter === "DRAFT") && (
                     <th className="w-8 px-3 py-3">
-                      <input
-                        type="checkbox"
-                        checked={allPendingSelected}
-                        onChange={toggleSelectAllPending}
-                        aria-label="Seleccionar todos los PENDING visibles"
-                        title="Seleccionar todos los PENDING visibles"
-                        className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
-                      />
+                      {hasPendingVisible && (
+                        <input
+                          type="checkbox"
+                          checked={allPendingSelected}
+                          onChange={toggleSelectAllPending}
+                          aria-label="Seleccionar todos los PENDING visibles"
+                          title="Seleccionar todos los PENDING visibles"
+                          className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
+                        />
+                      )}
                     </th>
                   )}
                   <th className="px-4 py-3">Código</th>
@@ -973,9 +1031,14 @@ export function VouchersClientView({
                         router.prefetch(`/vouchers/${v.voucher_id}` as Route);
                       }}
                     >
-                      {hasPendingVisible && (
+                      {/* Etapa K — columna selector visible si hay PENDING
+                          (firma masiva) o si el filtro es DRAFT (limpieza
+                          masiva). Cada fila habilita su checkbox segun status. */}
+                      {(hasPendingVisible || estadoFilter === "DRAFT") && (
                         <td className="w-8 px-3 py-3">
-                          {v.status === "PENDING" && (
+                          {(v.status === "PENDING" ||
+                            (v.status === "DRAFT" &&
+                              estadoFilter === "DRAFT")) && (
                             <input
                               type="checkbox"
                               checked={selectedIds.has(v.voucher_id)}
@@ -1058,9 +1121,10 @@ export function VouchersClientView({
         )}
       </div>
 
-      {/* Sticky bottom bulk-action bar — solo visible si hay PENDING en la
-          lista filtrada Y hay items seleccionados. */}
-      {hasPendingVisible && selectedIds.size > 0 && (
+      {/* Sticky bottom bulk-action bar. Aparece cuando:
+          - Hay seleccion (selectedIds.size > 0) Y
+          - Hay PENDING para firmar  O  todos los selected son DRAFT (Etapa K) */}
+      {selectedIds.size > 0 && (hasPendingVisible || allSelectedAreDrafts) && (
         <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 pointer-events-none">
           <div className="pointer-events-auto flex flex-wrap items-center gap-3 rounded-2xl border border-cehta-green/30 bg-white/95 px-4 py-3 shadow-elevated-lg ring-1 ring-cehta-green/10 backdrop-blur-md">
             <FileSignature
@@ -1077,15 +1141,32 @@ export function VouchersClientView({
               <span>Σ total:</span>
               <Currency value={selectedTotal} moneda="CLP" size="sm" />
             </span>
-            <button
-              type="button"
-              onClick={() => setBulkConfirmOpen(true)}
-              disabled={bulkRunning}
-              className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-50"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
-              Firmar todos
-            </button>
+            {/* Etapa K — boton bulk delete: solo aparece si TODOS los
+                seleccionados son DRAFT. Si hay mix (DRAFT + PENDING), no
+                lo mostramos para evitar accion ambigua. */}
+            {allSelectedAreDrafts && (
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(true)}
+                disabled={bulkDeleteRunning || bulkRunning}
+                className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-negative px-3 py-1.5 text-xs font-semibold text-white shadow-card hover:bg-negative/90 disabled:opacity-50"
+                title="Eliminar definitivamente los borradores seleccionados"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={2} />
+                Borrar drafts
+              </button>
+            )}
+            {hasPendingVisible && (
+              <button
+                type="button"
+                onClick={() => setBulkConfirmOpen(true)}
+                disabled={bulkRunning}
+                className="ml-2 inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-50"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
+                Firmar todos
+              </button>
+            )}
             {/* Round 6: Bulk PDF — descarga N PDFs en un ZIP. Use case
                 cierre mensual. Backend cap 50 IDs por request. */}
             <button
@@ -1249,6 +1330,70 @@ export function VouchersClientView({
                   <CheckCircle2 className="h-4 w-4" strokeWidth={2} />
                 )}
                 Confirmar firma
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Etapa K — Modal de confirmacion bulk delete drafts */}
+      {bulkDeleteOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 px-4 backdrop-blur-sm"
+          onClick={() => {
+            if (!bulkDeleteRunning) setBulkDeleteOpen(false);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-hairline bg-white p-6 shadow-elevated-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-negative">
+              <Trash2 className="size-3.5" />
+              Acción destructiva
+            </div>
+            <h2 className="mt-2 font-display text-lg font-semibold tracking-tight text-ink-900">
+              Borrar {selectedIds.size} borrador
+              {selectedIds.size === 1 ? "" : "es"}
+            </h2>
+            <p className="mt-1 text-sm text-ink-600">
+              Vas a eliminar definitivamente{" "}
+              <span className="font-semibold text-ink-900">
+                {selectedIds.size} voucher
+                {selectedIds.size === 1 ? "" : "s"}
+              </span>{" "}
+              en estado <span className="font-semibold">DRAFT</span>. Las
+              líneas contables y adjuntos vinculados se eliminan junto con
+              cada voucher.
+            </p>
+            <div className="mt-3 rounded-lg bg-negative/5 px-3 py-2 text-xs text-negative ring-1 ring-negative/20">
+              ⚠ <strong>No se puede deshacer.</strong> Si querés anular un
+              voucher ya enviado (PENDING+), usá la acción "Anular" en su
+              detalle (queda en historial).
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(false)}
+                disabled={bulkDeleteRunning}
+                className="rounded-lg border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => runBulkDeleteDrafts(Array.from(selectedIds))}
+                disabled={bulkDeleteRunning}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-negative px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-negative/90 disabled:opacity-50"
+              >
+                {bulkDeleteRunning ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" strokeWidth={2} />
+                )}
+                Eliminar definitivamente
               </button>
             </div>
           </div>

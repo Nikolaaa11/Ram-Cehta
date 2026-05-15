@@ -3165,6 +3165,122 @@ async def bulk_execute_vouchers(
 
 
 # ============================================================================
+# Etapa K — bulk-delete-drafts: limpieza de borradores acumulados
+# ============================================================================
+
+
+class BulkDeleteDraftsRequest(BaseModel):
+    """POST /vouchers/bulk-delete-drafts — borrar N vouchers en estado DRAFT.
+
+    Solo procesa los que efectivamente esten en DRAFT (skip los que cambiaron
+    de estado entre la seleccion y la ejecucion). Otros estados van a
+    `failures`. No tocamos PENDING+ (esos requieren VOID).
+    """
+
+    voucher_ids: list[int] = Field(min_length=1, max_length=200)
+
+
+class BulkDeleteDraftsResponse(BaseModel):
+    succeeded: int
+    failed: int
+    deleted_codes: list[str] = []
+    failures: list[dict] = []
+
+
+@router.post(
+    "/vouchers/bulk-delete-drafts",
+    response_model=BulkDeleteDraftsResponse,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+@limiter.limit("10/minute")
+async def bulk_delete_drafts(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    request: Request,
+    body: BulkDeleteDraftsRequest,
+) -> BulkDeleteDraftsResponse:
+    """Etapa K — limpia DRAFT acumulados que el operador nunca envio a aprobacion.
+
+    Caso de uso: import IA crea 30 borradores, 15 son utiles y 15 son
+    duplicados/incorrectos. Borrarlos uno por uno = 15 clicks + 15 confirms.
+    Aca = 1 modal con N IDs.
+
+    Validaciones por voucher (errores van a failures, no rompen lote):
+      - existe + scope
+      - status DRAFT (otros van a failures con razon explicita)
+    """
+    succeeded: list[str] = []
+    failures: list[dict] = []
+
+    for vid in body.voucher_ids:
+        try:
+            v = await db.get(Voucher, vid)
+            if v is None:
+                failures.append({"voucher_id": vid, "reason": "No encontrado"})
+                continue
+            try:
+                await assert_empresa_access(user, db, v.empresa_codigo)
+            except HTTPException:
+                failures.append(
+                    {
+                        "voucher_id": vid,
+                        "codigo": v.codigo,
+                        "reason": f"Sin acceso a empresa {v.empresa_codigo}",
+                    }
+                )
+                continue
+            if v.status != "DRAFT":
+                failures.append(
+                    {
+                        "voucher_id": vid,
+                        "codigo": v.codigo,
+                        "reason": (
+                            f"Status {v.status} — solo DRAFT puede borrarse. "
+                            "Para anular usar void."
+                        ),
+                    }
+                )
+                continue
+            codigo_prev = v.codigo
+            empresa_prev = v.empresa_codigo
+            await db.delete(v)
+            await db.commit()
+            succeeded.append(codigo_prev)
+            try:
+                await audit_log(
+                    db, request, user,
+                    action="delete_bulk",
+                    entity_type="voucher",
+                    entity_id=str(vid),
+                    entity_label=codigo_prev,
+                    summary=(
+                        f"Voucher {codigo_prev} DRAFT borrado en bulk "
+                        f"({empresa_prev})"
+                    ),
+                    before={"status": "DRAFT"},
+                    after={"deleted": True, "via": "bulk"},
+                )
+            except Exception:
+                pass
+        except Exception as exc:
+            await db.rollback()
+            import structlog
+            structlog.get_logger(__name__).warning(
+                "bulk_delete_voucher_failed",
+                voucher_id=vid,
+                error=str(exc),
+            )
+            failures.append({"voucher_id": vid, "reason": "Error interno"})
+
+    return BulkDeleteDraftsResponse(
+        succeeded=len(succeeded),
+        failed=len(failures),
+        deleted_codes=succeeded,
+        failures=failures,
+    )
+
+
+# ============================================================================
 # AI auto-fill — V5++: crear voucher DRAFT desde factura PDF en Dropbox
 # ============================================================================
 

@@ -17,7 +17,14 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Inbox, Receipt, Bell } from "lucide-react";
+import {
+  LayoutDashboard,
+  FileSignature,
+  Inbox,
+  Receipt,
+  Bell,
+  Wallet,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 
@@ -35,6 +42,8 @@ interface NavItem {
     | "voucher_total";
 }
 
+// Etapa L — 5 destinos optimizados para uso diario del modulo voucher:
+// reemplazado F22 (uso anual) por Aprobaciones y Transferencias.
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/mis-pendientes" as Route,
@@ -44,10 +53,11 @@ const NAV_ITEMS: NavItem[] = [
     badgeKey: "voucher_total", // drafts + pending
   },
   {
-    href: "/dashboard" as Route,
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    matchPrefix: "/dashboard",
+    href: "/aprobaciones" as Route,
+    label: "Firmar",
+    icon: FileSignature,
+    matchPrefix: "/aprobaciones",
+    badgeKey: "voucher_pending_approvals",
   },
   {
     href: "/vouchers" as Route,
@@ -56,17 +66,16 @@ const NAV_ITEMS: NavItem[] = [
     matchPrefix: "/vouchers",
   },
   {
-    href: "/admin/mailbox" as Route,
-    label: "Mailbox",
-    icon: Inbox,
-    matchPrefix: "/admin/mailbox",
-    badgeKey: "mailbox_pending",
+    href: "/transferencias" as Route,
+    label: "Pagos",
+    icon: Wallet,
+    matchPrefix: "/transferencias",
   },
   {
-    href: "/f22" as Route,
-    label: "F22",
-    icon: FileText,
-    matchPrefix: "/f22",
+    href: "/dashboard" as Route,
+    label: "Inicio",
+    icon: LayoutDashboard,
+    matchPrefix: "/dashboard",
   },
 ];
 
