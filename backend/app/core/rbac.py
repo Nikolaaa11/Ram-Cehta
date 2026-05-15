@@ -67,6 +67,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "lp:read", "lp:create", "lp:update", "lp:delete",
         "informe_lp:read", "informe_lp:create", "informe_lp:update",
         "informe_lp:publish", "informe_lp:delete",
+        # Vouchers — Round 39 fix: estos scopes son referenciados por
+        # endpoints (POST /vouchers, /submit, /execute, /transferencia-masiva)
+        # pero faltaban en la matriz. Admin tiene full acceso.
+        "voucher:read", "voucher:write", "voucher:execute",
     }),
     "finance": frozenset({
         "oc:read", "oc:create", "oc:update", "oc:approve", "oc:mark_paid",
@@ -97,6 +101,10 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         # (publicar = mandar email al LP, decisión del GP).
         "lp:read", "lp:create", "lp:update",
         "informe_lp:read", "informe_lp:create", "informe_lp:update",
+        # Vouchers — Round 39 fix: finance es el rol operativo (Nicolas y
+        # equipo de tesorería) que crea, edita y marca como ejecutadas las
+        # transferencias bancarias. Admin sigue teniendo todo además.
+        "voucher:read", "voucher:write", "voucher:execute",
     }),
     "viewer": frozenset({
         "oc:read",
@@ -115,6 +123,8 @@ ROLE_SCOPES: dict[str, frozenset[str]] = {
         "fondo:read",
         # AI Document Analyzer — viewer también puede analizar (no muta nada).
         "document:analyze",
+        # Vouchers — Round 39: viewer read-only para auditoría externa.
+        "voucher:read",
         # NO audit:read, NO user:* — privacy / least privilege.
     }),
 }
