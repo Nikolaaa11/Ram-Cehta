@@ -309,30 +309,46 @@ export default function NuevoLpPage() {
             {/* Capital */}
             <Section title="Capital">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Field
-                  label="Aporte total comprometido (CLP)"
-                  type="number"
-                  value={String(form.aporte_total ?? "")}
-                  onChange={(v) =>
-                    setForm({
-                      ...form,
-                      aporte_total: v ? Number(v) : null,
-                    })
-                  }
-                  placeholder="500000000"
-                />
-                <Field
-                  label="Aporte ya integrado (CLP)"
-                  type="number"
-                  value={String(form.aporte_actual ?? "")}
-                  onChange={(v) =>
-                    setForm({
-                      ...form,
-                      aporte_actual: v ? Number(v) : null,
-                    })
-                  }
-                  placeholder="300000000"
-                />
+                <div>
+                  <Field
+                    label="Aporte total comprometido (CLP)"
+                    type="number"
+                    value={String(form.aporte_total ?? "")}
+                    onChange={(v) =>
+                      setForm({
+                        ...form,
+                        aporte_total: v ? Number(v) : null,
+                      })
+                    }
+                    placeholder="500000000"
+                  />
+                  {/* Round 6 — live preview formateado para evitar typing
+                      un cero extra sin notar en montos MM CLP. */}
+                  {form.aporte_total != null && form.aporte_total > 0 && (
+                    <p className="mt-1 text-[11px] tabular-nums text-ink-500">
+                      = ${form.aporte_total.toLocaleString("es-CL")} CLP
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Field
+                    label="Aporte ya integrado (CLP)"
+                    type="number"
+                    value={String(form.aporte_actual ?? "")}
+                    onChange={(v) =>
+                      setForm({
+                        ...form,
+                        aporte_actual: v ? Number(v) : null,
+                      })
+                    }
+                    placeholder="300000000"
+                  />
+                  {form.aporte_actual != null && form.aporte_actual > 0 && (
+                    <p className="mt-1 text-[11px] tabular-nums text-ink-500">
+                      = ${form.aporte_actual.toLocaleString("es-CL")} CLP
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Empresas en cartera */}

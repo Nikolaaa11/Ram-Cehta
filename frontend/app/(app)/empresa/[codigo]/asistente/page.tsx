@@ -209,7 +209,17 @@ export default function EmpresaAsistentePage({
             setStreamMessages([]);
           }}
           onCreate={() => createMutation.mutate()}
-          onDelete={(id) => deleteMutation.mutate(id)}
+          onDelete={(id) => {
+            // Round 6 — destructive op: confirmar antes de borrar el hilo
+            // de conversacion. Antes era un click destructivo inmediato.
+            if (
+              confirm(
+                "Borrar esta conversación con el asistente? Se pierden todos los mensajes y no se puede recuperar.",
+              )
+            ) {
+              deleteMutation.mutate(id);
+            }
+          }}
         />
         <IndexStatus
           status={indexQ.data ?? null}

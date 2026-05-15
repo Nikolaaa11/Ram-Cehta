@@ -147,6 +147,23 @@ export default function NuboxFormPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // Round 6 — limites razonables de fecha para evitar typos catastroficos
+  // (ej. 1900-01-01 o 2099-12-31 por dedo gordo). 5 anos atras cubre el
+  // ciclo contable, 7d adelante cubre documentos emitidos con fecha futura
+  // proxima (raro pero legitimo). Si el user necesita salirse de estos
+  // limites, lo hace cambiando la fecha en otro flujo.
+  const today = new Date().toISOString().slice(0, 10);
+  const minDate = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 5);
+    return d.toISOString().slice(0, 10);
+  })();
+  const maxDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  })();
+
   // Header state
   const [empresaCodigo, setEmpresaCodigo] = useState("");
   const [proveedorRut, setProveedorRut] = useState("");
@@ -777,25 +794,36 @@ export default function NuboxFormPage() {
               </select>
             </div>
 
-            {/* Fechas */}
+            {/* Fechas — Round 6: min/max para prevenir typos (1900/2099). */}
             <div>
               <Label>Fecha documento *</Label>
               <input
                 required
                 type="date"
                 value={fechaDocumento}
+                min={minDate}
+                max={maxDate}
                 onChange={(e) => setFechaDocumento(e.target.value)}
                 className="form-input"
               />
+              <p className="mt-1 text-[10px] text-ink-500">
+                Hoy: {today}. Permitido entre {minDate} y {maxDate}.
+              </p>
             </div>
             <div>
               <Label>Fecha vencimiento (opcional)</Label>
               <input
                 type="date"
                 value={fechaVencimiento}
+                min={fechaDocumento || minDate}
                 onChange={(e) => setFechaVencimiento(e.target.value)}
                 className="form-input"
               />
+              {fechaDocumento && (
+                <p className="mt-1 text-[10px] text-ink-500">
+                  Debe ser igual o posterior a la fecha del documento.
+                </p>
+              )}
             </div>
 
             {/* Documento Dropbox path */}

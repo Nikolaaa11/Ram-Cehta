@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useDebounce } from "@/hooks/use-debounce";
 import { toast } from "@/components/ui/toast";
 import { exportCsv, csvFilename } from "@/lib/csv-export";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
@@ -322,14 +323,18 @@ export function VouchersClientView({
   });
 
   // V5++ ola V: full-text search server-side cuando el query tiene 3+ chars.
+  // Round 6 — debounce 300ms para no spamear el endpoint server-side
+  // mientras el user tipea. Antes cada keystroke (>=3 chars) hacia un
+  // round-trip. Con 300ms, "voucher AAA" (10 chars) hace 1 fetch.
+  const debouncedSearch = useDebounce(search.trim(), 300);
   // Para queries cortos o sin search, usamos el filtro local sobre la lista
   // ya cargada (rápido, sin round-trip).
-  const useServerSearch = search.trim().length >= 3;
+  const useServerSearch = debouncedSearch.length >= 3;
   const { data: searchResults } = useQuery<VoucherListItem[]>({
-    queryKey: ["vouchers-search", search.trim()],
+    queryKey: ["vouchers-search", debouncedSearch],
     queryFn: () =>
       apiClient.get<VoucherListItem[]>(
-        `/vouchers/search?q=${encodeURIComponent(search.trim())}&limit=100`,
+        `/vouchers/search?q=${encodeURIComponent(debouncedSearch)}&limit=100`,
         session,
       ),
     enabled: !!session && useServerSearch,
