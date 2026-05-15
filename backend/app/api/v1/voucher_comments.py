@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 
@@ -277,13 +277,14 @@ async def patch_voucher_comment(
 @router.delete(
     "/vouchers/{voucher_id}/comments/{comment_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
 )
 async def delete_voucher_comment(
     user: CurrentUser,
     db: DBSession,
     voucher_id: int,
     comment_id: int,
-) -> None:
+) -> Response:
     """Borra el comment. Solo el autor puede."""
     voucher = await db.get(Voucher, voucher_id)
     if voucher is None:
@@ -321,3 +322,4 @@ async def delete_voucher_comment(
         {"cid": comment_id},
     )
     await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
