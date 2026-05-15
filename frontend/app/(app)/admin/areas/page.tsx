@@ -117,7 +117,13 @@ export default function AreasPage() {
       if (ctx?.previous) {
         qc.setQueryData(["areas-empresas-matrix"], ctx.previous);
       }
-      toast.error(err instanceof ApiError ? err.detail : "Error");
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudo actualizar el área. Reintentá.",
+      );
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["areas-empresas-matrix"] });

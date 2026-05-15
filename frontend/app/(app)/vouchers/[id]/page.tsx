@@ -1002,7 +1002,13 @@ function VoidDialog({
       toast.success("Voucher anulado");
       onSuccess();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.detail : "Error");
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudo anular el voucher. Reintentá en unos segundos.",
+      );
     } finally {
       setLoading(false);
     }

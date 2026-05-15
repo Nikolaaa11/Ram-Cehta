@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
@@ -61,6 +62,7 @@ const inputError = "ring-negative focus:ring-negative";
 export default function NuevoProveedorPage() {
   const router = useRouter();
   const { session } = useSession();
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState<Partial<ProveedorCreate>>({});
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -105,6 +107,9 @@ export default function NuevoProveedorPage() {
 
     try {
       await apiClient.post("/proveedores", form, session);
+      // Round 5 — invalidar cache para que la lista incluya el nuevo proveedor
+      // en vez de quedar con el snapshot stale.
+      queryClient.invalidateQueries({ queryKey: ["proveedores"] });
       router.push("/proveedores");
     } catch (err) {
       if (err instanceof ApiError) {

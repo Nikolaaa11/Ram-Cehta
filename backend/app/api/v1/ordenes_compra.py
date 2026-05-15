@@ -188,9 +188,23 @@ async def create_oc(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"OC {body.numero_oc} ya existe para empresa {body.empresa_codigo}",
         ) from exc
-    oc = await repo.get(oc.oc_id)  # re-fetch para cargar items via selectin
+    oc_id_created = oc.oc_id
+    oc = await repo.get(oc_id_created)  # re-fetch para cargar items via selectin
     if not oc:
-        raise HTTPException(status_code=500, detail="Error al recuperar OC creada")
+        import structlog
+        structlog.get_logger(__name__).error(
+            "oc_refetch_failed_after_create",
+            oc_id=oc_id_created,
+            empresa=body.empresa_codigo,
+            numero_oc=body.numero_oc,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"OC #{oc_id_created} creada pero no se pudo recargar para "
+                "devolver. Refrescá la lista en unos segundos."
+            ),
+        )
     after = _to_read(user, oc).model_dump(mode="json")
     await audit_log(
         db,
@@ -496,9 +510,22 @@ async def duplicate_oc(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"OC {body.numero_oc} ya existe para empresa {original.empresa_codigo}",
         ) from exc
-    new_oc = await repo.get(new_oc.oc_id)
+    new_oc_id = new_oc.oc_id
+    new_oc = await repo.get(new_oc_id)
     if not new_oc:  # pragma: no cover — invariant
-        raise HTTPException(status_code=500, detail="Error al recuperar OC duplicada")
+        import structlog
+        structlog.get_logger(__name__).error(
+            "oc_refetch_failed_after_duplicate",
+            new_oc_id=new_oc_id,
+            source_oc_id=oc_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"OC #{new_oc_id} duplicada pero no se pudo recargar. "
+                "Refrescá la lista para verla."
+            ),
+        )
     after = _to_read(user, new_oc).model_dump(mode="json")
     await audit_log(
         db,
@@ -562,7 +589,18 @@ async def update_oc(
     # re-fetch para refrescar items via selectin
     refreshed = await repo.get(oc_id)
     if not refreshed:  # pragma: no cover — invariant
-        raise HTTPException(status_code=500, detail="Error al recuperar OC editada")
+        import structlog
+        structlog.get_logger(__name__).error(
+            "oc_refetch_failed_after_edit",
+            oc_id=oc_id,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"OC #{oc_id} editada pero no se pudo recargar. "
+                "Refrescá la pagina para ver los cambios."
+            ),
+        )
     after = _to_read(user, refreshed).model_dump(mode="json")
     await audit_log(
         db,

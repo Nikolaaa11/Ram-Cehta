@@ -146,9 +146,26 @@ async def create_template(
             detail=f"Empresa '{body.empresa_codigo}' no existe o está inactiva",
         )
 
-    # Verificar que cada cuenta exista + sea imputable
+    # Verificar que cada cuenta exista + sea imputable.
+    # Round 5 fix N+1: batchear con WHERE codigo = ANY(:codes) y validar en
+    # memoria. Antes hacia 1 query por linea (5-20 queries por template).
+    cuenta_codes = list({line.cuenta_codigo for line in body.lines})
+    cuentas_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT codigo, imputable, activa
+                FROM core.plan_cuentas
+                WHERE codigo = ANY(:codes)
+                """
+            ),
+            {"codes": cuenta_codes},
+        )
+    ).mappings().all()
+    cuentas_map = {c["codigo"]: c for c in cuentas_rows}
+
     for line in body.lines:
-        cuenta = await fetch_cuenta_metadata(db, line.cuenta_codigo)
+        cuenta = cuentas_map.get(line.cuenta_codigo)
         if cuenta is None or not cuenta["imputable"] or not cuenta["activa"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

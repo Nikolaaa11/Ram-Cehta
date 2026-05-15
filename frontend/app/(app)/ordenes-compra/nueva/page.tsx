@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft, Cloud, Plus, Trash2 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
@@ -54,6 +55,7 @@ const MONEDAS: ComboboxItem[] = [
 export default function NuevaOcPage() {
   const router = useRouter();
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const { data: empresas = [] } = useCatalogoEmpresas();
 
   const [empresaCodigo, setEmpresaCodigo] = useState("");
@@ -284,6 +286,10 @@ export default function NuevaOcPage() {
         session,
       );
       clearDraft();
+      // Round 5 — invalidar cache para que la lista refresque al volver.
+      queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
+      queryClient.invalidateQueries({ queryKey: ["oc-kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-state"] });
       router.push(`/ordenes-compra/${created.oc_id}`);
     } catch (err) {
       setError(

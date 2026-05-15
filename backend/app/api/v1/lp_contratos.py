@@ -206,25 +206,51 @@ async def list_contratos(
 async def contratos_summary(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
 ) -> dict:
-    """KPIs del fondo: Σ UF comprometidas, % meta, breakdown por estado/serie."""
-    by_estado = (
-        await db.execute(
-            select(LpContrato.estado, sql_func.count(), sql_func.sum(LpContrato.uf_comprometidas))
-            .group_by(LpContrato.estado)
-        )
-    ).all()
+    """KPIs del fondo: Σ UF comprometidas, % meta, breakdown por estado/serie.
 
-    by_serie = (
-        await db.execute(
-            select(LpContrato.serie, sql_func.sum(LpContrato.uf_comprometidas))
-            .group_by(LpContrato.serie)
-        )
-    ).all()
+    Round 5 fix: aplicar scope multi-tenant. Sin esto un user con acceso a
+    UN solo fondo veia los KPIs (META_UF, exceso, total comprometido) de
+    TODO el portfolio del sistema. Ahora cada query filtra por
+    fondo_codigo IN scope.allowed_codes; admin global ve todo.
+    """
+    # Build base WHERE clause segun scope
+    scope_filter = None
+    if not scope.is_global:
+        allowed = list(scope.allowed_codes or [])
+        if not allowed:
+            # Sin acceso a ningun fondo → KPIs todos en 0.
+            return {
+                "meta_uf": float(META_UF_FONDO),
+                "total_uf_comprometidas": 0.0,
+                "pct_meta": 0.0,
+                "exceso_uf": 0.0,
+                "by_estado": [],
+                "by_serie": [],
+            }
+        scope_filter = LpContrato.fondo_codigo.in_(allowed)
 
-    total_uf = await db.scalar(
-        select(sql_func.coalesce(sql_func.sum(LpContrato.uf_comprometidas), 0))
-    ) or Decimal("0")
+    by_estado_stmt = (
+        select(LpContrato.estado, sql_func.count(), sql_func.sum(LpContrato.uf_comprometidas))
+        .group_by(LpContrato.estado)
+    )
+    if scope_filter is not None:
+        by_estado_stmt = by_estado_stmt.where(scope_filter)
+    by_estado = (await db.execute(by_estado_stmt)).all()
+
+    by_serie_stmt = (
+        select(LpContrato.serie, sql_func.sum(LpContrato.uf_comprometidas))
+        .group_by(LpContrato.serie)
+    )
+    if scope_filter is not None:
+        by_serie_stmt = by_serie_stmt.where(scope_filter)
+    by_serie = (await db.execute(by_serie_stmt)).all()
+
+    total_stmt = select(sql_func.coalesce(sql_func.sum(LpContrato.uf_comprometidas), 0))
+    if scope_filter is not None:
+        total_stmt = total_stmt.where(scope_filter)
+    total_uf = await db.scalar(total_stmt) or Decimal("0")
 
     pct_meta = (Decimal(total_uf) / META_UF_FONDO * 100) if META_UF_FONDO else Decimal("0")
 

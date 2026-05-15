@@ -8,14 +8,15 @@
  * empresas invertidas + relationship_owner + notas.
  */
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Save, Loader2, Users } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ import type { EstadoLp, LpCreate, LpRead, PerfilInversor } from "@/lib/api/schem
 export default function NuevoLpPage() {
   const router = useRouter();
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const { data: empresas = [] } = useCatalogoEmpresas();
 
   const [form, setForm] = useState<LpCreate>({
@@ -43,6 +45,23 @@ export default function NuevoLpPage() {
     notas: "",
     primer_contacto: new Date().toISOString().slice(0, 10),
   });
+
+  // Round 5 — proteger del data loss accidental. El form tiene 15+ campos
+  // incluyendo montos UF y empresas_invertidas; perderlos al navegar es UX
+  // terrible. isDirty = cualquier campo significativo modificado.
+  const isDirty = useMemo(() => {
+    return (
+      form.nombre.trim().length > 0 ||
+      (form.email ?? "").trim().length > 0 ||
+      (form.telefono ?? "").trim().length > 0 ||
+      (form.intereses?.length ?? 0) > 0 ||
+      form.aporte_total != null ||
+      form.aporte_actual != null ||
+      (form.empresas_invertidas?.length ?? 0) > 0 ||
+      (form.notas ?? "").trim().length > 0
+    );
+  }, [form]);
+  useUnsavedChangesWarning(isDirty);
 
   // Detección de duplicados por email — query opcional
   const emailToCheck = form.email?.trim().toLowerCase() ?? "";
@@ -75,6 +94,8 @@ export default function NuevoLpPage() {
     },
     onSuccess: (data) => {
       toast.success(`LP creado: ${data.nombre}`);
+      // Round 5 — invalidar cache para que /admin/lps refresque al volver.
+      queryClient.invalidateQueries({ queryKey: ["lps"] });
       router.push(`/admin/lps/${data.lp_id}` as never);
     },
     onError: (err) => {

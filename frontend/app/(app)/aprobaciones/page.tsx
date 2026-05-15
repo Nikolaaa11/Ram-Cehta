@@ -901,9 +901,14 @@ function RejectDialog({
       onSuccess();
     },
     onError: (err) =>
-      toast.error(err instanceof ApiError ? err.detail : "Error", {
-        duration: 8000,
-      }),
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudo rechazar el voucher. Reintentá en unos segundos.",
+        { duration: 8000 },
+      ),
   });
 
   return (

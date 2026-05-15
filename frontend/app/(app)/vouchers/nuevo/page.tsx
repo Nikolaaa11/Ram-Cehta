@@ -29,7 +29,7 @@ import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { extractMontoFromText, extractRutFromText } from "@/lib/extract";
 import {
   ArrowLeft,
@@ -95,6 +95,7 @@ export default function NuevoVoucherPage() {
   const { session } = useSession();
   const router = useRouter();
   const params = useSearchParams();
+  const queryClient = useQueryClient();
 
   // Pre-fill desde URL params (caso típico: deeplink desde /admin/mailbox)
   const initialTipo = (params.get("tipo") as VoucherTipo) ?? "EGRESO";
@@ -424,6 +425,11 @@ export default function NuevoVoucherPage() {
       toast.success(
         `Voucher ${result.codigo} ${targetStatus === "DRAFT" ? "guardado en borrador" : "enviado a aprobación"}`,
       );
+      // Round 5 — invalidar caches para que /vouchers, /mis-pendientes y KPIs
+      // muestren el voucher recien creado sin necesidad de hard refresh.
+      queryClient.invalidateQueries({ queryKey: ["vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["vouchers-kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["sidebar-state"] });
       router.push(`/vouchers/${result.voucher_id}` as Route);
     } catch (err) {
       const msg = err instanceof ApiError ? err.detail : "Error desconocido";
