@@ -105,6 +105,16 @@ async def generate_informe_lp_pdf(
     if data is None:
         raise ValueError(f"Informe {informe_id} no encontrado")
     data["generated_by_email"] = generated_by_email
+    # Round 27 — QR de verificación apuntando al registro interno del informe.
+    # Solo accesible para staff con sesión válida en la plataforma (es un
+    # link al admin del informe, no al doc público).
+    try:
+        from app.core.config import settings
+        base = (settings.frontend_url or "").rstrip("/")
+        if base:
+            data["verify_url"] = f"{base}/admin/lps/{informe_id}"
+    except Exception:  # noqa: BLE001
+        pass
 
     pdf_bytes = await asyncio.to_thread(_build_informe_pdf, data)
     return pdf_bytes
@@ -234,6 +244,7 @@ class _InformeLpDoc(BaseDocTemplate):
         titulo: str,
         periodo: str | None,
         generated_by_email: str | None = None,
+        verify_url: str | None = None,
     ) -> None:
         super().__init__(
             buf,
@@ -248,6 +259,15 @@ class _InformeLpDoc(BaseDocTemplate):
         self._periodo = periodo
         self._page_count_estimate = 0
         self._generated_by_email = generated_by_email
+        # Round 27 — pre-generamos QR una vez por instancia.
+        self._verify_url = verify_url
+        self._qr_png: bytes | None = None
+        if verify_url:
+            try:
+                from app.services.pdf_qr_util import qr_png_bytes
+                self._qr_png = qr_png_bytes(verify_url)
+            except Exception:  # noqa: BLE001
+                self._qr_png = None
         frame = Frame(
             self.leftMargin,
             self.bottomMargin,
@@ -272,6 +292,7 @@ class _InformeLpDoc(BaseDocTemplate):
             doc.page,
             total_pages=self._page_count_estimate,
             generated_by_email=getattr(self, "_generated_by_email", None),
+            qr_png=getattr(self, "_qr_png", None),
         )
 
 
@@ -324,11 +345,13 @@ def _draw_footer(
     *,
     total_pages: int = 0,
     generated_by_email: str | None = None,
+    qr_png: bytes | None = None,
 ) -> None:
     """Footer: Confidencial · página X de N · fecha · fondo.
 
     Round 15 — agrega email del user que generó el PDF para auditoría
     forense (saber qué staff descargó el informe confidencial).
+    Round 27 — QR opcional en esquina sup-derecha (solo página 1).
     """
     canv.saveState()
     y = MARGIN_B - 2 * mm
@@ -363,6 +386,24 @@ def _draw_footer(
         PAGE_W / 2, y - 1 * mm,
         f"{FONDO_RAZON_SOCIAL} · Cehta Capital",
     )
+
+    if qr_png and page_num == 1:
+        try:
+            from app.services.pdf_qr_util import draw_qr_on_canvas
+            qr_x_mm = (PAGE_W - MARGIN_R) / mm - 22
+            qr_y_mm = (y + 10 * mm) / mm
+            draw_qr_on_canvas(canv, qr_png, x_mm=qr_x_mm, y_mm=qr_y_mm,
+                              size_mm=20)
+            canv.setFont("Helvetica", 6)
+            canv.setFillColor(CEHTA_GREY)
+            canv.drawRightString(
+                PAGE_W - MARGIN_R,
+                qr_y_mm * mm - 2.5 * mm,
+                "Verificar en plataforma",
+            )
+        except Exception:  # noqa: BLE001
+            pass
+
     canv.restoreState()
 
 
@@ -377,6 +418,8 @@ def _build_informe_pdf(data: dict[str, Any]) -> bytes:
     lp: Lp | None = data["lp"]
     # Round 15 — propagar email del user que genero al footer.
     generated_by_email = data.get("generated_by_email")
+    # Round 27 — verify URL para QR en footer.
+    verify_url = data.get("verify_url")
 
     # PASS 1 — build to count pages
     buf1 = io.BytesIO()
@@ -385,6 +428,7 @@ def _build_informe_pdf(data: dict[str, Any]) -> bytes:
         titulo=informe.titulo,
         periodo=informe.periodo,
         generated_by_email=generated_by_email,
+        verify_url=verify_url,
     )
     story = _build_story(informe, lp)
     try:
@@ -404,6 +448,7 @@ def _build_informe_pdf(data: dict[str, Any]) -> bytes:
         titulo=informe.titulo,
         periodo=informe.periodo,
         generated_by_email=generated_by_email,
+        verify_url=verify_url,
     )
     doc2._page_count_estimate = page_count
     doc2.build(_build_story(informe, lp))
