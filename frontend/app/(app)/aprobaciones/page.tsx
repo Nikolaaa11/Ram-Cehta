@@ -40,6 +40,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
@@ -699,9 +700,12 @@ function BulkSignDialog({
   const totalGeneral = items.reduce((sum, it) => sum + parseFloat(it.total || "0"), 0);
   const empresas = new Set(items.map((i) => i.empresa_codigo));
   const monedas = new Set(items.map((i) => i.moneda));
+  // Round 24 — focus trap + ESC + body scroll lock.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
@@ -863,8 +867,12 @@ function SignDialog({
     },
   });
 
+  // Round 24 — focus trap + ESC + body scroll lock.
+  const a11yRef = useModalA11y({ open: true, onClose });
+
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
@@ -1028,9 +1036,12 @@ function RejectDialog({
       qc.invalidateQueries({ queryKey: ["vouchers", "mis-pendientes"] });
     },
   });
+  // Round 24 — focus trap + ESC + body scroll lock.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
