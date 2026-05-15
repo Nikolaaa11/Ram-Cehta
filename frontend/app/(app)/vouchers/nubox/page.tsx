@@ -478,6 +478,7 @@ export default function NuboxFormPage() {
   //    se llena en bruto cuando aplica IVA — eso lo maneja el cálculo
   //    `toBruto`, acá solo replicamos lo que el user tipeó).
   const contableTotalRaw = contable[0]?.total ?? "";
+  const contableComentRaw = contable[0]?.comentario ?? "";
   useEffect(() => {
     if (contable.length !== 1 || financiera.length !== 1) return;
     const finExistente = (financiera[0]?.total ?? "").trim();
@@ -491,6 +492,51 @@ export default function NuboxFormPage() {
     // Solo dispara cuando cambia el monto contable o cantidades de líneas.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contableTotalRaw, contable.length, financiera.length]);
+
+  // Round 37 — auto-sync del COMENTARIO en el caso 1-1: cuando el operador
+  // tipea el comentario contable, también espejarlo a la financiera si
+  // ésta no tiene comentario propio. El comentario suele ser el mismo
+  // ("Internet abril", "Honorarios mayo", etc.). Si el operador quiere
+  // distinguir, tipea diferente en financiera y dejamos de tocarlo.
+  useEffect(() => {
+    if (contable.length !== 1 || financiera.length !== 1) return;
+    const finCom = (financiera[0]?.comentario ?? "").trim();
+    if (finCom) return; // ya tiene comentario propio, no pisar
+    if (!contableComentRaw.trim()) return;
+    setFinanciera((prev) => {
+      const first = prev[0];
+      if (!first) return prev;
+      return [{ ...first, comentario: contableComentRaw }];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contableComentRaw, contable.length, financiera.length]);
+
+  // Round 37 — cuenta financiera recordada por (empresa, forma_pago).
+  // Cuando el operador tiene 1 sola línea financiera con cuenta vacía,
+  // sugerimos la última cuenta usada para esa combinación. Reduce otro
+  // tipeo por voucher (el típico: empresa X + transferencia → 1101001).
+  // Key: voucher-nubox-last-cuenta-fin::{empresa}::{forma_pago}
+  const lastCuentaFinKey =
+    empresaCodigo && formaPago
+      ? `voucher-nubox-last-cuenta-fin::${empresaCodigo}::${formaPago}`
+      : null;
+  useEffect(() => {
+    if (!lastCuentaFinKey) return;
+    if (financiera.length !== 1) return;
+    if ((financiera[0]?.cuenta_codigo ?? "").trim()) return;
+    try {
+      const lastCuenta = window.localStorage.getItem(lastCuentaFinKey);
+      if (!lastCuenta) return;
+      setFinanciera((prev) => {
+        const first = prev[0];
+        if (!first) return prev;
+        return [{ ...first, cuenta_codigo: lastCuenta }];
+      });
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastCuentaFinKey, financiera.length]);
 
   const addLine = (which: "contable" | "financiera") => {
     const row: LineRow = { comentario: "", cuenta_codigo: "", total: "" };
@@ -576,6 +622,24 @@ export default function NuboxFormPage() {
       tipo_documento: tipoDocumento,
       forma_pago: formaPago,
     });
+    // Round 37 — guardar la cuenta financiera usada para esa empresa +
+    // forma_pago, así la próxima vez se sugiere automáticamente.
+    try {
+      const lastCuenta = financiera[0]?.cuenta_codigo?.trim();
+      if (
+        empresaCodigo &&
+        formaPago &&
+        lastCuenta &&
+        financiera.length === 1
+      ) {
+        window.localStorage.setItem(
+          `voucher-nubox-last-cuenta-fin::${empresaCodigo}::${formaPago}`,
+          lastCuenta,
+        );
+      }
+    } catch {
+      // ignore
+    }
     try {
       const payload = {
         empresa_codigo: empresaCodigo,
