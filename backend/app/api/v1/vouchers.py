@@ -1384,8 +1384,49 @@ async def submit_voucher(
             ),
         )
 
-    v.status = "PENDING"
-    v.requested_by = str(user.sub)
+    # Round 56 — auto-approve si la regla matched tiene required_roles=[].
+    # Caso de uso: vouchers de bajo monto (ej. ≤ $200K) creados por finance,
+    # con proveedor del catálogo y cuenta habitual → no requieren firma de
+    # GG/DIRECTOR, pasan directamente a APPROVED. Reduce trabajo manual de
+    # ~80% de vouchers recurrentes que igual se firmarían automáticamente.
+    #
+    # La regla con required_roles=[] solo aplica si su priority es < que la
+    # regla "siempre 2 firmas" — para que sea opt-in explícito por umbral.
+    from app.services.approval_service import (
+        find_matching_rule,
+        get_voucher_balance_treatment_dominante,
+        load_active_rules,
+    )
+
+    auto_approved = False
+    matched_rule: dict[str, Any] | None = None
+    try:
+        active_rules = await load_active_rules(db, v.empresa_codigo)
+        balance_tx = await get_voucher_balance_treatment_dominante(
+            db, voucher_id
+        )
+        matched_rule = find_matching_rule(
+            active_rules,
+            voucher_tipo=v.tipo,
+            voucher_amount=Decimal(v.total_debit or 0),
+            balance_treatment_dominante=balance_tx,
+        )
+        if matched_rule is not None:
+            roles_req = matched_rule.get("required_roles") or []
+            if isinstance(roles_req, (list, tuple)) and len(roles_req) == 0:
+                auto_approved = True
+    except Exception:
+        # Si fallar la lookup de reglas no debe bloquear el flujo: caer
+        # al comportamiento normal (PENDING).
+        auto_approved = False
+        matched_rule = None
+
+    if auto_approved:
+        v.status = "APPROVED"
+        v.requested_by = str(user.sub)
+    else:
+        v.status = "PENDING"
+        v.requested_by = str(user.sub)
 
     try:
         await db.commit()
@@ -1397,28 +1438,46 @@ async def submit_voucher(
             detail=f"DB rechazó el cambio: {exc.orig}",
         ) from exc
 
-    # V5++ ola BL — Audit log de submit
+    # V5++ ola BL — Audit log de submit (Round 56 distingue auto-approve).
     try:
+        action_lbl = "submit_auto_approve" if auto_approved else "submit"
+        summary_lbl = (
+            f"Voucher {v.codigo} APROBADO AUTO por regla "
+            f"#{matched_rule['rule_id']} ({matched_rule.get('descripcion','')[:40]}) "
+            f"— monto {v.total_debit:,.0f} dentro del umbral"
+            if auto_approved and matched_rule
+            else f"Voucher {v.codigo} enviado a aprobación "
+            f"({v.empresa_codigo} · {v.tipo} · ${v.total_debit:,.0f})"
+        )
         await audit_log(
             db, request, user,
-            action="submit",
+            action=action_lbl,
             entity_type="voucher",
             entity_id=str(v.voucher_id),
             entity_label=v.codigo,
-            summary=(
-                f"Voucher {v.codigo} enviado a aprobación "
-                f"({v.empresa_codigo} · {v.tipo} · ${v.total_debit:,.0f})"
-            ),
+            summary=summary_lbl,
             before={"status": "DRAFT"},
-            after={"status": "PENDING", "requested_by": str(user.sub)},
+            after={
+                "status": v.status,
+                "requested_by": str(user.sub),
+                "auto_approved": auto_approved,
+                "matched_rule_id": (
+                    matched_rule["rule_id"] if matched_rule else None
+                ),
+            },
         )
     except Exception:
         pass
 
+    msg = (
+        f"Voucher {v.codigo} aprobado automáticamente (sin firma manual requerida)"
+        if auto_approved
+        else f"Voucher {v.codigo} enviado a aprobación"
+    )
     return SubmitResponse(
         voucher_id=voucher_id,
         codigo=v.codigo,
-        message=f"Voucher {v.codigo} enviado a aprobación",
+        message=msg,
     )
 
 
