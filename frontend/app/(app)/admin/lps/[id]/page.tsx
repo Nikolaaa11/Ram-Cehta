@@ -46,6 +46,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { buildWaLink, waMessages } from "@/lib/whatsapp";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -970,9 +971,12 @@ function CreateLpDocumentDialog({
       setLoading(false);
     }
   };
+  // Round 26 — focus trap + ESC + scroll lock para modal agregar documento.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
