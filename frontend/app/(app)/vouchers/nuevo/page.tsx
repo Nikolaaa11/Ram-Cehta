@@ -44,6 +44,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
+import { useProveedoresCache, useFilterProveedores } from "@/hooks/use-proveedores-cache";
 import { toast } from "@/components/ui/toast";
 import { Currency } from "@/components/shared/Currency";
 import type {
@@ -979,49 +980,18 @@ function ProveedorTypeaheadNuevo({
   onSelect: (hit: ProveedorSearchHit) => void;
   onClear: () => void;
 }) {
-  const { session } = useSession();
+  // Round 44 — replaces debounce+GET con cache client-side compartido.
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<ProveedorSearchHit[]>([]);
   const [open, setOpen] = useState(false);
-  const [searching, setSearching] = useState(false);
+  useProveedoresCache(); // pre-cache si no estaba
+
+  // Si el query es exactamente el nombre ya seleccionado, no resultados.
+  const searchQuery = query.trim() === value.trim() ? "" : query;
+  const { results, cacheSize } = useFilterProveedores(searchQuery, 8);
 
   useEffect(() => {
     setQuery(value);
   }, [value]);
-
-  useEffect(() => {
-    if (!session) return;
-    const q = query.trim();
-    if (q.length < 2 || q === value) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const timer = setTimeout(() => {
-      apiClient
-        .get<ProveedorSearchHit[]>(
-          `/proveedores/search?q=${encodeURIComponent(q)}&limit=8`,
-          session,
-        )
-        .then((hits) => {
-          if (!cancelled) {
-            setResults(hits);
-            setOpen(hits.length > 0);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setResults([]);
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query, session, value]);
 
   return (
     <div className="relative">
@@ -1034,14 +1004,20 @@ function ProveedorTypeaheadNuevo({
           } else if (rutValue && e.target.value !== value) {
             onClear();
           }
+          if (e.target.value.trim()) setOpen(true);
         }}
         onFocus={() => {
-          if (results.length > 0) setOpen(true);
+          // Round 44 — abrir aunque no haya query: muestra primeros 8 alfa.
+          setOpen(true);
         }}
         onBlur={() => {
           setTimeout(() => setOpen(false), 150);
         }}
-        placeholder="Escribí razón social o RUT…"
+        placeholder={
+          cacheSize > 0
+            ? `Buscar entre ${cacheSize} proveedores…`
+            : "Escribí razón social o RUT…"
+        }
         className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
         autoComplete="off"
       />
@@ -1057,7 +1033,11 @@ function ProveedorTypeaheadNuevo({
               aria-selected={hit.razon_social === value}
               onMouseDown={(e) => {
                 e.preventDefault();
-                onSelect(hit);
+                onSelect({
+                  proveedor_id: hit.proveedor_id,
+                  razon_social: hit.razon_social,
+                  rut: hit.rut,
+                });
                 setQuery(hit.razon_social);
                 setOpen(false);
               }}
@@ -1070,11 +1050,6 @@ function ProveedorTypeaheadNuevo({
             </li>
           ))}
         </ul>
-      )}
-      {searching && query.trim().length >= 2 && !open && (
-        <p className="absolute -bottom-4 left-0 text-[10px] text-ink-400">
-          Buscando…
-        </p>
       )}
     </div>
   );
