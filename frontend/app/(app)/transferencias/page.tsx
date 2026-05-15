@@ -23,7 +23,8 @@
  *   - Bulk export de N vouchers necesita selector multiple amigable;
  *     mezclarlo con la cola de firma seria ruido.
  */
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import Link from "next/link";
 import type { Route } from "next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -783,16 +784,12 @@ function ExecuteConfirmModalScaffold({
   onClose: () => void;
   children: React.ReactNode;
 }) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+  // Round 23 — focus trap + ESC + scroll lock + restauración foco previo.
+  const ref = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={ref}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
