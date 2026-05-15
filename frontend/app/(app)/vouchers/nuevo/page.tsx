@@ -1044,9 +1044,16 @@ function ProveedorTypeaheadNuevo({
               className="cursor-pointer px-3 py-2 text-sm hover:bg-cehta-green/10"
             >
               <div className="font-medium text-ink-900">{hit.razon_social}</div>
-              {hit.rut && (
-                <div className="text-xs text-ink-500 font-mono">{hit.rut}</div>
-              )}
+              <div className="flex items-baseline gap-2 text-xs text-ink-500">
+                {hit.rut && (
+                  <span className="font-mono">{hit.rut}</span>
+                )}
+                {hit.direccion && (
+                  <span className="truncate text-ink-400">
+                    · {hit.direccion}
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

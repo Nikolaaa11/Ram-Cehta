@@ -30,6 +30,8 @@ export interface ProveedorCacheItem {
   proveedor_id: number;
   razon_social: string;
   rut: string | null;
+  /** Round 47 — opcional, para desambiguar entre nombres parecidos. */
+  direccion?: string | null;
 }
 
 const STALE_TIME_MS = 5 * 60_000; // 5 min — más corto que catálogos

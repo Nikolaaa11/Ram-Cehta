@@ -1750,9 +1750,17 @@ function ProveedorTypeahead({
               <div className="font-medium text-ink-900 dark:text-ink-100">
                 {hit.razon_social}
               </div>
-              {hit.rut && (
-                <div className="text-xs text-ink-500 font-mono">{hit.rut}</div>
-              )}
+              <div className="flex items-baseline gap-2 text-xs text-ink-500">
+                {hit.rut && (
+                  <span className="font-mono">{hit.rut}</span>
+                )}
+                {/* Round 47 — direccion opcional para desambiguar */}
+                {hit.direccion && (
+                  <span className="truncate text-ink-400">
+                    · {hit.direccion}
+                  </span>
+                )}
+              </div>
             </li>
           ))}
         </ul>

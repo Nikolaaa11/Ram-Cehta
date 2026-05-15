@@ -290,14 +290,21 @@ async def search_proveedores(
 class ProveedorCacheItem(BaseModel):
     """Item mínimo de catálogo proveedor — para precarga client-side.
 
-    Solo los 3 campos que el typeahead necesita: proveedor_id (key React),
-    razon_social (búsqueda + display), rut (filtro + autocompletado).
-    Resto de campos (giro, dirección, banco, etc.) se piden en el detalle.
+    Campos:
+      - proveedor_id: key React + identificador interno
+      - razon_social: búsqueda primaria + display
+      - rut: búsqueda secundaria + autocompletado del campo RUT
+      - direccion: opcional, para desambiguar nombres similares.
+        Round 47 — útil cuando hay 2 proveedores con nombre parecido y
+        el operador necesita ver la dirección para identificar el correcto.
+
+    Resto de campos (giro, banco, telefono, etc.) se piden en el detalle.
     """
 
     proveedor_id: int
     razon_social: str
     rut: str | None = None
+    direccion: str | None = None
 
 
 @router.get("/cache", response_model=list[ProveedorCacheItem])
@@ -325,7 +332,12 @@ async def proveedores_cache(
     paginado con `with_counts=true`.
     """
     stmt = (
-        select(Proveedor.proveedor_id, Proveedor.razon_social, Proveedor.rut)
+        select(
+            Proveedor.proveedor_id,
+            Proveedor.razon_social,
+            Proveedor.rut,
+            Proveedor.direccion,  # Round 47 — para desambiguar
+        )
         .where(Proveedor.activo.is_(True))
         .order_by(Proveedor.razon_social.asc())
     )
@@ -336,7 +348,12 @@ async def proveedores_cache(
         "private, max-age=300, stale-while-revalidate=60"
     )
     return [
-        ProveedorCacheItem(proveedor_id=r[0], razon_social=r[1], rut=r[2])
+        ProveedorCacheItem(
+            proveedor_id=r[0],
+            razon_social=r[1],
+            rut=r[2],
+            direccion=r[3],
+        )
         for r in rows
     ]
 
