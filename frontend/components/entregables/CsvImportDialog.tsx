@@ -279,7 +279,7 @@ export function CsvImportDialog({ open, onOpenChange }: Props) {
         {/* Resultado del import */}
         {result && (
           <div className="mt-4 space-y-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div className="rounded-xl border border-positive/30 bg-positive/5 p-3 text-center">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
                   Importados

@@ -124,7 +124,7 @@ export function EmpresaShowcase({ empresaCodigo, informe }: Props) {
 
         {/* Métricas grandes (de AI) */}
         {metricas.length > 0 && (
-          <div className="grid grid-cols-3 gap-3 border-y border-hairline py-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-y border-hairline py-6">
             {metricas.slice(0, 3).map((m, i) => (
               <div key={i} className="text-center">
                 <p
