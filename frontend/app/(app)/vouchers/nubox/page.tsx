@@ -538,6 +538,35 @@ export default function NuboxFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastCuentaFinKey, financiera.length]);
 
+  // Round 38 — cuenta CONTABLE recordada por (empresa, proveedor_rut).
+  // Cuando el operador selecciona un proveedor del typeahead, si la línea
+  // contable está vacía y existe un registro previo de cuenta usada para
+  // ese (empresa, proveedor), la pre-cargamos. Ej: "AGEINSA" + "internet"
+  // → cuenta 5103004. Es estable porque el mismo proveedor suele ir a la
+  // misma cuenta de gasto.
+  // Key: voucher-nubox-last-cuenta-cont::{empresa}::{proveedor_rut}
+  const lastCuentaContKey =
+    empresaCodigo && proveedorRut.trim().length >= 8
+      ? `voucher-nubox-last-cuenta-cont::${empresaCodigo}::${proveedorRut.trim()}`
+      : null;
+  useEffect(() => {
+    if (!lastCuentaContKey) return;
+    if (contable.length !== 1) return;
+    if ((contable[0]?.cuenta_codigo ?? "").trim()) return;
+    try {
+      const lastCuenta = window.localStorage.getItem(lastCuentaContKey);
+      if (!lastCuenta) return;
+      setContable((prev) => {
+        const first = prev[0];
+        if (!first) return prev;
+        return [{ ...first, cuenta_codigo: lastCuenta }];
+      });
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastCuentaContKey, contable.length]);
+
   const addLine = (which: "contable" | "financiera") => {
     const row: LineRow = { comentario: "", cuenta_codigo: "", total: "" };
     if (which === "contable") setContable([...contable, row]);
@@ -635,6 +664,25 @@ export default function NuboxFormPage() {
         window.localStorage.setItem(
           `voucher-nubox-last-cuenta-fin::${empresaCodigo}::${formaPago}`,
           lastCuenta,
+        );
+      }
+    } catch {
+      // ignore
+    }
+    // Round 38 — guardar la cuenta CONTABLE usada para esa empresa +
+    // proveedor_rut, así al volver a cargar al mismo proveedor se sugiere.
+    try {
+      const lastCuentaCont = contable[0]?.cuenta_codigo?.trim();
+      const rutTrim = proveedorRut.trim();
+      if (
+        empresaCodigo &&
+        rutTrim.length >= 8 &&
+        lastCuentaCont &&
+        contable.length === 1
+      ) {
+        window.localStorage.setItem(
+          `voucher-nubox-last-cuenta-cont::${empresaCodigo}::${rutTrim}`,
+          lastCuentaCont,
         );
       }
     } catch {
