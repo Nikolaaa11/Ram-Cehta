@@ -45,6 +45,7 @@ import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
+import { ErrorState } from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
 
 interface MisPendientesItem {
@@ -295,18 +296,40 @@ export default function AprobacionesPage() {
         </div>
       </header>
 
+      {/* QA fix 14/05/2026 — skeleton matching layout (lista de cards
+          por empresa con vouchers en cada una). Antes "Cargando…" plain. */}
       {isLoading && (
-        <Surface className="p-12 text-center text-ink-500">
-          Cargando aprobaciones…
-        </Surface>
+        <div className="space-y-4">
+          {[1, 2].map((g) => (
+            <Surface key={g} className="p-5">
+              <div className="mb-3 flex items-center gap-2">
+                <div className="h-4 w-24 animate-pulse rounded bg-ink-100" />
+                <div className="h-4 w-12 animate-pulse rounded-full bg-ink-100" />
+              </div>
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-3 rounded-xl border border-hairline p-3"
+                  >
+                    <div className="h-4 w-32 animate-pulse rounded bg-ink-100" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-ink-100" />
+                    <div className="ml-auto h-7 w-20 animate-pulse rounded-lg bg-ink-100" />
+                  </div>
+                ))}
+              </div>
+            </Surface>
+          ))}
+        </div>
       )}
 
+      {/* QA fix 14/05/2026 — ErrorState unificado con retry (antes plain Surface). */}
       {isError && (
-        <Surface className="p-6 bg-negative/5 border border-negative/20">
-          <p className="text-sm text-negative">
-            No pude cargar las aprobaciones. Reintentá en unos segundos.
-          </p>
-        </Surface>
+        <ErrorState
+          title="No pude cargar las aprobaciones"
+          error={new Error("Reintentá en unos segundos.")}
+          onRetry={() => refetch()}
+        />
       )}
 
       {!isLoading && data && data.total === 0 && (
@@ -912,8 +935,8 @@ function SignDialog({
             placeholder="Ej: Verificado contra orden de compra OC-2026-0123"
             className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green resize-none"
           />
-          {/* QA fix 14/05/2026 — counter para que el user sepa cuanto le queda. */}
-          <p className="mt-1 text-right text-[10px] text-ink-400 tabular-nums">
+          {/* QA fix 14/05/2026 — counter (ink-500 para contrast WCAG AA). */}
+          <p className="mt-1 text-right text-[10px] text-ink-500 tabular-nums">
             {comments.length} / 500
           </p>
         </div>

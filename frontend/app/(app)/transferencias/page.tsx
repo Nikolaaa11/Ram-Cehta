@@ -616,13 +616,14 @@ export default function TransferenciasPage() {
                         className="h-3.5 w-3.5 rounded border-hairline text-cehta-green focus:ring-cehta-green"
                       />
                     </th>
-                    <th className="px-4 py-3">Código</th>
-                    <th className="px-4 py-3">Empresa</th>
-                    <th className="px-4 py-3">Fecha</th>
-                    <th className="px-4 py-3">Proveedor</th>
-                    <th className="px-4 py-3">Glosa</th>
-                    <th className="px-4 py-3 text-right">Monto</th>
-                    <th className="px-4 py-3">Datos bancarios</th>
+                    {/* QA fix 14/05/2026 — scope="col" para accesibilidad. */}
+                    <th scope="col" className="px-4 py-3">Código</th>
+                    <th scope="col" className="px-4 py-3">Empresa</th>
+                    <th scope="col" className="px-4 py-3">Fecha</th>
+                    <th scope="col" className="px-4 py-3">Proveedor</th>
+                    <th scope="col" className="px-4 py-3">Glosa</th>
+                    <th scope="col" className="px-4 py-3 text-right">Monto</th>
+                    <th scope="col" className="px-4 py-3">Datos bancarios</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline">
