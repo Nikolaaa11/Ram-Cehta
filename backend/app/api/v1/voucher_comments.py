@@ -258,8 +258,14 @@ async def patch_voucher_comment(
     ).mappings().first()
     await db.commit()
 
-    if updated is None:  # pragma: no cover
-        raise HTTPException(status_code=500, detail="Error al actualizar")
+    if updated is None:  # pragma: no cover — race condition exception
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"El comment {comment_id} fue eliminado mientras "
+                "se actualizaba (race condition). Refrescá la página."
+            ),
+        )
 
     return CommentRead(
         comment_id=updated["comment_id"],

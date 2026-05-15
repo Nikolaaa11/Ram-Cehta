@@ -23,7 +23,7 @@
  *   - Bulk export de N vouchers necesita selector multiple amigable;
  *     mezclarlo con la cola de firma seria ruido.
  */
-import { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -494,17 +494,17 @@ export default function TransferenciasPage() {
             </div>
           )}
 
-          {/* Modal confirmacion bulk-execute */}
+          {/* Modal confirmacion bulk-execute.
+              QA fix 14/05/2026 — agregado overflow-y-auto + my-auto + Escape
+              key. En mobile con teclado abierto, antes el modal se cortaba
+              y no se podia scrollear al boton confirmar. */}
           {showExecuteConfirm && (
-            <div
-              role="dialog"
-              aria-modal="true"
-              onClick={() => !executing && setShowExecuteConfirm(false)}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            <ExecuteConfirmModalScaffold
+              onClose={() => !executing && setShowExecuteConfirm(false)}
             >
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+                className="my-auto w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
               >
                 <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
                   <CheckCheck className="size-3.5" />
@@ -583,7 +583,7 @@ export default function TransferenciasPage() {
                   </button>
                 </div>
               </div>
-            </div>
+            </ExecuteConfirmModalScaffold>
           )}
 
           {/* Tabla */}
@@ -698,6 +698,42 @@ export default function TransferenciasPage() {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * QA fix 14/05/2026 — wrapper de modal con:
+ *   1. overflow-y-auto en el backdrop (mobile keyboard-friendly)
+ *   2. Escape key dispara onClose (UX premium)
+ *   3. role=dialog + aria-modal
+ *
+ * El inner card debe tener `my-auto` para centrarse cuando alcanza,
+ * pero scroll cuando supera la altura del viewport.
+ */
+function ExecuteConfirmModalScaffold({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
+    >
+      {children}
     </div>
   );
 }

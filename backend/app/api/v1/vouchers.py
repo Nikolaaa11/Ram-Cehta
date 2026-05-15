@@ -1595,14 +1595,19 @@ async def _get_dropbox_service(db: DBSession) -> DropboxService:
 async def list_voucher_attachments(
     user: CurrentUser, db: DBSession, voucher_id: int
 ) -> list[VoucherAttachmentRead]:
-    """Lista adjuntos del voucher (sin URLs temporales — esas se piden por adjunto)."""
-    if not await db.scalar(
-        text("SELECT 1 FROM core.vouchers WHERE voucher_id = :id"),
-        {"id": voucher_id},
-    ):
+    """Lista adjuntos del voucher (sin URLs temporales — esas se piden por adjunto).
+
+    QA fix 14/05/2026 — antes solo verificaba existencia del voucher
+    pero NO chequeaba scope: un user con acceso a empresa A podia leer
+    adjuntos de empresa B si conocia el voucher_id. Ahora cargamos el
+    voucher y validamos scope antes de devolver attachments.
+    """
+    v = await db.get(Voucher, voucher_id)
+    if v is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
+    await assert_empresa_access(user, db, v.empresa_codigo)
 
     rows = (
         await db.execute(

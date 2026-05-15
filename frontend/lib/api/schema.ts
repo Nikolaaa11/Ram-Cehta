@@ -1493,6 +1493,13 @@ export interface VoucherListItem {
   contraparte_nombre: string | null;
   threshold_aplicado: boolean;
   created_at: string;
+  /**
+   * QA fix 14/05/2026 — agregado para sincronizar con
+   * `backend/app/schemas/voucher.py:source` (V5++ ola CE).
+   * Valores convenidos: 'manual' | 'nubox_form' | 'ai_import' |
+   * 'factura_pdf' | 'csv_bulk' | 'template'. null = legacy/manual.
+   */
+  source: string | null;
 }
 
 export type VoucherAttachmentTipo =

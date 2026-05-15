@@ -246,16 +246,29 @@ async def update_area(
     "/areas/{codigo}/empresas", response_model=list[AreaEmpresaRead]
 )
 async def list_area_empresas(
-    user: CurrentUser, db: DBSession, codigo: str
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep, codigo: str
 ) -> list[AreaEmpresaRead]:
+    """QA fix 14/05/2026 — antes devolvia el mapping area→empresa para
+    TODAS las empresas (incluidas las fuera del scope del user). Ahora
+    filtra por empresa_codigo IN scope.allowed_codes."""
+    where_scope = ""
+    params: dict = {"c": codigo.upper()}
+    if not scope.is_global:
+        allowed = list(scope.allowed_codes or [])
+        if not allowed:
+            return []
+        where_scope = "AND empresa_codigo = ANY(CAST(:scope AS text[]))"
+        params["scope"] = allowed
+
     rows = (
         await db.execute(
             text(
-                "SELECT area_codigo, empresa_codigo, aplica "
-                "FROM core.area_empresa WHERE area_codigo = :c "
-                "ORDER BY empresa_codigo"
+                f"SELECT area_codigo, empresa_codigo, aplica "
+                f"FROM core.area_empresa WHERE area_codigo = :c "
+                f"{where_scope} "
+                f"ORDER BY empresa_codigo"
             ),
-            {"c": codigo.upper()},
+            params,
         )
     ).mappings().all()
     return [AreaEmpresaRead.model_validate(dict(r)) for r in rows]

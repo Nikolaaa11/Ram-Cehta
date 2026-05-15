@@ -27,6 +27,7 @@ from sqlalchemy import text
 import structlog
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.services.empresa_scope_service import EmpresaScopeDep
 from app.api.v1.dashboard import (
     acumular_saldo,
     calc_delta_pct,
@@ -219,14 +220,17 @@ async def list_empresas_flat(
     user: CurrentUser,
     db: DBSession,
     response: Response,
+    scope: EmpresaScopeDep,
     solo_activas: bool = False,
 ) -> list[EmpresaListItem]:
     """Lista plana de empresas para poblar selects.
 
-    Devuelve TODAS las empresas por defecto (incluidas inactivas) para que
-    los selectores en /vouchers, /reportes, /admin, etc. muestren el set
-    completo del portafolio. Pasá `?solo_activas=true` si necesitás filtrar
-    a las que están operando hoy.
+    QA fix 14/05/2026 — antes devolvia TODAS las empresas del portafolio
+    a cualquier user autenticado (scope leak). Ahora respeta el scope
+    multi-tenant: un user con acceso a 2 empresas ve solo esas 2;
+    admin global ve todas.
+
+    Pasá `?solo_activas=true` si necesitás filtrar a las que están operando hoy.
 
     Cache: 5min stale-while-revalidate. Las empresas cambian rara vez —
     esto reduce ~30 requests/sesión a 1.
@@ -234,7 +238,19 @@ async def list_empresas_flat(
     response.headers["Cache-Control"] = (
         "private, max-age=300, stale-while-revalidate=60"
     )
-    where = "WHERE activo = TRUE" if solo_activas else ""
+
+    where_parts = []
+    params: dict = {}
+    if solo_activas:
+        where_parts.append("activo = TRUE")
+    if not scope.is_global:
+        allowed = list(scope.allowed_codes or [])
+        if not allowed:
+            return []
+        where_parts.append("codigo = ANY(CAST(:scope AS text[]))")
+        params["scope"] = allowed
+
+    where = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     rows = (
         await db.execute(
             text(
@@ -244,7 +260,8 @@ async def list_empresas_flat(
                 {where}
                 ORDER BY codigo
                 """
-            )
+            ),
+            params,
         )
     ).fetchall()
     return [
