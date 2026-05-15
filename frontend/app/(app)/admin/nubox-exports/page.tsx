@@ -26,6 +26,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
@@ -509,9 +510,12 @@ function GenerateBatchDialog({
       setLoading(false);
     }
   };
+  // Round 28 — focus trap + ESC + scroll lock para modal nubox-exports.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
@@ -659,9 +663,12 @@ function ConfirmFoliosDialog({
       setLoading(false);
     }
   };
+  // Round 28 — focus trap + ESC + scroll lock para modal nubox-exports detail.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
@@ -816,9 +823,12 @@ function CancelBatchDialog({
       setLoading(false);
     }
   };
+  // Round 28 — focus trap + ESC + scroll lock para modal nubox-exports retry.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}

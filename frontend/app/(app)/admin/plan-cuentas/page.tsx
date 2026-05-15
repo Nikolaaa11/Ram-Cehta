@@ -35,6 +35,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -453,9 +454,12 @@ function CuentaDetailDrawer({
     { key: "flag_marca_14d", label: "Marca 14D" },
     { key: "flag_percepcion", label: "Percepción" },
   ] as const;
+  // Round 28 — focus trap + ESC + body scroll lock para drawer cuenta.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
