@@ -31,6 +31,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
+import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 import { VoucherLineSection } from "@/components/vouchers/VoucherLineSection";
 
 interface EmpresaMetadata {
@@ -560,11 +561,18 @@ export default function DesdeMensajePage() {
               </div>
               <div>
                 <Label>Proveedor razón social *</Label>
-                <input
-                  required
+                {/* Round 61 — typeahead cacheado. */}
+                <ProveedorTypeaheadCached
                   value={proveedorNombre}
-                  onChange={(e) => setProveedorNombre(e.target.value)}
-                  className="form-input"
+                  rutValue={proveedorRut}
+                  onSelect={(hit) => {
+                    setProveedorNombre(hit.razon_social);
+                    if (hit.rut) setProveedorRut(hit.rut);
+                  }}
+                  onClear={() => setProveedorNombre("")}
+                  inputClassName="form-input"
+                  idPrefix="vdm-prov"
+                  required
                 />
               </div>
               <div>

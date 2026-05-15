@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeft, Cloud, Plus, Trash2 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
+import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useFormAutosave } from "@/hooks/use-form-autosave";
@@ -431,14 +432,27 @@ export default function NuevaOcPage() {
               <div>
                 <label className={labelBase} htmlFor="proveedor-nombre">
                   Proveedor razón social
+                  <span className="ml-1 text-[10px] font-normal text-ink-400">
+                    · busca en el catálogo
+                  </span>
                 </label>
-                <input
-                  id="proveedor-nombre"
-                  type="text"
+                {/* Round 61 — typeahead client-side con cache de 228 proveedores.
+                    Al seleccionar, autocompleta RUT + razón social. */}
+                <ProveedorTypeaheadCached
                   value={proveedorNombre}
-                  onChange={(e) => setProveedorNombre(e.target.value)}
-                  placeholder="Ej: Office Depot SpA"
-                  className={inputBase}
+                  rutValue={proveedorRut}
+                  onSelect={(hit) => {
+                    setProveedorNombre(hit.razon_social);
+                    if (hit.rut) setProveedorRut(hit.rut);
+                  }}
+                  onClear={() => {
+                    setProveedorNombre("");
+                    // No tocamos proveedorRut acá — el operador puede
+                    // estar editando solo el nombre y mantener el RUT.
+                  }}
+                  inputClassName={inputBase}
+                  idPrefix="oc-prov"
+                  placeholder="Buscar por nombre o RUT…"
                 />
               </div>
               <div>
