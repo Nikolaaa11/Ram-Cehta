@@ -89,8 +89,13 @@ FONDO_TAGLINE = "Cehta Capital · Inversión ESG en Energía Renovable"
 async def generate_informe_lp_pdf(
     informe_id: int,
     db: AsyncSession,
+    generated_by_email: str | None = None,
 ) -> bytes:
     """Renderiza el PDF del Informe LP. Devuelve bytes listos para streamear.
+
+    Round 15 — acepta `generated_by_email` para footer notarial. El
+    informe es confidencial al inversionista; el email del staff que lo
+    generó queda en el footer para auditoría forense.
 
     Levanta `ValueError("Informe ... no encontrado")` si el id no existe.
     Cualquier otro error de renderizado propaga al caller (que debería
@@ -99,6 +104,7 @@ async def generate_informe_lp_pdf(
     data = await _fetch_informe_bundle(db, informe_id)
     if data is None:
         raise ValueError(f"Informe {informe_id} no encontrado")
+    data["generated_by_email"] = generated_by_email
 
     pdf_bytes = await asyncio.to_thread(_build_informe_pdf, data)
     return pdf_bytes
@@ -227,6 +233,7 @@ class _InformeLpDoc(BaseDocTemplate):
         *,
         titulo: str,
         periodo: str | None,
+        generated_by_email: str | None = None,
     ) -> None:
         super().__init__(
             buf,
@@ -240,6 +247,7 @@ class _InformeLpDoc(BaseDocTemplate):
         )
         self._periodo = periodo
         self._page_count_estimate = 0
+        self._generated_by_email = generated_by_email
         frame = Frame(
             self.leftMargin,
             self.bottomMargin,
@@ -259,7 +267,12 @@ class _InformeLpDoc(BaseDocTemplate):
         self, canv: rl_canvas.Canvas, doc: BaseDocTemplate
     ) -> None:
         _draw_header(canv)
-        _draw_footer(canv, doc.page, total_pages=self._page_count_estimate)
+        _draw_footer(
+            canv,
+            doc.page,
+            total_pages=self._page_count_estimate,
+            generated_by_email=getattr(self, "_generated_by_email", None),
+        )
 
 
 def _draw_header(canv: rl_canvas.Canvas) -> None:
@@ -306,9 +319,17 @@ def _draw_header(canv: rl_canvas.Canvas) -> None:
 
 
 def _draw_footer(
-    canv: rl_canvas.Canvas, page_num: int, *, total_pages: int = 0
+    canv: rl_canvas.Canvas,
+    page_num: int,
+    *,
+    total_pages: int = 0,
+    generated_by_email: str | None = None,
 ) -> None:
-    """Footer: Confidencial · página X de N · fecha · fondo."""
+    """Footer: Confidencial · página X de N · fecha · fondo.
+
+    Round 15 — agrega email del user que generó el PDF para auditoría
+    forense (saber qué staff descargó el informe confidencial).
+    """
     canv.saveState()
     y = MARGIN_B - 2 * mm
     canv.setStrokeColor(CEHTA_BORDER)
@@ -318,13 +339,22 @@ def _draw_footer(
     canv.setFont("Helvetica", 7)
     canv.setFillColor(CEHTA_GREY)
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    canv.drawString(MARGIN_L, y + 2 * mm, f"Confidencial · Generado {now}")
+    gen_text = f"Confidencial · Generado {now}"
+    if generated_by_email:
+        email_short = (
+            generated_by_email[:32] + "…"
+            if len(generated_by_email) > 35
+            else generated_by_email
+        )
+        gen_text += f"  ·  Por: {email_short}"
+    canv.drawString(MARGIN_L, y + 2 * mm, gen_text)
 
     page_str = (
         f"Página {page_num} de {total_pages}"
         if total_pages > 0
         else f"Página {page_num}"
     )
+    canv.setFillColor(CEHTA_GREY)
     canv.drawRightString(PAGE_W - MARGIN_R, y + 2 * mm, page_str)
 
     canv.setFillColor(CEHTA_GREEN_DARK)
@@ -345,11 +375,16 @@ def _build_informe_pdf(data: dict[str, Any]) -> bytes:
     """Renderiza el PDF. Two-pass para tener `página X de N` correctos."""
     informe: InformeLp = data["informe"]
     lp: Lp | None = data["lp"]
+    # Round 15 — propagar email del user que genero al footer.
+    generated_by_email = data.get("generated_by_email")
 
     # PASS 1 — build to count pages
     buf1 = io.BytesIO()
     doc1 = _InformeLpDoc(
-        buf1, titulo=informe.titulo, periodo=informe.periodo,
+        buf1,
+        titulo=informe.titulo,
+        periodo=informe.periodo,
+        generated_by_email=generated_by_email,
     )
     story = _build_story(informe, lp)
     try:
@@ -365,7 +400,10 @@ def _build_informe_pdf(data: dict[str, Any]) -> bytes:
     # PASS 2 — render con total_pages conocido
     buf2 = io.BytesIO()
     doc2 = _InformeLpDoc(
-        buf2, titulo=informe.titulo, periodo=informe.periodo,
+        buf2,
+        titulo=informe.titulo,
+        periodo=informe.periodo,
+        generated_by_email=generated_by_email,
     )
     doc2._page_count_estimate = page_count
     doc2.build(_build_story(informe, lp))

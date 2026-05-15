@@ -538,7 +538,10 @@ async def download_informe_pdf(
 
     try:
         pdf_bytes = await generate_informe_lp_pdf(
-            informe_id=informe_id, db=db
+            informe_id=informe_id,
+            db=db,
+            # Round 15 — footer notarial registra user que descargó.
+            generated_by_email=getattr(user, "email", None),
         )
     except ValueError as exc:
         raise HTTPException(
