@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { toast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -119,6 +120,7 @@ export function MailboxClientView({ initialItems }: Props) {
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const { data: empresasCatalogo = [] } = useCatalogoEmpresas();
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [draft, setDraft] = useState<string>("");
   const [bulkSelected, setBulkSelected] = useState<Set<number>>(new Set());
@@ -252,6 +254,54 @@ export function MailboxClientView({ initialItems }: Props) {
     onError: (e: unknown) => {
       const detail = e instanceof ApiError ? e.detail : "Error desconocido";
       toast.error(`No se pudo clasificar: ${detail}`);
+    },
+  });
+
+  // Round 60 — bulk auto-create-drafts. Crea vouchers COMPRA DRAFT a partir
+  // de todos los emails clasificados como factura (confidence >= 0.75) que
+  // todavía no tienen voucher ligado.
+  const [autoCreateEmpresa, setAutoCreateEmpresa] = useState<string>("");
+  const autoCreateMut = useMutation({
+    mutationFn: () => {
+      if (!autoCreateEmpresa) {
+        return Promise.reject(
+          new Error("Elegí la empresa target antes de auto-crear drafts"),
+        );
+      }
+      return apiClient.post<{
+        candidates: number;
+        created: number;
+        skipped_empty: number;
+        failed: number;
+        created_voucher_ids: number[];
+      }>(
+        "/admin/mailbox/auto-create-drafts",
+        {
+          empresa_codigo: autoCreateEmpresa,
+          min_confidence: 0.75,
+          max_emails: 50,
+        },
+        session,
+      );
+    },
+    onSuccess: (data) => {
+      if (data.candidates === 0) {
+        toast.info(
+          "No hay emails de factura clasificados pendientes. Refrescá IMAP o esperá al próximo cron.",
+        );
+      } else {
+        const msg =
+          `Auto-drafts: ${data.created} creados de ${data.candidates} candidatos` +
+          (data.skipped_empty ? ` · ${data.skipped_empty} sin contenido` : "") +
+          (data.failed ? ` · ${data.failed} fallaron` : "");
+        toast.success(msg);
+      }
+      qc.invalidateQueries({ queryKey: ["mailbox"] });
+      qc.invalidateQueries({ queryKey: ["vouchers"] });
+    },
+    onError: (e: unknown) => {
+      const detail = e instanceof ApiError ? e.detail : (e as Error).message;
+      toast.error(`No se pudo bulk auto-create: ${detail}`);
     },
   });
 
@@ -435,6 +485,49 @@ export function MailboxClientView({ initialItems }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Round 60 — Bulk auto-create vouchers DRAFT desde emails clasificados.
+          Visible solo si hay al menos 1 empresa en el catálogo. */}
+      {empresasCatalogo.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-cehta-green/40 bg-cehta-green/5 px-4 py-3">
+          <Sparkles className="h-4 w-4 text-cehta-green" strokeWidth={1.75} />
+          <div className="text-xs">
+            <p className="font-medium text-ink-900 dark:text-ink-100">
+              Bulk auto-crear vouchers desde inbox
+            </p>
+            <p className="text-ink-500">
+              Itera emails clasificados como factura (conf ≥75%) y crea
+              vouchers COMPRA DRAFT para la empresa elegida.
+            </p>
+          </div>
+          <select
+            value={autoCreateEmpresa}
+            onChange={(e) => setAutoCreateEmpresa(e.target.value)}
+            className="rounded-lg border-0 bg-white px-3 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+          >
+            <option value="">Elegí empresa target…</option>
+            {empresasCatalogo.map((e) => (
+              <option key={e.codigo} value={e.codigo}>
+                {e.codigo} · {e.razon_social}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => autoCreateMut.mutate()}
+            disabled={!autoCreateEmpresa || autoCreateMut.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            title="Crea vouchers COMPRA DRAFT en bulk para todos los emails de factura clasificados con confidence ≥75%"
+          >
+            {autoCreateMut.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Receipt className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+            Auto-crear drafts
+          </button>
+        </div>
+      )}
 
       {/* Filtros + bulk bar */}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-ink-50/30 px-4 py-3">
