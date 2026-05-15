@@ -101,8 +101,13 @@ async def generate_voucher_pdf_bundle(
     voucher_id: int,
     db: AsyncSession,
     include_attachments: bool = True,
+    generated_by_email: str | None = None,
 ) -> bytes:
     """Genera el PDF bundle: cover branded + (opcional) attachments mergeados.
+
+    Round 13 — acepta `generated_by_email` opcional para que el footer
+    notarial registre QUE user genero el PDF (auditoria forense).
+    Si None, el footer solo muestra timestamp.
 
     Devuelve los bytes del PDF combinado listo para streamear al cliente.
 
@@ -114,6 +119,9 @@ async def generate_voucher_pdf_bundle(
     data = await _fetch_voucher_bundle_data(db, voucher_id)
     if data is None:
         raise ValueError(f"Voucher {voucher_id} no encontrado")
+    # Inyectamos el email en el dict de data para que _build_cover_pdf
+    # pueda renderearlo en el footer. None = no muestra "Por: ...".
+    data["generated_by_email"] = generated_by_email
 
     # 1. Build cover PDF in worker thread (reportlab is sync)
     logo_bytes = await _try_fetch_logo(db, data["empresa"])
@@ -386,7 +394,8 @@ class _CoverDoc(BaseDocTemplate):
     """Doc template con header/footer custom dibujados en onPage."""
 
     def __init__(self, buf: io.BytesIO, *, empresa: dict, voucher: dict,
-                 logo_bytes: bytes | None) -> None:
+                 logo_bytes: bytes | None,
+                 generated_by_email: str | None = None) -> None:
         super().__init__(
             buf,
             pagesize=A4,
@@ -400,6 +409,7 @@ class _CoverDoc(BaseDocTemplate):
         self._empresa = empresa
         self._voucher = voucher
         self._logo_bytes = logo_bytes
+        self._generated_by_email = generated_by_email
         frame = Frame(
             self.leftMargin,
             self.bottomMargin,
@@ -421,7 +431,7 @@ class _CoverDoc(BaseDocTemplate):
         # se procese como vigente cuando se imprime y mezcla con otros.
         _draw_status_watermark(canv, self._voucher.get("status"))
         _draw_header(canv, self._empresa, self._logo_bytes)
-        _draw_footer(canv, doc.page)
+        _draw_footer(canv, doc.page, self._generated_by_email)
 
 
 def _draw_header(canv: rl_canvas.Canvas, empresa: dict, logo_bytes: bytes | None) -> None:
@@ -532,7 +542,17 @@ def _draw_status_watermark(canv: rl_canvas.Canvas, status: str | None) -> None:
         canv.restoreState()
 
 
-def _draw_footer(canv: rl_canvas.Canvas, page_num: int) -> None:
+def _draw_footer(
+    canv: rl_canvas.Canvas,
+    page_num: int,
+    generated_by_email: str | None = None,
+) -> None:
+    """Round 13 — footer notarial enriquecido.
+
+    Antes solo timestamp UTC + page. Ahora tambien `Por: {user_email}`
+    si se proveyo. Util para auditoria forense (saber QUE user descargo
+    el PDF cuando se distribuye externamente).
+    """
     canv.saveState()
     y = MARGIN_B - 2 * mm
     canv.setStrokeColor(CEHTA_BORDER)
@@ -542,7 +562,16 @@ def _draw_footer(canv: rl_canvas.Canvas, page_num: int) -> None:
     canv.setFont("Helvetica", 7)
     canv.setFillColor(CEHTA_GREY)
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    canv.drawString(MARGIN_L, y + 2 * mm, f"Generado el {now}")
+    gen_text = f"Generado el {now}"
+    if generated_by_email:
+        # Trunca email muy largo para no romper layout (max 35 chars).
+        email_short = (
+            generated_by_email[:32] + "…"
+            if len(generated_by_email) > 35
+            else generated_by_email
+        )
+        gen_text += f"  ·  Por: {email_short}"
+    canv.drawString(MARGIN_L, y + 2 * mm, gen_text)
     canv.drawRightString(PAGE_W - MARGIN_R, y + 2 * mm, f"Página {page_num}")
     canv.setFillColor(CEHTA_GREEN_DARK)
     canv.setFont("Helvetica-Bold", 7)
@@ -568,9 +597,17 @@ def _build_cover_pdf(data: dict[str, Any], logo_bytes: bytes | None) -> bytes:
     empresa = data["empresa"]
     lines = data["lines"]
     approvals = data["approvals"]
+    # Round 13 — propagamos el user que genero el PDF al footer notarial.
+    generated_by_email = data.get("generated_by_email")
 
     buf = io.BytesIO()
-    doc = _CoverDoc(buf, empresa=empresa, voucher=voucher, logo_bytes=logo_bytes)
+    doc = _CoverDoc(
+        buf,
+        empresa=empresa,
+        voucher=voucher,
+        logo_bytes=logo_bytes,
+        generated_by_email=generated_by_email,
+    )
 
     styles = getSampleStyleSheet()
     h_title = ParagraphStyle(

@@ -637,6 +637,8 @@ async def bulk_voucher_pdf(
                             voucher_id=vid,
                             db=db,
                             include_attachments=body.include_attachments,
+                            # Round 13 — propagar email al footer notarial.
+                            generated_by_email=getattr(user, "email", None),
                         )
                         # Normalizar codigo a un nombre de archivo seguro
                         codigo = str(row["codigo"] or vid)
@@ -870,6 +872,8 @@ async def download_voucher_pdf(
             voucher_id=voucher_id,
             db=db,
             include_attachments=include_attachments,
+            # Round 13 — footer notarial registra el user que descargó.
+            generated_by_email=getattr(user, "email", None),
         )
     except ValueError as exc:
         raise HTTPException(
