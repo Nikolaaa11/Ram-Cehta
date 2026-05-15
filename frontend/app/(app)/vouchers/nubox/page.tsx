@@ -466,6 +466,32 @@ export default function NuboxFormPage() {
     totalContableBruto > 0 &&
     Math.abs(totalContableBruto - totalFinancieraBruto) < 0.01;
 
+  // Round 36 — auto-llenar el total de la línea financiera cuando el
+  // voucher es "simple" (1 línea contable + 1 línea financiera) y la
+  // financiera todavía no tiene total. Cubre el caso ~80% del operador
+  // diario: 1 cuenta de gasto + 1 cuenta de banco.
+  //
+  // Reglas para evitar pisar trabajo manual:
+  //  - Solo aplica si ambas listas tienen exactamente 1 línea.
+  //  - Solo si la línea financiera tiene total vacío o "0".
+  //  - El total contable que se copia es el NETO (la línea financiera
+  //    se llena en bruto cuando aplica IVA — eso lo maneja el cálculo
+  //    `toBruto`, acá solo replicamos lo que el user tipeó).
+  const contableTotalRaw = contable[0]?.total ?? "";
+  useEffect(() => {
+    if (contable.length !== 1 || financiera.length !== 1) return;
+    const finExistente = (financiera[0]?.total ?? "").trim();
+    if (finExistente && finExistente !== "0") return;
+    if (!contableTotalRaw.trim()) return;
+    setFinanciera((prev) => {
+      const first = prev[0];
+      if (!first) return prev;
+      return [{ ...first, total: contableTotalRaw }];
+    });
+    // Solo dispara cuando cambia el monto contable o cantidades de líneas.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contableTotalRaw, contable.length, financiera.length]);
+
   const addLine = (which: "contable" | "financiera") => {
     const row: LineRow = { comentario: "", cuenta_codigo: "", total: "" };
     if (which === "contable") setContable([...contable, row]);
