@@ -61,6 +61,7 @@ from app.services.voucher_pdf_service import (  # noqa: PLC2701
     MARGIN_T,
     PAGE_H,
     PAGE_W,
+    _draw_status_watermark,
     _esc,
     _fetch_attachment_bytes,
     _merge_cover_with_attachments,
@@ -339,6 +340,17 @@ class _OcCoverDoc(BaseDocTemplate):
     def _draw_chrome(
         self, canv: rl_canvas.Canvas, doc: BaseDocTemplate
     ) -> None:
+        # QA Round 8 — watermark diagonal por estado OC critico.
+        # Mapeo OC.estado (lowercase) -> status standard del watermark.
+        _OC_ESTADO_WATERMARK_MAP = {
+            "anulada": "VOID",
+            "rechazada": "REJECTED",
+            "borrador": "DRAFT",
+        }
+        oc_estado = (self._oc.get("estado") or "").lower()
+        mapped = _OC_ESTADO_WATERMARK_MAP.get(oc_estado)
+        if mapped:
+            _draw_status_watermark(canv, mapped)
         _draw_oc_header(canv, self._empresa, self._logo_bytes)
         _draw_oc_footer(canv, doc.page, self._empresa)
 

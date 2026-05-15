@@ -25,6 +25,7 @@ import {
   ExternalLink,
   Mail,
   Building2,
+  MessageCircle,
   Phone,
   Calendar,
   Wallet,
@@ -44,6 +45,7 @@ import { toast } from "@/components/ui/toast";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -454,6 +456,29 @@ export default function LpDetailPage({
                 ) : null
               }
             />
+            {/* Round 9 — botón WhatsApp si hay telefono valido. */}
+            {!editMode && view.telefono && (() => {
+              const waLink = buildWaLink(
+                view.telefono,
+                waMessages.contactarProveedor({
+                  contacto: view.nombre,
+                  asunto: "el informe trimestral del fondo",
+                }),
+              );
+              if (!waLink) return null;
+              return (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-1 inline-flex items-center gap-1 rounded-lg bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#1FB453]"
+                  title="Contactar al LP por WhatsApp"
+                >
+                  <MessageCircle className="size-3" strokeWidth={2.5} />
+                  WhatsApp
+                </a>
+              );
+            })()}
             <Row
               Icon={Building2}
               label="Empresa / FO"
