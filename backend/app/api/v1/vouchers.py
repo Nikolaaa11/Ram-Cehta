@@ -237,6 +237,138 @@ class PaginatedVouchersResponse(BaseModel):
     has_more: bool
 
 
+# =====================================================================
+# Etapa D — Cursor pagination (sin COUNT, O(log N) constant time)
+# =====================================================================
+#
+# Para listas grandes (10k+ vouchers) la offset pagination tradicional
+# degrada lineal: offset=5000 obliga al DB a leer y descartar 5000 rows
+# antes de devolver. Cursor pagination es O(log N) independiente de la
+# profundidad — el WHERE (fecha, id) < cursor usa el indice compuesto.
+#
+# Cursor format: base64("<fecha_iso>,<voucher_id>") — opaco para el FE,
+# que solo lo guarda y lo devuelve como param.
+
+
+class CursorVouchersResponse(BaseModel):
+    items: list[VoucherListItem]
+    next_cursor: str | None = None
+    has_more: bool
+
+
+def _encode_cursor(fecha: date, voucher_id: int) -> str:
+    """fecha_iso,voucher_id → base64 url-safe."""
+    import base64
+
+    raw = f"{fecha.isoformat()},{voucher_id}"
+    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> tuple[date, int] | None:
+    """base64 → (fecha, voucher_id). None si invalido."""
+    import base64
+
+    try:
+        # Re-pad
+        padded = cursor + "=" * (-len(cursor) % 4)
+        raw = base64.urlsafe_b64decode(padded.encode()).decode()
+        fecha_str, vid_str = raw.split(",")
+        return date.fromisoformat(fecha_str), int(vid_str)
+    except (ValueError, TypeError):
+        return None
+
+
+@router.get("/vouchers/cursor", response_model=CursorVouchersResponse)
+async def list_vouchers_cursor(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    size: int = Query(default=50, ge=1, le=200),
+    cursor: str | None = Query(default=None),
+    empresa_codigo: str | None = Query(default=None),
+    tipo: VoucherTipo | None = Query(default=None),
+    voucher_status: VoucherStatus | None = Query(default=None, alias="status"),
+    fecha_desde: date | None = Query(default=None),
+    fecha_hasta: date | None = Query(default=None),
+    contraparte_rut: str | None = Query(default=None),
+) -> CursorVouchersResponse:
+    """Etapa D — paginacion cursor sobre (fecha_contable DESC, voucher_id DESC).
+
+    Para listados infinite-scroll en la lista de vouchers. Si necesitas
+    saber el total, usa /vouchers/paginated (mas caro). Para navegar
+    paginas, este es ~10x mas rapido en deep pages.
+
+    Usage:
+      GET /vouchers/cursor?size=50 → primera pagina, response incluye next_cursor
+      GET /vouchers/cursor?cursor={next_cursor} → segunda pagina, etc.
+    """
+    wheres = []
+    scoped_codes = scope.filter_codes(empresa_codigo)
+    if scoped_codes is not None:
+        wheres.append(Voucher.empresa_codigo.in_(scoped_codes))
+    if tipo:
+        wheres.append(Voucher.tipo == tipo)
+    if voucher_status:
+        wheres.append(Voucher.status == voucher_status)
+    if fecha_desde:
+        wheres.append(Voucher.fecha_contable >= fecha_desde)
+    if fecha_hasta:
+        wheres.append(Voucher.fecha_contable <= fecha_hasta)
+    if contraparte_rut:
+        wheres.append(Voucher.contraparte_rut == contraparte_rut)
+
+    # Cursor: (fecha_contable, voucher_id) < (cursor_fecha, cursor_id)
+    # en DESC order. Usa el indice compuesto ix_vouchers_empresa_status_fecha
+    # cuando hay filtros por empresa/status.
+    if cursor:
+        decoded = _decode_cursor(cursor)
+        if decoded is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cursor invalido. Pediste una pagina inexistente.",
+            )
+        cursor_fecha, cursor_id = decoded
+        # Tuple comparison: (fecha, id) < (cursor_fecha, cursor_id)
+        # equivale a: fecha < cursor_fecha OR (fecha = cursor_fecha AND id < cursor_id)
+        from sqlalchemy import and_, or_
+
+        wheres.append(
+            or_(
+                Voucher.fecha_contable < cursor_fecha,
+                and_(
+                    Voucher.fecha_contable == cursor_fecha,
+                    Voucher.voucher_id < cursor_id,
+                ),
+            )
+        )
+
+    stmt = select(Voucher)
+    for w in wheres:
+        stmt = stmt.where(w)
+    # Pedimos size + 1 para saber si hay mas paginas sin un count separado
+    stmt = stmt.order_by(
+        Voucher.fecha_contable.desc(),
+        Voucher.voucher_id.desc(),
+    ).limit(size + 1)
+
+    result = await db.execute(stmt)
+    rows = list(result.scalars().all())
+    has_more = len(rows) > size
+    items_models = rows[:size]
+    items = [VoucherListItem.model_validate(v) for v in items_models]
+
+    next_cursor = None
+    if has_more and items_models:
+        last = items_models[-1]
+        next_cursor = _encode_cursor(last.fecha_contable, last.voucher_id)
+
+    return CursorVouchersResponse(
+        items=items,
+        next_cursor=next_cursor,
+        has_more=has_more,
+    )
+
+
 @router.get("/vouchers/paginated", response_model=PaginatedVouchersResponse)
 async def list_vouchers_paginated(
     user: CurrentUser,
