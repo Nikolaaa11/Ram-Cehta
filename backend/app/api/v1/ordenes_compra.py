@@ -436,6 +436,29 @@ async def download_oc_pdf(
         ) from exc
 
     filename = f"oc-{oc.numero_oc}.pdf"
+
+    # Round 17 — audit log de descarga PDF (forense). Soft-fail.
+    try:
+        await audit_log(
+            db, request, user,
+            action="download_pdf",
+            entity_type="orden_compra",
+            entity_id=str(oc_id),
+            entity_label=str(oc.numero_oc),
+            summary=(
+                f"Descarga PDF de OC {oc.numero_oc} "
+                f"({len(pdf_bytes)} bytes, attachments={include_attachments})"
+            ),
+            before=None,
+            after={
+                "bytes": len(pdf_bytes),
+                "include_attachments": include_attachments,
+                "empresa_codigo": oc.empresa_codigo,
+            },
+        )
+    except Exception:
+        pass
+
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",

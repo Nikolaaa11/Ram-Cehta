@@ -886,6 +886,32 @@ async def download_voucher_pdf(
         ) from exc
 
     filename = f"voucher-{row['codigo']}.pdf"
+
+    # Round 17 — audit log de descarga PDF para forense.
+    # Soft-fail: no rompe el download si audit_log falla. El footer
+    # notarial (Round 13) tambien graba el email pero solo en el PDF;
+    # esto deja huella server-side.
+    try:
+        await audit_log(
+            db, request, user,
+            action="download_pdf",
+            entity_type="voucher",
+            entity_id=str(voucher_id),
+            entity_label=str(row["codigo"]),
+            summary=(
+                f"Descarga PDF de voucher {row['codigo']} "
+                f"({len(pdf_bytes)} bytes, attachments={include_attachments})"
+            ),
+            before=None,
+            after={
+                "bytes": len(pdf_bytes),
+                "include_attachments": include_attachments,
+                "empresa_codigo": row["empresa_codigo"],
+            },
+        )
+    except Exception:
+        pass
+
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",

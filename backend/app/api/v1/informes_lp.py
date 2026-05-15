@@ -32,6 +32,7 @@ from fastapi.responses import Response
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.services.audit_service import audit_log
 from app.infrastructure.repositories.informe_lp_repository import (
     InformeLpEventoRepository,
     InformeLpRepository,
@@ -555,6 +556,25 @@ async def download_informe_pdf(
 
     fecha_str = datetime.utcnow().strftime("%Y-%m-%d")
     filename = f"informe-lp-{informe_id}-{fecha_str}.pdf"
+
+    # Round 17 — audit log de descarga PDF informe LP (confidencial,
+    # auditoria reforzada). Soft-fail.
+    try:
+        await audit_log(
+            db, None, user,
+            action="download_pdf",
+            entity_type="informe_lp",
+            entity_id=str(informe_id),
+            entity_label=f"Informe LP #{informe_id}",
+            summary=(
+                f"Descarga PDF informe LP {informe_id} ({len(pdf_bytes)} bytes)"
+            ),
+            before=None,
+            after={"bytes": len(pdf_bytes)},
+        )
+    except Exception:
+        pass
+
     return StreamingResponse(
         iter([pdf_bytes]),
         media_type="application/pdf",
