@@ -214,6 +214,20 @@ export default function NuevoVoucherPage() {
 
   const tipoMeta = TIPOS.find((t) => t.value === tipo)!;
 
+  // Round 8 — limites razonables de fecha (mismo razonamiento que Nubox
+  // form): 5 anos atras cubre ciclo contable, 7d adelante cubre docs
+  // futuros legitimos. Evita typos catastroficos (1900 o 2099).
+  const minDateVoucher = useMemo(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 5);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const maxDateVoucher = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  }, []);
+
   // Empresas — SCOPE FIX (Observaciones 13/05/2026 #1): un contador no debe
   // ver empresas que no le corresponden en el dropdown. Antes usaba /empresa
   // (lista plana sin filtro). Ahora usa /me/empresas que ya filtra por
@@ -542,6 +556,8 @@ export default function NuevoVoucherPage() {
                   type="date"
                   required
                   value={fechaDocumento}
+                  min={minDateVoucher}
+                  max={maxDateVoucher}
                   onChange={(e) => setFechaDocumento(e.target.value)}
                   className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                 />
@@ -552,6 +568,8 @@ export default function NuevoVoucherPage() {
                   type="date"
                   required
                   value={fechaContable}
+                  min={minDateVoucher}
+                  max={maxDateVoucher}
                   onChange={(e) => setFechaContable(e.target.value)}
                   className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                 />

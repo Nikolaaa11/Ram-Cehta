@@ -346,6 +346,9 @@ function VoucherRow({ v }: { v: Voucher }) {
   return (
     <Link
       href={`/vouchers/${v.voucher_id}` as Route}
+      // Round 8 — prefetch eager. En mis-pendientes el user casi siempre
+      // clickea alguna fila, vale la pena precargar el bundle.
+      prefetch={true}
       className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-900/40 transition-colors group"
     >
       <div className="flex-1 min-w-0">

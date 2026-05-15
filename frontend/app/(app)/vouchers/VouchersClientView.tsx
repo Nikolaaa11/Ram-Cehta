@@ -13,9 +13,9 @@
  * Apple-tier: hero editorial + KPIs + tabla con hover + filtros sticky.
  */
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -195,14 +195,55 @@ export function VouchersClientView({
   const { session } = useSession();
   const qc = useQueryClient();
   const router = useRouter();
-  const [empresaFilter, setEmpresaFilter] = useState("");
-  const [tipoFilter, setTipoFilter] = useState<VoucherTipo | "">("");
-  const [estadoFilter, setEstadoFilter] = useState<VoucherStatus | "">("");
+  // Round 8 — los filtros se persisten en la URL como query params.
+  // Beneficio: refresh no pierde los filtros, los links se pueden compartir
+  // ("mira los vouchers PENDING de CEHTA"), el browser back vuelve al
+  // mismo estado, y bookmarks funcionan como saved views ad-hoc.
+  const searchParams = useSearchParams();
+  const [empresaFilter, setEmpresaFilter] = useState(
+    () => searchParams.get("empresa") ?? "",
+  );
+  const [tipoFilter, setTipoFilter] = useState<VoucherTipo | "">(
+    () => (searchParams.get("tipo") as VoucherTipo) ?? "",
+  );
+  const [estadoFilter, setEstadoFilter] = useState<VoucherStatus | "">(
+    () => (searchParams.get("status") as VoucherStatus) ?? "",
+  );
   // V5++ ola CE — Filtro por origen (manual / IA / CSV / template / etc.)
-  const [sourceFilter, setSourceFilter] = useState<string>("");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
-  const [search, setSearch] = useState("");
+  const [sourceFilter, setSourceFilter] = useState<string>(
+    () => searchParams.get("source") ?? "",
+  );
+  const [fechaDesde, setFechaDesde] = useState(
+    () => searchParams.get("desde") ?? "",
+  );
+  const [fechaHasta, setFechaHasta] = useState(
+    () => searchParams.get("hasta") ?? "",
+  );
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+
+  // Sync filters → URL (replaceState, no re-render forzado, no nueva
+  // entry en history para no romper el boton back).
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (empresaFilter) params.set("empresa", empresaFilter);
+    if (tipoFilter) params.set("tipo", tipoFilter);
+    if (estadoFilter) params.set("status", estadoFilter);
+    if (sourceFilter) params.set("source", sourceFilter);
+    if (fechaDesde) params.set("desde", fechaDesde);
+    if (fechaHasta) params.set("hasta", fechaHasta);
+    if (search.trim()) params.set("q", search.trim());
+    const qs = params.toString();
+    const url = qs ? `/vouchers?${qs}` : "/vouchers";
+    window.history.replaceState(null, "", url);
+  }, [
+    empresaFilter,
+    tipoFilter,
+    estadoFilter,
+    sourceFilter,
+    fechaDesde,
+    fechaHasta,
+    search,
+  ]);
   // Bulk approve state — checkbox visible cuando hay >=1 fila PENDING visible.
   // Iteramos POST /vouchers/{id}/approve en secuencia (no hay endpoint bulk
   // en el backend; mantenemos coherencia con el flujo manual de firma).
