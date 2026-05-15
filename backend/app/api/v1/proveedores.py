@@ -304,6 +304,7 @@ class ProveedorCacheItem(BaseModel):
 async def proveedores_cache(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
 ) -> list[ProveedorCacheItem]:
     """Round 44 — devuelve TODOS los proveedores activos en formato mínimo.
 
@@ -313,9 +314,12 @@ async def proveedores_cache(
     sobre el array en memoria) — búsqueda instantánea, 0 round-trips
     adicionales.
 
-    Tamaño aprox: ~50KB para 250 proveedores. Cacheable en HTTP Cache
-    + TanStack Query staleTime 5min. Si el operador crea un proveedor
-    nuevo durante la sesión, la invalidación de la query la refresca.
+    Tamaño aprox: 20KB (~88 bytes/proveedor) para 228 proveedores.
+
+    Round 45 — Cache-Control: el browser cachea la respuesta 5 minutos,
+    así si el user recarga la página el JSON viene del disk cache local
+    sin pegarle al backend. `private` porque el response depende del
+    user (RLS deja pasar siempre pero es buena práctica).
 
     Solo devuelve activos. Para gestión completa usar `GET /proveedores`
     paginado con `with_counts=true`.
@@ -326,6 +330,11 @@ async def proveedores_cache(
         .order_by(Proveedor.razon_social.asc())
     )
     rows = (await db.execute(stmt)).all()
+    # Round 45 — HTTP cache hint. max-age=300 = 5min en browser.
+    # stale-while-revalidate permite servir cache mientras refresca en bg.
+    response.headers["Cache-Control"] = (
+        "private, max-age=300, stale-while-revalidate=60"
+    )
     return [
         ProveedorCacheItem(proveedor_id=r[0], razon_social=r[1], rut=r[2])
         for r in rows
