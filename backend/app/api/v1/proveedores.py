@@ -6,12 +6,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
+from app.models.proveedor import Proveedor
 from app.schemas.common import Page
 from app.schemas.proveedor import ProveedorCreate, ProveedorRead, ProveedorUpdate
 from app.services.audit_service import audit_log
@@ -283,6 +284,51 @@ async def search_proveedores(
             ),
         )
         for p in items
+    ]
+
+
+class ProveedorCacheItem(BaseModel):
+    """Item mínimo de catálogo proveedor — para precarga client-side.
+
+    Solo los 3 campos que el typeahead necesita: proveedor_id (key React),
+    razon_social (búsqueda + display), rut (filtro + autocompletado).
+    Resto de campos (giro, dirección, banco, etc.) se piden en el detalle.
+    """
+
+    proveedor_id: int
+    razon_social: str
+    rut: str | None = None
+
+
+@router.get("/cache", response_model=list[ProveedorCacheItem])
+async def proveedores_cache(
+    user: CurrentUser,
+    db: DBSession,
+) -> list[ProveedorCacheItem]:
+    """Round 44 — devuelve TODOS los proveedores activos en formato mínimo.
+
+    Pensado para precarga client-side: el frontend hace UN único fetch al
+    cargar la app y guarda el resultado en TanStack Query / memoria. A
+    partir de ese momento, el typeahead filtra 100% client-side (filter
+    sobre el array en memoria) — búsqueda instantánea, 0 round-trips
+    adicionales.
+
+    Tamaño aprox: ~50KB para 250 proveedores. Cacheable en HTTP Cache
+    + TanStack Query staleTime 5min. Si el operador crea un proveedor
+    nuevo durante la sesión, la invalidación de la query la refresca.
+
+    Solo devuelve activos. Para gestión completa usar `GET /proveedores`
+    paginado con `with_counts=true`.
+    """
+    stmt = (
+        select(Proveedor.proveedor_id, Proveedor.razon_social, Proveedor.rut)
+        .where(Proveedor.activo.is_(True))
+        .order_by(Proveedor.razon_social.asc())
+    )
+    rows = (await db.execute(stmt)).all()
+    return [
+        ProveedorCacheItem(proveedor_id=r[0], razon_social=r[1], rut=r[2])
+        for r in rows
     ]
 
 

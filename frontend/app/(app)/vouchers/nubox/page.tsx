@@ -39,6 +39,10 @@ import { useSession } from "@/hooks/use-session";
 import { useFormAutosave } from "@/hooks/use-form-autosave";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
+import {
+  useProveedoresCache,
+  useFilterProveedores,
+} from "@/hooks/use-proveedores-cache";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
@@ -775,6 +779,11 @@ export default function NuboxFormPage() {
       queryClient.invalidateQueries({ queryKey: ["vouchers"] });
       queryClient.invalidateQueries({ queryKey: ["vouchers-kpis"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-state"] });
+      // Round 44 — si el backend creó un proveedor nuevo, invalidar el
+      // cache para que el typeahead lo encuentre la próxima vez.
+      if (resp.proveedor_creado_automatico) {
+        queryClient.invalidateQueries({ queryKey: ["proveedores", "cache"] });
+      }
 
       // Round 32 — branch: si createAnother, reseteamos el form y nos
       // quedamos acá. Si no, navegamos al detalle del voucher recién creado.
@@ -1635,13 +1644,22 @@ function LineSection({
 }
 
 // ---------------------------------------------------------------------
-// Typeahead Proveedor — V5++ ola CH B.2/B.3
+// Typeahead Proveedor — V5++ ola CH B.2/B.3 — Round 44 (client-side cache)
 // ---------------------------------------------------------------------
-// Input controlado que pega a `/proveedores/search?q=` con debounce 300ms.
-// Al seleccionar un hit dispara `onSelect`, que el padre usa para llenar
-// razon social + RUT (read-only). Si el usuario escribe pero no selecciona
-// ninguno, el padre asume que va a crear un proveedor nuevo (queda en modo
-// libre — el backend autocrea al guardar).
+// Antes: input con debounce 300ms + GET /proveedores/search?q=... por
+//        cada keystroke. Lento si la red está saturada.
+// Ahora: useProveedoresCache() trae los ~228 proveedores activos UNA vez
+//        (cacheado 5min con TanStack Query) y la búsqueda es 100%
+//        client-side — instantánea, 0 round-trips después de la carga.
+//
+// Beneficios:
+//   · Búsqueda mientras tipea sin lag perceptible
+//   · Focus en input sin texto → muestra primeros 8 alfabético (descubrimiento)
+//   · Match en razón_social O RUT (sin necesidad de saber qué tipeas)
+//   · RUT normaliza puntos/guiones — "12345678" matchea "12.345.678-9"
+//
+// Si el operador escribe un proveedor que no aparece en la lista, el
+// padre asume nuevo y el backend autocrea al guardar (path original).
 
 function ProveedorTypeahead({
   value,
@@ -1656,52 +1674,20 @@ function ProveedorTypeahead({
   onClear: () => void;
   placeholder?: string;
 }) {
-  const { session } = useSession();
   const [query, setQuery] = useState(value);
-  const [results, setResults] = useState<ProveedorSearchHit[]>([]);
   const [open, setOpen] = useState(false);
-  const [searching, setSearching] = useState(false);
+  const { isLoading: cacheLoading } = useProveedoresCache();
+
+  // Round 44 — search local sobre cache.
+  // Si el query es exactamente el nombre ya seleccionado, no resultados
+  // (evita mostrar dropdown vacío tras select).
+  const searchQuery = query.trim() === value.trim() ? "" : query;
+  const { results, cacheSize } = useFilterProveedores(searchQuery, 8);
 
   // Sync exterior -> interior cuando el padre setea el nombre programaticamente.
   useEffect(() => {
     setQuery(value);
   }, [value]);
-
-  useEffect(() => {
-    if (!session) return;
-    const q = query.trim();
-    // Solo buscamos si el query NO es exactamente el nombre del proveedor
-    // ya seleccionado — eso evita re-buscar despues de un select.
-    if (q.length < 2 || q === value) {
-      setResults([]);
-      return;
-    }
-    let cancelled = false;
-    setSearching(true);
-    const timer = setTimeout(() => {
-      apiClient
-        .get<ProveedorSearchHit[]>(
-          `/proveedores/search?q=${encodeURIComponent(q)}&limit=8`,
-          session,
-        )
-        .then((hits) => {
-          if (!cancelled) {
-            setResults(hits);
-            setOpen(hits.length > 0);
-          }
-        })
-        .catch(() => {
-          if (!cancelled) setResults([]);
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false);
-        });
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [query, session, value]);
 
   return (
     <div className="relative">
@@ -1716,15 +1702,26 @@ function ProveedorTypeahead({
           } else if (rutValue && e.target.value !== value) {
             onClear();
           }
+          // Cuando empieza a tipear, abrir dropdown.
+          if (e.target.value.trim()) setOpen(true);
         }}
         onFocus={() => {
-          if (results.length > 0) setOpen(true);
+          // Round 44 — abrir dropdown apenas hay foco. Si no hay query,
+          // useFilterProveedores devuelve los primeros 8 = descubrimiento.
+          setOpen(true);
         }}
         onBlur={() => {
           // delay para permitir click en el dropdown
           setTimeout(() => setOpen(false), 150);
         }}
-        placeholder={placeholder ?? "Buscar proveedor…"}
+        placeholder={
+          placeholder ??
+          (cacheLoading
+            ? "Cargando catálogo…"
+            : cacheSize > 0
+              ? `Buscar entre ${cacheSize} proveedores…`
+              : "Buscar proveedor…")
+        }
         className="form-input"
         autoComplete="off"
       />
@@ -1740,7 +1737,11 @@ function ProveedorTypeahead({
               aria-selected={hit.razon_social === value}
               onMouseDown={(e) => {
                 e.preventDefault();
-                onSelect(hit);
+                onSelect({
+                  proveedor_id: hit.proveedor_id,
+                  razon_social: hit.razon_social,
+                  rut: hit.rut,
+                });
                 setQuery(hit.razon_social);
                 setOpen(false);
               }}
@@ -1755,11 +1756,6 @@ function ProveedorTypeahead({
             </li>
           ))}
         </ul>
-      )}
-      {searching && query.trim().length >= 2 && !open && (
-        <p className="absolute -bottom-4 left-0 text-[10px] text-ink-400">
-          Buscando…
-        </p>
       )}
     </div>
   );
