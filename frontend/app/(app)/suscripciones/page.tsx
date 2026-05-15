@@ -77,6 +77,7 @@ export default function SuscripcionesPage() {
 
       {!isLoading && !error && items.length > 0 && (
         <Surface padding="none" className="overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-hairline text-sm">
             <thead className="bg-ink-100/40 text-xs uppercase tracking-wide text-ink-500">
               <tr>
@@ -134,6 +135,7 @@ export default function SuscripcionesPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Surface>
       )}
 

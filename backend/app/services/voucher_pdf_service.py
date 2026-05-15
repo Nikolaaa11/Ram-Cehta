@@ -416,6 +416,10 @@ class _CoverDoc(BaseDocTemplate):
         self.addPageTemplates([tpl])
 
     def _draw_chrome(self, canv: rl_canvas.Canvas, doc: BaseDocTemplate) -> None:
+        # QA fix 14/05/2026 — watermark diagonal por estado critico
+        # (VOID/REVERSO/REJECTED/DRAFT). Previene que un voucher invalido
+        # se procese como vigente cuando se imprime y mezcla con otros.
+        _draw_status_watermark(canv, self._voucher.get("status"))
         _draw_header(canv, self._empresa, self._logo_bytes)
         _draw_footer(canv, doc.page)
 
@@ -487,6 +491,45 @@ def _draw_header(canv: rl_canvas.Canvas, empresa: dict, logo_bytes: bytes | None
     canv.setLineWidth(2)
     canv.line(MARGIN_L, band_bottom, PAGE_W - MARGIN_R, band_bottom)
     canv.restoreState()
+
+
+# QA fix 14/05/2026 — watermark diagonal por estado critico.
+# Previene que documentos VOID/REJECTED se procesen como vigentes
+# cuando se imprimen y mezclan con otros. Tambien marca DRAFT.
+_WATERMARK_BY_STATUS: dict[str, tuple[str, tuple[float, float, float]]] = {
+    # status → (texto, (r,g,b))
+    "VOID": ("ANULADO", (0.85, 0.20, 0.20)),       # red strong
+    "VOIDED": ("ANULADO", (0.85, 0.20, 0.20)),
+    "CANCELLED": ("ANULADO", (0.85, 0.20, 0.20)),
+    "REJECTED": ("RECHAZADO", (0.85, 0.20, 0.20)),
+    "REVERSO": ("REVERSO", (0.85, 0.55, 0.20)),    # orange
+    "DRAFT": ("BORRADOR", (0.55, 0.55, 0.55)),     # gray
+}
+
+
+def _draw_status_watermark(canv: rl_canvas.Canvas, status: str | None) -> None:
+    """Dibuja un watermark diagonal grande si status amerita marcarlo.
+
+    No-op para status normales (PENDING, APPROVED, EXECUTED, SYNCED).
+    """
+    if not status:
+        return
+    meta = _WATERMARK_BY_STATUS.get(status.upper())
+    if meta is None:
+        return
+    text, (r, g, b) = meta
+
+    canv.saveState()
+    try:
+        canv.translate(PAGE_W / 2, PAGE_H / 2)
+        canv.rotate(35)
+        canv.setFillColorRGB(r, g, b, alpha=0.12)
+        canv.setStrokeColorRGB(r, g, b, alpha=0.0)
+        # 72pt font scaled enough to cross la pagina A4 en diagonal
+        canv.setFont("Helvetica-Bold", 110)
+        canv.drawCentredString(0, -30, text)
+    finally:
+        canv.restoreState()
 
 
 def _draw_footer(canv: rl_canvas.Canvas, page_num: int) -> None:

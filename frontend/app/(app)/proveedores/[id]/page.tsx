@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2, Landmark } from "lucide-react";
+import { ArrowLeft, Building2, Landmark, MessageCircle } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { ProveedorActions } from "@/components/proveedores/ProveedorActions";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toDateTime } from "@/lib/format";
+import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import type { ProveedorRead } from "@/lib/api/schema";
 
 function Field({
@@ -119,6 +120,31 @@ export default async function ProveedorDetallePage({
             <Field label="Teléfono" value={proveedor.telefono} mono />
             <Field label="Email" value={proveedor.email} />
           </dl>
+          {/* Round 8 QA — botón WhatsApp si hay telefono valido. wa.me
+              link abre WhatsApp con saludo prearmado. Funciona en mobile
+              + desktop con WhatsApp Web. */}
+          {(() => {
+            const wa = buildWaLink(
+              proveedor.telefono,
+              waMessages.contactarProveedor({
+                contacto: proveedor.contacto,
+                asunto: `el proveedor "${proveedor.razon_social}"`,
+              }),
+            );
+            if (!wa) return null;
+            return (
+              <a
+                href={wa}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#1FB453]"
+                title="Abre WhatsApp con mensaje pre-llenado para el contacto"
+              >
+                <MessageCircle className="size-3.5" strokeWidth={2.5} />
+                Enviar WhatsApp
+              </a>
+            );
+          })()}
         </Surface.Body>
       </Surface>
 

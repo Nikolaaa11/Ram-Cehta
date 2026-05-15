@@ -263,7 +263,9 @@ export default function TwoFactorSetupPage() {
                   <button
                     type="button"
                     onClick={copySecret}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-hairline bg-white text-ink-700 hover:bg-ink-50"
+                    aria-label="Copiar código secreto"
+                    title="Copiar al portapapeles"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-hairline bg-white text-ink-700 hover:bg-ink-50"
                   >
                     {secretCopied ? (
                       <Check
