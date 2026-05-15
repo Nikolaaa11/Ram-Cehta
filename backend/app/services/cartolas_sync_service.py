@@ -292,6 +292,52 @@ async def sync_cartolas_for_empresa(
         stats["movimientos_skipped"] += skipped
 
     await db.commit()
+
+    # Round 57 — auto-conciliación post-import. Si insertamos movimientos
+    # nuevos, los matcheamos contra vouchers EXECUTED de la empresa. Cada
+    # match exitoso liga voucher↔movimiento y marca el voucher como
+    # RECONCILED sin acción del operador.
+    #
+    # Soft-fail: si el matching falla por cualquier motivo (Decimal mal
+    # formado, query timeout, etc.) lo logueamos pero NO revertimos la
+    # importación de cartola que ya está commiteada arriba.
+    if stats["movimientos_inserted"] > 0:
+        try:
+            from app.services.conciliacion_service import auto_reconcile
+
+            recon_stats = await auto_reconcile(
+                db,
+                empresa_codigo=empresa_codigo,
+                # Sin fecha_desde/hasta → algoritmo decide ventana sensata.
+                fecha_desde=None,
+                fecha_hasta=None,
+                window_days=3,
+            )
+            await db.commit()
+            stats["auto_reconcile"] = {
+                "matched": recon_stats.get("matched_unico", 0),
+                "ambiguous": recon_stats.get("matched_ambiguo", 0),
+                "without_candidate": recon_stats.get("sin_candidatos", 0),
+                "vouchers_evaluated": recon_stats.get(
+                    "vouchers_evaluados", 0
+                ),
+            }
+            log.info(
+                "cartola_sync.auto_reconcile_after_import",
+                empresa=empresa_codigo,
+                triggered_by=triggered_by,
+                matched=recon_stats.get("matched_unico", 0),
+                movimientos_nuevos=stats["movimientos_inserted"],
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "cartola_sync.auto_reconcile_failed",
+                empresa=empresa_codigo,
+                error=str(exc),
+            )
+            stats.setdefault("errors", []).append(
+                f"auto-conciliación post-import falló: {exc}"
+            )
     return stats
 
 
