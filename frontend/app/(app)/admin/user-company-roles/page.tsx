@@ -23,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
@@ -390,9 +391,12 @@ function CreateAssignmentDialog({
       setLoading(false);
     }
   };
+  // Round 29 — focus trap + ESC + scroll lock para asignar rol-empresa.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
