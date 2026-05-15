@@ -422,6 +422,8 @@ async def download_oc_pdf(
             oc_id=oc_id,
             db=db,
             include_attachments=include_attachments,
+            # Round 14 — footer notarial registra user que descargo.
+            generated_by_email=getattr(user, "email", None),
         )
     except ValueError as exc:
         raise HTTPException(

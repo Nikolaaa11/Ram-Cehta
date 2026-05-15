@@ -108,8 +108,11 @@ async def generate_oc_pdf_bundle(
     oc_id: int,
     db: AsyncSession,
     include_attachments: bool = True,
+    generated_by_email: str | None = None,
 ) -> bytes:
     """Genera el PDF: cover branded + (opcional) attachments mergeados.
+
+    Round 14 — acepta `generated_by_email` para footer notarial.
 
     Raises:
         ValueError: si la OC no existe.
@@ -117,6 +120,7 @@ async def generate_oc_pdf_bundle(
     data = await _fetch_oc_bundle_data(db, oc_id)
     if data is None:
         raise ValueError(f"OC {oc_id} no encontrada")
+    data["generated_by_email"] = generated_by_email
 
     logo_bytes = await _try_fetch_logo(db, data["empresa"])
     cover_bytes = await asyncio.to_thread(_build_cover_pdf, data, logo_bytes)
@@ -315,6 +319,7 @@ class _OcCoverDoc(BaseDocTemplate):
         empresa: dict[str, Any],
         oc: dict[str, Any],
         logo_bytes: bytes | None,
+        generated_by_email: str | None = None,
     ) -> None:
         super().__init__(
             buf,
@@ -329,6 +334,7 @@ class _OcCoverDoc(BaseDocTemplate):
         self._empresa = empresa
         self._oc = oc
         self._logo_bytes = logo_bytes
+        self._generated_by_email = generated_by_email
         frame = Frame(
             self.leftMargin, self.bottomMargin, self.width, self.height,
             id="content", showBoundary=0,
@@ -352,7 +358,7 @@ class _OcCoverDoc(BaseDocTemplate):
         if mapped:
             _draw_status_watermark(canv, mapped)
         _draw_oc_header(canv, self._empresa, self._logo_bytes)
-        _draw_oc_footer(canv, doc.page, self._empresa)
+        _draw_oc_footer(canv, doc.page, self._empresa, self._generated_by_email)
 
 
 def _draw_oc_header(
@@ -418,8 +424,16 @@ def _draw_oc_header(
 
 
 def _draw_oc_footer(
-    canv: rl_canvas.Canvas, page_num: int, empresa: dict[str, Any]
+    canv: rl_canvas.Canvas,
+    page_num: int,
+    empresa: dict[str, Any],
+    generated_by_email: str | None = None,
 ) -> None:
+    """Round 14 — footer notarial OC con email del user.
+
+    Mismo patron que voucher_pdf_service._draw_footer pero scoped a OC
+    (centro muestra razon_social de la empresa + Cehta Capital brand).
+    """
     canv.saveState()
     y = MARGIN_B - 2 * mm
     canv.setStrokeColor(CEHTA_BORDER)
@@ -428,7 +442,15 @@ def _draw_oc_footer(
     canv.setFont("Helvetica", 7)
     canv.setFillColor(CEHTA_GREY)
     now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
-    canv.drawString(MARGIN_L, y + 2 * mm, f"Generado el {now}")
+    gen_text = f"Generado el {now}"
+    if generated_by_email:
+        email_short = (
+            generated_by_email[:32] + "…"
+            if len(generated_by_email) > 35
+            else generated_by_email
+        )
+        gen_text += f"  ·  Por: {email_short}"
+    canv.drawString(MARGIN_L, y + 2 * mm, gen_text)
     canv.drawRightString(PAGE_W - MARGIN_R, y + 2 * mm, f"Página {page_num}")
     canv.setFillColor(CEHTA_GREEN_DARK)
     canv.setFont("Helvetica-Bold", 7)
@@ -452,9 +474,17 @@ def _build_cover_pdf(
     proveedor = data["proveedor"]
     items = data["items"]
     moneda = (oc.get("moneda") or "CLP").upper()
+    # Round 14 — email del user que genero el PDF (forensic footer).
+    generated_by_email = data.get("generated_by_email")
 
     buf = io.BytesIO()
-    doc = _OcCoverDoc(buf, empresa=empresa, oc=oc, logo_bytes=logo_bytes)
+    doc = _OcCoverDoc(
+        buf,
+        empresa=empresa,
+        oc=oc,
+        logo_bytes=logo_bytes,
+        generated_by_email=generated_by_email,
+    )
 
     styles = getSampleStyleSheet()
     s_title = ParagraphStyle(
