@@ -26,11 +26,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   Building2,
   CheckCircle2,
+  CheckCheck,
   Download,
   ExternalLink,
   Loader2,
@@ -72,11 +73,25 @@ interface PreviewResponse {
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
 
+interface BulkExecuteResponse {
+  succeeded: number;
+  failed: number;
+  executed_codes: string[];
+  failures: Array<{ voucher_id: number; codigo?: string; reason: string }>;
+}
+
 export default function TransferenciasPage() {
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [empresaFilter, setEmpresaFilter] = useState<string>("");
   const [downloading, setDownloading] = useState(false);
+  // Etapa A — bulk execute
+  const [executing, setExecuting] = useState(false);
+  const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
+  const [executeNota, setExecuteNota] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const [executeFecha, setExecuteFecha] = useState(today);
 
   const { data, isLoading, error, refetch } = useQuery<PreviewResponse>({
     queryKey: ["transferencias-preview"],
@@ -208,6 +223,70 @@ export default function TransferenciasPage() {
       );
     } finally {
       setDownloading(false);
+    }
+  };
+
+  // Etapa A — bulk mark EXECUTED. Despues de subir el Excel al banco y
+  // confirmar transferencias, el user marca aca todos los que se pagaron.
+  const handleBulkExecute = async () => {
+    if (!session) {
+      toast.error("Sesión expirada");
+      return;
+    }
+    if (selectedIds.size === 0) {
+      toast.error("Seleccioná al menos un voucher");
+      return;
+    }
+    setExecuting(true);
+    try {
+      const resp = await apiClient.post<BulkExecuteResponse>(
+        "/vouchers/bulk-execute",
+        {
+          voucher_ids: Array.from(selectedIds),
+          fecha_ejecucion: executeFecha,
+          nota: executeNota.trim() || null,
+        },
+        session,
+      );
+
+      if (resp.failed === 0) {
+        toast.success(
+          `✓ ${resp.succeeded} vouchers marcados como EXECUTED`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.info(
+          `${resp.succeeded} marcados · ${resp.failed} fallaron. Revisá los detalles.`,
+          { duration: 10000 },
+        );
+        // Mostrar primeros 3 errores en toasts adicionales
+        for (const f of resp.failures.slice(0, 3)) {
+          toast.error(`${f.codigo ?? f.voucher_id}: ${f.reason}`, {
+            duration: 8000,
+          });
+        }
+      }
+      setShowExecuteConfirm(false);
+      setExecuteNota("");
+      setSelectedIds(new Set());
+      // Round 7 pattern — invalidar caches relacionadas para que la
+      // lista refresque automaticamente.
+      queryClient.invalidateQueries({
+        queryKey: ["transferencias-preview"],
+      });
+      queryClient.invalidateQueries({ queryKey: ["vouchers"] });
+      queryClient.invalidateQueries({ queryKey: ["vouchers-kpis"] });
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.detail
+          : err instanceof Error
+            ? err.message
+            : "No se pudieron marcar como ejecutados.",
+        { duration: 10000 },
+      );
+    } finally {
+      setExecuting(false);
     }
   };
 
@@ -347,9 +426,11 @@ export default function TransferenciasPage() {
             </div>
           )}
 
-          {/* Bulk action bar — sticky bottom */}
+          {/* Bulk action bar — sticky bottom. Etapa A: agregamos boton
+              "Marcar EXECUTED" para cerrar el loop: download Excel →
+              banco → confirmar pago aca. */}
           {selectedIds.size > 0 && (
-            <div className="sticky bottom-4 z-10 flex items-center justify-between rounded-2xl border border-cehta-green/30 bg-white p-3 shadow-lg backdrop-blur-md">
+            <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cehta-green/30 bg-white p-3 shadow-lg backdrop-blur-md">
               <div className="flex items-center gap-3 px-2">
                 <div className="text-sm font-medium text-ink-900">
                   {selectedSummary.count} seleccionados
@@ -368,7 +449,7 @@ export default function TransferenciasPage() {
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
-                  disabled={downloading}
+                  disabled={downloading || executing}
                   className="rounded-xl px-3 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50"
                 >
                   Limpiar
@@ -376,16 +457,119 @@ export default function TransferenciasPage() {
                 <button
                   type="button"
                   onClick={handleDownload}
-                  disabled={downloading || selectedIds.size === 0}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow hover:bg-cehta-green-700 disabled:opacity-60"
+                  disabled={downloading || executing || selectedIds.size === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-white px-4 py-2 text-sm font-semibold text-cehta-green shadow-sm hover:bg-cehta-green/5 disabled:opacity-60"
+                  title="Descargar el Excel para cargarlo al banco"
                 >
                   {downloading ? (
                     <Loader2 className="size-4 animate-spin" />
                   ) : (
                     <Download className="size-4" />
                   )}
-                  {downloading ? "Generando…" : "Descargar Excel transferencia"}
+                  {downloading ? "Generando…" : "Excel transferencia"}
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setShowExecuteConfirm(true)}
+                  disabled={downloading || executing || selectedIds.size === 0}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow hover:bg-cehta-green-700 disabled:opacity-60"
+                  title="Marcar como pagados — usar despues de confirmar las transferencias en el banco"
+                >
+                  <CheckCheck className="size-4" />
+                  Marcar pagados
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Modal confirmacion bulk-execute */}
+          {showExecuteConfirm && (
+            <div
+              role="dialog"
+              aria-modal="true"
+              onClick={() => !executing && setShowExecuteConfirm(false)}
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-md space-y-4 rounded-3xl bg-white p-6 shadow-2xl"
+              >
+                <div className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                  <CheckCheck className="size-3.5" />
+                  Confirmar pagos
+                </div>
+                <p className="text-sm text-ink-700">
+                  Vas a marcar como <strong>EXECUTED</strong>{" "}
+                  <span className="font-semibold">
+                    {selectedSummary.count} voucher
+                    {selectedSummary.count === 1 ? "" : "s"}
+                  </span>{" "}
+                  por un total de{" "}
+                  <span className="font-semibold">
+                    {toCLP(selectedSummary.total)}
+                  </span>
+                  .
+                </p>
+                <p className="text-xs text-ink-500">
+                  Hacé esto <em>después</em> de confirmar las transferencias
+                  en el portal del banco. Una vez marcado, el voucher pasa
+                  al historial y deja de aparecer en esta lista.
+                </p>
+
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                      Fecha de transferencia
+                    </span>
+                    <input
+                      type="date"
+                      value={executeFecha}
+                      max={today}
+                      onChange={(e) => setExecuteFecha(e.target.value)}
+                      className="mt-1 w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                      Nota interna (opcional)
+                    </span>
+                    <input
+                      type="text"
+                      maxLength={300}
+                      value={executeNota}
+                      onChange={(e) => setExecuteNota(e.target.value)}
+                      placeholder="ej. lote BCI 2026-05-14"
+                      className="mt-1 w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                    />
+                    <span className="mt-1 block text-[10px] text-ink-500">
+                      Queda en el audit log de cada voucher.
+                    </span>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowExecuteConfirm(false)}
+                    disabled={executing}
+                    className="rounded-xl px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkExecute}
+                    disabled={executing}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
+                  >
+                    {executing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <CheckCheck className="size-4" />
+                    )}
+                    {executing ? "Procesando…" : "Confirmar pagos"}
+                  </button>
+                </div>
               </div>
             </div>
           )}

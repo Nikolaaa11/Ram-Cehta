@@ -1831,6 +1831,61 @@ class RejectRequest(BaseModel):
     reason: str = Field(min_length=10, max_length=500)
 
 
+class ExecuteRequest(BaseModel):
+    """Etapa A — POST /vouchers/bulk-execute body por voucher.
+
+    Marca un voucher APPROVED como EXECUTED (pago confirmado).
+    `fecha_ejecucion` y `nota` son opcionales — default fecha de hoy.
+    `movimiento_id` es opcional: si lo pasas, vincula este voucher con
+    un movimiento bancario existente (conciliacion explicita).
+    """
+
+    fecha_ejecucion: date | None = Field(
+        default=None,
+        description="Fecha real de la transferencia (default: hoy).",
+    )
+    nota: str | None = Field(
+        default=None,
+        max_length=300,
+        description=(
+            "Nota interna opcional (ej. 'lote BCI 2026-05-14' o "
+            "'comprobante #12345'). Queda en audit log."
+        ),
+    )
+    movimiento_id: int | None = Field(
+        default=None,
+        description="ID de core.movimientos a vincular (opcional).",
+    )
+
+
+class BulkExecuteRequest(BaseModel):
+    """Etapa A — POST /vouchers/bulk-execute.
+
+    Marca N vouchers APPROVED como EXECUTED en una sola llamada.
+    Pensado para uso post-transferencia masiva: el user descargo el
+    Excel desde /transferencias, subio al banco, y ahora confirma que
+    se ejecutaron todos.
+    """
+
+    voucher_ids: list[int] = Field(min_length=1, max_length=500)
+    fecha_ejecucion: date | None = Field(
+        default=None,
+        description="Fecha real de las transferencias (default: hoy).",
+    )
+    nota: str | None = Field(
+        default=None,
+        max_length=300,
+        description="Nota comun a todos (ej. 'lote BCI 2026-05-14').",
+    )
+
+
+class BulkExecuteResponse(BaseModel):
+    succeeded: int
+    failed: int
+    executed_codes: list[str] = []
+    failures: list[dict] = []  # [{voucher_id, codigo?, reason}]
+
+
 # =====================================================================
 # V5++ ola CI — Mis aprobaciones pendientes
 # =====================================================================
@@ -2470,6 +2525,239 @@ async def reject_voucher(
         pass
 
     return await get_voucher_approvals_state(user, db, voucher_id)
+
+
+# ============================================================================
+# Etapa A — bulk-execute: marcar N vouchers APPROVED como EXECUTED
+# ============================================================================
+#
+# Cierra el loop de Round 11 (transferencia masiva). Despues de descargar
+# el Excel y subirlo al banco, el user vuelve a /transferencias y marca
+# en bulk los que ya se ejecutaron. Sin esto, tendria que entrar a cada
+# voucher uno por uno — friccion alta para 20+ pagos.
+
+
+@router.post(
+    "/vouchers/{voucher_id}/execute",
+    dependencies=[Depends(require_scope("voucher:execute"))],
+)
+async def execute_voucher(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("voucher:execute"))],
+    db: DBSession,
+    request: Request,
+    voucher_id: int,
+    body: ExecuteRequest,
+) -> dict:
+    """Marca un voucher APPROVED como EXECUTED (pago confirmado).
+
+    Validaciones:
+      - voucher debe existir y estar APPROVED.
+      - scope multi-tenant: user debe tener acceso a la empresa.
+      - fecha_ejecucion no puede ser futura (>1d permitido por timezone).
+      - movimiento_id opcional, si se pasa debe existir y ser de la misma
+        empresa (conciliacion explicita).
+    """
+    voucher = await db.get(Voucher, voucher_id)
+    if voucher is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    await assert_empresa_access(user, db, voucher.empresa_codigo)
+
+    if voucher.status != "APPROVED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Solo vouchers APPROVED pueden marcarse como EXECUTED "
+                f"(este esta en {voucher.status})"
+            ),
+        )
+
+    fecha_ej = body.fecha_ejecucion or date.today()
+    if fecha_ej > date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"fecha_ejecucion {fecha_ej.isoformat()} es futura. La "
+                "transferencia tuvo que haber pasado para marcarla como EXECUTED."
+            ),
+        )
+
+    # Conciliacion opcional con movimiento bancario
+    if body.movimiento_id is not None:
+        mov_check = (
+            await db.execute(
+                text(
+                    """
+                    SELECT empresa_codigo FROM core.movimientos
+                    WHERE movimiento_id = :mid
+                    """
+                ),
+                {"mid": body.movimiento_id},
+            )
+        ).first()
+        if not mov_check:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Movimiento {body.movimiento_id} no existe",
+            )
+        if mov_check[0] != voucher.empresa_codigo:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Movimiento {body.movimiento_id} pertenece a otra "
+                    f"empresa ({mov_check[0]} vs {voucher.empresa_codigo})"
+                ),
+            )
+        voucher.movimiento_id = body.movimiento_id
+
+    voucher.status = "EXECUTED"
+    voucher.fecha_ejecucion = fecha_ej
+    await db.commit()
+
+    try:
+        await audit_log(
+            db, request, user,
+            action="execute",
+            entity_type="voucher",
+            entity_id=str(voucher.voucher_id),
+            entity_label=voucher.codigo,
+            summary=(
+                f"Voucher {voucher.codigo} EXECUTED — fecha {fecha_ej.isoformat()}"
+                + (f" — {body.nota[:80]}" if body.nota else "")
+                + (f" — link mov #{body.movimiento_id}" if body.movimiento_id else "")
+            ),
+            before={"status": "APPROVED"},
+            after={
+                "status": "EXECUTED",
+                "fecha_ejecucion": fecha_ej.isoformat(),
+                "nota": body.nota,
+                "movimiento_id": body.movimiento_id,
+            },
+        )
+    except Exception:
+        pass
+
+    return {
+        "voucher_id": voucher.voucher_id,
+        "codigo": voucher.codigo,
+        "status": "EXECUTED",
+        "fecha_ejecucion": fecha_ej.isoformat(),
+    }
+
+
+@router.post(
+    "/vouchers/bulk-execute",
+    response_model=BulkExecuteResponse,
+    dependencies=[Depends(require_scope("voucher:execute"))],
+)
+async def bulk_execute_vouchers(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("voucher:execute"))],
+    db: DBSession,
+    request: Request,
+    body: BulkExecuteRequest,
+) -> BulkExecuteResponse:
+    """Marca N vouchers APPROVED como EXECUTED en una sola llamada.
+
+    Procesa secuencialmente con commit por voucher para que un fallo
+    parcial no rollback todo. Devuelve resumen con succeeded/failed +
+    detalles para que el FE muestre que paso con cada uno.
+
+    Validaciones por voucher:
+      - existe + scope.
+      - status APPROVED (skip los que no).
+      - fecha_ejecucion no futura.
+    """
+    fecha_ej = body.fecha_ejecucion or date.today()
+    if fecha_ej > date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"fecha_ejecucion {fecha_ej.isoformat()} es futura.",
+        )
+
+    succeeded: list[str] = []
+    failures: list[dict] = []
+
+    for vid in body.voucher_ids:
+        try:
+            voucher = await db.get(Voucher, vid)
+            if voucher is None:
+                failures.append(
+                    {"voucher_id": vid, "reason": "Voucher no encontrado"}
+                )
+                continue
+            # Scope check inline (sin raise — capturamos como failure)
+            try:
+                await assert_empresa_access(user, db, voucher.empresa_codigo)
+            except HTTPException as exc:
+                failures.append(
+                    {
+                        "voucher_id": vid,
+                        "codigo": voucher.codigo,
+                        "reason": f"Sin acceso a empresa {voucher.empresa_codigo}",
+                    }
+                )
+                continue
+
+            if voucher.status != "APPROVED":
+                failures.append(
+                    {
+                        "voucher_id": vid,
+                        "codigo": voucher.codigo,
+                        "reason": (
+                            f"Status actual {voucher.status} — solo APPROVED es elegible"
+                        ),
+                    }
+                )
+                continue
+
+            voucher.status = "EXECUTED"
+            voucher.fecha_ejecucion = fecha_ej
+            await db.commit()
+            succeeded.append(voucher.codigo)
+
+            # Audit log per voucher (no rompe si falla)
+            try:
+                await audit_log(
+                    db, request, user,
+                    action="execute_bulk",
+                    entity_type="voucher",
+                    entity_id=str(voucher.voucher_id),
+                    entity_label=voucher.codigo,
+                    summary=(
+                        f"Voucher {voucher.codigo} EXECUTED (bulk) — "
+                        f"{fecha_ej.isoformat()}"
+                        + (f" — {body.nota[:80]}" if body.nota else "")
+                    ),
+                    before={"status": "APPROVED"},
+                    after={
+                        "status": "EXECUTED",
+                        "fecha_ejecucion": fecha_ej.isoformat(),
+                        "nota": body.nota,
+                        "via": "bulk",
+                    },
+                )
+            except Exception:
+                pass
+
+        except Exception as exc:
+            # Errores inesperados — log y siguiente
+            await db.rollback()
+            import structlog
+
+            structlog.get_logger(__name__).warning(
+                "bulk_execute_voucher_failed",
+                voucher_id=vid,
+                error=str(exc),
+            )
+            failures.append({"voucher_id": vid, "reason": "Error interno"})
+
+    return BulkExecuteResponse(
+        succeeded=len(succeeded),
+        failed=len(failures),
+        executed_codes=succeeded,
+        failures=failures,
+    )
 
 
 # ============================================================================
