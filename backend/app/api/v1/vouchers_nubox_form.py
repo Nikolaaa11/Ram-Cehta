@@ -195,8 +195,12 @@ class NuboxFormCreate(BaseModel):
 
     # Header obligatorio
     empresa_codigo: str = Field(min_length=2, max_length=20)
-    proveedor_rut: str = Field(min_length=8, max_length=20)
-    proveedor_nombre: str = Field(min_length=1, max_length=200)
+    # Round 31 — proveedor OPCIONAL. Se permite crear voucher sin
+    # contraparte (gastos genéricos, caja chica, servicios sin RUT, etc.).
+    # Si llega vacío/None, no se valida RUT, no se busca/crea proveedor en
+    # catálogo, y el voucher queda con contraparte_* en NULL.
+    proveedor_rut: str | None = Field(default=None, max_length=20)
+    proveedor_nombre: str | None = Field(default=None, max_length=200)
     # V5++ ola CE — Origen para tracking (ver migration 0055). Default nubox_form.
     source: str | None = Field(default=None, max_length=40)
     # V5++ ola CH: catalogo expandido (15 tipos SII + 3 backward-compat).
@@ -273,9 +277,11 @@ class NuboxFormResponse(BaseModel):
     total_financiera: Decimal
     lines_count: int
     proxima_accion: str
-    proveedor_id: int
-    proveedor_creado_automatico: bool
-    proveedor_rut_canonical: str
+    # Round 31 — los 3 campos de proveedor pasan a opcionales. Cuando se
+    # crea un voucher sin contraparte, los 3 devuelven None.
+    proveedor_id: int | None = None
+    proveedor_creado_automatico: bool = False
+    proveedor_rut_canonical: str | None = None
 
 
 class EmpresaMetadata(BaseModel):
@@ -601,26 +607,40 @@ async def create_voucher_nubox_form(
     # Esto evita que el catalogo core.proveedores quede desactualizado cuando
     # operativamente se tipea un proveedor nuevo en el form. La proxima vez que
     # se use el mismo RUT, search-by-rut lo va a encontrar y precargar.
-    if not validate_rut(body.proveedor_rut):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"RUT proveedor '{body.proveedor_rut}' inválido "
-                "(dígito verificador incorrecto). Revisá el dato antes de continuar."
-            ),
-        )
-    proveedor_rut_canonical = format_rut(body.proveedor_rut)
-    prov_repo = ProveedorRepository(db)
-    proveedor = await prov_repo.get_by_rut(proveedor_rut_canonical)
+    #
+    # Round 31 — el proveedor es OPCIONAL. Si llega vacío/None, saltamos
+    # toda la validación/creación de proveedor y el voucher queda sin
+    # contraparte. Útil para gastos genéricos, caja chica, etc.
+    proveedor_rut_input = (body.proveedor_rut or "").strip()
+    proveedor_nombre_input = (body.proveedor_nombre or "").strip()
+    proveedor_rut_canonical: str | None = None
+    proveedor = None
     proveedor_creado_automatico = False
-    if proveedor is None:
-        proveedor = await prov_repo.create(
-            ProveedorCreate(
-                rut=proveedor_rut_canonical,
-                razon_social=body.proveedor_nombre.strip(),
+
+    if proveedor_rut_input:
+        # Si vino RUT, validar + canonicalizar.
+        if not validate_rut(proveedor_rut_input):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"RUT proveedor '{proveedor_rut_input}' inválido "
+                    "(dígito verificador incorrecto). Revisá el dato antes de continuar."
+                ),
             )
-        )
-        proveedor_creado_automatico = True
+        proveedor_rut_canonical = format_rut(proveedor_rut_input)
+        prov_repo = ProveedorRepository(db)
+        proveedor = await prov_repo.get_by_rut(proveedor_rut_canonical)
+        if proveedor is None:
+            # Crear en catálogo. Si no llegó nombre, usamos el RUT como
+            # fallback de razon_social (ProveedorCreate.razon_social tiene
+            # min_length=1, no acepta vacío).
+            proveedor = await prov_repo.create(
+                ProveedorCreate(
+                    rut=proveedor_rut_canonical,
+                    razon_social=proveedor_nombre_input or proveedor_rut_canonical,
+                )
+            )
+            proveedor_creado_automatico = True
 
     # 3. Validar cuentas (todas imputables)
     todas_cuentas = (
@@ -681,10 +701,17 @@ async def create_voucher_nubox_form(
     # DB check constraint vouchers_glosa_check exige length(glosa) >= 5.
     # Si user manda glosa < 5 chars (o vacia), usamos la auto-generada que
     # siempre es mas larga. Evita 500 IntegrityError opaco al usuario.
+    #
+    # Round 31 — la glosa auto-generada se adapta si no hay proveedor:
+    #   con proveedor:  "Compra a {nombre} — {tipo_doc} folio {folio}"
+    #   sin proveedor:  "Compra — {tipo_doc} folio {folio}"
     glosa_input = (body.glosa or "").strip()
     if len(glosa_input) < 5:
+        prov_label = (
+            f" a {proveedor_nombre_input}" if proveedor_nombre_input else ""
+        )
         glosa = (
-            f"Compra a {body.proveedor_nombre} — "
+            f"Compra{prov_label} — "
             f"{body.tipo_documento} folio {body.numero_documento}"
         )
     else:
@@ -707,9 +734,16 @@ async def create_voucher_nubox_form(
         total_debit=total_contable,
         total_credit=total_financiera,
         moneda="CLP",
+        # Round 31 — contraparte_* es None cuando no se ingresó proveedor.
+        # contraparte_tipo se mantiene "PROVEEDOR" si hay datos parciales
+        # (al menos RUT o nombre), o None si totalmente vacío.
         contraparte_rut=proveedor_rut_canonical,
-        contraparte_nombre=body.proveedor_nombre.strip(),
-        contraparte_tipo="PROVEEDOR",
+        contraparte_nombre=(proveedor_nombre_input or None),
+        contraparte_tipo=(
+            "PROVEEDOR"
+            if (proveedor_rut_canonical or proveedor_nombre_input)
+            else None
+        ),
         doc_tributario_tipo=body.tipo_documento,
         doc_tributario_folio=body.numero_documento,
         forma_pago=body.forma_pago,
@@ -760,7 +794,10 @@ async def create_voucher_nubox_form(
     # raw SQL en la misma session). Acceder a voucher.voucher_id después
     # del commit triggea lazy-load → pool.connect() → 500.
     voucher_id_local = voucher.voucher_id
-    proveedor_id_local = proveedor.proveedor_id
+    # Round 31 — proveedor puede ser None (proveedor opcional).
+    proveedor_id_local: int | None = (
+        proveedor.proveedor_id if proveedor is not None else None
+    )
 
     await db.commit()
 
@@ -773,7 +810,9 @@ async def create_voucher_nubox_form(
             entity_id=str(voucher_id_local),
             entity_label=codigo,
             summary=(
-                f"Voucher COMPRA Nubox-form creado: {body.proveedor_nombre} — "
+                # Round 31 — proveedor opcional: si vacío, mostramos "sin proveedor".
+                f"Voucher COMPRA Nubox-form creado: "
+                f"{proveedor_nombre_input or 'sin proveedor'} — "
                 f"{body.tipo_documento} folio {body.numero_documento} — "
                 f"${total_contable:,.0f} CLP"
             ),
@@ -808,8 +847,9 @@ async def create_voucher_nubox_form(
                     "voucher_id": voucher_id_local,
                     "codigo": codigo,
                     "empresa_codigo": body.empresa_codigo,
+                    # Round 31 — pueden ser None si no se ingresó proveedor.
                     "proveedor_rut": proveedor_rut_canonical,
-                    "proveedor_nombre": body.proveedor_nombre.strip(),
+                    "proveedor_nombre": proveedor_nombre_input or None,
                     "tipo_documento": body.tipo_documento,
                     "numero_documento": body.numero_documento,
                     "total": str(total_contable),

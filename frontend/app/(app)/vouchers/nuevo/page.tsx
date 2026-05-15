@@ -601,7 +601,7 @@ export default function NuevoVoucherPage() {
             {tipoMeta.needsCounterparty && (
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-2xl bg-ink-50/40 p-4">
                 <p className="sm:col-span-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink-500">
-                  Contraparte
+                  Contraparte <span className="text-ink-400 normal-case tracking-normal font-normal">· opcional</span>
                 </p>
                 <Field label="Tipo">
                   <select

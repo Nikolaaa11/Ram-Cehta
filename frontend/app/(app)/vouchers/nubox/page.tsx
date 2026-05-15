@@ -476,8 +476,10 @@ export default function NuboxFormPage() {
     try {
       const payload = {
         empresa_codigo: empresaCodigo,
-        proveedor_rut: proveedorRut,
-        proveedor_nombre: proveedorNombre,
+        // Round 31 — proveedor opcional. Si está vacío, mandamos null y
+        // el backend crea el voucher sin contraparte.
+        proveedor_rut: proveedorRut.trim() || null,
+        proveedor_nombre: proveedorNombre.trim() || null,
         tipo_documento: tipoDocumento,
         numero_documento: numeroDocumento,
         forma_pago: formaPago,
@@ -499,8 +501,10 @@ export default function NuboxFormPage() {
       const resp = await apiClient.post<{
         voucher_id: number;
         codigo: string;
+        // Round 31 — proveedor opcional. Cuando no se ingresa, ambos
+        // campos vienen como null/false.
         proveedor_creado_automatico: boolean;
-        proveedor_rut_canonical: string;
+        proveedor_rut_canonical: string | null;
       }>("/vouchers/nubox-form", payload, session);
 
       // Observaciones 14/05/2026 — subir adjuntos seleccionados ahora que
@@ -535,9 +539,12 @@ export default function NuboxFormPage() {
         }
       }
 
-      const baseMsg = resp.proveedor_creado_automatico
-        ? `Voucher ${resp.codigo} creado · Proveedor "${proveedorNombre.trim()}" agregado al catálogo`
-        : `Voucher ${resp.codigo} creado en DRAFT`;
+      // Round 31 — proveedor opcional. Si vino vacío, no decimos
+      // "Proveedor X agregado al catálogo" (no se creó nada).
+      const baseMsg =
+        resp.proveedor_creado_automatico && proveedorNombre.trim()
+          ? `Voucher ${resp.codigo} creado · Proveedor "${proveedorNombre.trim()}" agregado al catálogo`
+          : `Voucher ${resp.codigo} creado en DRAFT`;
       const attachMsg =
         pendingFiles.length === 0
           ? ""
@@ -728,7 +735,10 @@ export default function NuboxFormPage() {
                 V5++ ola CH B.2/B.3: el usuario tipea y elige del maestro;
                 el RUT se llena solo y queda bloqueado. */}
             <div className="md:col-span-2">
-              <Label>Proveedor *</Label>
+              {/* Round 31 — proveedor OPCIONAL. Sin asterisco. */}
+              <Label hint="Opcional. Si no tenés el dato a mano o es un gasto genérico (caja chica, servicios sin RUT), dejalo vacío.">
+                Proveedor
+              </Label>
               <ProveedorTypeahead
                 value={proveedorNombre}
                 rutValue={proveedorRut}
