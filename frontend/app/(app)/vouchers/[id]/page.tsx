@@ -29,6 +29,7 @@ import {
   Clock,
   Copy,
   FileSignature,
+  MessageCircle,
   Printer,
   RotateCcw,
   Send,
@@ -46,6 +47,7 @@ import { VoucherTimelineCard } from "@/components/vouchers/VoucherTimelineCard";
 import { VoucherNavigation } from "@/components/vouchers/VoucherNavigation";
 import { VoucherAnomaliesCard } from "@/components/vouchers/VoucherAnomaliesCard";
 import { VoucherCommentsCard } from "@/components/vouchers/VoucherCommentsCard";
+import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { Currency } from "@/components/shared/Currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
@@ -629,6 +631,9 @@ export default function VoucherDetailPage({ params }: PageProps) {
                 value={voucher.contraparte_rut ?? "—"}
                 mono
               />
+              {/* Round 10 — botón WhatsApp si el voucher está APPROVED+
+                  y la contraparte tiene teléfono cargado. */}
+              <ContraparteWhatsApp voucher={voucher} />
             </Card>
           )}
 
@@ -940,6 +945,73 @@ export default function VoucherDetailPage({ params }: PageProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Round 10 — ContraparteWhatsApp.
+ * Si el voucher tiene contraparte_rut y la contraparte es un proveedor
+ * en el catalogo CON telefono cargado, muestra un botón WhatsApp con
+ * mensaje pre-llenado (apropiado al status del voucher: confirmar pago
+ * si EXECUTED, recordatorio cobro si APPROVED, etc.).
+ */
+function ContraparteWhatsApp({
+  voucher,
+}: {
+  voucher: VoucherFull;
+}) {
+  const { session } = useSession();
+  const rut = voucher.contraparte_rut;
+  const enabled = !!session && !!rut && rut.length >= 8;
+
+  const { data: search } = useQuery<{
+    rut_valid: boolean;
+    exists: boolean;
+    proveedor: { telefono?: string | null; contacto?: string | null } | null;
+  }>({
+    queryKey: ["proveedor-by-rut", rut],
+    queryFn: () =>
+      apiClient.get(
+        `/proveedores/search-by-rut?rut=${encodeURIComponent(rut ?? "")}`,
+        session,
+      ),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
+
+  if (!enabled || !search?.exists || !search.proveedor?.telefono) return null;
+
+  // Mensaje según status del voucher.
+  let text: string;
+  if (voucher.status === "EXECUTED" || voucher.status === "SYNCED") {
+    text = waMessages.confirmarTransferencia({
+      nombre: search.proveedor.contacto || voucher.contraparte_nombre,
+      monto: Number(voucher.total_credit ?? voucher.total_debit ?? 0),
+      codigo: voucher.codigo,
+      glosa: voucher.glosa,
+    });
+  } else {
+    text = waMessages.contactarProveedor({
+      contacto: search.proveedor.contacto || voucher.contraparte_nombre,
+      asunto: `el voucher ${voucher.codigo}`,
+    });
+  }
+
+  const waLink = buildWaLink(search.proveedor.telefono, text);
+  if (!waLink) return null;
+
+  return (
+    <a
+      href={waLink}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-1 inline-flex items-center gap-1.5 rounded-lg bg-[#25D366] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm hover:bg-[#1FB453]"
+      title="Contactar al proveedor por WhatsApp con mensaje pre-armado"
+      aria-label={`Enviar WhatsApp a ${voucher.contraparte_nombre}`}
+    >
+      <MessageCircle className="size-3" strokeWidth={2.5} />
+      WhatsApp
+    </a>
   );
 }
 
