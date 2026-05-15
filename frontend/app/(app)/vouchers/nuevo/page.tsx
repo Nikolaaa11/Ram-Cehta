@@ -981,8 +981,10 @@ function ProveedorTypeaheadNuevo({
   onClear: () => void;
 }) {
   // Round 44 — replaces debounce+GET con cache client-side compartido.
+  // Round 50 — navegación con teclado (↑↓Enter/Esc) replicada del form Nubox.
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
+  const [highlightedIdx, setHighlightedIdx] = useState(0);
   useProveedoresCache(); // pre-cache si no estaba
 
   // Si el query es exactamente el nombre ya seleccionado, no resultados.
@@ -992,6 +994,36 @@ function ProveedorTypeaheadNuevo({
   useEffect(() => {
     setQuery(value);
   }, [value]);
+
+  useEffect(() => {
+    setHighlightedIdx(0);
+  }, [searchQuery, results.length]);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || results.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIdx((i) => Math.min(i + 1, results.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const hit = results[highlightedIdx];
+      if (hit) {
+        onSelect({
+          proveedor_id: hit.proveedor_id,
+          razon_social: hit.razon_social,
+          rut: hit.rut,
+        });
+        setQuery(hit.razon_social);
+        setOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    }
+  };
 
   return (
     <div className="relative">
@@ -1013,6 +1045,7 @@ function ProveedorTypeaheadNuevo({
         onBlur={() => {
           setTimeout(() => setOpen(false), 150);
         }}
+        onKeyDown={handleKeyDown}
         placeholder={
           cacheSize > 0
             ? `Buscar entre ${cacheSize} proveedores…`
@@ -1020,42 +1053,58 @@ function ProveedorTypeaheadNuevo({
         }
         className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
         autoComplete="off"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-activedescendant={
+          open && results[highlightedIdx]
+            ? `provN-opt-${results[highlightedIdx]?.proveedor_id}`
+            : undefined
+        }
       />
       {open && results.length > 0 && (
         <ul
           className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
           role="listbox"
         >
-          {results.map((hit) => (
-            <li
-              key={hit.proveedor_id}
-              role="option"
-              aria-selected={hit.razon_social === value}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                onSelect({
-                  proveedor_id: hit.proveedor_id,
-                  razon_social: hit.razon_social,
-                  rut: hit.rut,
-                });
-                setQuery(hit.razon_social);
-                setOpen(false);
-              }}
-              className="cursor-pointer px-3 py-2 text-sm hover:bg-cehta-green/10"
-            >
-              <div className="font-medium text-ink-900">{hit.razon_social}</div>
-              <div className="flex items-baseline gap-2 text-xs text-ink-500">
-                {hit.rut && (
-                  <span className="font-mono">{hit.rut}</span>
-                )}
-                {hit.direccion && (
-                  <span className="truncate text-ink-400">
-                    · {hit.direccion}
-                  </span>
-                )}
-              </div>
-            </li>
-          ))}
+          {results.map((hit, idx) => {
+            const isHighlighted = idx === highlightedIdx;
+            return (
+              <li
+                key={hit.proveedor_id}
+                id={`provN-opt-${hit.proveedor_id}`}
+                role="option"
+                aria-selected={hit.razon_social === value}
+                onMouseEnter={() => setHighlightedIdx(idx)}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelect({
+                    proveedor_id: hit.proveedor_id,
+                    razon_social: hit.razon_social,
+                    rut: hit.rut,
+                  });
+                  setQuery(hit.razon_social);
+                  setOpen(false);
+                }}
+                className={`cursor-pointer px-3 py-2 text-sm ${
+                  isHighlighted
+                    ? "bg-cehta-green/15"
+                    : "hover:bg-cehta-green/10"
+                }`}
+              >
+                <div className="font-medium text-ink-900">{hit.razon_social}</div>
+                <div className="flex items-baseline gap-2 text-xs text-ink-500">
+                  {hit.rut && (
+                    <span className="font-mono">{hit.rut}</span>
+                  )}
+                  {hit.direccion && (
+                    <span className="truncate text-ink-400">
+                      · {hit.direccion}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
