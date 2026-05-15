@@ -264,9 +264,30 @@ export default function MovimientosPage() {
               Sin movimientos para los filtros seleccionados
             </p>
             <p className="mt-1 max-w-md text-sm text-ink-500">
-              Probá ajustar el año, empresa o tipo. Si recién instalaste la
-              plataforma, ejecuta el ETL primero.
+              Probaste{" "}
+              {[
+                empresa !== EMPRESA_TODAS && `empresa=${empresa}`,
+                `año=${anio}`,
+                realProyectado && `tipo=${realProyectado}`,
+              ]
+                .filter(Boolean)
+                .join(", ")}
+              . Ajustá los filtros o limpiá todo para ver el listado completo.
+              Si recién instalaste la plataforma, ejecuta el ETL primero.
             </p>
+            {/* Round 10 — CTA limpiar filtros en 1 click. */}
+            <button
+              type="button"
+              onClick={() => {
+                setEmpresa(EMPRESA_TODAS);
+                setAnio(String(currentYear));
+                setRealProyectado("");
+                setPage(1);
+              }}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
+            >
+              Limpiar filtros
+            </button>
           </div>
         </Surface>
       )}

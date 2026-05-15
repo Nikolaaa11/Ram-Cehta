@@ -213,7 +213,14 @@ export default function AdminLpsPage() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <EmptyState search={search} hasFilters={!!estadoFilter} />
+          <EmptyState
+            search={search}
+            hasFilters={!!estadoFilter}
+            onClear={() => {
+              setSearch("");
+              setEstadoFilter("");
+            }}
+          />
         ) : (
           <ul className="divide-y divide-hairline">
             {filtered.map((lp) => (
@@ -311,14 +318,34 @@ function LpRow({ lp }: { lp: LpRead }) {
 function EmptyState({
   search,
   hasFilters,
+  onClear,
 }: {
   search: string;
   hasFilters: boolean;
+  onClear: () => void;
 }) {
   if (search.trim() || hasFilters) {
+    // Round 10 — empty state accionable. CTA "Limpiar filtros" reset en 1 click.
     return (
       <div className="py-12 text-center">
-        <p className="text-sm text-ink-500">Sin resultados con esos filtros</p>
+        <p className="text-sm font-medium text-ink-700">Sin LPs que matcheen</p>
+        <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
+          Probaste{" "}
+          {[
+            search.trim() && `búsqueda="${search.trim()}"`,
+            hasFilters && "estado activo",
+          ]
+            .filter(Boolean)
+            .join(", ")}
+          . Ajustá los filtros o limpiá todo para ver la lista completa.
+        </p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
+        >
+          Limpiar filtros
+        </button>
       </div>
     );
   }

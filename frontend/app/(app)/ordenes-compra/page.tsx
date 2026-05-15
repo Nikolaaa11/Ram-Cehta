@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowDownToLine,
   ChevronLeft,
@@ -134,10 +135,46 @@ function TableSkeleton() {
 export default function OrdenesCompraPage() {
   const { data: empresas = [] } = useCatalogoEmpresas();
   const { data: me } = useMe();
-  const [page, setPage] = useState(1);
-  const [empresa, setEmpresa] = useState("");
-  const [estado, setEstado] = useState("");
+  // Round 10 — URL state para filtros (mismo pattern que /vouchers en R8).
+  // Refresh no pierde el filtro, links shareables, browser back funciona
+  // como saved view.
+  const searchParams = useSearchParams();
+  const [page, setPage] = useState(() =>
+    Math.max(1, parseInt(searchParams.get("page") ?? "1", 10)),
+  );
+  const [empresa, setEmpresa] = useState(
+    () => searchParams.get("empresa") ?? "",
+  );
+  const [estado, setEstado] = useState(
+    () => searchParams.get("estado") ?? "",
+  );
   const SIZE = 20;
+
+  // Sync state → URL (replaceState, no rerender, no history pollution).
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (page > 1) params.set("page", String(page));
+    if (empresa) params.set("empresa", empresa);
+    if (estado) params.set("estado", estado);
+    const qs = params.toString();
+    const url = qs ? `/ordenes-compra?${qs}` : "/ordenes-compra";
+    window.history.replaceState(null, "", url);
+  }, [page, empresa, estado]);
+
+  // Round 10 — quick filter chips + clear helper.
+  const hasActiveFilters = !!empresa || !!estado;
+  const clearAllFilters = () => {
+    setEmpresa("");
+    setEstado("");
+    setPage(1);
+  };
+  const applyPreset = (preset: "pendientes" | "emitidas" | "borradores") => {
+    setEmpresa("");
+    setPage(1);
+    if (preset === "pendientes") setEstado("pendiente");
+    else if (preset === "emitidas") setEstado("emitida");
+    else if (preset === "borradores") setEstado("borrador");
+  };
 
   const params = new URLSearchParams({
     page: String(page),
@@ -264,6 +301,57 @@ export default function OrdenesCompraPage() {
         </div>
       </div>
 
+      {/* Round 10 — Quick filter chips (mismo pattern que /vouchers R9).
+          Presets de uso diario aplicables en 1 click. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+          Vistas rápidas:
+        </span>
+        <button
+          type="button"
+          onClick={() => applyPreset("pendientes")}
+          className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+            estado === "pendiente"
+              ? "bg-amber-50 text-amber-700 ring-amber-200"
+              : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+          }`}
+        >
+          ⏳ Pendientes
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset("emitidas")}
+          className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+            estado === "emitida"
+              ? "bg-blue-50 text-blue-700 ring-blue-200"
+              : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+          }`}
+        >
+          📤 Emitidas
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset("borradores")}
+          className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+            estado === "borrador"
+              ? "bg-ink-100 text-ink-700 ring-ink-200"
+              : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+          }`}
+        >
+          ✏️ Borradores
+        </button>
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            className="ml-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-500 ring-1 ring-hairline hover:bg-negative/5 hover:text-negative hover:ring-negative/20"
+            title="Quitar todos los filtros aplicados"
+          >
+            ✕ Limpiar filtros
+          </button>
+        )}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1.5">
@@ -348,22 +436,55 @@ export default function OrdenesCompraPage() {
         <>
           {data.items.length === 0 ? (
             <Surface padding="none" className="overflow-hidden">
-              <EmptyState
-                icon={Package}
-                title="Sin órdenes con los filtros seleccionados"
-                description="Probá ajustar los filtros o creá una nueva OC para empezar."
-                action={{
-                  label: "Nueva OC",
-                  href: "/ordenes-compra/nueva",
-                }}
-                compact
-              />
+              {/* Round 10 — smart empty con CTA segun contexto.
+                  Si hay filtros activos: ofrece limpiarlos (caso comun).
+                  Si la lista esta realmente vacia: ofrece crear primera OC. */}
+              {hasActiveFilters ? (
+                <div className="p-10 text-center">
+                  <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
+                    <Package className="size-5" strokeWidth={1.5} />
+                  </div>
+                  <p className="text-sm font-medium text-ink-700">
+                    Sin órdenes que matcheen
+                  </p>
+                  <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
+                    Probaste{" "}
+                    {[
+                      empresa && `empresa=${empresa}`,
+                      estado && `estado=${estado}`,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
+                    . Ajustá los filtros o limpiá todo para ver la lista completa.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
+                  >
+                    Limpiar todos los filtros
+                  </button>
+                </div>
+              ) : (
+                <EmptyState
+                  icon={Package}
+                  title="Sin órdenes de compra todavía"
+                  description="Creá tu primera OC para empezar a registrar compromisos de pago con proveedores."
+                  action={{
+                    label: "Nueva OC",
+                    href: "/ordenes-compra/nueva",
+                  }}
+                  compact
+                />
+              )}
             </Surface>
           ) : (
             <Surface padding="none" className="overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-hairline text-sm">
-                  <thead className="bg-ink-100/40">
+                  {/* Round 10 — sticky header en lista de OCs (mismo pattern
+                      que /vouchers R9). z-10 evita que se tape con badges. */}
+                  <thead className="sticky top-0 z-10 bg-ink-100/90 backdrop-blur-sm">
                     <tr>
                       {COLUMNS.map((h, idx) => (
                         <th
@@ -457,6 +578,8 @@ export default function OrdenesCompraPage() {
                             )}
                             <Link
                               href={`/ordenes-compra/${oc.oc_id}`}
+                              // Round 10 — prefetch eager para nav instantanea.
+                              prefetch={true}
                               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-cehta-green transition-colors hover:bg-cehta-green/10"
                               title="Ver detalle"
                             >
