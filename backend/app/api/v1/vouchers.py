@@ -2528,6 +2528,276 @@ async def reject_voucher(
 
 
 # ============================================================================
+# Etapa B — Timeline visual + navegacion prev/next
+# ============================================================================
+
+
+@router.get("/vouchers/{voucher_id}/timeline")
+async def get_voucher_timeline(
+    user: CurrentUser,
+    db: DBSession,
+    voucher_id: int,
+) -> dict:
+    """Devuelve la timeline cronologica del voucher.
+
+    Combina:
+      - audit.action_log filtrado por entity_type='voucher' + entity_id
+      - voucher.created_at como evento inicial (created)
+      - voucher_approvals (firmas individuales con role + comments)
+
+    Ordenado cronologicamente del mas antiguo al mas reciente. Pensado
+    para mostrar como timeline visual en el detail del voucher.
+    """
+    # Existence + scope
+    voucher = await db.get(Voucher, voucher_id)
+    if voucher is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    await assert_empresa_access(user, db, voucher.empresa_codigo)
+
+    # action_log entries para este voucher
+    log_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    action_log_id, user_email, action, summary,
+                    diff_before, diff_after, created_at
+                FROM audit.action_log
+                WHERE entity_type = 'voucher' AND entity_id = :eid
+                ORDER BY created_at ASC
+                LIMIT 200
+                """
+            ),
+            {"eid": str(voucher_id)},
+        )
+    ).mappings().all()
+
+    # Approvals para enriquecer firmas con rol + comments
+    appr_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    role, decision, order_num, comments, signed_at,
+                    approver_user_id
+                FROM core.voucher_approvals
+                WHERE voucher_id = :vid
+                ORDER BY signed_at ASC
+                """
+            ),
+            {"vid": voucher_id},
+        )
+    ).mappings().all()
+
+    # Resolver emails de los approvers para mostrar nombre amigable
+    approver_emails: dict[str, str] = {}
+    if appr_rows:
+        approver_ids = list({str(r["approver_user_id"]) for r in appr_rows if r["approver_user_id"]})
+        if approver_ids:
+            emails_rows = (
+                await db.execute(
+                    text(
+                        """
+                        SELECT id::text AS uid, email
+                        FROM auth.users
+                        WHERE id::text = ANY(:ids)
+                        """
+                    ),
+                    {"ids": approver_ids},
+                )
+            ).mappings().all()
+            approver_emails = {r["uid"]: r["email"] for r in emails_rows}
+
+    events: list[dict] = []
+
+    # Evento "creado"
+    events.append(
+        {
+            "type": "created",
+            "icon": "plus",
+            "title": "Voucher creado",
+            "subtitle": f"Status inicial: DRAFT — {voucher.codigo}",
+            "user_email": None,  # action_log de "create" si existe lo enriquece
+            "timestamp": voucher.created_at.isoformat() if voucher.created_at else None,
+            "color": "ink",
+        }
+    )
+
+    # Eventos del action_log
+    for r in log_rows:
+        action = r["action"]
+        # Mapear action → tipo visual
+        if action.startswith("approve"):
+            ev_type = "approved"
+            color = "green"
+            icon = "check"
+        elif action.startswith("reject"):
+            ev_type = "rejected"
+            color = "red"
+            icon = "x"
+        elif action.startswith("execute"):
+            ev_type = "executed"
+            color = "blue"
+            icon = "wallet"
+        elif action.startswith("create"):
+            # Ya emitido como evento inicial, salteamos
+            continue
+        elif action.startswith("update") or action.startswith("edit"):
+            ev_type = "updated"
+            color = "amber"
+            icon = "edit"
+        elif action.startswith("void") or action.startswith("delete"):
+            ev_type = "voided"
+            color = "red"
+            icon = "trash"
+        elif action.startswith("export"):
+            ev_type = "exported"
+            color = "purple"
+            icon = "download"
+        else:
+            ev_type = "other"
+            color = "ink"
+            icon = "dot"
+
+        events.append(
+            {
+                "type": ev_type,
+                "icon": icon,
+                "title": _action_to_title(action),
+                "subtitle": (r["summary"] or "")[:200],
+                "user_email": r["user_email"],
+                "timestamp": (
+                    r["created_at"].isoformat() if r["created_at"] else None
+                ),
+                "color": color,
+                "action_raw": action,
+            }
+        )
+
+    # Eventos de firma individual (mas detalle que action_log resumido)
+    for r in appr_rows:
+        if r["decision"] != "APPROVED":
+            continue  # rejects ya aparecen en action_log
+        email = approver_emails.get(str(r["approver_user_id"]), None)
+        events.append(
+            {
+                "type": "signature",
+                "icon": "signature",
+                "title": f"Firma {r['role']} (paso {r['order_num']})",
+                "subtitle": r["comments"] or "Sin comentarios",
+                "user_email": email,
+                "timestamp": (
+                    r["signed_at"].isoformat() if r["signed_at"] else None
+                ),
+                "color": "green",
+            }
+        )
+
+    # Sort por timestamp (algunos pueden ser None)
+    events.sort(key=lambda e: e["timestamp"] or "")
+
+    return {
+        "voucher_id": voucher_id,
+        "codigo": voucher.codigo,
+        "current_status": voucher.status,
+        "events": events,
+        "count": len(events),
+    }
+
+
+def _action_to_title(action: str) -> str:
+    """Mapea action_log.action → titulo legible para timeline."""
+    mapping = {
+        "create": "Voucher creado",
+        "create_nubox_form": "Voucher creado (form Nubox)",
+        "update": "Voucher editado",
+        "submit": "Enviado a aprobación",
+        "approve": "Firmado",
+        "approve_bulk": "Firmado en bulk",
+        "reject": "Rechazado",
+        "execute": "Marcado como pagado",
+        "execute_bulk": "Marcado pagado en bulk",
+        "void": "Anulado",
+        "delete": "Eliminado",
+        "export_transferencia_masiva": "Exportado a Excel transferencia",
+    }
+    return mapping.get(action, action.replace("_", " ").capitalize())
+
+
+@router.get("/vouchers/{voucher_id}/neighbors")
+async def get_voucher_neighbors(
+    user: CurrentUser,
+    db: DBSession,
+    scope: EmpresaScopeDep,
+    voucher_id: int,
+) -> dict:
+    """Etapa B — devuelve prev_id y next_id para navegacion en detail page.
+
+    Considera solo vouchers a los que el user tiene scope. Order por
+    voucher_id DESC (consistente con la lista por default).
+    """
+    voucher = await db.get(Voucher, voucher_id)
+    if voucher is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    await assert_empresa_access(user, db, voucher.empresa_codigo)
+
+    where_scope = ""
+    params: dict = {"vid": voucher_id}
+    if not scope.is_global:
+        allowed = list(scope.allowed_codes or [])
+        if not allowed:
+            return {"prev_id": None, "next_id": None}
+        where_scope = "AND empresa_codigo = ANY(CAST(:scope AS text[]))"
+        params["scope"] = allowed
+
+    # next_id (mas reciente que el actual, en order DESC eso significa
+    # voucher_id menor) — pero para navegacion natural (siguiente al
+    # mas reciente), el "siguiente" es voucher_id > actual.
+    # Convencion: next = "mas reciente que el actual" (voucher_id > vid)
+    #             prev = "mas antiguo" (voucher_id < vid)
+    next_row = (
+        await db.execute(
+            text(
+                f"""
+                SELECT voucher_id
+                FROM core.vouchers
+                WHERE voucher_id > :vid
+                  {where_scope}
+                ORDER BY voucher_id ASC
+                LIMIT 1
+                """
+            ),
+            params,
+        )
+    ).first()
+    prev_row = (
+        await db.execute(
+            text(
+                f"""
+                SELECT voucher_id
+                FROM core.vouchers
+                WHERE voucher_id < :vid
+                  {where_scope}
+                ORDER BY voucher_id DESC
+                LIMIT 1
+                """
+            ),
+            params,
+        )
+    ).first()
+
+    return {
+        "current_id": voucher_id,
+        "prev_id": prev_row[0] if prev_row else None,
+        "next_id": next_row[0] if next_row else None,
+    }
+
+
+# ============================================================================
 # Etapa A — bulk-execute: marcar N vouchers APPROVED como EXECUTED
 # ============================================================================
 #

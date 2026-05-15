@@ -42,6 +42,8 @@ import { toast } from "@/components/ui/toast";
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
 import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
 import { VoucherReconcileCard } from "@/components/vouchers/VoucherReconcileCard";
+import { VoucherTimelineCard } from "@/components/vouchers/VoucherTimelineCard";
+import { VoucherNavigation } from "@/components/vouchers/VoucherNavigation";
 import { Currency } from "@/components/shared/Currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
@@ -270,17 +272,21 @@ export default function VoucherDetailPage({ params }: PageProps) {
       />
 
       <div className="mx-auto max-w-[1280px] px-6 lg:px-10 pt-8 pb-20 space-y-6 print:max-w-full print:px-0 print:py-0">
-        {/* Breadcrumb */}
-        <Link
-          href={"/vouchers" as Route}
-          className="group inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-400 hover:text-cehta-green print:hidden"
-        >
-          <ArrowLeft
-            className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5"
-            strokeWidth={2}
-          />
-          Volver a vouchers
-        </Link>
+        {/* Etapa B — header con breadcrumb + nav prev/next */}
+        <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <Link
+            href={"/vouchers" as Route}
+            className="group inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.16em] text-ink-400 hover:text-cehta-green"
+          >
+            <ArrowLeft
+              className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5"
+              strokeWidth={2}
+            />
+            Volver a vouchers
+          </Link>
+          {/* Navegacion prev/next con shortcuts [ y ]. */}
+          <VoucherNavigation voucherId={voucher.voucher_id} />
+        </div>
 
         {/* Hero header */}
         <header className="flex flex-wrap items-start justify-between gap-4">
@@ -842,6 +848,9 @@ export default function VoucherDetailPage({ params }: PageProps) {
           voucherStatus={voucher.status}
           voucherTipo={voucher.tipo}
         />
+
+        {/* Etapa B — Timeline visual de la actividad del voucher. */}
+        <VoucherTimelineCard voucherId={voucher.voucher_id} />
 
         {/* Razones de rechazo / void */}
         {voucher.rejection_reason && (
