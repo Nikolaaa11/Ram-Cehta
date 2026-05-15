@@ -38,6 +38,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
@@ -1103,9 +1104,12 @@ function VoidDialog({
       setLoading(false);
     }
   };
+  // Round 25 — focus trap + ESC + body scroll lock para modal Anular.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}

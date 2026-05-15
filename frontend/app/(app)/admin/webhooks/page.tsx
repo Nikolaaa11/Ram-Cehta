@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { useModalA11y } from "@/lib/use-modal-a11y";
 import {
   useWebhookSubscriptions,
   useWebhookEventTypes,
@@ -633,9 +634,12 @@ function DeliveryDetailModal({
     : failed
       ? { label: `${delivery.status_code} Failed`, color: "bg-negative/10 text-negative ring-negative/20" }
       : { label: "Pending", color: "bg-warning/10 text-warning ring-warning/20" };
+  // Round 25 — focus trap + ESC + body scroll lock para modal delivery detail.
+  const a11yRef = useModalA11y({ open: true, onClose });
 
   return (
     <div
+      ref={a11yRef}
       role="dialog"
       aria-modal="true"
       onClick={onClose}
