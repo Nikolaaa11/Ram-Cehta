@@ -37,6 +37,7 @@ import {
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   Area,
   PlanCuenta,
@@ -250,9 +251,23 @@ export default function PlanCuentasPage() {
               </div>
             </div>
 
-            {/* Árbol */}
+            {/* Árbol — QA fix: skeleton matching tree layout */}
             {isLoading ? (
-              <p className="text-sm text-ink-500">Cargando árbol…</p>
+              <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
+                <div className="divide-y divide-hairline">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 px-4 py-3"
+                      style={{ paddingLeft: `${16 + (i % 3) * 20}px` }}
+                    >
+                      <Skeleton className="h-3 w-12 font-mono" />
+                      <Skeleton className="h-3 w-48" />
+                      <Skeleton className="ml-auto h-5 w-16 rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : filteredTree.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
                 Sin resultados con esos filtros.

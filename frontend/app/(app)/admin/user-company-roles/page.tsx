@@ -26,6 +26,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyRole, UserCompanyRole } from "@/lib/api/schema";
 
 interface Empresa {
@@ -215,9 +216,30 @@ export default function UserCompanyRolesPage() {
           </div>
         </div>
 
-        {/* Lista agrupada por empresa */}
+        {/* Lista agrupada por empresa — QA fix: skeleton matching layout */}
         {isLoading ? (
-          <p className="text-sm text-ink-500">Cargando asignaciones…</p>
+          <div className="space-y-4">
+            {[1, 2, 3].map((g) => (
+              <div
+                key={g}
+                className="rounded-2xl border border-hairline bg-white p-4"
+              >
+                <Skeleton className="mb-3 h-4 w-32" />
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 rounded-lg border border-hairline p-3"
+                    >
+                      <Skeleton className="h-3 w-40" />
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                      <Skeleton className="ml-auto h-3 w-20" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         ) : grouped.length === 0 ? (
           empresaFilter || search ? (
             <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
