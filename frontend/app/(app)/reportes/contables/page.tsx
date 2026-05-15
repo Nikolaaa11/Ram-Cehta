@@ -166,6 +166,15 @@ export default function ReportesContablesPage() {
             accent="cehta-green"
             badge="V5++"
           />
+          <ReporteCard
+            number="13"
+            icon={<TrendingUp className="h-5 w-5" strokeWidth={1.5} />}
+            title="Aging Cuentas por Pagar"
+            description="Vouchers APPROVED agrupados por edad de vencimiento (Al día / 1-30d / 31-60d / 61-90d / +90d). Top proveedores por monto adeudado."
+            href="/reportes/contables/aging"
+            accent="cehta-green"
+            badge="Etapa G"
+          />
         </div>
 
         <footer className="mt-20 flex flex-wrap items-center justify-between gap-3 border-t border-hairline pt-6 text-[11px] text-ink-400">

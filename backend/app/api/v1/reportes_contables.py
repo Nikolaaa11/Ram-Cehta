@@ -791,6 +791,254 @@ async def get_consolidado_fondo_html(
 
 
 
+# =====================================================================
+# Etapa G — Aging Report (cuentas por pagar agrupadas por edad)
+# =====================================================================
+#
+# Para cualquier contabilidad seria es critico ver "que vouchers debo
+# y agrupados por edad". Buckets standard:
+#   - "Al dia"       : fecha_vencimiento >= hoy  o  null (sin vencimiento)
+#   - "Vencido 1-30" : 1 a 30 dias de atraso
+#   - "Vencido 31-60": 31 a 60 dias
+#   - "Vencido 61-90": 61 a 90 dias
+#   - "Vencido 90+"  : mas de 90 dias
+#
+# Filtra:
+#   - Solo vouchers tipo COMPRA/EGRESO en status APPROVED (no DRAFT, no
+#     EXECUTED — los EXECUTED ya estan pagados)
+#   - Scope multi-tenant respetado
+#   - Filtro opcional por empresa
+
+
+class AgingBucketTotal(BaseModel):
+    bucket: str  # 'al_dia' | 'd_1_30' | 'd_31_60' | 'd_61_90' | 'd_90_plus'
+    count: int
+    total_clp: Decimal
+
+
+class AgingProveedorRow(BaseModel):
+    contraparte_rut: str | None
+    contraparte_nombre: str | None
+    proveedor_id: int | None
+    total: Decimal
+    al_dia: Decimal
+    d_1_30: Decimal
+    d_31_60: Decimal
+    d_61_90: Decimal
+    d_90_plus: Decimal
+    voucher_count: int
+
+
+class AgingReport(BaseModel):
+    fecha_corte: date
+    empresa_codigo: str | None
+    totales_por_bucket: list[AgingBucketTotal]
+    total_general: Decimal
+    proveedores: list[AgingProveedorRow]
+    total_proveedores: int
+
+
+@router.get(
+    "/reportes/contables/aging",
+    response_model=AgingReport,
+)
+async def get_aging_report(
+    user: CurrentUser,
+    db: DBSession,
+    empresa: Annotated[str | None, Query(min_length=2, max_length=20)] = None,
+    fecha_corte: Annotated[date | None, Query()] = None,
+    limit_proveedores: Annotated[int, Query(ge=10, le=500)] = 100,
+) -> AgingReport:
+    """Aging report — cuentas por pagar agrupadas por edad de vencimiento.
+
+    Etapa G — reporte standard de contabilidad para ver:
+      "Cuánto debo, a quién, y hace cuanto vencía."
+
+    Solo considera vouchers APPROVED tipo COMPRA o EGRESO (los que
+    representan deuda actual). Los EXECUTED ya se pagaron, los DRAFT/
+    PENDING no son deuda firme aun.
+
+    Params:
+      empresa: filtra por una empresa. Si omitido, agrega todas las
+        empresas del scope del user.
+      fecha_corte: fecha de referencia para calcular dias vencidos.
+        Default: hoy.
+      limit_proveedores: max filas en el desglose (top por monto).
+    """
+    if empresa:
+        await assert_empresa_access(user, db, empresa)
+
+    fc = fecha_corte or date.today()
+
+    # Scope filter: si user pide empresa, ya validamos arriba; si no,
+    # agregamos todas las empresas accesibles del user.
+    from app.services.empresa_scope_service import (
+        get_allowed_empresa_codes,
+    )
+
+    params: dict[str, Any] = {"fc": fc}
+    if empresa:
+        scope_clause = "AND v.empresa_codigo = :emp"
+        params["emp"] = empresa
+    else:
+        allowed = await get_allowed_empresa_codes(user, db)
+        if allowed is None:
+            scope_clause = ""  # admin global
+        elif not allowed:
+            return AgingReport(
+                fecha_corte=fc,
+                empresa_codigo=None,
+                totales_por_bucket=[
+                    AgingBucketTotal(bucket=b, count=0, total_clp=Decimal("0"))
+                    for b in ["al_dia", "d_1_30", "d_31_60", "d_61_90", "d_90_plus"]
+                ],
+                total_general=Decimal("0"),
+                proveedores=[],
+                total_proveedores=0,
+            )
+        else:
+            scope_clause = "AND v.empresa_codigo = ANY(CAST(:scope AS text[]))"
+            params["scope"] = list(allowed)
+
+    # CTE: por cada voucher APPROVED de COMPRA/EGRESO, calcular bucket.
+    # Usamos fecha_vencimiento si esta seteada, sino fecha_documento
+    # como fallback (no ideal, pero al menos no perdemos el voucher).
+    sql = f"""
+        WITH base AS (
+            SELECT
+                v.voucher_id,
+                v.empresa_codigo,
+                v.contraparte_rut,
+                v.contraparte_nombre,
+                COALESCE(v.fecha_vencimiento, v.fecha_documento) AS due_date,
+                v.total_credit AS monto,
+                CASE
+                    WHEN COALESCE(v.fecha_vencimiento, v.fecha_documento) >= :fc
+                        THEN 'al_dia'
+                    WHEN (:fc - COALESCE(v.fecha_vencimiento, v.fecha_documento)) <= 30
+                        THEN 'd_1_30'
+                    WHEN (:fc - COALESCE(v.fecha_vencimiento, v.fecha_documento)) <= 60
+                        THEN 'd_31_60'
+                    WHEN (:fc - COALESCE(v.fecha_vencimiento, v.fecha_documento)) <= 90
+                        THEN 'd_61_90'
+                    ELSE 'd_90_plus'
+                END AS bucket
+            FROM core.vouchers v
+            WHERE v.status = 'APPROVED'
+              AND v.tipo IN ('COMPRA', 'EGRESO')
+              AND v.total_credit > 0
+              {scope_clause}
+        )
+        SELECT
+            contraparte_rut,
+            contraparte_nombre,
+            SUM(monto) AS total,
+            SUM(CASE WHEN bucket = 'al_dia' THEN monto ELSE 0 END) AS al_dia,
+            SUM(CASE WHEN bucket = 'd_1_30' THEN monto ELSE 0 END) AS d_1_30,
+            SUM(CASE WHEN bucket = 'd_31_60' THEN monto ELSE 0 END) AS d_31_60,
+            SUM(CASE WHEN bucket = 'd_61_90' THEN monto ELSE 0 END) AS d_61_90,
+            SUM(CASE WHEN bucket = 'd_90_plus' THEN monto ELSE 0 END) AS d_90_plus,
+            COUNT(*) AS voucher_count
+        FROM base
+        GROUP BY contraparte_rut, contraparte_nombre
+        ORDER BY total DESC
+    """
+
+    from sqlalchemy import text as _t
+
+    all_rows = (await db.execute(_t(sql), params)).mappings().all()
+
+    # Resolver proveedor_id (1 query batched)
+    proveedor_ids_map: dict[str, int] = {}
+    ruts = [r["contraparte_rut"] for r in all_rows if r["contraparte_rut"]]
+    if ruts:
+        prov_rows = (
+            await db.execute(
+                _t(
+                    """
+                    SELECT rut, proveedor_id
+                    FROM core.proveedores
+                    WHERE rut = ANY(:ruts)
+                    """
+                ),
+                {"ruts": ruts},
+            )
+        ).mappings().all()
+        proveedor_ids_map = {r["rut"]: r["proveedor_id"] for r in prov_rows}
+
+    proveedores = [
+        AgingProveedorRow(
+            contraparte_rut=r["contraparte_rut"],
+            contraparte_nombre=r["contraparte_nombre"],
+            proveedor_id=proveedor_ids_map.get(r["contraparte_rut"] or ""),
+            total=Decimal(r["total"] or 0),
+            al_dia=Decimal(r["al_dia"] or 0),
+            d_1_30=Decimal(r["d_1_30"] or 0),
+            d_31_60=Decimal(r["d_31_60"] or 0),
+            d_61_90=Decimal(r["d_61_90"] or 0),
+            d_90_plus=Decimal(r["d_90_plus"] or 0),
+            voucher_count=int(r["voucher_count"]),
+        )
+        for r in all_rows[:limit_proveedores]
+    ]
+
+    # Totales por bucket
+    totales = {b: {"count": 0, "total": Decimal("0")} for b in [
+        "al_dia", "d_1_30", "d_31_60", "d_61_90", "d_90_plus"
+    ]}
+    for r in all_rows:
+        for key in totales:
+            monto = Decimal(r[key] or 0)
+            if monto > 0:
+                totales[key]["total"] += monto
+
+    # Para count global por bucket recalculamos un agregado simple
+    count_sql = f"""
+        WITH base AS (
+            SELECT
+                v.voucher_id,
+                CASE
+                    WHEN COALESCE(v.fecha_vencimiento, v.fecha_documento) >= :fc
+                        THEN 'al_dia'
+                    WHEN (:fc - COALESCE(v.fecha_vencimiento, v.fecha_documento)) <= 30
+                        THEN 'd_1_30'
+                    WHEN (:fc - COALESCE(v.fecha_vencimiento, v.fecha_documento)) <= 60
+                        THEN 'd_31_60'
+                    WHEN (:fc - COALESCE(v.fecha_vencimiento, v.fecha_documento)) <= 90
+                        THEN 'd_61_90'
+                    ELSE 'd_90_plus'
+                END AS bucket
+            FROM core.vouchers v
+            WHERE v.status = 'APPROVED'
+              AND v.tipo IN ('COMPRA', 'EGRESO')
+              AND v.total_credit > 0
+              {scope_clause}
+        )
+        SELECT bucket, COUNT(*) AS c
+        FROM base
+        GROUP BY bucket
+    """
+    count_rows = (await db.execute(_t(count_sql), params)).mappings().all()
+    for cr in count_rows:
+        totales[cr["bucket"]]["count"] = int(cr["c"])
+
+    total_general = sum((t["total"] for t in totales.values()), Decimal("0"))
+
+    return AgingReport(
+        fecha_corte=fc,
+        empresa_codigo=empresa,
+        totales_por_bucket=[
+            AgingBucketTotal(
+                bucket=b, count=t["count"], total_clp=t["total"]
+            )
+            for b, t in totales.items()
+        ],
+        total_general=total_general,
+        proveedores=proveedores,
+        total_proveedores=len(all_rows),
+    )
+
+
 @router.get(
     "/reportes/contables/index",
     response_model=list[dict],
