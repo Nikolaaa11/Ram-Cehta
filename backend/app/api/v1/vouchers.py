@@ -1658,6 +1658,10 @@ async def upload_voucher_attachment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
         )
+    # QA fix 14/05/2026 — scope check antes de tocar Dropbox / DB. Un user
+    # con legal:write a empresa A podia subir adjuntos a vouchers de
+    # empresa B con voucher_id conocido. Ahora bloqueado.
+    await assert_empresa_access(user, db, row["empresa_codigo"])
     if row["status"] in ("VOID", "CLOSED"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

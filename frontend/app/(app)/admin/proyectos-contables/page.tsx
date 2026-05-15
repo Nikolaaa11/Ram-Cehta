@@ -32,6 +32,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   ProyectoAvance,
   ProyectoContable,
@@ -251,9 +252,56 @@ export default function ProyectosContablesPage() {
           </div>
         </div>
 
-        {/* Lista */}
+        {/* Lista — QA fix 14/05/2026: skeleton matching layout */}
         {isLoading ? (
-          <p className="text-sm text-ink-500">Cargando…</p>
+          <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
+            <table className="w-full text-sm">
+              <thead className="bg-ink-50/60">
+                <tr>
+                  {[
+                    "Código",
+                    "Empresa",
+                    "Nombre",
+                    "Tipo",
+                    "Presupuesto",
+                    "Estado",
+                    "Acciones",
+                  ].map((h) => (
+                    <th key={h} className="px-4 py-3 text-left">
+                      <Skeleton className="h-3 w-16" />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-3 w-12" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-3 w-48" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-5 w-16 rounded-full" />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Skeleton className="ml-auto h-3 w-24" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-5 w-14 rounded-full" />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Skeleton className="ml-auto h-3 w-8" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : !proyectos || proyectos.length === 0 ? (
           empresaFilter || tipoFilter || estadoFilter || search ? (
             <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">

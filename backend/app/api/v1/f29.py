@@ -441,21 +441,30 @@ async def bulk_update_estado_f29(
 
     if succeeded:
         await db.commit()
-        await audit_log(
-            db,
-            request,
-            user,
-            action="update",
-            entity_type="f29",
-            entity_id=f"bulk:{succeeded}",
-            entity_label=f"{succeeded} F29 → {body.estado}",
-            summary=(
-                f"Bulk update estado={body.estado}: {succeeded} F29 ok, "
-                f"{len(failed)} fallaron"
-            ),
-            before=None,
-            after={"estado": body.estado, "ids": body.ids[:50]},
-        )
+
+    # QA fix 14/05/2026 — audit_log siempre (incluso si succeeded=0) para
+    # forense de intentos masivos fallidos. Antes solo se loguea si hubo
+    # algun ok; un script bug que generaba 200 fails quedaba sin huella.
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="f29",
+        entity_id=f"bulk:{succeeded}/{len(body.ids)}",
+        entity_label=f"{succeeded}/{len(body.ids)} F29 → {body.estado}",
+        summary=(
+            f"Bulk update estado={body.estado}: {succeeded} F29 ok, "
+            f"{len(failed)} fallaron"
+        ),
+        before=None,
+        after={
+            "estado": body.estado,
+            "ids": body.ids[:50],
+            "succeeded": succeeded,
+            "failed_count": len(failed),
+        },
+    )
 
     return BulkUpdateResult(
         operation="update_estado",

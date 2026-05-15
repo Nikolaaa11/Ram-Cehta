@@ -13,10 +13,10 @@
  * cero — TanStack Query queries se mantienen pero el render se reinicia.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import { AlertTriangle, Check, Copy, Home, RefreshCw } from "lucide-react";
 
 export default function AppSegmentError({
   error,
@@ -25,6 +25,8 @@ export default function AppSegmentError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     // Logging local; en prod Vercel + Sentry ya capturan.
     if (typeof window !== "undefined") {
@@ -32,6 +34,25 @@ export default function AppSegmentError({
       console.error("[(app)/error.tsx] segment error:", error);
     }
   }, [error]);
+
+  const copyDigest = async () => {
+    const payload = [
+      `Digest: ${error.digest ?? "n/a"}`,
+      `Message: ${error.message}`,
+      `URL: ${typeof window !== "undefined" ? window.location.href : "n/a"}`,
+      `Timestamp: ${new Date().toISOString()}`,
+    ].join("\n");
+    try {
+      await navigator.clipboard.writeText(payload);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Si clipboard API falla (HTTP no-secure, permisos), mostrar prompt
+      // fallback no es nice pero al menos el user ve el texto.
+      // eslint-disable-next-line no-alert
+      alert(payload);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
@@ -65,6 +86,36 @@ export default function AppSegmentError({
                 </>
               )}
             </pre>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={copyDigest}
+                className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-ink-50 px-2 py-1 text-[11px] font-medium text-ink-700 hover:bg-ink-100"
+              >
+                {copied ? (
+                  <>
+                    <Check className="size-3 text-cehta-green" />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy className="size-3" />
+                    Copiar para soporte
+                  </>
+                )}
+              </button>
+              <a
+                href={`mailto:soporte@cehta.cl?subject=${encodeURIComponent(
+                  `Error en la app (digest ${error.digest ?? "n/a"})`,
+                )}&body=${encodeURIComponent(
+                  `Estaba haciendo: [describí qué intentabas hacer]\n\n` +
+                    `Digest: ${error.digest ?? "n/a"}\nMessage: ${error.message}`,
+                )}`}
+                className="inline-flex items-center gap-1 rounded-lg border border-hairline bg-ink-50 px-2 py-1 text-[11px] font-medium text-ink-700 hover:bg-ink-100"
+              >
+                Reportar por email
+              </a>
+            </div>
             <p className="mt-2 text-[10px] text-ink-500">
               Si esto pasa varias veces, mandanos el digest junto con la
               acción que estabas haciendo.

@@ -6,6 +6,7 @@ import { ReportShell } from "@/components/reportes/ReportShell";
 import { ContableFilters, fmtCLP } from "@/components/reportes/ContableFilters";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { PLProyectoRow } from "@/lib/api/schema";
 
 export default function PLProyectoPage() {
@@ -39,7 +40,47 @@ export default function PLProyectoPage() {
       filters={<ContableFilters />}
     >
       {isLoading ? (
-        <p className="text-sm text-ink-500">Cargando…</p>
+        <div className="overflow-hidden rounded-2xl border border-hairline bg-white">
+          <table className="w-full text-sm">
+            <thead className="bg-ink-50/60">
+              <tr>
+                {["Proyecto", "Tipo", "Ingresos", "Gastos", "Resultado"].map(
+                  (h, idx) => (
+                    <th
+                      key={h}
+                      className={`px-4 py-2 ${idx >= 2 ? "text-right" : "text-left"}`}
+                    >
+                      <Skeleton
+                        className={`h-3 w-20 ${idx >= 2 ? "ml-auto" : ""}`}
+                      />
+                    </th>
+                  ),
+                )}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-hairline">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <tr key={i}>
+                  <td className="px-4 py-2">
+                    <Skeleton className="h-3 w-32" />
+                  </td>
+                  <td className="px-4 py-2">
+                    <Skeleton className="h-5 w-14 rounded-full" />
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <Skeleton className="ml-auto h-3 w-24" />
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <Skeleton className="ml-auto h-3 w-24" />
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <Skeleton className="ml-auto h-3 w-24" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : !data || data.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
           Sin movimientos imputados a proyectos en este período.
