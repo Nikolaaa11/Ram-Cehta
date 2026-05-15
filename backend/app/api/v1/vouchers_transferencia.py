@@ -429,6 +429,11 @@ async def preview_transferencia_masiva(
         where_scope = "AND v.empresa_codigo = ANY(CAST(:scope AS text[]))"
         params["scope"] = scope_filter
 
+    # Round 10 — el preview ahora trae tambien `proveedor_telefono` y
+    # `proveedor_contacto` para que el FE pueda renderear botones
+    # "WhatsApp" por fila tras ejecutar la transferencia. LEFT JOIN
+    # separado de `tiene_datos_bancarios` porque ese require banco+cuenta
+    # no-null mientras telefono puede existir aunque no haya cuenta.
     sql = f"""
         SELECT
             v.voucher_id,
@@ -441,12 +446,16 @@ async def preview_transferencia_masiva(
             v.contraparte_nombre,
             v.total_credit::text AS monto,
             v.forma_pago,
-            CASE WHEN p.proveedor_id IS NULL THEN FALSE ELSE TRUE END AS tiene_datos_bancarios
+            CASE WHEN pbanco.proveedor_id IS NULL THEN FALSE ELSE TRUE END AS tiene_datos_bancarios,
+            pcontact.telefono AS proveedor_telefono,
+            pcontact.contacto AS proveedor_contacto
         FROM core.vouchers v
-        LEFT JOIN core.proveedores p
-            ON p.rut = v.contraparte_rut
-            AND p.banco IS NOT NULL
-            AND p.numero_cuenta IS NOT NULL
+        LEFT JOIN core.proveedores pbanco
+            ON pbanco.rut = v.contraparte_rut
+            AND pbanco.banco IS NOT NULL
+            AND pbanco.numero_cuenta IS NOT NULL
+        LEFT JOIN core.proveedores pcontact
+            ON pcontact.rut = v.contraparte_rut
         WHERE v.status = 'APPROVED'
           AND v.tipo IN ('COMPRA', 'EGRESO')
           {where_scope}
@@ -480,6 +489,10 @@ async def preview_transferencia_masiva(
                 "monto": r["monto"],
                 "forma_pago": r["forma_pago"],
                 "tiene_datos_bancarios": r["tiene_datos_bancarios"],
+                # Round 10 — exponer telefono y contacto del proveedor
+                # para que el FE renderee botones WhatsApp por fila.
+                "proveedor_telefono": r["proveedor_telefono"],
+                "proveedor_contacto": r["proveedor_contacto"],
             }
             for r in rows
         ],

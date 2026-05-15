@@ -35,8 +35,10 @@ import {
   Download,
   ExternalLink,
   Loader2,
+  MessageCircle,
   Wallet,
 } from "lucide-react";
+import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
@@ -59,6 +61,9 @@ interface TransferenciaItem {
   monto: string; // viene como string para preservar precision Decimal
   forma_pago: string | null;
   tiene_datos_bancarios: boolean;
+  // Round 10 — para boton WhatsApp por fila tras ejecutar la transferencia.
+  proveedor_telefono: string | null;
+  proveedor_contacto: string | null;
 }
 
 interface PreviewResponse {
@@ -626,6 +631,9 @@ export default function TransferenciasPage() {
                     <th scope="col" className="px-4 py-3">Glosa</th>
                     <th scope="col" className="px-4 py-3 text-right">Monto</th>
                     <th scope="col" className="px-4 py-3">Datos bancarios</th>
+                    {/* Round 10 — columna WhatsApp para notificar al proveedor
+                        tras ejecutar la transferencia. */}
+                    <th scope="col" className="px-4 py-3 text-center">WA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hairline">
@@ -698,6 +706,45 @@ export default function TransferenciasPage() {
                               Faltan
                             </span>
                           )}
+                        </td>
+                        {/* Round 10 — botón WhatsApp para confirmar pago al
+                            proveedor después de ejecutar la transferencia. */}
+                        <td className="px-4 py-3 text-center">
+                          {(() => {
+                            const waLink = buildWaLink(
+                              v.proveedor_telefono,
+                              waMessages.confirmarTransferencia({
+                                nombre: v.proveedor_contacto || v.contraparte_nombre,
+                                monto: parseFloat(v.monto),
+                                codigo: v.codigo,
+                                glosa: v.glosa,
+                              }),
+                            );
+                            if (!waLink) {
+                              return (
+                                <span
+                                  className="text-[10px] text-ink-300"
+                                  title="Sin teléfono del proveedor cargado"
+                                >
+                                  —
+                                </span>
+                              );
+                            }
+                            return (
+                              <a
+                                href={waLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1 rounded-lg bg-[#25D366] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#1FB453]"
+                                title="Confirmar pago al beneficiario por WhatsApp"
+                                aria-label={`Notificar pago a ${v.contraparte_nombre} por WhatsApp`}
+                              >
+                                <MessageCircle className="size-3" strokeWidth={2.5} />
+                                Avisar
+                              </a>
+                            );
+                          })()}
                         </td>
                       </tr>
                     );
