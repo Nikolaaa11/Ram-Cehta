@@ -320,16 +320,17 @@ export default function TransferenciasPage() {
           <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
             <Wallet className="size-3.5 text-cehta-green" strokeWidth={2} />
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-              Round 11 · Transferencias masivas
+              Validación · Confirmación de pagos
             </p>
           </div>
           <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
-            Pagar vouchers aprobados
+            Validar y pagar vouchers aprobados
           </h1>
           <p className="text-sm text-ink-500 mt-1 max-w-2xl">
             Vouchers <strong>APPROVED</strong> (ya firmados por GG +
-            Director) listos para pago. Seleccioná los que vas a transferir
-            hoy y descargá el Excel para cargar al banco.
+            Director) listos para pago. Revisá datos (RUT, banco, monto),
+            seleccioná los que vas a transferir hoy y descargá el Excel
+            para cargar al banco. URL: <code className="text-xs bg-ink-100 dark:bg-ink-800 px-1 rounded">/validacion</code> o <code className="text-xs bg-ink-100 dark:bg-ink-800 px-1 rounded">/transferencias</code>.
           </p>
         </div>
       </div>

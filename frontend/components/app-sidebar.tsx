@@ -150,9 +150,12 @@ const GROUPS: NavGroup[] = [
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       // Round 11 — Transferencias masivas: vouchers APPROVED listos para
       // pago + generador de Excel para cargar al banco.
+      // Round 64 — renombrado a "Validación · Pagos" para que el operador
+      // identifique esta como la pestaña de "validar antes de pagar".
+      // Alias /validacion también funciona.
       {
         href: "/transferencias" as Route,
-        label: "Transferencias",
+        label: "Validación · Pagos",
         icon: Download,
       },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
