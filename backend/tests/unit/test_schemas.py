@@ -64,23 +64,32 @@ def test_proveedor_update_all_fields_optional() -> None:
 # ---------------------------------------------------------------------------
 # OrdenCompraCreate — IVA & total computation
 # ---------------------------------------------------------------------------
-
-_ITEM = OCDetalleCreate(item=1, descripcion="Servicio", precio_unitario=Decimal("1000"), cantidad=Decimal("1"))
+# Round 66 fix: el server-side `compute_totals` SIEMPRE recalcula `neto`
+# desde los items (ignora el valor que el FE haya enviado). Disciplina 2:
+# items = source-of-truth. Los tests crean items con el precio deseado.
 
 
 def _make_oc(moneda: str, neto: str) -> OrdenCompraCreate:
+    """Crea una OC con items que totalizan exactamente `neto` (precio_unitario)."""
     return OrdenCompraCreate(
         numero_oc="OC-001",
         empresa_codigo="EMP-01",
         fecha_emision=date(2025, 1, 1),
         moneda=moneda,  # type: ignore[arg-type]
-        neto=Decimal(neto),
-        items=[_ITEM],
+        items=[
+            OCDetalleCreate(
+                item=1,
+                descripcion="Servicio",
+                precio_unitario=Decimal(neto),
+                cantidad=Decimal("1"),
+            ),
+        ],
     )
 
 
 def test_oc_create_iva_calculado_clp() -> None:
     oc = _make_oc("CLP", "100000")
+    assert oc.neto == Decimal("100000")
     assert oc.iva_calculado == Decimal("19000")
 
 

@@ -321,10 +321,19 @@ async def test_analyze_document_contrato_happy_path() -> None:
     assert result.fields["contraparte"] == "Banco Estado"
 
     # Verificamos que el prompt mandado al LLM incluye el texto extraído.
+    # Round 66 fix: `content` puede ser str o lista de blocks {type, text}.
+    # Soportamos ambos formatos para robustez ante refactors del adapter.
     call_args = mock_client.messages.create.call_args
     user_content = call_args.kwargs["messages"][0]["content"]
-    assert "Banco Estado" in user_content
-    assert "contraparte" in user_content  # schema rendering
+    if isinstance(user_content, list):
+        # Concatenamos el texto de todos los blocks tipo "text".
+        user_content_str = "".join(
+            b.get("text", "") for b in user_content if b.get("type") == "text"
+        )
+    else:
+        user_content_str = user_content
+    assert "Banco Estado" in user_content_str
+    assert "contraparte" in user_content_str  # schema rendering
 
 
 @pytest.mark.asyncio

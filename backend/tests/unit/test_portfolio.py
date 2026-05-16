@@ -301,7 +301,13 @@ class TestPortfolioEndpoint:
             fin_mes = last_day_of_month(y, m)
             db.rates_cache[("USD", fin_mes.isoformat())] = Decimal("950")
 
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         # Total CLP debe igualar la suma de empresas.
         suma_empresas = sum(
@@ -329,7 +335,13 @@ class TestPortfolioEndpoint:
                 ("UF", today.isoformat()): Decimal("39500"),
             },
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         suma_pct = sum(
             (e.percent_of_portfolio for e in result.empresas), Decimal("0")
@@ -354,7 +366,13 @@ class TestPortfolioEndpoint:
                 ("UF", today.isoformat()): Decimal("39500"),
             },
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         suma_breakdown = sum(
             (it.total_clp for it in result.currency_breakdown), Decimal("0")
@@ -374,7 +392,13 @@ class TestPortfolioEndpoint:
                 ("UF", today.isoformat()): Decimal("39500"),
             },
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         assert len(result.monthly_trend) == 12
 
@@ -401,7 +425,13 @@ class TestPortfolioEndpoint:
             monthly_total_clp=Decimal("1000"),
             rates_cache={},
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         assert result.total_usd is None
         assert result.total_uf is None
@@ -424,7 +454,13 @@ class TestPortfolioEndpoint:
                 ("UF", today.isoformat()): Decimal("39500"),
             },
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         # 950000 / 950 = 1000.00 USD
         assert result.empresas[0].saldo_usd == Decimal("1000.00")
@@ -442,7 +478,13 @@ class TestPortfolioEndpoint:
                 ("UF", today.isoformat()): Decimal("39500"),
             },
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         assert result.rates_used.usd_clp == Decimal("950")
         assert result.rates_used.uf_clp == Decimal("39500")
@@ -462,7 +504,13 @@ class TestPortfolioEndpoint:
             },
         )
         before = datetime.now(tz=UTC).timestamp()
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
         after = datetime.now(tz=UTC).timestamp()
 
         # generated_at debe estar en la ventana del request.
@@ -485,7 +533,13 @@ class TestPortfolioEndpoint:
                 ("UF", today.isoformat()): Decimal("39500"),
             },
         )
-        result = await portfolio_consolidated(user=None, db=db)  # type: ignore[arg-type]
+        from unittest.mock import MagicMock as _MM
+        from fastapi import Response as _Resp
+        _mock_resp = _Resp()
+        _mock_scope = _MM()
+        _mock_scope.is_admin_global = True
+        _mock_scope.filter_codes = lambda x: None  # admin ve todas
+        result = await portfolio_consolidated(user=None, db=db, response=_mock_resp, scope=_mock_scope)  # type: ignore[arg-type]
 
         assert result.total_clp == Decimal("0")
         assert result.empresas == []

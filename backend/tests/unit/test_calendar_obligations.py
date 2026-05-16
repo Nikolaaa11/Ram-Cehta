@@ -278,7 +278,7 @@ class TestQueryF29:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=30),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         # El primer arg posicional de execute es el `text(...)` clause.
         call = db.execute.call_args
@@ -305,7 +305,7 @@ class TestQueryF29:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=30),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert len(items) == 1
         item = items[0]
@@ -331,7 +331,7 @@ class TestQueryLegal:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         sql = str(db.execute.call_args.args[0])
         assert "estado = 'vigente'" in sql
@@ -357,7 +357,7 @@ class TestQueryLegal:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert len(items) == 1
         assert items[0].tipo == "legal"
@@ -389,7 +389,7 @@ class TestQueryOC:
             today=today,
             from_date=today - timedelta(days=30),
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert len(items) == 1
         assert items[0].due_date == emision + timedelta(days=30)
@@ -419,7 +419,7 @@ class TestQueryOC:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert len(items) == 1
         assert items[0].days_until == 30
@@ -447,7 +447,7 @@ class TestQueryOC:
             today=today,
             from_date=today,  # due_date < from_date → excluida
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert items == []
 
@@ -460,7 +460,7 @@ class TestQueryOC:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         sql = str(db.execute.call_args.args[0])
         assert "'emitida'" in sql
@@ -486,7 +486,7 @@ class TestQuerySuscripciones:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert len(items) == 1
         assert items[0].tipo == "suscripcion"
@@ -502,7 +502,7 @@ class TestQuerySuscripciones:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=90),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         sql = str(db.execute.call_args.args[0])
         assert "firmado = false" in sql
@@ -529,7 +529,7 @@ class TestQueryCalendarEvents:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=30),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         assert len(items) == 1
         assert items[0].tipo == "event"
@@ -545,7 +545,7 @@ class TestQueryCalendarEvents:
             today=today,
             from_date=today,
             to_date=today + timedelta(days=30),
-            empresa_codigo=None,
+            empresa_codes=None,
         )
         sql = str(db.execute.call_args.args[0])
         assert "completado = false" in sql
