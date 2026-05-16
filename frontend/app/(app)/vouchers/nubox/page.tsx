@@ -42,11 +42,7 @@ import { useSession } from "@/hooks/use-session";
 import { useFormAutosave } from "@/hooks/use-form-autosave";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
-import {
-  useProveedoresCache,
-  useFilterProveedores,
-  highlightMatch,
-} from "@/hooks/use-proveedores-cache";
+import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import { Button } from "@/components/ui/button";
@@ -1269,7 +1265,8 @@ export default function NuboxFormPage() {
               <Label hint="Opcional. Si no tenés el dato a mano o es un gasto genérico (caja chica, servicios sin RUT), dejalo vacío.">
                 Proveedor
               </Label>
-              <ProveedorTypeahead
+              {/* Round 62 — usa componente shared (eliminó la copia inline). */}
+              <ProveedorTypeaheadCached
                 value={proveedorNombre}
                 rutValue={proveedorRut}
                 onSelect={(hit) => {
@@ -1280,6 +1277,8 @@ export default function NuboxFormPage() {
                   setProveedorNombre("");
                   setProveedorRut("");
                 }}
+                inputClassName="form-input"
+                idPrefix="nubox-prov"
                 placeholder="Escribí razón social o RUT…"
               />
               <p className="mt-1 min-h-[1rem] text-xs text-ink-500">
@@ -1892,206 +1891,5 @@ function LineSection({
           : `Tipo de documento sin IVA aplicable (exento / DI / SRF). Bruto = Neto.`}
       </p>
     </Surface>
-  );
-}
-
-// ---------------------------------------------------------------------
-// Typeahead Proveedor — V5++ ola CH B.2/B.3 — Round 44 (client-side cache)
-// ---------------------------------------------------------------------
-// Antes: input con debounce 300ms + GET /proveedores/search?q=... por
-//        cada keystroke. Lento si la red está saturada.
-// Ahora: useProveedoresCache() trae los ~228 proveedores activos UNA vez
-//        (cacheado 5min con TanStack Query) y la búsqueda es 100%
-//        client-side — instantánea, 0 round-trips después de la carga.
-//
-// Beneficios:
-//   · Búsqueda mientras tipea sin lag perceptible
-//   · Focus en input sin texto → muestra primeros 8 alfabético (descubrimiento)
-//   · Match en razón_social O RUT (sin necesidad de saber qué tipeas)
-//   · RUT normaliza puntos/guiones — "12345678" matchea "12.345.678-9"
-//
-// Si el operador escribe un proveedor que no aparece en la lista, el
-// padre asume nuevo y el backend autocrea al guardar (path original).
-
-function ProveedorTypeahead({
-  value,
-  rutValue,
-  onSelect,
-  onClear,
-  placeholder,
-}: {
-  value: string;
-  rutValue: string;
-  onSelect: (hit: ProveedorSearchHit) => void;
-  onClear: () => void;
-  placeholder?: string;
-}) {
-  const [query, setQuery] = useState(value);
-  const [open, setOpen] = useState(false);
-  // Round 49 — índice del item resaltado para navegación con flechas.
-  const [highlightedIdx, setHighlightedIdx] = useState(0);
-  const { isLoading: cacheLoading } = useProveedoresCache();
-
-  // Round 44 — search local sobre cache.
-  // Si el query es exactamente el nombre ya seleccionado, no resultados
-  // (evita mostrar dropdown vacío tras select).
-  const searchQuery = query.trim() === value.trim() ? "" : query;
-  const { results, cacheSize, totalMatches } = useFilterProveedores(
-    searchQuery,
-    8,
-  );
-
-  // Sync exterior -> interior cuando el padre setea el nombre programaticamente.
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
-
-  // Round 49 — reset del highlight cuando cambian los resultados (nuevo query).
-  useEffect(() => {
-    setHighlightedIdx(0);
-  }, [searchQuery, results.length]);
-
-  // Round 49 — handler para teclas dentro del input. Navega el dropdown sin
-  // tocar el mouse: ↓/↑ mueve highlight, Enter selecciona el resaltado,
-  // Esc cierra el dropdown.
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!open || results.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightedIdx((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightedIdx((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const hit = results[highlightedIdx];
-      if (hit) {
-        onSelect({
-          proveedor_id: hit.proveedor_id,
-          razon_social: hit.razon_social,
-          rut: hit.rut,
-        });
-        setQuery(hit.razon_social);
-        setOpen(false);
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setOpen(false);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <input
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          // Si el usuario edita el nombre despues de seleccionar, limpiamos
-          // el RUT para forzar nueva seleccion. Si vacía, limpia todo.
-          if (e.target.value.trim() === "") {
-            onClear();
-          } else if (rutValue && e.target.value !== value) {
-            onClear();
-          }
-          // Cuando empieza a tipear, abrir dropdown.
-          if (e.target.value.trim()) setOpen(true);
-        }}
-        onFocus={() => {
-          // Round 44 — abrir dropdown apenas hay foco. Si no hay query,
-          // useFilterProveedores devuelve los primeros 8 = descubrimiento.
-          setOpen(true);
-        }}
-        onBlur={() => {
-          // delay para permitir click en el dropdown
-          setTimeout(() => setOpen(false), 150);
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder={
-          placeholder ??
-          (cacheLoading
-            ? "Cargando catálogo…"
-            : cacheSize > 0
-              ? `Buscar entre ${cacheSize} proveedores…`
-              : "Buscar proveedor…")
-        }
-        className="form-input"
-        autoComplete="off"
-        aria-autocomplete="list"
-        aria-expanded={open}
-        aria-activedescendant={
-          open && results[highlightedIdx]
-            ? `prov-opt-${results[highlightedIdx]?.proveedor_id}`
-            : undefined
-        }
-      />
-      {open && results.length > 0 && (
-        <ul
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white dark:bg-ink-900 shadow-lg"
-          role="listbox"
-        >
-          {results.map((hit, idx) => {
-            const isHighlighted = idx === highlightedIdx;
-            return (
-              <li
-                key={hit.proveedor_id}
-                id={`prov-opt-${hit.proveedor_id}`}
-                role="option"
-                aria-selected={hit.razon_social === value}
-                onMouseEnter={() => setHighlightedIdx(idx)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelect({
-                    proveedor_id: hit.proveedor_id,
-                    razon_social: hit.razon_social,
-                    rut: hit.rut,
-                  });
-                  setQuery(hit.razon_social);
-                  setOpen(false);
-                }}
-                className={`cursor-pointer px-3 py-2 text-sm ${
-                  isHighlighted
-                    ? "bg-cehta-green/15"
-                    : "hover:bg-cehta-green/10"
-                }`}
-              >
-                {/* Round 51 — highlight del query dentro del nombre */}
-                <div className="font-medium text-ink-900 dark:text-ink-100">
-                  {highlightMatch(hit.razon_social, searchQuery).map(
-                    (seg, i) =>
-                      seg.highlight ? (
-                        <mark
-                          key={i}
-                          className="bg-cehta-green/30 text-ink-900 dark:text-ink-100 rounded-sm px-0.5"
-                        >
-                          {seg.text}
-                        </mark>
-                      ) : (
-                        <span key={i}>{seg.text}</span>
-                      ),
-                  )}
-                </div>
-                <div className="flex items-baseline gap-2 text-xs text-ink-500">
-                  {hit.rut && (
-                    <span className="font-mono">{hit.rut}</span>
-                  )}
-                  {/* Round 47 — direccion opcional para desambiguar */}
-                  {hit.direccion && (
-                    <span className="truncate text-ink-400">
-                      · {hit.direccion}
-                    </span>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-          {/* Round 51 — footer con conteo cuando hay más matches que el cap */}
-          {totalMatches > results.length && (
-            <li className="border-t border-hairline bg-ink-50/60 dark:bg-ink-800/60 px-3 py-1.5 text-[11px] text-ink-500">
-              Mostrando {results.length} de {totalMatches} resultados — afiná la búsqueda
-            </li>
-          )}
-        </ul>
-      )}
-    </div>
   );
 }

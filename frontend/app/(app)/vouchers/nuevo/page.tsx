@@ -44,11 +44,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
-import {
-  useProveedoresCache,
-  useFilterProveedores,
-  highlightMatch,
-} from "@/hooks/use-proveedores-cache";
+import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 import { toast } from "@/components/ui/toast";
 import { Currency } from "@/components/shared/Currency";
 import type {
@@ -625,7 +621,8 @@ export default function NuevoVoucherPage() {
                 {contraparteTipo === "PROVEEDOR" ? (
                   <>
                     <Field label="Nombre (buscar en catálogo)">
-                      <ProveedorTypeaheadNuevo
+                      {/* Round 62 — usa componente shared */}
+                      <ProveedorTypeaheadCached
                         value={contraparteNombre}
                         rutValue={contraparteRut}
                         onSelect={(hit) => {
@@ -636,6 +633,7 @@ export default function NuevoVoucherPage() {
                           setContraparteNombre("");
                           setContraparteRut("");
                         }}
+                        idPrefix="vnuevo-prov"
                       />
                     </Field>
                     <Field label="RUT (auto-completa)">
@@ -965,173 +963,3 @@ function Field({
   );
 }
 
-// Observaciones 13/05/2026 #3,#4 — Typeahead de proveedor con auto-RUT
-// Replica el ProveedorTypeahead del form Nubox pero scoped al form /nuevo.
-interface ProveedorSearchHit {
-  proveedor_id: number;
-  razon_social: string;
-  rut: string | null;
-}
-
-function ProveedorTypeaheadNuevo({
-  value,
-  rutValue,
-  onSelect,
-  onClear,
-}: {
-  value: string;
-  rutValue: string;
-  onSelect: (hit: ProveedorSearchHit) => void;
-  onClear: () => void;
-}) {
-  // Round 44 — replaces debounce+GET con cache client-side compartido.
-  // Round 50 — navegación con teclado (↑↓Enter/Esc) replicada del form Nubox.
-  const [query, setQuery] = useState(value);
-  const [open, setOpen] = useState(false);
-  const [highlightedIdx, setHighlightedIdx] = useState(0);
-  useProveedoresCache(); // pre-cache si no estaba
-
-  // Si el query es exactamente el nombre ya seleccionado, no resultados.
-  const searchQuery = query.trim() === value.trim() ? "" : query;
-  const { results, cacheSize, totalMatches } = useFilterProveedores(
-    searchQuery,
-    8,
-  );
-
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
-
-  useEffect(() => {
-    setHighlightedIdx(0);
-  }, [searchQuery, results.length]);
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!open || results.length === 0) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setHighlightedIdx((i) => Math.min(i + 1, results.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setHighlightedIdx((i) => Math.max(i - 1, 0));
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const hit = results[highlightedIdx];
-      if (hit) {
-        onSelect({
-          proveedor_id: hit.proveedor_id,
-          razon_social: hit.razon_social,
-          rut: hit.rut,
-        });
-        setQuery(hit.razon_social);
-        setOpen(false);
-      }
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setOpen(false);
-    }
-  };
-
-  return (
-    <div className="relative">
-      <input
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          if (e.target.value.trim() === "") {
-            onClear();
-          } else if (rutValue && e.target.value !== value) {
-            onClear();
-          }
-          if (e.target.value.trim()) setOpen(true);
-        }}
-        onFocus={() => {
-          // Round 44 — abrir aunque no haya query: muestra primeros 8 alfa.
-          setOpen(true);
-        }}
-        onBlur={() => {
-          setTimeout(() => setOpen(false), 150);
-        }}
-        onKeyDown={handleKeyDown}
-        placeholder={
-          cacheSize > 0
-            ? `Buscar entre ${cacheSize} proveedores…`
-            : "Escribí razón social o RUT…"
-        }
-        className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
-        autoComplete="off"
-        aria-autocomplete="list"
-        aria-expanded={open}
-        aria-activedescendant={
-          open && results[highlightedIdx]
-            ? `provN-opt-${results[highlightedIdx]?.proveedor_id}`
-            : undefined
-        }
-      />
-      {open && results.length > 0 && (
-        <ul
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
-          role="listbox"
-        >
-          {results.map((hit, idx) => {
-            const isHighlighted = idx === highlightedIdx;
-            return (
-              <li
-                key={hit.proveedor_id}
-                id={`provN-opt-${hit.proveedor_id}`}
-                role="option"
-                aria-selected={hit.razon_social === value}
-                onMouseEnter={() => setHighlightedIdx(idx)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelect({
-                    proveedor_id: hit.proveedor_id,
-                    razon_social: hit.razon_social,
-                    rut: hit.rut,
-                  });
-                  setQuery(hit.razon_social);
-                  setOpen(false);
-                }}
-                className={`cursor-pointer px-3 py-2 text-sm ${
-                  isHighlighted
-                    ? "bg-cehta-green/15"
-                    : "hover:bg-cehta-green/10"
-                }`}
-              >
-                <div className="font-medium text-ink-900">
-                  {highlightMatch(hit.razon_social, searchQuery).map((seg, i) =>
-                    seg.highlight ? (
-                      <mark
-                        key={i}
-                        className="bg-cehta-green/30 text-ink-900 rounded-sm px-0.5"
-                      >
-                        {seg.text}
-                      </mark>
-                    ) : (
-                      <span key={i}>{seg.text}</span>
-                    ),
-                  )}
-                </div>
-                <div className="flex items-baseline gap-2 text-xs text-ink-500">
-                  {hit.rut && (
-                    <span className="font-mono">{hit.rut}</span>
-                  )}
-                  {hit.direccion && (
-                    <span className="truncate text-ink-400">
-                      · {hit.direccion}
-                    </span>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-          {totalMatches > results.length && (
-            <li className="border-t border-hairline bg-ink-50/60 px-3 py-1.5 text-[11px] text-ink-500">
-              Mostrando {results.length} de {totalMatches} — afiná la búsqueda
-            </li>
-          )}
-        </ul>
-      )}
-    </div>
-  );
-}
