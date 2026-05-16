@@ -142,6 +142,10 @@ class SidebarStateResponse(BaseModel):
     # su acción (DRAFT propios + PENDING en empresas que aprueba)
     voucher_drafts_mine: int = 0
     voucher_pending_approvals: int = 0
+    # Round 67 — vouchers APPROVED listos para pagar (no EXECUTED ni VOID).
+    # Badge en sidebar /transferencias (Validación · Pagos) para que el
+    # operador vea cuántos esperan ser transferidos al banco.
+    voucher_approved_ready_to_pay: int = 0
 
 
 async def _count_unread_notifications(db: AsyncSession, user_id: str) -> int:
@@ -274,6 +278,49 @@ async def _count_voucher_pending_approvals(db: AsyncSession, user_id: str) -> in
         return 0
 
 
+async def _count_voucher_approved_ready_to_pay(
+    db: AsyncSession, user_id: str
+) -> int:
+    """Round 67: vouchers APPROVED listos para transferir, filtrados por
+    el scope del user (las empresas a las que tiene acceso).
+
+    Lógica:
+        vouchers WHERE status='APPROVED'
+          AND empresa_codigo IN (empresas del scope del user)
+    """
+    try:
+        return int(
+            await db.scalar(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM core.vouchers v
+                    WHERE v.status = 'APPROVED'
+                      AND (
+                        EXISTS (
+                            SELECT 1 FROM core.user_company_roles ucr
+                            WHERE ucr.user_id = CAST(:uid AS UUID)
+                              AND ucr.empresa_codigo = v.empresa_codigo
+                              AND ucr.active = TRUE
+                        )
+                        OR EXISTS (
+                            -- Admin global ve todo (sin scope filter)
+                            SELECT 1 FROM core.user_roles ur
+                            WHERE ur.user_id = CAST(:uid AS UUID)
+                              AND ur.app_role = 'admin'
+                              AND ur.active = TRUE
+                        )
+                      )
+                    """
+                ),
+                {"uid": user_id},
+            )
+            or 0
+        )
+    except Exception:
+        return 0
+
+
 @router.get(
     "/sidebar-state",
     response_model=SidebarStateResponse,
@@ -284,9 +331,9 @@ async def get_sidebar_state(
 ) -> SidebarStateResponse:
     """Estado agregado del sidebar en una sola request.
 
-    Usa asyncio.gather para correr las 4 counts en paralelo dentro de la
-    misma transacción. Latencia: ~max(c1, c2, c3, c4) en lugar de
-    sum(c1+c2+c3+c4) que serían los 4 endpoints separados.
+    Usa asyncio.gather para correr las counts en paralelo dentro de la
+    misma transacción. Latencia: ~max(c1..cN) en lugar de
+    sum(c1..cN) que serían los N endpoints separados.
 
     Soft-fail per-count: si una tabla no existe (entornos antiguos),
     el helper devuelve 0 sin romper el endpoint.
@@ -299,6 +346,7 @@ async def get_sidebar_state(
         mailbox,
         drafts_mine,
         pending_approvals,
+        approved_ready,
     ) = await asyncio.gather(
         _count_unread_notifications(db, user_id),
         _count_critical_obligations(db),
@@ -306,6 +354,7 @@ async def get_sidebar_state(
         _count_mailbox_pending(db),
         _count_voucher_drafts_mine(db, user_id),
         _count_voucher_pending_approvals(db, user_id),
+        _count_voucher_approved_ready_to_pay(db, user_id),
     )
     return SidebarStateResponse(
         unread_notifications=unread,
@@ -314,6 +363,7 @@ async def get_sidebar_state(
         mailbox_pending=mailbox,
         voucher_drafts_mine=drafts_mine,
         voucher_pending_approvals=pending_approvals,
+        voucher_approved_ready_to_pay=approved_ready,
     )
 
 

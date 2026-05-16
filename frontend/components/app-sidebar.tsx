@@ -420,6 +420,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
   // V5++ ola AT — counters de vouchers para el usuario
   const voucherDraftsMine = state?.voucher_drafts_mine ?? 0;
   const voucherPendingApprovals = state?.voucher_pending_approvals ?? 0;
+  // Round 67 — vouchers APPROVED listos para transferir (badge /validacion).
+  const voucherApprovedReady = state?.voucher_approved_ready_to_pay ?? 0;
   const prefetchEntregables = useEntregablesPrefetch();
   const prefetchMailbox = useMailboxPrefetch();
   const prefetchF22 = useF22Prefetch();
@@ -501,6 +503,11 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showAprobacionesBadge =
                   String(item.href) === "/aprobaciones" &&
                   voucherPendingApprovals > 0;
+                // Round 67 — badge en /transferencias (Validación · Pagos):
+                // vouchers APPROVED esperando ser transferidos al banco.
+                const showValidacionBadge =
+                  String(item.href) === "/transferencias" &&
+                  voucherApprovedReady > 0;
                 // Prefetch on hover para rutas con datos pesados.
                 // V4 fase 7.5 — calienta cache TanStack antes del click.
                 // V5+ extendido a /admin/mailbox y /f22 (lists costosas).
@@ -609,6 +616,15 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         {voucherPendingApprovals > 99
                           ? "99+"
                           : voucherPendingApprovals}
+                      </span>
+                    )}
+                    {showValidacionBadge && (
+                      <span
+                        aria-label={`${voucherApprovedReady} vouchers listos para transferir`}
+                        title={`${voucherApprovedReady} vouchers APPROVED listos para pagar`}
+                        className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-cehta-green px-1.5 text-[10px] font-semibold text-white tabular-nums"
+                      >
+                        {voucherApprovedReady > 99 ? "99+" : voucherApprovedReady}
                       </span>
                     )}
                   </Link>

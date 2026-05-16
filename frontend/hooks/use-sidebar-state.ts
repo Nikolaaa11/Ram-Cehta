@@ -12,6 +12,8 @@ interface SidebarStateResponse {
   // V5++ ola AT — vouchers pending por user
   voucher_drafts_mine?: number;
   voucher_pending_approvals?: number;
+  // Round 67 — vouchers APPROVED listos para transferir (badge en /validacion).
+  voucher_approved_ready_to_pay?: number;
 }
 
 /**
@@ -43,6 +45,7 @@ export function useSidebarState() {
       mailbox_pending: 0,
       voucher_drafts_mine: 0,
       voucher_pending_approvals: 0,
+      voucher_approved_ready_to_pay: 0,
     }),
   });
 }
