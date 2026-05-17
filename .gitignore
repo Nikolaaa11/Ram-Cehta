@@ -4,6 +4,9 @@
 .env.*.local
 *.pem
 *.key
+# Round 79 — credenciales temporales de testing (NUNCA committear)
+docs/*credentials*.local.md
+docs/test_credentials*.md
 
 # Python
 __pycache__/
