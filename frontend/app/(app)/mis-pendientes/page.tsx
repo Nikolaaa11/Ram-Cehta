@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * /mis-pendientes — V5++ ola AV + Round 1 polish
+ * /mis-pendientes — V5++ ola AV + Round 1 polish + Round 75
  *
  * Página personal "bandeja de entrada" que muestra todo lo que requiere
  * acción del usuario actual:
  *   - Vouchers en DRAFT que él creó (debe completarlos y submit)
  *   - Vouchers PENDING en sus empresas que esperan SU firma (GG/DIRECTOR)
+ *   - Vouchers APPROVED listos para pagar (Round 75 — antes faltaba)
  *   - Empresas a las que tiene acceso
  *
  * Es la primera página que un líder/director debe abrir al loguear.
@@ -16,6 +17,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import {
   CheckCircle2,
+  Download,
   FileEdit,
   PenTool,
   Building2,
@@ -54,6 +56,10 @@ export default function MisPendientesPage() {
   const { data: state } = useSidebarState();
   const [drafts, setDrafts] = useState<Voucher[]>([]);
   const [pending, setPending] = useState<Voucher[]>([]);
+  // Round 75 — sumo APPROVED (listos para pagar) a la bandeja personal.
+  // Faltaba esta categoría: el operador veía drafts+pending pero no los
+  // APPROVED que ya esperan en /transferencias.
+  const [approved, setApproved] = useState<Voucher[]>([]);
   const [empresas, setEmpresas] = useState<MyEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
@@ -63,14 +69,18 @@ export default function MisPendientesPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      // Fetch en paralelo: drafts, pendientes y empresas son independientes.
-      const [draftRes, pendingRes, empResp] = await Promise.all([
+      // Fetch en paralelo: drafts, pendientes, approved y empresas son indep.
+      const [draftRes, pendingRes, approvedRes, empResp] = await Promise.all([
         apiClient.get<Voucher[]>(
           "/vouchers?status=DRAFT&limit=100",
           session,
         ),
         apiClient.get<Voucher[]>(
           "/vouchers?status=PENDING&limit=100",
+          session,
+        ),
+        apiClient.get<Voucher[]>(
+          "/vouchers?status=APPROVED&limit=100",
           session,
         ),
         apiClient.get<{ empresas: MyEmpresa[] }>(
@@ -80,6 +90,7 @@ export default function MisPendientesPage() {
       ]);
       setDrafts(draftRes);
       setPending(pendingRes);
+      setApproved(approvedRes);
       setEmpresas(empResp.empresas || []);
     } catch (err) {
       // V5++ ola CJ + Round 1 polish — antes silenciado; ahora propagamos
@@ -108,6 +119,9 @@ export default function MisPendientesPage() {
 
   const draftsCount = state?.voucher_drafts_mine ?? drafts.length;
   const pendingCount = state?.voucher_pending_approvals ?? pending.length;
+  // Round 75 — counter de APPROVED listos para pagar (badge en sidebar también).
+  const approvedReadyCount =
+    state?.voucher_approved_ready_to_pay ?? approved.length;
 
   // V5++ ola AX: skeleton mientras carga
   if (loading && pending.length === 0 && drafts.length === 0) {
@@ -117,8 +131,8 @@ export default function MisPendientesPage() {
           <div className="h-8 w-48 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-2" />
           <div className="h-4 w-80 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
             <Surface key={i} className="p-4">
               <div className="h-5 w-32 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-3" />
               <div className="h-9 w-16 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-2" />
@@ -174,8 +188,8 @@ export default function MisPendientesPage() {
         </div>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* KPI cards — Round 75: agrego "Listos para pagar" como 3ra card. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card
           icon={<FileEdit className="size-5 text-amber-500" />}
           label="Borradores propios"
@@ -191,7 +205,14 @@ export default function MisPendientesPage() {
           tone="info"
         />
         <Card
-          icon={<Building2 className="size-5 text-cehta-green" />}
+          icon={<Download className="size-5 text-cehta-green" />}
+          label="Listos para pagar"
+          value={approvedReadyCount}
+          subtitle="APPROVED — descargá la planilla en Confirmar pagos"
+          tone="success"
+        />
+        <Card
+          icon={<Building2 className="size-5 text-ink-700" />}
           label="Tus empresas"
           value={empresas.length}
           subtitle="Empresas donde podés trabajar"
@@ -248,6 +269,31 @@ export default function MisPendientesPage() {
         </Surface>
       )}
 
+      {/* Vouchers APPROVED listos para pagar — Round 75. */}
+      {approved.length > 0 && (
+        <Surface className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Download className="size-5 text-cehta-green" />
+              <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+                Listos para pagar ({approved.length})
+              </h2>
+            </div>
+            <Link
+              href={"/transferencias" as Route}
+              className="text-sm text-cehta-green hover:underline flex items-center gap-1"
+            >
+              Descargar planilla <ArrowRight className="size-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {approved.slice(0, 10).map((v) => (
+              <VoucherRow key={v.voucher_id} v={v} />
+            ))}
+          </div>
+        </Surface>
+      )}
+
       {/* Error state */}
       {loadError && !loading && (
         <ErrorState
@@ -257,15 +303,19 @@ export default function MisPendientesPage() {
         />
       )}
 
-      {/* Empty state */}
-      {!loadError && pending.length === 0 && drafts.length === 0 && !loading && (
-        <EmptyState
-          icon={CheckCircle2}
-          title="Sin pendientes"
-          description="¡Estás al día! No tenés tareas pendientes."
-          tone="positive"
-        />
-      )}
+      {/* Empty state — Round 75: incluyo approved en el check. */}
+      {!loadError &&
+        pending.length === 0 &&
+        drafts.length === 0 &&
+        approved.length === 0 &&
+        !loading && (
+          <EmptyState
+            icon={CheckCircle2}
+            title="Sin pendientes"
+            description="¡Estás al día! No tenés tareas pendientes ni pagos por confirmar."
+            tone="positive"
+          />
+        )}
 
       {/* Mis empresas */}
       <Surface className="p-6">
@@ -329,14 +379,16 @@ function Card({
   label: string;
   value: number;
   subtitle: string;
-  tone?: "neutral" | "warn" | "info";
+  tone?: "neutral" | "warn" | "info" | "success";
 }) {
   const colorClass =
     tone === "warn"
       ? "text-amber-500"
       : tone === "info"
         ? "text-blue-500"
-        : "text-ink-900 dark:text-ink-100";
+        : tone === "success"
+          ? "text-cehta-green"
+          : "text-ink-900 dark:text-ink-100";
   return (
     <Surface className="p-4">
       <div className="flex items-center gap-2 mb-2">
