@@ -162,6 +162,7 @@ const GROUPS: NavGroup[] = [
         icon: Download,
         title:
           "Vouchers APPROVED listos para transferir. Descarga la planilla Excel para cargar al banco.",
+        tourId: "confirmar-pagos",
       },
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },

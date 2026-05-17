@@ -100,6 +100,16 @@ const STEPS: TourStep[] = [
       "Subí PDFs de cartolas a Dropbox y el sistema parsea automáticamente los movimientos para conciliación. Soporta 10 bancos chilenos.",
     position: "right",
   },
+  // Round 76 — paso del tour para "Confirmar pagos · Planilla". Cierra
+  // el loop mental: voucher creado → aprobado → confirmar el pago acá.
+  {
+    id: "confirmar-pagos",
+    target: '[data-tour="confirmar-pagos"]',
+    title: "Confirmar pagos · Planilla",
+    body:
+      "Una vez que un voucher tiene las 2 firmas (GG + DIRECTOR) queda APPROVED y aparece acá. Seleccioná los que vas a pagar hoy, descargá la planilla Excel y cargala al banco (BCI, Santander, BancoEstado, etc.). Tras confirmar las transferencias, marcalos como EXECUTED.",
+    position: "right",
+  },
   {
     id: "shortcuts",
     target: null,
