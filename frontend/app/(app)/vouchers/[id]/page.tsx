@@ -52,7 +52,12 @@ import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { Currency } from "@/components/shared/Currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
-import type { VoucherFull, VoucherStatus, VoucherTipo } from "@/lib/api/schema";
+import type {
+  VoucherAttachment,
+  VoucherFull,
+  VoucherStatus,
+  VoucherTipo,
+} from "@/lib/api/schema";
 
 const TIPO_LABEL: Record<VoucherTipo, string> = {
   INGRESO: "Ingreso",
@@ -264,6 +269,25 @@ export default function VoucherDetailPage({ params }: PageProps) {
   const meta = STATUS_META[voucher.status];
   const isBalanced =
     Number(voucher.total_debit) === Number(voucher.total_credit);
+
+  // Round 72 — gating del boton "Enviar a aprobacion" cuando falta adjunto
+  // tributario. Backend ya rechaza con 400, pero el operador veia el boton
+  // habilitado y se llevaba el "no me deja". Ahora lo deshabilitamos en el
+  // frontend con tooltip claro, y reutilizamos el mismo queryKey del card
+  // de adjuntos para no duplicar fetch.
+  const requiresTaxDoc =
+    voucher.tipo === "COMPRA" || voucher.tipo === "VENTA";
+  const { data: attachmentsList } = useQuery<VoucherAttachment[]>({
+    queryKey: ["voucher-attachments", voucherId],
+    queryFn: () =>
+      apiClient.get<VoucherAttachment[]>(
+        `/vouchers/${voucherId}/attachments`,
+        session,
+      ),
+    enabled: !!session && !!voucherId,
+  });
+  const hasAttachment = (attachmentsList?.length ?? 0) > 0;
+  const missingTaxDoc = requiresTaxDoc && !hasAttachment;
 
   return (
     <div className="relative">
@@ -555,8 +579,14 @@ export default function VoucherDetailPage({ params }: PageProps) {
                     }
                   }}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
-                  disabled={!isBalanced || submitMut.isPending}
-                  title={!isBalanced ? "Las líneas no cuadran" : "Enviar"}
+                  disabled={!isBalanced || missingTaxDoc || submitMut.isPending}
+                  title={
+                    !isBalanced
+                      ? "Las líneas no cuadran"
+                      : missingTaxDoc
+                        ? `Voucher de ${TIPO_LABEL[voucher.tipo]} requiere al menos 1 factura/boleta adjunta antes de enviar. Subila en la sección "Adjuntos" más abajo.`
+                        : "Enviar"
+                  }
                 >
                   <Send className="h-4 w-4" strokeWidth={1.75} />
                   Enviar a aprobación
@@ -821,12 +851,25 @@ export default function VoucherDetailPage({ params }: PageProps) {
           voucherStatus={voucher.status}
         />
         {voucher.status === "DRAFT" && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] text-amber-800">
-            <strong className="font-semibold">Vista previa del flujo</strong> ·
-            este voucher está en borrador. Cuando lo envíes a aprobación con
-            el botón <span className="font-semibold">&quot;Enviar a aprobación&quot;</span>,
-            arranca el flujo de firmas y los aprobadores podrán firmar aquí
-            mismo.
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] text-amber-800 space-y-1">
+            <p>
+              <strong className="font-semibold">Vista previa del flujo</strong>{" "}
+              · este voucher está en borrador. Cuando lo envíes a aprobación con
+              el botón{" "}
+              <span className="font-semibold">
+                &quot;Enviar a aprobación&quot;
+              </span>
+              , arranca el flujo de firmas y los aprobadores podrán firmar aquí
+              mismo.
+            </p>
+            {missingTaxDoc && (
+              <p className="font-semibold text-amber-900">
+                ⚠ Antes de enviarlo necesitás subir al menos 1 factura/boleta
+                en la sección <em>&quot;Adjuntos&quot;</em> de más abajo
+                (requisito contable para vouchers de{" "}
+                {TIPO_LABEL[voucher.tipo]}).
+              </p>
+            )}
           </div>
         )}
 
