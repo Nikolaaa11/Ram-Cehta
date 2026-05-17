@@ -87,6 +87,9 @@ type NavItem = {
   /** V4 fase 4 — atributo data-tour para que el OnboardingTour pueda
    * targetear este link (e.g. "action-center", "asistente"). */
   tourId?: string;
+  /** Round 73 — title (HTML tooltip) opcional, util cuando el label
+   * solo no comunica bien la accion (ej. "Confirmar pagos"). */
+  title?: string;
 };
 
 type NavGroup = {
@@ -145,19 +148,24 @@ const GROUPS: NavGroup[] = [
         label: "Aprobaciones",
         icon: PenTool,
       },
-      { href: "/proveedores", label: "Proveedores", icon: Users },
-      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
-      { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       // Round 11 — Transferencias masivas: vouchers APPROVED listos para
       // pago + generador de Excel para cargar al banco.
       // Round 64 — renombrado a "Validación · Pagos" para que el operador
       // identifique esta como la pestaña de "validar antes de pagar".
+      // Round 73 — re-nombrado a "Confirmar pagos · Planilla" y subido
+      // justo despues de Aprobaciones (flujo natural aprobar -> pagar).
+      // El operador no lo encontraba con la label anterior.
       // Alias /validacion también funciona.
       {
         href: "/transferencias" as Route,
-        label: "Validación · Pagos",
+        label: "Confirmar pagos · Planilla",
         icon: Download,
+        title:
+          "Vouchers APPROVED listos para transferir. Descarga la planilla Excel para cargar al banco.",
       },
+      { href: "/proveedores", label: "Proveedores", icon: Users },
+      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
+      { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
       { href: "/f29", label: "F29 / Mensual", icon: Receipt },
       { href: "/f22" as Route, label: "F22 / Anual", icon: Receipt },
@@ -528,6 +536,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                     onFocus={onMouseEnter}
                     aria-current={isActive ? "page" : undefined}
                     data-tour={item.tourId}
+                    title={item.title}
                     className={cn(
                       "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ease-apple",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
