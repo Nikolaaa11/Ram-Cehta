@@ -13,8 +13,8 @@
  *   4. Click "Descargar Excel transferencia masiva" → XLSX descargado
  *   5. Sube el XLSX al portal del banco (BCI / Santander / BancoEstado)
  *   6. Una vez confirmadas las transferencias, marca cada voucher como
- *      EXECUTED desde /vouchers/[id] o desde aca (no implementado aun
- *      bulk, se hace 1 a 1).
+ *      EXECUTED desde /vouchers/[id] o bulk desde aca (boton "Marcar
+ *      EXECUTED" tras descargar el Excel, Etapa A).
  *
  * Por que pagina dedicada y no tab en /aprobaciones:
  *   - Aprobar y pagar son momentos distintos del flujo financiero.
@@ -42,6 +42,7 @@ import {
 import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { Surface } from "@/components/ui/surface";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -111,6 +112,14 @@ export default function TransferenciasPage() {
     enabled: !!session,
     staleTime: 30_000,
   });
+
+  // Round 74 — empty-state contextual. Cuando no hay APPROVED para pagar,
+  // usar los counters del sidebar (cache compartido) para apuntar al
+  // operador hacia el proximo paso correcto del flow: si tiene drafts ir
+  // a /vouchers; si tiene pendientes de firma ir a /aprobaciones.
+  const { data: sidebarState } = useSidebarState();
+  const draftsMine = sidebarState?.voucher_drafts_mine ?? 0;
+  const pendingMyApproval = sidebarState?.voucher_pending_approvals ?? 0;
 
   // Etapa C — pull-to-refresh en mobile.
   const pull = usePullToRefresh(async () => {
@@ -366,13 +375,37 @@ export default function TransferenciasPage() {
         />
       )}
 
-      {/* Empty */}
+      {/* Empty — Round 74: guidance contextual segun el estado del pipeline. */}
       {!isLoading && !error && data && data.count === 0 && (
         <EmptyState
           icon={CheckCircle2}
-          title="Sin vouchers pendientes de pago"
-          description="Todo lo aprobado ya se pagó. Cuando se aprueben nuevos vouchers, aparecerán acá."
-          tone="positive"
+          tone={pendingMyApproval > 0 || draftsMine > 0 ? "info" : "positive"}
+          title={
+            pendingMyApproval > 0
+              ? `Tenés ${pendingMyApproval} voucher${pendingMyApproval > 1 ? "s" : ""} esperando tu firma`
+              : draftsMine > 0
+                ? `Tenés ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación`
+                : "Sin vouchers pendientes de pago"
+          }
+          description={
+            pendingMyApproval > 0
+              ? "Acá aparecen los vouchers APPROVED listos para transferir. Primero firmalos en Aprobaciones — cuando un voucher tenga las 2 firmas (GG + DIRECTOR), pasa a APPROVED y aparece acá."
+              : draftsMine > 0
+                ? "El flujo es: crear voucher → adjuntar factura → enviar a aprobación → firmar GG y DIRECTOR → aparece acá para transferir. Empezá enviando tus borradores a aprobación."
+                : "Todo lo aprobado ya se pagó. Cuando se aprueben nuevos vouchers, aparecerán acá automáticamente."
+          }
+          primaryAction={
+            pendingMyApproval > 0
+              ? { label: "Ir a Aprobaciones", href: "/aprobaciones" }
+              : draftsMine > 0
+                ? { label: "Ver mis vouchers", href: "/vouchers" }
+                : undefined
+          }
+          secondaryAction={
+            (pendingMyApproval > 0 || draftsMine > 0)
+              ? { label: "Crear voucher nuevo", href: "/vouchers/nuevo" }
+              : undefined
+          }
         />
       )}
 
