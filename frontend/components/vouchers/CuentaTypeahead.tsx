@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * CuentaTypeahead — AJUSTE 10
+ * CuentaTypeahead — AJUSTE 10 + Round 70.
  *
  * Combobox typeahead para seleccionar "Plan de Cuenta" en las líneas de
  * voucher. Reemplaza el `<input>` plano por uno con búsqueda por código o
@@ -17,11 +17,19 @@
  *
  * Si el usuario elige una cuenta fuera de la lista priorizada, mostramos un
  * warning amber NO bloqueante. Sigue siendo válido enviar el voucher.
+ *
+ * Round 70 — paridad con ProveedorTypeaheadCached:
+ *   - Navegación con teclado: ↑↓ mueve highlight, Enter selecciona, Esc cierra.
+ *   - Highlight visual del match (<mark>) en código y nombre.
+ *   - Footer "Mostrando N de M — afiná la búsqueda" cuando el cap recorta.
+ *   - aria-activedescendant para lectores de pantalla.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
+import { highlightMatch } from "@/hooks/use-proveedores-cache";
 import type { PlanCuenta } from "@/lib/api/schema";
 
 interface Props {
@@ -31,7 +39,11 @@ interface Props {
   tone: "contable" | "financiera";
   placeholder?: string;
   required?: boolean;
+  /** Prefix único para los IDs de las opciones (a11y aria-activedescendant). */
+  idPrefix?: string;
 }
+
+const VISIBLE_LIMIT = 50;
 
 /**
  * Devuelve true si el código encaja con los prefijos prioritarios para el
@@ -56,11 +68,13 @@ export function CuentaTypeahead({
   tone,
   placeholder,
   required,
+  idPrefix = "cuenta-typeahead",
 }: Props) {
   const { session } = useSession();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [highlightedIdx, setHighlightedIdx] = useState(0);
 
   // Fetch cuentas imputables/activas para esta empresa. Cache 5 min.
   const { data: cuentas, isLoading } = useQuery<PlanCuenta[]>({
@@ -93,8 +107,10 @@ export function CuentaTypeahead({
       : value || query;
 
   // Filtrado + ordenamiento por prioridad. Match contra codigo o nombre.
-  const filtered = useMemo(() => {
-    if (!cuentas) return [] as PlanCuenta[];
+  // `totalMatches` mide el universo filtrado antes de aplicar el cap
+  // visible — habilita el footer "Mostrando N de M".
+  const { filtered, totalMatches } = useMemo(() => {
+    if (!cuentas) return { filtered: [] as PlanCuenta[], totalMatches: 0 };
     const q = query.trim().toLowerCase();
     const base = q
       ? cuentas.filter(
@@ -103,14 +119,22 @@ export function CuentaTypeahead({
             c.nombre.toLowerCase().includes(q),
         )
       : cuentas;
-    // Prioritarias primero
-    return [...base].sort((a, b) => {
+    const sorted = [...base].sort((a, b) => {
       const pa = isPriorityCuenta(a.codigo, tone) ? 0 : 1;
       const pb = isPriorityCuenta(b.codigo, tone) ? 0 : 1;
       if (pa !== pb) return pa - pb;
       return a.codigo.localeCompare(b.codigo);
-    }).slice(0, 50); // cap razonable para perf de render
+    });
+    return {
+      filtered: sorted.slice(0, VISIBLE_LIMIT),
+      totalMatches: sorted.length,
+    };
   }, [cuentas, query, tone]);
+
+  // Reset del highlight al cambiar query/resultados (siempre resalta primero).
+  useEffect(() => {
+    setHighlightedIdx(0);
+  }, [query, filtered.length]);
 
   // Cerrar dropdown al click fuera.
   useEffect(() => {
@@ -126,7 +150,33 @@ export function CuentaTypeahead({
     return () => document.removeEventListener("mousedown", onDocClick);
   }, [open]);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!open || filtered.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIdx((i) => Math.min(i + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const hit = filtered[highlightedIdx];
+      if (hit) {
+        onChange(hit.codigo);
+        setQuery("");
+        setOpen(false);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+    }
+  };
+
   const showWarning = !!selected && !isPriorityCuenta(selected.codigo, tone);
+  const activeDescId =
+    open && filtered[highlightedIdx]
+      ? `${idPrefix}-${filtered[highlightedIdx]?.codigo}`
+      : undefined;
 
   return (
     <div ref={containerRef} className="relative">
@@ -147,11 +197,13 @@ export function CuentaTypeahead({
           // delay para permitir click en el dropdown
           setTimeout(() => setOpen(false), 150);
         }}
+        onKeyDown={handleKeyDown}
         placeholder={placeholder ?? "Buscar código o nombre…"}
         className="form-input font-mono"
         autoComplete="off"
         aria-autocomplete="list"
         aria-expanded={open}
+        aria-activedescendant={activeDescId}
       />
       {open && (
         <ul
@@ -166,35 +218,69 @@ export function CuentaTypeahead({
               Sin coincidencias.
             </li>
           )}
-          {filtered.map((c) => {
+          {filtered.map((c, idx) => {
             const priority = isPriorityCuenta(c.codigo, tone);
+            const isHighlighted = idx === highlightedIdx;
             return (
               <li
                 key={c.codigo}
+                id={`${idPrefix}-${c.codigo}`}
                 role="option"
                 aria-selected={c.codigo === value}
+                onMouseEnter={() => setHighlightedIdx(idx)}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   onChange(c.codigo);
                   setQuery("");
                   setOpen(false);
                 }}
-                className={`cursor-pointer px-3 py-2 text-sm hover:bg-cehta-green/10 ${
-                  priority ? "" : "opacity-80"
-                }`}
+                className={`cursor-pointer px-3 py-2 text-sm ${
+                  isHighlighted
+                    ? "bg-cehta-green/15"
+                    : "hover:bg-cehta-green/10"
+                } ${priority ? "" : "opacity-80"}`}
               >
                 <div className="font-mono text-ink-900 dark:text-ink-100">
-                  {c.codigo}
+                  {highlightMatch(c.codigo, query).map((seg, i) =>
+                    seg.highlight ? (
+                      <mark
+                        key={i}
+                        className="bg-cehta-green/30 text-ink-900 dark:text-ink-100 rounded-sm px-0.5"
+                      >
+                        {seg.text}
+                      </mark>
+                    ) : (
+                      <span key={i}>{seg.text}</span>
+                    ),
+                  )}
                   {!priority && (
                     <span className="ml-2 rounded bg-amber-100 px-1 text-[10px] text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
                       no habitual
                     </span>
                   )}
                 </div>
-                <div className="text-xs text-ink-500">{c.nombre}</div>
+                <div className="text-xs text-ink-500">
+                  {highlightMatch(c.nombre, query).map((seg, i) =>
+                    seg.highlight ? (
+                      <mark
+                        key={i}
+                        className="bg-cehta-green/30 text-ink-700 dark:text-ink-200 rounded-sm px-0.5"
+                      >
+                        {seg.text}
+                      </mark>
+                    ) : (
+                      <span key={i}>{seg.text}</span>
+                    ),
+                  )}
+                </div>
               </li>
             );
           })}
+          {totalMatches > filtered.length && (
+            <li className="border-t border-hairline bg-ink-50/60 dark:bg-ink-800/60 px-3 py-1.5 text-[11px] text-ink-500">
+              Mostrando {filtered.length} de {totalMatches} — afiná la búsqueda
+            </li>
+          )}
         </ul>
       )}
       {showWarning && (
