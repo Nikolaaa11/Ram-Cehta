@@ -42,6 +42,7 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
+import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 import { toast } from "@/components/ui/toast";
@@ -158,6 +159,12 @@ export default function AprobacionesPage() {
       enabled: !!session,
       staleTime: 60_000,
     });
+
+  // Round 76 — counters globales para empty-state contextual. Reutilizan
+  // el cache de useSidebarState (0 fetch extra).
+  const { data: sidebarState } = useSidebarState();
+  const approvedReady = sidebarState?.voucher_approved_ready_to_pay ?? 0;
+  const draftsMine = sidebarState?.voucher_drafts_mine ?? 0;
 
   // Etapa C — pull-to-refresh en mobile.
   const pull = usePullToRefresh(async () => {
@@ -333,6 +340,9 @@ export default function AprobacionesPage() {
         />
       )}
 
+      {/* Empty state — Round 76: si tras firmar todo hay APPROVED listos
+          para transferir o drafts pendientes de envio, apuntar al operador
+          al siguiente paso del flow en vez del CTA generico "Ver vouchers". */}
       {!isLoading && data && data.total === 0 && (
         <Surface className="p-12 text-center">
           <CheckCircle2 className="mx-auto size-12 text-cehta-green" />
@@ -340,15 +350,38 @@ export default function AprobacionesPage() {
             Sin pendientes
           </p>
           <p className="mt-1 text-sm text-ink-500">
-            No tenés vouchers esperando tu firma. Buen trabajo.
+            {approvedReady > 0
+              ? `Tenés ${approvedReady} voucher${approvedReady > 1 ? "s" : ""} APPROVED listo${approvedReady > 1 ? "s" : ""} para transferir — bajá la planilla y cargala al banco.`
+              : draftsMine > 0
+                ? `No esperás firmas. Te quedan ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación.`
+                : "No tenés vouchers esperando tu firma. Buen trabajo."}
           </p>
-          <Link
-            href={"/vouchers" as Route}
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-cehta-green hover:underline"
-          >
-            <Inbox className="size-4" />
-            Ver todos los vouchers
-          </Link>
+          <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
+            {approvedReady > 0 ? (
+              <Link
+                href={"/transferencias" as Route}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700"
+              >
+                <Wallet className="size-4" />
+                Confirmar pagos · Planilla
+              </Link>
+            ) : draftsMine > 0 ? (
+              <Link
+                href={"/vouchers?status=DRAFT" as Route}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700"
+              >
+                <FileText className="size-4" />
+                Ver mis borradores
+              </Link>
+            ) : null}
+            <Link
+              href={"/vouchers" as Route}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-cehta-green hover:underline"
+            >
+              <Inbox className="size-4" />
+              Ver todos los vouchers
+            </Link>
+          </div>
         </Surface>
       )}
 
