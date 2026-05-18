@@ -126,37 +126,54 @@ export default function ProyectoAdminPage({
         Volver al subsidio
       </Link>
 
-      {/* Header */}
-      <div className="rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
-        <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
-          <CircleDollarSign className="size-3.5 text-cehta-green" />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-            Proyecto contable · {proyecto.empresa_codigo}
+      {/* Header — Round 99: hero pattern unificado */}
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(35,108,79,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(35,108,79,0.04) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage:
+              "radial-gradient(ellipse at top, black 30%, transparent 70%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-[600px] rounded-full bg-cehta-green/20 blur-3xl opacity-60"
+        />
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-4 py-1.5 ring-1 ring-cehta-green/20">
+            <CircleDollarSign className="size-3.5 text-cehta-green" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+              Proyecto contable · {proyecto.empresa_codigo}
+            </p>
+          </div>
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+            {proyecto.nombre}
+          </h1>
+          <p className="text-sm md:text-base text-ink-500 dark:text-ink-400 mt-2">
+            Código: <span className="font-mono">{proyecto.codigo}</span>
+            {proyecto.subsidio_codigo && (
+              <>
+                {" · "}Subsidio:{" "}
+                <Link
+                  href={`/admin/subsidios/${proyecto.subsidio_codigo}` as Route}
+                  className="font-mono text-cehta-green hover:underline"
+                >
+                  {proyecto.subsidio_codigo}
+                </Link>
+              </>
+            )}
+            {proyecto.presupuesto_total && (
+              <>
+                {" · "}Presupuesto: $
+                {Number(proyecto.presupuesto_total).toLocaleString("es-CL")}
+              </>
+            )}
           </p>
         </div>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
-          {proyecto.nombre}
-        </h1>
-        <p className="text-sm text-ink-500 mt-1">
-          Código: <span className="font-mono">{proyecto.codigo}</span>
-          {proyecto.subsidio_codigo && (
-            <>
-              {" · "}Subsidio:{" "}
-              <Link
-                href={`/admin/subsidios/${proyecto.subsidio_codigo}` as Route}
-                className="font-mono text-cehta-green hover:underline"
-              >
-                {proyecto.subsidio_codigo}
-              </Link>
-            </>
-          )}
-          {proyecto.presupuesto_total && (
-            <>
-              {" · "}Presupuesto: $
-              {Number(proyecto.presupuesto_total).toLocaleString("es-CL")}
-            </>
-          )}
-        </p>
       </div>
 
       {/* Reparto % */}
