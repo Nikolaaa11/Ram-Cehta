@@ -100,8 +100,41 @@ export function useEventStream(): UseEventStreamResult {
     stoppedToastShownRef.current = false;
     reconnectAttemptRef.current = 0;
 
+    // Round 105 — utility: decode JWT exp claim para detectar tokens
+    // expirados client-side antes de pegarle al backend. Evita spam de
+    // 401 en logs cuando el access_token vive en la sesion expirado
+    // (Supabase a veces tarda en hacer el silent refresh).
+    const tokenIsExpired = (jwt: string): boolean => {
+      try {
+        const parts = jwt.split(".");
+        if (parts.length < 2 || !parts[1]) return false;
+        const padded = parts[1].padEnd(
+          parts[1].length + ((4 - (parts[1].length % 4)) % 4),
+          "=",
+        );
+        const payload = JSON.parse(
+          atob(padded.replace(/-/g, "+").replace(/_/g, "/")),
+        );
+        if (typeof payload.exp !== "number") return false;
+        const now = Math.floor(Date.now() / 1000);
+        // Margen de 5s para evitar race en el borde.
+        return payload.exp < now - 5;
+      } catch {
+        return false;
+      }
+    };
+
     const connect = () => {
       if (teardownRef.current) return;
+
+      // Round 105 — si el token guardado ya expiro, NO intentamos
+      // conectar. Marcamos stopped y esperamos a que useSession refresh
+      // el access_token (eso dispara el useEffect y reentra a connect()).
+      if (tokenIsExpired(session.access_token)) {
+        stoppedRef.current = true;
+        setConnected(false);
+        return;
+      }
 
       // Cleanup previo (paranoia — si reconnect se dispara con uno abierto).
       esRef.current?.close();
