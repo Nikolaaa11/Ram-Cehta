@@ -39,6 +39,7 @@ import {
   Inbox,
   Key,
   PenTool,
+  CircleDollarSign,
   DollarSign,
   Book,
   ClipboardList,
@@ -307,6 +308,17 @@ const GROUPS: NavGroup[] = [
     label: "Admin",
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
+      // Round 89 — dashboard "donde estan las platas" del subsidio CORFO.
+      // Hardcodea el codigo del subsidio activo (CORFO-2026-REVTECH-TRONGKAI)
+      // porque hay solo 1 subsidio activo. Cuando haya mas, hacer pagina
+      // index /admin/subsidios que liste todos.
+      {
+        href: "/admin/subsidios/CORFO-2026-REVTECH-TRONGKAI" as Route,
+        label: "Subsidio CORFO · $3.000MM",
+        icon: CircleDollarSign,
+        title:
+          "Dashboard donde estan las platas. Ejecucion por empresa coejecutora (REVTECH/TRONGKAI), desglose por fuente CORFO/P-tec/Empresa.",
+      },
       {
         href: "/admin/empresas" as Route,
         label: "Empresas portfolio",
