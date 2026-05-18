@@ -806,6 +806,27 @@ export default function NuboxFormPage() {
       );
       return;
     }
+    // Round 90 — Validación E8 client-side: si hay alguna línea con
+    // fuente=CORFO_SUBSIDIO y cuenta IVA (codigo 1170*/1180*/2170* o
+    // nombre con "IVA"), bloquear submit con error claro. Sin esto, el
+    // operador crea el voucher y recién al "Enviar a aprobación" recibe
+    // el 400 del backend — peor UX. Ahora se entera al guardar.
+    if (EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo)) {
+      const isIvaAccount = (codigo: string) =>
+        /^(1170|1180|2170)/.test(codigo.trim());
+      const violators = [...contable, ...financiera].filter(
+        (l) =>
+          l.fuente_financiamiento === "CORFO_SUBSIDIO" &&
+          isIvaAccount(l.cuenta_codigo),
+      );
+      if (violators.length > 0) {
+        toast.error(
+          `Regla CORFO bloqueante: la línea con cuenta ${violators[0]?.cuenta_codigo} tiene fuente CORFO_SUBSIDIO pero es cuenta IVA. El IVA siempre va a IVA corporativo o Empresa directa, nunca al pozo del subsidio.`,
+          { duration: 10000 },
+        );
+        return;
+      }
+    }
     setSubmitting(true);
     // Round 33 — antes de mandar, guardamos la "config" en localStorage
     // para que la próxima sesión arranque pre-seleccionada.
