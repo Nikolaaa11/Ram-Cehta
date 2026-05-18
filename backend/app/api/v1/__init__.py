@@ -52,6 +52,7 @@ from app.api.v1 import (
     reset_data,
     saved_views,
     search,
+    subsidios,
     suscripciones,
     trabajadores,
     two_factor,
@@ -210,6 +211,8 @@ api_router.include_router(vouchers.router, tags=["vouchers"])
 # V5: Proyectos contables (formales para imputación, distintos de los
 # Gantts operativos). CRUD + endpoint /avance con presupuesto vs ejecutado.
 api_router.include_router(proyectos_contables.router, tags=["proyectos-contables"])
+# Round 83 — subsidios + reporteria "donde estan las platas" del CORFO.
+api_router.include_router(subsidios.router, tags=["subsidios"])
 # V5: Áreas (centros de costo). CRUD + matriz aplica por empresa.
 api_router.include_router(areas.router, tags=["areas"])
 # V5 Fase 2: Approval rules + user_company_roles para flujo de aprobación

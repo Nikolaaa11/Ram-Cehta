@@ -1801,7 +1801,7 @@ function LineSection({
             <tr>
               <th className="text-left px-2 py-1.5 w-12">#</th>
               <th className="text-left px-2 py-1.5 w-[30%]">Comentario *</th>
-              <th className="text-left px-2 py-1.5 w-[35%]">Plan de Cuenta *</th>
+              <th className="text-left px-2 py-1.5 w-[35%]">Planificación financiera *</th>
               <th className="text-right px-2 py-1.5 w-[13%]">Total Neto *</th>
               <th
                 className="text-right px-2 py-1.5 w-[13%]"

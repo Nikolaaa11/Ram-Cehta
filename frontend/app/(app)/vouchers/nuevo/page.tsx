@@ -755,7 +755,7 @@ export default function NuevoVoucherPage() {
                 <thead className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                   <tr>
                     <th className="w-8 pb-2">#</th>
-                    <th className="pb-2">Plan de Cuenta</th>
+                    <th className="pb-2">Planificación financiera</th>
                     <th className="pb-2">Proyecto</th>
                     <th className="pb-2">Área</th>
                     <th className="pb-2 text-right">Cargo</th>
