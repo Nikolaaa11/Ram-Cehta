@@ -327,6 +327,14 @@ const GROUPS: NavGroup[] = [
         title:
           "Listado de proyectos del Bloque E. Click en uno para editar reparto % + cuentas contables destino.",
       },
+      // Round 93 — vista global "todo el estado del sistema"
+      {
+        href: "/admin/system-status" as Route,
+        label: "Estado del sistema",
+        icon: Activity,
+        title:
+          "Health check: subsidios + proyectos + bandeja personal + items pendientes en una sola vista.",
+      },
       {
         href: "/admin/empresas" as Route,
         label: "Empresas portfolio",
