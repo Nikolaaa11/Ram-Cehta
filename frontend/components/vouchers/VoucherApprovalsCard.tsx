@@ -121,6 +121,23 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
       qc.invalidateQueries({ queryKey: ["vouchers"] });
     },
     onError: (err) => {
+      // Round 84 — si el error es "voucher ya tiene todas las firmas" o
+      // "el proximo rol es X, no Y" (race de doble-click), invalidar la
+      // query para que la UI refresque y NO mostrar toast rojo confuso.
+      const detail = err instanceof ApiError ? err.detail : "";
+      const isStaleRace =
+        detail.includes("ya tiene todas las firmas") ||
+        detail.includes("próximo rol que debe firmar") ||
+        detail.includes("proximo rol que debe firmar");
+      if (isStaleRace) {
+        qc.invalidateQueries({ queryKey: ["voucher-approvals", voucherId] });
+        qc.invalidateQueries({ queryKey: ["voucher", voucherId] });
+        toast.success(
+          "Firma ya registrada · estado actualizado",
+          { duration: 4000 },
+        );
+        return;
+      }
       toast.error(
         err instanceof ApiError ? err.detail : "No se pudo firmar",
         { duration: 8000 },

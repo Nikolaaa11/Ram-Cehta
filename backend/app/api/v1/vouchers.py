@@ -2622,6 +2622,20 @@ async def approve_voucher(
             expected_role = role
             break
 
+    # Round 84 — idempotencia: si el user YA firmó el rol que esta solicitando
+    # (escenario tipico de doble-click rapido o reintento de cliente), devolver
+    # 200 con el state actual en vez de tirar 400 confuso. Solo idempotente
+    # cuando el user pidio firmar como X y ya hay una firma APPROVED de X por
+    # este mismo user.
+    user_already_signed_this_role = any(
+        a["approver_user_id"] == str(user.sub)
+        and a["role"] == body.role
+        and a["decision"] == "APPROVED"
+        for a in approvals_raw
+    )
+    if user_already_signed_this_role:
+        return await get_voucher_approvals_state(user, db, voucher_id)
+
     if next_order is None or expected_role is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
