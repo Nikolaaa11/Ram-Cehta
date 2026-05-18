@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     # "ram-cehta-nicolasrietta-1798s-projects" + branch deploys con prefijo.
     # Si se cambia el project name en Vercel, ajustar acá.
     cors_origin_regex: str | None = Field(
-        default=r"^https://(cehta-capital|ram-cehta-[a-z0-9-]+)\.vercel\.app$",
+        # Round 86 — regex actualizado: el frontend canonico tambien
+        # responde en https://ram-cehta.vercel.app (sin sufijo). El regex
+        # anterior solo cubria ram-cehta-XXX (con guion + texto), lo cual
+        # rompia CORS desde esa URL.
+        default=r"^https://(cehta-capital|ram-cehta(-[a-z0-9-]+)?)\.vercel\.app$",
     )
 
     database_url: PostgresDsn
