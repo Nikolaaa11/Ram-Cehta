@@ -15,7 +15,7 @@
 export function normalizeChileanPhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
   // Strip all non-digits
-  let digits = raw.replace(/\D/g, "");
+  const digits = raw.replace(/\D/g, "");
   if (!digits) return null;
   // Si ya empieza con 56 (Chile), usar tal cual
   if (digits.startsWith("56") && digits.length >= 11) return digits;
