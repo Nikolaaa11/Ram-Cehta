@@ -182,6 +182,10 @@ Vista global:
 | 93 | `/admin/system-status` health check global | ✅ producción |
 | 94-100 | Polish visual hero pattern (7 pantallas) + HeroBanner component | ✅ producción |
 | 101 | Este documento | ✅ doc |
+| 102 | 58 proyectos del Excel `centros_costo_consolidado` + UI nuevo proyecto + selector Proyecto en `/vouchers/nubox` | ✅ producción |
+| 103 | Planilla transferencia formato **Banco Santander** (13 columnas) + selector UI GENERICO/SANTANDER | ✅ producción |
+| 104 | Columna **Proyecto** en lista `/vouchers` (proyecto dominante de la primera línea) | ✅ producción |
+| 105 | Fix SSE: detección client-side de JWT expirado antes de reconectar (elimina spam 401 en logs Fly) | ✅ producción |
 
 ---
 
