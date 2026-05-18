@@ -83,7 +83,22 @@ interface LineRow {
   comentario: string;
   cuenta_codigo: string;
   total: string; // monto neto (lo que tipea el usuario)
+  // Round 87 — Bloque E: fuente de financiamiento por línea para REVTECH
+  // y TRONGKAI. En otras empresas queda 'NA' silenciosamente.
+  fuente_financiamiento?: string;
+  proyecto_codigo?: string;
 }
+
+// Round 87 — empresas habilitadas para Bloque E (subsidio CORFO)
+const EMPRESAS_CON_BLOQUE_E = ["REVTECH", "TRONGKAI"];
+
+const FUENTE_OPCIONES: { value: string; label: string; color: string }[] = [
+  { value: "NA", label: "—", color: "text-ink-400" },
+  { value: "CORFO_SUBSIDIO", label: "CORFO (subsidio)", color: "text-cehta-green" },
+  { value: "PTEC_CEHTA", label: "P-tec (CEHTA Capital)", color: "text-blue-600" },
+  { value: "EMPRESA_DIRECTA", label: "Empresa directa", color: "text-ink-700" },
+  { value: "IVA_CORPORATIVO", label: "IVA corporativo", color: "text-purple-600" },
+];
 
 interface ProveedorSearchHit {
   proveedor_id: number;
@@ -854,11 +869,14 @@ export default function NuboxFormPage() {
           comentario: l.comentario,
           cuenta_codigo: l.cuenta_codigo,
           total: parseFloat(l.total),
+          // Round 87 — Bloque E para REVTECH/TRONGKAI
+          fuente_financiamiento: l.fuente_financiamiento ?? "NA",
         })),
         informacion_financiera: financiera.map((l) => ({
           comentario: l.comentario,
           cuenta_codigo: l.cuenta_codigo,
           total: parseFloat(l.total),
+          fuente_financiamiento: l.fuente_financiamiento ?? "NA",
         })),
       };
       const resp = await apiClient.post<{
@@ -1450,6 +1468,35 @@ export default function NuboxFormPage() {
           )}
         </Surface>
 
+        {/* Round 87 — Banner Bloque E para REVTECH/TRONGKAI. Explica los
+            selectores de Fuente que aparecen en las tablas de líneas. */}
+        {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
+          <Surface className="p-4 bg-cehta-green/5 border border-cehta-green/20">
+            <div className="flex items-start gap-3">
+              <Sparkles className="size-5 text-cehta-green shrink-0 mt-0.5" />
+              <div className="text-sm text-ink-800">
+                <p className="font-semibold text-cehta-green">
+                  Empresa coejecutora CORFO 2026 · $3.000.000.000
+                </p>
+                <p className="mt-1 text-[12px] text-ink-700">
+                  En cada línea, elegí la columna{" "}
+                  <strong>Fuente $</strong> para indicar de dónde sale el
+                  monto: <strong>CORFO subsidio</strong> (al pozo de los $3MM),{" "}
+                  <strong>P-tec CEHTA</strong> (aporte pecuniario), o{" "}
+                  <strong>Empresa directa</strong>. El IVA <strong>siempre</strong>{" "}
+                  debe ir a <strong>IVA corporativo</strong> o{" "}
+                  <strong>Empresa directa</strong> (regla CORFO bloqueante:
+                  el IVA no es elegible al subsidio).
+                </p>
+                <p className="mt-1.5 text-[11px] text-ink-500">
+                  Tip: usá <code>/vouchers/corfo</code> si querés un form con
+                  reparto automático por % en vez de manual por línea.
+                </p>
+              </div>
+            </div>
+          </Surface>
+        )}
+
         {/* INFORMACIÓN CONTABLE — V5++ ola CH C.1: sin label "DEBE", sin
             subtitle hardcoded, con Total Bruto calculado a partir del tipo
             de documento. */}
@@ -1794,17 +1841,27 @@ function LineSection({
 
       {/* AJUSTE 1: en mobile la tabla scrollea horizontal (min-w 768px)
           en vez de romper layout. Columnas en %: # 4 / Coment 30 / Cuenta 35
-          / Neto 13 / Bruto 13 / 🗑 ~5 */}
+          / Neto 13 / Bruto 13 / 🗑 ~5
+          Round 87 — para REVTECH/TRONGKAI se agrega columna "Fuente" para
+          elegir CORFO / P-tec / Empresa por línea (Bloque E del prompt v2). */}
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[768px]">
           <thead className="text-ink-500 text-xs uppercase">
             <tr>
               <th className="text-left px-2 py-1.5 w-12">#</th>
-              <th className="text-left px-2 py-1.5 w-[30%]">Comentario *</th>
-              <th className="text-left px-2 py-1.5 w-[35%]">Planificación financiera *</th>
-              <th className="text-right px-2 py-1.5 w-[13%]">Total Neto *</th>
+              <th className="text-left px-2 py-1.5 w-[24%]">Comentario *</th>
+              <th className="text-left px-2 py-1.5 w-[28%]">Planificación financiera *</th>
+              {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
+                <th
+                  className="text-left px-2 py-1.5 w-[16%]"
+                  title="Bloque E · CORFO/P-tec/Empresa para REVTECH y TRONGKAI"
+                >
+                  Fuente $
+                </th>
+              )}
+              <th className="text-right px-2 py-1.5 w-[12%]">Total Neto *</th>
               <th
-                className="text-right px-2 py-1.5 w-[13%]"
+                className="text-right px-2 py-1.5 w-[12%]"
                 title={
                   aplicaIva
                     ? "Total Neto × 1.19 (IVA 19%). Read-only — se recalcula automáticamente."
@@ -1850,6 +1907,24 @@ function LineSection({
                       placeholder="Código o nombre…"
                     />
                   </td>
+                  {/* Round 87 — Selector fuente solo para REVTECH/TRONGKAI */}
+                  {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
+                    <td className="px-2 py-1.5">
+                      <select
+                        value={line.fuente_financiamiento ?? "NA"}
+                        onChange={(e) =>
+                          onUpdate(idx, "fuente_financiamiento", e.target.value)
+                        }
+                        className="form-input text-xs"
+                      >
+                        {FUENTE_OPCIONES.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                  )}
                   <td className="px-2 py-1.5">
                     <input
                       required
