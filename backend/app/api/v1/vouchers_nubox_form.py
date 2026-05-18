@@ -96,6 +96,12 @@ TIPO_DOCUMENTO_OPCIONES = [
     "NOTA_DEBITO",
     "NOTA_DEBITO_ELECTRONICA",
     "SOLICITUD_REGISTRO_FACTURA",
+    # Round 80 — comercio exterior. INVOICE es la factura del proveedor
+    # extranjero; necesita DIN + FACTURA_IMPORTACION como adjuntos para
+    # ser tributariamente valido en Chile.
+    "INVOICE",
+    "FACTURA_IMPORTACION",
+    "FACTURA_EXPORTACION",
     # Backward compat (vouchers viejos):
     "BOLETA",
     "HONORARIOS",
@@ -133,6 +139,15 @@ TIPO_DOC_OTROS: frozenset[str] = frozenset(
     {
         "DECLARACION_INGRESO",
         "SOLICITUD_REGISTRO_FACTURA",
+        # Round 80 — INVOICE no genera IVA chileno (es factura extranjera).
+        # El IVA importacion va via la Factura de Importacion adjunta (DTE 914),
+        # que el operador registra como voucher aparte o como adjunto.
+        # FACTURA_IMPORTACION y FACTURA_EXPORTACION tampoco aplican IVA 19%
+        # standard — la primera tributa IVA importacion ya pagado en aduana,
+        # la segunda es exenta por exportacion.
+        "INVOICE",
+        "FACTURA_IMPORTACION",
+        "FACTURA_EXPORTACION",
         # Backward compat (boletas/honorarios viejos no afectan a IVA en
         # el voucher Nubox; el FE muestra Bruto=Neto)
         "BOLETA",
@@ -168,6 +183,10 @@ TIPO_DOCUMENTO_LABELS: dict[str, str] = {
     "NOTA_DEBITO": "NOTA DE DEBITO",
     "NOTA_DEBITO_ELECTRONICA": "NOTA DE DEBITO ELECTRONICA",
     "SOLICITUD_REGISTRO_FACTURA": "SOLICITUD REGISTRO FACTURA",
+    # Round 80 — comercio exterior (importacion / exportacion).
+    "INVOICE": "INVOICE (Factura proveedor extranjero)",
+    "FACTURA_IMPORTACION": "FACTURA DE IMPORTACION (DTE 914)",
+    "FACTURA_EXPORTACION": "FACTURA DE EXPORTACION (DTE 110)",
     # Backward compat (no se muestra en form nuevo, solo lectura).
     "BOLETA": "BOLETA",
     "HONORARIOS": "BOLETA HONORARIOS",

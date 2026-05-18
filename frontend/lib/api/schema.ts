@@ -1457,8 +1457,17 @@ export type ContraparteTipo =
   | "PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO";
 
 export type DocTributarioTipo =
-  | "FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO"
-  | "HONORARIOS" | "NA";
+  | "DECLARACION_INGRESO"
+  | "FACTURA" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA"
+  | "FACTURA_INICIO" | "FACTURA_ELECTRONICA"
+  | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA"
+  | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA"
+  | "NOTA_CREDITO" | "NOTA_CREDITO_ELECTRONICA"
+  | "NOTA_DEBITO" | "NOTA_DEBITO_ELECTRONICA"
+  | "SOLICITUD_REGISTRO_FACTURA"
+  // Round 80 — comercio exterior
+  | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION"
+  | "BOLETA" | "HONORARIOS" | "NA";
 
 export type BalanceTreatment = "GASTO" | "ACTIVACION" | "NA";
 
@@ -1505,7 +1514,12 @@ export interface VoucherListItem {
 export type VoucherAttachmentTipo =
   | "FACTURA" | "BOLETA" | "CONTRATO" | "COTIZACION"
   | "TRANSFERENCIA" | "LIQUIDACION_SUELDO" | "ACTA"
-  | "RESPALDO_TECNICO" | "OTRO";
+  | "RESPALDO_TECNICO" | "OTRO"
+  // Round 80 — ciclo de importación. Soportan vouchers con INVOICE
+  // como doc tributario principal + sus anexos de aduana/financieros.
+  | "INVOICE" | "DIN" | "FACTURA_IMPORTACION"
+  | "PACKING_LIST" | "BILL_OF_LADING" | "AIRWAY_BILL"
+  | "POLIZA_SEGURO" | "SWIFT_PAGO" | "CARTA_CREDITO";
 
 export interface VoucherAttachment {
   attachment_id: number;

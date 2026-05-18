@@ -53,6 +53,17 @@ const TIPOS: { value: VoucherAttachmentTipo; label: string }[] = [
   { value: "LIQUIDACION_SUELDO", label: "Liquidación de sueldo" },
   { value: "ACTA", label: "Acta" },
   { value: "RESPALDO_TECNICO", label: "Respaldo técnico" },
+  // Round 80 — ciclo de importación. Se usan cuando el voucher tiene
+  // doc_tributario_tipo = INVOICE (compra al exterior).
+  { value: "INVOICE", label: "Invoice (proveedor extranjero)" },
+  { value: "DIN", label: "DIN — Declaración de Ingreso (aduana)" },
+  { value: "FACTURA_IMPORTACION", label: "Factura de Importación (DTE 914)" },
+  { value: "PACKING_LIST", label: "Packing list" },
+  { value: "BILL_OF_LADING", label: "B/L — Conocimiento de embarque" },
+  { value: "AIRWAY_BILL", label: "AWB — Carta de porte aérea" },
+  { value: "POLIZA_SEGURO", label: "Póliza de seguro internacional" },
+  { value: "SWIFT_PAGO", label: "SWIFT — comprobante transferencia int." },
+  { value: "CARTA_CREDITO", label: "Carta de crédito (LC)" },
   { value: "OTRO", label: "Otro" },
 ];
 
@@ -60,6 +71,9 @@ interface Props {
   voucherId: number;
   voucherStatus: VoucherStatus;
   voucherTipo: VoucherTipo;
+  /** Round 80 — si el voucher es importación (doc_tributario_tipo='INVOICE')
+   * mostramos guidance sobre los anexos requeridos (DIN + Factura Importación). */
+  docTributarioTipo?: string | null;
 }
 
 const fmtSize = (bytes: number | null) => {
@@ -80,11 +94,16 @@ export function VoucherAttachmentsCard({
   voucherId,
   voucherStatus,
   voucherTipo,
+  docTributarioTipo,
 }: Props) {
   const { session } = useSession();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadTipo, setUploadTipo] = useState<VoucherAttachmentTipo>("FACTURA");
+  // Round 80 — si es importación, default INVOICE en el selector (UX).
+  const isImport = docTributarioTipo === "INVOICE";
+  const [uploadTipo, setUploadTipo] = useState<VoucherAttachmentTipo>(
+    isImport ? "INVOICE" : "FACTURA",
+  );
   const [uploading, setUploading] = useState(false);
 
   const canEdit = voucherStatus === "DRAFT" || voucherStatus === "PENDING";
@@ -198,8 +217,8 @@ export function VoucherAttachmentsCard({
         </p>
       </header>
 
-      {/* Hint COMPRA/VENTA */}
-      {requiresTaxDoc &&
+      {/* Hint COMPRA/VENTA — pide factura o boleta cuando NO es importación. */}
+      {requiresTaxDoc && !isImport &&
         (attachments ?? []).filter(
           (a) => a.tipo === "FACTURA" || a.tipo === "BOLETA",
         ).length === 0 && (
@@ -209,6 +228,42 @@ export function VoucherAttachmentsCard({
             adjuntar al menos una factura o boleta antes de enviar a aprobación.
           </div>
         )}
+
+      {/* Round 80 — Hint específico para IMPORTACIONES (Invoice). Lista los
+          3 documentos que legalizan el Invoice en Chile + marca cuáles ya
+          están subidos para que el operador sepa qué le falta. */}
+      {isImport && (() => {
+        const tieneInvoice = (attachments ?? []).some((a) => a.tipo === "INVOICE");
+        const tieneDIN = (attachments ?? []).some((a) => a.tipo === "DIN");
+        const tieneFactImp = (attachments ?? []).some(
+          (a) => a.tipo === "FACTURA_IMPORTACION",
+        );
+        const completo = tieneInvoice && tieneDIN && tieneFactImp;
+        const tone = completo
+          ? "border-positive/20 bg-positive/5 text-positive"
+          : "border-amber-200 bg-amber-50 text-amber-800";
+        const check = (ok: boolean) => (ok ? "✅" : "⬜");
+        return (
+          <div className={`mt-3 rounded-xl border p-3 text-[11px] ${tone}`}>
+            <strong className="font-semibold">
+              {completo
+                ? "Documentación de importación completa"
+                : "Importación — necesitás 3 documentos para legalizar el Invoice:"}
+            </strong>
+            <ul className="mt-1.5 space-y-0.5">
+              <li>{check(tieneInvoice)} <strong>Invoice</strong> — factura del proveedor extranjero</li>
+              <li>{check(tieneDIN)} <strong>DIN</strong> — Declaración de Ingreso (aduana)</li>
+              <li>{check(tieneFactImp)} <strong>Factura de Importación</strong> — DTE 914 emitida en Chile</li>
+            </ul>
+            {!completo && (
+              <p className="mt-1.5 opacity-80">
+                También podés sumar packing list, B/L, póliza de seguro y SWIFT
+                como respaldos opcionales.
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Lista */}
       {attachments && attachments.length > 0 ? (

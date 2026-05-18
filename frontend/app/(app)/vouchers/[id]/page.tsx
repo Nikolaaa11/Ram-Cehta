@@ -893,11 +893,13 @@ export default function VoucherDetailPage({ params }: PageProps) {
           );
         })()}
 
-        {/* Adjuntos (Dropbox) */}
+        {/* Adjuntos (Dropbox) — Round 80: paso docTributarioTipo para que
+            el card muestre el checklist de 3 docs si es Invoice. */}
         <VoucherAttachmentsCard
           voucherId={voucher.voucher_id}
           voucherStatus={voucher.status}
           voucherTipo={voucher.tipo}
+          docTributarioTipo={voucher.doc_tributario_tipo}
         />
 
         {/* Etapa H — Anomaly detection card. Solo se renderiza si hay
