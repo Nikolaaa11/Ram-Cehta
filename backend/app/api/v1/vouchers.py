@@ -187,6 +187,10 @@ async def list_vouchers(
     fecha_hasta: date | None = Query(default=None),
     contraparte_rut: str | None = Query(default=None),
     source: str | None = Query(default=None, max_length=40),
+    # Round 106 — Filtro por proyecto contable. Coincide si alguna linea
+    # del voucher tiene ese proyecto_codigo. "OTROS" como valor especial
+    # filtra los vouchers SIN proyecto en ninguna linea.
+    proyecto_codigo: str | None = Query(default=None, max_length=40),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> list[VoucherListItem]:
     """Lista vouchers con filtros. Order by fecha_contable DESC.
@@ -196,6 +200,10 @@ async def list_vouchers(
 
     V5++ ola CE: filtro `source` (ai_import, nubox_form, csv_bulk, etc.)
     para ver, por ejemplo, todos los vouchers cargados con IA.
+
+    Round 106: filtro `proyecto_codigo` — encuentra vouchers cuya alguna
+    linea tenga ese proyecto. Util para reportar gastos por proyecto/centro
+    de costo sin abrir cada voucher.
     """
     stmt = select(Voucher)
 
@@ -216,6 +224,27 @@ async def list_vouchers(
         stmt = stmt.where(Voucher.contraparte_rut == contraparte_rut)
     if source:
         stmt = stmt.where(Voucher.source == source)
+    if proyecto_codigo:
+        # Round 106 — EXISTS subquery: vouchers con al menos una linea que
+        # matchea el proyecto. "OTROS" = todas las lineas sin proyecto.
+        if proyecto_codigo.upper() == "OTROS":
+            stmt = stmt.where(
+                ~select(VoucherLine.line_id)
+                .where(
+                    VoucherLine.voucher_id == Voucher.voucher_id,
+                    VoucherLine.proyecto_codigo.is_not(None),
+                )
+                .exists()
+            )
+        else:
+            stmt = stmt.where(
+                select(VoucherLine.line_id)
+                .where(
+                    VoucherLine.voucher_id == Voucher.voucher_id,
+                    VoucherLine.proyecto_codigo == proyecto_codigo,
+                )
+                .exists()
+            )
     stmt = stmt.order_by(Voucher.fecha_contable.desc(), Voucher.voucher_id.desc()).limit(
         limit
     )

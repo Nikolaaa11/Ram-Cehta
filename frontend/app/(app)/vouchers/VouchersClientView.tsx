@@ -47,6 +47,7 @@ import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { Currency } from "@/components/shared/Currency";
 import type {
   CompanyRole,
+  ProyectoContable,
   VoucherListItem,
   VoucherStatus,
   VoucherTipo,
@@ -214,6 +215,11 @@ export function VouchersClientView({
   const [sourceFilter, setSourceFilter] = useState<string>(
     () => searchParams.get("source") ?? "",
   );
+  // Round 106 — Filtro por proyecto contable. Valor "OTROS" = vouchers
+  // sin proyecto en ninguna linea.
+  const [proyectoFilter, setProyectoFilter] = useState<string>(
+    () => searchParams.get("proyecto") ?? "",
+  );
   const [fechaDesde, setFechaDesde] = useState(
     () => searchParams.get("desde") ?? "",
   );
@@ -230,6 +236,7 @@ export function VouchersClientView({
     if (tipoFilter) params.set("tipo", tipoFilter);
     if (estadoFilter) params.set("status", estadoFilter);
     if (sourceFilter) params.set("source", sourceFilter);
+    if (proyectoFilter) params.set("proyecto", proyectoFilter);
     if (fechaDesde) params.set("desde", fechaDesde);
     if (fechaHasta) params.set("hasta", fechaHasta);
     if (search.trim()) params.set("q", search.trim());
@@ -241,6 +248,7 @@ export function VouchersClientView({
     tipoFilter,
     estadoFilter,
     sourceFilter,
+    proyectoFilter,
     fechaDesde,
     fechaHasta,
     search,
@@ -252,6 +260,7 @@ export function VouchersClientView({
     !!tipoFilter ||
     !!estadoFilter ||
     !!sourceFilter ||
+    !!proyectoFilter ||
     !!fechaDesde ||
     !!fechaHasta ||
     !!search.trim();
@@ -260,6 +269,7 @@ export function VouchersClientView({
     setTipoFilter("");
     setEstadoFilter("");
     setSourceFilter("");
+    setProyectoFilter("");
     setFechaDesde("");
     setFechaHasta("");
     setSearch("");
@@ -366,12 +376,29 @@ export function VouchersClientView({
     staleTime: 5 * 60 * 1000,
   });
 
+  // Round 106 — Lista de proyectos para el selector. Si hay empresa
+  // filtrada, traemos solo los suyos; sino, traemos todos para que el
+  // operador pueda filtrar por proyecto sin tener que elegir empresa.
+  const { data: proyectos = [] } = useQuery<ProyectoContable[]>({
+    queryKey: ["proyectos-contables", empresaFilter || "all"],
+    queryFn: () =>
+      apiClient.get<ProyectoContable[]>(
+        empresaFilter
+          ? `/proyectos-contables?empresa_codigo=${empresaFilter}&estado=ACTIVE`
+          : `/proyectos-contables?estado=ACTIVE`,
+        session,
+      ),
+    enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+  });
+
   // Detectar si los filtros están en su estado inicial → usamos initialData
   const filtersAreDefault =
     empresaFilter === "" &&
     tipoFilter === "" &&
     estadoFilter === "" &&
     sourceFilter === "" &&
+    proyectoFilter === "" &&
     fechaDesde === "" &&
     fechaHasta === "";
 
@@ -382,6 +409,7 @@ export function VouchersClientView({
       tipoFilter,
       estadoFilter,
       sourceFilter,
+      proyectoFilter,
       fechaDesde,
       fechaHasta,
     ],
@@ -395,6 +423,7 @@ export function VouchersClientView({
       if (tipoFilter) qs.set("tipo", tipoFilter);
       if (estadoFilter) qs.set("status", estadoFilter);
       if (sourceFilter) qs.set("source", sourceFilter);
+      if (proyectoFilter) qs.set("proyecto_codigo", proyectoFilter);
       if (fechaDesde) qs.set("fecha_desde", fechaDesde);
       if (fechaHasta) qs.set("fecha_hasta", fechaHasta);
       qs.set("limit", "200");
@@ -888,6 +917,20 @@ export function VouchersClientView({
             <option value="factura_pdf">Factura PDF</option>
             <option value="csv_bulk">CSV bulk</option>
             <option value="template">Plantilla</option>
+          </select>
+          <select
+            value={proyectoFilter}
+            onChange={(e) => setProyectoFilter(e.target.value)}
+            className="rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            title="Filtrar por proyecto contable. 'Otros' = vouchers sin proyecto."
+          >
+            <option value="">Todos los proyectos</option>
+            <option value="OTROS">— Sin proyecto / Otros —</option>
+            {proyectos.map((p) => (
+              <option key={p.codigo} value={p.codigo}>
+                {p.codigo} · {p.nombre}
+              </option>
+            ))}
           </select>
           <div className="flex items-center gap-1">
             <input
