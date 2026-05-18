@@ -1002,6 +1002,7 @@ export function VouchersClientView({
                   <th className="px-4 py-3">Tipo</th>
                   <th className="px-4 py-3">Fecha</th>
                   <th className="px-4 py-3">Glosa · Contraparte</th>
+                  <th className="px-4 py-3">Proyecto</th>
                   <th className="px-4 py-3 text-right">Total</th>
                   <th className="px-4 py-3">Estado</th>
                 </tr>
@@ -1089,6 +1090,18 @@ export function VouchersClientView({
                           <p className="mt-0.5 line-clamp-1 text-[11px] text-ink-500">
                             {v.contraparte_nombre}
                           </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {v.proyecto_dominante ? (
+                          <span
+                            className="inline-block rounded-md bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 text-[10px] font-mono text-ink-700 dark:text-ink-300 max-w-[180px] truncate"
+                            title={v.proyecto_dominante}
+                          >
+                            {v.proyecto_dominante}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-ink-400">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">

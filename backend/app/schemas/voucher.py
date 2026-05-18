@@ -252,6 +252,10 @@ class VoucherListItem(BaseModel):
     # V5++ ola CE — Origen del voucher para mostrar badge en la lista
     source: str | None = None
     created_at: datetime
+    # Round 104 — proyecto contable dominante (de la primera línea con
+    # proyecto_codigo no null). Permite mostrar en la lista de vouchers a
+    # qué proyecto corresponde sin tener que abrir el detalle.
+    proyecto_dominante: str | None = None
 
 
 # =====================================================================

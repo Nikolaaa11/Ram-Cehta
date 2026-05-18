@@ -1590,6 +1590,13 @@ export interface VoucherListItem {
    * 'factura_pdf' | 'csv_bulk' | 'template'. null = legacy/manual.
    */
   source: string | null;
+  /**
+   * Round 104 — código del proyecto dominante (primera línea contable con
+   * proyecto_codigo no null). Para mostrar en la lista de vouchers a qué
+   * proyecto corresponde sin abrir el detalle. null si ninguna línea tiene
+   * proyecto_codigo asignado.
+   */
+  proyecto_dominante: string | null;
 }
 
 export type VoucherAttachmentTipo =

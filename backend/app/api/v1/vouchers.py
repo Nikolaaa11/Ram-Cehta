@@ -221,7 +221,33 @@ async def list_vouchers(
     )
 
     result = await db.execute(stmt)
-    return [VoucherListItem.model_validate(v) for v in result.scalars().all()]
+    vouchers_list = result.scalars().all()
+
+    # Round 104 — bulk fetch proyecto_dominante (primera linea con proyecto_codigo).
+    # 1 query agregada en bulk en lugar de N+1 al cargar cada voucher.
+    proyectos_map: dict[int, str] = {}
+    if vouchers_list:
+        ids = [v.voucher_id for v in vouchers_list]
+        rows = await db.execute(
+            text(
+                """
+                SELECT DISTINCT ON (voucher_id) voucher_id, proyecto_codigo
+                FROM core.voucher_lines
+                WHERE voucher_id = ANY(:ids)
+                  AND proyecto_codigo IS NOT NULL
+                ORDER BY voucher_id, line_number ASC
+                """
+            ),
+            {"ids": ids},
+        )
+        proyectos_map = {r[0]: r[1] for r in rows.fetchall()}
+
+    items = []
+    for v in vouchers_list:
+        item = VoucherListItem.model_validate(v)
+        item.proyecto_dominante = proyectos_map.get(v.voucher_id)
+        items.append(item)
+    return items
 
 
 # =====================================================================
