@@ -164,6 +164,16 @@ const GROUPS: NavGroup[] = [
           "Vouchers APPROVED listos para transferir. Descarga la planilla Excel para cargar al banco.",
         tourId: "confirmar-pagos",
       },
+      // Round 85 — voucher CORFO dedicado a REVTECH/TRONGKAI con bifurcacion
+      // F.E/F.A + reparto CORFO/P-tec/Empresa. IVA siempre corporativo.
+      {
+        href: "/vouchers/corfo" as Route,
+        label: "Voucher CORFO · REVTECH/TRONGKAI",
+        icon: Sparkles,
+        title:
+          "Form dedicado para vouchers del subsidio CORFO 2026 ($3.000MM). " +
+          "Reparto editable CORFO/P-tec/Empresa, IVA siempre corporativo.",
+      },
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },

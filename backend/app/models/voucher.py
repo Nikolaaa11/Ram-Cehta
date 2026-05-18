@@ -160,6 +160,13 @@ class VoucherLine(Base):
         Text, server_default="NA", nullable=False
     )
 
+    # Round 81 — Bloque E: fuente de financiamiento (CORFO_SUBSIDIO,
+    # PTEC_CEHTA, EMPRESA_DIRECTA, IVA_CORPORATIVO, NA). Validado por
+    # CHECK constraint en DB (migration 0066).
+    fuente_financiamiento: Mapped[str] = mapped_column(
+        Text, server_default="NA", nullable=False
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

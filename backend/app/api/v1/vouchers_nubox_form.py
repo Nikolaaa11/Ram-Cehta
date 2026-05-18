@@ -207,6 +207,13 @@ class NuboxFormLine(BaseModel):
     total: Decimal = Field(gt=0, description="Monto > 0")
     proyecto_codigo: str | None = None
     area_codigo: str | None = None
+    # Round 85 — Bloque E: fuente de financiamiento por línea
+    # (CORFO_SUBSIDIO / PTEC_CEHTA / EMPRESA_DIRECTA / IVA_CORPORATIVO / NA).
+    # Default NA para back-compat con forms viejos.
+    fuente_financiamiento: Literal[
+        "CORFO_SUBSIDIO", "PTEC_CEHTA", "EMPRESA_DIRECTA",
+        "IVA_CORPORATIVO", "NA",
+    ] = "NA"
 
 
 class NuboxFormCreate(BaseModel):
@@ -241,6 +248,10 @@ class NuboxFormCreate(BaseModel):
         "NOTA_DEBITO",
         "NOTA_DEBITO_ELECTRONICA",
         "SOLICITUD_REGISTRO_FACTURA",
+        # Round 80 — comercio exterior
+        "INVOICE",
+        "FACTURA_IMPORTACION",
+        "FACTURA_EXPORTACION",
         "BOLETA",
         "HONORARIOS",
         "NA",
@@ -788,6 +799,7 @@ async def create_voucher_nubox_form(
             credit=Decimal("0"),
             descripcion=line.comentario,
             tipo_imputacion="CONTABLE",
+            fuente_financiamiento=line.fuente_financiamiento,
         )
         db.add(vl)
         line_num += 1
@@ -804,6 +816,7 @@ async def create_voucher_nubox_form(
             credit=line.total,
             descripcion=line.comentario,
             tipo_imputacion="FINANCIERA",
+            fuente_financiamiento=line.fuente_financiamiento,
         )
         db.add(vl)
         line_num += 1

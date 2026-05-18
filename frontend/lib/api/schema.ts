@@ -1471,6 +1471,43 @@ export interface EjecutadoPorFuente {
   cantidad_vouchers: number;
 }
 
+// Round 83 — subsidio CORFO
+export interface SubsidioRead {
+  subsidio_codigo: string;
+  programa: string;
+  nombre: string;
+  monto_total: number;
+  entidad_otorgante: string;
+  estado: "ACTIVO" | "CERRADO" | "SUSPENDIDO";
+  fecha_inicio: string | null;
+  fecha_termino: string | null;
+  notas: string | null;
+}
+
+// Round 83 — ejecución del subsidio por empresa coejecutora
+export interface EjecucionPorEmpresa {
+  empresa_codigo: string;
+  empresa_razon_social: string | null;
+  proyectos: string[];
+  presupuesto_asignado: number;
+  ejecutado_corfo: number;
+  ejecutado_ptec: number;
+  ejecutado_empresa_directa: number;
+  ejecutado_total: number;
+  cantidad_vouchers: number;
+}
+
+export interface SubsidioEjecucion {
+  subsidio_codigo: string;
+  nombre: string;
+  monto_total: number;
+  presupuesto_total_asignado: number;
+  ejecutado_total: number;
+  disponible_total: number;
+  porcentaje_ejecutado: number;
+  coejecutores: EjecucionPorEmpresa[];
+}
+
 export interface Area {
   codigo: string;
   nombre: string;
