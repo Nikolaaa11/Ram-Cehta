@@ -122,21 +122,29 @@ export default function ProyectosAdminListPage() {
         </div>
       </div>
 
-      {/* Filtro */}
-      <div className="flex items-center gap-3">
-        <label className="text-sm text-ink-600">Empresa:</label>
-        <select
-          value={empresaFilter}
-          onChange={(e) => setEmpresaFilter(e.target.value)}
-          className="form-input max-w-xs"
+      {/* Filtro + botón nuevo */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <label className="text-sm text-ink-600">Empresa:</label>
+          <select
+            value={empresaFilter}
+            onChange={(e) => setEmpresaFilter(e.target.value)}
+            className="form-input max-w-xs"
+          >
+            <option value="">Todas</option>
+            {empresas.map((e) => (
+              <option key={e} value={e}>
+                {e}
+              </option>
+            ))}
+          </select>
+        </div>
+        <Link
+          href={"/admin/proyectos/nuevo" as Route}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700"
         >
-          <option value="">Todas</option>
-          {empresas.map((e) => (
-            <option key={e} value={e}>
-              {e}
-            </option>
-          ))}
-        </select>
+          + Nuevo proyecto
+        </Link>
       </div>
 
       {isLoading && (

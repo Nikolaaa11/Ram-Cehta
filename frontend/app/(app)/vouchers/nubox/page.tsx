@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Route } from "next";
 import {
   ArrowLeft,
@@ -220,6 +220,22 @@ export default function NuboxFormPage() {
   const [empresaCodigo, setEmpresaCodigo] = useState(
     lastConfig.empresa_codigo ?? "",
   );
+
+  // Round 102 — proyectos por empresa para selector en cada línea.
+  // Filtra solo ACTIVE. Cache 5 min — los proyectos cambian poco.
+  const { data: proyectosEmpresa = [] } = useQuery<
+    { codigo: string; nombre: string; estado: string }[]
+  >({
+    queryKey: ["proyectos-contables-form", empresaCodigo],
+    queryFn: () =>
+      apiClient.get<{ codigo: string; nombre: string; estado: string }[]>(
+        `/proyectos-contables?empresa_codigo=${empresaCodigo}&estado=ACTIVE`,
+        session,
+      ),
+    enabled: !!session && !!empresaCodigo,
+    staleTime: 5 * 60_000,
+  });
+
   const [proveedorRut, setProveedorRut] = useState("");
   const [proveedorNombre, setProveedorNombre] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState(
@@ -892,12 +908,15 @@ export default function NuboxFormPage() {
           total: parseFloat(l.total),
           // Round 87 — Bloque E para REVTECH/TRONGKAI
           fuente_financiamiento: l.fuente_financiamiento ?? "NA",
+          // Round 102 — proyecto contable por linea
+          proyecto_codigo: l.proyecto_codigo || null,
         })),
         informacion_financiera: financiera.map((l) => ({
           comentario: l.comentario,
           cuenta_codigo: l.cuenta_codigo,
           total: parseFloat(l.total),
           fuente_financiamiento: l.fuente_financiamiento ?? "NA",
+          proyecto_codigo: l.proyecto_codigo || null,
         })),
       };
       const resp = await apiClient.post<{
@@ -1529,6 +1548,7 @@ export default function NuboxFormPage() {
           tiposAfectosIva={meta.tipos_documento_afectos_iva}
           ivaFactor={ivaFactor}
           empresaCodigo={empresaCodigo}
+          proyectos={proyectosEmpresa}
           onAdd={() => addLine("contable")}
           onRemove={(i) => removeLine("contable", i)}
           onUpdate={(i, f, v) => updateLine("contable", i, f, v)}
@@ -1543,6 +1563,7 @@ export default function NuboxFormPage() {
           tiposAfectosIva={meta.tipos_documento_afectos_iva}
           ivaFactor={ivaFactor}
           empresaCodigo={empresaCodigo}
+          proyectos={proyectosEmpresa}
           onAdd={() => addLine("financiera")}
           onRemove={(i) => removeLine("financiera", i)}
           onUpdate={(i, f, v) => updateLine("financiera", i, f, v)}
@@ -1814,6 +1835,7 @@ function LineSection({
   tiposAfectosIva,
   ivaFactor,
   empresaCodigo,
+  proyectos,
   onAdd,
   onRemove,
   onUpdate,
@@ -1827,6 +1849,8 @@ function LineSection({
   ivaFactor: number;
   /** AJUSTE 10: empresa para filtrar plan de cuentas en el typeahead. */
   empresaCodigo: string;
+  /** Round 102: lista de proyectos filtrados por la empresa actual. */
+  proyectos: { codigo: string; nombre: string }[];
   onAdd: () => void;
   onRemove: (idx: number) => void;
   onUpdate: (idx: number, field: keyof LineRow, value: string) => void;
@@ -1870,11 +1894,17 @@ function LineSection({
           <thead className="text-ink-500 text-xs uppercase">
             <tr>
               <th className="text-left px-2 py-1.5 w-12">#</th>
-              <th className="text-left px-2 py-1.5 w-[24%]">Comentario *</th>
-              <th className="text-left px-2 py-1.5 w-[28%]">Planificación financiera *</th>
+              <th className="text-left px-2 py-1.5 w-[22%]">Comentario *</th>
+              <th className="text-left px-2 py-1.5 w-[24%]">Planificación financiera *</th>
+              <th
+                className="text-left px-2 py-1.5 w-[14%]"
+                title="Centro de costo / proyecto del Excel consolidado"
+              >
+                Proyecto
+              </th>
               {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
                 <th
-                  className="text-left px-2 py-1.5 w-[16%]"
+                  className="text-left px-2 py-1.5 w-[14%]"
                   title="Bloque E · CORFO/P-tec/Empresa para REVTECH y TRONGKAI"
                 >
                   Fuente $
@@ -1927,6 +1957,26 @@ function LineSection({
                       tone={tone}
                       placeholder="Código o nombre…"
                     />
+                  </td>
+                  {/* Round 102 — Selector proyecto filtrado por empresa */}
+                  <td className="px-2 py-1.5">
+                    <select
+                      value={line.proyecto_codigo ?? ""}
+                      onChange={(e) =>
+                        onUpdate(idx, "proyecto_codigo", e.target.value)
+                      }
+                      className="form-input text-xs"
+                      title="Proyecto contable. Si no aplica, elegí 'Otros'."
+                    >
+                      <option value="">— Elegir —</option>
+                      {proyectos.map((p) => (
+                        <option key={p.codigo} value={p.codigo}>
+                          {p.nombre.length > 40
+                            ? p.nombre.slice(0, 40) + "…"
+                            : p.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   {/* Round 87 — Selector fuente solo para REVTECH/TRONGKAI */}
                   {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
