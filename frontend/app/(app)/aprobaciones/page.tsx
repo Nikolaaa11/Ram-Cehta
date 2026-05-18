@@ -258,20 +258,42 @@ export default function AprobacionesPage() {
         isRefreshing={pull.isRefreshing}
         isPulling={pull.isPulling}
       />
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-            Cola de aprobaciones
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold text-ink-900 flex items-center gap-2">
-            <PenTool className="size-6 text-cehta-green" />
-            Vouchers esperando tu firma
-          </h1>
-          <p className="mt-1 text-sm text-ink-500">
-            Solo aparecen los vouchers donde sos el próximo aprobador. La
-            cola se ordena por antigüedad — los más viejos primero.
-          </p>
+      {/* Round 98 — hero pattern unificado */}
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card mb-2">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(35,108,79,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(35,108,79,0.04) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage:
+              "radial-gradient(ellipse at top, black 30%, transparent 70%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-[600px] rounded-full bg-cehta-green/20 blur-3xl opacity-60"
+        />
+        <div className="relative flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-4 py-1.5 ring-1 ring-cehta-green/20">
+              <PenTool className="size-3.5 text-cehta-green" strokeWidth={2} />
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                Cola de aprobaciones
+              </p>
+            </div>
+            <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+              Esperando tu firma
+            </h1>
+            <p className="mt-2 text-sm md:text-base text-ink-500 dark:text-ink-400 max-w-2xl">
+              Solo aparecen los vouchers donde sos el próximo aprobador. La
+              cola se ordena por antigüedad — los más viejos primero.
+            </p>
+          </div>
         </div>
+      </div>
+      <header className="flex flex-wrap items-end justify-end gap-3"><div className="hidden"></div>
         <div className="flex items-center gap-2">
           {data && (
             <span className="rounded-full bg-cehta-green/10 px-3 py-1 text-sm font-semibold text-cehta-green">
