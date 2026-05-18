@@ -428,33 +428,74 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
 
       {/* Botonera */}
       {voucherStatus === "PENDING" && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-hairline pt-4">
-          {data.can_current_user_sign && data.current_user_eligible_role && (
+        <div className="mt-4 border-t border-hairline pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {data.can_current_user_sign && data.current_user_eligible_role && (
+              <button
+                type="button"
+                onClick={() => setShowSignModal(true)}
+                disabled={approveMut.isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-60"
+              >
+                <FileSignature className="h-4 w-4" strokeWidth={1.75} />
+                Firmar como {ROLE_LABEL[data.current_user_eligible_role]}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => setShowSignModal(true)}
-              disabled={approveMut.isPending}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-60"
+              onClick={() => setShowReject(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-negative/20 bg-white px-4 py-2 text-sm font-medium text-negative hover:bg-negative/5"
             >
-              <FileSignature className="h-4 w-4" strokeWidth={1.75} />
-              Firmar como {ROLE_LABEL[data.current_user_eligible_role]}
+              <XCircle className="h-4 w-4" strokeWidth={1.75} />
+              Rechazar
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setShowReject(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-negative/20 bg-white px-4 py-2 text-sm font-medium text-negative hover:bg-negative/5"
-          >
-            <XCircle className="h-4 w-4" strokeWidth={1.75} />
-            Rechazar
-          </button>
+            {!data.can_current_user_sign && data.next_pending_role && (
+              <p className="ml-auto text-[11px] italic text-ink-500">
+                Esperando firma de{" "}
+                <strong className="not-italic font-semibold text-ink-700">
+                  {ROLE_LABEL[data.next_pending_role]}
+                </strong>
+              </p>
+            )}
+          </div>
+
+          {/* Round 82 — guidance cuando el current user NO puede firmar:
+              explicar POR QUÉ y mostrar quiénes SÍ pueden. */}
           {!data.can_current_user_sign && data.next_pending_role && (
-            <p className="ml-auto text-[11px] italic text-ink-500">
-              Esperando firma de{" "}
-              <strong className="not-italic font-semibold text-ink-700">
-                {ROLE_LABEL[data.next_pending_role]}
-              </strong>
-            </p>
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
+              {data.current_user_already_signed ? (
+                <p>
+                  <strong className="font-semibold">No podés firmar este paso:</strong>{" "}
+                  ya firmaste otro paso de este voucher. Por regla anti-doble-firma,
+                  un mismo usuario no puede firmar 2 pasos del mismo flujo. Necesitamos
+                  otro {ROLE_LABEL[data.next_pending_role]} para continuar.
+                </p>
+              ) : (
+                <p>
+                  <strong className="font-semibold">
+                    Tu cuenta no tiene el rol {ROLE_LABEL[data.next_pending_role]}
+                  </strong>{" "}
+                  en esta empresa. Hacé logout y entrá con una de las cuentas
+                  autorizadas para firmar este paso:
+                </p>
+              )}
+              {data.next_pending_signers_emails &&
+                data.next_pending_signers_emails.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5 font-mono text-[11px]">
+                    {data.next_pending_signers_emails.map((email) => (
+                      <li key={email}>· {email}</li>
+                    ))}
+                  </ul>
+                )}
+              {data.next_pending_signers_emails &&
+                data.next_pending_signers_emails.length === 0 && (
+                  <p className="mt-1 italic">
+                    ⚠ No hay usuarios con rol {ROLE_LABEL[data.next_pending_role]}
+                    {" "}disponibles (todos ya firmaron otros pasos). Contactá al
+                    admin para agregar otro firmante.
+                  </p>
+                )}
+            </div>
           )}
         </div>
       )}

@@ -2084,6 +2084,12 @@ class VoucherApprovalsState(BaseModel):
     next_pending_order: int | None
     can_current_user_sign: bool
     current_user_eligible_role: str | None
+    # Round 82 — UX firma: si el current user NO puede firmar, mostrar
+    # quiénes SÍ pueden para que el operador sepa con qué cuenta loguearse.
+    next_pending_signers_emails: list[str] = []
+    # Round 82 — si el user ya firmó otro paso de este mismo voucher
+    # (anti-doble-firma) el FE muestra mensaje distinto que "no tiene el rol".
+    current_user_already_signed: bool = False
 
 
 class ApproveRequest(BaseModel):
@@ -2481,12 +2487,46 @@ async def get_voucher_approvals_state(
     user_roles = await load_user_roles_for_empresa(
         db, str(user.sub), voucher.empresa_codigo
     )
+    # Round 82 — anti-doble-firma alineado con POST /approve (line 2558):
+    # si el user ya firmó otro paso de este voucher NO puede firmar otro.
+    already_signed = any(
+        a.approver_user_id == str(user.sub) and a.decision == "APPROVED"
+        for a in approvals
+    )
     can_sign = bool(
         next_pending_role
         and voucher.status == "PENDING"
         and next_pending_role in user_roles
+        and not already_signed
     )
     eligible_role = next_pending_role if can_sign else None
+
+    # Round 82 — listar emails de quienes SI pueden firmar el next pending,
+    # excluyendo a quienes ya firmaron otro paso del mismo voucher.
+    next_signers_emails: list[str] = []
+    if next_pending_role and voucher.status == "PENDING":
+        signers_uids_already = {
+            a.approver_user_id for a in approvals if a.decision == "APPROVED"
+        }
+        signers_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT au.email, au.id::text AS uid
+                    FROM core.user_company_roles ucr
+                    JOIN auth.users au ON au.id = ucr.user_id
+                    WHERE ucr.empresa_codigo = :e
+                      AND ucr.role = :r
+                      AND ucr.active = TRUE
+                    ORDER BY au.email
+                    """
+                ),
+                {"e": voucher.empresa_codigo, "r": next_pending_role},
+            )
+        ).mappings().all()
+        next_signers_emails = [
+            s["email"] for s in signers_rows if s["uid"] not in signers_uids_already
+        ]
 
     return VoucherApprovalsState(
         voucher_id=voucher_id,
@@ -2501,6 +2541,8 @@ async def get_voucher_approvals_state(
         next_pending_order=next_pending_order,
         can_current_user_sign=can_sign,
         current_user_eligible_role=eligible_role,
+        next_pending_signers_emails=next_signers_emails,
+        current_user_already_signed=already_signed,
     )
 
 

@@ -1616,6 +1616,11 @@ export interface VoucherApprovalsState {
   next_pending_order: number | null;
   can_current_user_sign: boolean;
   current_user_eligible_role: CompanyRole | null;
+  // Round 82 — UX firma con orden GG → DIRECTOR forzado:
+  // emails autorizados para el next pending role (excluye los que ya
+  // firmaron otro paso) + flag si el current user ya firmó otro paso.
+  next_pending_signers_emails?: string[];
+  current_user_already_signed?: boolean;
 }
 
 export interface ApprovalRule {
