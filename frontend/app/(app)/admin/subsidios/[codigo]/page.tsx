@@ -92,26 +92,37 @@ export default function SubsidioDashboardPage({
         Volver
       </Link>
 
-      {/* Header con resumen del subsidio */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
+      {/* Header — Round 95: aplicado patron hero con grid + glow brand. */}
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
         <div
           aria-hidden
-          className="pointer-events-none absolute -right-20 -top-20 h-48 w-48 rounded-full bg-cehta-green/15 blur-3xl"
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(35,108,79,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(35,108,79,0.04) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage:
+              "radial-gradient(ellipse at top, black 30%, transparent 70%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-[600px] rounded-full bg-cehta-green/20 blur-3xl opacity-60"
         />
         <div className="relative">
-          <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
+          <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-4 py-1.5 ring-1 ring-cehta-green/20">
             <CircleDollarSign className="size-3.5 text-cehta-green" />
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
               Subsidio · {subsidio.programa}
             </p>
           </div>
-          <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
             {subsidio.nombre}
           </h1>
-          <p className="mt-1 text-sm text-ink-500">
+          <p className="mt-2 text-sm md:text-base text-ink-500 dark:text-ink-400">
             {subsidio.entidad_otorgante} · Vigencia{" "}
-            {subsidio.fecha_inicio} → {subsidio.fecha_termino} · Estado{" "}
-            <strong>{subsidio.estado}</strong>
+            <strong>{subsidio.fecha_inicio} → {subsidio.fecha_termino}</strong>{" "}
+            · Estado <strong>{subsidio.estado}</strong>
           </p>
           {subsidio.notas && (
             <p className="mt-2 text-[11px] italic text-ink-500 max-w-2xl">
