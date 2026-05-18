@@ -111,6 +111,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    # Round 78 — regex cubre preview deploys de Vercel del proyecto Cehta
+    # sin tener que actualizar CORS_ORIGINS por deploy. Ver config.py.
+    allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[

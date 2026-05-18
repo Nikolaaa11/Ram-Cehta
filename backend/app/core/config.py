@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     cors_origins: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: ["http://localhost:3000"],
     )
+    # Round 78 — regex opcional para autorizar previews de Vercel del proyecto
+    # sin tener que actualizar CORS_ORIGINS cada vez que cambia el slug del
+    # deploy. Default cubre los previews del project name
+    # "ram-cehta-nicolasrietta-1798s-projects" + branch deploys con prefijo.
+    # Si se cambia el project name en Vercel, ajustar acá.
+    cors_origin_regex: str | None = Field(
+        default=r"^https://(cehta-capital|ram-cehta-[a-z0-9-]+)\.vercel\.app$",
+    )
 
     database_url: PostgresDsn
     alembic_database_url: str | None = None
