@@ -169,6 +169,20 @@ export default function VoucherDetailPage({ params }: PageProps) {
     staleTime: 30 * 60_000,
   });
 
+  // Round 72 — gating del boton "Enviar a aprobacion" cuando falta adjunto.
+  // El query DEBE estar antes de cualquier early return (regla react-hooks).
+  // Round 88 — movido aca para evitar "called conditionally" lint error
+  // que rompia el build de Vercel.
+  const { data: attachmentsList } = useQuery<VoucherAttachment[]>({
+    queryKey: ["voucher-attachments", voucherId],
+    queryFn: () =>
+      apiClient.get<VoucherAttachment[]>(
+        `/vouchers/${voucherId}/attachments`,
+        session,
+      ),
+    enabled: !!session && !!voucherId,
+  });
+
   const submitMut = useMutation({
     mutationFn: async () =>
       apiClient.post<{ codigo: string; new_status: string }>(
@@ -270,22 +284,10 @@ export default function VoucherDetailPage({ params }: PageProps) {
   const isBalanced =
     Number(voucher.total_debit) === Number(voucher.total_credit);
 
-  // Round 72 — gating del boton "Enviar a aprobacion" cuando falta adjunto
-  // tributario. Backend ya rechaza con 400, pero el operador veia el boton
-  // habilitado y se llevaba el "no me deja". Ahora lo deshabilitamos en el
-  // frontend con tooltip claro, y reutilizamos el mismo queryKey del card
-  // de adjuntos para no duplicar fetch.
+  // Round 72 — gating del boton "Enviar a aprobacion" cuando falta adjunto.
+  // El useQuery se subio arriba (antes de los early returns) por Round 88.
   const requiresTaxDoc =
     voucher.tipo === "COMPRA" || voucher.tipo === "VENTA";
-  const { data: attachmentsList } = useQuery<VoucherAttachment[]>({
-    queryKey: ["voucher-attachments", voucherId],
-    queryFn: () =>
-      apiClient.get<VoucherAttachment[]>(
-        `/vouchers/${voucherId}/attachments`,
-        session,
-      ),
-    enabled: !!session && !!voucherId,
-  });
   const hasAttachment = (attachmentsList?.length ?? 0) > 0;
   const missingTaxDoc = requiresTaxDoc && !hasAttachment;
 

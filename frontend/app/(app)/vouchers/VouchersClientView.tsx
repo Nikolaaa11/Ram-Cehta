@@ -1370,8 +1370,8 @@ export function VouchersClientView({
             </p>
             <div className="mt-3 rounded-lg bg-negative/5 px-3 py-2 text-xs text-negative ring-1 ring-negative/20">
               ⚠ <strong>No se puede deshacer.</strong> Si querés anular un
-              voucher ya enviado (PENDING+), usá la acción "Anular" en su
-              detalle (queda en historial).
+              voucher ya enviado (PENDING+), usá la acción &quot;Anular&quot;
+              en su detalle (queda en historial).
             </div>
             <div className="mt-5 flex justify-end gap-2">
               <button
