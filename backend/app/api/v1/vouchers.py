@@ -1384,6 +1384,45 @@ async def submit_voucher(
             ),
         )
 
+    # Round 81 — Bloque E Ajuste E8 (regla bloqueante CORFO):
+    # El IVA crédito fiscal NUNCA se distribuye al subsidio. Si una línea
+    # con fuente=CORFO_SUBSIDIO tiene cuenta que matchea IVA (codigo
+    # empieza con 1170/1180 según plan IFRS Nubox, o el nombre contiene
+    # 'IVA'), bloqueamos el submit. Esto cubre el caso típico del operador
+    # confundido que asigna el IVA al pozo del subsidio por error.
+    iva_en_corfo_rows = await db.execute(
+        text(
+            """
+            SELECT vl.line_number, vl.cuenta_codigo, vl.debit, vl.credit,
+                   pc.nombre AS cuenta_nombre
+            FROM core.voucher_lines vl
+            LEFT JOIN core.plan_cuentas pc ON pc.codigo = vl.cuenta_codigo
+            WHERE vl.voucher_id = :v
+              AND vl.fuente_financiamiento = 'CORFO_SUBSIDIO'
+              AND (
+                vl.cuenta_codigo LIKE '1170%'
+                OR vl.cuenta_codigo LIKE '1180%'
+                OR vl.cuenta_codigo LIKE '2170%'
+                OR pc.nombre ILIKE '%IVA%'
+              )
+            """
+        ),
+        {"v": voucher_id},
+    )
+    iva_en_corfo = iva_en_corfo_rows.first()
+    if iva_en_corfo is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Regla CORFO bloqueante: el IVA no es elegible al subsidio. "
+                f"La línea {iva_en_corfo[0]} (cuenta {iva_en_corfo[1]}"
+                f"{' - ' + iva_en_corfo[4] if iva_en_corfo[4] else ''}) "
+                f"está marcada como fuente CORFO_SUBSIDIO. "
+                f"Asignar IVA al 100% a la cuenta corporativa "
+                f"(fuente IVA_CORPORATIVO o EMPRESA_DIRECTA)."
+            ),
+        )
+
     # Round 56 — auto-approve si la regla matched tiene required_roles=[].
     # Caso de uso: vouchers de bajo monto (ej. ≤ $200K) creados por finance,
     # con proveedor del catálogo y cuenta habitual → no requieren firma de

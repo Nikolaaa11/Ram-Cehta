@@ -1416,6 +1416,16 @@ export interface ProyectoContable {
   tipos_gasto_elegibles: TipoGastoCorfo[];
   estado: ProyectoEstado;
   gantt_proyecto_id: number | null;
+  // Round 81 — Bloque E: aportes por fuente + cuentas
+  subsidio_codigo: string | null;
+  aporte_corfo_pct_default: number;
+  aporte_ptec_pct_default: number;
+  aporte_empresa_directa_pct_default: number;
+  cuenta_aporte_corfo: string | null;
+  cuenta_aporte_ptec_cehta: string | null;
+  cuenta_aporte_empresa_directa: string | null;
+  cuenta_iva_corporativo: string | null;
+  bloquear_edicion_pct: boolean;
 }
 
 export interface ProyectoAvance {
@@ -1424,6 +1434,40 @@ export interface ProyectoAvance {
   presupuesto_ejecutado: number;
   porcentaje_ejecutado: number | null;
   monto_disponible: number | null;
+  cantidad_vouchers: number;
+}
+
+// Round 81 — Bloque E: response del endpoint /reparto-default
+export interface RepartoDefault {
+  codigo: string;
+  nombre: string;
+  subsidio_codigo: string | null;
+  aporte_corfo_pct: number;
+  aporte_ptec_pct: number;
+  aporte_empresa_directa_pct: number;
+  cuenta_aporte_corfo: string | null;
+  cuenta_aporte_ptec_cehta: string | null;
+  cuenta_aporte_empresa_directa: string | null;
+  cuenta_iva_corporativo: string | null;
+  bloquear_edicion_pct: boolean;
+  configuracion_completa: boolean;
+}
+
+// Round 81 — fuente_financiamiento por voucher_line
+export type FuenteFinanciamiento =
+  | "CORFO_SUBSIDIO"
+  | "PTEC_CEHTA"
+  | "EMPRESA_DIRECTA"
+  | "IVA_CORPORATIVO"
+  | "NA";
+
+// Round 81 — reporteria Ajuste G5
+export interface EjecutadoPorFuente {
+  codigo: string;
+  nombre: string;
+  presupuesto_total: number | null;
+  por_fuente: Record<string, number>;
+  total_ejecutado: number;
   cantidad_vouchers: number;
 }
 

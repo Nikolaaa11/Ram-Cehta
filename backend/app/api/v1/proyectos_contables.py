@@ -52,6 +52,68 @@ class ProyectoContableBase(BaseModel):
     primer_desembolso_corfo: date | None = None
     tipos_gasto_elegibles: list[TipoGastoCorfo] = Field(default_factory=list)
     estado: ProyectoEstado = "ACTIVE"
+    # Round 81 — Bloque E: aportes por fuente + cuentas destino.
+    # La suma de los 3 % debe ser 100 (validado por CHECK en DB).
+    subsidio_codigo: str | None = Field(
+        default=None,
+        max_length=50,
+        description=(
+            "FK opcional a core.subsidios. Multiples proyectos pueden "
+            "compartir el mismo subsidio (un fondo CORFO financiando N "
+            "iniciativas)."
+        ),
+    )
+    aporte_corfo_pct_default: Decimal = Field(
+        default=Decimal("0"),
+        ge=Decimal("0"),
+        le=Decimal("100"),
+        description="% default del gasto que carga al pozo del subsidio CORFO.",
+    )
+    aporte_ptec_pct_default: Decimal = Field(
+        default=Decimal("0"),
+        ge=Decimal("0"),
+        le=Decimal("100"),
+        description=(
+            "% default del aporte empresarial pecuniario (P-tec) — via "
+            "CEHTA Capital como holding. Es contrapartida del subsidio."
+        ),
+    )
+    aporte_empresa_directa_pct_default: Decimal = Field(
+        default=Decimal("100"),
+        ge=Decimal("0"),
+        le=Decimal("100"),
+        description=(
+            "% default que paga 100% la entidad receptora sin pasar por "
+            "el pozo del subsidio."
+        ),
+    )
+    cuenta_aporte_corfo: str | None = Field(
+        default=None, max_length=20,
+        description="Cuenta contable destino del cargo CORFO.",
+    )
+    cuenta_aporte_ptec_cehta: str | None = Field(
+        default=None, max_length=20,
+        description="Cuenta contable destino del aporte P-tec (CEHTA Capital).",
+    )
+    cuenta_aporte_empresa_directa: str | None = Field(
+        default=None, max_length=20,
+        description="Cuenta contable destino del aporte directo de la empresa.",
+    )
+    cuenta_iva_corporativo: str | None = Field(
+        default=None, max_length=20,
+        description=(
+            "Cuenta IVA credito fiscal — SIEMPRE de la entidad receptora, "
+            "nunca CORFO (regla bloqueante CORFO)."
+        ),
+    )
+    bloquear_edicion_pct: bool = Field(
+        default=False,
+        description=(
+            "Si True, el operador NO puede editar los % default al crear "
+            "un voucher de este proyecto. Util cuando el reparto esta "
+            "auditado y debe respetarse rigido."
+        ),
+    )
 
 
 class ProyectoContableCreate(ProyectoContableBase):
@@ -70,6 +132,22 @@ class ProyectoContableUpdate(BaseModel):
     tipos_gasto_elegibles: list[TipoGastoCorfo] | None = None
     estado: ProyectoEstado | None = None
     gantt_proyecto_id: int | None = None
+    # Round 81 — Bloque E
+    subsidio_codigo: str | None = Field(default=None, max_length=50)
+    aporte_corfo_pct_default: Decimal | None = Field(
+        default=None, ge=Decimal("0"), le=Decimal("100")
+    )
+    aporte_ptec_pct_default: Decimal | None = Field(
+        default=None, ge=Decimal("0"), le=Decimal("100")
+    )
+    aporte_empresa_directa_pct_default: Decimal | None = Field(
+        default=None, ge=Decimal("0"), le=Decimal("100")
+    )
+    cuenta_aporte_corfo: str | None = Field(default=None, max_length=20)
+    cuenta_aporte_ptec_cehta: str | None = Field(default=None, max_length=20)
+    cuenta_aporte_empresa_directa: str | None = Field(default=None, max_length=20)
+    cuenta_iva_corporativo: str | None = Field(default=None, max_length=20)
+    bloquear_edicion_pct: bool | None = None
 
 
 class ProyectoContableRead(ProyectoContableBase):
@@ -91,7 +169,13 @@ _PROY_COLS = (
     "codigo, empresa_codigo, nombre, tipo_financiamiento, programa, "
     "fecha_inicio, fecha_termino, presupuesto_total, moneda, "
     "primer_desembolso_corfo, tipos_gasto_elegibles, estado, "
-    "gantt_proyecto_id"
+    "gantt_proyecto_id, "
+    # Round 81 — Bloque E
+    "subsidio_codigo, aporte_corfo_pct_default, aporte_ptec_pct_default, "
+    "aporte_empresa_directa_pct_default, "
+    "cuenta_aporte_corfo, cuenta_aporte_ptec_cehta, "
+    "cuenta_aporte_empresa_directa, cuenta_iva_corporativo, "
+    "bloquear_edicion_pct"
 )
 
 
@@ -232,13 +316,25 @@ async def create_proyecto(
                     codigo, empresa_codigo, nombre, tipo_financiamiento,
                     programa, fecha_inicio, fecha_termino, presupuesto_total,
                     moneda, primer_desembolso_corfo, tipos_gasto_elegibles,
-                    estado, gantt_proyecto_id
+                    estado, gantt_proyecto_id,
+                    subsidio_codigo, aporte_corfo_pct_default,
+                    aporte_ptec_pct_default,
+                    aporte_empresa_directa_pct_default,
+                    cuenta_aporte_corfo, cuenta_aporte_ptec_cehta,
+                    cuenta_aporte_empresa_directa, cuenta_iva_corporativo,
+                    bloquear_edicion_pct
                 ) VALUES (
                     :codigo, :empresa_codigo, :nombre, :tipo_financiamiento,
                     :programa, :fecha_inicio, :fecha_termino, :presupuesto_total,
                     :moneda, :primer_desembolso_corfo,
                     CAST(:tipos_gasto_elegibles AS TEXT[]),
-                    :estado, :gantt_proyecto_id
+                    :estado, :gantt_proyecto_id,
+                    :subsidio_codigo, :aporte_corfo_pct_default,
+                    :aporte_ptec_pct_default,
+                    :aporte_empresa_directa_pct_default,
+                    :cuenta_aporte_corfo, :cuenta_aporte_ptec_cehta,
+                    :cuenta_aporte_empresa_directa, :cuenta_iva_corporativo,
+                    :bloquear_edicion_pct
                 )
                 """
             ),
@@ -443,4 +539,179 @@ async def proyecto_avance(
         porcentaje_ejecutado=pct,
         monto_disponible=disponible,
         cantidad_vouchers=int(row["num_vouchers"] or 0),
+    )
+
+
+# =====================================================================
+# Round 81 — Bloque E: reparto default + ejecutado por fuente
+# =====================================================================
+
+
+class RepartoDefault(BaseModel):
+    """Devuelve los % default y cuentas que el frontend usa para auto-poblar
+    el reparto de un voucher (F.E o F.A) que se imputa a este proyecto."""
+
+    codigo: str
+    nombre: str
+    subsidio_codigo: str | None
+    aporte_corfo_pct: Decimal
+    aporte_ptec_pct: Decimal
+    aporte_empresa_directa_pct: Decimal
+    cuenta_aporte_corfo: str | None
+    cuenta_aporte_ptec_cehta: str | None
+    cuenta_aporte_empresa_directa: str | None
+    cuenta_iva_corporativo: str | None
+    bloquear_edicion_pct: bool
+    # Info para guidance UI: si los 3 % suman 100 y las cuentas estan, esta listo
+    configuracion_completa: bool
+
+
+@router.get(
+    "/proyectos-contables/{codigo}/reparto-default",
+    response_model=RepartoDefault,
+)
+async def get_reparto_default(
+    user: CurrentUser, db: DBSession, codigo: str
+) -> RepartoDefault:
+    """Devuelve los % default del proyecto + cuentas para que el frontend
+    pueda pre-poblar el reparto F.E / F.A.
+
+    No incluye logica de calculo del monto — eso lo hace el FE con los
+    montos del voucher. Aca solo la metadata del proyecto.
+    """
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT codigo, nombre, empresa_codigo, subsidio_codigo,
+                       aporte_corfo_pct_default, aporte_ptec_pct_default,
+                       aporte_empresa_directa_pct_default,
+                       cuenta_aporte_corfo, cuenta_aporte_ptec_cehta,
+                       cuenta_aporte_empresa_directa,
+                       cuenta_iva_corporativo, bloquear_edicion_pct
+                FROM core.proyectos_contables
+                WHERE codigo = :c
+                """
+            ),
+            {"c": codigo},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proyecto {codigo} no encontrado",
+        )
+    await assert_empresa_access(user, db, row["empresa_codigo"])
+
+    # "Completo" = los 3 % suman ~100 + las cuentas necesarias estan
+    # seteadas dado el reparto (si CORFO > 0 necesita cuenta_aporte_corfo,
+    # etc). Si no es completo, el FE muestra warning "Configura el proyecto
+    # antes de imputar".
+    s = (
+        row["aporte_corfo_pct_default"]
+        + row["aporte_ptec_pct_default"]
+        + row["aporte_empresa_directa_pct_default"]
+    )
+    suma_ok = abs(s - Decimal("100")) < Decimal("0.01")
+    cuentas_ok = True
+    if row["aporte_corfo_pct_default"] > 0 and not row["cuenta_aporte_corfo"]:
+        cuentas_ok = False
+    if row["aporte_ptec_pct_default"] > 0 and not row["cuenta_aporte_ptec_cehta"]:
+        cuentas_ok = False
+    if (
+        row["aporte_empresa_directa_pct_default"] > 0
+        and not row["cuenta_aporte_empresa_directa"]
+    ):
+        cuentas_ok = False
+
+    return RepartoDefault(
+        codigo=row["codigo"],
+        nombre=row["nombre"],
+        subsidio_codigo=row["subsidio_codigo"],
+        aporte_corfo_pct=row["aporte_corfo_pct_default"],
+        aporte_ptec_pct=row["aporte_ptec_pct_default"],
+        aporte_empresa_directa_pct=row["aporte_empresa_directa_pct_default"],
+        cuenta_aporte_corfo=row["cuenta_aporte_corfo"],
+        cuenta_aporte_ptec_cehta=row["cuenta_aporte_ptec_cehta"],
+        cuenta_aporte_empresa_directa=row["cuenta_aporte_empresa_directa"],
+        cuenta_iva_corporativo=row["cuenta_iva_corporativo"],
+        bloquear_edicion_pct=row["bloquear_edicion_pct"],
+        configuracion_completa=suma_ok and cuentas_ok,
+    )
+
+
+class EjecutadoPorFuente(BaseModel):
+    """Reporteria Ajuste G5 — ejecutado total agrupado por fuente."""
+
+    codigo: str
+    nombre: str
+    presupuesto_total: Decimal | None
+    por_fuente: dict[str, Decimal]
+    total_ejecutado: Decimal
+    cantidad_vouchers: int
+
+
+@router.get(
+    "/proyectos-contables/{codigo}/ejecutado-por-fuente",
+    response_model=EjecutadoPorFuente,
+)
+async def get_ejecutado_por_fuente(
+    user: CurrentUser, db: DBSession, codigo: str
+) -> EjecutadoPorFuente:
+    """Total ejecutado del proyecto agrupado por fuente de financiamiento.
+
+    Cruza voucher_lines.proyecto_codigo + voucher_lines.fuente_financiamiento,
+    filtrando vouchers que ya estan APPROVED/EXECUTED/SYNCED/RECONCILED/CLOSED
+    (excluye DRAFT y PENDING, que no son ejecutados todavia).
+
+    Util para auditoria CORFO: ver cuanto CORFO se gasto vs cuanto P-tec
+    contribuyo CEHTA Capital vs cuanto puso la empresa directa.
+    """
+    proy = (
+        await db.execute(
+            text(
+                "SELECT codigo, nombre, empresa_codigo, presupuesto_total "
+                "FROM core.proyectos_contables WHERE codigo = :c"
+            ),
+            {"c": codigo},
+        )
+    ).mappings().first()
+    if proy is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proyecto {codigo} no encontrado",
+        )
+    await assert_empresa_access(user, db, proy["empresa_codigo"])
+
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT vl.fuente_financiamiento AS fuente,
+                       COALESCE(SUM(vl.debit), 0) AS total,
+                       COUNT(DISTINCT vl.voucher_id) AS num_vouchers
+                FROM core.voucher_lines vl
+                JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
+                WHERE vl.proyecto_codigo = :c
+                  AND v.status IN ('APPROVED','EXECUTED','SYNCED','RECONCILED','CLOSED')
+                GROUP BY vl.fuente_financiamiento
+                """
+            ),
+            {"c": codigo},
+        )
+    ).mappings().all()
+
+    por_fuente: dict[str, Decimal] = {
+        r["fuente"]: Decimal(str(r["total"])) for r in rows
+    }
+    total = sum(por_fuente.values(), Decimal("0"))
+    num_v = sum((r["num_vouchers"] or 0) for r in rows)
+
+    return EjecutadoPorFuente(
+        codigo=proy["codigo"],
+        nombre=proy["nombre"],
+        presupuesto_total=proy["presupuesto_total"],
+        por_fuente=por_fuente,
+        total_ejecutado=total,
+        cantidad_vouchers=int(num_v),
     )
