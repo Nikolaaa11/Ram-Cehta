@@ -282,21 +282,39 @@ export default function VoucherCorfoPage() {
         </Link>
       </div>
 
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
-        <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
-          <Sparkles className="size-3.5 text-cehta-green" strokeWidth={2} />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-            Voucher CORFO · Bloque E
+      {/* Round 96 — hero pattern consistente con /admin/subsidios y system-status */}
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(35,108,79,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(35,108,79,0.04) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage:
+              "radial-gradient(ellipse at top, black 30%, transparent 70%)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-[600px] rounded-full bg-cehta-green/20 blur-3xl opacity-60"
+        />
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-4 py-1.5 ring-1 ring-cehta-green/20">
+            <Sparkles className="size-3.5 text-cehta-green" strokeWidth={2} />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+              Voucher CORFO · Bloque E
+            </p>
+          </div>
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+            Reparto CORFO / P-tec / Empresa
+          </h1>
+          <p className="text-sm md:text-base text-ink-500 dark:text-ink-400 mt-2 max-w-2xl">
+            Form dedicado a <strong>REVTECH</strong> y <strong>TRONGKAI</strong>{" "}
+            como coejecutores del subsidio CORFO 2026 ($3.000.000.000). El IVA
+            siempre va al pozo corporativo (regla CORFO bloqueante).
           </p>
         </div>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
-          Crear voucher con reparto CORFO / P-tec / Empresa
-        </h1>
-        <p className="text-sm text-ink-500 mt-1">
-          Form dedicado a REVTECH y TRONGKAI como coejecutores del subsidio
-          CORFO 2026. El IVA siempre va al pozo corporativo (regla CORFO
-          bloqueante).
-        </p>
       </div>
 
       {/* Header */}
