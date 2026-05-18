@@ -99,20 +99,83 @@ export default function SystemStatusPage() {
         Volver
       </Link>
 
-      <div className="rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-blue-50/30 ring-1 ring-cehta-green/15 p-6 shadow-card">
-        <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
-          <Activity className="size-3.5 text-cehta-green" />
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-            Admin · Estado del sistema
+      {/* Hero — Round 94: rediseñado con grid background + glow brand
+          siguiendo patrón del prompt v2 (adaptado al brand Cehta Capital).
+          KPIs principales en cards grandes con números serif. */}
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+        {/* Grid sutil background */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(35,108,79,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(35,108,79,0.04) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+            maskImage:
+              "radial-gradient(ellipse at top, black 30%, transparent 70%)",
+          }}
+        />
+        {/* Glow radial brand */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-72 w-[600px] rounded-full bg-cehta-green/20 blur-3xl opacity-60"
+        />
+
+        <div className="relative">
+          <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-4 py-1.5 ring-1 ring-cehta-green/20">
+            <Activity className="size-3.5 text-cehta-green" />
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+              Mayo 2026 · Estado operativo
+            </p>
+          </div>
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+            Health check operativo
+          </h1>
+          <p className="text-sm md:text-base text-ink-500 mt-2 max-w-2xl">
+            Vista global del estado actual. <strong>Subsidios</strong>,{" "}
+            <strong>proyectos contables</strong>, vouchers pendientes y
+            configuración del <strong>Bloque E</strong> en una sola pantalla.
           </p>
+
+          {/* Hero stats — 5 cols desktop / 2-3 mobile, números serif */}
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <HeroStat
+              value={`${sidebar?.voucher_drafts_mine ?? 0}`}
+              label="Borradores"
+            />
+            <HeroStat
+              value={`${sidebar?.voucher_pending_approvals ?? 0}`}
+              label="Esperan firma"
+              tone="info"
+            />
+            <HeroStat
+              value={`${sidebar?.voucher_approved_ready_to_pay ?? 0}`}
+              label="Para pagar"
+              tone="success"
+            />
+            <HeroStat
+              value={`${proyectosCompletos.length}`}
+              label="Proyectos OK"
+            />
+            <HeroStat
+              value={`${proyectosIncompletos.length}`}
+              label="A revisar"
+              tone={proyectosIncompletos.length > 0 ? "warn" : "default"}
+            />
+          </div>
+
+          {/* Crafted by footer del hero */}
+          <div className="mt-6 flex items-center justify-center">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/40 dark:bg-ink-800/40 px-3 py-1 ring-1 ring-hairline backdrop-blur">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-cehta-green to-cehta-green-700 text-[10px] font-bold text-white shadow-glow-green">
+                C
+              </span>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
+                Cehta Capital · FIP CEHTA ESG
+              </p>
+            </div>
+          </div>
         </div>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
-          Health check operativo
-        </h1>
-        <p className="text-sm text-ink-500 mt-1">
-          Vista global del estado actual: subsidios, proyectos, vouchers
-          pendientes y configuración del Bloque E.
-        </p>
       </div>
 
       {/* Top KPIs del operador (vía sidebar-state) */}
@@ -322,4 +385,38 @@ function Stat({
     </Surface>
   );
   return href ? <Link href={href as Route}>{content}</Link> : content;
+}
+
+// Round 94 — Hero stat card inspirado en patron NIKOLAI (5-col grid).
+// Numero serif grande, label uppercase tracking-widest abajo. Border
+// sutil + bg semitransparente para overlay sobre el hero glow.
+function HeroStat({
+  value,
+  label,
+  tone = "default",
+}: {
+  value: string;
+  label: string;
+  tone?: "default" | "info" | "warn" | "success";
+}) {
+  const valueColor =
+    tone === "warn"
+      ? "text-amber-600 dark:text-amber-400"
+      : tone === "info"
+        ? "text-blue-600 dark:text-blue-400"
+        : tone === "success"
+          ? "text-cehta-green dark:text-cehta-green"
+          : "text-ink-900 dark:text-white";
+  return (
+    <div className="rounded-2xl border border-hairline bg-white/60 dark:bg-ink-800/40 backdrop-blur p-5">
+      <p
+        className={`font-display text-3xl md:text-4xl font-semibold tabular-nums tracking-tight ${valueColor}`}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400 font-semibold">
+        {label}
+      </p>
+    </div>
+  );
 }
