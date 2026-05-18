@@ -319,6 +319,14 @@ const GROUPS: NavGroup[] = [
         title:
           "Dashboard donde estan las platas. Ejecucion por empresa coejecutora (REVTECH/TRONGKAI), desglose por fuente CORFO/P-tec/Empresa.",
       },
+      // Round 92 — catalogo de proyectos para configurar % + cuentas sin SQL
+      {
+        href: "/admin/proyectos" as Route,
+        label: "Proyectos contables",
+        icon: FileText,
+        title:
+          "Listado de proyectos del Bloque E. Click en uno para editar reparto % + cuentas contables destino.",
+      },
       {
         href: "/admin/empresas" as Route,
         label: "Empresas portfolio",
