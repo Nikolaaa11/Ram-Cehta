@@ -95,6 +95,11 @@ export default function TransferenciasPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [empresaFilter, setEmpresaFilter] = useState<string>("");
   const [downloading, setDownloading] = useState(false);
+  // Round 103 — selector de formato bancario (GENERICO o SANTANDER)
+  const [bancoFormato, setBancoFormato] = useState<"GENERICO" | "SANTANDER">(
+    "GENERICO",
+  );
+  const [cuentaOrigen, setCuentaOrigen] = useState<string>("");
   // Etapa A — bulk execute
   const [executing, setExecuting] = useState(false);
   const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
@@ -189,7 +194,8 @@ export default function TransferenciasPage() {
           },
           body: JSON.stringify({
             voucher_ids: Array.from(selectedIds),
-            banco_formato: "GENERICO",
+            banco_formato: bancoFormato,
+            cuenta_origen: cuentaOrigen || null,
           }),
         },
       );
@@ -505,10 +511,11 @@ export default function TransferenciasPage() {
 
           {/* Bulk action bar — sticky bottom. Etapa A: agregamos boton
               "Marcar EXECUTED" para cerrar el loop: download Excel →
-              banco → confirmar pago aca. */}
+              banco → confirmar pago aca.
+              Round 103 — selector de formato bancario (GENERICO o SANTANDER). */}
           {selectedIds.size > 0 && (
             <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-cehta-green/30 bg-white p-3 shadow-lg backdrop-blur-md">
-              <div className="flex items-center gap-3 px-2">
+              <div className="flex items-center gap-3 px-2 flex-wrap">
                 <div className="text-sm font-medium text-ink-900">
                   {selectedSummary.count} seleccionados
                 </div>
@@ -520,6 +527,32 @@ export default function TransferenciasPage() {
                     <AlertTriangle className="size-3" />
                     {selectedSummary.sinBanco} sin datos bancarios
                   </div>
+                )}
+                {/* Round 103 — selector formato + cuenta origen */}
+                <div className="flex items-center gap-1.5 border-l border-hairline pl-3">
+                  <label className="text-[10px] uppercase tracking-wider text-ink-500 font-semibold">
+                    Banco:
+                  </label>
+                  <select
+                    value={bancoFormato}
+                    onChange={(e) =>
+                      setBancoFormato(e.target.value as "GENERICO" | "SANTANDER")
+                    }
+                    className="rounded-md border border-hairline px-2 py-1 text-xs"
+                  >
+                    <option value="GENERICO">Genérico</option>
+                    <option value="SANTANDER">Santander</option>
+                  </select>
+                </div>
+                {bancoFormato === "SANTANDER" && (
+                  <input
+                    type="text"
+                    value={cuentaOrigen}
+                    onChange={(e) => setCuentaOrigen(e.target.value)}
+                    placeholder="Cuenta origen"
+                    className="rounded-md border border-hairline px-2 py-1 text-xs font-mono w-32"
+                    title="Cuenta Santander de origen (columna A del template)"
+                  />
                 )}
               </div>
               <div className="flex items-center gap-2">

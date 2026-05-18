@@ -80,7 +80,7 @@ _BORDER = Border(
 # Layout estandar — cubre BCI / Santander / Itau / BBVA / BancoEstado.
 # Cada banco luego pide rearrange manual de columnas, pero estos son los
 # 9 campos universales.
-_HEADERS = [
+_HEADERS_GENERICO = [
     "Cod. Voucher",       # Trazabilidad — no lo suele leer el banco pero util al user
     "Empresa",            # Empresa emisora (CEHTA, EVOQUE, etc.)
     "RUT Beneficiario",   # RUT canonico 12.345.678-9
@@ -94,6 +94,52 @@ _HEADERS = [
     "Fecha Documento",    # Para conciliar
 ]
 
+# Round 103 — Layout exacto del Banco Santander (template provisto por
+# operador: "Plantilla de transferencia Climate Smart Leasing SpA.xlsx").
+# 13 columnas. Algunas son obligatorias solo si el banco destino no es
+# Santander (interbancarias). Los headers se renderean con line break
+# para imitar exactamente el template.
+_HEADERS_SANTANDER = [
+    "Cuenta origen\n(obligatorio)",
+    "Moneda origen\n(obligatorio)",
+    "Cuenta destino\n(obligatorio)",
+    "Moneda destino\n(obligatorio)",
+    "Código banco destino\n(obligatorio solo si banco destino no es Santander)",
+    "RUT beneficiario\n(obligatorio solo si banco destino no es Santander)",
+    "Nombre beneficiario\n(obligatorio solo si banco destino no es Santander)",
+    "Monto transferencia\n(obligatorio)",
+    "Glosa personalizada transferencia\n(opcional)",
+    "Correo beneficiario\n(opcional)",
+    "Mensaje correo beneficiario\n(opcional)",
+    "Glosa cartola originador\n(opcional)",
+    "Glosa cartola beneficiario\n(opcional, solo aplica si cuenta destino es Santander)",
+]
+
+# Mapeo banco_codigo Santander para columna 5. Los principales bancos
+# chilenos tienen codigos numericos asignados por el SBIF/CMF.
+_BANCO_CODIGOS = {
+    "BANCO DE CHILE": "001",
+    "BANCO INTERNACIONAL": "009",
+    "SCOTIABANK": "014",
+    "BCI": "016",
+    "BANCO DEL ESTADO": "012",
+    "BANCOESTADO": "012",
+    "CORPBANCA": "027",
+    "ITAU": "039",
+    "ITAÙ": "039",
+    "HSBC": "031",
+    "DEUTSCHE BANK": "028",
+    "RIPLEY": "053",
+    "BICE": "028",
+    "SECURITY": "049",
+    "FALABELLA": "051",
+    "CONSORCIO": "055",
+    "PARIS": "060",
+    "BBVA": "037",
+    "BTG PACTUAL": "059",
+    "SANTANDER": "037",
+}
+
 
 class TransferenciaMasivaRequest(BaseModel):
     """Body del POST."""
@@ -106,11 +152,19 @@ class TransferenciaMasivaRequest(BaseModel):
             "Maximo 500 por export — si necesitas mas, partilo en lotes."
         ),
     )
-    banco_formato: Literal["GENERICO"] = Field(
+    banco_formato: Literal["GENERICO", "SANTANDER"] = Field(
         default="GENERICO",
         description=(
-            "Formato del Excel. Por ahora solo GENERICO; agregaremos BCI / "
-            "SANTANDER / BANCOESTADO si los pide la operacion."
+            "Formato del Excel: GENERICO (11 cols universales) o "
+            "SANTANDER (13 cols del template oficial Santander)."
+        ),
+    )
+    cuenta_origen: str | None = Field(
+        default=None,
+        max_length=30,
+        description=(
+            "Cuenta origen para columna A en formato SANTANDER. "
+            "Si formato=GENERICO se ignora."
         ),
     )
     incluir_pendientes_aprobacion: bool = Field(
@@ -142,16 +196,32 @@ def _build_workbook(
     *,
     fecha_export: date,
     user_email: str,
+    formato: str = "GENERICO",
+    cuenta_origen: str = "",
 ) -> bytes:
     """Genera el XLSX en memoria.
 
-    Layout:
-      - Fila 1: header de columnas (verde Cehta + bold blanco)
-      - Filas 2..N+1: data
-      - Fila N+2: total monto (negrita, fondo gris)
-      - Hoja "Resumen" adicional con metadata (fecha, user, totales por
-        empresa, banco usado).
+    Round 103 — soporta 2 formatos:
+      - GENERICO: 11 columnas universales (BCI, BBVA, BancoEstado, etc.)
+      - SANTANDER: 13 columnas exactas del template oficial Santander
+        (template provisto por operador).
     """
+    if formato == "SANTANDER":
+        return _build_workbook_santander(
+            rows,
+            fecha_export=fecha_export,
+            user_email=user_email,
+            cuenta_origen=cuenta_origen,
+        )
+    return _build_workbook_generico(
+        rows, fecha_export=fecha_export, user_email=user_email
+    )
+
+
+def _build_workbook_generico(
+    rows: list[dict], *, fecha_export: date, user_email: str
+) -> bytes:
+    """Layout estándar Round 11 — 11 columnas universales."""
     wb = Workbook()
     ws = wb.active
     if ws is None:  # pragma: no cover
@@ -159,7 +229,7 @@ def _build_workbook(
     ws.title = "Transferencias"
 
     # Headers
-    ws.append(_HEADERS)
+    ws.append(_HEADERS_GENERICO)
     for cell in ws[1]:
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
@@ -168,7 +238,7 @@ def _build_workbook(
 
     # Data rows
     total_monto = 0
-    max_lens = [len(h) for h in _HEADERS]
+    max_lens = [len(h) for h in _HEADERS_GENERICO]
     for r in rows:
         row_vals = [
             r["codigo"],
@@ -195,7 +265,7 @@ def _build_workbook(
     total_row_idx = ws.max_row + 1
     ws.cell(row=total_row_idx, column=1, value="TOTAL")
     ws.cell(row=total_row_idx, column=9, value=total_monto)
-    for col in range(1, len(_HEADERS) + 1):
+    for col in range(1, len(_HEADERS_GENERICO) + 1):
         cell = ws.cell(row=total_row_idx, column=col)
         cell.fill = _TOTAL_FILL
         cell.font = _TOTAL_FONT
@@ -232,6 +302,104 @@ def _build_workbook(
     ws2.column_dimensions["A"].width = 22
     ws2.column_dimensions["B"].width = 24
     ws2.column_dimensions["C"].width = 22
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf.read()
+
+
+def _build_workbook_santander(
+    rows: list[dict],
+    *,
+    fecha_export: date,
+    user_email: str,
+    cuenta_origen: str = "",
+) -> bytes:
+    """Round 103 — Layout exacto del Banco Santander template oficial.
+
+    13 columnas con headers multilinea. Cuenta origen viene como input
+    del operador (no la tenemos en DB). Moneda origen/destino = CLP.
+    Codigo banco destino se mapea desde el nombre del banco del proveedor.
+
+    Reglas Santander:
+      - Si cuenta destino es SANTANDER, cols 5/6/7 pueden quedar vacias.
+      - Si NO es Santander, cols 5/6/7 son obligatorios (interbancarias).
+    """
+    wb = Workbook()
+    ws = wb.active
+    if ws is None:  # pragma: no cover
+        raise RuntimeError("openpyxl no inicializo worksheet")
+    ws.title = "Transferencias"
+
+    # Headers — wrap text necesario por los \n en los labels
+    ws.append(_HEADERS_SANTANDER)
+    for cell in ws[1]:
+        cell.fill = _HEADER_FILL
+        cell.font = _HEADER_FONT
+        cell.alignment = Alignment(
+            horizontal="center", vertical="center", wrap_text=True
+        )
+        cell.border = _BORDER
+    # Altura fila header para que se vea el wrap
+    ws.row_dimensions[1].height = 60
+
+    # Data rows
+    total_monto = 0
+    for r in rows:
+        banco_dest_norm = (r["banco"] or "").upper().strip()
+        es_santander = "SANTANDER" in banco_dest_norm
+        codigo_banco = "" if es_santander else _BANCO_CODIGOS.get(
+            banco_dest_norm, ""
+        )
+        row_vals = [
+            cuenta_origen,                                  # Col 1
+            "CLP",                                          # Col 2
+            (str(r["numero_cuenta"]) if r["numero_cuenta"] else ""),  # Col 3
+            "CLP",                                          # Col 4
+            codigo_banco,                                   # Col 5
+            (r["rut"] or "") if not es_santander else "",   # Col 6
+            (r["nombre"] or "") if not es_santander else "", # Col 7
+            _fmt_monto_clp(r["monto"]),                     # Col 8
+            _trunc(r["glosa"] or r["codigo"], 60),          # Col 9 — Glosa personalizada
+            r["email"] or "",                               # Col 10
+            "",                                             # Col 11 — Mensaje correo (vacío default)
+            _trunc(f"Cehta - {r['codigo']}", 30),           # Col 12 — Cartola originador
+            _trunc(r["glosa"] or "", 30) if es_santander else "",  # Col 13
+        ]
+        ws.append(row_vals)
+        total_monto += _fmt_monto_clp(r["monto"])
+
+    # Sin fila TOTAL (el banco no la lee). Solo data limpia.
+
+    # Format monto col 8 con thousand separator + sin decimales
+    for row in ws.iter_rows(min_row=2, min_col=8, max_col=8):
+        for cell in row:
+            cell.number_format = "#,##0"
+
+    # Anchos razonables por columna (Santander mide chars)
+    widths = [18, 10, 18, 10, 18, 18, 30, 14, 32, 28, 32, 22, 28]
+    for i, w in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+    ws.freeze_panes = "A2"
+
+    # Hoja "Instrucciones" con info del operador
+    ws2 = wb.create_sheet(title="Instrucciones")
+    ws2.append(["PLANTILLA DE TRANSFERENCIA · BANCO SANTANDER"])
+    ws2.append([])
+    ws2.append(["Generado:", fecha_export.isoformat()])
+    ws2.append(["Usuario:", user_email])
+    ws2.append(["Cantidad transferencias:", len(rows)])
+    ws2.append(["Monto total CLP:", total_monto])
+    ws2.append([])
+    ws2.append(["Cómo usar:"])
+    ws2.append(["1. Completar 'Cuenta origen' (col A) con tu cuenta Santander de origen."])
+    ws2.append(["2. Verificar 'Cuenta destino' (col C) — debe tener formato numérico sin guiones."])
+    ws2.append(["3. Si beneficiario es Santander, cols E/F/G pueden quedar vacías."])
+    ws2.append(["4. Subir XLSX al portal de Pagos Masivos del Santander."])
+    ws2.column_dimensions["A"].width = 32
+    ws2.column_dimensions["B"].width = 40
+    ws2["A1"].font = Font(bold=True, size=13, color="236C4F")
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -351,7 +519,11 @@ async def export_transferencia_masiva(
 
     today = date.today()
     xlsx_bytes = _build_workbook(
-        rows, fecha_export=today, user_email=str(getattr(user, "email", user.sub))
+        rows,
+        fecha_export=today,
+        user_email=str(getattr(user, "email", user.sub)),
+        formato=body.banco_formato,
+        cuenta_origen=body.cuenta_origen or "",
     )
 
     # Audit log — quien, cuando, que vouchers, total
