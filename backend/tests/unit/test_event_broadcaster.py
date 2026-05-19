@@ -20,6 +20,7 @@ import asyncio
 import pytest
 
 from app.services.event_broadcaster import (
+    MAX_SUBSCRIPTIONS_PER_USER,
     QUEUE_MAX_SIZE,
     EventBroadcaster,
     Subscription,
@@ -79,6 +80,45 @@ def test_clear_resets_all_subscriptions(
     broadcaster.subscribe(user_id="u2")
     broadcaster.clear()
     assert broadcaster.subscriber_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Round 110 — Per-user cap defensivo
+# ---------------------------------------------------------------------------
+
+
+def test_subscribe_evicts_oldest_when_user_at_cap(
+    broadcaster: EventBroadcaster,
+) -> None:
+    """Si un user excede MAX_SUBSCRIPTIONS_PER_USER, la mas vieja sale."""
+    subs = [
+        broadcaster.subscribe(user_id="u1")
+        for _ in range(MAX_SUBSCRIPTIONS_PER_USER)
+    ]
+    assert broadcaster.subscriber_count == MAX_SUBSCRIPTIONS_PER_USER
+
+    # La (N+1)esima eyecta la mas vieja
+    new_sub = broadcaster.subscribe(user_id="u1")
+    assert broadcaster.subscriber_count == MAX_SUBSCRIPTIONS_PER_USER
+    # La sub[0] ya no esta en el broadcaster
+    assert subs[0] not in broadcaster._subscriptions
+    # La nueva si
+    assert new_sub in broadcaster._subscriptions
+
+
+def test_per_user_cap_does_not_affect_other_users(
+    broadcaster: EventBroadcaster,
+) -> None:
+    """El cap es por user_id — u2 puede subscribirse sin afectar a u1."""
+    for _ in range(MAX_SUBSCRIPTIONS_PER_USER):
+        broadcaster.subscribe(user_id="u1")
+    for _ in range(MAX_SUBSCRIPTIONS_PER_USER):
+        broadcaster.subscribe(user_id="u2")
+    # Ambos llegan al cap, sin interferencia
+    u1_subs = [s for s in broadcaster._subscriptions if s.user_id == "u1"]
+    u2_subs = [s for s in broadcaster._subscriptions if s.user_id == "u2"]
+    assert len(u1_subs) == MAX_SUBSCRIPTIONS_PER_USER
+    assert len(u2_subs) == MAX_SUBSCRIPTIONS_PER_USER
 
 
 # ---------------------------------------------------------------------------

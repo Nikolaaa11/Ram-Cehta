@@ -52,6 +52,16 @@ log = structlog.get_logger(__name__)
 # empezamos a descartar eventos viejos para no bloquear los publish().
 QUEUE_MAX_SIZE = 100
 
+# Round 110 — Tope de suscripciones simultáneas por user_id.
+# Caso real: browsers con bundles JS viejos cacheados re-abrían
+# EventSource 10 veces por segundo (Round 105 fix no estaba aún en su
+# cache). Cada subscribe agrega a la lista plana → memoria + tiempo de
+# fanout crecen sin techo. Cap defensivo: si un user excede 5 conexiones
+# concurrentes, eyectamos la más vieja en cada subscribe nuevo.
+# 5 = cobertura razonable de pestañas múltiples (1 dashboard + 2-3 tabs
+# operativos) con margen.
+MAX_SUBSCRIPTIONS_PER_USER = 5
+
 
 @dataclass
 class Subscription:
@@ -93,13 +103,32 @@ class EventBroadcaster:
 
         Devuelve la Subscription; el caller debe pasársela a
         `unsubscribe()` cuando cierre la conexión.
+
+        Round 110 — Si el user ya tiene MAX_SUBSCRIPTIONS_PER_USER, eyecta
+        la más vieja antes de agregar la nueva. Defensivo contra clientes
+        que reconectan en loop por bug o JS cacheado viejo.
         """
+        # FIFO eviction si el user ya está al tope.
+        existing = [s for s in self._subscriptions if s.user_id == user_id]
+        if len(existing) >= MAX_SUBSCRIPTIONS_PER_USER:
+            # La más vieja viene primero en la lista (append-only insert).
+            oldest = existing[0]
+            self._subscriptions.remove(oldest)
+            log.warning(
+                "sse_subscribe_evicted_oldest",
+                user_id=user_id,
+                evicted_count=1,
+                user_active=len(existing) - 1,
+                reason="per_user_cap_exceeded",
+            )
+
         sub = Subscription(user_id=user_id, role=role)
         self._subscriptions.append(sub)
         log.info(
             "sse_subscribe",
             user_id=user_id,
             role=role,
+            user_active=len(existing) + (0 if len(existing) >= MAX_SUBSCRIPTIONS_PER_USER else 1),
             total=len(self._subscriptions),
         )
         return sub
