@@ -351,6 +351,14 @@ const GROUPS: NavGroup[] = [
         title:
           "Sincronizar el Registro de Compras y Ventas del SII, conciliar con vouchers locales, ver F29 estimado y crear vouchers desde DTE no conciliados.",
       },
+      // Round 123 — Nubox remuneraciones
+      {
+        href: "/admin/nubox" as Route,
+        label: "Integración Nubox (sueldos)",
+        icon: Users,
+        title:
+          "Libro de Remuneraciones de Nubox. Auto-sync best-effort + upload manual del xlsx. Resumen mensual de haberes, descuentos, AFP, salud y aportes patronales.",
+      },
       {
         href: "/admin/empresas" as Route,
         label: "Empresas portfolio",

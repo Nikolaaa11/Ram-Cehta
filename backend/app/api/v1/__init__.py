@@ -41,6 +41,7 @@ from app.api.v1 import (
     movimientos,
     notifications,
     notifications_inbox,
+    nubox,
     nubox_export,
     ordenes_compra,
     ordenes_compra_extract,
@@ -115,6 +116,8 @@ api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
 api_router.include_router(admin_data.router, prefix="/admin", tags=["admin-data"])
 # Round 117 — SII (Servicio de Impuestos Internos Chile) integration
 api_router.include_router(sii.router, prefix="/admin/sii", tags=["sii"])
+# Round 123 — Nubox (remuneraciones, libro de sueldos)
+api_router.include_router(nubox.router, prefix="/admin/nubox", tags=["nubox"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
 api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["trabajadores"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
