@@ -20,6 +20,7 @@ import type { Route } from "next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Calculator,
   CheckCircle2,
   Download,
   GitMerge,
@@ -54,6 +55,33 @@ interface SiiRun {
   finished_at: string | null;
   documentos_count: number;
   error_message: string | null;
+}
+
+interface TipoDteBreakdown {
+  tipo_dte: number;
+  nombre: string;
+  count: number;
+  monto_neto: number;
+  monto_iva: number;
+  monto_total: number;
+}
+
+interface F29Preview {
+  empresa_codigo: string;
+  periodo: string;
+  ventas_count: number;
+  compras_count: number;
+  iva_debito_fiscal: number;
+  iva_credito_fiscal: number;
+  ventas_total: number;
+  compras_total: number;
+  ventas_neto: number;
+  compras_neto: number;
+  f29_estimado_a_pagar: number;
+  docs_conciliados: number;
+  docs_sin_voucher: number;
+  ventas_por_tipo: TipoDteBreakdown[];
+  compras_por_tipo: TipoDteBreakdown[];
 }
 
 interface SiiDocumento {
@@ -120,6 +148,17 @@ export default function SiiAdminPage() {
     queryFn: () =>
       apiClient.get<SiiRun[]>(
         `/admin/sii/runs/${selectedEmpresa}`,
+        session,
+      ),
+    enabled: !!session && !!selectedEmpresa,
+  });
+
+  // Round 119 — F29 estimado a partir del RCV
+  const { data: f29Preview } = useQuery<F29Preview>({
+    queryKey: ["sii-f29-preview", selectedEmpresa, periodo],
+    queryFn: () =>
+      apiClient.get<F29Preview>(
+        `/admin/sii/f29-preview/${selectedEmpresa}?periodo=${periodo}`,
         session,
       ),
     enabled: !!session && !!selectedEmpresa,
@@ -528,6 +567,181 @@ export default function SiiAdminPage() {
           </div>
         </section>
       )}
+
+      {/* Round 119 — F29 preview */}
+      {selectedEmpresa &&
+        f29Preview &&
+        (f29Preview.ventas_count > 0 || f29Preview.compras_count > 0) && (
+          <section className="rounded-2xl bg-gradient-to-br from-cehta-green/[0.06] via-white to-cehta-green/[0.03] ring-1 ring-cehta-green/20 p-6">
+            <header className="flex items-center justify-between mb-4">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-cehta-green/10 px-3 py-1 ring-1 ring-cehta-green/20">
+                  <Calculator className="size-3.5 text-cehta-green" />
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                    F29 estimado · {selectedEmpresa} · {periodo}
+                  </p>
+                </div>
+                <h2 className="mt-2 font-display text-2xl font-semibold text-ink-900">
+                  {f29Preview.f29_estimado_a_pagar > 0 ? "A pagar" : "Saldo a favor"}:{" "}
+                  <span
+                    className={
+                      f29Preview.f29_estimado_a_pagar > 0
+                        ? "text-red-700"
+                        : "text-cehta-green"
+                    }
+                  >
+                    {fmtCLP(Math.abs(f29Preview.f29_estimado_a_pagar))}
+                  </span>
+                </h2>
+                <p className="text-xs text-ink-500 mt-1">
+                  Cálculo: IVA débito (ventas) − IVA crédito (compras). Las
+                  notas de crédito se restan en ambos flujos. Preview — no
+                  reemplaza el F29 oficial del SII.
+                </p>
+              </div>
+            </header>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-white ring-1 ring-hairline p-3">
+                <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                  IVA Débito (ventas)
+                </p>
+                <p className="font-mono text-lg font-semibold tabular-nums text-ink-900 mt-1">
+                  {fmtCLP(f29Preview.iva_debito_fiscal)}
+                </p>
+                <p className="text-[10px] text-ink-400 mt-0.5">
+                  {f29Preview.ventas_count} docs · neto{" "}
+                  {fmtCLP(f29Preview.ventas_neto)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white ring-1 ring-hairline p-3">
+                <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                  IVA Crédito (compras)
+                </p>
+                <p className="font-mono text-lg font-semibold tabular-nums text-ink-900 mt-1">
+                  {fmtCLP(f29Preview.iva_credito_fiscal)}
+                </p>
+                <p className="text-[10px] text-ink-400 mt-0.5">
+                  {f29Preview.compras_count} docs · neto{" "}
+                  {fmtCLP(f29Preview.compras_neto)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white ring-1 ring-hairline p-3">
+                <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                  Total ventas
+                </p>
+                <p className="font-mono text-lg font-semibold tabular-nums text-ink-900 mt-1">
+                  {fmtCLP(f29Preview.ventas_total)}
+                </p>
+              </div>
+              <div className="rounded-xl bg-white ring-1 ring-hairline p-3">
+                <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                  Total compras
+                </p>
+                <p className="font-mono text-lg font-semibold tabular-nums text-ink-900 mt-1">
+                  {fmtCLP(f29Preview.compras_total)}
+                </p>
+              </div>
+            </div>
+
+            {/* Alerta de conciliación */}
+            {f29Preview.docs_sin_voucher > 0 && (
+              <div className="mt-4 rounded-lg bg-amber-50 ring-1 ring-amber-200 p-3 text-xs text-amber-900">
+                ⚠️ <strong>{f29Preview.docs_sin_voucher} documentos del SII</strong>{" "}
+                no están conciliados con vouchers locales. Probable que falten
+                cargar como voucher. Apretá &quot;Conciliar con vouchers&quot; arriba
+                para reintentar el match automático.
+              </div>
+            )}
+            {f29Preview.docs_sin_voucher === 0 && (
+              <div className="mt-4 rounded-lg bg-cehta-green/10 ring-1 ring-cehta-green/20 p-3 text-xs text-cehta-green">
+                ✓ Todos los documentos del SII están conciliados con vouchers
+                ({f29Preview.docs_conciliados} matcheados).
+              </div>
+            )}
+
+            {/* Breakdown por tipo DTE */}
+            <details className="mt-4 group">
+              <summary className="cursor-pointer text-xs font-medium text-ink-600 hover:text-cehta-green">
+                Ver desglose por tipo DTE →
+              </summary>
+              <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 mb-2">
+                    Ventas por tipo
+                  </p>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-ink-500">
+                        <th className="pb-1">Tipo</th>
+                        <th className="pb-1 text-right">Cant.</th>
+                        <th className="pb-1 text-right">IVA</th>
+                        <th className="pb-1 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {f29Preview.ventas_por_tipo.map((b) => (
+                        <tr key={`v-${b.tipo_dte}`} className="border-t border-hairline">
+                          <td className="py-1">{b.nombre}</td>
+                          <td className="py-1 text-right font-mono">{b.count}</td>
+                          <td className="py-1 text-right font-mono">
+                            {fmtCLP(b.monto_iva)}
+                          </td>
+                          <td className="py-1 text-right font-mono">
+                            {fmtCLP(b.monto_total)}
+                          </td>
+                        </tr>
+                      ))}
+                      {f29Preview.ventas_por_tipo.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-1 text-ink-400">
+                            Sin ventas registradas en este período
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 mb-2">
+                    Compras por tipo
+                  </p>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-ink-500">
+                        <th className="pb-1">Tipo</th>
+                        <th className="pb-1 text-right">Cant.</th>
+                        <th className="pb-1 text-right">IVA</th>
+                        <th className="pb-1 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {f29Preview.compras_por_tipo.map((b) => (
+                        <tr key={`c-${b.tipo_dte}`} className="border-t border-hairline">
+                          <td className="py-1">{b.nombre}</td>
+                          <td className="py-1 text-right font-mono">{b.count}</td>
+                          <td className="py-1 text-right font-mono">
+                            {fmtCLP(b.monto_iva)}
+                          </td>
+                          <td className="py-1 text-right font-mono">
+                            {fmtCLP(b.monto_total)}
+                          </td>
+                        </tr>
+                      ))}
+                      {f29Preview.compras_por_tipo.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="py-1 text-ink-400">
+                            Sin compras registradas en este período
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </details>
+          </section>
+        )}
 
       {/* Documentos descargados */}
       {selectedEmpresa && (

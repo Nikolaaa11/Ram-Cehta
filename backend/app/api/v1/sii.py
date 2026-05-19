@@ -130,6 +130,38 @@ class ConciliarResponse(BaseModel):
     unmatched: int
 
 
+class TipoDteBreakdown(BaseModel):
+    tipo_dte: int
+    nombre: str
+    count: int
+    monto_neto: int
+    monto_iva: int
+    monto_total: int
+
+
+class F29PreviewResponse(BaseModel):
+    """Round 119 — F29 estimado a partir del RCV del SII."""
+    empresa_codigo: str
+    periodo: str
+    # Sumas globales
+    ventas_count: int
+    compras_count: int
+    iva_debito_fiscal: int  # IVA cobrado en ventas (sum monto_iva ventas)
+    iva_credito_fiscal: int  # IVA pagado en compras (sum monto_iva compras)
+    ventas_total: int
+    compras_total: int
+    ventas_neto: int
+    compras_neto: int
+    # F29 estimado: si débito > crédito → a pagar; sino → saldo a favor
+    f29_estimado_a_pagar: int  # positive = a pagar; negative = saldo a favor
+    # Conciliación con vouchers
+    docs_conciliados: int
+    docs_sin_voucher: int
+    # Breakdown por tipo de doc tributario
+    ventas_por_tipo: list[TipoDteBreakdown]
+    compras_por_tipo: list[TipoDteBreakdown]
+
+
 # =====================================================================
 # Helpers
 # =====================================================================
@@ -710,4 +742,161 @@ async def conciliar(
         matched_exact=result.matched_exact,
         matched_fuzzy=result.matched_fuzzy,
         unmatched=result.unmatched,
+    )
+
+
+# =====================================================================
+# Round 119 — F29 estimado a partir del RCV bajado del SII
+# =====================================================================
+
+# Nombres legibles de los DTE más comunes (espejo del frontend DTE_NAMES)
+_DTE_NAMES_BACKEND: dict[int, str] = {
+    33: "Factura",
+    34: "Factura exenta",
+    39: "Boleta",
+    41: "Boleta exenta",
+    43: "Liquidación factura",
+    46: "Factura compra",
+    52: "Guía despacho",
+    56: "Nota débito",
+    61: "Nota crédito",
+    110: "Factura exportación",
+    111: "Nota débito exportación",
+    112: "Nota crédito exportación",
+}
+
+
+@router.get(
+    "/f29-preview/{empresa_codigo}",
+    response_model=F29PreviewResponse,
+)
+async def f29_preview(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+    periodo: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")],
+) -> F29PreviewResponse:
+    """Estima el F29 a pagar para un período a partir del RCV bajado.
+
+    F29 simplificado:
+        IVA a pagar = SUM(IVA débito ventas) - SUM(IVA crédito compras)
+        Las notas de crédito (tipo 61) en ventas SE RESTAN del débito.
+        Las notas de crédito recibidas (tipo 61) en compras SE RESTAN del crédito.
+
+    Esta vista NO reemplaza el F29 oficial — es un preview que el
+    operador usa para preparar la declaración o detectar gaps.
+    """
+    await _require_admin(user)
+
+    # 1. Sumas globales por flujo, ajustando notas de crédito como negativas
+    sums = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    flujo,
+                    -- Las notas de crédito (tipo 61) reducen el monto
+                    SUM(CASE WHEN tipo_dte = 61 THEN -monto_iva ELSE monto_iva END) AS iva_sum,
+                    SUM(CASE WHEN tipo_dte = 61 THEN -monto_total ELSE monto_total END) AS total_sum,
+                    SUM(CASE WHEN tipo_dte = 61 THEN -monto_neto ELSE monto_neto END) AS neto_sum,
+                    COUNT(*) AS cnt
+                FROM core.sii_documentos
+                WHERE empresa_codigo = :e AND periodo = :p
+                GROUP BY flujo
+                """
+            ),
+            {"e": empresa_codigo, "p": periodo},
+        )
+    ).fetchall()
+
+    iva_debito = 0  # ventas
+    iva_credito = 0  # compras
+    ventas_count = 0
+    compras_count = 0
+    ventas_total = 0
+    compras_total = 0
+    ventas_neto = 0
+    compras_neto = 0
+    for s in sums:
+        if s[0] == "venta":
+            iva_debito = int(s[1] or 0)
+            ventas_total = int(s[2] or 0)
+            ventas_neto = int(s[3] or 0)
+            ventas_count = int(s[4] or 0)
+        elif s[0] == "compra":
+            iva_credito = int(s[1] or 0)
+            compras_total = int(s[2] or 0)
+            compras_neto = int(s[3] or 0)
+            compras_count = int(s[4] or 0)
+
+    # 2. Conciliación stats
+    concil = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE voucher_id IS NOT NULL) AS conciled,
+                    COUNT(*) FILTER (WHERE voucher_id IS NULL) AS uncocniled
+                FROM core.sii_documentos
+                WHERE empresa_codigo = :e AND periodo = :p
+                """
+            ),
+            {"e": empresa_codigo, "p": periodo},
+        )
+    ).fetchone()
+    docs_conciliados = int(concil[0] or 0)
+    docs_sin_voucher = int(concil[1] or 0)
+
+    # 3. Breakdown por tipo DTE (separado venta vs compra)
+    breakdown_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT flujo, tipo_dte,
+                       COUNT(*) AS cnt,
+                       SUM(monto_neto) AS neto,
+                       SUM(monto_iva) AS iva,
+                       SUM(monto_total) AS total
+                FROM core.sii_documentos
+                WHERE empresa_codigo = :e AND periodo = :p
+                GROUP BY flujo, tipo_dte
+                ORDER BY flujo, tipo_dte
+                """
+            ),
+            {"e": empresa_codigo, "p": periodo},
+        )
+    ).fetchall()
+
+    ventas_por_tipo: list[TipoDteBreakdown] = []
+    compras_por_tipo: list[TipoDteBreakdown] = []
+    for r in breakdown_rows:
+        item = TipoDteBreakdown(
+            tipo_dte=int(r[1]),
+            nombre=_DTE_NAMES_BACKEND.get(int(r[1]), f"DTE {r[1]}"),
+            count=int(r[2] or 0),
+            monto_neto=int(r[3] or 0),
+            monto_iva=int(r[4] or 0),
+            monto_total=int(r[5] or 0),
+        )
+        if r[0] == "venta":
+            ventas_por_tipo.append(item)
+        else:
+            compras_por_tipo.append(item)
+
+    return F29PreviewResponse(
+        empresa_codigo=empresa_codigo,
+        periodo=periodo,
+        ventas_count=ventas_count,
+        compras_count=compras_count,
+        iva_debito_fiscal=iva_debito,
+        iva_credito_fiscal=iva_credito,
+        ventas_total=ventas_total,
+        compras_total=compras_total,
+        ventas_neto=ventas_neto,
+        compras_neto=compras_neto,
+        f29_estimado_a_pagar=iva_debito - iva_credito,
+        docs_conciliados=docs_conciliados,
+        docs_sin_voucher=docs_sin_voucher,
+        ventas_por_tipo=ventas_por_tipo,
+        compras_por_tipo=compras_por_tipo,
     )
