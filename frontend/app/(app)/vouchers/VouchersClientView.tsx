@@ -625,7 +625,7 @@ export function VouchersClientView({
                 }
                 exportCsv({
                   filename: csvFilename(
-                    `vouchers_${empresaFilter || "all"}`,
+                    `vouchers_${empresaFilter || "all"}${proyectoFilter ? `_${proyectoFilter}` : ""}`,
                   ),
                   headers: [
                     "Código",
@@ -638,6 +638,9 @@ export function VouchersClientView({
                     "Total crédito",
                     "Moneda",
                     "Estado",
+                    // Round 108 — Proyecto contable dominante (de la primera línea
+                    // con proyecto_codigo). Necesario para reportería por proyecto.
+                    "Proyecto",
                   ],
                   rows: filteredVouchers.map((v) => [
                     v.codigo,
@@ -650,6 +653,7 @@ export function VouchersClientView({
                     v.total_credit,
                     v.moneda,
                     v.status,
+                    v.proyecto_dominante ?? "",
                   ]),
                 });
                 toast.success(`${filteredVouchers.length} vouchers exportados`);

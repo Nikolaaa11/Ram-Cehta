@@ -118,13 +118,24 @@ export default function ProyectoAdminPage({
 
   return (
     <div className="mx-auto max-w-[1024px] px-6 py-8 space-y-6">
-      <Link
-        href={"/admin/subsidios/CORFO-2026-REVTECH-TRONGKAI" as Route}
-        className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-cehta-green"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Volver al subsidio
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href={"/admin/subsidios/CORFO-2026-REVTECH-TRONGKAI" as Route}
+          className="inline-flex items-center gap-1.5 text-sm text-ink-500 hover:text-cehta-green"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver al subsidio
+        </Link>
+        {/* Round 108 — Link rápido a la lista de vouchers ya filtrada por
+            este proyecto. Cierra el loop: desde el dashboard del proyecto
+            al detalle de cada gasto. */}
+        <Link
+          href={`/vouchers?proyecto=${codigo}&empresa=${proyecto.empresa_codigo}` as Route}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green/10 px-3 py-1.5 text-xs font-medium text-cehta-green ring-1 ring-cehta-green/20 hover:bg-cehta-green/15"
+        >
+          Ver vouchers de este proyecto →
+        </Link>
+      </div>
 
       {/* Header — Round 99: hero pattern unificado */}
       <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
