@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1 import (
+    admin_data,
     admin_users,
     ai,
     api_tokens,
@@ -110,6 +111,8 @@ api_router.include_router(
 # endpoints amigables para UI: /user/{email}, /empresa/{codigo}, /timeline.
 api_router.include_router(bitacora.router, prefix="/bitacora", tags=["bitacora"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
+# Round 120 — Vista admin de la data del fondo (empresas + directorio + inversionistas)
+api_router.include_router(admin_data.router, prefix="/admin", tags=["admin-data"])
 # Round 117 — SII (Servicio de Impuestos Internos Chile) integration
 api_router.include_router(sii.router, prefix="/admin/sii", tags=["sii"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
