@@ -75,6 +75,8 @@ interface MisPendientesItem {
   dias_pendiente: number;
   primer_adjunto_dropbox_path: string | null;
   primer_adjunto_id: number | null;
+  // Round 112 — Proyecto contable dominante (primera linea con proyecto)
+  proyecto_dominante: string | null;
 }
 
 interface MisPendientesResponse {
@@ -630,6 +632,19 @@ function VoucherApprovalCard({
             <span className="text-ink-700">
               {item.creador_email ?? "—"}
             </span>
+            {item.proyecto_dominante && (
+              <>
+                {" · "}
+                Proyecto:{" "}
+                <Link
+                  href={`/admin/proyectos/${item.proyecto_dominante}` as Route}
+                  className="font-mono text-cehta-green hover:underline"
+                  title="Ver detalle del proyecto"
+                >
+                  {item.proyecto_dominante}
+                </Link>
+              </>
+            )}
             {item.matched_rule_descripcion && (
               <>
                 {" · "}

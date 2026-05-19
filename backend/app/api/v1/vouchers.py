@@ -2259,6 +2259,10 @@ class MisPendientesItem(BaseModel):
     # V5++ ola CJ — attachment_id del primer adjunto, para que el FE
     # pueda linkear directo a /vouchers/{vid}/attachments/{aid}/url
     primer_adjunto_id: int | None
+    # Round 112 — Proyecto contable dominante (primera linea con proyecto_codigo
+    # no null). Permite al aprobador ver de un vistazo a que centro de costo
+    # corresponde el gasto antes de firmar.
+    proyecto_dominante: str | None = None
 
 
 class MisPendientesResponse(BaseModel):
@@ -2399,6 +2403,22 @@ async def list_mis_pendientes(
     for a in appr_rows:
         approvals_by_voucher.setdefault(a["voucher_id"], []).append(dict(a))
 
+    # Round 112 — Bulk proyecto dominante: primera linea con proyecto_codigo
+    # no null por voucher. Reusa el partial index `idx_voucher_lines_proyecto`.
+    proy_rows = (await db.execute(
+        text(
+            """
+            SELECT DISTINCT ON (voucher_id) voucher_id, proyecto_codigo
+            FROM core.voucher_lines
+            WHERE voucher_id = ANY(:ids)
+              AND proyecto_codigo IS NOT NULL
+            ORDER BY voucher_id, line_number ASC
+            """
+        ),
+        {"ids": voucher_ids},
+    )).fetchall()
+    proyecto_by_voucher: dict[int, str] = {r[0]: r[1] for r in proy_rows}
+
     items: list[MisPendientesItem] = []
     rules_cache: dict[str, list[dict[str, Any]]] = {}
     now = datetime.now(tz=UTC)
@@ -2471,6 +2491,7 @@ async def list_mis_pendientes(
             dias_pendiente=dias_pendiente,
             primer_adjunto_dropbox_path=vr["primer_adjunto"],
             primer_adjunto_id=vr["primer_adjunto_id"],
+            proyecto_dominante=proyecto_by_voucher.get(vr["voucher_id"]),
         ))
 
     # Ordenar por dias_pendiente DESC (mas urgentes primero), luego total DESC.
