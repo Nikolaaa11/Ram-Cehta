@@ -22,9 +22,11 @@ import {
   ArrowLeft,
   CheckCircle2,
   Download,
+  GitMerge,
   RefreshCw,
   Shield,
   TestTube2,
+  Upload,
   XCircle,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
@@ -181,6 +183,72 @@ export default function SiiAdminPage() {
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : "Error";
       toast.error(`Sync falló: ${msg}`);
+    },
+  });
+
+  // Round 118 — Conciliar SII docs <-> vouchers
+  const conciliarMut = useMutation({
+    mutationFn: async (vars: { empresa: string; periodo?: string }) => {
+      const qs = vars.periodo ? `?periodo=${vars.periodo}` : "";
+      return apiClient.post<{
+        total_processed: number;
+        matched_exact: number;
+        matched_fuzzy: number;
+        unmatched: number;
+      }>(`/admin/sii/conciliar/${vars.empresa}${qs}`, {}, session);
+    },
+    onSuccess: (data) => {
+      toast.success(
+        `Conciliación: ${data.matched_exact} match exacto, ${data.matched_fuzzy} fuzzy, ${data.unmatched} sin matchear`,
+      );
+      qc.invalidateQueries({ queryKey: ["sii-documentos"] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast.error(`Conciliación falló: ${msg}`);
+    },
+  });
+
+  // Round 118 — Import CSV manual del portal SII
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [csvFlujo, setCsvFlujo] = useState<"compra" | "venta">("compra");
+  const importCsvMut = useMutation({
+    mutationFn: async (vars: { empresa: string; file: File; flujo: string; periodo: string }) => {
+      const formData = new FormData();
+      formData.append("file", vars.file);
+      const url = `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/admin/sii/import-csv/${vars.empresa}?flujo=${vars.flujo}&periodo_default=${vars.periodo}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: formData,
+      });
+      if (!resp.ok) {
+        const errText = await resp.text();
+        throw new Error(`${resp.status}: ${errText.slice(0, 200)}`);
+      }
+      return resp.json() as Promise<{
+        inserted: number;
+        updated: number;
+        errors: string[];
+      }>;
+    },
+    onSuccess: (data) => {
+      toast.success(
+        `Import OK: ${data.inserted} nuevos, ${data.updated} actualizados${data.errors.length ? ` (${data.errors.length} warns)` : ""}`,
+      );
+      if (data.errors.length > 0) {
+        console.warn("Import CSV errores:", data.errors);
+      }
+      setCsvFile(null);
+      qc.invalidateQueries({ queryKey: ["sii-empresas"] });
+      qc.invalidateQueries({ queryKey: ["sii-documentos"] });
+      qc.invalidateQueries({ queryKey: ["sii-runs"] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast.error(`Import falló: ${msg}`);
     },
   });
 
@@ -397,7 +465,69 @@ export default function SiiAdminPage() {
             <option value="venta">Solo ventas</option>
           </select>
         </label>
+        {selectedEmpresa && (
+          <button
+            type="button"
+            disabled={conciliarMut.isPending}
+            onClick={() =>
+              conciliarMut.mutate({ empresa: selectedEmpresa, periodo })
+            }
+            className="inline-flex items-center gap-1.5 rounded-md bg-cehta-green/10 px-3 py-1.5 text-xs font-medium text-cehta-green ring-1 ring-cehta-green/20 hover:bg-cehta-green/15 disabled:opacity-50"
+            title="Matchear documentos SII con vouchers locales"
+          >
+            <GitMerge className="size-3" />
+            {conciliarMut.isPending ? "Conciliando..." : "Conciliar con vouchers"}
+          </button>
+        )}
       </section>
+
+      {/* Round 118 — Import CSV manual */}
+      {selectedEmpresa && (
+        <section className="rounded-2xl bg-amber-50/40 ring-1 ring-amber-200 p-4">
+          <h3 className="font-display text-sm font-semibold text-amber-900 mb-2">
+            ⬆️ Fallback: subir CSV bajado del portal sii.cl
+          </h3>
+          <p className="text-xs text-amber-800 mb-3 max-w-2xl">
+            Si el botón &quot;Sync&quot; arriba falla porque el SII cambió su portal, podés
+            bajar el CSV manualmente (sii.cl → Servicios online → Registro Compras y
+            Ventas → Descargar) y subirlo acá. Mismo destino,
+            <code className="font-mono mx-1 px-1 bg-amber-100 rounded">core.sii_documentos</code>.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={csvFlujo}
+              onChange={(e) => setCsvFlujo(e.target.value as "compra" | "venta")}
+              className="rounded-md border-0 bg-white px-2 py-1.5 text-xs ring-1 ring-hairline"
+            >
+              <option value="compra">Compras (CSV)</option>
+              <option value="venta">Ventas (CSV)</option>
+            </select>
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt"
+              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
+              className="text-xs"
+            />
+            <button
+              type="button"
+              disabled={!csvFile || importCsvMut.isPending}
+              onClick={() => {
+                if (!csvFile || !selectedEmpresa) return;
+                importCsvMut.mutate({
+                  empresa: selectedEmpresa,
+                  file: csvFile,
+                  flujo: csvFlujo,
+                  periodo,
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+            >
+              <Upload className="size-3" />
+              {importCsvMut.isPending ? "Subiendo..." : "Subir CSV"}
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Documentos descargados */}
       {selectedEmpresa && (

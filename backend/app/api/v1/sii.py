@@ -25,11 +25,12 @@ Seguridad:
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import date, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -45,6 +46,8 @@ from app.services.sii_client import (
     SiiClientError,
     test_login as sii_test_login,
 )
+from app.services.sii_conciliacion import conciliar_empresa
+from app.services.sii_csv_import import parse_csv_rcv
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -109,6 +112,22 @@ class SiiRunRead(BaseModel):
     finished_at: datetime | None
     documentos_count: int
     error_message: str | None
+
+
+class ImportCsvResponse(BaseModel):
+    inserted: int
+    updated: int
+    errors: list[str]
+    run_id: int
+
+
+class ConciliarResponse(BaseModel):
+    empresa_codigo: str
+    periodo: str | None
+    total_processed: int
+    matched_exact: int
+    matched_fuzzy: int
+    unmatched: int
 
 
 # =====================================================================
@@ -383,7 +402,7 @@ async def sync_rcv(
                         "mexe": d.monto_exento, "mneto": d.monto_neto,
                         "miva": d.monto_iva, "mtot": d.monto_total,
                         "est": d.estado_sii, "rid": run_id,
-                        "raw": __import__("json").dumps(d.raw, default=str),
+                        "raw": json.dumps(d.raw, default=str),
                     },
                 )
 
@@ -515,3 +534,180 @@ async def list_documentos(
         )
         for r in rows
     ]
+
+
+# =====================================================================
+# Round 118 — Import CSV manual (fallback robusto)
+# =====================================================================
+
+
+@router.post(
+    "/import-csv/{empresa_codigo}",
+    response_model=ImportCsvResponse,
+)
+async def import_csv_rcv(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+    flujo: Annotated[str, Query(pattern=r"^(compra|venta)$")],
+    periodo_default: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")],
+    file: Annotated[UploadFile, File(description="CSV bajado del portal SII")],
+) -> ImportCsvResponse:
+    """Import manual de RCV desde CSV bajado del portal sii.cl.
+
+    El operador baja el CSV de sii.cl (RCV → Descargar) y lo sube via
+    multipart/form-data. Útil cuando la auto-sync (httpx) falla por
+    cambios del portal.
+
+    El parser tolera reordering de columnas, encodings cp1252/latin1/utf-8,
+    delimitador `;` o `,`, y filas vacías intercaladas.
+    """
+    await _require_admin(user)
+
+    if not file.filename or not file.filename.lower().endswith(
+        (".csv", ".tsv", ".txt"),
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Archivo debe ser .csv, .tsv o .txt",
+        )
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:  # 10 MB cap
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Archivo demasiado grande (>10MB). El SII raramente devuelve eso.",
+        )
+
+    docs, errors = parse_csv_rcv(
+        content, flujo=flujo, periodo_default=periodo_default,
+    )
+
+    # Crear run de tipo rcv_compras o rcv_ventas
+    run_tipo = "rcv_compras" if flujo == "compra" else "rcv_ventas"
+    run_row = (
+        await db.execute(
+            text(
+                """
+                INSERT INTO core.sii_sync_runs
+                    (empresa_codigo, tipo, periodo, status, triggered_by, notas)
+                VALUES (:c, :t, :p, 'STARTED', CAST(:u AS UUID), :n)
+                RETURNING run_id
+                """
+            ),
+            {
+                "c": empresa_codigo, "t": run_tipo, "p": periodo_default,
+                "u": str(user.sub),
+                "n": f"Import CSV manual ({file.filename})",
+            },
+        )
+    ).fetchone()
+    await db.commit()
+    run_id = run_row[0]
+
+    inserted = 0
+    updated = 0
+    for d in docs:
+        result = await db.execute(
+            text(
+                """
+                INSERT INTO core.sii_documentos
+                  (empresa_codigo, flujo, tipo_dte, folio, periodo,
+                   rut_contraparte, razon_social_contraparte,
+                   fecha_emision, fecha_recepcion,
+                   monto_exento, monto_neto, monto_iva, monto_total,
+                   estado_sii, run_id, raw_data)
+                VALUES
+                  (:c, :flujo, :tipo, :folio, :p,
+                   :rut, :rsoc, :fem, :frec,
+                   :mexe, :mneto, :miva, :mtot,
+                   :est, :rid, CAST(:raw AS jsonb))
+                ON CONFLICT (empresa_codigo, flujo, tipo_dte, folio, rut_contraparte)
+                DO UPDATE SET
+                  razon_social_contraparte = COALESCE(EXCLUDED.razon_social_contraparte,
+                                                       core.sii_documentos.razon_social_contraparte),
+                  fecha_emision = COALESCE(EXCLUDED.fecha_emision, core.sii_documentos.fecha_emision),
+                  monto_exento = EXCLUDED.monto_exento,
+                  monto_neto = EXCLUDED.monto_neto,
+                  monto_iva = EXCLUDED.monto_iva,
+                  monto_total = EXCLUDED.monto_total,
+                  estado_sii = EXCLUDED.estado_sii,
+                  run_id = EXCLUDED.run_id,
+                  updated_at = NOW()
+                RETURNING (xmax = 0) AS inserted
+                """
+            ),
+            {
+                "c": empresa_codigo, "flujo": d["flujo"],
+                "tipo": d["tipo_dte"], "folio": d["folio"], "p": d["periodo"],
+                "rut": d["rut_contraparte"], "rsoc": d["razon_social_contraparte"],
+                "fem": d["fecha_emision"], "frec": d["fecha_recepcion"],
+                "mexe": d["monto_exento"], "mneto": d["monto_neto"],
+                "miva": d["monto_iva"], "mtot": d["monto_total"],
+                "est": d["estado_sii"], "rid": run_id,
+                "raw": json.dumps(d, default=str),
+            },
+        )
+        row = result.fetchone()
+        if row and row[0]:
+            inserted += 1
+        else:
+            updated += 1
+
+    await db.execute(
+        text(
+            """
+            UPDATE core.sii_sync_runs
+            SET status = :s, finished_at = NOW(),
+                documentos_count = :n,
+                error_message = :err
+            WHERE run_id = :id
+            """
+        ),
+        {
+            "s": "OK" if not errors else "PARTIAL",
+            "n": inserted + updated,
+            "err": "; ".join(errors)[:500] if errors else None,
+            "id": run_id,
+        },
+    )
+    await db.commit()
+
+    return ImportCsvResponse(
+        inserted=inserted, updated=updated,
+        errors=errors[:20],  # cap, no devolvemos 1000s de errores
+        run_id=run_id,
+    )
+
+
+# =====================================================================
+# Round 118 — Conciliar sii_documentos con vouchers
+# =====================================================================
+
+
+@router.post(
+    "/conciliar/{empresa_codigo}",
+    response_model=ConciliarResponse,
+)
+async def conciliar(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+    periodo: Annotated[str | None, Query(pattern=r"^\d{4}-\d{2}$")] = None,
+) -> ConciliarResponse:
+    """Matchea docs SII no conciliados contra vouchers locales.
+
+    Match exact (score=1.0): mismo tipo + folio + RUT contraparte + monto±1.
+    Match fuzzy (score=0.7): mismo tipo + folio, RUT/monto difieren <=5%.
+    No-match: queda voucher_id=NULL para que el operador revise.
+    """
+    await _require_admin(user)
+    result = await conciliar_empresa(db, empresa_codigo, periodo=periodo)
+    return ConciliarResponse(
+        empresa_codigo=empresa_codigo,
+        periodo=periodo,
+        total_processed=result.total_processed,
+        matched_exact=result.matched_exact,
+        matched_fuzzy=result.matched_fuzzy,
+        unmatched=result.unmatched,
+    )
