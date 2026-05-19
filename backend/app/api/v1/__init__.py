@@ -52,6 +52,7 @@ from app.api.v1 import (
     reset_data,
     saved_views,
     search,
+    sii,
     subsidios,
     suscripciones,
     trabajadores,
@@ -109,6 +110,8 @@ api_router.include_router(
 # endpoints amigables para UI: /user/{email}, /empresa/{codigo}, /timeline.
 api_router.include_router(bitacora.router, prefix="/bitacora", tags=["bitacora"])
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
+# Round 117 — SII (Servicio de Impuestos Internos Chile) integration
+api_router.include_router(sii.router, prefix="/admin/sii", tags=["sii"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
 api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["trabajadores"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
