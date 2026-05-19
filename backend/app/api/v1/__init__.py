@@ -42,6 +42,7 @@ from app.api.v1 import (
     notifications,
     notifications_inbox,
     nubox,
+    nubox_api,
     nubox_export,
     ordenes_compra,
     ordenes_compra_extract,
@@ -118,6 +119,8 @@ api_router.include_router(admin_data.router, prefix="/admin", tags=["admin-data"
 api_router.include_router(sii.router, prefix="/admin/sii", tags=["sii"])
 # Round 123 — Nubox (remuneraciones, libro de sueldos)
 api_router.include_router(nubox.router, prefix="/admin/nubox", tags=["nubox"])
+# Round 124 — Nubox API REST oficial (Factura y Administración)
+api_router.include_router(nubox_api.router, prefix="/admin/nubox-api", tags=["nubox-api"])
 api_router.include_router(dropbox.router, prefix="/dropbox", tags=["dropbox"])
 api_router.include_router(trabajadores.router, prefix="/trabajadores", tags=["trabajadores"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
