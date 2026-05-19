@@ -43,10 +43,15 @@ kill_timeout = "10s"
 #   Ver: https://fly.io/docs/machines/runtime/scheduling/
 [processes]
   # uvicorn flags V5++ perf:
-  #   --workers 2: paraleliza CPU-bound (2 workers en cpus=1 está OK con async)
+  #   --workers 1: Round 109 — bajado de 2 a 1 para no duplicar el pool DB.
+  #                Cada worker abre su propio pool (3+1=4 conns), con 2 workers
+  #                = 8 conns solo de API, saturando los 15 del session pooler
+  #                Free tier cuando hay crons concurrentes. Con 1 worker = 4 conns.
+  #                Trade-off: menos paralelismo CPU-bound, pero la app es 99%
+  #                async I/O bound, así que el impacto es mínimo.
   #   --timeout-keep-alive 75: reusa connections HTTP de browsers idle (default 5s)
   #   --limit-concurrency 50: cap defensivo si un endpoint se cuelga
-  app = "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --timeout-keep-alive 75 --limit-concurrency 50"
+  app = "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --timeout-keep-alive 75 --limit-concurrency 50"
   etl_cron = "python -m scripts.etl_cron"
   alerts_cron = "python -m scripts.alerts_cron"
   # Inbox poll de contactocehta@gmail.com — cada 15min.

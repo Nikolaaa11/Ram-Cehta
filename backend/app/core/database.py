@@ -53,14 +53,24 @@ if _is_transaction_pooler:
         },
     )
 else:
-    # V5++ ola BS HOTFIX FINAL: pool ultra conservador para Supabase Free tier
-    # 5 + 2 = 7 max por app machine. Fits dentro del límite de 15 clients
-    # del session pooler aunque haya release machine + app machine.
+    # Round 109 HOTFIX — pool aún más conservador. El anterior (5+2=7 por
+    # worker × 2 workers = 14) se saturaba en producción combinado con
+    # crons (etl/inbox/backup) que peleaban por las 15 conexiones del
+    # session pooler de Supabase Free. Logs mostraban:
+    #   asyncpg EMAXCONNSESSION: max clients reached, pool_size: 15
+    #
+    # Nueva config: 3 + 1 = 4 max por worker. Combinado con --workers 1
+    # en fly.toml → 4 conns desde la API, deja 11 para crons. Triple-
+    # holgura para crons concurrentes.
+    #
+    # Fix permanente: migrar DATABASE_URL al transaction pooler (port
+    # 6543) — soporta 60+ clientes concurrentes en Free tier. Este
+    # branch (NullPool) ya está cubierto arriba.
     engine = create_async_engine(
         _db_url,
         echo=False,
-        pool_size=5,
-        max_overflow=2,
+        pool_size=3,
+        max_overflow=1,
         pool_pre_ping=True,
         pool_recycle=1800,
         pool_timeout=30,
