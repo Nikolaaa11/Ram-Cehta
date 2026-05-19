@@ -184,19 +184,24 @@ class PerfResponse(BaseModel):
 async def perf_health(session: DBSession) -> PerfResponse:
     """V5++ ola BJ: diagnóstico de configuración perf actual.
 
-    Detecta cuellos de botella comunes y devuelve recomendaciones.
-    Ejemplo: si DATABASE_URL usa transaction pooler (port 6543), recomienda
-    cambiar a session pooler (5432) para 10x más velocidad.
+    Round 110 update: las recomendaciones se invirtieron. Con Supabase
+    Free Tier (15 client cap en session pooler), el riesgo de
+    EMAXCONNSESSION supera el costo de ~50ms del transaction pooler.
+    Recomendamos el switch a port 6543 hasta que se pague Supabase Pro.
+
+    También reporta valores REALES del engine (no hardcodeados) — antes
+    los valores quedaban desfasados cuando se cambiaba la config.
     """
     from app.core.database import _db_url, _is_transaction_pooler, engine
 
     pool_mode = "transaction (NullPool, +50ms/req)" if _is_transaction_pooler else "session (QueuePool)"
     recs: list[str] = []
-    if _is_transaction_pooler:
+    if not _is_transaction_pooler:
         recs.append(
-            "⚡ CRÍTICO: DATABASE_URL usa transaction pooler (port 6543). "
-            "Cambiar a session pooler (port 5432) → ~50ms más rápido por request. "
-            "Comando: fly secrets set DATABASE_URL=\"postgres://...:5432/postgres\" -a cehta-backend"
+            "⚠ Si ves errores EMAXCONNSESSION en logs (visto en Round 109), "
+            "migrá a transaction pooler (port 6543). Supabase Free tier "
+            "tiene cap de 15 clientes en session mode. Costo: +~50ms/req. "
+            "Comando: fly secrets set DATABASE_URL=\"postgres://...:6543/postgres\" -a cehta-backend"
         )
 
     # Redactar credenciales en URL
@@ -208,13 +213,25 @@ async def perf_health(session: DBSession) -> PerfResponse:
             scheme = scheme_user[0]
             redacted = f"{scheme}://***@{host}"
 
-    pool_size = None
+    # Round 110 — Leer valores REALES del engine, no hardcodeados.
+    pool_size: int | None = None
+    max_overflow: int | None = None
+    recycle_sec: int | None = None
     try:
-        pool_size = getattr(engine.pool, "_pool_size", None) or getattr(
-            engine.pool, "size", lambda: None
-        )()
+        pool = engine.pool
+        # QueuePool tiene _pool.maxsize, _max_overflow, _recycle
+        pool_size = getattr(pool, "_pool", None) and getattr(pool._pool, "maxsize", None)
+        if pool_size is None:
+            pool_size = getattr(pool, "size", lambda: None)()
+        max_overflow = getattr(pool, "_max_overflow", None)
+        recycle_sec = getattr(pool, "_recycle", None)
     except Exception:
         pass
+
+    # Leer cantidad real de workers desde uvicorn si está en env
+    import os
+    workers_env = os.environ.get("WEB_CONCURRENCY")
+    workers = int(workers_env) if workers_env and workers_env.isdigit() else None
 
     if not recs:
         recs.append("✅ Configuración óptima detectada")
@@ -229,12 +246,12 @@ async def perf_health(session: DBSession) -> PerfResponse:
     return PerfResponse(
         db_pool_mode=pool_mode,
         db_pool_size=pool_size,
-        db_max_overflow=4 if not _is_transaction_pooler else 0,
-        db_pool_recycle_sec=900 if not _is_transaction_pooler else None,
+        db_max_overflow=max_overflow if not _is_transaction_pooler else 0,
+        db_pool_recycle_sec=recycle_sec if not _is_transaction_pooler else None,
         db_url_redacted=redacted,
         gzip_min_size=300,
         gzip_level=4,
-        workers=2,
+        workers=workers,
         cache_features=[
             "asyncpg prepared_statement_cache: 512",
             "SQLAlchemy query_cache_size: 2048",
@@ -242,6 +259,8 @@ async def perf_health(session: DBSession) -> PerfResponse:
             "Empresa scope cache TTL: 60s (in-process, LRU 1024)",
             "/me/empresas Cache-Control: 5min",
             "/catalogos/* Cache-Control: 5min stale-while-revalidate 60s",
+            # Round 110 — SSE per-user cap
+            "SSE max subscriptions per user: 5 (FIFO evict on excess)",
         ],
         recommendations=recs,
         scope_cache=scope_cache_info,
