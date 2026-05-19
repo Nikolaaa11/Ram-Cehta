@@ -16,6 +16,7 @@
  */
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -23,6 +24,7 @@ import {
   Calculator,
   CheckCircle2,
   Download,
+  FilePlus2,
   GitMerge,
   RefreshCw,
   Shield,
@@ -131,6 +133,7 @@ const fmtFecha = (iso: string | null) => {
 export default function SiiAdminPage() {
   const { session } = useSession();
   const qc = useQueryClient();
+  const router = useRouter();
   const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState(currentPeriodo());
   const [flujoFilter, setFlujoFilter] = useState<"" | "compra" | "venta">("");
@@ -245,6 +248,30 @@ export default function SiiAdminPage() {
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : "Error";
       toast.error(`Conciliación falló: ${msg}`);
+    },
+  });
+
+  // Round 121 — Crear voucher DRAFT desde un doc SII no conciliado
+  const crearVoucherMut = useMutation({
+    mutationFn: async (sii_doc_id: number) =>
+      apiClient.post<{
+        voucher_id: number;
+        codigo: string;
+        sii_doc_id: number;
+        message: string;
+      }>(`/admin/sii/crear-voucher-desde-dte/${sii_doc_id}`, {}, session),
+    onSuccess: (data) => {
+      toast.success(
+        `Voucher ${data.codigo} creado. Te llevo a editarlo →`,
+      );
+      qc.invalidateQueries({ queryKey: ["sii-documentos"] });
+      qc.invalidateQueries({ queryKey: ["sii-f29-preview"] });
+      // Redirigir al detalle del voucher para que el operador edite las cuentas
+      router.push(`/vouchers/${data.voucher_id}` as Route);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : "Error";
+      toast.error(`No se pudo crear el voucher: ${msg}`);
     },
   });
 
@@ -768,7 +795,8 @@ export default function SiiAdminPage() {
                   <th className="px-4 py-3 text-right">Neto</th>
                   <th className="px-4 py-3 text-right">IVA</th>
                   <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3">Voucher</th>
+                  <th className="px-4 py-3 text-center">Acción</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline">
@@ -809,12 +837,34 @@ export default function SiiAdminPage() {
                     <td className="px-4 py-2 text-right font-mono tabular-nums font-medium">
                       {fmtCLP(d.monto_total)}
                     </td>
-                    <td className="px-4 py-2 text-[10px] text-ink-500">
-                      {d.estado_sii ?? "—"}
-                      {d.voucher_id && (
-                        <span className="block text-cehta-green">
-                          → voucher #{d.voucher_id}
-                        </span>
+                    <td className="px-4 py-2 text-[10px]">
+                      {d.voucher_id ? (
+                        <Link
+                          href={`/vouchers/${d.voucher_id}` as Route}
+                          className="inline-flex items-center gap-1 text-cehta-green hover:underline font-mono"
+                        >
+                          <CheckCircle2 className="size-3" />
+                          #{d.voucher_id}
+                        </Link>
+                      ) : (
+                        <span className="text-ink-400">Sin matchear</span>
+                      )}
+                      {d.estado_sii && (
+                        <div className="text-ink-500 mt-0.5">{d.estado_sii}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {!d.voucher_id && (
+                        <button
+                          type="button"
+                          disabled={crearVoucherMut.isPending}
+                          onClick={() => crearVoucherMut.mutate(d.sii_doc_id)}
+                          className="inline-flex items-center gap-1 rounded-md bg-cehta-green/10 px-2 py-1 text-[10px] font-medium text-cehta-green ring-1 ring-cehta-green/20 hover:bg-cehta-green/15 disabled:opacity-50"
+                          title="Crear voucher DRAFT precargado con estos datos"
+                        >
+                          <FilePlus2 className="size-3" />
+                          Crear voucher
+                        </button>
                       )}
                     </td>
                   </tr>

@@ -130,6 +130,13 @@ class ConciliarResponse(BaseModel):
     unmatched: int
 
 
+class CrearVoucherDesdeDteResponse(BaseModel):
+    voucher_id: int
+    codigo: str
+    sii_doc_id: int
+    message: str
+
+
 class TipoDteBreakdown(BaseModel):
     tipo_dte: int
     nombre: str
@@ -899,4 +906,191 @@ async def f29_preview(
         docs_sin_voucher=docs_sin_voucher,
         ventas_por_tipo=ventas_por_tipo,
         compras_por_tipo=compras_por_tipo,
+    )
+
+
+# =====================================================================
+# Round 121 — Crear voucher DRAFT desde un sii_documento (cierra el loop)
+# =====================================================================
+
+# Mapping tipo DTE → doc_tributario_tipo del voucher
+_DTE_TO_DOC_TRIBUTARIO: dict[int, str] = {
+    33: "FACTURA",
+    34: "FACTURA",
+    39: "BOLETA",
+    41: "BOLETA",
+    43: "FACTURA",
+    46: "FACTURA",
+    56: "NOTA_DEBITO",
+    61: "NOTA_CREDITO",
+    110: "FACTURA",
+}
+
+
+@router.post(
+    "/crear-voucher-desde-dte/{sii_doc_id}",
+    response_model=CrearVoucherDesdeDteResponse,
+)
+async def crear_voucher_desde_dte(
+    sii_doc_id: int,
+    user: CurrentUser,
+    db: DBSession,
+) -> CrearVoucherDesdeDteResponse:
+    """Crea un voucher DRAFT precargado con los datos del documento SII.
+
+    El voucher queda con:
+      - Header completo: empresa, fechas, contraparte, doc_tributario, glosa, monto
+      - 2 lineas placeholder (cuenta_codigo='1-0-0-0' / '2-0-0-0') que el
+        operador debe editar antes de mandar a aprobacion. Esto evita el
+        chequeo de partida doble en DRAFT pero deja la estructura armada.
+      - source='sii_import' para distinguirlo en filtros
+      - sii_documentos.voucher_id queda apuntando al nuevo voucher
+        (conciliacion automatica)
+    """
+    await _require_admin(user)
+
+    # 1. Cargar el doc del SII
+    doc = (
+        await db.execute(
+            text(
+                """
+                SELECT empresa_codigo, flujo, tipo_dte, folio, periodo,
+                       rut_contraparte, razon_social_contraparte,
+                       fecha_emision, monto_total, voucher_id
+                FROM core.sii_documentos
+                WHERE sii_doc_id = :id
+                """
+            ),
+            {"id": sii_doc_id},
+        )
+    ).fetchone()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"sii_documento {sii_doc_id} no encontrado",
+        )
+
+    if doc[9] is not None:  # voucher_id ya seteado
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Este documento SII ya esta conciliado con voucher "
+                f"#{doc[9]}. Si querés crear otro voucher, primero "
+                f"despegá la conciliación."
+            ),
+        )
+
+    empresa_codigo = doc[0]
+    flujo = doc[1]
+    tipo_dte = int(doc[2])
+    folio = str(doc[3])
+    fecha_emision = doc[7]
+    monto_total = int(doc[8] or 0)
+    rut_contraparte = doc[5]
+    razon_social = doc[6]
+
+    voucher_tipo = "COMPRA" if flujo == "compra" else "VENTA"
+    doc_trib_tipo = _DTE_TO_DOC_TRIBUTARIO.get(tipo_dte, "FACTURA")
+    tipo_nombre = _DTE_NAMES_BACKEND.get(tipo_dte, f"DTE {tipo_dte}")
+
+    # Generar codigo del voucher: SII-{flujo}-{folio}-{periodo}
+    # (el sistema tambien autogenera codigo en core.vouchers pero lo dejamos explicito)
+    codigo = f"SII-{flujo.upper()}-{folio}"
+
+    # 2. Insertar voucher header
+    voucher_row = (
+        await db.execute(
+            text(
+                """
+                INSERT INTO core.vouchers (
+                    empresa_codigo, codigo, tipo, status,
+                    fecha_documento, fecha_contable,
+                    glosa, moneda,
+                    contraparte_rut, contraparte_nombre,
+                    doc_tributario_tipo, doc_tributario_folio,
+                    total_debit, total_credit,
+                    source, created_by
+                ) VALUES (
+                    :emp, :cod, :tipo, 'DRAFT',
+                    :fd, :fc,
+                    :glosa, 'CLP',
+                    :rut, :rsoc,
+                    :doctipo, :folio,
+                    :total, :total,
+                    'sii_import', CAST(:u AS UUID)
+                )
+                RETURNING voucher_id, codigo
+                """
+            ),
+            {
+                "emp": empresa_codigo,
+                "cod": codigo,
+                "tipo": voucher_tipo,
+                "fd": fecha_emision,
+                "fc": fecha_emision,
+                "glosa": f"Importado SII: {tipo_nombre} folio {folio} ({razon_social or rut_contraparte})",
+                "rut": rut_contraparte,
+                "rsoc": razon_social,
+                "doctipo": doc_trib_tipo,
+                "folio": folio,
+                "total": monto_total,
+                "u": str(user.sub),
+            },
+        )
+    ).fetchone()
+    voucher_id = voucher_row[0]
+    voucher_codigo = voucher_row[1]
+
+    # 3. Insertar 2 lineas placeholder (debit + credit balanceadas)
+    #    El operador edita cuenta_codigo, proyecto, area antes de submit.
+    debit_line = {
+        "vid": voucher_id, "ln": 1,
+        "cuenta": "1-0-0-0",  # PLACEHOLDER — el operador edita
+        "debit": monto_total,
+        "credit": 0,
+        "desc": "EDITAR — cuenta de gasto o cuenta por cobrar",
+    }
+    credit_line = {
+        "vid": voucher_id, "ln": 2,
+        "cuenta": "2-0-0-0",  # PLACEHOLDER
+        "debit": 0,
+        "credit": monto_total,
+        "desc": "EDITAR — cuenta por pagar o ingreso",
+    }
+    for line in (debit_line, credit_line):
+        await db.execute(
+            text(
+                """
+                INSERT INTO core.voucher_lines
+                  (voucher_id, line_number, cuenta_codigo,
+                   debit, credit, descripcion)
+                VALUES
+                  (:vid, :ln, :cuenta, :debit, :credit, :desc)
+                """
+            ),
+            line,
+        )
+
+    # 4. Conciliar el sii_doc con el voucher recién creado
+    await db.execute(
+        text(
+            """
+            UPDATE core.sii_documentos
+            SET voucher_id = :vid, updated_at = NOW()
+            WHERE sii_doc_id = :sid
+            """
+        ),
+        {"vid": voucher_id, "sid": sii_doc_id},
+    )
+
+    await db.commit()
+
+    return CrearVoucherDesdeDteResponse(
+        voucher_id=voucher_id,
+        codigo=voucher_codigo,
+        sii_doc_id=sii_doc_id,
+        message=(
+            f"Voucher {voucher_codigo} creado en DRAFT. "
+            f"Editá las cuentas '1-0-0-0' y '2-0-0-0' (placeholders) antes de submit."
+        ),
     )
