@@ -961,6 +961,72 @@ export function VouchersClientView({
           </div>
         </div>
 
+        {/* Round 107 — Banner resumen cuando hay filtro de proyecto activo.
+            Da contexto operativo sin tener que abrir el dashboard del proyecto:
+            cuánto se gastó, cuántos vouchers, monto promedio. */}
+        {proyectoFilter && filteredVouchers.length > 0 && (() => {
+          const total = filteredVouchers.reduce(
+            (s, v) => s + Number(v.total_debit ?? 0),
+            0,
+          );
+          const avg = total / filteredVouchers.length;
+          const proyectoInfo = proyectos.find((p) => p.codigo === proyectoFilter);
+          const titulo =
+            proyectoFilter === "OTROS"
+              ? "Vouchers sin proyecto asignado"
+              : proyectoInfo
+                ? `${proyectoInfo.codigo} · ${proyectoInfo.nombre}`
+                : proyectoFilter;
+          return (
+            <div className="rounded-2xl border border-cehta-green/20 bg-gradient-to-r from-cehta-green/[0.04] to-transparent p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
+                    Resumen del proyecto filtrado
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-ink-900">
+                    {titulo}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-5 text-right">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                      Total gastado
+                    </p>
+                    <p className="font-mono text-base font-semibold tabular-nums text-ink-900">
+                      ${total.toLocaleString("es-CL")}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                      Vouchers
+                    </p>
+                    <p className="font-mono text-base font-semibold tabular-nums text-ink-900">
+                      {filteredVouchers.length}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-ink-500">
+                      Promedio
+                    </p>
+                    <p className="font-mono text-base font-semibold tabular-nums text-ink-900">
+                      ${Math.round(avg).toLocaleString("es-CL")}
+                    </p>
+                  </div>
+                  {proyectoFilter !== "OTROS" && proyectoInfo && (
+                    <Link
+                      href={`/admin/proyectos/${proyectoFilter}` as Route}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:bg-cehta-green/90"
+                    >
+                      Dashboard proyecto →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Lista */}
         {isLoading ? (
           <p className="text-sm text-ink-500">Cargando vouchers…</p>
