@@ -66,6 +66,8 @@ interface TransferenciaItem {
   // Round 10 — para boton WhatsApp por fila tras ejecutar la transferencia.
   proveedor_telefono: string | null;
   proveedor_contacto: string | null;
+  // Round 113 — proyecto contable dominante (primera linea con proyecto)
+  proyecto_dominante: string | null;
 }
 
 interface PreviewResponse {
@@ -765,6 +767,14 @@ export default function TransferenciasPage() {
                         </td>
                         <td className="px-4 py-3 text-ink-600">
                           <div className="max-w-md truncate">{v.glosa}</div>
+                          {v.proyecto_dominante && (
+                            <div
+                              className="mt-0.5 truncate text-[10px] font-mono text-cehta-green"
+                              title={`Proyecto contable: ${v.proyecto_dominante}`}
+                            >
+                              {v.proyecto_dominante}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right font-medium text-ink-900 tabular-nums">
                           {toCLP(parseFloat(v.monto))}

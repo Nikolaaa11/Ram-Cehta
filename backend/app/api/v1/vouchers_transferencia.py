@@ -606,6 +606,9 @@ async def preview_transferencia_masiva(
     # "WhatsApp" por fila tras ejecutar la transferencia. LEFT JOIN
     # separado de `tiene_datos_bancarios` porque ese require banco+cuenta
     # no-null mientras telefono puede existir aunque no haya cuenta.
+    # Round 113 — incluye proyecto_dominante (primera linea con
+    # proyecto_codigo no null por voucher) usando subquery indexado.
+    # El partial index idx_voucher_lines_proyecto cubre el WHERE NOT NULL.
     sql = f"""
         SELECT
             v.voucher_id,
@@ -620,7 +623,13 @@ async def preview_transferencia_masiva(
             v.forma_pago,
             CASE WHEN pbanco.proveedor_id IS NULL THEN FALSE ELSE TRUE END AS tiene_datos_bancarios,
             pcontact.telefono AS proveedor_telefono,
-            pcontact.contacto AS proveedor_contacto
+            pcontact.contacto AS proveedor_contacto,
+            (SELECT vl.proyecto_codigo
+               FROM core.voucher_lines vl
+              WHERE vl.voucher_id = v.voucher_id
+                AND vl.proyecto_codigo IS NOT NULL
+              ORDER BY vl.line_number ASC
+              LIMIT 1) AS proyecto_dominante
         FROM core.vouchers v
         LEFT JOIN core.proveedores pbanco
             ON pbanco.rut = v.contraparte_rut
@@ -665,6 +674,9 @@ async def preview_transferencia_masiva(
                 # para que el FE renderee botones WhatsApp por fila.
                 "proveedor_telefono": r["proveedor_telefono"],
                 "proveedor_contacto": r["proveedor_contacto"],
+                # Round 113 — proyecto contable dominante para que el
+                # tesorero vea a que centro de costo aplica el pago.
+                "proyecto_dominante": r["proyecto_dominante"],
             }
             for r in rows
         ],
