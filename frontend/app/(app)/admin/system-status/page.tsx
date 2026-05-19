@@ -24,6 +24,7 @@ import {
   PenTool,
   AlertTriangle,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -317,6 +318,53 @@ export default function SystemStatusPage() {
             </ul>
           </div>
         )}
+      </Section>
+
+      {/* Round 122 — Promociones a paginas nuevas (SII + Data) */}
+      <Section
+        title="Más herramientas"
+        icon={<Sparkles className="size-5 text-cehta-green" />}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Link
+            href={"/admin/data" as Route}
+            className="rounded-xl ring-1 ring-hairline bg-white p-4 hover:ring-cehta-green/40 hover:shadow-md transition group"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-cehta-green/10 p-2 group-hover:bg-cehta-green/15">
+                <FileText className="size-5 text-cehta-green" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-ink-900">Data del fondo</p>
+                <p className="text-xs text-ink-500 mt-0.5">
+                  Vista única: 9 empresas portafolio, directorio formal e
+                  inversionistas/aportantes. Web, RUT, contabilidad, status
+                  credenciales SII y Previred en una sola pantalla.
+                </p>
+              </div>
+              <ExternalLink className="size-4 text-ink-400 group-hover:text-cehta-green" />
+            </div>
+          </Link>
+          <Link
+            href={"/admin/sii" as Route}
+            className="rounded-xl ring-1 ring-hairline bg-white p-4 hover:ring-cehta-green/40 hover:shadow-md transition group"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-cehta-green/10 p-2 group-hover:bg-cehta-green/15">
+                <PenTool className="size-5 text-cehta-green" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-ink-900">Integración SII</p>
+                <p className="text-xs text-ink-500 mt-0.5">
+                  Sincronizar el RCV (Registro Compras y Ventas) del SII,
+                  conciliar con vouchers locales, F29 estimado del mes y
+                  crear vouchers DRAFT desde DTE no matcheados.
+                </p>
+              </div>
+              <ExternalLink className="size-4 text-ink-400 group-hover:text-cehta-green" />
+            </div>
+          </Link>
+        </div>
       </Section>
 
       {/* Footer info */}

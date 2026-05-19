@@ -335,6 +335,22 @@ const GROUPS: NavGroup[] = [
         title:
           "Health check: subsidios + proyectos + bandeja personal + items pendientes en una sola vista.",
       },
+      // Round 120 — vista unica de data del fondo (empresas + directorio + inversionistas)
+      {
+        href: "/admin/data" as Route,
+        label: "Data del fondo",
+        icon: Book,
+        title:
+          "Vista unica de empresas portafolio, directorio formal e inversionistas/aportantes. Una sola pantalla con todo el contexto del fondo.",
+      },
+      // Round 117 — SII integration
+      {
+        href: "/admin/sii" as Route,
+        label: "Integración SII",
+        icon: ShieldCheck,
+        title:
+          "Sincronizar el Registro de Compras y Ventas del SII, conciliar con vouchers locales, ver F29 estimado y crear vouchers desde DTE no conciliados.",
+      },
       {
         href: "/admin/empresas" as Route,
         label: "Empresas portfolio",
