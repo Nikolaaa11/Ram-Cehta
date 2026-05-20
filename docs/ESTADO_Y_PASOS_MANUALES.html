@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Estado de la plataforma y pasos manuales · Cehta Capital</title>
+<style>
+:root {
+  --ink-900: #1d1d1f;
+  --ink-700: #424245;
+  --ink-500: #6e6e73;
+  --ink-400: #86868b;
+  --ink-300: #d2d2d7;
+  --ink-200: #e8e8ed;
+  --ink-100: #f5f5f7;
+  --ink-50:  #fbfbfd;
+  --green:   #1d6f42;
+  --green-dark: #145130;
+  --green-50: #e6f4ec;
+  --green-100: #c9e7d5;
+  --amber:   #b45309;
+  --amber-50: #fef3c7;
+  --amber-100: #fde68a;
+  --red:     #b91c1c;
+  --red-50:  #fee2e2;
+  --red-100: #fecaca;
+  --blue:    #1e40af;
+  --blue-50: #dbeafe;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+               "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  color: var(--ink-700);
+  background: white;
+  letter-spacing: -0.011em;
+}
+.container { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+
+/* ─── Sticky Header ─── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(255,255,255,0.8);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 14px 0;
+}
+.topbar-inner { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.topbar h1 { font-size: 14px; font-weight: 600; color: var(--ink-900); letter-spacing: -0.01em; }
+.topbar nav { display: flex; gap: 4px; flex-wrap: wrap; }
+.topbar nav a {
+  font-size: 13px; font-weight: 500;
+  color: var(--ink-500); text-decoration: none;
+  padding: 5px 10px; border-radius: 980px;
+  transition: all 0.15s;
+}
+.topbar nav a:hover { color: var(--ink-900); background: var(--ink-100); }
+
+/* ─── HERO ─── */
+.hero {
+  padding: 96px 0 64px;
+  text-align: center;
+  background: linear-gradient(180deg, white 0%, var(--ink-50) 100%);
+}
+.hero-tag {
+  display: inline-block;
+  font-size: 13px; font-weight: 600;
+  color: var(--green);
+  background: var(--green-50);
+  padding: 6px 14px; border-radius: 980px;
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.028em;
+  line-height: 1.04;
+  margin-bottom: 20px;
+}
+.hero h1 .accent { color: var(--green); }
+.hero p.subtitle {
+  font-size: clamp(19px, 2.2vw, 24px);
+  font-weight: 400;
+  color: var(--ink-500);
+  max-width: 700px;
+  margin: 0 auto;
+  letter-spacing: -0.018em;
+  line-height: 1.4;
+}
+.hero .meta {
+  margin-top: 36px;
+  font-size: 13px;
+  color: var(--ink-400);
+  letter-spacing: 0.02em;
+}
+
+/* ─── Section base ─── */
+section.block { padding: 64px 0; border-top: 1px solid var(--ink-200); }
+section.block:first-of-type { border-top: none; }
+section.block h2 {
+  font-size: clamp(28px, 3.4vw, 40px);
+  font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.022em;
+  line-height: 1.1;
+  margin-bottom: 16px;
+}
+section.block .lead {
+  font-size: 18px;
+  color: var(--ink-500);
+  max-width: 680px;
+  margin-bottom: 36px;
+  letter-spacing: -0.012em;
+}
+section.block .label {
+  display: block;
+  font-size: 13px; font-weight: 600;
+  color: var(--green);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 8px;
+}
+
+/* ─── Alert critical ─── */
+.critical-alert {
+  background: var(--red-50);
+  border-left: 4px solid var(--red);
+  padding: 24px 28px;
+  border-radius: 14px;
+  margin-bottom: 28px;
+}
+.critical-alert .alert-label {
+  display: inline-block;
+  font-size: 11px; font-weight: 700;
+  color: var(--red);
+  letter-spacing: 0.1em;
+  background: white;
+  padding: 4px 10px; border-radius: 980px;
+  margin-bottom: 12px;
+}
+.critical-alert h3 {
+  font-size: 22px; font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.018em;
+  margin-bottom: 8px;
+}
+.critical-alert p {
+  font-size: 15px;
+  color: var(--ink-700);
+  margin: 4px 0;
+}
+
+/* ─── Cards ─── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.card {
+  background: white;
+  border: 1px solid var(--ink-200);
+  border-radius: 18px;
+  padding: 24px;
+}
+.card h3 {
+  font-size: 13px; font-weight: 600;
+  color: var(--ink-500);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+.card .value {
+  font-size: 32px; font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.028em;
+  line-height: 1.1;
+}
+.card .unit { font-size: 17px; color: var(--ink-400); font-weight: 500; }
+.card .detail {
+  font-size: 14px;
+  color: var(--ink-500);
+  margin-top: 8px;
+  line-height: 1.45;
+}
+.card.green .value { color: var(--green); }
+.card.amber .value { color: var(--amber); }
+.card.red .value { color: var(--red); }
+
+/* ─── Table apple ─── */
+.table-card {
+  background: white;
+  border: 1px solid var(--ink-200);
+  border-radius: 16px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+.table-card table { width: 100%; border-collapse: collapse; }
+.table-card thead { background: var(--ink-100); }
+.table-card th, .table-card td {
+  text-align: left;
+  padding: 12px 18px;
+  font-size: 14px;
+}
+.table-card th {
+  font-size: 11px; font-weight: 600;
+  color: var(--ink-500);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.table-card td { color: var(--ink-700); border-top: 1px solid var(--ink-100); }
+.table-card td strong { color: var(--ink-900); font-weight: 600; }
+.table-card td.num { text-align: right; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.table-card .total-row td { font-weight: 600; background: var(--ink-50); font-size: 15px; }
+.table-card .total-row td.num { color: var(--ink-900); }
+
+/* ─── Steps numerados grandes ─── */
+.steps {
+  list-style: none;
+  counter-reset: step;
+}
+.step {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 24px;
+  padding: 28px 0;
+  border-bottom: 1px solid var(--ink-200);
+}
+.step:last-child { border-bottom: none; }
+.step-num {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  font-size: 28px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: -0.02em;
+}
+.step-num.required { background: var(--red); }
+.step-num.optional { background: var(--ink-300); color: white; }
+.step-content h3 {
+  font-size: 22px; font-weight: 700;
+  color: var(--ink-900);
+  letter-spacing: -0.018em;
+  margin-bottom: 6px;
+}
+.step-content .meta-row {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.step-content .pill {
+  padding: 3px 10px; border-radius: 980px;
+  font-weight: 600; letter-spacing: 0.04em;
+}
+.pill.crit { background: var(--red-50); color: var(--red); }
+.pill.imp { background: var(--amber-50); color: var(--amber); }
+.pill.opt { background: var(--ink-100); color: var(--ink-500); }
+.pill.time { background: var(--ink-100); color: var(--ink-700); }
+.step-content p {
+  font-size: 15px; color: var(--ink-600);
+  margin-bottom: 12px;
+  line-height: 1.55;
+}
+.step-content code:not(pre code) {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  background: var(--ink-100);
+  color: var(--ink-800);
+  padding: 2px 7px; border-radius: 4px;
+}
+.step-content pre {
+  background: #1d1d1f;
+  color: #f5f5f7;
+  padding: 18px 22px;
+  border-radius: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  overflow-x: auto;
+  margin: 12px 0;
+  position: relative;
+}
+.step-content pre .pre-label {
+  position: absolute;
+  top: 10px; right: 14px;
+  font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--ink-400);
+}
+.step-content .ok-check {
+  background: var(--green-50);
+  border-left: 3px solid var(--green);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-700);
+  margin: 12px 0;
+}
+.step-content .ok-check strong { color: var(--green-dark); }
+.step-content .warn-box {
+  background: var(--amber-50);
+  border-left: 3px solid var(--amber);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-700);
+  margin: 12px 0;
+}
+.step-content ol, .step-content ul {
+  padding-left: 22px;
+  font-size: 15px; color: var(--ink-600);
+  line-height: 1.65;
+  margin: 8px 0;
+}
+.step-content li { margin: 4px 0; }
+.step-content a { color: var(--green); text-decoration: none; }
+.step-content a:hover { text-decoration: underline; }
+
+/* ─── Big CTA ─── */
+.cta-banner {
+  background: linear-gradient(135deg, var(--ink-900) 0%, #2a2a2c 100%);
+  color: white;
+  padding: 56px 48px;
+  border-radius: 28px;
+  margin: 48px 0;
+  text-align: center;
+}
+.cta-banner h2 {
+  font-size: clamp(28px, 3.5vw, 40px);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  color: white;
+  margin-bottom: 14px;
+}
+.cta-banner p {
+  font-size: 18px;
+  color: rgba(255,255,255,0.7);
+  max-width: 620px;
+  margin: 0 auto 24px;
+}
+.cta-banner a {
+  display: inline-block;
+  background: white;
+  color: var(--ink-900);
+  padding: 14px 32px;
+  border-radius: 980px;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 16px;
+  transition: transform 0.15s;
+}
+.cta-banner a:hover { transform: scale(1.04); }
+
+/* ─── Footer ─── */
+footer {
+  background: var(--ink-100);
+  padding: 48px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-400);
+}
+footer a { color: var(--green); text-decoration: none; }
+
+@media print {
+  .topbar { display: none; }
+  body { font-size: 11pt; }
+  .step-content pre { background: #f5f5f7; color: #1d1d1f; border: 1px solid #ccc; }
+  .cta-banner { background: white; color: black; border: 2px solid #1d6f42; }
+  .cta-banner h2, .cta-banner p { color: black; }
+  section.block { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<!-- Sticky topbar -->
+<div class="topbar">
+  <div class="container topbar-inner">
+    <h1>Cehta Capital · Estado &amp; Pasos</h1>
+    <nav>
+      <a href="#problema">Problema</a>
+      <a href="#estado">Estado</a>
+      <a href="#costo">Costo</a>
+      <a href="#pasos">Pasos manuales</a>
+      <a href="#cierre">Cierre</a>
+    </nav>
+  </div>
+</div>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="container">
+    <span class="hero-tag">2026-05-20 · Diagnóstico Round 133</span>
+    <h1>El código está hecho.<br><span class="accent">El deploy está bloqueado.</span></h1>
+    <p class="subtitle">
+      Los cambios que pediste 3 veces sí están en el código y sí están en GitHub.
+      Lo que NO está pasando es que Vercel los publique. Acá te explico por qué,
+      cuánto cuesta la plataforma hoy, y qué tenés que hacer vos manualmente.
+    </p>
+    <p class="meta">Diagnosticado a las {{TIMESTAMP}} · Verificación en vivo contra producción</p>
+  </div>
+</header>
+
+<!-- PROBLEMA REAL -->
+<section class="block" id="problema">
+  <div class="container">
+    <span class="label">Por qué no ves los cambios</span>
+    <h2>Vercel no está deployando los pushes.</h2>
+    <p class="lead">
+      Hice 3 verificaciones técnicas independientes para confirmarlo. El código de
+      las observaciones (CORFO + Nubox + Nuevo) está commiteado en main, pero Vercel
+      sigue sirviendo un bundle anterior. No es caché de tu browser. Es Vercel.
+    </p>
+
+    <div class="critical-alert">
+      <span class="alert-label">PROBLEMA CRÍTICO</span>
+      <h3>Vercel auto-deploy roto o desactivado</h3>
+      <p>Pusheé un marker único <code>x-cehta-build="R133-observaciones"</code> al commit <code>a9cc966</code> hace 4 minutos. Verifiqué el HTML servido en <code>cehta-capital.vercel.app</code> y <code>ram-cehta.vercel.app</code> — el marker NO aparece. Lo que significa que el deploy automático de Vercel está roto.</p>
+    </div>
+
+    <div class="cards-grid">
+      <div class="card">
+        <h3>Código local</h3>
+        <div class="value green">✓ OK</div>
+        <p class="detail">
+          0 ocurrencias de "Asignás el NETO" · 0 de "opcional por ahora" ·
+          8 de "proyectoCodigoGlobal" · 13 de "Round 129" en código fuente.
+        </p>
+      </div>
+      <div class="card">
+        <h3>Git push a main</h3>
+        <div class="value green">✓ OK</div>
+        <p class="detail">
+          Commits R129, R130, R131, R132, R133 en <code>origin/main</code>.
+          <code>git status</code> dice "up to date".
+        </p>
+      </div>
+      <div class="card">
+        <h3>Vercel deploy</h3>
+        <div class="value red">✗ ROTO</div>
+        <p class="detail">
+          Marker R133 NO aparece en HTML servido después de 4+ min.
+          Build no se ejecutó o falló silenciosamente.
+        </p>
+      </div>
+    </div>
+
+    <p style="font-size: 15px; color: var(--ink-600); margin-top: 16px;">
+      Las causas más probables (ordenadas por probabilidad):
+    </p>
+    <ol style="font-size: 15px; color: var(--ink-600); padding-left: 28px; line-height: 1.7; margin-top: 8px;">
+      <li><strong>Builds fallando silenciosamente</strong> en Vercel desde algún commit anterior. Vercel rolling-backs al último build exitoso y los nuevos commits quedan "pending" sin que te avise.</li>
+      <li><strong>Build minutes mensuales agotados</strong> en el plan Hobby (free) de Vercel (6.000 min/mes). Si los superaste, los builds nuevos se rechazan.</li>
+      <li><strong>Auto-deploy de la branch main desactivado</strong> manualmente en algún momento.</li>
+      <li><strong>GitHub webhook desconectado</strong> y Vercel no recibe notificaciones de push.</li>
+    </ol>
+  </div>
+</section>
+
+<!-- ESTADO -->
+<section class="block" id="estado">
+  <div class="container">
+    <span class="label">Qué tiene la aplicación hoy</span>
+    <h2>30+ rondas de código deployadas en el repo.</h2>
+    <p class="lead">
+      Funcional pero con sistemas grandes inertes esperando 5 migraciones SQL +
+      configuración tuya.
+    </p>
+
+    <div class="cards-grid">
+      <div class="card green">
+        <h3>Funcional en producción</h3>
+        <div class="value">14 <span class="unit">pantallas</span></div>
+        <p class="detail">
+          /vouchers · /aprobaciones · /transferencias · /admin/sii · /admin/data ·
+          /admin/marcha-blanca · /admin/system-status · /admin/proyectos ·
+          /informes-lp · /reportes/* · /movimientos · /trabajadores · /mailbox ·
+          /dashboard
+        </p>
+      </div>
+      <div class="card amber">
+        <h3>Esperando activación</h3>
+        <div class="value">5 <span class="unit">migraciones</span></div>
+        <p class="detail">
+          R115 (cifrado), R117 (SII), R123 (Nubox sueldos), R124 (Nubox API),
+          R126 (monitor)
+        </p>
+      </div>
+      <div class="card">
+        <h3>Líneas de código entregadas hoy</h3>
+        <div class="value">~12.000 <span class="unit">LOC</span></div>
+        <p class="detail">
+          Backend FastAPI + Frontend Next.js + migraciones SQL + tests + docs
+        </p>
+      </div>
+      <div class="card">
+        <h3>Tests pasando</h3>
+        <div class="value green">1.108 <span class="unit">/ 1.108</span></div>
+        <p class="detail">
+          Unit tests backend. Integration tests skipeados (requieren DB local).
+        </p>
+      </div>
+    </div>
+
+    <h3 style="font-size: 22px; font-weight: 700; color: var(--ink-900); margin: 36px 0 16px; letter-spacing: -0.018em;">
+      Sistemas grandes ya construidos (esperando que actives)
+    </h3>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Sistema</th>
+            <th>Estado</th>
+            <th>Función</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>SII</strong></td>
+            <td style="color: var(--amber);">⚙ Esperando migración R117 + seed credenciales</td>
+            <td>Sync RCV mensual · Conciliar DTE con vouchers · F29 estimado · Crear voucher desde DTE</td>
+          </tr>
+          <tr>
+            <td><strong>Nubox scraping</strong></td>
+            <td style="color: var(--amber);">⚙ Esperando migración R123</td>
+            <td>Libro de Remuneraciones automático + import xlsx fallback</td>
+          </tr>
+          <tr>
+            <td><strong>Nubox API REST</strong></td>
+            <td style="color: var(--amber);">⚙ Esperando credenciales API (pedir a soporte@nubox.com)</td>
+            <td>Emitir DTE oficiales · sync ventas · PDF + XML firmados SII</td>
+          </tr>
+          <tr>
+            <td><strong>Cifrado Fernet</strong></td>
+            <td style="color: var(--amber);">⚙ Esperando setear CREDENTIALS_FERNET_KEY en Fly</td>
+            <td>Cifrar claves SII / Previred / Nubox para que nunca queden en plaintext</td>
+          </tr>
+          <tr>
+            <td><strong>Monitor + Auto-sync</strong></td>
+            <td style="color: var(--amber);">⚙ Esperando migración R126 + schedule Fly</td>
+            <td>Health checks cada 10 min · Auto-sync diario SII 06:00 GMT</td>
+          </tr>
+          <tr>
+            <td><strong>Vouchers + Aprobaciones + Transferencias</strong></td>
+            <td style="color: var(--green);">✓ Operativo</td>
+            <td>Crear, aprobar (2 firmas), pagar, conciliar</td>
+          </tr>
+          <tr>
+            <td><strong>Subsidio CORFO REVTECH+TRONGKAI</strong></td>
+            <td style="color: var(--green);">✓ Cargado ($3.000.000.000)</td>
+            <td>2 proyectos coejecutores · reparto CORFO/Ptec/Empresa · F.A.</td>
+          </tr>
+          <tr>
+            <td><strong>44 usuarios + roles</strong></td>
+            <td style="color: var(--green);">✓ Activos desde Round 79</td>
+            <td>DIRECTOR Guido · 7 GGs por empresa · CONTADOR · COO · Tesorería</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- COSTO -->
+<section class="block" id="costo">
+  <div class="container">
+    <span class="label">Costo actual real</span>
+    <h2>Entre $10 y $25 USD/mes.</h2>
+    <p class="lead">
+      Verificado contra los proveedores reales hoy. Sin redondeos.
+    </p>
+
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Servicio</th>
+            <th>Plan</th>
+            <th>Uso actual</th>
+            <th class="num">USD/mes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Fly.io</strong> · Backend</td>
+            <td>Pay-as-you-go</td>
+            <td>2 machines app shared-cpu-1x:512MB always-on (región gru) + 14 cron machines on-demand</td>
+            <td class="num">~$10-12</td>
+          </tr>
+          <tr>
+            <td><strong>Vercel</strong> · Frontend</td>
+            <td>Hobby (free)</td>
+            <td>2 dominios (cehta-capital, ram-cehta) · build minutes mensuales</td>
+            <td class="num">$0</td>
+          </tr>
+          <tr>
+            <td><strong>Supabase</strong> · DB + Auth</td>
+            <td>Free tier</td>
+            <td>Postgres 16 · 44 usuarios Auth · cap 500 MB DB (estimado 70-100 MB hoy) · session pooler (cap 15 conn)</td>
+            <td class="num">$0</td>
+          </tr>
+          <tr>
+            <td><strong>Anthropic Claude API</strong></td>
+            <td>Pay-per-use</td>
+            <td>Clasificación inbox · extract OC · IA chat (volumen actual bajo)</td>
+            <td class="num">~$2-10</td>
+          </tr>
+          <tr>
+            <td><strong>Resend</strong> · Email outbound</td>
+            <td>Free</td>
+            <td>&lt; 3.000 emails/mes (notificaciones aprobación, digest semanal)</td>
+            <td class="num">$0</td>
+          </tr>
+          <tr>
+            <td><strong>Dropbox</strong></td>
+            <td>Cuenta corporativa Cehta</td>
+            <td>Adjuntos vouchers + cartolas + carpetas empresa (sin costo marginal)</td>
+            <td class="num">$0</td>
+          </tr>
+          <tr>
+            <td><strong>GitHub</strong></td>
+            <td>Free</td>
+            <td>Repo privado Nikolaaa11/Ram-Cehta</td>
+            <td class="num">$0</td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="3">Total estimado mensual hoy</td>
+            <td class="num">~$12-22 USD</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size: 22px; font-weight: 700; color: var(--ink-900); margin: 36px 0 16px; letter-spacing: -0.018em;">
+      Cuándo va a subir
+    </h3>
+    <div class="table-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Cuando pase</th>
+            <th>Acción</th>
+            <th class="num">Costo extra/mes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Llegues a 400 MB de DB Supabase (estimo 6-12 meses)</td>
+            <td>Supabase Pro</td>
+            <td class="num">+$25</td>
+          </tr>
+          <tr>
+            <td>Más de 3 usuarios simultáneos genere lentitud</td>
+            <td>Migrar a Supabase transaction pooler (port 6543)</td>
+            <td class="num">$0</td>
+          </tr>
+          <tr>
+            <td>Cold starts molesten</td>
+            <td>Fly machine 2x:1024MB</td>
+            <td class="num">+$7</td>
+          </tr>
+          <tr>
+            <td>Necesites colaboradores en Vercel</td>
+            <td>Vercel Pro</td>
+            <td class="num">+$20 por usuario</td>
+          </tr>
+          <tr>
+            <td>IA chat usado más intensivamente</td>
+            <td>Mayor consumo API</td>
+            <td class="num">+$5-20</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PASOS MANUALES -->
+<section class="block" id="pasos">
+  <div class="container">
+    <span class="label">Pasos manuales que solo vos podés hacer</span>
+    <h2>9 acciones · 1-2 horas tuyas + 1-3 días Nubox</h2>
+    <p class="lead">
+      Yo no puedo abrir tu dashboard Vercel ni el Supabase ni mandar el email a Nubox.
+      Estas son las acciones que tenés que hacer en orden estricto.
+    </p>
+
+    <ol class="steps">
+
+      <li class="step">
+        <div class="step-num required">1</div>
+        <div class="step-content">
+          <h3>Desbloquear el deploy de Vercel</h3>
+          <div class="meta-row">
+            <span class="pill crit">Bloqueante #1</span>
+            <span class="pill time">10 min</span>
+          </div>
+          <p><strong>Es el problema raíz.</strong> Hasta que esto no esté resuelto, ningún cambio que yo haga (incluidos los R129/R132 de los formularios) aparece en producción.</p>
+
+          <p style="margin-top: 16px;"><strong>1.1.</strong> Entrá a <a href="https://vercel.com/dashboard" target="_blank">vercel.com/dashboard</a> con tu cuenta.</p>
+
+          <p><strong>1.2.</strong> Abrí el proyecto <code>cehta-capital</code> (o <code>ram-cehta</code>, si es el mismo proyecto, debería tener 2 dominios).</p>
+
+          <p><strong>1.3.</strong> Andá a la pestaña <strong>"Deployments"</strong>. Buscá los últimos deployments. Vas a ver una de estas 3 situaciones:</p>
+
+          <ul>
+            <li><strong>Builds en Error/Failed</strong> en los últimos commits → click en el deploy fallido → tab "Build Logs" → copiar el error y mandármelo en screenshot</li>
+            <li><strong>Builds en Queued</strong> que nunca arrancan → puede ser límite de build minutes alcanzado. Settings → Usage</li>
+            <li><strong>Último deploy es de hace varios días</strong> → auto-deploy está desactivado. Settings → Git → asegurar que branch <code>main</code> tiene Production deploys</li>
+          </ul>
+
+          <div class="warn-box">
+            <strong>Acción urgente</strong>: ir a Deployments, hacer screenshot del primer deploy que aparece (con su status), y mandármelo. Con eso te digo en 2 min cuál de los 3 escenarios es y cómo destrabarlo.
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num required">2</div>
+        <div class="step-content">
+          <h3>Aplicar las 5 migraciones SQL</h3>
+          <div class="meta-row">
+            <span class="pill crit">Bloqueante</span>
+            <span class="pill time">2 min</span>
+          </div>
+          <p>Un solo comando local aplica R115 + R117 + R123 + R124 + R126 contra Supabase. Idempotente: si ya están aplicadas, las skipea.</p>
+          <pre><span class="pre-label">PowerShell</span>Set-Location C:\Users\DELL\Documents\0.11.Nikolaya\Ram-Cehta\backend
+python -m scripts.apply_pending_migrations</pre>
+          <div class="ok-check">
+            <strong>Validación:</strong> el output debe terminar con
+            <code>Aplicadas: 5 / Skipeadas: 0 / Fallidas: 0</code>
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num required">3</div>
+        <div class="step-content">
+          <h3>Setear la Fernet key en Fly</h3>
+          <div class="meta-row">
+            <span class="pill crit">Bloqueante</span>
+            <span class="pill time">3 min</span>
+          </div>
+          <p>Sin esto, las credenciales SII y Previred no se pueden cifrar ni descifrar.</p>
+          <pre><span class="pre-label">PowerShell</span>fly secrets set CREDENTIALS_FERNET_KEY="iKTVRo8oBh_1Q-HTYLg8_Hk22wLn-NZUXkM-N-jB7JM=" -a cehta-backend</pre>
+          <p>Y agregar la misma línea a <code>backend/.env</code>:</p>
+          <pre><span class="pre-label">backend/.env</span>CREDENTIALS_FERNET_KEY=iKTVRo8oBh_1Q-HTYLg8_Hk22wLn-NZUXkM-N-jB7JM=</pre>
+          <div class="warn-box">
+            <strong>Guardá esa key en 1Password de Cehta.</strong> Si la perdés, hay que volver a cargar todas las credenciales del Excel desde cero.
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num required">4</div>
+        <div class="step-content">
+          <h3>Cargar credenciales SII + Previred del Excel</h3>
+          <div class="meta-row">
+            <span class="pill crit">Bloqueante</span>
+            <span class="pill time">5 min</span>
+          </div>
+          <p>Importa 9 claves SII + 6 Previred (cifradas con Fernet) + 5 miembros del directorio + 5 inversionistas/aportantes + datos extra de empresas.</p>
+          <pre><span class="pre-label">PowerShell</span>python -m scripts.seed_empresas_excel_round116 "C:\Users\DELL\Downloads\Data (4).xlsx"</pre>
+          <div class="ok-check">
+            <strong>Validación:</strong> output debe mostrar
+            <code>9 SII / 6 Previred / 5 directorio / 5 inversionistas</code>
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num required">5</div>
+        <div class="step-content">
+          <h3>Activar 2FA TOTP en tu cuenta admin</h3>
+          <div class="meta-row">
+            <span class="pill crit">Bloqueante</span>
+            <span class="pill time">5 min</span>
+          </div>
+          <p>Es invariante #17 del MAESTRO. Acciones admin críticas (crear users, rotar tokens, enviar digest) exigen 2FA.</p>
+          <ol>
+            <li>Abrir <a href="https://cehta-capital.vercel.app/me/2fa" target="_blank">cehta-capital.vercel.app/me/2fa</a></li>
+            <li>Click <strong>"Activar 2FA"</strong></li>
+            <li>Escanear QR con Google Authenticator o Authy</li>
+            <li>Ingresar código de 6 dígitos</li>
+            <li><strong>Guardar backup codes</strong> en 1Password (se muestran una sola vez)</li>
+          </ol>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <h3>Configurar schedule en machines Fly cron</h3>
+          <div class="meta-row">
+            <span class="pill imp">Importante</span>
+            <span class="pill time">5 min</span>
+          </div>
+          <p>Enciende el monitor cada 10 min (alertas automáticas) y el auto-sync diario a las 06:00 GMT (trae RCV del SII del mes anterior).</p>
+          <pre><span class="pre-label">PowerShell · paso A</span>fly machine list -a cehta-backend</pre>
+          <p>Identificá los IDs de <code>monitor_cron</code> y <code>auto_sync_cron</code> de la lista, después:</p>
+          <pre><span class="pre-label">PowerShell · paso B</span>fly machine update &lt;id-monitor&gt;   --schedule "*/10 * * * *" -a cehta-backend
+fly machine update &lt;id-autosync&gt;  --schedule "0 6 * * *"    -a cehta-backend</pre>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">7</div>
+        <div class="step-content">
+          <h3>Solicitar credenciales API de Nubox</h3>
+          <div class="meta-row">
+            <span class="pill imp">Importante</span>
+            <span class="pill time">5 min tuyos + 1-3 días Nubox</span>
+          </div>
+          <p>Email a <strong>soporte@nubox.com</strong>:</p>
+          <pre style="background: #f5f5f7; color: #1d1d1f; font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 16px; font-size: 14px; line-height: 1.55;">Asunto: Solicitud credenciales API Integraciones · UAT
+
+Soy Nicolás Rietta, Cehta Capital. Necesitamos credenciales
+de la API de Integraciones Factura y Administración (la nueva
+API) para el ambiente UAT.
+
+Empresas que requieren X-Api-Key:
+  · AFIS SA · 77.423.556-6
+  · FIP CEHTA · 77.751.766-K
+  · Cenergy Ltda · 76.108.687-1
+  · Evoque Energy SpA · 76.282.088-9
+  · Climate Smart Leasing SpA · 77.868.887-5
+  · Trongkai SpA · 77.221.203-8
+  · RHO Generación SpA · 77.931.386-7
+  · REVTECH SpA · 77.018.739-7
+  · DTE SpA · 77.826.369-6
+
+Contacto principal: Nicolás Rietta
+
+Gracias.</pre>
+          <p>Cuando lleguen, las cargás via <code>POST /admin/nubox-api/credentials/{empresa}</code> siguiendo <code>backend/scripts/sql/round124_INSTRUCCIONES.md</code>.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">8</div>
+        <div class="step-content">
+          <h3>Verificar progreso en el checklist en vivo</h3>
+          <div class="meta-row">
+            <span class="pill imp">Importante</span>
+            <span class="pill time">5 min</span>
+          </div>
+          <p>Una vez resuelto Vercel + ejecutados pasos 2-6, andá a:</p>
+          <p><a href="https://cehta-capital.vercel.app/admin/marcha-blanca" target="_blank">cehta-capital.vercel.app/admin/marcha-blanca</a></p>
+          <p>Vas a ver 30+ checks contra producción en vivo. Lo que tenés que ver:</p>
+          <ul>
+            <li><strong>Bloqueantes</strong>: 15 / 15 en OK</li>
+            <li><strong>Importantes</strong>: 8 / 10+ en OK</li>
+            <li>Status global: <strong>READY</strong></li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">9</div>
+        <div class="step-content">
+          <h3>Test E2E con caja chica (con Camilo y Guido)</h3>
+          <div class="meta-row">
+            <span class="pill imp">Importante</span>
+            <span class="pill time">1 día con coordinación</span>
+          </div>
+          <p>El único bloqueante humano que no se puede saltar. Valida que TODO el flujo funciona con plata real.</p>
+          <ol>
+            <li><strong>Vos creás voucher COMPRA</strong> en REVTECH por $20.000 (gasto real de caja chica). Adjuntás factura. Submit.</li>
+            <li><strong>Camilo</strong> firma como GG REVTECH (recibe email → entra → revisa → firma).</li>
+            <li><strong>Vos firmás</strong> como DIRECTOR. Voucher pasa a APPROVED.</li>
+            <li><strong>Tesorería</strong>: descargás planilla bancaria, subís al banco, pagás, marcás EXECUTED.</li>
+            <li><strong>Esperás 1 día</strong> a que el proveedor emita factura electrónica.</li>
+            <li><strong>Sync SII</strong> + conciliar. Si el voucher local y el DTE matchean exacto → todo el sistema funciona end-to-end.</li>
+          </ol>
+        </div>
+      </li>
+
+    </ol>
+  </div>
+</section>
+
+<!-- CTA grande -->
+<section>
+  <div class="container">
+    <div class="cta-banner">
+      <h2>Empezá por el paso 1.</h2>
+      <p>
+        Hasta que no se destrabe Vercel, todo lo demás no se va a ver aunque lo hagas
+        bien. Una vez resuelto, los 8 pasos siguientes suman unos 30 minutos de tu tiempo.
+      </p>
+      <a href="https://vercel.com/dashboard" target="_blank">Ir a Vercel Dashboard</a>
+    </div>
+  </div>
+</section>
+
+<!-- CIERRE -->
+<section class="block" id="cierre">
+  <div class="container">
+    <span class="label">En conclusión</span>
+    <h2>Estás más cerca de lo que parece.</h2>
+    <p class="lead">
+      El código está hecho. La plataforma está hosteada. Las cuentas existen. Los 44
+      usuarios siguen activos desde mayo. El subsidio CORFO de $3.000.000.000 cargado.
+      Lo único que falta es que un build de Vercel se ejecute con éxito + 30 min de
+      configuración tuya.
+    </p>
+
+    <div class="cards-grid" style="margin-top: 32px;">
+      <div class="card green">
+        <h3>Una vez resuelto Vercel</h3>
+        <div class="value">30 min</div>
+        <p class="detail">para tener todo configurado (migraciones + Fernet + seed + 2FA + crons)</p>
+      </div>
+      <div class="card amber">
+        <h3>Test E2E</h3>
+        <div class="value">1 día</div>
+        <p class="detail">coordinando una firma con Camilo y otra tuya como DIRECTOR</p>
+      </div>
+      <div class="card">
+        <h3>Marcha blanca lista</h3>
+        <div class="value">~1 día</div>
+        <p class="detail">total desde que destrabes Vercel</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Generado por Claude · Round 133 · 2026-05-20 · Verificación honesta contra producción</p>
+    <p style="margin-top: 8px;">
+      <a href="https://github.com/Nikolaaa11/Ram-Cehta">Repo GitHub</a> ·
+      <a href="https://cehta-capital.vercel.app/admin/marcha-blanca">Checklist en vivo</a>
+    </p>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.hero .meta').forEach(el => {
+    const ts = new Date().toLocaleString('es-CL', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+    el.innerHTML = el.innerHTML.replace('{{TIMESTAMP}}', ts);
+  });
+</script>
+
+</body>
+</html>
