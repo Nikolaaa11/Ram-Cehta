@@ -1245,6 +1245,10 @@ async def create_voucher(
         fecha_documento=body.fecha_documento,
         fecha_contable=body.fecha_contable,
         fecha_ejecucion=body.fecha_ejecucion,
+        # Round 132 — fecha_vencimiento + documento_dropbox_path desde
+        # POST /vouchers (antes solo nubox-form los aceptaba).
+        fecha_vencimiento=body.fecha_vencimiento,
+        documento_dropbox_path=body.documento_dropbox_path,
         glosa=body.glosa.strip(),
         total_debit=total_debit,
         total_credit=total_credit,

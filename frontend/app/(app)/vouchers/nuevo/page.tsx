@@ -109,6 +109,14 @@ export default function NuevoVoucherPage() {
   const today = new Date().toISOString().slice(0, 10);
   const [fechaDocumento, setFechaDocumento] = useState(today);
   const [fechaContable, setFechaContable] = useState(today);
+  // Round 132 (Observaciones 20/05/2026): fechaVencimiento + fechaPago +
+  // documentoDropboxPath + proyectoCodigoGlobal en header (igual que
+  // /vouchers/nubox y /vouchers/corfo). Proyecto a nivel voucher, no
+  // por línea. Fechas y link Dropbox como campos opcionales.
+  const [fechaVencimiento, setFechaVencimiento] = useState("");
+  const [fechaPago, setFechaPago] = useState("");
+  const [documentoDropboxPath, setDocumentoDropboxPath] = useState("");
+  const [proyectoCodigoGlobal, setProyectoCodigoGlobal] = useState("");
   const [glosa, setGlosa] = useState(initialGlosa);
   const [contraparteRut, setContraparteRut] = useState("");
   const [contraparteNombre, setContraparteNombre] = useState("");
@@ -409,6 +417,11 @@ export default function NuevoVoucherPage() {
         status: targetStatus,
         fecha_documento: fechaDocumento,
         fecha_contable: fechaContable,
+        // Round 132 — fecha_pago mapea a fecha_ejecucion del modelo
+        // Voucher (fecha planeada/efectiva del pago).
+        fecha_ejecucion: fechaPago || null,
+        fecha_vencimiento: fechaVencimiento || null,
+        documento_dropbox_path: documentoDropboxPath.trim() || null,
         glosa: glosa.trim(),
         moneda: "CLP",
         contraparte_rut: contraparteRut.trim() || null,
@@ -422,7 +435,9 @@ export default function NuevoVoucherPage() {
         lines: lines.map((l, i) => ({
           line_number: i + 1,
           cuenta_codigo: l.cuenta_codigo,
-          proyecto_codigo: l.proyecto_codigo || null,
+          // Round 132 — proyecto a nivel voucher. Si la línea trae uno
+          // custom (legacy), prevalece; sino se aplica el global.
+          proyecto_codigo: l.proyecto_codigo || proyectoCodigoGlobal || null,
           area_codigo: l.area_codigo || null,
           debit: Number(l.debit) || 0,
           credit: Number(l.credit) || 0,
@@ -576,6 +591,46 @@ export default function NuevoVoucherPage() {
                 />
               </Field>
 
+              {/* Round 132 (Observaciones 20/05/2026): fecha vencimiento +
+                  fecha pago + proyecto global + link Dropbox en header. */}
+              <Field label="Fecha vencimiento (opcional)">
+                <input
+                  type="date"
+                  value={fechaVencimiento}
+                  min={fechaDocumento || undefined}
+                  onChange={(e) => setFechaVencimiento(e.target.value)}
+                  title="Fecha límite de pago según el documento."
+                  className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                />
+              </Field>
+
+              <Field label="Fecha de pago (opcional)">
+                <input
+                  type="date"
+                  value={fechaPago}
+                  onChange={(e) => setFechaPago(e.target.value)}
+                  title="Fecha en que efectivamente se paga (o se planea pagar)."
+                  className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                />
+              </Field>
+
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Field label="Proyecto contable (opcional · se aplica a todas las líneas)">
+                  <select
+                    value={proyectoCodigoGlobal}
+                    onChange={(e) => setProyectoCodigoGlobal(e.target.value)}
+                    className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                  >
+                    <option value="">— Sin proyecto —</option>
+                    {(proyectos ?? []).map((p) => (
+                      <option key={p.codigo} value={p.codigo}>
+                        {p.codigo} — {p.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+
               <div className="sm:col-span-2 lg:col-span-3">
                 <Field label="Glosa (descripción del asiento)" required>
                   {/* Prompt maestro B.4: campo de 2 lineas visibles con scroll
@@ -589,6 +644,19 @@ export default function NuevoVoucherPage() {
                     maxLength={500}
                     placeholder="Ej: Pago factura 12345 — Servicios consultoría enero RHO"
                     className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green resize-none overflow-y-auto"
+                  />
+                </Field>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Field label="Documento — link Dropbox (opcional)">
+                  <input
+                    type="text"
+                    value={documentoDropboxPath}
+                    onChange={(e) => setDocumentoDropboxPath(e.target.value)}
+                    placeholder="/Cehta Capital/Adjuntos-Vouchers/.../factura.pdf"
+                    title="Path completo en Dropbox del documento soporte. Si está vacío, podés adjuntar archivo desde el detalle del voucher."
+                    className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                   />
                 </Field>
               </div>
@@ -754,9 +822,12 @@ export default function NuevoVoucherPage() {
               <table className="w-full text-sm">
                 <thead className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                   <tr>
+                    {/* Round 132 (Observaciones 20/05/2026): columna
+                        Proyecto eliminada. El proyecto se elige UNA VEZ
+                        en el header del voucher y se aplica a todas
+                        las líneas al submit. */}
                     <th className="w-8 pb-2">#</th>
                     <th className="pb-2">Planificación financiera</th>
-                    <th className="pb-2">Proyecto</th>
                     <th className="pb-2">Área</th>
                     <th className="pb-2 text-right">Cargo</th>
                     <th className="pb-2 text-right">Abono</th>
@@ -785,22 +856,8 @@ export default function NuevoVoucherPage() {
                           ))}
                         </select>
                       </td>
-                      <td className="py-2 pr-2">
-                        <select
-                          value={l.proyecto_codigo}
-                          onChange={(e) =>
-                            updateLine(l.localId, { proyecto_codigo: e.target.value })
-                          }
-                          className="w-full rounded-lg border-0 bg-ink-50 px-2 py-1.5 text-xs ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
-                        >
-                          <option value="">—</option>
-                          {(proyectos ?? []).map((p) => (
-                            <option key={p.codigo} value={p.codigo}>
-                              {p.codigo}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
+                      {/* Round 132: <td> de Proyecto eliminado.
+                          Se setea a nivel voucher en el header. */}
                       <td className="py-2 pr-2">
                         <select
                           value={l.area_codigo}

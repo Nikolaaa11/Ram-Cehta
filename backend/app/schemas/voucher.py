@@ -103,6 +103,12 @@ class VoucherCreate(BaseModel):
     fecha_documento: date
     fecha_contable: date
     fecha_ejecucion: date | None = None
+    # Round 132 (Observaciones 20/05/2026): fecha_vencimiento +
+    # documento_dropbox_path se aceptan ahora en POST /vouchers (antes
+    # solo el endpoint nubox-form los soportaba). Permite que el form
+    # /vouchers/nuevo guarde estos campos sin pasar por nubox-form.
+    fecha_vencimiento: date | None = None
+    documento_dropbox_path: str | None = Field(default=None, max_length=500)
     glosa: str = Field(min_length=5, max_length=500)
     moneda: Moneda = "CLP"
     exchange_rate: Decimal | None = None
