@@ -251,6 +251,11 @@ export default function NuboxFormPage() {
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   const [glosa, setGlosa] = useState("");
   const [documentoDropboxPath, setDocumentoDropboxPath] = useState("");
+  // Round 129 (Observaciones 20/05/2026): proyecto único a nivel voucher.
+  // Antes cada línea tenía su selector. Ahora el operador elige UN proyecto
+  // arriba y se aplica automáticamente a todas las líneas. Más rápido +
+  // evita errores de líneas con proyectos distintos.
+  const [proyectoCodigoGlobal, setProyectoCodigoGlobal] = useState<string>("");
 
   // Lines
   const [contable, setContable] = useState<LineRow[]>([
@@ -908,15 +913,17 @@ export default function NuboxFormPage() {
           total: parseFloat(l.total),
           // Round 87 — Bloque E para REVTECH/TRONGKAI
           fuente_financiamiento: l.fuente_financiamiento ?? "NA",
-          // Round 102 — proyecto contable por linea
-          proyecto_codigo: l.proyecto_codigo || null,
+          // Round 129 — proyecto a nivel voucher (no más por línea).
+          // Backward-compat: si la línea tenía proyecto custom (legacy
+          // o autofill IA), priorizamos ese; sino tomamos el global.
+          proyecto_codigo: l.proyecto_codigo || proyectoCodigoGlobal || null,
         })),
         informacion_financiera: financiera.map((l) => ({
           comentario: l.comentario,
           cuenta_codigo: l.cuenta_codigo,
           total: parseFloat(l.total),
           fuente_financiamiento: l.fuente_financiamiento ?? "NA",
-          proyecto_codigo: l.proyecto_codigo || null,
+          proyecto_codigo: l.proyecto_codigo || proyectoCodigoGlobal || null,
         })),
       };
       const resp = await apiClient.post<{
@@ -1445,15 +1452,30 @@ export default function NuboxFormPage() {
               )}
             </div>
 
-            {/* Documento Dropbox path */}
+            {/* Round 129 — Proyecto contable a nivel voucher.
+                Antes estaba en cada línea (col en LineSection). Ahora es
+                global por voucher y va debajo de fecha vencimiento. */}
             <div className="md:col-span-2">
-              <Label>Documento — link Dropbox (opcional por ahora)</Label>
-              <input
-                value={documentoDropboxPath}
-                onChange={(e) => setDocumentoDropboxPath(e.target.value)}
-                placeholder="/Cehta Capital/Adjuntos-Vouchers/.../factura.pdf"
+              <Label hint="Proyecto contable / centro de costo. Se aplica a TODAS las líneas del voucher automáticamente. Si el voucher cruza varios proyectos, crear uno por proyecto.">
+                Proyecto contable
+              </Label>
+              <select
+                value={proyectoCodigoGlobal}
+                onChange={(e) => setProyectoCodigoGlobal(e.target.value)}
                 className="form-input"
-              />
+              >
+                <option value="">— Sin proyecto (opcional) —</option>
+                {proyectosEmpresa.map((p) => (
+                  <option key={p.codigo} value={p.codigo}>
+                    {p.codigo} — {p.nombre}
+                  </option>
+                ))}
+              </select>
+              {!empresaCodigo && (
+                <p className="mt-1 text-[10px] text-ink-400">
+                  Elegí empresa primero para ver sus proyectos.
+                </p>
+              )}
             </div>
 
             {/* Comentario (glosa) — Prompt maestro B.4: campo de 2 lineas
@@ -1694,6 +1716,23 @@ export default function NuboxFormPage() {
           <p className="mt-2 text-[10px] italic text-ink-400">
             Max 50 MB cada uno · PDF, JPG, PNG, Excel, Word
           </p>
+
+          {/* Round 129 (Observaciones 20/05/2026): el campo "Documento — link
+              Dropbox" se movió desde el header hacia acá, justo debajo del
+              file picker. Tiene más sentido visual porque ambos son "adjuntar
+              soporte documental". El input acepta un path Dropbox ya existente
+              cuando el operador ya subió el archivo antes desde Dropbox web. */}
+          <div className="mt-5 border-t border-hairline pt-4">
+            <Label hint="Si el documento ya está en Dropbox (porque lo subiste antes), pegá el path acá. Alternativa al file picker de arriba. Opcional.">
+              Documento — link Dropbox (opcional)
+            </Label>
+            <input
+              value={documentoDropboxPath}
+              onChange={(e) => setDocumentoDropboxPath(e.target.value)}
+              placeholder="/Cehta Capital/Adjuntos-Vouchers/.../factura.pdf"
+              className="form-input"
+            />
+          </div>
         </Surface>
 
         {/* FOOTER: totales + submit
@@ -1892,16 +1931,14 @@ function LineSection({
       <div className="overflow-x-auto">
         <table className="w-full text-sm min-w-[768px]">
           <thead className="text-ink-500 text-xs uppercase">
+            {/* Round 129 (Observaciones 20/05/2026): columna Proyecto
+                ELIMINADA aquí. El proyecto ahora se elige una vez en el
+                header del voucher (debajo de fecha vencimiento) y se aplica
+                a todas las líneas automáticamente al submit. */}
             <tr>
               <th className="text-left px-2 py-1.5 w-12">#</th>
-              <th className="text-left px-2 py-1.5 w-[22%]">Comentario *</th>
-              <th className="text-left px-2 py-1.5 w-[24%]">Planificación financiera *</th>
-              <th
-                className="text-left px-2 py-1.5 w-[14%]"
-                title="Centro de costo / proyecto del Excel consolidado"
-              >
-                Proyecto
-              </th>
+              <th className="text-left px-2 py-1.5 w-[26%]">Comentario *</th>
+              <th className="text-left px-2 py-1.5 w-[30%]">Planificación financiera *</th>
               {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
                 <th
                   className="text-left px-2 py-1.5 w-[14%]"
@@ -1910,9 +1947,9 @@ function LineSection({
                   Fuente $
                 </th>
               )}
-              <th className="text-right px-2 py-1.5 w-[12%]">Total Neto *</th>
+              <th className="text-right px-2 py-1.5 w-[14%]">Total Neto *</th>
               <th
-                className="text-right px-2 py-1.5 w-[12%]"
+                className="text-right px-2 py-1.5 w-[14%]"
                 title={
                   aplicaIva
                     ? "Total Neto × 1.19 (IVA 19%). Read-only — se recalcula automáticamente."
@@ -1958,26 +1995,8 @@ function LineSection({
                       placeholder="Código o nombre…"
                     />
                   </td>
-                  {/* Round 102 — Selector proyecto filtrado por empresa */}
-                  <td className="px-2 py-1.5">
-                    <select
-                      value={line.proyecto_codigo ?? ""}
-                      onChange={(e) =>
-                        onUpdate(idx, "proyecto_codigo", e.target.value)
-                      }
-                      className="form-input text-xs"
-                      title="Proyecto contable. Si no aplica, elegí 'Otros'."
-                    >
-                      <option value="">— Elegir —</option>
-                      {proyectos.map((p) => (
-                        <option key={p.codigo} value={p.codigo}>
-                          {p.nombre.length > 40
-                            ? p.nombre.slice(0, 40) + "…"
-                            : p.nombre}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+                  {/* Round 129: columna Proyecto eliminada. Se setea
+                      a nivel voucher desde el header. */}
                   {/* Round 87 — Selector fuente solo para REVTECH/TRONGKAI */}
                   {EMPRESAS_CON_BLOQUE_E.includes(empresaCodigo) && (
                     <td className="px-2 py-1.5">

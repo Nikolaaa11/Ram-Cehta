@@ -76,6 +76,11 @@ export default function VoucherCorfoPage() {
   const [fechaDoc, setFechaDoc] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  // Round 129 (Observaciones 20/05/2026): agregamos fecha vencimiento +
+  // fecha pago + link Dropbox al form CORFO. Antes solo había fecha doc.
+  const [fechaVencimiento, setFechaVencimiento] = useState("");
+  const [fechaPago, setFechaPago] = useState("");
+  const [documentoDropboxPath, setDocumentoDropboxPath] = useState("");
   const [proveedorRut, setProveedorRut] = useState("");
   const [proveedorNombre, setProveedorNombre] = useState("");
   const [glosa, setGlosa] = useState("");
@@ -84,7 +89,11 @@ export default function VoucherCorfoPage() {
   // Proyecto + reparto
   const [proyectoCodigo, setProyectoCodigo] = useState("");
   // Para F.A: asignar el neto al financiamiento subsidiado o NO (100% empresa)
-  const [asignaFinanciamiento, setAsignaFinanciamiento] = useState(true);
+  // Round 129 — bifurcación F.A. eliminada de la UI. Mantenemos el valor
+  // forzado a true para que la lógica downstream (editor de %, preview,
+  // payload) siga funcionando sin tocarse. setAsignaFinanciamiento queda
+  // como no-op (no se llama desde ningún lado tras la edición).
+  const [asignaFinanciamiento] = useState(true);
   const [pctCorfo, setPctCorfo] = useState<number>(50);
   const [pctPtec, setPctPtec] = useState<number>(20);
   const [pctEmpresa, setPctEmpresa] = useState<number>(30);
@@ -238,11 +247,16 @@ export default function VoucherCorfoPage() {
         numero_documento: folio,
         forma_pago: "TRANSFERENCIA",
         fecha_documento: fechaDoc,
-        fecha_vencimiento: null,
-        documento_dropbox_path: null,
+        // Round 129 — campos antes hardcoded null, ahora controlables
+        fecha_vencimiento: fechaVencimiento || null,
+        documento_dropbox_path: documentoDropboxPath || null,
         glosa: glosa || `Voucher CORFO ${proyectoCodigo}`,
         informacion_contable,
         informacion_financiera,
+        // Round 129 — fecha de pago va por separado al endpoint (si el
+        // backend lo soporta). Lo agregamos al payload base — endpoints
+        // que no lo procesen lo ignoran sin romper.
+        ...(fechaPago ? { fecha_pago: fechaPago } : {}),
       };
       return apiClient.post<{ voucher_id: number; codigo: string }>(
         "/vouchers/nubox-form",
@@ -378,6 +392,34 @@ export default function VoucherCorfoPage() {
               className="form-input"
             />
           </div>
+          {/* Round 129 — Fecha vencimiento + Fecha pago.
+              Antes solo había fecha doc. Estos 2 campos son críticos para
+              flujo de tesorería + alertas de pago atrasado. */}
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-1">
+              Fecha de vencimiento (opcional)
+            </label>
+            <input
+              type="date"
+              value={fechaVencimiento}
+              min={fechaDoc || undefined}
+              onChange={(e) => setFechaVencimiento(e.target.value)}
+              className="form-input"
+              title="Fecha límite de pago según el documento. Si dice 'pago a 30 días', sumar 30 días a fecha doc."
+            />
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-1">
+              Fecha de pago (opcional)
+            </label>
+            <input
+              type="date"
+              value={fechaPago}
+              onChange={(e) => setFechaPago(e.target.value)}
+              className="form-input"
+              title="Fecha en que efectivamente se paga (o se planea pagar)."
+            />
+          </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-1">
               Proveedor RUT (opcional)
@@ -448,6 +490,29 @@ export default function VoucherCorfoPage() {
             className="form-input"
           />
         </div>
+
+        {/* Round 129 — Link de carga de documentos (path Dropbox del
+            archivo soporte). Aparece después de la glosa, antes del cierre
+            del Surface. Si el operador ya subió el doc a Dropbox, pega el
+            path acá. Si no, puede dejarlo vacío y subir el archivo después
+            desde el detalle del voucher. */}
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-1">
+            Documento — link Dropbox (opcional)
+          </label>
+          <input
+            type="text"
+            value={documentoDropboxPath}
+            onChange={(e) => setDocumentoDropboxPath(e.target.value)}
+            placeholder="/Cehta Capital/Adjuntos-Vouchers/.../factura.pdf"
+            className="form-input"
+            title="Path completo en Dropbox del documento soporte. Si está vacío, podés adjuntarlo después desde /vouchers/{id}."
+          />
+          <p className="mt-1 text-[10px] text-ink-400">
+            Si el documento ya está en Dropbox, pegá el path. Sino, podés
+            adjuntar el archivo después de crear el voucher.
+          </p>
+        </div>
       </Surface>
 
       {/* Montos + reparto */}
@@ -489,41 +554,14 @@ export default function VoucherCorfoPage() {
           </div>
         </div>
 
-        {/* Bifurcación F.A: asignar a financiamiento? */}
-        {afecta && (
-          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
-            <p className="text-sm font-semibold text-blue-900 mb-2">
-              ¿Asignás el NETO a financiamiento subsidiado?
-            </p>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={asignaFinanciamiento}
-                  onChange={() => setAsignaFinanciamiento(true)}
-                />
-                <span className="text-sm">
-                  <strong>Sí</strong> · reparto CORFO / P-tec / Empresa
-                </span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={!asignaFinanciamiento}
-                  onChange={() => setAsignaFinanciamiento(false)}
-                />
-                <span className="text-sm">
-                  <strong>No</strong> · 100% Empresa directa
-                </span>
-              </label>
-            </div>
-            <p className="mt-2 text-[11px] text-blue-700">
-              <Info className="inline size-3 mr-1" />
-              El IVA siempre va al pozo corporativo (empresa receptora), sin
-              importar la decisión. Regla CORFO bloqueante.
-            </p>
-          </div>
-        )}
+        {/* Round 129 (Observaciones 20/05/2026): la bifurcación F.A. fue
+            eliminada. Si llegaste a este form (/vouchers/corfo) es porque
+            VAS A asignar al financiamiento subsidiado por definición.
+            Si querés un voucher 100% Empresa directa, usá /vouchers/nubox.
+
+            Detrás de la UI, `asignaFinanciamiento` queda forzado a `true`
+            siempre — la lógica de validación del editor de % y del
+            preview se mantiene intacta. */}
 
         {/* Editor % — solo si está repartiendo */}
         {(!afecta || asignaFinanciamiento) && (
