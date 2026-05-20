@@ -264,6 +264,11 @@ class NuboxFormCreate(BaseModel):
     ]
     fecha_documento: date
     fecha_vencimiento: date | None = None
+    # Round 129 (Observaciones 20/05/2026): el form CORFO ahora envía
+    # fecha_pago. Semánticamente mapea a voucher.fecha_ejecucion (fecha
+    # en que se planea / se efectúa el pago). Si viene null, queda null
+    # y el operador la actualiza al ejecutar la transferencia.
+    fecha_pago: date | None = None
     documento_dropbox_path: str | None = None
 
     # Header opcional (se pueden omitir, default empty)
@@ -778,6 +783,9 @@ async def create_voucher_nubox_form(
         doc_tributario_folio=body.numero_documento,
         forma_pago=body.forma_pago,
         fecha_vencimiento=body.fecha_vencimiento,
+        # Round 129 — fecha_pago del form → fecha_ejecucion del voucher
+        # (fecha planeada / efectiva del pago). Si está null queda null.
+        fecha_ejecucion=body.fecha_pago,
         documento_dropbox_path=body.documento_dropbox_path,
         source=body.source or "nubox_form",
         created_by=str(user.sub),
