@@ -40,9 +40,15 @@ _EMPRESA_COLS = (
     response_model=EmpresaRead,
 )
 async def get_empresa(
-    user: CurrentUser, db: DBSession, codigo: str
+    user: CurrentUser, db: DBSession, response: Response, codigo: str
 ) -> EmpresaRead:
-    """Detalle completo de una empresa (incluye campos fiscales/contacto)."""
+    """Detalle completo de una empresa (incluye campos fiscales/contacto).
+
+    Round 127: cache 5min stale-while-revalidate 60s. Los datos fiscales
+    de empresa cambian rara vez — el detalle se pide en cada navegación
+    al detalle de empresa.
+    """
+    response.headers["Cache-Control"] = _CATALOG_CACHE_HEADER
     row = (
         await db.execute(
             text(

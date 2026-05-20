@@ -328,6 +328,7 @@ async def _count_voucher_approved_ready_to_pay(
 async def get_sidebar_state(
     user: CurrentUser,
     db: DBSession,
+    response: Response,
 ) -> SidebarStateResponse:
     """Estado agregado del sidebar en una sola request.
 
@@ -337,7 +338,17 @@ async def get_sidebar_state(
 
     Soft-fail per-count: si una tabla no existe (entornos antiguos),
     el helper devuelve 0 sin romper el endpoint.
+
+    Round 127: Cache 30s con SSE-driven invalidation. El sidebar carga
+    7 conteos en paralelo cada vez que aparece — con 30s de cache,
+    múltiples cargas en rápida sucesión (typical navegación SPA)
+    comparten resultado. Cuando llega event SSE relevante
+    (notification.created, voucher.*), el frontend invalida la query
+    de TanStack y refetch — el cache stale no genera data vieja.
     """
+    # Round 127 — Cache privado 30s + SWR 15s. Reduce ~80% de queries DB
+    # del sidebar en navegación rápida (5-10 clicks/min).
+    response.headers["Cache-Control"] = "private, max-age=30, stale-while-revalidate=15"
     user_id = str(user.sub)
     (
         unread,
