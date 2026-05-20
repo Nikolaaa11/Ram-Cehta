@@ -35,6 +35,7 @@ from app.api.v1 import (
     informes_lp,
     legal,
     lp_contratos,
+    marcha_blanca,
     lp_documents,
     mailbox,
     me_preferences,
@@ -115,6 +116,8 @@ api_router.include_router(bitacora.router, prefix="/bitacora", tags=["bitacora"]
 api_router.include_router(admin_users.router, prefix="/admin", tags=["admin"])
 # Round 120 — Vista admin de la data del fondo (empresas + directorio + inversionistas)
 api_router.include_router(admin_data.router, prefix="/admin", tags=["admin-data"])
+# Round 128 — Checklist en vivo de pre-marcha-blanca
+api_router.include_router(marcha_blanca.router, prefix="/admin/marcha-blanca", tags=["marcha-blanca"])
 # Round 117 — SII (Servicio de Impuestos Internos Chile) integration
 api_router.include_router(sii.router, prefix="/admin/sii", tags=["sii"])
 # Round 123 — Nubox (remuneraciones, libro de sueldos)

@@ -335,6 +335,14 @@ const GROUPS: NavGroup[] = [
         title:
           "Health check: subsidios + proyectos + bandeja personal + items pendientes en una sola vista.",
       },
+      // Round 128 — checklist en vivo de pre-marcha-blanca
+      {
+        href: "/admin/marcha-blanca" as Route,
+        label: "Checklist marcha blanca",
+        icon: Target,
+        title:
+          "Estado en vivo: ¿estamos listos para arrancar operación real? Bloqueantes vs importantes vs nice-to-have.",
+      },
       // Round 120 — vista unica de data del fondo (empresas + directorio + inversionistas)
       {
         href: "/admin/data" as Route,
