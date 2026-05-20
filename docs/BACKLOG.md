@@ -17,7 +17,12 @@ Formato:
 
 ## 🔴 Crítico operativo (esta semana)
 
-- [H] (15min) **[OPS] Aplicar 5 migraciones SQL pendientes**: round115, 117, 123, 124, 126. Sin esto, las features están inertes.
+- [H] (2min) **[OPS] Aplicar 5 migraciones SQL pendientes**:
+  ```powershell
+  Set-Location C:\Users\DELL\Documents\0.11.Nikolaya\Ram-Cehta\backend
+  python -m scripts.apply_pending_migrations
+  ```
+  Script idempotente que aplica round115/117/123/124/126 en orden contra `DATABASE_URL`. Round 130. Si ya están aplicadas, las skipea sin error.
 - [H] (5min) **[OPS] Setear `CREDENTIALS_FERNET_KEY` en Fly + .env local**. Necesario para cualquier credencial SII/Nubox/Previred.
 - [H] (10min) **[OPS] Correr seed Round 116**: `python scripts/seed_empresas_excel_round116.py "Data (4).xlsx"`. Carga 9 empresas + directorio + inversionistas + claves SII/Previred cifradas.
 - [H] (1d) **[OPS] Pedir credenciales Nubox API UAT a soporte@nubox.com**. Después de recibirlas, cargar via POST `/admin/nubox-api/credentials/{empresa}`.
