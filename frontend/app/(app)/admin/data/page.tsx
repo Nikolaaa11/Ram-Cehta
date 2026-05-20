@@ -490,7 +490,7 @@ export default function AdminDataPage() {
             La migración 115 está aplicada pero el seed 116 no se corrió aún.
             Ejecutá{" "}
             <code className="font-mono text-xs">
-              python scripts/seed_empresas_excel_round116.py "C:\Users\DELL\Downloads\Data (4).xlsx"
+              python scripts/seed_empresas_excel_round116.py &quot;C:\Users\DELL\Downloads\Data (4).xlsx&quot;
             </code>{" "}
             para cargar el directorio e inversionistas.
           </div>
