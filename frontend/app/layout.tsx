@@ -73,6 +73,11 @@ export default function RootLayout({
         {/* V5++ ola CA fix: forzar color-scheme=light por default para que
             inputs/scrollbars no se pinten dark automáticamente. */}
         <meta name="color-scheme" content="light" />
+        {/* Round 133 — Marker visible para validar que el bundle Vercel
+            servido es el más reciente. Se puede leer con curl en el HTML
+            sin necesidad de auth. Si este marker se ve === bundle nuevo
+            está deployado. Si no se ve === Vercel sirve build viejo. */}
+        <meta name="x-cehta-build" content="2026-05-20-R133-observaciones-corfo-nubox-nuevo" />
       </head>
       <body>
         <Providers>{children}</Providers>
