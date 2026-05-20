@@ -69,6 +69,17 @@ kill_timeout = "10s"
   # Configurar: `fly machine update <id> --schedule weekly`
   # Tunable: env var AUDIT_RETENTION_DAYS (default 90).
   audit_retention_cron = "python -m scripts.audit_retention_cleanup"
+  # Round 126 — Monitor de salud cada 10 min.
+  # Cron suggested: */10 * * * *
+  # Lee /health + métricas DB, inserta en core.system_health_checks,
+  # abre incidente en core.system_incidents si detecta anomalía.
+  # NO modifica código ni emite documentos.
+  monitor_cron = "python -m scripts.monitor_cron"
+  # Round 126 — Auto-sync diario de data externa SII + Nubox.
+  # Cron suggested: 0 6 * * *  (06:00 GMT = 03:00 CL)
+  # Para cada empresa con credencial validada: trae RCV del mes anterior
+  # + ejecuta conciliación. NO emite vouchers, solo data flow.
+  auto_sync_cron = "python -m scripts.auto_sync_cron"
 
 [http_service]
   internal_port = 8000
