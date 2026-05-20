@@ -709,15 +709,22 @@ fly machine update &lt;id-autosync&gt;  --schedule "0 6 * * *"    -a cehta-backe
       <li class="step">
         <div class="step-num">1</div>
         <div class="step-card">
-          <h3>Crear usuarios mínimos</h3>
-          <p>Para cada persona que va a operar:</p>
+          <h3>Verificar usuarios y roles existentes</h3>
+          <div class="step-meta">
+            <span class="badge imp">Importante</span>
+            <span>⏱ 10 min</span>
+          </div>
+          <p>
+            <strong>Los 44 usuarios ya están cargados</strong> desde el Round 79 (mayo 2026). Las credenciales están en
+            <code>CEHTA_CREDENCIALES_VERIFICADO.xlsx</code>. Los roles por empresa se asignaron con
+            <code>seed_cehta_users_roles.py</code> (Ola AC).
+          </p>
+          <p>Lo que <strong>sí</strong> hay que hacer ahora es <em>verificar</em> que sigue todo OK:</p>
           <ol style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
-            <li>Crear cuenta Supabase en <code>/admin/users</code> · "Asignar usuario por email"</li>
-            <li>Asignar rol en cada empresa (matriz user × empresa)</li>
-            <li>Activar 2FA si tiene rol admin</li>
+            <li>Entrar a <code>/admin/users</code> → confirmar que aparecen los 44 usuarios</li>
+            <li>Confirmar que los GGs siguen activos con su rol correcto:</li>
           </ol>
-          <p style="margin-top: 12px;">Mínimo viable:</p>
-          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+          <ul style="margin: 8px 0 0 32px; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
             <li>Guido Rietta · DIRECTOR · todas las empresas</li>
             <li>Camilo Salazar · GG · REVTECH</li>
             <li>José Cuevas · GG · TRONGKAI</li>
@@ -726,20 +733,41 @@ fly machine update &lt;id-autosync&gt;  --schedule "0 6 * * *"    -a cehta-backe
             <li>Jorge Prietto · GG · EVOQUE</li>
             <li>Carmen Zuñiga · GG · DTE</li>
           </ul>
+          <div class="check">
+            <strong>Si falta alguien o cambió de empresa,</strong> usar
+            <code>/admin/users</code> "Asignar rol por email" o actualizar la matriz user × empresa.
+          </div>
         </div>
       </li>
 
       <li class="step">
         <div class="step-num">2</div>
         <div class="step-card">
-          <h3>Capacitación express (30 min cada uno)</h3>
-          <p>Mandar a cada GG:</p>
-          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
-            <li>URL: <code>https://cehta-capital.vercel.app/login</code></li>
-            <li>Su email + temporary password</li>
-            <li>2-3 screenshots de <code>/aprobaciones</code> con flecha en "Firmar"</li>
-            <li>Instrucción concreta: "cuando llegue email, entrá, revisá adjunto, decidí, firmá"</li>
-          </ul>
+          <h3>Re-onboarding express (15 min cada GG)</h3>
+          <div class="step-meta">
+            <span class="badge imp">Importante</span>
+          </div>
+          <p>
+            Los GGs ya tienen cuenta. Lo que falta es asegurar que <strong>recuerden</strong>:
+            URL, cómo entrar, dónde está <code>/aprobaciones</code>, y que vienen vouchers reales pronto.
+          </p>
+          <p>Mensaje sugerido por WhatsApp/email a cada GG:</p>
+          <pre style="background: var(--ink-100); color: var(--ink-700); font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 14px; line-height: 1.5; font-size: 14px;">
+Hola [nombre],
+
+Recordatorio: arrancamos operación real con la plataforma esta
+semana. Tu cuenta está activa desde mayo.
+
+  URL:   https://cehta-capital.vercel.app/login
+  Email: [su email]
+  Si olvidaste password → "Recuperar contraseña" en login.
+
+Cuando te llegue email "Voucher pendiente de tu firma":
+  1. Entrá a /aprobaciones
+  2. Mirá el adjunto (factura/boleta)
+  3. Apretá "Firmar como GG"
+
+Cualquier duda, me decís.</pre>
         </div>
       </li>
 
