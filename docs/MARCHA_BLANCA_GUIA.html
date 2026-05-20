@@ -1,0 +1,950 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marcha Blanca · FIP CEHTA ESG</title>
+<style>
+:root {
+  --ink-900: #0a0a0a;
+  --ink-800: #18181b;
+  --ink-700: #27272a;
+  --ink-600: #3f3f46;
+  --ink-500: #71717a;
+  --ink-400: #a1a1aa;
+  --ink-300: #d4d4d8;
+  --ink-200: #e4e4e7;
+  --ink-100: #f4f4f5;
+  --ink-50:  #fafafa;
+  --green:   #236c4f;
+  --green-light: #2d8862;
+  --green-50: #ecfdf5;
+  --green-100: #d1fae5;
+  --amber:   #d97706;
+  --amber-50: #fffbeb;
+  --red:     #dc2626;
+  --red-50:  #fef2f2;
+  --hair:    rgba(0,0,0,0.06);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow:    0 4px 14px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  --shadow-lg: 0 24px 48px rgba(0,0,0,0.08), 0 8px 16px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink-900: #fafafa;
+    --ink-800: #f4f4f5;
+    --ink-700: #e4e4e7;
+    --ink-600: #d4d4d8;
+    --ink-500: #a1a1aa;
+    --ink-400: #71717a;
+    --ink-300: #52525b;
+    --ink-200: #3f3f46;
+    --ink-100: #27272a;
+    --ink-50:  #18181b;
+    --hair:    rgba(255,255,255,0.08);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow:    0 4px 14px rgba(0,0,0,0.4);
+    --shadow-lg: 0 24px 48px rgba(0,0,0,0.5);
+  }
+  body { background: #0a0a0a; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+               "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink-700);
+  background: var(--ink-50);
+  letter-spacing: -0.011em;
+}
+.container { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+/* ─── HERO ─────────────────────────────── */
+.hero {
+  padding: 88px 0 64px;
+  border-bottom: 1px solid var(--hair);
+  background:
+    radial-gradient(60% 60% at 50% 0%, rgba(35,108,79,0.06) 0%, transparent 70%),
+    var(--ink-50);
+}
+.hero .eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--green);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--green-50);
+  border: 1px solid var(--green-100);
+  margin-bottom: 24px;
+}
+.hero h1 {
+  font-size: clamp(40px, 6vw, 64px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+  margin: 0 0 20px;
+  color: var(--ink-900);
+  background: linear-gradient(135deg, var(--ink-900), var(--ink-600));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero p.lead {
+  font-size: 21px;
+  line-height: 1.45;
+  color: var(--ink-500);
+  max-width: 620px;
+  margin: 0 0 28px;
+  font-weight: 400;
+}
+.hero .meta {
+  display: flex; gap: 24px; flex-wrap: wrap;
+  font-size: 13px; color: var(--ink-400);
+}
+.hero .meta strong { color: var(--ink-700); font-weight: 500; }
+
+/* ─── TLDR cards ───────────────────────── */
+.tldr {
+  padding: 56px 0;
+}
+.tldr-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 720px) { .tldr-grid { grid-template-columns: 1fr; } }
+.tldr-card {
+  background: white;
+  border: 1px solid var(--hair);
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
+}
+@media (prefers-color-scheme: dark) {
+  .tldr-card { background: var(--ink-100); }
+}
+.tldr-card h3 {
+  font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-500);
+  margin: 0 0 16px;
+}
+.tldr-card.done h3::before { content: "✓ "; color: var(--green); font-weight: 700; }
+.tldr-card.todo h3::before { content: "→ "; color: var(--amber); font-weight: 700; }
+.tldr-card ul { list-style: none; padding: 0; margin: 0; }
+.tldr-card li {
+  font-size: 14px; line-height: 1.6;
+  color: var(--ink-700);
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--hair);
+}
+.tldr-card li:last-child { border-bottom: none; }
+
+/* ─── Phase header ────────────────────── */
+.phase {
+  padding: 64px 0 32px;
+}
+.phase-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--green);
+  margin: 0 0 8px;
+}
+.phase h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700; letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink-900);
+  margin: 0 0 12px;
+}
+.phase .phase-desc {
+  font-size: 17px; color: var(--ink-500);
+  max-width: 640px;
+  margin: 0 0 32px;
+}
+.phase-time {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 500;
+  color: var(--ink-600);
+  padding: 4px 10px;
+  background: var(--ink-100);
+  border-radius: 999px;
+}
+
+/* ─── Step ───────────────────────────── */
+.steps {
+  list-style: none;
+  padding: 0; margin: 0;
+  counter-reset: step;
+  position: relative;
+}
+.steps::before {
+  content: "";
+  position: absolute;
+  left: 19px; top: 24px; bottom: 24px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--green) 0%, var(--ink-200) 100%);
+  opacity: 0.3;
+}
+.step {
+  position: relative;
+  padding-left: 60px;
+  padding-bottom: 28px;
+}
+.step:last-child { padding-bottom: 0; }
+.step .step-num {
+  position: absolute;
+  left: 0; top: 0;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--green);
+  color: var(--green);
+  font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1;
+  box-shadow: var(--shadow-sm);
+}
+@media (prefers-color-scheme: dark) {
+  .step .step-num { background: var(--ink-100); }
+}
+.step-card {
+  background: white;
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+  padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+@media (prefers-color-scheme: dark) {
+  .step-card { background: var(--ink-100); }
+}
+.step-card:hover {
+  box-shadow: var(--shadow);
+  transform: translateY(-1px);
+}
+.step-card h3 {
+  font-size: 18px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--ink-900);
+  margin: 0 0 6px;
+}
+.step-card .step-meta {
+  display: flex; gap: 12px; align-items: center;
+  font-size: 12px; color: var(--ink-500);
+  margin-bottom: 14px;
+}
+.step-card .step-meta .badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.badge.crit { background: var(--red-50); color: var(--red); }
+.badge.imp  { background: var(--amber-50); color: var(--amber); }
+.badge.opt  { background: var(--ink-100); color: var(--ink-600); }
+.step-card p {
+  margin: 0 0 12px;
+  color: var(--ink-600);
+  font-size: 15px;
+}
+.step-card code:not(pre code) {
+  font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  background: var(--ink-100);
+  color: var(--ink-800);
+  padding: 2px 6px; border-radius: 4px;
+}
+.step-card pre {
+  margin: 12px 0;
+  padding: 16px 18px;
+  background: var(--ink-900);
+  color: #e4e4e7;
+  border-radius: 10px;
+  overflow-x: auto;
+  font-family: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  position: relative;
+}
+@media (prefers-color-scheme: dark) {
+  .step-card pre { background: #000; border: 1px solid var(--ink-200); }
+}
+.step-card pre .pre-label {
+  position: absolute;
+  top: 8px; right: 12px;
+  font-size: 10px;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-400);
+}
+.step-card .check {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--green-50);
+  border-left: 3px solid var(--green);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-800);
+}
+@media (prefers-color-scheme: dark) {
+  .step-card .check { background: rgba(35,108,79,0.12); color: var(--ink-700); }
+}
+.step-card .check strong {
+  color: var(--green);
+  font-weight: 600;
+}
+.step-card .warn {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--amber-50);
+  border-left: 3px solid var(--amber);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--ink-800);
+}
+@media (prefers-color-scheme: dark) {
+  .step-card .warn { background: rgba(217,119,6,0.12); color: var(--ink-700); }
+}
+
+/* ─── Closing ─────────────────────────── */
+.closing {
+  margin: 80px 0 64px;
+  padding: 48px;
+  background: linear-gradient(135deg, var(--green) 0%, var(--green-light) 100%);
+  color: white;
+  border-radius: 24px;
+  box-shadow: var(--shadow-lg);
+}
+.closing h2 {
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700; letter-spacing: -0.02em;
+  margin: 0 0 16px;
+}
+.closing p {
+  font-size: 17px; line-height: 1.55;
+  color: rgba(255,255,255,0.92);
+  max-width: 640px;
+  margin: 0 0 24px;
+}
+.closing .cta-row {
+  display: flex; flex-wrap: wrap; gap: 12px;
+}
+.closing .cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: white;
+  color: var(--green);
+  padding: 12px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 600; font-size: 15px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.closing .cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.closing .cta.secondary {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* ─── TOC sticky ───────────────────────── */
+.toc-wrap { position: sticky; top: 0; z-index: 50; background: rgba(250,250,250,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--hair); }
+@media (prefers-color-scheme: dark) { .toc-wrap { background: rgba(10,10,10,0.85); } }
+.toc {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  padding: 12px 0;
+  overflow-x: auto;
+}
+.toc a {
+  font-size: 13px; font-weight: 500;
+  color: var(--ink-500);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.toc a:hover { color: var(--green); background: var(--ink-100); }
+
+/* ─── Footer ──────────────────────────── */
+footer {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--ink-400);
+  font-size: 13px;
+  border-top: 1px solid var(--hair);
+}
+footer a { color: var(--green); text-decoration: none; }
+
+@media print {
+  .toc-wrap { display: none; }
+  body { background: white; color: black; font-size: 12px; }
+  .hero { padding: 32px 0; }
+  .step-card { box-shadow: none; border: 1px solid #ddd; page-break-inside: avoid; }
+  .closing { background: white; color: black; border: 2px solid #236c4f; }
+  .closing p, .closing h2 { color: black; }
+}
+</style>
+</head>
+<body>
+
+<!-- Sticky TOC -->
+<div class="toc-wrap">
+  <div class="container">
+    <nav class="toc">
+      <a href="#tldr">Resumen</a>
+      <a href="#fase-1">Fase 1 · Técnica</a>
+      <a href="#fase-2">Fase 2 · Test E2E</a>
+      <a href="#fase-3">Fase 3 · People</a>
+      <a href="#fase-4">Fase 4 · Pendientes</a>
+      <a href="#fase-5">Fase 5 · Compliance</a>
+      <a href="#cierre">Cierre</a>
+    </nav>
+  </div>
+</div>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="container">
+    <span class="eyebrow">Marcha Blanca · FIP CEHTA ESG</span>
+    <h1>Plan paso a paso<br>para arrancar operación real.</h1>
+    <p class="lead">
+      Treinta minutos de configuración + un día de test end-to-end con caja chica.
+      Después, operación normal sin sobresaltos.
+    </p>
+    <div class="meta">
+      <span><strong>Versión:</strong> Round 130</span>
+      <span><strong>Generado:</strong> 2026-05-20</span>
+      <span><strong>Plataforma:</strong> ram-cehta.vercel.app</span>
+    </div>
+  </div>
+</header>
+
+<!-- TLDR -->
+<section class="tldr" id="tldr">
+  <div class="container">
+    <div class="tldr-grid">
+      <div class="tldr-card done">
+        <h3>Listo (no hacer nada)</h3>
+        <ul>
+          <li>30 rondas de código deployadas en producción</li>
+          <li>22 invariantes legales y contables documentados</li>
+          <li>Sistema SII completo: sync RCV, F29, crear voucher desde DTE</li>
+          <li>Nubox API REST + scraping Libro de Remuneraciones</li>
+          <li>Cifrado Fernet de credenciales sensibles</li>
+          <li>Monitor cron + auto-sync diario (esperan migración)</li>
+          <li>Checklist en vivo en /admin/marcha-blanca</li>
+          <li>RUNBOOK de incidentes + SUPER PROMPT MAESTRO</li>
+        </ul>
+      </div>
+      <div class="tldr-card todo">
+        <h3>Por hacer (Nicolás)</h3>
+        <ul>
+          <li>Aplicar 5 migraciones SQL · 1 comando · 2 min</li>
+          <li>Setear Fernet key en Fly + .env · 3 min</li>
+          <li>Cargar credenciales SII/Previred del Excel · 5 min</li>
+          <li>Activar 2FA TOTP del admin · 5 min</li>
+          <li>Schedule de las machines cron · 5 min</li>
+          <li>Test E2E con caja chica + Camilo + Guido · 1 día</li>
+          <li>Solicitar credenciales API Nubox a soporte · 1-3 días</li>
+          <li>Plan tributario con MCG Consultores · async</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FASE 1 -->
+<section class="phase" id="fase-1">
+  <div class="container">
+    <p class="phase-label">Fase 1 de 5</p>
+    <h2>Activación técnica</h2>
+    <p class="phase-desc">
+      Orden estricto: cada paso depende del anterior. Si lo respetás, no hay errores.
+    </p>
+    <span class="phase-time">⏱ 25 minutos</span>
+
+    <ol class="steps" style="margin-top: 32px;">
+
+      <li class="step">
+        <div class="step-num">1</div>
+        <div class="step-card">
+          <h3>Aplicar las 5 migraciones SQL</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>⏱ 2 min</span>
+          </div>
+          <p>Un solo comando local aplica round115, 117, 123, 124 y 126 en orden contra Supabase. Idempotente: si ya están aplicadas, las skipea.</p>
+          <pre><span class="pre-label">PowerShell</span>Set-Location C:\Users\DELL\Documents\0.11.Nikolaya\Ram-Cehta\backend
+python -m scripts.apply_pending_migrations</pre>
+          <div class="check">
+            <strong>Validación:</strong> al final debe mostrar
+            <code>Aplicadas: 5 / Skipeadas: 0 / Fallidas: 0</code>
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">2</div>
+        <div class="step-card">
+          <h3>Setear la Fernet key en Fly</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>⏱ 3 min</span>
+          </div>
+          <p>Sin esta key, las credenciales SII y Previred no se pueden cifrar ni descifrar. Es lo que protege los secretos del fondo.</p>
+          <pre><span class="pre-label">PowerShell</span>fly secrets set CREDENTIALS_FERNET_KEY="iKTVRo8oBh_1Q-HTYLg8_Hk22wLn-NZUXkM-N-jB7JM=" -a cehta-backend</pre>
+          <p>Después agregar la misma línea a <code>backend/.env</code> local:</p>
+          <pre><span class="pre-label">backend/.env</span>CREDENTIALS_FERNET_KEY=iKTVRo8oBh_1Q-HTYLg8_Hk22wLn-NZUXkM-N-jB7JM=</pre>
+          <div class="warn">
+            <strong>Crítico:</strong> guardar esta key en 1Password de Cehta. Si la perdés,
+            hay que volver a cargar todas las credenciales del Excel.
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">3</div>
+        <div class="step-card">
+          <h3>Cargar credenciales del Excel</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>⏱ 5 min</span>
+          </div>
+          <p>Importa 9 claves SII + 6 Previred (cifradas con Fernet) + 5 miembros del directorio + 5 inversionistas/aportantes + datos extra de empresas (web, dirección SII, giro).</p>
+          <pre><span class="pre-label">PowerShell</span>python -m scripts.seed_empresas_excel_round116 "C:\Users\DELL\Downloads\Data (4).xlsx"</pre>
+          <div class="check">
+            <strong>Validación:</strong> el output debe mostrar
+            <code>9 SII / 6 Previred / 5 directorio / 5 inversionistas</code>
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">4</div>
+        <div class="step-card">
+          <h3>Activar tu 2FA TOTP</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>⏱ 5 min</span>
+          </div>
+          <p>Ciertas acciones admin (crear usuarios, rotar tokens, enviar digest) exigen 2FA. Es el invariante #17 del SUPER PROMPT MAESTRO. Sin esto, no podés operar.</p>
+          <ol style="margin: 12px 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>Abrir <strong>https://cehta-capital.vercel.app/me/2fa</strong></li>
+            <li>Apretar <strong>"Activar 2FA"</strong></li>
+            <li>Escanear el QR con Google Authenticator o Authy</li>
+            <li>Ingresar el código de 6 dígitos para confirmar</li>
+            <li>Guardar los <strong>backup codes</strong> en 1Password (se muestran una sola vez)</li>
+          </ol>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">5</div>
+        <div class="step-card">
+          <h3>Configurar schedules en machines Fly</h3>
+          <div class="step-meta">
+            <span class="badge imp">Importante</span>
+            <span>⏱ 5 min</span>
+          </div>
+          <p>Esto enciende el monitor cada 10 min (genera filas en <code>core.system_health_checks</code> y abre incidentes automáticos) y el auto-sync diario a las 06:00 GMT (trae RCV del SII del mes anterior y concilia con vouchers).</p>
+          <pre><span class="pre-label">PowerShell · Paso A</span>fly machine list -a cehta-backend</pre>
+          <p>Identificar los IDs de las machines <code>monitor_cron</code> y <code>auto_sync_cron</code>, después:</p>
+          <pre><span class="pre-label">PowerShell · Paso B</span>fly machine update &lt;id-monitor&gt;   --schedule "*/10 * * * *" -a cehta-backend
+fly machine update &lt;id-autosync&gt;  --schedule "0 6 * * *"    -a cehta-backend</pre>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">6</div>
+        <div class="step-card">
+          <h3>Verificar progreso en el checklist</h3>
+          <div class="step-meta">
+            <span class="badge imp">Importante</span>
+            <span>⏱ 5 min</span>
+          </div>
+          <p>El checklist en vivo evalúa 30+ criterios contra producción y dice qué falta. Lo que tenés que ver:</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>Bloqueantes <strong>15/15 OK</strong></li>
+            <li>Importantes <strong>8/10+ OK</strong></li>
+            <li>Status global: <strong>READY</strong> 🚀</li>
+          </ul>
+          <p style="margin-top: 16px;">URL: <strong>https://cehta-capital.vercel.app/admin/marcha-blanca</strong></p>
+          <div class="check">
+            <strong>Si hay algún FAIL,</strong> el <code>detail</code> de cada check te dice
+            exactamente qué hacer para resolverlo.
+          </div>
+        </div>
+      </li>
+
+    </ol>
+  </div>
+</section>
+
+<!-- FASE 2 -->
+<section class="phase" id="fase-2">
+  <div class="container">
+    <p class="phase-label">Fase 2 de 5</p>
+    <h2>Test end-to-end con caja chica</h2>
+    <p class="phase-desc">
+      Único bloqueante humano. Valida que todo el flujo funciona con plata real, antes
+      de operar en serio.
+    </p>
+    <span class="phase-time">⏱ 1 día con coordinación</span>
+
+    <ol class="steps" style="margin-top: 32px;">
+
+      <li class="step">
+        <div class="step-num">1</div>
+        <div class="step-card">
+          <h3>Crear voucher de prueba (vos)</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>Rol: Admin</span>
+          </div>
+          <p>Andá a <code>/vouchers/nubox</code>. Llenar con un gasto real chico de caja chica (~$20.000):</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>Empresa: REVTECH</li>
+            <li>Proveedor RUT + nombre</li>
+            <li>Tipo doc: FACTURA · Folio · Fecha</li>
+            <li>1 línea contable (cuenta gasto)</li>
+            <li>1 línea financiera (cuenta proveedor por pagar)</li>
+            <li>Proyecto (selector global · debajo de fecha vencimiento)</li>
+            <li>Subir factura PDF en "Adjuntar archivos"</li>
+          </ul>
+          <p style="margin-top: 12px;">Submit → estado <code>DRAFT</code> → "Enviar a aprobación" → <code>PENDING</code>.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">2</div>
+        <div class="step-card">
+          <h3>Camilo firma como GG REVTECH</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>Rol: GG titular REVTECH</span>
+          </div>
+          <p>Camilo recibe email de notificación → entra a <strong>/aprobaciones</strong> → ve la card del voucher → revisa adjunto → firma. El voucher avanza a "1 de 2 firmas".</p>
+          <div class="check">
+            <strong>Validación:</strong> el voucher aparece en <em>tu</em>
+            <code>/aprobaciones</code> ahora como pendiente de firma DIRECTOR.
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">3</div>
+        <div class="step-card">
+          <h3>Vos firmás como DIRECTOR</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>Rol: Director</span>
+          </div>
+          <p>Entrá a <code>/aprobaciones</code> → ves la card con "Firma 2/2 · DIRECTOR" → firmás.
+          El voucher pasa a <code>APPROVED</code>.</p>
+          <div class="warn">
+            <strong>Anti-doble-firma:</strong> el sistema no te deja firmar como DIRECTOR
+            si vos firmaste antes como GG. Es invariante #12.
+          </div>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">4</div>
+        <div class="step-card">
+          <h3>Ejecutar transferencia desde el banco</h3>
+          <div class="step-meta">
+            <span class="badge crit">Bloqueante</span>
+            <span>Rol: Tesorería</span>
+          </div>
+          <p>Andá a <strong>/transferencias</strong>. Tildá el voucher → "Descargar Excel transferencia masiva". Como REVTECH usa Banco de Chile, usá el formato GENERICO. Subí el XLSX al portal del banco. Ejecutás la transferencia real ($20.000 al proveedor).</p>
+          <p>Después: <strong>volvés a Ram-Cehta</strong> → click <strong>"Marcar EXECUTED"</strong> con fecha real del pago. Cierra el loop.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">5</div>
+        <div class="step-card">
+          <h3>Sync RCV del SII + conciliación</h3>
+          <div class="step-meta">
+            <span class="badge imp">Importante</span>
+            <span>⏱ 1 día después</span>
+          </div>
+          <p>Cuando el proveedor emite la factura electrónica, aparece en el SII. Esperá 1 día (típicamente).</p>
+          <p>Después:</p>
+          <ol style="margin: 12px 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>Entrar a <code>/admin/sii</code></li>
+            <li>Seleccionar empresa <strong>REVTECH</strong> y período del mes actual</li>
+            <li>Click <strong>"Sync RCV"</strong> → baja los DTE del mes</li>
+            <li>Click <strong>"Conciliar con vouchers"</strong> → matchea SII contra vouchers locales</li>
+          </ol>
+          <div class="check">
+            <strong>Validación final:</strong> el voucher local y el DTE del SII quedan
+            matcheados como <code>matched_exact</code>. El F29 estimado del mes
+            incluye este gasto correctamente.
+          </div>
+        </div>
+      </li>
+
+    </ol>
+  </div>
+</section>
+
+<!-- FASE 3 -->
+<section class="phase" id="fase-3">
+  <div class="container">
+    <p class="phase-label">Fase 3 de 5</p>
+    <h2>People &amp; training</h2>
+    <p class="phase-desc">
+      No bloquea la marcha blanca técnica, pero sí la operación real con varios usuarios.
+      Lo podés hacer en paralelo a Fase 1-2.
+    </p>
+    <span class="phase-time">⏱ 1-2 horas (depende disponibilidad de cada uno)</span>
+
+    <ol class="steps" style="margin-top: 32px;">
+      <li class="step">
+        <div class="step-num">1</div>
+        <div class="step-card">
+          <h3>Crear usuarios mínimos</h3>
+          <p>Para cada persona que va a operar:</p>
+          <ol style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>Crear cuenta Supabase en <code>/admin/users</code> · "Asignar usuario por email"</li>
+            <li>Asignar rol en cada empresa (matriz user × empresa)</li>
+            <li>Activar 2FA si tiene rol admin</li>
+          </ol>
+          <p style="margin-top: 12px;">Mínimo viable:</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>Guido Rietta · DIRECTOR · todas las empresas</li>
+            <li>Camilo Salazar · GG · REVTECH</li>
+            <li>José Cuevas · GG · TRONGKAI</li>
+            <li>Javier Álvarez · GG · RHO</li>
+            <li>Juan Pablo González · GG · CSL</li>
+            <li>Jorge Prietto · GG · EVOQUE</li>
+            <li>Carmen Zuñiga · GG · DTE</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">2</div>
+        <div class="step-card">
+          <h3>Capacitación express (30 min cada uno)</h3>
+          <p>Mandar a cada GG:</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>URL: <code>https://cehta-capital.vercel.app/login</code></li>
+            <li>Su email + temporary password</li>
+            <li>2-3 screenshots de <code>/aprobaciones</code> con flecha en "Firmar"</li>
+            <li>Instrucción concreta: "cuando llegue email, entrá, revisá adjunto, decidí, firmá"</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">3</div>
+        <div class="step-card">
+          <h3>Avisar a MCG Consultores</h3>
+          <p>Mandar email al contador externo (MCG):</p>
+          <pre style="background: var(--ink-100); color: var(--ink-700); font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 14px; line-height: 1.5; font-size: 14px;">
+Hola,
+
+Vamos a empezar a usar la plataforma Ram-Cehta para vouchers
+operativos del fondo. Cada mes les vamos a mandar un export CSV
+con todos los asientos del período para que los carguen en Nubox.
+
+Formato:
+  · Separador: ;
+  · Encoding: UTF-8 BOM
+  · Una fila por voucher_line
+
+Confirmen si es compatible con la importación que usan.
+
+Gracias.</pre>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- FASE 4 -->
+<section class="phase" id="fase-4">
+  <div class="container">
+    <p class="phase-label">Fase 4 de 5</p>
+    <h2>Pendientes importantes (semana 1-2)</h2>
+    <p class="phase-desc">
+      No bloquean marcha blanca pero los resolvés en la primera o segunda semana de operación.
+    </p>
+    <span class="phase-time">⏱ 1-2 semanas elapsed</span>
+
+    <ol class="steps" style="margin-top: 32px;">
+      <li class="step">
+        <div class="step-num">1</div>
+        <div class="step-card">
+          <h3>Solicitar credenciales API Nubox</h3>
+          <div class="step-meta">
+            <span class="badge imp">Importante</span>
+            <span>⏱ 1-3 días (Nubox)</span>
+          </div>
+          <p>Email a <strong>soporte@nubox.com</strong>:</p>
+          <pre style="background: var(--ink-100); color: var(--ink-700); font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 14px; line-height: 1.5; font-size: 14px;">Asunto: Solicitud credenciales API Integraciones · UAT
+
+Soy Nicolás Rietta, Cehta Capital. Necesitamos credenciales
+de la API de Integraciones Factura y Administración (la nueva
+API) para el ambiente UAT.
+
+Empresas (X-Api-Key por cada una):
+  · AFIS SA · 77.423.556-6
+  · FIP CEHTA · 77.751.766-K
+  · Cenergy Ltda · 76.108.687-1
+  · Evoque Energy SpA · 76.282.088-9
+  · Climate Smart Leasing SpA · 77.868.887-5
+  · Trongkai SpA · 77.221.203-8
+  · RHO Generación SpA · 77.931.386-7
+  · REVTECH SpA · 77.018.739-7
+  · DTE SpA · 77.826.369-6
+
+Contacto principal: Nicolás Rietta
+
+Gracias.</pre>
+          <p>Cuando lleguen, se cargan con <code>POST /admin/nubox-api/credentials/{empresa}</code>
+          siguiendo <code>backend/scripts/sql/round124_INSTRUCCIONES.md</code>.</p>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">2</div>
+        <div class="step-card">
+          <h3>Decidir performance upgrade (cuando se note lentitud)</h3>
+          <div class="step-meta">
+            <span class="badge opt">Opcional</span>
+          </div>
+          <p>Cuando empiece a haber varios usuarios concurrentes:</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px;">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--hair); text-align: left;">
+                <th style="padding: 8px 6px; color: var(--ink-500); font-weight: 600;">Opción</th>
+                <th style="padding: 8px 6px; color: var(--ink-500); font-weight: 600;">Costo</th>
+                <th style="padding: 8px 6px; color: var(--ink-500); font-weight: 600;">Cuándo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px dashed var(--hair);">
+                <td style="padding: 8px 6px;">Transaction pooler (port 6543)</td>
+                <td style="padding: 8px 6px;"><strong>$0</strong></td>
+                <td style="padding: 8px 6px;">>3 users simultáneos</td>
+              </tr>
+              <tr style="border-bottom: 1px dashed var(--hair);">
+                <td style="padding: 8px 6px;">Supabase Pro</td>
+                <td style="padding: 8px 6px;">+$25/mes</td>
+                <td style="padding: 8px 6px;">Llegás a cap 500MB DB</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 6px;">Fly machine 2x:1024MB</td>
+                <td style="padding: 8px 6px;">+$7/mes</td>
+                <td style="padding: 8px 6px;">Cold starts molestan</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin-top: 12px;">Ver detalle en <code>docs/PERFORMANCE_OPTIMIZATION.md</code></p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- FASE 5 -->
+<section class="phase" id="fase-5">
+  <div class="container">
+    <p class="phase-label">Fase 5 de 5</p>
+    <h2>Compliance &amp; legal (mes 1)</h2>
+    <p class="phase-desc">
+      No son bloqueantes técnicos, pero sí necesarios para que el fondo opere sin riesgo regulatorio.
+    </p>
+    <span class="phase-time">⏱ ~1 mes elapsed</span>
+
+    <ol class="steps" style="margin-top: 32px;">
+      <li class="step">
+        <div class="step-num">1</div>
+        <div class="step-card">
+          <h3>Plan tributario con MCG Consultores</h3>
+          <p>Confirmar con el contador externo:</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>¿F29 mensual lo carga MCG o vos en SII?</li>
+            <li>¿F22 anual quién lo prepara?</li>
+            <li>¿DJ 1879 / 1887 / 1929 / 1948 — calendario y responsable?</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">2</div>
+        <div class="step-card">
+          <h3>Validar política de aprobación con asesor legal</h3>
+          <p>Validar:</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>2 firmas siempre · OK para estructura del fondo</li>
+            <li>Threshold reforzado para CapEx (definido en <code>core.approval_rules</code>)</li>
+            <li>Política anti-doble-firma documentada</li>
+            <li>Delegación de facultades formalizada por acta directorio</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="step">
+        <div class="step-num">3</div>
+        <div class="step-card">
+          <h3>KYC + FATCA inversionistas LP</h3>
+          <p>Para los 5 aportantes (Pamela Gidi, Juan Pablo Chinchón, Diego Andrade, Manuel Bravo, Matías Grez):</p>
+          <ul style="margin: 0; padding-left: 20px; color: var(--ink-600); font-size: 14px;">
+            <li>KYC completo en <code>/02-Fondo/Inversionistas/&lt;nombre&gt;/</code> (Dropbox)</li>
+            <li>W-9 o W-8BEN si aplica FATCA</li>
+            <li>Contrato de suscripción firmado</li>
+          </ul>
+        </div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- Closing -->
+<section class="container">
+  <div class="closing" id="cierre">
+    <h2>¿Cuándo estoy listo?</h2>
+    <p>
+      <strong style="color: white;">Listo para marcha blanca técnica</strong> = todos los bloqueantes en <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px;">/admin/marcha-blanca</code> en verde + test E2E pasado.
+    </p>
+    <p>
+      <strong style="color: white;">Listo para operar al 100%</strong> = lo anterior + Fase 3 + Fase 4.1 + Fase 5.
+    </p>
+    <p>
+      <strong style="color: white;">Frase de cierre operativa</strong>, según el SUPER PROMPT MAESTRO: <em>"Todo cuadrado, todo trazable, todo respaldado"</em>. Si no podés decirla con sinceridad, no avanzás, escalás.
+    </p>
+    <div class="cta-row">
+      <a href="https://cehta-capital.vercel.app/admin/marcha-blanca" class="cta">
+        Ir al checklist en vivo →
+      </a>
+      <a href="https://cehta-capital.vercel.app/dashboard" class="cta secondary">
+        Dashboard principal
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>
+      <strong>Ram-Cehta · FIP CEHTA ESG</strong> ·
+      Round 130 · 2026-05-20 ·
+      <a href="https://github.com/Nikolaaa11/Ram-Cehta">Repo</a>
+    </p>
+    <p style="margin-top: 8px;">
+      Generado por Claude. Documento vivo — actualizar cuando cambie el plan.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
