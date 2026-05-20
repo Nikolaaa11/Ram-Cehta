@@ -316,6 +316,22 @@ async def persist_check(
     return check_id
 
 
+async def _migration_applied(db: Any) -> bool:
+    """Verifica si la migración Round 126 ya fue aplicada."""
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT EXISTS (SELECT 1 FROM information_schema.tables
+                               WHERE table_schema = 'core'
+                                 AND table_name = 'system_health_checks')
+                """
+            )
+        )
+    ).fetchone()
+    return bool(row[0])
+
+
 async def main() -> int:
     started = datetime.now(timezone.utc)
     try:
@@ -323,6 +339,22 @@ async def main() -> int:
         health_task = asyncio.create_task(check_backend_health())
 
         async with SessionLocal() as db:
+            # Defensive: si la migración Round 126 no está aplicada, exit
+            # cleanly con mensaje. Evita loops de reinicio en Fly.
+            if not await _migration_applied(db):
+                print(json.dumps({
+                    "ok": False,
+                    "skipped": True,
+                    "reason": (
+                        "Migración Round 126 no aplicada. "
+                        "Aplicar scripts/sql/round126_monitor_migration.sql "
+                        "en Supabase Studio."
+                    ),
+                }))
+                # Cancelar la task de health para no dejarla huérfana
+                health_task.cancel()
+                return 0
+
             metrics = await collect_metrics(db)
             health = await health_task
             anomalies = detect_anomalies(health, metrics)

@@ -230,11 +230,41 @@ async def conciliar_empresa(db: Any, empresa_codigo: str, periodo: str) -> dict[
         }
 
 
+async def _migration_applied(db: Any) -> bool:
+    """Verifica si la migración Round 126 está aplicada."""
+    row = (
+        await db.execute(
+            text(
+                """
+                SELECT EXISTS (SELECT 1 FROM information_schema.tables
+                               WHERE table_schema = 'core'
+                                 AND table_name = 'auto_sync_runs')
+                """
+            )
+        )
+    ).fetchone()
+    return bool(row[0])
+
+
 async def main() -> int:
     started = datetime.now(timezone.utc)
     periodo = _periodo_mes_anterior()
 
     async with SessionLocal() as db:
+        # Defensive: si la migración Round 126 no está aplicada, salir
+        # limpiamente sin reventar. Evita loops de reinicio en Fly.
+        if not await _migration_applied(db):
+            print(json.dumps({
+                "ok": False,
+                "skipped": True,
+                "reason": (
+                    "Migración Round 126 no aplicada. "
+                    "Aplicar scripts/sql/round126_monitor_migration.sql "
+                    "en Supabase Studio."
+                ),
+            }))
+            return 0
+
         # Crear master run
         run_row = (
             await db.execute(
