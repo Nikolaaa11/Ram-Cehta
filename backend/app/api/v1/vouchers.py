@@ -981,31 +981,39 @@ async def list_mis_pendientes(
             continue
         required_roles = list(rule["required_roles"])
         approvals_raw = approvals_by_voucher.get(vr["voucher_id"], [])
-        approved_orders = {
-            a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
+        # Round 145 — Firmas PARALELAS (no secuenciales):
+        # Antes, mis-pendientes solo mostraba el voucher al user con el
+        # "próximo rol pendiente". Si la regla pedía [GG, DIRECTOR] y
+        # nadie firmaba aún, solo el GG veía el voucher. El DIRECTOR
+        # tenía que esperar a que el GG firmara primero.
+        # Ahora: mostramos el voucher a CUALQUIER user que tenga un rol
+        # requerido por el flow Y ese rol todavía no haya sido firmado
+        # por nadie. Las firmas se pueden hacer en cualquier orden.
+        approved_roles_set = {
+            a["role"] for a in approvals_raw if a["decision"] == "APPROVED"
         }
-        # Identificar siguiente rol pendiente
-        next_role: str | None = None
-        for i, role in enumerate(required_roles, start=1):
-            if i not in approved_orders:
-                next_role = role
-                break
-        if next_role is None:
-            # Ya tiene todas las firmas — no deberia estar PENDING pero
-            # por defensa lo skipeamos.
+        # Roles pendientes = roles requeridos que aún nadie firmó
+        roles_pendientes = [r for r in required_roles if r not in approved_roles_set]
+        if not roles_pendientes:
             continue
-        # ¿El user tiene ese rol activo en esa empresa?
-        if next_role not in user_roles_by_empresa.get(empresa, set()):
+        # ¿El user tiene alguno de los roles pendientes en esa empresa?
+        roles_user = user_roles_by_empresa.get(empresa, set())
+        roles_que_puede_firmar = [r for r in roles_pendientes if r in roles_user]
+        if not roles_que_puede_firmar:
             continue
-        # Anti-doble-firma: si ya firmo otro paso en este voucher.
+        # Anti-doble-firma: si ya firmó otro paso de este voucher, no lo
+        # mostramos. Esto sigue válido en flujo paralelo: un mismo user
+        # no firma 2 roles del flow.
         if any(a["approver_user_id"] == str(user.sub) for a in approvals_raw):
             continue
-        # Round 137 — Segregación de deberes: si el current user creó
-        # este voucher, NO se lo mostramos en su cola de pendientes (no
-        # puede firmarlo). Espejo del check en POST /approve.
+        # Segregación de deberes (R137): si el user es el creador,
+        # no lo mostramos para firmar.
         created_by = vr.get("created_by")
         if created_by is not None and str(created_by) == str(user.sub):
             continue
+        # Toma el primer rol que puede firmar como mi_rol_para_firmar.
+        # En la práctica casi nadie tiene más de 1 rol pendiente.
+        next_role = roles_que_puede_firmar[0]
 
         fecha_creacion = vr["fecha_creacion"]
         if fecha_creacion.tzinfo is None:
@@ -1030,7 +1038,7 @@ async def list_mis_pendientes(
             creador_email=vr["creador_email"],
             mi_rol_para_firmar=next_role,
             rol_label=_ROLE_LABELS.get(next_role, next_role),
-            firmas_hechas=len(approved_orders),
+            firmas_hechas=len(approved_roles_set),
             firmas_totales=len(required_roles),
             matched_rule_descripcion=rule.get("descripcion"),
             reinforced=bool(rule.get("reforzado")),
@@ -2717,8 +2725,9 @@ async def approve_voucher(
     Validaciones:
       - Voucher existe y está en PENDING
       - User tiene el rol declarado activo en la empresa del voucher
-      - El rol corresponde al próximo paso pendiente del flujo
-      - Una vez firmado el último paso, el voucher pasa a APPROVED
+      - El rol está en required_roles del flujo Y aún no fue firmado por nadie
+      - Round 145: firmas PARALELAS — cualquier orden vale (antes era estricto)
+      - Cuando todos los roles requeridos están firmados, voucher → APPROVED
     """
     voucher = await db.get(Voucher, voucher_id)
     if voucher is None:
@@ -2778,24 +2787,17 @@ async def approve_voucher(
 
     required_roles = list(rule["required_roles"])
     approvals_raw = await get_voucher_approvals(db, voucher_id)
-    approved_orders = {
-        a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
+    # Round 145 — firmas PARALELAS: ya no hay "próximo paso secuencial".
+    # Cualquier rol requerido que aún no esté firmado se puede firmar
+    # en cualquier orden. El `order_num` que guardamos es solo la
+    # posición declarativa del rol en required_roles, no impone secuencia.
+    approved_roles_set = {
+        a["role"] for a in approvals_raw if a["decision"] == "APPROVED"
     }
 
-    # Identificar próximo paso pendiente
-    next_order: int | None = None
-    expected_role: str | None = None
-    for i, role in enumerate(required_roles, start=1):
-        if i not in approved_orders:
-            next_order = i
-            expected_role = role
-            break
-
-    # Round 84 — idempotencia: si el user YA firmó el rol que esta solicitando
-    # (escenario tipico de doble-click rapido o reintento de cliente), devolver
-    # 200 con el state actual en vez de tirar 400 confuso. Solo idempotente
-    # cuando el user pidio firmar como X y ya hay una firma APPROVED de X por
-    # este mismo user.
+    # Round 84 — idempotencia: si el user YA firmó el rol que está solicitando
+    # (escenario típico de doble-click rápido o reintento de cliente), devolver
+    # 200 con el state actual en vez de tirar 400 confuso.
     user_already_signed_this_role = any(
         a["approver_user_id"] == str(user.sub)
         and a["role"] == body.role
@@ -2805,21 +2807,29 @@ async def approve_voucher(
     if user_already_signed_this_role:
         return await get_voucher_approvals_state(user, db, voucher_id)
 
-    if next_order is None or expected_role is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El voucher ya tiene todas las firmas requeridas",
-        )
-    if body.role != expected_role:
+    # Validar: el rol pedido debe estar en required_roles
+    if body.role not in required_roles:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"El próximo rol que debe firmar es '{expected_role}', "
-                f"no '{body.role}'. Las firmas son secuenciales."
+                f"El rol '{body.role}' no forma parte del flujo de "
+                f"aprobación para este voucher. Roles requeridos: "
+                f"{required_roles}."
             ),
         )
 
-    # Anti-doble-firma: el mismo user no puede firmar dos pasos del mismo voucher
+    # Validar: ese rol no debe estar ya firmado por nadie
+    if body.role in approved_roles_set:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"El rol '{body.role}' ya fue firmado por otro user en "
+                f"este voucher. Roles que aún faltan firmar: "
+                f"{[r for r in required_roles if r not in approved_roles_set]}."
+            ),
+        )
+
+    # Anti-doble-firma: el mismo user no puede firmar 2 roles del flow
     user_already_signed = any(
         a["approver_user_id"] == str(user.sub) for a in approvals_raw
     )
@@ -2832,6 +2842,9 @@ async def approve_voucher(
             ),
         )
 
+    # order_num declarativo: posición del rol en required_roles (1-indexed)
+    order_num = required_roles.index(body.role) + 1
+
     # Firmar
     await record_approval_signature(
         db,
@@ -2839,16 +2852,18 @@ async def approve_voucher(
         voucher_codigo=voucher.codigo,
         approver_user_id=str(user.sub),
         role=body.role,
-        order_num=next_order,
+        order_num=order_num,
         decision="APPROVED",
         ip_address=_client_ip(request),
         user_agent=request.headers.get("user-agent"),
         comments=body.comments,
     )
 
-    # Si fue la última firma, voucher → APPROVED
+    # Si después de esta firma TODOS los roles requeridos están aprobados,
+    # voucher → APPROVED. Funciona igual en orden secuencial y paralelo.
     just_approved = False
-    if next_order == len(required_roles):
+    new_approved_roles = approved_roles_set | {body.role}
+    if all(r in new_approved_roles for r in required_roles):
         voucher.status = "APPROVED"
         voucher.threshold_aplicado = compute_threshold_aplicado(rule)
         just_approved = True
@@ -2865,7 +2880,7 @@ async def approve_voucher(
             entity_label=voucher.codigo,
             summary=(
                 f"Voucher {voucher.codigo} firmado como {body.role} "
-                f"({next_order}/{len(required_roles)}) "
+                f"({len(new_approved_roles)}/{len(required_roles)}) "
                 f"— {voucher.empresa_codigo} — "
                 f"${voucher.total_debit:,.0f}"
                 + (" → APPROVED ✓" if just_approved else "")
@@ -2874,7 +2889,7 @@ async def approve_voucher(
             after={
                 "voucher_id": voucher.voucher_id,
                 "role_signed": body.role,
-                "step": f"{next_order}/{len(required_roles)}",
+                "step": f"{len(new_approved_roles)}/{len(required_roles)}",
                 "new_status": voucher.status,
                 "just_approved": just_approved,
                 "comments": body.comments,
@@ -4005,40 +4020,32 @@ async def bulk_approve_vouchers(
 
             required_roles = list(rule["required_roles"])
             approvals_raw = await get_voucher_approvals(db, vid)
-            approved_orders = {
-                a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
+            # Round 145 — firmas paralelas (mismo cambio que /approve individual)
+            approved_roles_set = {
+                a["role"] for a in approvals_raw if a["decision"] == "APPROVED"
             }
 
-            # Próximo paso pendiente
-            next_order = None
-            expected_role = None
-            for i, role in enumerate(required_roles, start=1):
-                if i not in approved_orders:
-                    next_order = i
-                    expected_role = role
-                    break
-
-            if next_order is None:
-                # Ya tiene todas las firmas — no debería estar PENDING
-                items.append(BulkApproveItemResult(
-                    voucher_id=vid, success=True,
-                    new_status=voucher.status,
-                    error="Ya tenía todas las firmas (no-op)",
-                ))
-                continue
-
-            if expected_role != body.role:
+            # Validar: rol pedido está en required_roles
+            if body.role not in required_roles:
                 items.append(BulkApproveItemResult(
                     voucher_id=vid, success=False,
                     error=(
-                        f"Próximo rol esperado: '{expected_role}', "
-                        f"vos firmás como '{body.role}'"
+                        f"Rol '{body.role}' no está en required_roles "
+                        f"{required_roles}"
                     ),
                 ))
                 continue
 
+            # Validar: ese rol no esté ya firmado
+            if body.role in approved_roles_set:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error=f"Rol '{body.role}' ya fue firmado en este voucher",
+                ))
+                continue
+
             # Anti-doble-firma: si flow tiene múltiples roles, mismo user
-            # no puede firmar dos pasos. Skipear este voucher.
+            # no puede firmar dos pasos.
             user_already_signed = any(
                 a["approver_user_id"] == user_sub for a in approvals_raw
             )
@@ -4052,6 +4059,9 @@ async def bulk_approve_vouchers(
                 ))
                 continue
 
+            # order_num declarativo (posición del rol en required_roles)
+            order_num = required_roles.index(body.role) + 1
+
             # Firmar (mismo flow que /approve individual)
             await record_approval_signature(
                 db,
@@ -4059,16 +4069,17 @@ async def bulk_approve_vouchers(
                 voucher_codigo=voucher.codigo,
                 approver_user_id=user_sub,
                 role=body.role,
-                order_num=next_order,
+                order_num=order_num,
                 decision="APPROVED",
                 ip_address=_client_ip(request),
                 user_agent=request.headers.get("user-agent"),
                 comments=None,
             )
 
-            # Si firmó el último paso → APPROVED
+            # Round 145 — APPROVED si TODOS los roles requeridos firmaron
             just_approved = False
-            if next_order == len(required_roles):
+            new_approved_roles = approved_roles_set | {body.role}
+            if all(r in new_approved_roles for r in required_roles):
                 voucher.status = "APPROVED"
                 voucher.threshold_aplicado = compute_threshold_aplicado(rule)
                 just_approved = True
