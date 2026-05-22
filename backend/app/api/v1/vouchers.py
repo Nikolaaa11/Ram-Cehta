@@ -755,6 +755,291 @@ async def bulk_voucher_pdf(
 
 
 # =====================================================================
+# V5++ ola CI — Mis aprobaciones pendientes
+# =====================================================================
+#
+# Round 136 hotfix CRITICO: este endpoint estaba registrado en linea ~2287,
+# DESPUES de @router.get("/vouchers/{voucher_id}", voucher_id: int).
+# FastAPI matchea rutas en orden de registro: cuando el FE pedia
+# /vouchers/mis-pendientes, FastAPI probaba primero {voucher_id}, fallaba
+# al convertir "mis-pendientes" a int, y devolvia HTTP 422.
+# Sintoma usuario: "No pude cargar las aprobaciones" — no podia firmar
+# ningun voucher. Fix: mover el endpoint ANTES de /vouchers/{voucher_id}
+# para que FastAPI lo matchee con prioridad.
+
+
+class MisPendientesItem(BaseModel):
+    """Una fila de la pantalla "mis aprobaciones pendientes"."""
+
+    voucher_id: int
+    codigo: str
+    empresa_codigo: str
+    empresa_razon_social: str | None
+    tipo: str
+    fecha_contable: date
+    fecha_creacion: datetime
+    contraparte_nombre: str | None
+    contraparte_rut: str | None
+    doc_tributario_tipo: str | None
+    doc_tributario_folio: str | None
+    glosa: str | None
+    moneda: str
+    total: Decimal
+    creador_email: str | None
+    # Info del flujo de aprobacion para este voucher:
+    mi_rol_para_firmar: str  # "GG" / "COO" / ...
+    rol_label: str  # nombre humano del rol
+    firmas_hechas: int
+    firmas_totales: int
+    matched_rule_descripcion: str | None
+    reinforced: bool
+    dias_pendiente: int
+    # Adjunto: link al primer documento si existe (factura/boleta)
+    primer_adjunto_dropbox_path: str | None
+    # V5++ ola CJ — attachment_id del primer adjunto, para que el FE
+    # pueda linkear directo a /vouchers/{vid}/attachments/{aid}/url
+    primer_adjunto_id: int | None
+    # Round 112 — Proyecto contable dominante (primera linea con proyecto_codigo
+    # no null). Permite al aprobador ver de un vistazo a que centro de costo
+    # corresponde el gasto antes de firmar.
+    proyecto_dominante: str | None = None
+
+
+class MisPendientesResponse(BaseModel):
+    total: int
+    items: list[MisPendientesItem]
+
+
+_ROLE_LABELS: dict[str, str] = {
+    "GG": "Gerente General",
+    "COO": "COO / Compliance",
+    "CONTADOR": "Contador",
+    "OPERADOR": "Operador",
+    "DIRECTOR": "Director",
+    "TESORERIA": "Tesorería",
+}
+
+
+@router.get("/vouchers/mis-pendientes", response_model=MisPendientesResponse)
+async def list_mis_pendientes(
+    user: CurrentUser, db: DBSession
+) -> MisPendientesResponse:
+    """Lista los vouchers PENDING donde el current user es el proximo aprobador.
+
+    Logica:
+      1. Empresas donde el user tiene algun rol activo (user_company_roles)
+      2. Vouchers PENDING en esas empresas
+      3. Para cada voucher: cargar approval state (rule + approvals)
+      4. Filtrar: solo los que `next_pending_role` esta en los roles del
+         user en esa empresa. Excluir vouchers donde el user ya firmo
+         (anti-doble-firma del flujo).
+      5. Devolver ordenado por dias_pendiente DESC (los mas urgentes primero)
+
+    Sin paginacion porque tipicamente el aprobador tiene <20 pendientes.
+    Si crece, agregar `?limit=N&offset=M` despues.
+    """
+    # 1. Roles del user por empresa
+    rows = (await db.execute(
+        text(
+            """
+            SELECT empresa_codigo,
+                   ARRAY_AGG(role ORDER BY role) AS roles
+            FROM core.user_company_roles
+            WHERE user_id = CAST(:u AS UUID)
+              AND active = TRUE
+            GROUP BY empresa_codigo
+            """
+        ),
+        {"u": str(user.sub)},
+    )).mappings().all()
+    user_roles_by_empresa: dict[str, set[str]] = {
+        r["empresa_codigo"]: set(r["roles"]) for r in rows
+    }
+    if not user_roles_by_empresa:
+        return MisPendientesResponse(total=0, items=[])
+
+    # 2. Vouchers PENDING en las empresas donde tengo roles
+    vouchers_rows = (await db.execute(
+        text(
+            """
+            SELECT
+                v.voucher_id, v.codigo, v.empresa_codigo, v.tipo,
+                v.fecha_contable, v.created_at AS fecha_creacion,
+                v.contraparte_nombre, v.contraparte_rut,
+                v.doc_tributario_tipo, v.doc_tributario_folio,
+                v.glosa, v.moneda, v.total_debit AS total,
+                v.created_by,
+                e.razon_social AS empresa_razon_social,
+                u.email AS creador_email,
+                (SELECT dropbox_path FROM core.voucher_attachments va
+                  WHERE va.voucher_id = v.voucher_id
+                  ORDER BY va.uploaded_at ASC LIMIT 1) AS primer_adjunto,
+                (SELECT attachment_id FROM core.voucher_attachments va2
+                  WHERE va2.voucher_id = v.voucher_id
+                  ORDER BY va2.uploaded_at ASC LIMIT 1) AS primer_adjunto_id
+            FROM core.vouchers v
+            LEFT JOIN core.empresas e ON e.codigo = v.empresa_codigo
+            LEFT JOIN auth.users u ON u.id::TEXT = v.created_by::TEXT
+            WHERE v.status = 'PENDING'
+              AND v.empresa_codigo = ANY(CAST(:empresas AS text[]))
+            ORDER BY v.created_at ASC
+            """
+        ),
+        {"empresas": list(user_roles_by_empresa.keys())},
+    )).mappings().all()
+
+    if not vouchers_rows:
+        return MisPendientesResponse(total=0, items=[])
+
+    # V5++ ola CJ — PERF FIX para N+1 reportado por audit (4.8s con 30
+    # vouchers PENDING). En lugar de hacer 2 queries por voucher dentro
+    # del loop (`get_voucher_balance_treatment_dominante` + `get_voucher_approvals`),
+    # cargamos AMBAS en bulk con un solo `WHERE voucher_id = ANY(:ids)`.
+
+    voucher_ids = [vr["voucher_id"] for vr in vouchers_rows]
+
+    # Bulk balance_treatment dominante: tipo dominante por voucher.
+    # ACTIVACION > GASTO > NA (hipotesis pesimista).
+    bt_rows = (await db.execute(
+        text(
+            """
+            SELECT
+                voucher_id,
+                COUNT(*) FILTER (WHERE balance_treatment = 'ACTIVACION') AS act,
+                COUNT(*) FILTER (WHERE balance_treatment = 'GASTO')      AS gas,
+                COUNT(*) FILTER (WHERE balance_treatment = 'NA')         AS na
+            FROM core.voucher_lines
+            WHERE voucher_id = ANY(:ids)
+            GROUP BY voucher_id
+            """
+        ),
+        {"ids": voucher_ids},
+    )).mappings().all()
+    bt_by_voucher: dict[int, str | None] = {}
+    for r in bt_rows:
+        if (r["act"] or 0) > 0:
+            bt_by_voucher[r["voucher_id"]] = "ACTIVACION"
+        elif (r["gas"] or 0) > 0:
+            bt_by_voucher[r["voucher_id"]] = "GASTO"
+        elif (r["na"] or 0) > 0:
+            bt_by_voucher[r["voucher_id"]] = "NA"
+        else:
+            bt_by_voucher[r["voucher_id"]] = None
+
+    # Bulk approvals: todas las aprobaciones de todos los vouchers en una.
+    appr_rows = (await db.execute(
+        text(
+            """
+            SELECT voucher_id, order_num, role, decision,
+                   approver_user_id::text AS approver_user_id
+            FROM core.voucher_approvals
+            WHERE voucher_id = ANY(:ids)
+            ORDER BY voucher_id, order_num
+            """
+        ),
+        {"ids": voucher_ids},
+    )).mappings().all()
+    approvals_by_voucher: dict[int, list[dict[str, Any]]] = {}
+    for a in appr_rows:
+        approvals_by_voucher.setdefault(a["voucher_id"], []).append(dict(a))
+
+    # Round 112 — Bulk proyecto dominante: primera linea con proyecto_codigo
+    # no null por voucher. Reusa el partial index `idx_voucher_lines_proyecto`.
+    proy_rows = (await db.execute(
+        text(
+            """
+            SELECT DISTINCT ON (voucher_id) voucher_id, proyecto_codigo
+            FROM core.voucher_lines
+            WHERE voucher_id = ANY(:ids)
+              AND proyecto_codigo IS NOT NULL
+            ORDER BY voucher_id, line_number ASC
+            """
+        ),
+        {"ids": voucher_ids},
+    )).fetchall()
+    proyecto_by_voucher: dict[int, str] = {r[0]: r[1] for r in proy_rows}
+
+    items: list[MisPendientesItem] = []
+    rules_cache: dict[str, list[dict[str, Any]]] = {}
+    now = datetime.now(tz=UTC)
+
+    for vr in vouchers_rows:
+        empresa = vr["empresa_codigo"]
+        if empresa not in rules_cache:
+            rules_cache[empresa] = await load_active_rules(db, empresa)
+        rules = rules_cache[empresa]
+        bt = bt_by_voucher.get(vr["voucher_id"])
+        rule = find_matching_rule(
+            rules,
+            voucher_tipo=vr["tipo"],
+            voucher_amount=vr["total"],
+            balance_treatment_dominante=bt,
+        )
+        if rule is None:
+            # Sin regla matching no se puede aprobar → el endpoint NO
+            # devuelve estos (mostraria el rol pendiente como undefined).
+            continue
+        required_roles = list(rule["required_roles"])
+        approvals_raw = approvals_by_voucher.get(vr["voucher_id"], [])
+        approved_orders = {
+            a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
+        }
+        # Identificar siguiente rol pendiente
+        next_role: str | None = None
+        for i, role in enumerate(required_roles, start=1):
+            if i not in approved_orders:
+                next_role = role
+                break
+        if next_role is None:
+            # Ya tiene todas las firmas — no deberia estar PENDING pero
+            # por defensa lo skipeamos.
+            continue
+        # ¿El user tiene ese rol activo en esa empresa?
+        if next_role not in user_roles_by_empresa.get(empresa, set()):
+            continue
+        # Anti-doble-firma: si ya firmo otro paso en este voucher.
+        if any(a["approver_user_id"] == str(user.sub) for a in approvals_raw):
+            continue
+
+        fecha_creacion = vr["fecha_creacion"]
+        if fecha_creacion.tzinfo is None:
+            fecha_creacion = fecha_creacion.replace(tzinfo=UTC)
+        dias_pendiente = (now - fecha_creacion).days
+
+        items.append(MisPendientesItem(
+            voucher_id=vr["voucher_id"],
+            codigo=vr["codigo"],
+            empresa_codigo=empresa,
+            empresa_razon_social=vr["empresa_razon_social"],
+            tipo=vr["tipo"],
+            fecha_contable=vr["fecha_contable"],
+            fecha_creacion=fecha_creacion,
+            contraparte_nombre=vr["contraparte_nombre"],
+            contraparte_rut=vr["contraparte_rut"],
+            doc_tributario_tipo=vr["doc_tributario_tipo"],
+            doc_tributario_folio=vr["doc_tributario_folio"],
+            glosa=vr["glosa"],
+            moneda=vr["moneda"] or "CLP",
+            total=Decimal(vr["total"] or 0),
+            creador_email=vr["creador_email"],
+            mi_rol_para_firmar=next_role,
+            rol_label=_ROLE_LABELS.get(next_role, next_role),
+            firmas_hechas=len(approved_orders),
+            firmas_totales=len(required_roles),
+            matched_rule_descripcion=rule.get("descripcion"),
+            reinforced=bool(rule.get("reforzado")),
+            dias_pendiente=dias_pendiente,
+            primer_adjunto_dropbox_path=vr["primer_adjunto"],
+            primer_adjunto_id=vr["primer_adjunto_id"],
+            proyecto_dominante=proyecto_by_voucher.get(vr["voucher_id"]),
+        ))
+
+    # Ordenar por dias_pendiente DESC (mas urgentes primero), luego total DESC.
+    items.sort(key=lambda i: (-i.dias_pendiente, -float(i.total)))
+    return MisPendientesResponse(total=len(items), items=items)
+
+
+# =====================================================================
 # GET /vouchers/{id} — detalle con líneas
 # =====================================================================
 
@@ -2219,288 +2504,6 @@ class BulkExecuteResponse(BaseModel):
     failed: int
     executed_codes: list[str] = []
     failures: list[dict] = []  # [{voucher_id, codigo?, reason}]
-
-
-# =====================================================================
-# V5++ ola CI — Mis aprobaciones pendientes
-# =====================================================================
-#
-# Endpoint dedicado para que el aprobador vea de un golpe TODOS los
-# vouchers que esperan SU firma como proximo paso (across empresas).
-# Antes habia que ir a /vouchers, filtrar PENDING, y abrir cada uno
-# para saber si era su turno. Ahora la pantalla /aprobaciones consume
-# este endpoint y lista solo los que requieren su accion.
-
-
-class MisPendientesItem(BaseModel):
-    """Una fila de la pantalla "mis aprobaciones pendientes"."""
-
-    voucher_id: int
-    codigo: str
-    empresa_codigo: str
-    empresa_razon_social: str | None
-    tipo: str
-    fecha_contable: date
-    fecha_creacion: datetime
-    contraparte_nombre: str | None
-    contraparte_rut: str | None
-    doc_tributario_tipo: str | None
-    doc_tributario_folio: str | None
-    glosa: str | None
-    moneda: str
-    total: Decimal
-    creador_email: str | None
-    # Info del flujo de aprobacion para este voucher:
-    mi_rol_para_firmar: str  # "GG" / "COO" / ...
-    rol_label: str  # nombre humano del rol
-    firmas_hechas: int
-    firmas_totales: int
-    matched_rule_descripcion: str | None
-    reinforced: bool
-    dias_pendiente: int
-    # Adjunto: link al primer documento si existe (factura/boleta)
-    primer_adjunto_dropbox_path: str | None
-    # V5++ ola CJ — attachment_id del primer adjunto, para que el FE
-    # pueda linkear directo a /vouchers/{vid}/attachments/{aid}/url
-    primer_adjunto_id: int | None
-    # Round 112 — Proyecto contable dominante (primera linea con proyecto_codigo
-    # no null). Permite al aprobador ver de un vistazo a que centro de costo
-    # corresponde el gasto antes de firmar.
-    proyecto_dominante: str | None = None
-
-
-class MisPendientesResponse(BaseModel):
-    total: int
-    items: list[MisPendientesItem]
-
-
-_ROLE_LABELS: dict[str, str] = {
-    "GG": "Gerente General",
-    "COO": "COO / Compliance",
-    "CONTADOR": "Contador",
-    "OPERADOR": "Operador",
-    "DIRECTOR": "Director",
-    "TESORERIA": "Tesorería",
-}
-
-
-@router.get("/vouchers/mis-pendientes", response_model=MisPendientesResponse)
-async def list_mis_pendientes(
-    user: CurrentUser, db: DBSession
-) -> MisPendientesResponse:
-    """Lista los vouchers PENDING donde el current user es el proximo aprobador.
-
-    Logica:
-      1. Empresas donde el user tiene algun rol activo (user_company_roles)
-      2. Vouchers PENDING en esas empresas
-      3. Para cada voucher: cargar approval state (rule + approvals)
-      4. Filtrar: solo los que `next_pending_role` esta en los roles del
-         user en esa empresa. Excluir vouchers donde el user ya firmo
-         (anti-doble-firma del flujo).
-      5. Devolver ordenado por dias_pendiente DESC (los mas urgentes primero)
-
-    Sin paginacion porque tipicamente el aprobador tiene <20 pendientes.
-    Si crece, agregar `?limit=N&offset=M` despues.
-    """
-    # 1. Roles del user por empresa
-    rows = (await db.execute(
-        text(
-            """
-            SELECT empresa_codigo,
-                   ARRAY_AGG(role ORDER BY role) AS roles
-            FROM core.user_company_roles
-            WHERE user_id = CAST(:u AS UUID)
-              AND active = TRUE
-            GROUP BY empresa_codigo
-            """
-        ),
-        {"u": str(user.sub)},
-    )).mappings().all()
-    user_roles_by_empresa: dict[str, set[str]] = {
-        r["empresa_codigo"]: set(r["roles"]) for r in rows
-    }
-    if not user_roles_by_empresa:
-        return MisPendientesResponse(total=0, items=[])
-
-    # 2. Vouchers PENDING en las empresas donde tengo roles
-    vouchers_rows = (await db.execute(
-        text(
-            """
-            SELECT
-                v.voucher_id, v.codigo, v.empresa_codigo, v.tipo,
-                v.fecha_contable, v.created_at AS fecha_creacion,
-                v.contraparte_nombre, v.contraparte_rut,
-                v.doc_tributario_tipo, v.doc_tributario_folio,
-                v.glosa, v.moneda, v.total_debit AS total,
-                v.created_by,
-                e.razon_social AS empresa_razon_social,
-                u.email AS creador_email,
-                (SELECT dropbox_path FROM core.voucher_attachments va
-                  WHERE va.voucher_id = v.voucher_id
-                  ORDER BY va.uploaded_at ASC LIMIT 1) AS primer_adjunto,
-                (SELECT attachment_id FROM core.voucher_attachments va2
-                  WHERE va2.voucher_id = v.voucher_id
-                  ORDER BY va2.uploaded_at ASC LIMIT 1) AS primer_adjunto_id
-            FROM core.vouchers v
-            LEFT JOIN core.empresas e ON e.codigo = v.empresa_codigo
-            LEFT JOIN auth.users u ON u.id::TEXT = v.created_by::TEXT
-            WHERE v.status = 'PENDING'
-              AND v.empresa_codigo = ANY(CAST(:empresas AS text[]))
-            ORDER BY v.created_at ASC
-            """
-        ),
-        {"empresas": list(user_roles_by_empresa.keys())},
-    )).mappings().all()
-
-    if not vouchers_rows:
-        return MisPendientesResponse(total=0, items=[])
-
-    # V5++ ola CJ — PERF FIX para N+1 reportado por audit (4.8s con 30
-    # vouchers PENDING). En lugar de hacer 2 queries por voucher dentro
-    # del loop (`get_voucher_balance_treatment_dominante` + `get_voucher_approvals`),
-    # cargamos AMBAS en bulk con un solo `WHERE voucher_id = ANY(:ids)`.
-
-    voucher_ids = [vr["voucher_id"] for vr in vouchers_rows]
-
-    # Bulk balance_treatment dominante: tipo dominante por voucher.
-    # ACTIVACION > GASTO > NA (hipotesis pesimista).
-    bt_rows = (await db.execute(
-        text(
-            """
-            SELECT
-                voucher_id,
-                COUNT(*) FILTER (WHERE balance_treatment = 'ACTIVACION') AS act,
-                COUNT(*) FILTER (WHERE balance_treatment = 'GASTO')      AS gas,
-                COUNT(*) FILTER (WHERE balance_treatment = 'NA')         AS na
-            FROM core.voucher_lines
-            WHERE voucher_id = ANY(:ids)
-            GROUP BY voucher_id
-            """
-        ),
-        {"ids": voucher_ids},
-    )).mappings().all()
-    bt_by_voucher: dict[int, str | None] = {}
-    for r in bt_rows:
-        if (r["act"] or 0) > 0:
-            bt_by_voucher[r["voucher_id"]] = "ACTIVACION"
-        elif (r["gas"] or 0) > 0:
-            bt_by_voucher[r["voucher_id"]] = "GASTO"
-        elif (r["na"] or 0) > 0:
-            bt_by_voucher[r["voucher_id"]] = "NA"
-        else:
-            bt_by_voucher[r["voucher_id"]] = None
-
-    # Bulk approvals: todas las aprobaciones de todos los vouchers en una.
-    appr_rows = (await db.execute(
-        text(
-            """
-            SELECT voucher_id, order_num, role, decision,
-                   approver_user_id::text AS approver_user_id
-            FROM core.voucher_approvals
-            WHERE voucher_id = ANY(:ids)
-            ORDER BY voucher_id, order_num
-            """
-        ),
-        {"ids": voucher_ids},
-    )).mappings().all()
-    approvals_by_voucher: dict[int, list[dict[str, Any]]] = {}
-    for a in appr_rows:
-        approvals_by_voucher.setdefault(a["voucher_id"], []).append(dict(a))
-
-    # Round 112 — Bulk proyecto dominante: primera linea con proyecto_codigo
-    # no null por voucher. Reusa el partial index `idx_voucher_lines_proyecto`.
-    proy_rows = (await db.execute(
-        text(
-            """
-            SELECT DISTINCT ON (voucher_id) voucher_id, proyecto_codigo
-            FROM core.voucher_lines
-            WHERE voucher_id = ANY(:ids)
-              AND proyecto_codigo IS NOT NULL
-            ORDER BY voucher_id, line_number ASC
-            """
-        ),
-        {"ids": voucher_ids},
-    )).fetchall()
-    proyecto_by_voucher: dict[int, str] = {r[0]: r[1] for r in proy_rows}
-
-    items: list[MisPendientesItem] = []
-    rules_cache: dict[str, list[dict[str, Any]]] = {}
-    now = datetime.now(tz=UTC)
-
-    for vr in vouchers_rows:
-        empresa = vr["empresa_codigo"]
-        if empresa not in rules_cache:
-            rules_cache[empresa] = await load_active_rules(db, empresa)
-        rules = rules_cache[empresa]
-        bt = bt_by_voucher.get(vr["voucher_id"])
-        rule = find_matching_rule(
-            rules,
-            voucher_tipo=vr["tipo"],
-            voucher_amount=vr["total"],
-            balance_treatment_dominante=bt,
-        )
-        if rule is None:
-            # Sin regla matching no se puede aprobar → el endpoint NO
-            # devuelve estos (mostraria el rol pendiente como undefined).
-            continue
-        required_roles = list(rule["required_roles"])
-        approvals_raw = approvals_by_voucher.get(vr["voucher_id"], [])
-        approved_orders = {
-            a["order_num"] for a in approvals_raw if a["decision"] == "APPROVED"
-        }
-        # Identificar siguiente rol pendiente
-        next_role: str | None = None
-        for i, role in enumerate(required_roles, start=1):
-            if i not in approved_orders:
-                next_role = role
-                break
-        if next_role is None:
-            # Ya tiene todas las firmas — no deberia estar PENDING pero
-            # por defensa lo skipeamos.
-            continue
-        # ¿El user tiene ese rol activo en esa empresa?
-        if next_role not in user_roles_by_empresa.get(empresa, set()):
-            continue
-        # Anti-doble-firma: si ya firmo otro paso en este voucher.
-        if any(a["approver_user_id"] == str(user.sub) for a in approvals_raw):
-            continue
-
-        fecha_creacion = vr["fecha_creacion"]
-        if fecha_creacion.tzinfo is None:
-            fecha_creacion = fecha_creacion.replace(tzinfo=UTC)
-        dias_pendiente = (now - fecha_creacion).days
-
-        items.append(MisPendientesItem(
-            voucher_id=vr["voucher_id"],
-            codigo=vr["codigo"],
-            empresa_codigo=empresa,
-            empresa_razon_social=vr["empresa_razon_social"],
-            tipo=vr["tipo"],
-            fecha_contable=vr["fecha_contable"],
-            fecha_creacion=fecha_creacion,
-            contraparte_nombre=vr["contraparte_nombre"],
-            contraparte_rut=vr["contraparte_rut"],
-            doc_tributario_tipo=vr["doc_tributario_tipo"],
-            doc_tributario_folio=vr["doc_tributario_folio"],
-            glosa=vr["glosa"],
-            moneda=vr["moneda"] or "CLP",
-            total=Decimal(vr["total"] or 0),
-            creador_email=vr["creador_email"],
-            mi_rol_para_firmar=next_role,
-            rol_label=_ROLE_LABELS.get(next_role, next_role),
-            firmas_hechas=len(approved_orders),
-            firmas_totales=len(required_roles),
-            matched_rule_descripcion=rule.get("descripcion"),
-            reinforced=bool(rule.get("reforzado")),
-            dias_pendiente=dias_pendiente,
-            primer_adjunto_dropbox_path=vr["primer_adjunto"],
-            primer_adjunto_id=vr["primer_adjunto_id"],
-            proyecto_dominante=proyecto_by_voucher.get(vr["voucher_id"]),
-        ))
-
-    # Ordenar por dias_pendiente DESC (mas urgentes primero), luego total DESC.
-    items.sort(key=lambda i: (-i.dias_pendiente, -float(i.total)))
-    return MisPendientesResponse(total=len(items), items=items)
 
 
 def _client_ip(request: Request) -> str | None:
