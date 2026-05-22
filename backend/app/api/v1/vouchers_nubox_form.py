@@ -38,7 +38,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 
@@ -54,9 +54,12 @@ from app.services.empresa_scope_service import (
     assert_empresa_access,
 )
 from app.services.voucher_service import (
+    fetch_proyecto_metadata,
     generate_voucher_code,
+    is_area_aplica_a_empresa,
     is_cuenta_habilitada_para_empresa,
     is_period_locked_for,
+    validate_corfo_eligibility,
 )
 
 router = APIRouter()
@@ -603,6 +606,7 @@ async def check_duplicate_voucher(
 async def create_voucher_nubox_form(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
+    request: Request,
     body: NuboxFormCreate,
 ) -> NuboxFormResponse:
     """Crea un voucher desde el form Nubox-style del Excel.
@@ -677,7 +681,8 @@ async def create_voucher_nubox_form(
             )
             proveedor_creado_automatico = True
 
-    # 3. Validar cuentas (todas imputables)
+    # 3. Validar cuentas (todas imputables) + traer flags CORFO para
+    # validación de elegibilidad en linea-proyecto (R138).
     todas_cuentas = (
         [l.cuenta_codigo for l in body.informacion_contable]
         + [l.cuenta_codigo for l in body.informacion_financiera]
@@ -685,7 +690,8 @@ async def create_voucher_nubox_form(
     cuentas_check = (await db.execute(
         text(
             """
-            SELECT codigo, imputable, activa
+            SELECT codigo, imputable, activa,
+                   corfo_elegible, tipo_gasto_corfo
             FROM core.plan_cuentas
             WHERE codigo = ANY(:codes)
             """
@@ -727,6 +733,70 @@ async def create_voucher_nubox_form(
                 f"para empresa {body.empresa_codigo}."
             ),
         )
+
+    # 3.3 Round 138 — Paridad con POST /vouchers: validar
+    #     proyecto-empresa, CORFO eligibility y área-empresa por cada línea.
+    # Antes el form nubox saltaba estos checks → un user podía imputar gasto
+    # a un proyecto de otra empresa, marcar fuente CORFO en cuenta no
+    # elegible, o usar un área que no aplica. Riesgo serio para rendiciones
+    # CORFO (gastos no elegibles imputados al pozo).
+    all_lines_with_section: list[tuple[str, int, object]] = [
+        ("contable", idx + 1, line)
+        for idx, line in enumerate(body.informacion_contable)
+    ] + [
+        ("financiera", idx + 1, line)
+        for idx, line in enumerate(body.informacion_financiera)
+    ]
+    for section, idx, line in all_lines_with_section:
+        cuenta_info = cuentas_map.get(line.cuenta_codigo)
+        if cuenta_info is None:
+            # No deberia llegar acá (ya validado arriba) pero defensivo.
+            continue
+
+        if line.proyecto_codigo:
+            proy = await fetch_proyecto_metadata(db, line.proyecto_codigo)
+            if proy is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Línea {section} #{idx}: proyecto "
+                        f"'{line.proyecto_codigo}' no existe"
+                    ),
+                )
+            if proy["empresa_codigo"] != body.empresa_codigo:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Línea {section} #{idx}: proyecto "
+                        f"'{line.proyecto_codigo}' pertenece a "
+                        f"{proy['empresa_codigo']}, no a {body.empresa_codigo}"
+                    ),
+                )
+            # CORFO eligibility — protege rendiciones del fondo CORFO
+            corfo_err = validate_corfo_eligibility(
+                cuenta_corfo_elegible=cuenta_info["corfo_elegible"],
+                cuenta_tipo_gasto_corfo=cuenta_info["tipo_gasto_corfo"],
+                proyecto_es_corfo=(proy["tipo_financiamiento"] == "CORFO"),
+                proyecto_eligible_types=list(
+                    proy["tipos_gasto_elegibles"] or []
+                ),
+            )
+            if corfo_err:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Línea {section} #{idx}: {corfo_err}",
+                )
+
+        if line.area_codigo and not await is_area_aplica_a_empresa(
+            db, line.area_codigo, body.empresa_codigo
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Línea {section} #{idx}: área '{line.area_codigo}' "
+                    f"no aplica a empresa '{body.empresa_codigo}'"
+                ),
+            )
 
     # 4. Total y glosa
     total_contable = sum(l.total for l in body.informacion_contable)
@@ -841,10 +911,11 @@ async def create_voucher_nubox_form(
 
     await db.commit()
 
-    # 9. Audit log
+    # 9. Audit log — Round 138 fix: pasar Request para que el audit log
+    # capture IP del cliente (antes `None` → IP no quedaba registrada).
     try:
         await audit_log(
-            db, None, user,
+            db, request, user,
             action="create_nubox_form",
             entity_type="voucher",
             entity_id=str(voucher_id_local),
