@@ -1446,28 +1446,10 @@ async def create_voucher(
             ),
         )
 
-    # Round 143 — Invariante #14 (MAESTRO): COMPRA/VENTA exigen documento
-    # tributario adjunto. Si el operador intenta crear directo en PENDING
-    # sin proveer ni un documento_dropbox_path (que auto-crea attachment
-    # más abajo) ni un canal alternativo para subir archivo, rechazamos.
-    # La salida legal: o se pasa documento_dropbox_path, o se crea como
-    # DRAFT, se sube attachment con POST /attachments, y después /submit.
-    if (
-        body.status == "PENDING"
-        and body.tipo in ("COMPRA", "VENTA")
-        and not body.documento_dropbox_path
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Voucher de {body.tipo} no puede crearse directamente en "
-                f"PENDING sin adjunto (invariante #14 MAESTRO). Opciones: "
-                f"(a) pasar `documento_dropbox_path` con el path Dropbox "
-                f"del documento (se registra como adjunto automáticamente), "
-                f"o (b) crearlo como DRAFT, subir adjunto desde el detalle, "
-                f"y después usar POST /vouchers/{{id}}/submit."
-            ),
-        )
+    # Round 144 — Decisión operativa: el check que requería adjunto al
+    # crear directamente en PENDING (R143) fue eliminado. Ahora COMPRA/VENTA
+    # pueden crearse en cualquier status sin necesidad de adjunto.
+    # El operador sube el documento después desde el detalle del voucher.
 
     # 4-7. Validar cada línea
     for line in body.lines:
@@ -1746,7 +1728,9 @@ async def submit_voucher(
     Validaciones:
       - Status actual debe ser DRAFT
       - Líneas cuadran (Σ debit == Σ credit) — el trigger DB lo valida
-      - Vouchers tipo COMPRA/VENTA tienen al menos 1 adjunto
+      - Round 144: el chequeo de adjunto obligatorio para COMPRA/VENTA fue
+        eliminado por decisión operativa. El operador puede mandar a firma
+        sin adjunto y subirlo después desde el detalle del voucher.
     """
     stmt = (
         select(Voucher)
@@ -1770,14 +1754,20 @@ async def submit_voucher(
             detail="El voucher no tiene líneas",
         )
 
-    if v.tipo in ("COMPRA", "VENTA") and not v.attachments:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Voucher de {v.tipo} requiere al menos un adjunto antes de enviarlo "
-                f"(factura/boleta correspondiente)"
-            ),
-        )
+    # Round 144 — Decisión operativa: NO requerir adjunto obligatorio
+    # para COMPRA/VENTA al enviar a firma. El operador puede mandar el
+    # voucher a aprobación sin documento y subirlo después desde el
+    # detalle del voucher. Si en el futuro se quiere restaurar el
+    # invariante #14 estricto, descomentar el bloque siguiente:
+    #
+    # if v.tipo in ("COMPRA", "VENTA") and not v.attachments:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail=(
+    #             f"Voucher de {v.tipo} requiere al menos un adjunto antes de enviarlo "
+    #             f"(factura/boleta correspondiente)"
+    #         ),
+    #     )
 
     # Round 81 — Bloque E Ajuste E8 (regla bloqueante CORFO):
     # El IVA crédito fiscal NUNCA se distribuye al subsidio. Si una línea

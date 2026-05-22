@@ -284,12 +284,10 @@ export default function VoucherDetailPage({ params }: PageProps) {
   const isBalanced =
     Number(voucher.total_debit) === Number(voucher.total_credit);
 
-  // Round 72 — gating del boton "Enviar a aprobacion" cuando falta adjunto.
-  // El useQuery se subio arriba (antes de los early returns) por Round 88.
-  const requiresTaxDoc =
-    voucher.tipo === "COMPRA" || voucher.tipo === "VENTA";
-  const hasAttachment = (attachmentsList?.length ?? 0) > 0;
-  const missingTaxDoc = requiresTaxDoc && !hasAttachment;
+  // Round 144 — gating de adjunto eliminado por decisión operativa.
+  // Estas variables quedan en `false` permanente para no romper las
+  // referencias en JSX más abajo sin tocar 3 lugares distintos.
+  const missingTaxDoc = false;
 
   return (
     <div className="relative">

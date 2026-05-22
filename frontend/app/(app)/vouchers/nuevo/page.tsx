@@ -409,27 +409,9 @@ export default function NuevoVoucherPage() {
       return;
     }
 
-    // Round 143 — Invariante #14: COMPRA/VENTA no se puede crear directo
-    // en PENDING porque requiere adjunto (factura/boleta). Si el usuario
-    // no pegó un path Dropbox que se convertirá en attachment, redirigir
-    // a flow de DRAFT + agregar adjunto desde el detalle. Espejo del
-    // check del backend (vouchers.py:1450), evita el toast genérico 400
-    // y guía al operador.
-    if (
-      targetStatus === "PENDING" &&
-      (tipo === "COMPRA" || tipo === "VENTA") &&
-      !documentoDropboxPath.trim()
-    ) {
-      toast.error(
-        `Voucher de ${tipo} requiere adjunto antes de enviarse a firma. ` +
-          `Opciones: (a) pegá el path Dropbox del documento en el campo ` +
-          `"Documento — link Dropbox", o (b) guardalo como BORRADOR, subí ` +
-          `el archivo desde el detalle del voucher, y después usá ` +
-          `"Enviar a aprobación".`,
-        { duration: 12000 },
-      );
-      return;
-    }
+    // Round 144 — Pre-validación de adjunto eliminada (decisión operativa).
+    // El operador puede mandar a firma sin adjunto y subirlo después
+    // desde el detalle del voucher.
 
     setSubmitting(true);
     try {
@@ -1004,34 +986,18 @@ export default function NuevoVoucherPage() {
                 <Save className="h-4 w-4" strokeWidth={1.75} />
                 Guardar borrador
               </button>
-              {/* Round 143 — gating del boton "Enviar a aprobacion" para
-                  COMPRA/VENTA sin documento_dropbox_path. El backend lo
-                  rechaza con 400 (invariante #14), preferimos prevenirlo
-                  en UI con tooltip explicativo. */}
-              {(() => {
-                const needsAttachmentForSubmit =
-                  (tipo === "COMPRA" || tipo === "VENTA") &&
-                  !documentoDropboxPath.trim();
-                const submitDisabled =
-                  submitting || !isBalanced || needsAttachmentForSubmit;
-                const submitTitle = !isBalanced
-                  ? "Cuadrá las líneas antes de enviar"
-                  : needsAttachmentForSubmit
-                  ? `Para ${tipo} pegá el path Dropbox del documento arriba, o guardalo como borrador y subí adjunto desde el detalle`
-                  : "Enviar a aprobación";
-                return (
-                  <button
-                    type="button"
-                    onClick={() => submit("PENDING")}
-                    disabled={submitDisabled}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    title={submitTitle}
-                  >
-                    <Send className="h-4 w-4" strokeWidth={1.75} />
-                    Enviar a aprobación
-                  </button>
-                );
-              })()}
+              {/* Round 144 — gating del adjunto eliminado. El botón solo
+                  exige líneas cuadradas (invariante de partida doble). */}
+              <button
+                type="button"
+                onClick={() => submit("PENDING")}
+                disabled={submitting || !isBalanced}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                title={!isBalanced ? "Cuadrá las líneas antes de enviar" : "Enviar a aprobación"}
+              >
+                <Send className="h-4 w-4" strokeWidth={1.75} />
+                Enviar a aprobación
+              </button>
             </div>
           </div>
         </div>
