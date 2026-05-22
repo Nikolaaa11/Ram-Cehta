@@ -77,7 +77,7 @@ export default function RootLayout({
             servido es el más reciente. Se puede leer con curl en el HTML
             sin necesidad de auth. Si este marker se ve === bundle nuevo
             está deployado. Si no se ve === Vercel sirve build viejo. */}
-        <meta name="x-cehta-build" content="2026-05-20-R133-observaciones-corfo-nubox-nuevo" />
+        <meta name="x-cehta-build" content="2026-05-22-R141-segregacion-fechaPago-nubox" />
       </head>
       <body>
         <Providers>{children}</Providers>
