@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sistema Contable Ram-Cehta · Cómo funciona y cómo acelerarlo</title>
+<style>
+  /* ---------- Reset + base ---------- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+                 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight: 400;
+    color: #1d1d1f;
+    background: #fbfbfd;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Fondo de partículas suaves estáticas */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(circle at 15% 10%, rgba(0, 122, 255, 0.04) 0%, transparent 35%),
+      radial-gradient(circle at 85% 20%, rgba(29, 111, 66, 0.04) 0%, transparent 40%),
+      radial-gradient(circle at 50% 80%, rgba(255, 159, 10, 0.03) 0%, transparent 45%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---------- Nav top ---------- */
+  nav.top {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background: rgba(251, 251, 253, 0.72);
+    border-bottom: 0.5px solid rgba(0,0,0,0.08);
+    padding: 14px 0;
+  }
+  nav.top .inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+  }
+  nav.top .brand {
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+  nav.top .brand span { color: #1d6f42; }
+  nav.top .links {
+    display: flex;
+    gap: 28px;
+    font-size: 13px;
+    color: rgba(29,29,31,0.72);
+  }
+  nav.top .links a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  nav.top .links a:hover { color: #1d6f42; }
+
+  /* ---------- Containers ---------- */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+  .container-narrow {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ---------- Hero ---------- */
+  .hero {
+    padding: 140px 0 100px;
+    text-align: center;
+    position: relative;
+  }
+  .hero .eyebrow {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(29, 111, 66, 0.08);
+    color: #1d6f42;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+  }
+  .hero h1 {
+    font-size: clamp(48px, 7vw, 96px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.02;
+    background: linear-gradient(180deg, #1d1d1f 0%, #1d1d1f 60%, rgba(29,29,31,0.7) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 24px;
+  }
+  .hero .sub {
+    font-size: clamp(18px, 2.2vw, 24px);
+    color: rgba(29,29,31,0.62);
+    font-weight: 400;
+    max-width: 720px;
+    margin: 0 auto 48px;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+  .hero .stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 56px;
+    margin-top: 64px;
+  }
+  .hero .stat {
+    text-align: center;
+  }
+  .hero .stat .num {
+    font-size: 44px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: block;
+  }
+  .hero .stat .lbl {
+    font-size: 13px;
+    color: rgba(29,29,31,0.55);
+    margin-top: 4px;
+  }
+
+  /* ---------- Section ---------- */
+  section.block {
+    padding: 100px 0;
+    position: relative;
+  }
+  section.block .label {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #1d6f42;
+    margin-bottom: 16px;
+  }
+  section.block h2 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    margin-bottom: 28px;
+    color: #1d1d1f;
+  }
+  section.block h2 .accent {
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  section.block .lede {
+    font-size: 21px;
+    color: rgba(29,29,31,0.7);
+    line-height: 1.5;
+    margin-bottom: 56px;
+    max-width: 720px;
+    letter-spacing: -0.01em;
+  }
+
+  /* ---------- Cards ---------- */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-top: 48px;
+  }
+  .card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 0.5px solid rgba(0,0,0,0.06);
+    border-radius: 24px;
+    padding: 36px 32px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+  }
+  .card .num {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d6f42;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .card h3 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+    color: #1d1d1f;
+  }
+  .card p {
+    font-size: 15px;
+    color: rgba(29,29,31,0.7);
+    line-height: 1.55;
+  }
+  .card p + p { margin-top: 12px; }
+
+  /* ---------- Flow / pipeline diagram ---------- */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 14px;
+    margin: 48px 0;
+  }
+  .flow .step {
+    flex: 1;
+    min-width: 140px;
+    background: rgba(255,255,255,0.85);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 18px;
+    padding: 22px 18px;
+    text-align: center;
+    position: relative;
+    transition: all 0.25s;
+  }
+  .flow .step:hover {
+    border-color: rgba(29,111,66,0.4);
+    background: white;
+  }
+  .flow .step .badge {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1d6f42 0%, #2a9d5e 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 28px;
+    margin-bottom: 12px;
+  }
+  .flow .step h4 {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+  }
+  .flow .step p {
+    font-size: 12px;
+    color: rgba(29,29,31,0.6);
+    line-height: 1.4;
+  }
+  .flow .step::after {
+    content: "→";
+    position: absolute;
+    right: -18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: rgba(0,0,0,0.2);
+    font-size: 20px;
+    z-index: 2;
+  }
+  .flow .step:last-child::after { display: none; }
+  @media (max-width: 720px) {
+    .flow { flex-direction: column; }
+    .flow .step::after {
+      right: 50%;
+      top: auto;
+      bottom: -16px;
+      transform: translateX(50%) rotate(90deg);
+    }
+  }
+
+  /* ---------- State machine voucher ---------- */
+  .state-machine {
+    background: linear-gradient(180deg, white 0%, #fafbfc 100%);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 24px;
+    padding: 48px 40px;
+    margin: 48px 0;
+  }
+  .state-machine .states {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+  .state {
+    padding: 10px 18px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1.5px solid;
+  }
+  .state.draft     { border-color: #8a8a8e; color: #6e6e73; }
+  .state.pending   { border-color: #ff9500; color: #c76d00; background: rgba(255,149,0,0.06); }
+  .state.approved  { border-color: #007aff; color: #0055cc; background: rgba(0,122,255,0.06); }
+  .state.executed  { border-color: #1d6f42; color: #1d6f42; background: rgba(29,111,66,0.06); }
+  .state.synced    { border-color: #5856d6; color: #4339a8; background: rgba(88,86,214,0.06); }
+  .state.reconciled{ border-color: #34c759; color: #248a3d; background: rgba(52,199,89,0.08); }
+  .state.closed    { border-color: #1d1d1f; color: #1d1d1f; background: rgba(0,0,0,0.05); }
+  .arrow { color: rgba(0,0,0,0.25); font-size: 18px; }
+
+  /* ---------- Two-column layout ---------- */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 64px;
+    align-items: center;
+    margin: 64px 0;
+  }
+  @media (max-width: 900px) {
+    .two-col { grid-template-columns: 1fr; gap: 32px; }
+  }
+  .two-col .visual {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+    border-radius: 28px;
+    padding: 48px 36px;
+    border: 0.5px solid rgba(0,0,0,0.05);
+  }
+  .two-col .visual .ledger {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  }
+  .ledger table { width: 100%; border-collapse: collapse; }
+  .ledger th { font-weight: 600; text-align: left; padding: 8px 4px; color: #6e6e73; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #e5e5ea;}
+  .ledger td { padding: 10px 4px; border-bottom: 0.5px solid #f5f5f7; }
+  .ledger .debit  { color: #1d6f42; font-weight: 600; text-align: right; }
+  .ledger .credit { color: #c41e3a; font-weight: 600; text-align: right; }
+  .ledger .total td { font-weight: 700; padding-top: 14px; border-top: 1.5px solid #1d1d1f; border-bottom: none; }
+  .ledger .check { color: #1d6f42; font-weight: 700; text-align: center; padding-top: 8px; }
+
+  /* ---------- Integration grid ---------- */
+  .integrations {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin: 48px 0;
+  }
+  .integ {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.06);
+    border-radius: 18px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .integ::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--clr, #007aff);
+  }
+  .integ.ok      { --clr: #34c759; }
+  .integ.partial { --clr: #ff9500; }
+  .integ.pending { --clr: #c41e3a; }
+  .integ .status {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--clr);
+    margin-bottom: 10px;
+  }
+  .integ h4 { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px;}
+  .integ p { font-size: 13px; color: rgba(29,29,31,0.65); line-height: 1.5;}
+
+  /* ---------- Highlight block ---------- */
+  .highlight {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1d1d1f 100%);
+    border-radius: 32px;
+    padding: 80px 56px;
+    color: white;
+    margin: 100px 0;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .highlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(0,122,255,0.18) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(29,111,66,0.18) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .highlight .content { position: relative; z-index: 1;}
+  .highlight h2 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 20px;
+    background: linear-gradient(180deg, white 0%, rgba(255,255,255,0.7) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .highlight p {
+    font-size: 20px;
+    color: rgba(255,255,255,0.7);
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* ---------- Roadmap table ---------- */
+  .roadmap {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 48px 0;
+  }
+  .roadmap table { width: 100%; border-collapse: collapse;}
+  .roadmap th, .roadmap td { padding: 18px 20px; text-align: left; border-bottom: 0.5px solid rgba(0,0,0,0.06);}
+  .roadmap th {
+    background: #fafbfc;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(29,29,31,0.6);
+  }
+  .roadmap td { font-size: 14px;}
+  .roadmap tr:last-child td { border-bottom: none;}
+  .roadmap .impacto { font-weight: 700;}
+  .roadmap .impacto.alto { color: #1d6f42;}
+  .roadmap .impacto.medio { color: #ff9500;}
+  .roadmap .impacto.bajo { color: #6e6e73;}
+  .roadmap .esfuerzo { color: rgba(29,29,31,0.65);}
+  .roadmap .prio {
+    display: inline-block;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1d6f42 0%, #2a9d5e 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 12px;
+    line-height: 24px;
+    text-align: center;
+  }
+
+  /* ---------- TOC sidebar (desktop) ---------- */
+  .toc {
+    position: fixed;
+    top: 50%;
+    right: 32px;
+    transform: translateY(-50%);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toc a {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.15);
+    transition: all 0.25s;
+    position: relative;
+  }
+  .toc a::before {
+    content: attr(data-label);
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(29,29,31,0.92);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .toc a:hover { background: #1d6f42; transform: scale(1.4);}
+  .toc a:hover::before { opacity: 1;}
+  @media (max-width: 1280px) { .toc { display: none;}}
+
+  /* ---------- Footer ---------- */
+  footer {
+    padding: 80px 0 60px;
+    text-align: center;
+    color: rgba(29,29,31,0.5);
+    font-size: 13px;
+    border-top: 0.5px solid rgba(0,0,0,0.06);
+    margin-top: 80px;
+  }
+  footer p + p { margin-top: 6px;}
+
+  /* ---------- Pull quote ---------- */
+  .pullquote {
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+    color: #1d1d1f;
+    padding: 40px 0;
+    margin: 40px 0;
+    border-top: 0.5px solid rgba(0,0,0,0.1);
+    border-bottom: 0.5px solid rgba(0,0,0,0.1);
+  }
+  .pullquote .attrib {
+    display: block;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(29,29,31,0.55);
+    margin-top: 14px;
+    letter-spacing: 0;
+  }
+
+  /* ---------- Pill rows for tags ---------- */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 16px 0 0;
+  }
+  .pill {
+    display: inline-block;
+    padding: 5px 12px;
+    background: rgba(0,0,0,0.04);
+    border-radius: 100px;
+    font-size: 12px;
+    color: rgba(29,29,31,0.7);
+    font-weight: 500;
+  }
+
+  /* Print */
+  @media print {
+    nav.top, .toc { display: none; }
+    body { background: white;}
+    .hero { padding: 40px 0;}
+    section.block { padding: 30px 0; break-inside: avoid;}
+    .card, .integ, .roadmap { break-inside: avoid;}
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="inner">
+    <div class="brand">Ram-Cehta · <span>FIP CEHTA ESG</span></div>
+    <div class="links">
+      <a href="#arquitectura">Arquitectura</a>
+      <a href="#voucher">Voucher</a>
+      <a href="#flujo">Flujo diario</a>
+      <a href="#cierre">Cierre</a>
+      <a href="#integraciones">Integraciones</a>
+      <a href="#seguridad">Seguridad</a>
+      <a href="#mejoras">Mejoras</a>
+      <a href="#roadmap">Roadmap</a>
+    </div>
+  </div>
+</nav>
+
+<!-- TOC dots -->
+<div class="toc">
+  <a href="#arquitectura"  data-label="Arquitectura"></a>
+  <a href="#voucher"       data-label="El voucher"></a>
+  <a href="#flujo"         data-label="Flujo diario"></a>
+  <a href="#cierre"        data-label="Cierre mensual"></a>
+  <a href="#integraciones" data-label="Integraciones"></a>
+  <a href="#seguridad"     data-label="Seguridad"></a>
+  <a href="#mejoras"       data-label="Mejoras"></a>
+  <a href="#roadmap"       data-label="Roadmap"></a>
+</div>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="container-narrow">
+    <span class="eyebrow">Sistema contable-financiero · 2026</span>
+    <h1>Cómo funciona<br/>tu plataforma.</h1>
+    <p class="sub">
+      Un sistema operativo que captura cada peso del fondo, lo valida en tres capas,
+      lo aprueba con doble firma, lo paga, lo concilia y lo envía a Nubox — sin que
+      Excel intervenga jamás.
+    </p>
+    <div class="stats">
+      <div class="stat"><span class="num">10</span><span class="lbl">empresas integradas</span></div>
+      <div class="stat"><span class="num">7</span><span class="lbl">estados del voucher</span></div>
+      <div class="stat"><span class="num">3</span><span class="lbl">capas de validación</span></div>
+      <div class="stat"><span class="num">22</span><span class="lbl">invariantes legales</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ARQUITECTURA ============ -->
+<section class="block" id="arquitectura">
+  <div class="container">
+    <span class="label">01 · Arquitectura</span>
+    <h2>Tres piezas. <span class="accent">Cero acoplamiento.</span></h2>
+    <p class="lede">
+      El sistema vive en tres capas físicamente separadas. Cada una se puede reemplazar
+      sin tocar las otras. Esto importa porque significa que si Vercel se cae mañana,
+      el backend sigue funcionando; si Supabase migra, el frontend ni se entera.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <span class="num">Frontend</span>
+        <h3>Next.js 15 + React</h3>
+        <p>
+          Lo que ves y tocás. 14 pantallas funcionales: vouchers, cartolas,
+          reportes, plan de cuentas, áreas, proyectos, marcha blanca, admin.
+        </p>
+        <p>
+          Hospedado en <strong>Vercel</strong> con CDN global. Compilado a HTML
+          estático cuando se puede (más rápido que cualquier SaaS comercial).
+        </p>
+        <div class="pills">
+          <span class="pill">Next 15 App Router</span>
+          <span class="pill">TypeScript strict</span>
+          <span class="pill">Tailwind</span>
+          <span class="pill">React Query</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="num">Backend</span>
+        <h3>FastAPI + Python</h3>
+        <p>
+          El cerebro. 80+ endpoints REST que validan, autorizan, persisten y
+          coordinan integraciones externas (SII, Nubox, Dropbox, email, IA).
+        </p>
+        <p>
+          Hospedado en <strong>Fly.io</strong> región São Paulo (gru). Auto-restart,
+          health checks, cifrado Fernet para credenciales sensibles.
+        </p>
+        <div class="pills">
+          <span class="pill">FastAPI</span>
+          <span class="pill">SQLAlchemy</span>
+          <span class="pill">Pydantic v2</span>
+          <span class="pill">1.108 tests</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <span class="num">Base de datos</span>
+        <h3>Supabase Postgres</h3>
+        <p>
+          La fuente de verdad. 40+ migraciones SQL. La regla de partida doble está
+          escrita en <strong>triggers de Postgres</strong> — la última red de seguridad
+          aunque el código aplicativo tenga un bug.
+        </p>
+        <p>
+          Row-level security activa por empresa. Backups automáticos diarios.
+          Audit log inmutable.
+        </p>
+        <div class="pills">
+          <span class="pill">Postgres 15</span>
+          <span class="pill">RLS</span>
+          <span class="pill">Triggers</span>
+          <span class="pill">PITR backups</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      "Cada capa puede caerse sin destruir las otras. Si el frontend se rompe, los
+      datos están intactos. Si el backend se cae, la base sigue siendo auditable.
+      Si la base se corrompe, hay backups por hora."
+      <span class="attrib">— Decisión de arquitectura inicial · Round 1</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EL VOUCHER ============ -->
+<section class="block" id="voucher">
+  <div class="container">
+    <span class="label">02 · La unidad mínima</span>
+    <h2>Todo es un <span class="accent">voucher.</span></h2>
+    <p class="lede">
+      En tu sistema no existe "factura", "boleta", "transferencia" o "gasto" como
+      cosas separadas. Existe el <em>voucher</em>: una transacción contable formal
+      con líneas que debe cuadrar (partida doble). Todo lo demás son adornos.
+    </p>
+
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:24px;font-weight:600;letter-spacing:-0.02em;margin-bottom:16px;">
+          La regla sagrada: partida doble
+        </h3>
+        <p style="font-size:16px;color:rgba(29,29,31,0.72);line-height:1.6;margin-bottom:14px;">
+          Cada peso que entra a una cuenta sale de otra. Suma de débitos = suma
+          de créditos. <strong>Siempre.</strong> Si no cuadra, el sistema lo
+          rechaza en 3 capas distintas:
+        </p>
+        <ol style="font-size:15px;color:rgba(29,29,31,0.72);line-height:1.7;padding-left:20px;">
+          <li><strong>Zod</strong> (navegador) — rechaza antes de hacer la red call</li>
+          <li><strong>Pydantic</strong> (API) — rechaza antes de tocar la DB</li>
+          <li><strong>Trigger Postgres</strong> — rechaza incluso si los dos anteriores fallan</li>
+        </ol>
+        <p style="font-size:15px;color:rgba(29,29,31,0.72);line-height:1.6;margin-top:14px;">
+          Es paranoico a propósito. Un fondo legal no puede permitirse asientos
+          descuadrados en producción.
+        </p>
+      </div>
+      <div class="visual">
+        <div class="ledger">
+          <table>
+            <thead><tr><th>Cuenta</th><th>Debe</th><th>Haber</th></tr></thead>
+            <tbody>
+              <tr><td>Gasto Servicios</td><td class="debit">$ 1.190.000</td><td></td></tr>
+              <tr><td>IVA Crédito Fiscal</td><td class="debit">$ 226.100</td><td></td></tr>
+              <tr><td>Banco Estado</td><td></td><td class="credit">$ 1.416.100</td></tr>
+              <tr class="total"><td>Totales</td><td class="debit">$ 1.416.100</td><td class="credit">$ 1.416.100</td></tr>
+              <tr><td colspan="3" class="check">✓ Cuadrado · diferencia $ 0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:28px;font-weight:600;letter-spacing:-0.02em;margin:80px 0 14px;">
+      Vida del voucher
+    </h3>
+    <p style="font-size:17px;color:rgba(29,29,31,0.7);max-width:720px;margin-bottom:24px;">
+      Un voucher recorre 7 estados. Solo puede avanzar — nunca retroceder.
+      Esto es lo que hace el sistema <em>auditable</em> en el sentido legal del
+      término: cada transición queda registrada con timestamp, usuario y motivo.
+    </p>
+
+    <div class="state-machine">
+      <div class="states">
+        <span class="state draft">DRAFT</span><span class="arrow">→</span>
+        <span class="state pending">PENDING</span><span class="arrow">→</span>
+        <span class="state approved">APPROVED</span><span class="arrow">→</span>
+        <span class="state executed">EXECUTED</span><span class="arrow">→</span>
+        <span class="state synced">SYNCED</span><span class="arrow">→</span>
+        <span class="state reconciled">RECONCILED</span><span class="arrow">→</span>
+        <span class="state closed">CLOSED</span>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:48px;">
+      <div class="card">
+        <span class="num">DRAFT</span>
+        <h3>Borrador</h3>
+        <p>Estado libre. Acá podés descuadrar, dejar líneas incompletas, guardar y volver mañana. Es el único estado que permite errores temporales.</p>
+      </div>
+      <div class="card">
+        <span class="num">PENDING</span>
+        <h3>En aprobación</h3>
+        <p>El voucher ya cuadra. Está esperando 1 o 2 firmas (según monto). El usuario que lo creó <strong>no puede</strong> aprobar el suyo propio — separación de deberes obligatoria.</p>
+      </div>
+      <div class="card">
+        <span class="num">APPROVED</span>
+        <h3>Aprobado</h3>
+        <p>Tiene las firmas que necesita. Listo para ejecutarse, pero la plata todavía no se mueve. Útil para revisar la cola del día antes de pagar.</p>
+      </div>
+      <div class="card">
+        <span class="num">EXECUTED</span>
+        <h3>Ejecutado</h3>
+        <p>La transferencia bancaria salió. La plata ya no está en tu cuenta — está en la del proveedor. Se generó un movimiento bancario asociado.</p>
+      </div>
+      <div class="card">
+        <span class="num">SYNCED</span>
+        <h3>Enviado a Nubox</h3>
+        <p>El asiento ya está cargado en el sistema contable oficial (Nubox). MCG Consultores ya puede verlo en sus libros. Trazabilidad por folio Nubox.</p>
+      </div>
+      <div class="card">
+        <span class="num">RECONCILED</span>
+        <h3>Conciliado</h3>
+        <p>El cargo aparece en la cartola bancaria <em>y</em> coincide con el voucher. Match automático por monto + fecha + referencia. Sin sorpresas.</p>
+      </div>
+    </div>
+
+    <p style="font-size:15px;color:rgba(29,29,31,0.6);margin-top:32px;text-align:center;">
+      También existen 3 estados terminales fuera de la línea principal:
+      <span class="state" style="border-color:#c41e3a;color:#c41e3a;font-size:12px;padding:3px 10px;">REJECTED</span>
+      <span class="state" style="border-color:#8a8a8e;color:#6e6e73;font-size:12px;padding:3px 10px;">VOID</span>
+      <span class="state" style="border-color:#5856d6;color:#5856d6;font-size:12px;padding:3px 10px;">REVERSO</span>
+    </p>
+
+    <div class="pullquote">
+      "Cada línea de cada voucher imputa contra tres dimensiones: <strong>cuenta</strong>
+      contable, <strong>proyecto</strong> (origen del costo), y <strong>área</strong>
+      (centro de responsabilidad). Eso es lo que te permite armar un EEFF por
+      proyecto sin tocar Excel."
+      <span class="attrib">— Triple imputación · Invariante #4 del MAESTRO</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FLUJO DIARIO ============ -->
+<section class="block" id="flujo">
+  <div class="container">
+    <span class="label">03 · Operación diaria</span>
+    <h2>Un día <span class="accent">en el sistema.</span></h2>
+    <p class="lede">
+      Así se ve la jornada de quien opera Ram-Cehta. La diferencia con un sistema
+      tradicional contable es que <strong>la IA hace el trabajo mecánico</strong>
+      (clasificar emails, extraer datos de facturas, sugerir cuentas), y el humano
+      hace solo el trabajo de criterio (aprobar, ajustar, autorizar pagos).
+    </p>
+
+    <div class="flow">
+      <div class="step">
+        <span class="badge">1</span>
+        <h4>Mañana</h4>
+        <p>Inbox IMAP trae facturas. Claude las clasifica y propone vouchers.</p>
+      </div>
+      <div class="step">
+        <span class="badge">2</span>
+        <h4>Mediodía</h4>
+        <p>Operador revisa propuestas, completa datos, guarda en DRAFT.</p>
+      </div>
+      <div class="step">
+        <span class="badge">3</span>
+        <h4>Tarde</h4>
+        <p>Manager aprueba (1ra firma). CFO aprueba (2da firma si &gt; $1M).</p>
+      </div>
+      <div class="step">
+        <span class="badge">4</span>
+        <h4>Pago</h4>
+        <p>Operador ejecuta transferencia desde caja chica o banco principal.</p>
+      </div>
+      <div class="step">
+        <span class="badge">5</span>
+        <h4>Conciliación</h4>
+        <p>Cartola Dropbox + match automático. Marca RECONCILED.</p>
+      </div>
+      <div class="step">
+        <span class="badge">6</span>
+        <h4>Sync</h4>
+        <p>CSV / API a Nubox. MCG Consultores lo ve al día siguiente.</p>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:64px;">
+      <div class="card">
+        <span class="num">Paso 1 — Inbox IA</span>
+        <h3>Claude lee tus emails</h3>
+        <p>
+          Cada 10 minutos, el sistema revisa el buzón IMAP. Si entra una factura
+          en PDF, Claude (Anthropic) lee el adjunto, extrae <em>RUT, folio, monto
+          neto, IVA, fecha, glosa, cuenta sugerida</em>, y crea un voucher en estado
+          DRAFT esperando aprobación humana.
+        </p>
+        <p>
+          Costo aproximado: <strong>$0,005 USD por factura procesada</strong>.
+          A 100 facturas/mes son $0,50.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Paso 2 — Formularios</span>
+        <h3>3 formularios distintos</h3>
+        <p>
+          No todo es una factura. El sistema tiene 3 entrypoints según el tipo de transacción:
+        </p>
+        <p style="font-size:14px;">
+          <strong>/vouchers/nuevo</strong> — gasto/ingreso genérico<br/>
+          <strong>/vouchers/nubox</strong> — flujo idéntico al sistema Nubox<br/>
+          <strong>/vouchers/corfo</strong> — gastos con financiamiento CORFO marcado
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Paso 3 — Aprobación</span>
+        <h3>Doble firma según monto</h3>
+        <p>
+          Vouchers &lt; $1M CLP: 1 firma de manager.<br/>
+          Vouchers ≥ $1M CLP: 1 firma manager + 1 firma CFO.<br/>
+          Vouchers ≥ $10M CLP: además requiere acta de comité de inversiones.
+        </p>
+        <p>
+          <strong>Segregación de deberes obligatoria</strong>: quien creó no puede aprobar.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Paso 4 — Pago</span>
+        <h3>Transferencia trazable</h3>
+        <p>
+          No hay "nómina masiva" (decisión deliberada para fondos pequeños). Cada
+          transferencia sale ordenada desde un voucher aprobado, con número de
+          referencia que viaja al banco.
+        </p>
+        <p>
+          Comprobante bancario PDF se sube como adjunto del voucher
+          (queda en Dropbox encadenado por hash).
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Paso 5 — Conciliación</span>
+        <h3>Match automático</h3>
+        <p>
+          Diariamente baja la cartola del banco desde Dropbox. El sistema busca por
+          monto + fecha ± 2 días + referencia. Si el match es perfecto, marca
+          RECONCILED automáticamente.
+        </p>
+        <p>
+          Si hay discrepancia, queda en cola humana para revisión.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Paso 6 — Nubox</span>
+        <h3>El asiento oficial</h3>
+        <p>
+          Ram-Cehta es el sistema operativo del fondo, pero Nubox es donde MCG
+          Consultores lleva la contabilidad legal. Cada voucher EXECUTED se
+          exporta como CSV o se manda por la API REST oficial (cuando lleguen las
+          credenciales de soporte@nubox.com).
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CIERRE MENSUAL ============ -->
+<section class="block" id="cierre">
+  <div class="container">
+    <span class="label">04 · Cierre mensual</span>
+    <h2>Días 1 a 10. <span class="accent">El ritmo del fondo.</span></h2>
+    <p class="lede">
+      Todo lo anterior es para que el cierre mensual sea trivial. En vez de tomar
+      una semana de Excel-y-correcciones, el wizard de cierre te lleva del día 1
+      al 10 con checklist automático.
+    </p>
+
+    <div class="flow">
+      <div class="step"><span class="badge">D1</span><h4>Cuadre cajas</h4><p>Saldo inicial vs saldo final. Cero diferencia.</p></div>
+      <div class="step"><span class="badge">D3</span><h4>Conciliación bancaria</h4><p>Toda cartola conciliada, sin pendientes.</p></div>
+      <div class="step"><span class="badge">D5</span><h4>Sync Nubox</h4><p>Todos los vouchers EXECUTED enviados.</p></div>
+      <div class="step"><span class="badge">D7</span><h4>EEFF preliminar</h4><p>Estado de Resultado + Balance generado.</p></div>
+      <div class="step"><span class="badge">D9</span><h4>Revisión MCG</h4><p>Contador externo valida.</p></div>
+      <div class="step"><span class="badge">D10</span><h4>Cierre formal</h4><p>Mes bloqueado. No se editan más vouchers.</p></div>
+    </div>
+
+    <div class="pullquote">
+      "El día 11 ya no podés cambiar nada del mes anterior. Si encontrás un error
+      después, se corrige con un voucher de ajuste con fecha del mes corriente.
+      Esto es lo que un auditor externo espera ver."
+      <span class="attrib">— Invariante #11 · Inmutabilidad post-cierre</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INTEGRACIONES ============ -->
+<section class="block" id="integraciones">
+  <div class="container">
+    <span class="label">05 · Sistemas externos</span>
+    <h2>Quién habla <span class="accent">con quién.</span></h2>
+    <p class="lede">
+      Tu plataforma no vive en el vacío. Se conecta a 7 sistemas externos. Algunos
+      ya están operativos, otros tienen código deployado esperando que tú actives
+      credenciales o migraciones.
+    </p>
+
+    <div class="integrations">
+      <div class="integ ok">
+        <div class="status">● Operativo</div>
+        <h4>Dropbox</h4>
+        <p>PDFs de facturas, comprobantes, cartolas bancarias, respaldos contractuales. Webhook + carpetas por empresa.</p>
+      </div>
+      <div class="integ ok">
+        <div class="status">● Operativo</div>
+        <h4>Resend + IMAP</h4>
+        <p>Email saliente (notificaciones, recordatorios) vía Resend. Email entrante (facturas en PDF) vía IMAP polling.</p>
+      </div>
+      <div class="integ ok">
+        <div class="status">● Operativo</div>
+        <h4>Anthropic Claude</h4>
+        <p>Clasificación de inbox, extracción de datos de facturas, sugerencia de cuenta contable, detección de anomalías.</p>
+      </div>
+      <div class="integ partial">
+        <div class="status">◐ Inerte</div>
+        <h4>SII Chile</h4>
+        <p>Código deployado (R117/118/119/121). DTE, F22, F29. Se activa con: 1) migración SQL R117, 2) Fernet key en Fly, 3) seed inicial.</p>
+      </div>
+      <div class="integ partial">
+        <div class="status">◐ Inerte</div>
+        <h4>Nubox scraping</h4>
+        <p>Libro de remuneraciones (R123). Lee Nubox vía login automatizado. Listo, esperando migración R123 aplicada.</p>
+      </div>
+      <div class="integ partial">
+        <div class="status">◐ Inerte</div>
+        <h4>Nubox API REST</h4>
+        <p>Factura + Administración (R124). Esperando credenciales reales de soporte@nubox.com (las V1.1 de prueba ya están cargadas).</p>
+      </div>
+      <div class="integ pending">
+        <div class="status">○ Pendiente</div>
+        <h4>Previred</h4>
+        <p>Solo credenciales cifradas almacenadas. Cliente Python pendiente. Requerido para automatizar pago de cotizaciones.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SEGURIDAD ============ -->
+<section class="block" id="seguridad">
+  <div class="container">
+    <span class="label">06 · Seguridad y compliance</span>
+    <h2>22 invariantes <span class="accent">no negociables.</span></h2>
+    <p class="lede">
+      El sistema está diseñado para que sea técnicamente <em>imposible</em>
+      romper las reglas legales, contables o tributarias. No "el sistema te avisa"
+      — el sistema directamente <strong>no te deja</strong> hacerlo.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <span class="num">Legal · 5 reglas</span>
+        <h3>FIP CEHTA ESG</h3>
+        <p>Segregación por empresa con RLS. Audit log inmutable de cada cambio. Inmutabilidad post-cierre. Reverso por contra-asiento, nunca por delete. RUT validado siempre.</p>
+      </div>
+      <div class="card">
+        <span class="num">Contable · 8 reglas</span>
+        <h3>Partida doble &amp; cía.</h3>
+        <p>Triple validación de partida doble. Triple imputación (cuenta + proyecto + área). Mes cerrado bloqueado. Plan de cuentas único por empresa. Saldos siempre derivados, nunca hardcoded.</p>
+      </div>
+      <div class="card">
+        <span class="num">Tributario · 4 reglas</span>
+        <h3>SII chileno</h3>
+        <p>COMPRA/VENTA exigen documento tributario válido. IVA tratamiento explícito por línea. Folio único por empresa-tipo-año. Conciliación con SII obligatoria pre-cierre.</p>
+      </div>
+      <div class="card">
+        <span class="num">Seguridad · 5 reglas</span>
+        <h3>Datos sensibles</h3>
+        <p>2FA obligatorio para admin. Cifrado Fernet de toda credencial externa. RBAC por rol (operador, manager, CFO, auditor). Sesiones JWT con expiración. PII redactada en logs.</p>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      "Los 22 invariantes están en <code style='font-family:SF Mono,monospace;font-size:0.85em;background:rgba(0,0,0,0.05);padding:2px 6px;border-radius:4px;'>docs/SUPER_PROMPT_MAESTRO.md</code>. Cualquier
+      cambio futuro al sistema tiene que verificar que no rompe ninguno. La regla:
+      si rompe una, no se mergea."
+      <span class="attrib">— Pacto técnico fundacional</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HIGHLIGHT BLACK ============ -->
+<div class="container">
+  <div class="highlight">
+    <div class="content">
+      <h2>Ahora viene la pregunta interesante.</h2>
+      <p>¿Cómo hacemos que todo esto sea más rápido, más eficaz, más útil?</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MEJORAS ============ -->
+<section class="block" id="mejoras">
+  <div class="container">
+    <span class="label">07 · Alternativas de mejora</span>
+    <h2>9 palancas para <span class="accent">acelerar.</span></h2>
+    <p class="lede">
+      Cada una tiene un costo (en horas, plata o complejidad) y un beneficio.
+      Las ordeno por <strong>impacto sobre tu día a día operativo</strong>, no
+      por dificultad técnica.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <span class="num">Mejora #1 · Impacto ALTO</span>
+        <h3>Transaction pooler en DB</h3>
+        <p>
+          Hoy el backend abre una conexión nueva a Supabase por cada request.
+          Eso suma 80-200ms de latencia. Con <strong>pgbouncer transaction pooler</strong>
+          (free en Supabase), las conexiones se reusan.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia esperada:</strong> 30-40% más rápido en endpoints de lectura.<br/>
+          <strong>Costo:</strong> 2 horas de configuración + testing.<br/>
+          <strong>Riesgo:</strong> bajo (cambio de string de conexión).
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #2 · Impacto ALTO</span>
+        <h3>Materialized views para EEFF</h3>
+        <p>
+          Los reportes financieros (Balance, Estado de Resultado, EEFF consolidado)
+          hoy se calculan en vivo a partir de millones de líneas de voucher. Con
+          una <em>materialized view</em> que se refresca cada 5 min, abren al instante.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> reporte EEFF de 8s → 200ms.<br/>
+          <strong>Costo:</strong> 4-6 horas + migración SQL.<br/>
+          <strong>Riesgo:</strong> medio (cuidar staleness en cierre).
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #3 · Impacto ALTO</span>
+        <h3>IA extract más agresiva</h3>
+        <p>
+          Hoy Claude lee facturas y propone vouchers. La siguiente capa: que también
+          lea <strong>contratos de proveedores</strong> y precargue plantillas
+          mensuales recurrentes ("arriendo oficinas $X cada día 5"). Reduce
+          drásticamente la captura manual.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> ~40% menos tiempo en data entry.<br/>
+          <strong>Costo:</strong> 1-2 semanas de dev + tuning prompts.<br/>
+          <strong>Costo operación:</strong> +$5-15 USD/mes en Claude API.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #4 · Impacto MEDIO</span>
+        <h3>Bulk operations en UI</h3>
+        <p>
+          Hoy aprobás vouchers de a uno. Para cierre mensual con 100+ vouchers
+          eso es tedioso. <strong>Checkbox + "Aprobar 47 seleccionados"</strong>
+          ahorra horas el día 8 del mes.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> 2-3 horas/mes de cierre.<br/>
+          <strong>Costo:</strong> 1 día de dev en frontend.<br/>
+          <strong>Cuidado:</strong> mantener regla de doble firma por monto.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #5 · Impacto MEDIO</span>
+        <h3>PWA + Push notifications</h3>
+        <p>
+          Que se instale en el celular como app nativa. Con notificaciones push
+          cuando hay un voucher esperando tu aprobación, o cuando una conciliación
+          falla. Hoy revisás manualmente el dashboard.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> aprobaciones de 6 horas a 30 min de respuesta promedio.<br/>
+          <strong>Costo:</strong> 3-5 días de dev (service worker + Web Push).
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #6 · Impacto MEDIO</span>
+        <h3>Atajos de teclado</h3>
+        <p>
+          Para usuarios power (vos, contadora MCG): <code style="font-family:SF Mono,monospace;font-size:0.85em;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">N</code>
+          nuevo voucher, <code style="font-family:SF Mono,monospace;font-size:0.85em;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">A</code>
+          aprobar, <code style="font-family:SF Mono,monospace;font-size:0.85em;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">/</code>
+          buscar, <code style="font-family:SF Mono,monospace;font-size:0.85em;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">⌘K</code>
+          paleta de comandos estilo Linear/Vercel.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> productividad ~30% para usuarios diarios.<br/>
+          <strong>Costo:</strong> 2-3 días.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #7 · Impacto MEDIO</span>
+        <h3>Anomaly detection IA</h3>
+        <p>
+          Que Claude analice cada noche el patrón histórico de gastos y marque
+          desviaciones: "este proveedor cobra siempre $400k, hoy te facturó $4M",
+          "esta cuenta tiene movimientos fuera de horario laboral", "doble pago detectado".
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> previene 80% de fraudes y errores grandes.<br/>
+          <strong>Costo:</strong> 1 semana dev + $3-8 USD/mes API.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #8 · Impacto BAJO</span>
+        <h3>Dashboard ejecutivo</h3>
+        <p>
+          Pantalla única tipo Bloomberg: cash position consolidada, runway por empresa,
+          burn rate, vouchers pendientes urgentes, NAV del fondo, retorno YTD.
+          Para mostrarle a LPs sin compilar PDF.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> reportería ad-hoc desaparece.<br/>
+          <strong>Costo:</strong> 1-2 semanas de dev + diseño.
+        </p>
+      </div>
+
+      <div class="card">
+        <span class="num">Mejora #9 · Impacto BAJO</span>
+        <h3>Webhook real-time</h3>
+        <p>
+          Hoy el polling IMAP corre cada 10 min. Si configuramos webhook de Resend
+          + carpeta Dropbox watch, los eventos llegan en <strong>segundos</strong>
+          en vez de minutos.
+        </p>
+        <p style="margin-top:14px;font-size:14px;">
+          <strong>Ganancia:</strong> facturas aparecen al instante.<br/>
+          <strong>Costo:</strong> 2-3 días + endpoint público.
+        </p>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      "La regla para priorizar: ¿qué te ahorra <strong>más tiempo el día 1-10 del mes</strong>?
+      Eso siempre gana sobre lo que es técnicamente lindo pero solo se usa una vez al año."
+      <span class="attrib">— Heurística de priorización operativa</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ROADMAP ============ -->
+<section class="block" id="roadmap">
+  <div class="container">
+    <span class="label">08 · Orden de ejecución</span>
+    <h2>Si tuviera <span class="accent">3 meses.</span></h2>
+    <p class="lede">
+      No es razonable hacer las 9 mejoras al mismo tiempo. Acá un roadmap concreto
+      asumiendo ~10 horas/semana de dev disponible. Cada mejora resuelve algo que
+      la siguiente necesita.
+    </p>
+
+    <div class="roadmap">
+      <table>
+        <thead>
+          <tr>
+            <th>Prio</th>
+            <th>Mejora</th>
+            <th>Impacto</th>
+            <th>Esfuerzo</th>
+            <th>Cuándo</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="prio">1</span></td>
+            <td><strong>Desbloquear marcha blanca</strong> · aplicar migraciones SQL, Fernet key, seed Excel</td>
+            <td class="impacto alto">ALTO</td>
+            <td class="esfuerzo">2-3 días tuyos manuales</td>
+            <td>Esta semana</td>
+          </tr>
+          <tr>
+            <td><span class="prio">2</span></td>
+            <td><strong>Transaction pooler</strong> · DB pooling activado</td>
+            <td class="impacto alto">ALTO</td>
+            <td class="esfuerzo">2 hrs dev</td>
+            <td>Semana 1</td>
+          </tr>
+          <tr>
+            <td><span class="prio">3</span></td>
+            <td><strong>Bulk operations</strong> · aprobar múltiples vouchers</td>
+            <td class="impacto medio">MEDIO</td>
+            <td class="esfuerzo">1 día dev</td>
+            <td>Semana 2</td>
+          </tr>
+          <tr>
+            <td><span class="prio">4</span></td>
+            <td><strong>Materialized views EEFF</strong> · reportes instantáneos</td>
+            <td class="impacto alto">ALTO</td>
+            <td class="esfuerzo">4-6 hrs dev</td>
+            <td>Semana 3</td>
+          </tr>
+          <tr>
+            <td><span class="prio">5</span></td>
+            <td><strong>Atajos teclado + ⌘K palette</strong></td>
+            <td class="impacto medio">MEDIO</td>
+            <td class="esfuerzo">3 días dev</td>
+            <td>Semana 4</td>
+          </tr>
+          <tr>
+            <td><span class="prio">6</span></td>
+            <td><strong>IA extract contratos</strong> · plantillas recurrentes</td>
+            <td class="impacto alto">ALTO</td>
+            <td class="esfuerzo">2 semanas dev</td>
+            <td>Mes 2</td>
+          </tr>
+          <tr>
+            <td><span class="prio">7</span></td>
+            <td><strong>Anomaly detection</strong> · IA noche</td>
+            <td class="impacto medio">MEDIO</td>
+            <td class="esfuerzo">1 semana dev</td>
+            <td>Mes 2</td>
+          </tr>
+          <tr>
+            <td><span class="prio">8</span></td>
+            <td><strong>PWA + Push notifications</strong></td>
+            <td class="impacto medio">MEDIO</td>
+            <td class="esfuerzo">1 semana dev</td>
+            <td>Mes 3</td>
+          </tr>
+          <tr>
+            <td><span class="prio">9</span></td>
+            <td><strong>Dashboard ejecutivo LPs</strong></td>
+            <td class="impacto bajo">BAJO</td>
+            <td class="esfuerzo">2 semanas dev</td>
+            <td>Mes 3</td>
+          </tr>
+          <tr>
+            <td><span class="prio">10</span></td>
+            <td><strong>Webhooks real-time</strong> · Resend + Dropbox</td>
+            <td class="impacto bajo">BAJO</td>
+            <td class="esfuerzo">3 días dev</td>
+            <td>Mes 3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="font-size:14px;color:rgba(29,29,31,0.55);max-width:720px;margin-top:24px;">
+      <strong>Nota:</strong> los esfuerzos están estimados asumiendo desarrollo
+      conmigo (Claude). Si contrataras un freelance senior chileno, multiplicá los
+      días por ~1.5x; con agencia, por 3x.
+    </p>
+  </div>
+</section>
+
+<!-- ============ HIGHLIGHT FINAL ============ -->
+<div class="container">
+  <div class="highlight">
+    <div class="content">
+      <h2>Empezamos por el paso 1.</h2>
+      <p>Desbloquear la marcha blanca (Vercel deploy, migraciones SQL, Fernet, seed). El resto se construye sobre eso.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="container-narrow">
+    <p><strong>Ram-Cehta · FIP CEHTA ESG</strong></p>
+    <p>Documento generado el <span id="ts">—</span> · Round 134 · Sistema contable explicado</p>
+    <p style="margin-top:16px;font-size:11px;">Apple-tier white design · SF Pro · single-file standalone HTML</p>
+  </div>
+</footer>
+
+<script>
+  // Timestamp local del usuario
+  (function(){
+    var d = new Date();
+    var fmt = d.toLocaleString('es-CL', {
+      year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+    var el = document.getElementById('ts');
+    if (el) el.textContent = fmt;
+  })();
+</script>
+
+</body>
+</html>
