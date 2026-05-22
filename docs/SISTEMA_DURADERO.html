@@ -1,0 +1,1624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ram-Cehta · Sistema que dura toda la vida del fondo</title>
+<style>
+  /* ============================================================
+     RESET / BASE
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+                 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #fbfbfd;
+    color: #1d1d1f;
+    line-height: 1.5;
+    overflow-x: hidden;
+    font-variation-settings: "wght" 400;
+  }
+
+  /* Aurora viva en el fondo */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -20%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 40% at 10% 20%, rgba(29,111,66,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 85% 30%, rgba(0,122,255,0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 50% 80%, rgba(175,82,222,0.05) 0%, transparent 60%);
+    animation: aurora-drift 30s ease-in-out infinite alternate;
+    filter: blur(20px);
+  }
+  @keyframes aurora-drift {
+    0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+    33%  { transform: translate(4%, -2%) rotate(0.5deg) scale(1.05); }
+    66%  { transform: translate(-3%, 3%) rotate(-0.3deg) scale(0.98); }
+    100% { transform: translate(2%, -1%) rotate(0.2deg) scale(1.02); }
+  }
+
+  /* Grano sutil */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.012;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    mix-blend-mode: multiply;
+  }
+
+  /* ============================================================
+     NAV STICKY ULTRA-MINIMAL
+     ============================================================ */
+  nav.bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: saturate(200%) blur(30px);
+    -webkit-backdrop-filter: saturate(200%) blur(30px);
+    background: rgba(251, 251, 253, 0.78);
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+  }
+  nav.bar .inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  nav.bar .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  nav.bar .brand .heart {
+    width: 10px; height: 10px;
+    background: linear-gradient(135deg, #1d6f42, #2a9d5e);
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(29,111,66,0.4);
+    animation: heart 1.6s ease-in-out infinite;
+  }
+  @keyframes heart {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(29,111,66,0.4); }
+    50%      { transform: scale(1.15); box-shadow: 0 0 0 8px rgba(29,111,66,0); }
+  }
+  nav.bar .menu {
+    display: flex;
+    gap: 32px;
+    font-size: 13px;
+    color: rgba(29,29,31,0.7);
+  }
+  nav.bar .menu a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.2s;
+    position: relative;
+  }
+  nav.bar .menu a:hover { color: #1d6f42; }
+  nav.bar .progress {
+    position: absolute;
+    bottom: -1px; left: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #1d6f42, #007aff, #af52de);
+    transition: width 0.1s linear;
+  }
+  @media (max-width: 720px) { nav.bar .menu { display: none; } }
+
+  /* ============================================================
+     CONTAINER
+     ============================================================ */
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+  .narrow {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     HERO — gigantesco, declarativo
+     ============================================================ */
+  section.hero {
+    padding: 180px 0 140px;
+    text-align: center;
+    position: relative;
+  }
+  .hero .tag {
+    display: inline-block;
+    padding: 8px 16px;
+    background: rgba(29, 111, 66, 0.08);
+    color: #1d6f42;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    margin-bottom: 32px;
+    text-transform: uppercase;
+    animation: fade-up 1s cubic-bezier(0.22,1,0.36,1);
+  }
+  .hero h1 {
+    font-size: clamp(56px, 11vw, 144px);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 0.94;
+    margin-bottom: 32px;
+    animation: fade-up 1.2s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+  }
+  .hero h1 .line1 {
+    background: linear-gradient(180deg, #1d1d1f 0%, #2c2c2e 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: block;
+  }
+  .hero h1 .line2 {
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 50%, #af52de 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: block;
+    font-style: italic;
+  }
+  .hero .lede {
+    font-size: clamp(20px, 2.5vw, 28px);
+    color: rgba(29,29,31,0.6);
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    animation: fade-up 1.4s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Marquee de cifras */
+  .marquee {
+    margin-top: 80px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    animation: fade-up 1.6s cubic-bezier(0.22,1,0.36,1) 0.3s both;
+  }
+  .stat-pill {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 100px;
+    padding: 12px 22px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    transition: all 0.3s;
+  }
+  .stat-pill:hover { transform: translateY(-2px); border-color: rgba(29,111,66,0.3); }
+  .stat-pill .num {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #1d6f42, #007aff);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-pill .lbl { color: rgba(29,29,31,0.65); }
+
+  /* Scroll hint */
+  .scroll-hint {
+    margin-top: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: rgba(29,29,31,0.35);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+  }
+  .scroll-hint .arrow {
+    font-size: 18px;
+    animation: scroll-bounce 2.5s ease-in-out infinite;
+  }
+  @keyframes scroll-bounce {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50%      { transform: translateY(10px); opacity: 1; }
+  }
+
+  /* ============================================================
+     SECTION (acto) — reveal on scroll
+     ============================================================ */
+  section.act {
+    padding: 140px 0;
+    position: relative;
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 1.1s cubic-bezier(0.22,1,0.36,1),
+                transform 1.1s cubic-bezier(0.22,1,0.36,1);
+  }
+  section.act.in { opacity: 1; transform: translateY(0); }
+
+  .act-header {
+    text-align: center;
+    margin-bottom: 80px;
+  }
+  .act-header .kicker {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: #1d6f42;
+    margin-bottom: 16px;
+  }
+  .act-header h2 {
+    font-size: clamp(40px, 6vw, 72px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+    color: #1d1d1f;
+    margin-bottom: 20px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .act-header h2 .accent {
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .act-header h2 .light {
+    color: rgba(29,29,31,0.4);
+    font-weight: 500;
+  }
+  .act-header p {
+    font-size: clamp(17px, 1.7vw, 21px);
+    color: rgba(29,29,31,0.62);
+    max-width: 720px;
+    margin: 0 auto;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+  }
+
+  /* ============================================================
+     CANVAS — diagrama enmarcado
+     ============================================================ */
+  .canvas-frame {
+    background: white;
+    border-radius: 32px;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.04),
+      0 12px 40px rgba(0,0,0,0.06),
+      0 40px 80px rgba(0,0,0,0.03);
+    overflow: hidden;
+    position: relative;
+  }
+  .canvas-frame .crown {
+    height: 40px;
+    background: linear-gradient(180deg, #fafbfc 0%, #f5f5f7 100%);
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 8px;
+  }
+  .canvas-frame .crown .dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .crown .dot.r { background: #ff5f57; }
+  .crown .dot.y { background: #febc2e; }
+  .crown .dot.g { background: #28c840; }
+  .canvas-frame .crown .label {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(29,29,31,0.45);
+    font-weight: 500;
+    font-family: "SF Mono", Menlo, monospace;
+    letter-spacing: 0.02em;
+  }
+  .canvas-frame .canvas-body {
+    padding: 56px 40px;
+    background: white;
+    position: relative;
+  }
+  .canvas-frame .canvas-body.gridded {
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.018) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(0,0,0,0.018) 1px, transparent 1px),
+      white;
+    background-size: 32px 32px;
+  }
+
+  /* ============================================================
+     SVG common
+     ============================================================ */
+  .edge-flow {
+    stroke-dasharray: 6 4;
+    animation: dash-flow 1.8s linear infinite;
+    fill: none;
+  }
+  @keyframes dash-flow {
+    to { stroke-dashoffset: -20; }
+  }
+  .pulse-circle {
+    animation: pulse-circle 2.5s ease-in-out infinite;
+  }
+  @keyframes pulse-circle {
+    0%, 100% { opacity: 0.4; transform: scale(1); transform-origin: center; }
+    50%      { opacity: 0.9; transform: scale(1.15); }
+  }
+
+  /* ============================================================
+     DUAL RAIL — financiero arriba, contable abajo
+     ============================================================ */
+  .dual-rail {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .rail {
+    padding: 32px 28px;
+    border-radius: 24px;
+    margin-bottom: 16px;
+    position: relative;
+    transition: all 0.4s;
+  }
+  .rail.financial {
+    background: linear-gradient(135deg, rgba(0,122,255,0.05) 0%, rgba(0,122,255,0.02) 100%);
+    border: 1px solid rgba(0,122,255,0.18);
+  }
+  .rail.accounting {
+    background: linear-gradient(135deg, rgba(29,111,66,0.05) 0%, rgba(29,111,66,0.02) 100%);
+    border: 1px solid rgba(29,111,66,0.18);
+  }
+  .rail .rail-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .rail .rail-head .icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  .rail.financial .icon { background: linear-gradient(135deg, #007aff, #5856d6); }
+  .rail.accounting .icon { background: linear-gradient(135deg, #1d6f42, #2a9d5e); }
+  .rail .rail-head h3 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .rail.financial h3 { color: #0055cc; }
+  .rail.accounting h3 { color: #1d6f42; }
+  .rail-head .badge {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 100px;
+  }
+  .rail.financial .badge { background: rgba(0,122,255,0.1); color: #0055cc; }
+  .rail.accounting .badge { background: rgba(29,111,66,0.1); color: #1d6f42; }
+  .rail p {
+    font-size: 14px;
+    color: rgba(29,29,31,0.72);
+    line-height: 1.55;
+  }
+  .rail .examples {
+    margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .rail .examples .ex {
+    font-size: 12px;
+    padding: 5px 12px;
+    background: rgba(255,255,255,0.7);
+    border-radius: 100px;
+    color: rgba(29,29,31,0.7);
+    border: 0.5px solid rgba(0,0,0,0.06);
+  }
+
+  /* ============================================================
+     DECADE STRIPS — visualizacion 10 años
+     ============================================================ */
+  .decade-grid {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 4px;
+    margin: 40px 0 20px;
+    height: 64px;
+  }
+  .decade-grid .y {
+    border-radius: 8px;
+    background: linear-gradient(180deg, #34c759 0%, #1d6f42 100%);
+    opacity: 0;
+    transform: scaleY(0);
+    transform-origin: bottom;
+    transition: all 0.6s cubic-bezier(0.22,1,0.36,1);
+    position: relative;
+  }
+  section.act.in .decade-grid .y {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  section.act.in .decade-grid .y:nth-child(1)  { transition-delay: 0.10s; }
+  section.act.in .decade-grid .y:nth-child(2)  { transition-delay: 0.18s; }
+  section.act.in .decade-grid .y:nth-child(3)  { transition-delay: 0.26s; }
+  section.act.in .decade-grid .y:nth-child(4)  { transition-delay: 0.34s; }
+  section.act.in .decade-grid .y:nth-child(5)  { transition-delay: 0.42s; }
+  section.act.in .decade-grid .y:nth-child(6)  { transition-delay: 0.50s; }
+  section.act.in .decade-grid .y:nth-child(7)  { transition-delay: 0.58s; }
+  section.act.in .decade-grid .y:nth-child(8)  { transition-delay: 0.66s; }
+  section.act.in .decade-grid .y:nth-child(9)  { transition-delay: 0.74s; }
+  section.act.in .decade-grid .y:nth-child(10) { transition-delay: 0.82s; }
+  .decade-grid .y span {
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(29,29,31,0.5);
+    letter-spacing: 0.02em;
+  }
+
+  /* ============================================================
+     LAYERED PROTECTION — anillos concentricos
+     ============================================================ */
+  .protection-rings {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    margin: 40px auto;
+    aspect-ratio: 1;
+  }
+  .ring {
+    position: absolute;
+    inset: 0;
+    border: 1.5px dashed;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    animation: ring-spin 60s linear infinite;
+  }
+  @keyframes ring-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .ring:nth-child(1) { border-color: rgba(0,122,255,0.25); animation-duration: 80s; }
+  .ring:nth-child(2) { inset: 14%; border-color: rgba(29,111,66,0.3); animation-duration: 60s; animation-direction: reverse; }
+  .ring:nth-child(3) { inset: 28%; border-color: rgba(175,82,222,0.35); animation-duration: 45s; }
+  .ring:nth-child(4) {
+    inset: 42%;
+    border: none;
+    background: linear-gradient(135deg, #1d1d1f 0%, #2c2c2e 100%);
+    color: white;
+    animation: pulse-circle 3s ease-in-out infinite, ring-spin 0s linear; /* sin spin */
+  }
+  .ring .label-tag {
+    position: absolute;
+    background: white;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 0.5px solid currentColor;
+    font-size: 10px;
+    animation: ring-spin 60s linear infinite reverse;
+  }
+  .ring:nth-child(1) .label-tag { top: -10px; left: 50%; transform: translateX(-50%); color: #007aff; }
+  .ring:nth-child(2) .label-tag { top: -10px; left: 50%; transform: translateX(-50%); color: #1d6f42; }
+  .ring:nth-child(3) .label-tag { top: -10px; left: 50%; transform: translateX(-50%); color: #af52de; }
+  .ring:nth-child(4) {
+    background: linear-gradient(135deg, #1d1d1f 0%, #2c2c2e 100%);
+    color: white;
+    border: none;
+    font-size: 11px;
+  }
+
+  /* ============================================================
+     COMPARISON CARDS — antes vs hoy
+     ============================================================ */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 32px 1fr;
+    gap: 0;
+    margin: 40px 0;
+    align-items: stretch;
+  }
+  @media (max-width: 800px) {
+    .compare { grid-template-columns: 1fr; gap: 16px; }
+    .compare .arrow-between { display: none; }
+  }
+  .compare .col {
+    padding: 32px 28px;
+    border-radius: 24px;
+  }
+  .compare .col.before {
+    background: linear-gradient(135deg, rgba(255,59,48,0.04) 0%, rgba(255,149,0,0.04) 100%);
+    border: 0.5px solid rgba(255,59,48,0.15);
+  }
+  .compare .col.after {
+    background: linear-gradient(135deg, rgba(29,111,66,0.05) 0%, rgba(0,122,255,0.04) 100%);
+    border: 0.5px solid rgba(29,111,66,0.2);
+  }
+  .compare .col h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+  .compare .col.before h4 { color: #c41e3a; }
+  .compare .col.after h4 { color: #1d6f42; }
+  .compare .col h3 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .compare .col p {
+    font-size: 14px;
+    color: rgba(29,29,31,0.7);
+    line-height: 1.55;
+  }
+  .compare .col ul {
+    list-style: none;
+    margin-top: 16px;
+  }
+  .compare .col ul li {
+    font-size: 13px;
+    color: rgba(29,29,31,0.7);
+    padding: 6px 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .compare .col.before ul li::before {
+    content: "✕";
+    color: #c41e3a;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .compare .col.after ul li::before {
+    content: "✓";
+    color: #1d6f42;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .compare .arrow-between {
+    align-self: center;
+    color: rgba(29,29,31,0.3);
+    text-align: center;
+    font-size: 22px;
+  }
+
+  /* ============================================================
+     CARDS GRID
+     ============================================================ */
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 40px;
+  }
+  .pillar {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.07);
+    border-radius: 20px;
+    padding: 28px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.35s cubic-bezier(0.22,1,0.36,1);
+  }
+  .pillar:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.06);
+  }
+  .pillar .icon-box {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1d6f42, #2a9d5e);
+    color: white;
+    margin-bottom: 18px;
+    font-size: 20px;
+  }
+  .pillar.blue .icon-box { background: linear-gradient(135deg, #007aff, #5856d6); }
+  .pillar.purple .icon-box { background: linear-gradient(135deg, #af52de, #ff2d55); }
+  .pillar.amber .icon-box { background: linear-gradient(135deg, #ff9500, #ff2d55); }
+  .pillar h3 {
+    font-size: 19px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+  .pillar p {
+    font-size: 14px;
+    color: rgba(29,29,31,0.65);
+    line-height: 1.55;
+  }
+  .pillar .footnote {
+    margin-top: 14px;
+    font-size: 12px;
+    color: rgba(29,29,31,0.45);
+    border-top: 0.5px solid rgba(0,0,0,0.06);
+    padding-top: 12px;
+  }
+
+  /* ============================================================
+     INVARIANT MOSAIC
+     ============================================================ */
+  .mosaic {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin: 32px 0;
+  }
+  .inv-tile {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    border: 0.5px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    padding: 14px 12px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(29,29,31,0.78);
+    transition: all 0.25s;
+    line-height: 1.3;
+  }
+  .inv-tile:hover {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.05);
+  }
+  .inv-tile .num {
+    display: block;
+    font-size: 10px;
+    color: #1d6f42;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    margin-bottom: 4px;
+  }
+
+  /* ============================================================
+     QUOTE BLOCK
+     ============================================================ */
+  .quote-block {
+    margin: 80px 0;
+    padding: 60px 40px;
+    text-align: center;
+    border-top: 0.5px solid rgba(0,0,0,0.08);
+    border-bottom: 0.5px solid rgba(0,0,0,0.08);
+  }
+  .quote-block p {
+    font-size: clamp(24px, 3.5vw, 36px);
+    font-weight: 500;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+    color: #1d1d1f;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .quote-block .attrib {
+    font-size: 12px;
+    color: rgba(29,29,31,0.45);
+    margin-top: 24px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 600;
+  }
+
+  /* ============================================================
+     BIG STATEMENT — pantalla negra
+     ============================================================ */
+  .statement {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1d1d1f 50%, #0a0a0a 100%);
+    border-radius: 40px;
+    padding: 100px 48px;
+    text-align: center;
+    color: white;
+    margin: 120px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .statement::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 25% 30%, rgba(0,122,255,0.25) 0%, transparent 45%),
+      radial-gradient(circle at 75% 70%, rgba(29,111,66,0.25) 0%, transparent 45%);
+    animation: statement-bg 18s linear infinite alternate;
+  }
+  @keyframes statement-bg {
+    from { transform: translate(0, 0) rotate(0deg); }
+    to   { transform: translate(-40px, 30px) rotate(2deg); }
+  }
+  .statement > * { position: relative; z-index: 1; }
+  .statement h2 {
+    font-size: clamp(40px, 6vw, 80px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    margin-bottom: 24px;
+    background: linear-gradient(180deg, white 0%, rgba(255,255,255,0.55) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .statement p {
+    font-size: clamp(18px, 2vw, 22px);
+    color: rgba(255,255,255,0.72);
+    max-width: 780px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+  .statement .check-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 48px;
+  }
+  .statement .check-row .check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    border: 0.5px solid rgba(255,255,255,0.15);
+    border-radius: 100px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.92);
+  }
+  .check .tick {
+    width: 18px; height: 18px;
+    background: linear-gradient(135deg, #34c759, #28b04a);
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* ============================================================
+     FLOW ARROW BIG — para usar entre actos
+     ============================================================ */
+  .flow-arrow {
+    display: flex;
+    justify-content: center;
+    margin: 32px 0;
+    color: rgba(0,0,0,0.15);
+    font-size: 24px;
+    animation: arrow-pulse 2s ease-in-out infinite;
+  }
+  @keyframes arrow-pulse {
+    0%, 100% { transform: translateY(0); opacity: 0.4; }
+    50%      { transform: translateY(6px); opacity: 1; }
+  }
+
+  /* ============================================================
+     LEDGER ANIMATION — el peso entrando
+     ============================================================ */
+  .ledger-mini {
+    background: white;
+    border-radius: 14px;
+    padding: 18px 22px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    border: 0.5px solid rgba(0,0,0,0.06);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+  }
+  .ledger-mini table { width: 100%; border-collapse: collapse; }
+  .ledger-mini th {
+    text-align: left;
+    padding: 6px 0;
+    font-size: 9px;
+    text-transform: uppercase;
+    color: rgba(29,29,31,0.5);
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .ledger-mini td {
+    padding: 6px 0;
+    border-bottom: 0.5px solid rgba(0,0,0,0.04);
+  }
+  .ledger-mini td.r { text-align: right; }
+  .ledger-mini .debit { color: #1d6f42; font-weight: 600; }
+  .ledger-mini .credit { color: #c41e3a; font-weight: 600; }
+  .ledger-mini .total { font-weight: 700; padding-top: 8px; border-top: 1.5px solid #1d1d1f; }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer {
+    padding: 80px 0;
+    text-align: center;
+    color: rgba(29,29,31,0.45);
+    font-size: 13px;
+    border-top: 0.5px solid rgba(0,0,0,0.06);
+    margin-top: 80px;
+  }
+  footer .signature {
+    font-size: 11px;
+    color: rgba(29,29,31,0.3);
+    margin-top: 16px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  /* Print */
+  @media print {
+    nav.bar { display: none; }
+    body::before, body::after { display: none; }
+    section.act { opacity: 1; transform: none; padding: 30px 0; break-inside: avoid; }
+    .canvas-frame, .pillar, .compare .col { break-inside: avoid; box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== NAV ===== -->
+<nav class="bar">
+  <div class="inner">
+    <div class="brand">
+      <span class="heart"></span>
+      Ram-Cehta · sistema vivo
+    </div>
+    <div class="menu">
+      <a href="#flujo">El flujo</a>
+      <a href="#dual">Dos libros</a>
+      <a href="#proteccion">Protección</a>
+      <a href="#decada">10 años</a>
+      <a href="#legado">Legado</a>
+    </div>
+  </div>
+  <div class="progress" id="navProgress" style="width:0%;"></div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="narrow">
+    <span class="tag">Cómo funciona · Por qué dura</span>
+    <h1>
+      <span class="line1">Un sistema</span>
+      <span class="line2">que envejece bien.</span>
+    </h1>
+    <p class="lede">
+      Cada peso del fondo entra una vez, queda registrado dos veces — en el libro
+      financiero y en el contable — y sobrevive auditable durante toda la vida
+      del FIP CEHTA ESG.
+    </p>
+
+    <div class="marquee">
+      <div class="stat-pill"><span class="num">10</span><span class="lbl">empresas conectadas</span></div>
+      <div class="stat-pill"><span class="num">212</span><span class="lbl">cuentas contables</span></div>
+      <div class="stat-pill"><span class="num">22</span><span class="lbl">invariantes blindados</span></div>
+      <div class="stat-pill"><span class="num">∞</span><span class="lbl">años de trazabilidad</span></div>
+    </div>
+
+    <div class="scroll-hint">
+      <span>Recorre la historia</span>
+      <span class="arrow">↓</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ACTO I — Un peso entra
+     ============================================================ -->
+<section class="act" id="flujo">
+  <div class="container">
+    <div class="act-header">
+      <div class="kicker">Acto I · El flujo</div>
+      <h2>Un peso entra, <span class="accent">deja huella en dos libros.</span></h2>
+      <p>
+        Cada transacción que toca el fondo nace como un voucher. En el mismo
+        instante se descompone en dos vistas paralelas: el lado financiero
+        (cuándo entra/sale la plata real) y el lado contable (qué cuenta sube,
+        qué cuenta baja). No es una copia — son dos lentes sobre el mismo hecho.
+      </p>
+    </div>
+
+    <div class="canvas-frame">
+      <div class="crown">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">flujo dual · financiero ⇄ contable</span>
+      </div>
+      <div class="canvas-body gridded">
+        <svg viewBox="0 0 1100 460" style="width:100%;height:auto;">
+          <defs>
+            <linearGradient id="g-money" x1="0" x2="1">
+              <stop offset="0" stop-color="#34c759"/>
+              <stop offset="1" stop-color="#1d6f42"/>
+            </linearGradient>
+            <linearGradient id="g-fin" x1="0" x2="1">
+              <stop offset="0" stop-color="#007aff"/>
+              <stop offset="1" stop-color="#5856d6"/>
+            </linearGradient>
+            <linearGradient id="g-cont" x1="0" x2="1">
+              <stop offset="0" stop-color="#1d6f42"/>
+              <stop offset="1" stop-color="#2a9d5e"/>
+            </linearGradient>
+            <marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="rgba(29,111,66,0.7)"/>
+            </marker>
+            <marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="rgba(0,122,255,0.7)"/>
+            </marker>
+          </defs>
+
+          <!-- HECHO ORIGEN (izquierda) -->
+          <g transform="translate(40, 180)">
+            <rect width="200" height="100" rx="20" fill="url(#g-money)"/>
+            <text x="100" y="38" fill="white" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="-0.01em">El hecho</text>
+            <text x="100" y="60" fill="rgba(255,255,255,0.85)" font-size="11" text-anchor="middle">Un pago, una factura,</text>
+            <text x="100" y="75" fill="rgba(255,255,255,0.85)" font-size="11" text-anchor="middle">un ingreso, un traspaso</text>
+            <text x="100" y="92" fill="rgba(255,255,255,0.6)" font-size="10" text-anchor="middle" font-family="SF Mono, monospace">$1.190.000</text>
+          </g>
+
+          <!-- VOUCHER (centro) -->
+          <g transform="translate(370, 150)">
+            <rect width="240" height="160" rx="22" fill="white" stroke="rgba(0,0,0,0.12)" stroke-width="1.5" filter="drop-shadow(0 8px 24px rgba(0,0,0,0.06))"/>
+            <text x="120" y="38" font-size="11" font-weight="700" text-anchor="middle" fill="rgba(29,111,66,0.7)" letter-spacing="0.12em">VOUCHER · COMPRA</text>
+            <text x="120" y="62" font-size="16" font-weight="700" text-anchor="middle">CSL-2026-COMP-00134</text>
+            <line x1="20" y1="80" x2="220" y2="80" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+            <text x="20" y="100" font-size="10" fill="rgba(29,29,31,0.55)">Tipo</text>
+            <text x="220" y="100" font-size="11" font-weight="600" text-anchor="end">COMPRA · CSL</text>
+            <text x="20" y="118" font-size="10" fill="rgba(29,29,31,0.55)">Doc</text>
+            <text x="220" y="118" font-size="11" font-weight="600" text-anchor="end" font-family="SF Mono, monospace">FACT 1342</text>
+            <text x="20" y="136" font-size="10" fill="rgba(29,29,31,0.55)">Glosa</text>
+            <text x="220" y="136" font-size="11" font-weight="600" text-anchor="end">Servicios prof.</text>
+          </g>
+
+          <!-- FLECHA hecho → voucher -->
+          <path d="M 240,230 L 370,230"
+                stroke="rgba(29,111,66,0.6)" stroke-width="2" stroke-dasharray="6 4"
+                class="edge-flow" marker-end="url(#ah-green)"/>
+
+          <!-- RAIL FINANCIERO (arriba derecha) -->
+          <g transform="translate(700, 60)">
+            <rect width="360" height="150" rx="22" fill="url(#g-fin)" opacity="0.92"/>
+            <text x="180" y="34" fill="white" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="0.12em">LIBRO FINANCIERO</text>
+            <text x="180" y="58" fill="white" font-size="18" font-weight="700" text-anchor="middle">Cuándo sale la plata</text>
+            <text x="180" y="80" fill="rgba(255,255,255,0.85)" font-size="12" text-anchor="middle">Vence 30/06/2026 · pago 28/06/2026</text>
+            <text x="180" y="105" fill="rgba(255,255,255,0.95)" font-size="14" font-weight="700" font-family="SF Mono, monospace" text-anchor="middle">Banco Estado · CC 1234</text>
+            <text x="180" y="125" fill="rgba(255,255,255,0.7)" font-size="11" text-anchor="middle">Cash flow · saldo proyectado · forecast</text>
+          </g>
+
+          <!-- RAIL CONTABLE (abajo derecha) -->
+          <g transform="translate(700, 250)">
+            <rect width="360" height="150" rx="22" fill="url(#g-cont)" opacity="0.95"/>
+            <text x="180" y="34" fill="white" font-size="11" font-weight="700" text-anchor="middle" letter-spacing="0.12em">LIBRO CONTABLE</text>
+            <text x="180" y="58" fill="white" font-size="18" font-weight="700" text-anchor="middle">Qué cuenta se mueve</text>
+            <text x="180" y="80" fill="rgba(255,255,255,0.85)" font-size="12" text-anchor="middle">Cta 5101 Gasto Servicios · IVA 1107</text>
+            <text x="180" y="105" fill="rgba(255,255,255,0.95)" font-size="14" font-weight="700" font-family="SF Mono, monospace" text-anchor="middle">DEBE $1.416.100 = HABER $1.416.100</text>
+            <text x="180" y="125" fill="rgba(255,255,255,0.7)" font-size="11" text-anchor="middle">EEFF · Estado Resultado · Balance</text>
+          </g>
+
+          <!-- FLECHAS voucher → rails -->
+          <path d="M 610,210 C 660,170 660,135 700,135"
+                stroke="rgba(0,122,255,0.6)" stroke-width="2" stroke-dasharray="6 4"
+                class="edge-flow" marker-end="url(#ah-blue)" fill="none"/>
+          <path d="M 610,250 C 660,290 660,325 700,325"
+                stroke="rgba(29,111,66,0.7)" stroke-width="2" stroke-dasharray="6 4"
+                class="edge-flow" marker-end="url(#ah-green)" fill="none"/>
+
+          <!-- Etiquetas finales -->
+          <text x="420" y="430" font-size="11" fill="rgba(29,29,31,0.5)" text-anchor="middle" font-style="italic">
+            Un solo dato origen genera DOS vistas auditable independientes — no hay re-tipeo, no hay desincronización.
+          </text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="flow-arrow">↓</div>
+
+    <!-- DUAL RAIL detallado -->
+    <div class="dual-rail">
+      <div class="rail financial">
+        <div class="rail-head">
+          <div class="icon">$</div>
+          <h3>Lado financiero</h3>
+          <span class="badge">Tesorería</span>
+        </div>
+        <p>
+          Responde la pregunta <strong>"¿cuándo y de dónde sale la plata?"</strong>
+          Mira fechas de vencimiento, saldos proyectados, qué cuenta bancaria
+          ejecuta el pago. Es lo que tu CFO mira el lunes en la mañana.
+        </p>
+        <div class="examples">
+          <span class="ex">Cash flow semanal</span>
+          <span class="ex">Saldo bancario actual</span>
+          <span class="ex">Cuentas por pagar</span>
+          <span class="ex">Forecast trimestral</span>
+          <span class="ex">Runway por empresa</span>
+        </div>
+      </div>
+
+      <div class="rail accounting">
+        <div class="rail-head">
+          <div class="icon">∑</div>
+          <h3>Lado contable</h3>
+          <span class="badge">Libro oficial</span>
+        </div>
+        <p>
+          Responde <strong>"¿qué cuenta sube, qué cuenta baja, según la
+          normativa chilena?"</strong> Partida doble validada, IVA tratado,
+          cuenta del plan oficial, proyecto + área imputados. Es lo que MCG
+          Consultores reporta al SII.
+        </p>
+        <div class="examples">
+          <span class="ex">Plan de cuentas</span>
+          <span class="ex">Triple imputación</span>
+          <span class="ex">Estado de Resultado</span>
+          <span class="ex">Balance</span>
+          <span class="ex">F22 · F29 · DTE</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ACTO II — Por qué son dos libros y no uno
+     ============================================================ -->
+<section class="act" id="dual">
+  <div class="container">
+    <div class="act-header">
+      <div class="kicker">Acto II · Los dos libros</div>
+      <h2>Por qué dos libros, <span class="accent">no uno solo.</span></h2>
+      <p>
+        Los sistemas contables tradicionales mezclan ambas vistas en una sola
+        tabla y obligan al operador a navegarla con filtros. Ram-Cehta los
+        separa físicamente — el mismo dato origen alimenta a los dos, pero
+        cada libro está optimizado para su pregunta. La consecuencia: cero
+        re-tipeo, cero desincronización, cero "esto no cuadra con lo otro".
+      </p>
+    </div>
+
+    <div class="canvas-frame">
+      <div class="crown">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">vista comparada · misma transacción</span>
+      </div>
+      <div class="canvas-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+          <!-- LADO FINANCIERO -->
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#007aff,#5856d6);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">$</div>
+              <h3 style="font-size:17px;font-weight:600;color:#0055cc;letter-spacing:-0.01em;">Vista financiera</h3>
+            </div>
+            <div class="ledger-mini">
+              <table>
+                <thead>
+                  <tr><th>Movimiento</th><th style="text-align:right;">Monto</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>Saldo inicial caja</td><td class="r">$ 12.450.000</td></tr>
+                  <tr><td>+ Aporte LP suscripción</td><td class="r debit">+ 8.000.000</td></tr>
+                  <tr><td>− Pago factura 1342</td><td class="r credit">− 1.416.100</td></tr>
+                  <tr><td>− Honorarios mes</td><td class="r credit">− 2.380.000</td></tr>
+                  <tr class="total"><td>Saldo final</td><td class="r">$ 16.653.900</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p style="font-size:12px;color:rgba(29,29,31,0.55);margin-top:14px;line-height:1.5;">
+              Una columna. Cronológica. Mira solo cuánta plata hay y cuándo se mueve.
+            </p>
+          </div>
+
+          <!-- LADO CONTABLE -->
+          <div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+              <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#1d6f42,#2a9d5e);color:white;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">∑</div>
+              <h3 style="font-size:17px;font-weight:600;color:#1d6f42;letter-spacing:-0.01em;">Vista contable</h3>
+            </div>
+            <div class="ledger-mini">
+              <table>
+                <thead>
+                  <tr><th>Cuenta</th><th style="text-align:right;">Debe</th><th style="text-align:right;">Haber</th></tr>
+                </thead>
+                <tbody>
+                  <tr><td>5101 Gasto Servicios</td><td class="r debit">1.190.000</td><td class="r">—</td></tr>
+                  <tr><td>1107 IVA Crédito</td><td class="r debit">226.100</td><td class="r">—</td></tr>
+                  <tr><td>1101 Banco Estado</td><td class="r">—</td><td class="r credit">1.416.100</td></tr>
+                  <tr class="total"><td>Cuadre</td><td class="r debit">1.416.100</td><td class="r credit">1.416.100</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p style="font-size:12px;color:rgba(29,29,31,0.55);margin-top:14px;line-height:1.5;">
+              Dos columnas. Por partida doble. Mira qué cuenta cambia y cuánto.
+            </p>
+          </div>
+        </div>
+
+        <p style="text-align:center;font-size:13px;color:rgba(29,29,31,0.55);margin-top:36px;padding:16px;background:rgba(0,0,0,0.02);border-radius:14px;">
+          <strong>Misma transacción · dos representaciones · cero ambigüedad.</strong>
+          La factura 1342 aparece automáticamente en ambos libros sin que el operador la cargue dos veces.
+        </p>
+      </div>
+    </div>
+
+    <!-- Pillars dual -->
+    <div class="grid-3">
+      <div class="pillar blue">
+        <div class="icon-box">↻</div>
+        <h3>Tiempo real</h3>
+        <p>El saldo bancario se actualiza al mismo instante que el asiento contable. Sin reconciliaciones nocturnas, sin "ver mañana qué quedó cerrado".</p>
+        <div class="footnote">Una sola transacción ACID en Postgres mantiene ambos libros sincronizados.</div>
+      </div>
+      <div class="pillar">
+        <div class="icon-box">⊕</div>
+        <h3>Sin re-tipeo</h3>
+        <p>Cargás la factura una vez en <code style="font-family:SF Mono;font-size:12px;background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;">/vouchers/nubox</code> y aparece sola en tesorería + contabilidad + reportes SII.</p>
+        <div class="footnote">El error humano más común en contabilidad — el doble cargo — es imposible por diseño.</div>
+      </div>
+      <div class="pillar purple">
+        <div class="icon-box">⟁</div>
+        <h3>Vistas filtradas</h3>
+        <p>Tu CFO mira el flujo financiero. MCG mira el libro contable. El director ve ambos. Cada rol ve su capa sin perderse en la del otro.</p>
+        <div class="footnote">RBAC por rol + RLS Postgres por empresa = aislamiento absoluto entre vistas.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     QUOTE PUENTE
+     ============================================================ -->
+<div class="container">
+  <div class="quote-block">
+    <p>
+      "Un sistema financiero-contable no se mide por lo que hace el día 1. Se mide
+      por <em>lo que sigue haciendo</em> el año 7, cuando cambió el director,
+      migraron de proveedor bancario, y el auditor pide trazabilidad completa."
+    </p>
+    <div class="attrib">Filosofía Ram-Cehta · 2026</div>
+  </div>
+</div>
+
+<!-- ============================================================
+     ACTO III — Las capas de protección
+     ============================================================ -->
+<section class="act" id="proteccion">
+  <div class="container">
+    <div class="act-header">
+      <div class="kicker">Acto III · Las capas</div>
+      <h2>22 invariantes · <span class="accent">3 anillos de defensa.</span></h2>
+      <p>
+        Las reglas no son comentarios en un manual que se ignora. Están físicamente
+        escritas en tres lugares distintos del sistema. Para violar una regla, hay
+        que vencer las tres capas — algo imposible sin acceso root a la base de
+        datos misma.
+      </p>
+    </div>
+
+    <div class="canvas-frame">
+      <div class="crown">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="label">defensa en profundidad · 3 capas</span>
+      </div>
+      <div class="canvas-body">
+        <div class="protection-rings">
+          <div class="ring">
+            <span class="label-tag">Capa 1 · Frontend (Zod)</span>
+          </div>
+          <div class="ring">
+            <span class="label-tag">Capa 2 · Backend (Pydantic)</span>
+          </div>
+          <div class="ring">
+            <span class="label-tag">Capa 3 · DB (Triggers Postgres)</span>
+          </div>
+          <div class="ring">
+            INVARIANTES<br/>22 reglas
+          </div>
+        </div>
+
+        <p style="text-align:center;font-size:13px;color:rgba(29,29,31,0.55);margin:32px auto 0;max-width:680px;line-height:1.6;">
+          Si la capa 1 falla por un bug en el navegador, la capa 2 lo agarra.
+          Si la capa 2 falla por una API mal versionada, la capa 3 lo agarra.
+          Para escribir un asiento descuadrado en la base, habría que conectarse
+          como superuser y deshabilitar los triggers — y eso queda en audit log.
+        </p>
+      </div>
+    </div>
+
+    <!-- Mosaic de 22 invariantes -->
+    <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.16em;color:rgba(29,29,31,0.55);text-align:center;margin:80px 0 24px;">
+      Las 22 reglas blindadas
+    </h3>
+    <div class="mosaic">
+      <div class="inv-tile"><span class="num">L01</span>Segregación legal por empresa</div>
+      <div class="inv-tile"><span class="num">L02</span>Audit log inmutable</div>
+      <div class="inv-tile"><span class="num">L03</span>Inmutabilidad post-cierre</div>
+      <div class="inv-tile"><span class="num">L04</span>Reverso por contra-asiento</div>
+      <div class="inv-tile"><span class="num">L05</span>RUT módulo 11 validado</div>
+      <div class="inv-tile"><span class="num">C06</span>Partida doble triple capa</div>
+      <div class="inv-tile"><span class="num">C07</span>Triple imputación</div>
+      <div class="inv-tile"><span class="num">C08</span>Mes cerrado bloqueado</div>
+      <div class="inv-tile"><span class="num">C09</span>Plan único por empresa</div>
+      <div class="inv-tile"><span class="num">C10</span>Saldos siempre derivados</div>
+      <div class="inv-tile"><span class="num">C11</span>Cuentas imputables nivel 4</div>
+      <div class="inv-tile"><span class="num">C12</span>CORFO eligibility check</div>
+      <div class="inv-tile"><span class="num">C13</span>DRAFT puede descuadrar</div>
+      <div class="inv-tile"><span class="num">T14</span>COMPRA/VENTA con doc</div>
+      <div class="inv-tile"><span class="num">T15</span>IVA tratamiento explícito</div>
+      <div class="inv-tile"><span class="num">T16</span>Folio único año-empresa</div>
+      <div class="inv-tile"><span class="num">T17</span>Conciliación SII pre-cierre</div>
+      <div class="inv-tile"><span class="num">S18</span>2FA obligatorio admin</div>
+      <div class="inv-tile"><span class="num">S19</span>Cifrado Fernet credenciales</div>
+      <div class="inv-tile"><span class="num">S20</span>Segregación de deberes</div>
+      <div class="inv-tile"><span class="num">S21</span>JWT con expiración</div>
+      <div class="inv-tile"><span class="num">S22</span>PII redactada en logs</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ACTO IV — 10 años de vida
+     ============================================================ -->
+<section class="act" id="decada">
+  <div class="container">
+    <div class="act-header">
+      <div class="kicker">Acto IV · La década</div>
+      <h2>Diseñado para acompañarte <span class="accent">una década entera.</span></h2>
+      <p>
+        Un fondo no muere a los 2 años. Tu sistema tampoco debería. Cada decisión
+        arquitectónica está pensada para sobrevivir las transiciones típicas que
+        matan a otros sistemas: rotación de personal, cambios de proveedor,
+        regulaciones nuevas, crecimiento del fondo a 10x.
+      </p>
+    </div>
+
+    <!-- Barras 10 años -->
+    <div class="decade-grid">
+      <div class="y"><span>2026</span></div>
+      <div class="y"><span>2027</span></div>
+      <div class="y"><span>2028</span></div>
+      <div class="y"><span>2029</span></div>
+      <div class="y"><span>2030</span></div>
+      <div class="y"><span>2031</span></div>
+      <div class="y"><span>2032</span></div>
+      <div class="y"><span>2033</span></div>
+      <div class="y"><span>2034</span></div>
+      <div class="y"><span>2035</span></div>
+    </div>
+    <p style="text-align:center;font-size:13px;color:rgba(29,29,31,0.55);margin:36px auto 60px;max-width:640px;">
+      Cada barra es un año de vida del fondo. Cada año, lo mismo: data nueva
+      entra, no se rompe lo viejo.
+    </p>
+
+    <!-- Pillars de longevidad -->
+    <div class="grid-3">
+      <div class="pillar">
+        <div class="icon-box">⊞</div>
+        <h3>1.108 tests automáticos</h3>
+        <p>
+          Cada cambio futuro de código corre contra esta batería antes de entrar.
+          Si una modificación rompe una regla contable, el commit no pasa CI.
+          Es un auditor 24/7 que nunca duerme ni envejece.
+        </p>
+        <div class="footnote">Año 1 → Año 10: el test se vuelve más valioso, no menos.</div>
+      </div>
+      <div class="pillar blue">
+        <div class="icon-box">⟑</div>
+        <h3>SQL estándar puro</h3>
+        <p>
+          Toda la lógica crítica está en Postgres. Si en 5 años Supabase deja
+          de existir, exportás el dump y lo cargás en RDS, Aurora, Azure DB,
+          o self-hosted. Postgres existe desde 1996 y no se va a ir.
+        </p>
+        <div class="footnote">Cero lock-in con un proveedor específico.</div>
+      </div>
+      <div class="pillar purple">
+        <div class="icon-box">⊗</div>
+        <h3>Audit log inmutable</h3>
+        <p>
+          Cada cambio queda con timestamp + user + IP + valor anterior + valor
+          nuevo. Cuando un auditor en 2030 pregunte "quién aprobó este pago
+          de $200M en 2026", la respuesta es trivial — y verificable.
+        </p>
+        <div class="footnote">Hash SHA-256 + IP = evidencia legal admisible.</div>
+      </div>
+      <div class="pillar amber">
+        <div class="icon-box">⊜</div>
+        <h3>3 capas desacopladas</h3>
+        <p>
+          Frontend, backend, base de datos. Cada uno se puede reemplazar sin
+          tocar los otros. ¿Querés migrar de Next.js a Svelte en 5 años? Los
+          datos no se enteran.
+        </p>
+        <div class="footnote">Bus factor 1 es problema. Acá, bus factor del stack = 3.</div>
+      </div>
+      <div class="pillar">
+        <div class="icon-box">⌖</div>
+        <h3>22 invariantes documentados</h3>
+        <p>
+          Las reglas no-negociables viven en
+          <code style="font-family:SF Mono;font-size:11px;background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;">docs/SUPER_PROMPT_MAESTRO.md</code>.
+          Cuando entre un dev nuevo en 3 años, lee el doc y entiende por qué la
+          partida doble no se toca.
+        </p>
+        <div class="footnote">El contrato técnico-legal está versionado en git.</div>
+      </div>
+      <div class="pillar blue">
+        <div class="icon-box">↺</div>
+        <h3>Backups continuos</h3>
+        <p>
+          PITR (Point-In-Time Recovery) cada hora. Si alguien borra una tabla
+          por error a las 14:32, restaurás al estado de las 14:31 en 2 minutos.
+          Cobertura completa los 365 días del año.
+        </p>
+        <div class="footnote">Probado en R109 con incidente real EMAXCONNSESSION.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     ACTO V — Antes vs Ahora
+     ============================================================ -->
+<section class="act">
+  <div class="container">
+    <div class="act-header">
+      <div class="kicker">Acto V · El antes</div>
+      <h2>Lo que antes era Excel, <span class="accent">ahora es código.</span></h2>
+      <p>
+        La diferencia entre operar un fondo con planillas vs. con un sistema
+        formal no es de eficiencia. Es de <em>nivel de confianza</em> que un LP,
+        un auditor externo o el regulador pueden depositar en tu información.
+      </p>
+    </div>
+
+    <div class="compare">
+      <div class="col before">
+        <h4>Antes · Excel + email</h4>
+        <h3>Frágil. Manual. Re-tipeo constante.</h3>
+        <p>
+          Una planilla por empresa, una por mes. Versiones en Drive con sufijos
+          <em>"_final_v3_OK.xlsx"</em>. Macros que nadie sabe modificar.
+        </p>
+        <ul>
+          <li>Doble carga manual entre flujo de caja y libro contable</li>
+          <li>Sin trazabilidad — ¿quién cambió este número?</li>
+          <li>Sin validación de partida doble en tiempo real</li>
+          <li>Cierre mensual = 1 semana de revisión</li>
+          <li>Reportes a LP = compilación manual cada vez</li>
+          <li>Vacaciones del operador = sistema paralizado</li>
+        </ul>
+      </div>
+
+      <div class="arrow-between">→</div>
+
+      <div class="col after">
+        <h4>Ahora · Ram-Cehta</h4>
+        <h3>Robusto. Automático. Un dato → todos los reportes.</h3>
+        <p>
+          Una base única para las 10 empresas. Cualquier transacción se carga
+          una vez y aparece sola en todos los lugares correctos.
+        </p>
+        <ul>
+          <li>Voucher único alimenta financiero + contable + reportes</li>
+          <li>Audit log inmutable con IP + timestamp + hash</li>
+          <li>Partida doble validada en 3 capas, descuadres imposibles</li>
+          <li>Cierre mensual = wizard de 10 pasos guiados</li>
+          <li>Reportes a LP = endpoint disponible 24/7</li>
+          <li>Operador con licencia médica = el sistema sigue solo</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     BIG STATEMENT — legado
+     ============================================================ -->
+<section class="act" id="legado">
+  <div class="container">
+    <div class="statement">
+      <h2>Tu sistema. Tu data.<br/>Tu legado.</h2>
+      <p>
+        No estás pagando una licencia mensual. No dependés de que un SaaS
+        comercial siga existiendo. Si mañana Anthropic, Vercel o Fly suben sus
+        precios, los reemplazás sin que la lógica del negocio se entere.
+        El sistema te pertenece — código, datos, decisiones.
+      </p>
+      <div class="check-row">
+        <div class="check"><span class="tick">✓</span> Postgres estándar</div>
+        <div class="check"><span class="tick">✓</span> Código en tu GitHub</div>
+        <div class="check"><span class="tick">✓</span> Backups bajo tu control</div>
+        <div class="check"><span class="tick">✓</span> Sin lock-in SaaS</div>
+        <div class="check"><span class="tick">✓</span> 22 invariantes documentados</div>
+        <div class="check"><span class="tick">✓</span> Auditable a cualquier nivel</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CIERRE — la realidad
+     ============================================================ -->
+<section class="act">
+  <div class="container">
+    <div class="act-header">
+      <div class="kicker">Para terminar</div>
+      <h2>Hoy. <span class="light">Aquí.</span> <span class="accent">Operativo.</span></h2>
+      <p>
+        El sistema está vivo. Las 5 migraciones SQL están aplicadas. Los 10
+        empresas, 45 usuarios, 212 cuentas, 10 reglas de aprobación — todo
+        está cargado. El primer voucher de prueba pasó por el flujo entero.
+        Lo único que falta son las decisiones operativas tuyas.
+      </p>
+    </div>
+
+    <div class="grid-3">
+      <div class="pillar">
+        <div class="icon-box">①</div>
+        <h3>Asignate roles</h3>
+        <p>Para firmar vouchers tenés que tener GG o DIRECTOR en cada empresa. Hoy solo tenés CONTADOR en CEHTA.</p>
+        <div class="footnote">/admin/users → 5 minutos.</div>
+      </div>
+      <div class="pillar blue">
+        <div class="icon-box">②</div>
+        <h3>Probá el flujo</h3>
+        <p>Creá un voucher de prueba en CEHTA por $1.000. Mandalo a aprobación. Pedile a otro user que lo firme. Verificá el ciclo entero.</p>
+        <div class="footnote">/vouchers/nuevo → 10 minutos.</div>
+      </div>
+      <div class="pillar purple">
+        <div class="icon-box">③</div>
+        <h3>Pedí Nubox API</h3>
+        <p>Email a soporte@nubox.com pidiendo credenciales productivas. Sin esto, el sync a Nubox queda inerte aunque tengas vouchers APPROVED.</p>
+        <div class="footnote">Bloqueante para la integración final.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+  <div class="narrow">
+    <p><strong>Ram-Cehta · FIP CEHTA ESG</strong></p>
+    <p>Documento generado el <span id="ts">—</span></p>
+    <p class="signature">Round 139 · Sistema duradero · Apple-tier white design</p>
+  </div>
+</footer>
+
+<script>
+  /* Timestamp */
+  (function(){
+    var d = new Date();
+    var fmt = d.toLocaleString('es-CL', {
+      year:'numeric', month:'long', day:'numeric',
+      hour:'2-digit', minute:'2-digit'
+    });
+    var el = document.getElementById('ts');
+    if (el) el.textContent = fmt;
+  })();
+
+  /* Scroll progress */
+  (function(){
+    var bar = document.getElementById('navProgress');
+    function update(){
+      var h = document.documentElement;
+      var sp = h.scrollTop || document.body.scrollTop;
+      var max = h.scrollHeight - h.clientHeight;
+      var pct = max > 0 ? (sp/max)*100 : 0;
+      if (bar) bar.style.width = pct + '%';
+    }
+    window.addEventListener('scroll', update, {passive:true});
+    update();
+  })();
+
+  /* IntersectionObserver — reveal acts on scroll */
+  (function(){
+    var els = document.querySelectorAll('section.act');
+    if (!('IntersectionObserver' in window)){
+      els.forEach(function(e){ e.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, {threshold: 0.12, rootMargin: '0px 0px -8% 0px'});
+    els.forEach(function(e){ io.observe(e); });
+  })();
+
+  /* Smooth scroll con offset por nav */
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click', function(ev){
+      var href = a.getAttribute('href');
+      if (href.length > 1){
+        var t = document.querySelector(href);
+        if (t){
+          ev.preventDefault();
+          var top = t.getBoundingClientRect().top + window.pageYOffset - 80;
+          window.scrollTo({top: top, behavior: 'smooth'});
+        }
+      }
+    });
+  });
+
+  /* Counter animado para stats del hero */
+  (function(){
+    var nums = document.querySelectorAll('.stat-pill .num');
+    function animateValue(el, end){
+      if (end === '∞' || isNaN(end)) return;
+      var start = 0;
+      var duration = 1500;
+      var stepTime = 16;
+      var step = (end - start) / (duration / stepTime);
+      var current = start;
+      var t = setInterval(function(){
+        current += step;
+        if (current >= end){ current = end; clearInterval(t); }
+        el.textContent = Math.round(current).toString();
+      }, stepTime);
+    }
+    nums.forEach(function(el){
+      var v = el.textContent.trim();
+      if (v === '∞') return;
+      var n = parseInt(v, 10);
+      if (!isNaN(n)){
+        el.textContent = '0';
+        setTimeout(function(){ animateValue(el, n); }, 600);
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
