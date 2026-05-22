@@ -31,7 +31,38 @@ ContraparteTipo = Literal[
     "PROVEEDOR", "CLIENTE", "EMPLEADO", "BANCO", "INTERNO", "OTRO"
 ]
 DocTributarioTipo = Literal[
-    "FACTURA", "BOLETA", "NOTA_CREDITO", "NOTA_DEBITO", "HONORARIOS", "NA"
+    # Round 144 — expandido para soportar TODOS los tipos que el form
+    # Nubox y CORFO pueden generar. Antes solo aceptaba 6 valores (los
+    # genéricos), y vouchers creados desde /vouchers/nubox-form con
+    # tipo_documento='FACTURA_ELECTRONICA_EXENTA' (o similar) tiraban
+    # ValidationError al leerse con GET /vouchers/{id} → 500 →
+    # "no se pudo cargar voucher" en el FE.
+    # Bug reportado por el usuario al hacer clic en un voucher DRAFT
+    # de CORFO. Fix: alinear el Literal con la lista de
+    # NuboxFormCreate.tipo_documento (vouchers_nubox_form.py:238).
+    "FACTURA",
+    "BOLETA",
+    "NOTA_CREDITO",
+    "NOTA_DEBITO",
+    "HONORARIOS",
+    "NA",
+    # Tipos electrónicos / SII
+    "DECLARACION_INGRESO",
+    "FACTURA_COMPRA",
+    "FACTURA_COMPRA_ELECTRONICA",
+    "FACTURA_INICIO",
+    "FACTURA_ELECTRONICA",
+    "FACTURA_ELECTRONICA_EXENTA",
+    "FACTURA_EXENTA",
+    "LIQUIDACION_FACTURA",
+    "LIQUIDACION_FACTURA_ELECTRONICA",
+    "NOTA_CREDITO_ELECTRONICA",
+    "NOTA_DEBITO_ELECTRONICA",
+    "SOLICITUD_REGISTRO_FACTURA",
+    # Comercio exterior (Round 80)
+    "INVOICE",
+    "FACTURA_IMPORTACION",
+    "FACTURA_EXPORTACION",
 ]
 Moneda = Literal["CLP", "UF", "USD", "EUR"]
 IvaTratamiento = Literal["AFECTO", "EXENTO", "NO_GRAVADO", "NA"]
