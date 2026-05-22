@@ -249,6 +249,11 @@ export default function NuboxFormPage() {
     new Date().toISOString().slice(0, 10),
   );
   const [fechaVencimiento, setFechaVencimiento] = useState("");
+  // Round 140 (Observaciones 20/05/2026) — fechaPago faltaba en /nubox
+  // aunque /nuevo y /corfo ya la tenían. El endpoint POST /vouchers/nubox-form
+  // ya acepta `fecha_pago` y lo mapea a voucher.fecha_ejecucion. Es la
+  // fecha planeada/efectiva de pago al proveedor.
+  const [fechaPago, setFechaPago] = useState("");
   const [glosa, setGlosa] = useState("");
   const [documentoDropboxPath, setDocumentoDropboxPath] = useState("");
   // Round 129 (Observaciones 20/05/2026): proyecto único a nivel voucher.
@@ -340,6 +345,7 @@ export default function NuboxFormPage() {
       formaPago,
       fechaDocumento,
       fechaVencimiento,
+      fechaPago,
       glosa,
       documentoDropboxPath,
       contable,
@@ -354,6 +360,7 @@ export default function NuboxFormPage() {
       formaPago,
       fechaDocumento,
       fechaVencimiento,
+      fechaPago,
       glosa,
       documentoDropboxPath,
       contable,
@@ -379,6 +386,7 @@ export default function NuboxFormPage() {
         if (saved.formaPago) setFormaPago(saved.formaPago);
         if (saved.fechaDocumento) setFechaDocumento(saved.fechaDocumento);
         if (saved.fechaVencimiento) setFechaVencimiento(saved.fechaVencimiento);
+        if (saved.fechaPago) setFechaPago(saved.fechaPago);
         if (saved.glosa) setGlosa(saved.glosa);
         if (saved.documentoDropboxPath)
           setDocumentoDropboxPath(saved.documentoDropboxPath);
@@ -905,6 +913,9 @@ export default function NuboxFormPage() {
         forma_pago: formaPago,
         fecha_documento: fechaDocumento,
         fecha_vencimiento: fechaVencimiento || null,
+        // Round 140 — fecha_pago se mapea a voucher.fecha_ejecucion en
+        // el backend. Si está vacía, queda null (sin fecha planeada).
+        fecha_pago: fechaPago || null,
         documento_dropbox_path: documentoDropboxPath || null,
         glosa: glosa || null,
         informacion_contable: contable.map((l) => ({
@@ -1450,6 +1461,26 @@ export default function NuboxFormPage() {
                   Debe ser igual o posterior a la fecha del documento.
                 </p>
               )}
+            </div>
+
+            {/* Round 140 (Observaciones 20/05/2026) — Fecha Pago: cuándo
+                se planea/ejecuta el pago al proveedor. Mapea al backend
+                como voucher.fecha_ejecucion. Antes faltaba SÓLO en /nubox;
+                /nuevo y /corfo ya lo tenían desde R129. */}
+            <div>
+              <Label hint="Fecha planeada o efectiva del pago al proveedor. Puede ser distinta de la fecha del documento y del vencimiento. Si todavía no pagaste, dejala vacía.">
+                Fecha pago (opcional)
+              </Label>
+              <input
+                type="date"
+                value={fechaPago}
+                min={fechaDocumento || minDate}
+                onChange={(e) => setFechaPago(e.target.value)}
+                className="form-input"
+              />
+              <p className="mt-1 text-[10px] text-ink-500">
+                Si ya transferiste, indicá la fecha. Si está pendiente, dejala vacía.
+              </p>
             </div>
 
             {/* Round 129 — Proyecto contable a nivel voucher.
