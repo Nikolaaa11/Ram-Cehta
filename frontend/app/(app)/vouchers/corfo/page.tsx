@@ -212,66 +212,118 @@ export default function VoucherCorfoPage() {
     return out;
   }, [reparto, effectivePcts, neto, iva, afecta]);
 
-  const createMut = useMutation({
-    mutationFn: async () => {
-      if (!reparto) throw new Error("Proyecto sin configurar");
-      // Construir lineas para POST /vouchers/nubox-form
-      // Lado CONTABLE (DEBE): N lineas por fuente (CORFO/P-tec/Empresa) + 1 IVA si afecta.
-      const informacion_contable = lineasPreview.map((l) => ({
-        comentario: `${glosa || folio} · ${l.label}`,
-        cuenta_codigo: l.cuenta,
-        total: l.monto,
+  // Round 142 hotfix — bug "?" en columna CUENTA del preview.
+  // Si el RepartoDefault del proyecto no tiene cuentas configuradas
+  // (cuenta_aporte_corfo IS NULL en DB), el preview rendea "?" y el
+  // backend rechaza al crear con "Cuenta '?' no existe". Detectamos el
+  // estado y bloqueamos el submit con UX clara antes del POST.
+  const cuentasFaltantes = useMemo(() => {
+    return lineasPreview.filter((l) => !l.cuenta || l.cuenta === "?").length;
+  }, [lineasPreview]);
+
+  // Round 142 — Helper compartido por los 2 botones (DRAFT y PENDING).
+  // El backend nubox-form siempre crea DRAFT; si target=PENDING, después
+  // del POST exitoso llamamos /vouchers/{id}/submit que valida partida
+  // doble + COMPRA con adjunto y pasa el voucher a PENDING.
+  const buildPayloadAndCreate = async (
+    targetStatus: "DRAFT" | "PENDING",
+  ): Promise<{ voucher_id: number; codigo: string }> => {
+    if (!reparto) throw new Error("Proyecto sin configurar");
+    if (cuentasFaltantes > 0) {
+      throw new Error(
+        `El proyecto ${proyectoCodigo} no tiene las cuentas del reparto ` +
+          `configuradas (faltan ${cuentasFaltantes}). Andá a ` +
+          `/admin/proyectos-contables/${proyectoCodigo} y completá ` +
+          `"cuenta_aporte_corfo", "cuenta_aporte_ptec_cehta", ` +
+          `"cuenta_aporte_empresa_directa" y "cuenta_iva_corporativo" ` +
+          `antes de crear vouchers.`,
+      );
+    }
+    const informacion_contable = lineasPreview.map((l) => ({
+      comentario: `${glosa || folio} · ${l.label}`,
+      cuenta_codigo: l.cuenta,
+      total: l.monto,
+      proyecto_codigo: proyectoCodigo,
+      area_codigo: null,
+      fuente_financiamiento: l.fuente,
+    }));
+    const cuentaHaber = "2101-01";
+    const informacion_financiera = [
+      {
+        comentario: `Por pagar a proveedor · ${proveedorNombre || folio}`,
+        cuenta_codigo: cuentaHaber,
+        total: bruto,
         proyecto_codigo: proyectoCodigo,
         area_codigo: null,
-        fuente_financiamiento: l.fuente,
-      }));
-      // Lado FINANCIERO (HABER): contracuenta única, suma = bruto.
-      // Usamos cuenta proveedores (2101-01) o caja si no aplica.
-      const cuentaHaber = "2101-01"; // Cuentas por pagar proveedores (default)
-      const informacion_financiera = [
-        {
-          comentario: `Por pagar a proveedor · ${proveedorNombre || folio}`,
-          cuenta_codigo: cuentaHaber,
-          total: bruto,
-          proyecto_codigo: proyectoCodigo,
-          area_codigo: null,
-          fuente_financiamiento: "EMPRESA_DIRECTA",
-        },
-      ];
-      const payload = {
-        empresa_codigo: empresa,
-        proveedor_rut: proveedorRut || null,
-        proveedor_nombre: proveedorNombre || null,
-        source: "corfo_form",
-        tipo_documento: tipoDoc,
-        numero_documento: folio,
-        forma_pago: "TRANSFERENCIA",
-        fecha_documento: fechaDoc,
-        // Round 129 — campos antes hardcoded null, ahora controlables
-        fecha_vencimiento: fechaVencimiento || null,
-        documento_dropbox_path: documentoDropboxPath || null,
-        glosa: glosa || `Voucher CORFO ${proyectoCodigo}`,
-        informacion_contable,
-        informacion_financiera,
-        // Round 129 — fecha de pago va por separado al endpoint (si el
-        // backend lo soporta). Lo agregamos al payload base — endpoints
-        // que no lo procesen lo ignoran sin romper.
-        ...(fechaPago ? { fecha_pago: fechaPago } : {}),
-      };
-      return apiClient.post<{ voucher_id: number; codigo: string }>(
-        "/vouchers/nubox-form",
-        payload,
-        session,
+        fuente_financiamiento: "EMPRESA_DIRECTA",
+      },
+    ];
+    const payload = {
+      empresa_codigo: empresa,
+      proveedor_rut: proveedorRut || null,
+      proveedor_nombre: proveedorNombre || null,
+      source: "corfo_form",
+      tipo_documento: tipoDoc,
+      numero_documento: folio,
+      forma_pago: "TRANSFERENCIA",
+      fecha_documento: fechaDoc,
+      fecha_vencimiento: fechaVencimiento || null,
+      documento_dropbox_path: documentoDropboxPath || null,
+      glosa: glosa || `Voucher CORFO ${proyectoCodigo}`,
+      informacion_contable,
+      informacion_financiera,
+      ...(fechaPago ? { fecha_pago: fechaPago } : {}),
+    };
+    const created = await apiClient.post<{
+      voucher_id: number;
+      codigo: string;
+    }>("/vouchers/nubox-form", payload, session);
+
+    // Round 142 — si el operador quiere enviar a firma, llamar /submit
+    // que es DRAFT → PENDING. Si esto falla, el voucher YA está creado
+    // como DRAFT (no se pierde nada), solo no avanzó el estado.
+    if (targetStatus === "PENDING") {
+      try {
+        await apiClient.post(
+          `/vouchers/${created.voucher_id}/submit`,
+          {},
+          session,
+        );
+      } catch (err) {
+        // Re-lanzar con mensaje contextual: el voucher existe pero no
+        // pudo avanzar a PENDING. El operador puede ir al detalle y
+        // hacer submit desde ahí.
+        const detail =
+          err instanceof ApiError
+            ? err.detail
+            : "Error desconocido enviando a aprobación";
+        throw new Error(
+          `Voucher ${created.codigo} creado como DRAFT, pero no pudo ` +
+            `enviarse a aprobación: ${detail}. Abrí el voucher e intentá ` +
+            `"Enviar a aprobación" desde el detalle.`,
+        );
+      }
+    }
+    return created;
+  };
+
+  const createMut = useMutation({
+    mutationFn: (targetStatus: "DRAFT" | "PENDING") =>
+      buildPayloadAndCreate(targetStatus),
+    onSuccess: (r, targetStatus) => {
+      toast.success(
+        `Voucher ${r.codigo} ${
+          targetStatus === "PENDING"
+            ? "creado y enviado a aprobación · PENDING"
+            : "creado · DRAFT"
+        }`,
       );
-    },
-    onSuccess: (r) => {
-      toast.success(`Voucher ${r.codigo} creado · DRAFT`);
       router.push(`/vouchers/${r.voucher_id}` as Route);
     },
     onError: (err) => {
       toast.error(
-        err instanceof ApiError ? err.detail : "No se pudo crear el voucher",
-        { duration: 8000 },
+        err instanceof ApiError ? err.detail : (err as Error).message,
+        { duration: 12000 },
       );
     },
   });
@@ -282,6 +334,7 @@ export default function VoucherCorfoPage() {
     !!folio.trim() &&
     neto > 0 &&
     (afecta && !asignaFinanciamiento ? true : sumaOk) &&
+    cuentasFaltantes === 0 &&
     !createMut.isPending;
 
   return (
@@ -612,7 +665,13 @@ export default function VoucherCorfoPage() {
 
         {/* Preview líneas que se van a generar */}
         {lineasPreview.length > 0 && (
-          <div className="rounded-xl border border-cehta-green/20 bg-cehta-green/5 p-4">
+          <div
+            className={`rounded-xl border p-4 ${
+              cuentasFaltantes > 0
+                ? "border-negative/30 bg-negative/5"
+                : "border-cehta-green/20 bg-cehta-green/5"
+            }`}
+          >
             <p className="text-sm font-semibold text-ink-900 mb-2">
               Líneas que se van a crear (DEBE):
             </p>
@@ -625,13 +684,29 @@ export default function VoucherCorfoPage() {
                 </tr>
               </thead>
               <tbody>
-                {lineasPreview.map((l, i) => (
-                  <tr key={i} className="border-t border-cehta-green/10">
-                    <td className="py-1.5">{l.label}</td>
-                    <td className="py-1.5 font-mono text-xs">{l.cuenta}</td>
-                    <td className="py-1.5 text-right font-mono">{fmtCLP(l.monto)}</td>
-                  </tr>
-                ))}
+                {lineasPreview.map((l, i) => {
+                  const cuentaVacia = !l.cuenta || l.cuenta === "?";
+                  return (
+                    <tr key={i} className="border-t border-cehta-green/10">
+                      <td className="py-1.5">{l.label}</td>
+                      <td
+                        className={`py-1.5 font-mono text-xs ${
+                          cuentaVacia
+                            ? "text-negative font-semibold"
+                            : "text-ink-700"
+                        }`}
+                        title={
+                          cuentaVacia
+                            ? `El proyecto ${proyectoCodigo} no tiene esta cuenta configurada en el reparto-default`
+                            : undefined
+                        }
+                      >
+                        {cuentaVacia ? "⚠ FALTA CUENTA" : l.cuenta}
+                      </td>
+                      <td className="py-1.5 text-right font-mono">{fmtCLP(l.monto)}</td>
+                    </tr>
+                  );
+                })}
                 <tr className="border-t border-cehta-green/20 font-semibold">
                   <td className="py-1.5" colSpan={2}>TOTAL BRUTO</td>
                   <td className="py-1.5 text-right font-mono">{fmtCLP(bruto)}</td>
@@ -642,18 +717,57 @@ export default function VoucherCorfoPage() {
               + 1 línea HABER en cuenta 2101-01 (Cuentas por pagar proveedores)
               por {fmtCLP(bruto)} para cuadrar la partida doble.
             </p>
+            {cuentasFaltantes > 0 && (
+              <div className="mt-3 rounded-lg bg-negative/10 ring-1 ring-negative/30 px-3 py-2 text-[12px] text-negative">
+                <p className="font-semibold mb-1">
+                  ⚠ El proyecto {proyectoCodigo} tiene {cuentasFaltantes}{" "}
+                  cuenta{cuentasFaltantes === 1 ? "" : "s"} sin configurar
+                </p>
+                <p className="text-[11px] text-negative/85 leading-relaxed">
+                  Antes de crear el voucher, andá a{" "}
+                  <Link
+                    href={`/admin/proyectos-contables/${proyectoCodigo}` as Route}
+                    className="underline font-semibold"
+                  >
+                    /admin/proyectos-contables/{proyectoCodigo}
+                  </Link>{" "}
+                  y completá la sección &quot;Reparto default → Cuentas contables&quot;.
+                  Sin estas, el backend rechazará el POST con{" "}
+                  <code className="font-mono">&quot;Cuenta &apos;?&apos; no existe&quot;</code>.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-3 pt-2 border-t border-hairline">
+        {/* Round 142 — 2 botones: Guardar DRAFT vs Crear + enviar a firma.
+            Antes solo había un botón "Crear DRAFT" y el usuario tenía que
+            ir al detalle del voucher para hacer Submit a aprobación manual.
+            Ahora puede hacerlo en un click desde el form. */}
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-2 border-t border-hairline">
           <button
             type="button"
             disabled={!canSubmit}
-            onClick={() => createMut.mutate()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-60"
+            onClick={() => createMut.mutate("DRAFT")}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-white px-5 py-2 text-sm font-semibold text-cehta-green hover:bg-cehta-green/5 disabled:opacity-60"
+            title="Guardar el voucher como borrador. Después podés editarlo o enviarlo a aprobación desde el detalle."
           >
             <FileText className="h-4 w-4" strokeWidth={1.75} />
-            {createMut.isPending ? "Creando..." : "Crear voucher DRAFT"}
+            {createMut.isPending && createMut.variables === "DRAFT"
+              ? "Guardando…"
+              : "Guardar borrador"}
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => createMut.mutate("PENDING")}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:opacity-60"
+            title="Crear el voucher Y mandarlo a aprobación en un solo paso. Si la partida doble cuadra y hay adjunto (si requerido), pasa a PENDING."
+          >
+            <FileText className="h-4 w-4" strokeWidth={1.75} />
+            {createMut.isPending && createMut.variables === "PENDING"
+              ? "Creando y enviando…"
+              : "Crear y enviar a firma"}
           </button>
         </div>
       </Surface>

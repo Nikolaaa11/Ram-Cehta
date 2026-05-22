@@ -36,6 +36,7 @@ import {
   Sparkles,
   UploadCloud,
   Loader2,
+  FileSignature,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -824,7 +825,15 @@ export default function NuboxFormPage() {
 
   const handleSubmit = async (
     e: React.FormEvent,
-    opts: { createAnother?: boolean } = {},
+    opts: {
+      createAnother?: boolean;
+      // Round 142 — si true, después de crear el voucher como DRAFT,
+      // llama POST /vouchers/{id}/submit para mandarlo a PENDING en el
+      // mismo flow. Si el submit falla, el voucher queda como DRAFT y
+      // se muestra error indicando que tiene que ir al detalle a
+      // reintentarlo manualmente.
+      submitToApproval?: boolean;
+    } = {},
   ) => {
     e.preventDefault();
     const createAnother = opts.createAnother === true;
@@ -1005,14 +1014,52 @@ export default function NuboxFormPage() {
         queryClient.invalidateQueries({ queryKey: ["proveedores", "cache"] });
       }
 
+      // Round 142 — Si el operador eligió "Crear y enviar a firma",
+      // después del POST /vouchers/nubox-form (que crea como DRAFT),
+      // llamamos POST /vouchers/{id}/submit para pasarlo a PENDING.
+      // Si el submit falla (ej. partida doble descuadrada, COMPRA sin
+      // adjunto), el voucher YA está creado como DRAFT — no se pierde
+      // nada. El error indica al operador que vaya al detalle a
+      // arreglar lo que falte y reintentar el submit manual.
+      const submitToApproval = opts.submitToApproval === true;
+      let submitOk = false;
+      let submitError: string | null = null;
+      if (submitToApproval) {
+        try {
+          await apiClient.post(
+            `/vouchers/${resp.voucher_id}/submit`,
+            {},
+            session,
+          );
+          submitOk = true;
+        } catch (err) {
+          submitError =
+            err instanceof ApiError
+              ? err.detail
+              : "No se pudo enviar a aprobación";
+        }
+      }
+
       // Round 32 — branch: si createAnother, reseteamos el form y nos
       // quedamos acá. Si no, navegamos al detalle del voucher recién creado.
+      const submitMsg = submitToApproval
+        ? submitOk
+          ? " · enviado a aprobación (PENDING)"
+          : ` · ⚠ DRAFT (no se pudo enviar a aprobación: ${submitError})`
+        : "";
       if (createAnother) {
-        toast.success(baseMsg + attachMsg);
+        toast.success(baseMsg + attachMsg + submitMsg);
         resetForCreateAnother(resp.codigo);
       } else {
-        toast.success(baseMsg + attachMsg);
-        router.push(`/vouchers/${resp.voucher_id}` as Route);
+        if (submitError) {
+          // Error en submit → toast.warn y NO redirect (queda en el form
+          // para que el operador vea el contexto)
+          toast.error(baseMsg + attachMsg + submitMsg, { duration: 12000 });
+          router.push(`/vouchers/${resp.voucher_id}` as Route);
+        } else {
+          toast.success(baseMsg + attachMsg + submitMsg);
+          router.push(`/vouchers/${resp.voucher_id}` as Route);
+        }
       }
     } catch (err) {
       toast.error(
@@ -1855,14 +1902,37 @@ export default function NuboxFormPage() {
                   ⌘⇧S
                 </kbd>
               </Button>
+              {/* Botón secundario: crear como DRAFT (el voucher queda
+                  guardado pero requiere paso manual para mandar a firma). */}
               <Button
                 type="submit"
+                variant="outline"
                 disabled={!cuadrado || submitting}
-                className="px-6"
-                title="Guardar el voucher y abrir su detalle (Ctrl/Cmd+S)"
+                className="px-5"
+                title="Guardar el voucher como BORRADOR. Después podés enviarlo a aprobación desde el detalle. (Ctrl/Cmd+S)"
               >
                 <Save className="size-4 mr-2" />
-                {submitting ? "Creando…" : "Crear voucher DRAFT"}
+                {submitting ? "Creando…" : "Guardar borrador"}
+              </Button>
+              {/* Round 142 — Botón primario: crear + mandar a firma en un
+                  solo paso. Llama POST /vouchers/nubox-form y después
+                  POST /vouchers/{id}/submit que pasa DRAFT → PENDING.
+                  Antes este flujo requería 2 acciones (crear, después ir
+                  al detalle y hacer Submit manual). Ahora es 1 click. */}
+              <Button
+                type="button"
+                disabled={!cuadrado || submitting}
+                className="px-6"
+                title="Crear el voucher Y enviarlo a aprobación en un solo paso. Si la partida doble cuadra (y hay adjunto si es COMPRA/VENTA), pasa a PENDING listo para firmar."
+                onClick={() =>
+                  handleSubmit(
+                    new Event("submit") as unknown as React.FormEvent,
+                    { submitToApproval: true },
+                  )
+                }
+              >
+                <FileSignature className="size-4 mr-2" />
+                {submitting ? "Enviando…" : "Crear y enviar a firma"}
               </Button>
             </div>
           </div>
