@@ -1000,6 +1000,12 @@ async def list_mis_pendientes(
         # Anti-doble-firma: si ya firmo otro paso en este voucher.
         if any(a["approver_user_id"] == str(user.sub) for a in approvals_raw):
             continue
+        # Round 137 — Segregación de deberes: si el current user creó
+        # este voucher, NO se lo mostramos en su cola de pendientes (no
+        # puede firmarlo). Espejo del check en POST /approve.
+        created_by = vr.get("created_by")
+        if created_by is not None and str(created_by) == str(user.sub):
+            continue
 
         fecha_creacion = vr["fecha_creacion"]
         if fecha_creacion.tzinfo is None:
@@ -2576,11 +2582,21 @@ async def get_voucher_approvals_state(
         a.approver_user_id == str(user.sub) and a.decision == "APPROVED"
         for a in approvals
     )
+    # Round 137 — Segregación de deberes (invariante #20 MAESTRO): el
+    # creador del voucher no puede ser aprobador. Sin este check, el FE
+    # mostraría el botón "Firmar" al creador aunque tenga el rol, y el
+    # endpoint POST /approve lo rechazaría con 403 — mala UX. Espejo
+    # del check en POST /approve para que el botón ni aparezca.
+    is_creator = (
+        voucher.created_by is not None
+        and str(voucher.created_by) == str(user.sub)
+    )
     can_sign = bool(
         next_pending_role
         and voucher.status == "PENDING"
         and next_pending_role in user_roles
         and not already_signed
+        and not is_creator
     )
     eligible_role = next_pending_role if can_sign else None
 
@@ -2658,6 +2674,21 @@ async def approve_voucher(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Solo vouchers PENDING aceptan firmas (este está en {voucher.status})",
+        )
+
+    # Round 137 hotfix — Segregación de deberes (invariante #20 MAESTRO).
+    # El creador del voucher NO puede firmarlo, aunque tenga el rol activo.
+    # Este es el control SOX más básico y un auditor externo lo marcaría
+    # como deficiencia material si faltara. Bloqueado en endpoint
+    # individual + bulk + en el state que alimenta el botón del FE.
+    if voucher.created_by is not None and str(voucher.created_by) == str(user.sub):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "Segregación de deberes: el creador del voucher no puede "
+                "firmarlo. Pedile a otro aprobador con el rol "
+                f"'{body.role}' en {voucher.empresa_codigo}."
+            ),
         )
 
     user_roles = await load_user_roles_for_empresa(
@@ -3850,6 +3881,20 @@ async def bulk_approve_vouchers(
                     voucher_id=vid, success=False,
                     error=f"Status {voucher.status} (solo PENDING acepta firmas)",
                     new_status=voucher.status,
+                ))
+                continue
+
+            # Round 137 hotfix — Segregación de deberes (invariante #20).
+            # Mismo check que en /approve individual: el creador no puede
+            # firmar el voucher. En bulk, simplemente skipea con error
+            # explicativo (no aborta el batch entero).
+            if voucher.created_by is not None and str(voucher.created_by) == user_sub:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error=(
+                        "Segregación de deberes: sos el creador de este "
+                        "voucher, no podés firmarlo"
+                    ),
                 ))
                 continue
 
