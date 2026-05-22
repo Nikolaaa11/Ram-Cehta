@@ -1446,6 +1446,29 @@ async def create_voucher(
             ),
         )
 
+    # Round 143 — Invariante #14 (MAESTRO): COMPRA/VENTA exigen documento
+    # tributario adjunto. Si el operador intenta crear directo en PENDING
+    # sin proveer ni un documento_dropbox_path (que auto-crea attachment
+    # más abajo) ni un canal alternativo para subir archivo, rechazamos.
+    # La salida legal: o se pasa documento_dropbox_path, o se crea como
+    # DRAFT, se sube attachment con POST /attachments, y después /submit.
+    if (
+        body.status == "PENDING"
+        and body.tipo in ("COMPRA", "VENTA")
+        and not body.documento_dropbox_path
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Voucher de {body.tipo} no puede crearse directamente en "
+                f"PENDING sin adjunto (invariante #14 MAESTRO). Opciones: "
+                f"(a) pasar `documento_dropbox_path` con el path Dropbox "
+                f"del documento (se registra como adjunto automáticamente), "
+                f"o (b) crearlo como DRAFT, subir adjunto desde el detalle, "
+                f"y después usar POST /vouchers/{{id}}/submit."
+            ),
+        )
+
     # 4-7. Validar cada línea
     for line in body.lines:
         cuenta = await fetch_cuenta_metadata(db, line.cuenta_codigo)
@@ -1577,6 +1600,28 @@ async def create_voucher(
             balance_treatment=line_data.balance_treatment,
         )
         db.add(line)
+
+    # Round 143 — Auto-attachment desde documento_dropbox_path (espejo
+    # del fix R142b en /vouchers/nubox-form). El campo del voucher es solo
+    # un puntero — la validación de adjunto en /submit (y en este endpoint
+    # cuando status=PENDING para COMPRA/VENTA) mira core.voucher_attachments.
+    # Sin esta línea, el operador que pegue un path Dropbox en /vouchers/nuevo
+    # se encontraría con que el voucher no tiene adjunto "técnicamente".
+    if body.documento_dropbox_path:
+        path = body.documento_dropbox_path.strip()
+        file_name = path.rsplit("/", 1)[-1] if "/" in path else path
+        if not file_name:
+            file_name = "documento.pdf"
+        # Default semantico por tipo de voucher
+        attachment_tipo = "FACTURA" if body.tipo in ("COMPRA", "VENTA") else "RESPALDO_TECNICO"
+        att = VoucherAttachment(
+            voucher_id=voucher.voucher_id,
+            tipo=attachment_tipo,
+            file_name=file_name[:200],
+            dropbox_path=path[:500],
+            uploaded_by=str(user.sub),
+        )
+        db.add(att)
 
     try:
         await db.commit()

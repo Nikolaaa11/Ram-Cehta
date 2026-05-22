@@ -409,6 +409,28 @@ export default function NuevoVoucherPage() {
       return;
     }
 
+    // Round 143 — Invariante #14: COMPRA/VENTA no se puede crear directo
+    // en PENDING porque requiere adjunto (factura/boleta). Si el usuario
+    // no pegó un path Dropbox que se convertirá en attachment, redirigir
+    // a flow de DRAFT + agregar adjunto desde el detalle. Espejo del
+    // check del backend (vouchers.py:1450), evita el toast genérico 400
+    // y guía al operador.
+    if (
+      targetStatus === "PENDING" &&
+      (tipo === "COMPRA" || tipo === "VENTA") &&
+      !documentoDropboxPath.trim()
+    ) {
+      toast.error(
+        `Voucher de ${tipo} requiere adjunto antes de enviarse a firma. ` +
+          `Opciones: (a) pegá el path Dropbox del documento en el campo ` +
+          `"Documento — link Dropbox", o (b) guardalo como BORRADOR, subí ` +
+          `el archivo desde el detalle del voucher, y después usá ` +
+          `"Enviar a aprobación".`,
+        { duration: 12000 },
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
