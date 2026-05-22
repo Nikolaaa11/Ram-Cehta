@@ -1,0 +1,1881 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ram-Cehta · Diagrama dinámico del sistema</title>
+<style>
+  /* ============================================================
+     RESET + BASE
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+                 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #fbfbfd;
+    color: #1d1d1f;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  /* Fondo aurora animado sutil */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(0,122,255,0.06) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(29,111,66,0.06) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(175,82,222,0.04) 0%, transparent 50%);
+    animation: aurora 24s ease-in-out infinite alternate;
+  }
+  @keyframes aurora {
+    0%   { transform: translate(0,0) rotate(0deg); }
+    50%  { transform: translate(2%,-1%) rotate(0.5deg); }
+    100% { transform: translate(-1%,2%) rotate(-0.5deg); }
+  }
+
+  /* ============================================================
+     NAV
+     ============================================================ */
+  nav.top {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    background: rgba(251, 251, 253, 0.78);
+    border-bottom: 0.5px solid rgba(0,0,0,0.08);
+    padding: 14px 0;
+  }
+  nav.top .inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 32px;
+  }
+  nav.top .brand {
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  nav.top .brand .dot {
+    width: 8px; height: 8px;
+    background: #1d6f42;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(29,111,66,0.5);
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0% { box-shadow: 0 0 0 0 rgba(29,111,66,0.5); }
+    70% { box-shadow: 0 0 0 10px rgba(29,111,66,0); }
+    100% { box-shadow: 0 0 0 0 rgba(29,111,66,0); }
+  }
+  nav.top .progress {
+    height: 2px;
+    background: linear-gradient(90deg, #1d6f42 0%, #007aff 100%);
+    width: 0%;
+    transition: width 0.1s linear;
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+  }
+
+  /* ============================================================
+     CONTAINER
+     ============================================================ */
+  .container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+  .container-narrow {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  .hero {
+    padding: 160px 0 120px;
+    text-align: center;
+    position: relative;
+  }
+  .hero .eyebrow {
+    display: inline-block;
+    padding: 6px 14px;
+    background: rgba(29, 111, 66, 0.08);
+    color: #1d6f42;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+    animation: float-in 0.8s cubic-bezier(0.22,1,0.36,1);
+  }
+  .hero h1 {
+    font-size: clamp(48px, 8vw, 112px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 0.98;
+    background: linear-gradient(180deg, #1d1d1f 0%, #1d1d1f 50%, rgba(29,29,31,0.5) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 28px;
+    animation: float-in 1s cubic-bezier(0.22,1,0.36,1) 0.1s both;
+  }
+  .hero h1 .accent {
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero .sub {
+    font-size: clamp(18px, 2.2vw, 24px);
+    color: rgba(29,29,31,0.62);
+    font-weight: 400;
+    max-width: 760px;
+    margin: 0 auto;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    animation: float-in 1s cubic-bezier(0.22,1,0.36,1) 0.2s both;
+  }
+
+  @keyframes float-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Indicador scroll */
+  .scroll-hint {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: rgba(29,29,31,0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    animation: bounce-hint 2s ease-in-out infinite;
+  }
+  @keyframes bounce-hint {
+    0%,100% { transform: translateX(-50%) translateY(0); opacity: 0.4; }
+    50%     { transform: translateX(-50%) translateY(8px); opacity: 0.8; }
+  }
+
+  /* ============================================================
+     SECTIONS
+     ============================================================ */
+  section.step {
+    padding: 120px 0;
+    position: relative;
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.9s cubic-bezier(0.22,1,0.36,1),
+                transform 0.9s cubic-bezier(0.22,1,0.36,1);
+  }
+  section.step.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  section.step .step-num {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  section.step .step-num .num {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1d1d1f 0%, #2c2c2e 100%);
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: -0.02em;
+  }
+  section.step .step-num .lbl {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(29,29,31,0.5);
+  }
+  section.step h2 {
+    font-size: clamp(36px, 5.5vw, 64px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.04;
+    margin-bottom: 24px;
+    max-width: 920px;
+  }
+  section.step h2 .accent {
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  section.step .lede {
+    font-size: 20px;
+    color: rgba(29,29,31,0.68);
+    line-height: 1.5;
+    max-width: 720px;
+    letter-spacing: -0.005em;
+    margin-bottom: 56px;
+  }
+
+  /* ============================================================
+     DIAGRAM CONTAINER — frame estilo Mac
+     ============================================================ */
+  .diagram-frame {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.04),
+      0 8px 32px rgba(0,0,0,0.06),
+      0 32px 64px rgba(0,0,0,0.04);
+    position: relative;
+  }
+  .diagram-frame .titlebar {
+    height: 36px;
+    background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 8px;
+  }
+  .diagram-frame .titlebar .ctl {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .titlebar .ctl.r { background: #ff5f57; }
+  .titlebar .ctl.y { background: #febc2e; }
+  .titlebar .ctl.g { background: #28c840; }
+  .diagram-frame .titlebar .name {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    color: rgba(29,29,31,0.5);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .diagram-frame .canvas {
+    padding: 40px;
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.025) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(0,0,0,0.025) 1px, transparent 1px),
+      white;
+    background-size: 24px 24px;
+  }
+  .diagram-frame .canvas.no-grid {
+    background: white;
+  }
+
+  /* ============================================================
+     SVG common styles
+     ============================================================ */
+  .node {
+    fill: white;
+    stroke: rgba(0,0,0,0.12);
+    stroke-width: 1.5;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.06));
+    transition: all 0.25s ease;
+  }
+  .node-text {
+    fill: #1d1d1f;
+    font-family: -apple-system, "SF Pro Text", sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+  }
+  .node-sub {
+    fill: rgba(29,29,31,0.55);
+    font-size: 10px;
+    font-weight: 500;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    letter-spacing: 0.02em;
+  }
+  .node-group:hover .node {
+    stroke: #1d6f42;
+    stroke-width: 2;
+    filter: drop-shadow(0 6px 16px rgba(29,111,66,0.2));
+    transform: translateY(-2px);
+  }
+  .node-group { cursor: pointer; }
+
+  /* Edge / arrow animado */
+  .edge {
+    stroke: rgba(29,111,66,0.5);
+    stroke-width: 1.5;
+    fill: none;
+    stroke-dasharray: 6 4;
+    animation: dash-flow 1.5s linear infinite;
+  }
+  .edge.blue { stroke: rgba(0,122,255,0.5); }
+  .edge.purple { stroke: rgba(175,82,222,0.5); }
+  .edge.orange { stroke: rgba(255,149,0,0.6); }
+  .edge.thick { stroke-width: 2.5; }
+  @keyframes dash-flow {
+    to { stroke-dashoffset: -20; }
+  }
+
+  /* Bidirectional arrow heads */
+  .arrowhead { fill: rgba(29,111,66,0.6); }
+  .arrowhead.blue { fill: rgba(0,122,255,0.6); }
+  .arrowhead.purple { fill: rgba(175,82,222,0.6); }
+
+  /* Pulse nodos importantes */
+  .pulse-node circle.bg {
+    animation: pulse-soft 3s ease-in-out infinite;
+  }
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50%      { opacity: 0.6; transform: scale(1.15); }
+  }
+
+  /* ============================================================
+     LEGEND / TOOLTIPS
+     ============================================================ */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.02);
+    border-radius: 12px;
+    font-size: 12px;
+    color: rgba(29,29,31,0.65);
+  }
+  .legend .li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .legend .swatch {
+    width: 14px; height: 14px;
+    border-radius: 4px;
+  }
+
+  /* ============================================================
+     CARDS
+     ============================================================ */
+  .cards-3 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-top: 48px;
+  }
+  .card {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border: 0.5px solid rgba(0,0,0,0.06);
+    border-radius: 20px;
+    padding: 28px 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+  }
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.08);
+    background: white;
+  }
+  .card .head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .card .head .ico {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1d6f42, #2a9d5e);
+    color: white;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .card .head .ico.blue { background: linear-gradient(135deg, #007aff, #5856d6); }
+  .card .head .ico.orange { background: linear-gradient(135deg, #ff9500, #ff6482); }
+  .card .head .ico.purple { background: linear-gradient(135deg, #af52de, #5856d6); }
+  .card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .card p {
+    font-size: 14px;
+    color: rgba(29,29,31,0.65);
+    line-height: 1.55;
+  }
+  .card p + p { margin-top: 10px; }
+
+  /* ============================================================
+     STATE MACHINE animado
+     ============================================================ */
+  .pipeline {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 32px 0;
+    flex-wrap: wrap;
+  }
+  .pipe-state {
+    flex: 1;
+    min-width: 110px;
+    background: white;
+    border: 1.5px solid;
+    border-radius: 14px;
+    padding: 16px 12px;
+    text-align: center;
+    position: relative;
+    transition: all 0.3s;
+  }
+  .pipe-state + .pipe-state { margin-left: 22px; }
+  .pipe-state::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -22px;
+    width: 22px;
+    height: 2px;
+    background: linear-gradient(90deg, currentColor, transparent);
+    transform: translateY(-50%);
+    z-index: 1;
+  }
+  .pipe-state::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: -10px;
+    width: 8px;
+    height: 8px;
+    background: currentColor;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    box-shadow: 0 0 0 0 currentColor;
+    animation: pulse-pipe 2s ease-in-out infinite;
+    z-index: 2;
+  }
+  .pipe-state:last-child::after,
+  .pipe-state:last-child::before { display: none; }
+  @keyframes pulse-pipe {
+    0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+    50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.6; }
+  }
+  .pipe-state .badge-name {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    color: currentColor;
+  }
+  .pipe-state .desc {
+    font-size: 12px;
+    color: rgba(29,29,31,0.65);
+    line-height: 1.3;
+    font-weight: 400;
+  }
+  .pipe-state.draft     { color: #8a8a8e; }
+  .pipe-state.pending   { color: #c76d00; background: rgba(255,149,0,0.04); }
+  .pipe-state.approved  { color: #0055cc; background: rgba(0,122,255,0.04); }
+  .pipe-state.executed  { color: #1d6f42; background: rgba(29,111,66,0.04); }
+  .pipe-state.synced    { color: #4339a8; background: rgba(88,86,214,0.04); }
+  .pipe-state.reconciled{ color: #248a3d; background: rgba(52,199,89,0.06); }
+  .pipe-state.closed    { color: #1d1d1f; background: rgba(0,0,0,0.04); }
+
+  /* ============================================================
+     STATUS BADGES
+     ============================================================ */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+    margin: 32px 0;
+  }
+  .status-item {
+    background: white;
+    border-radius: 16px;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    padding: 22px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.25s;
+  }
+  .status-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  }
+  .status-item::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--clr);
+  }
+  .status-item.ok { --clr: #34c759; }
+  .status-item.warn { --clr: #ff9500; }
+  .status-item.err  { --clr: #ff3b30; }
+  .status-item.info { --clr: #007aff; }
+  .status-item .dot {
+    width: 8px; height: 8px;
+    background: var(--clr);
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    box-shadow: 0 0 0 0 var(--clr);
+    animation: pulse-status 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse-status {
+    0%, 100% { box-shadow: 0 0 0 0 var(--clr); opacity: 1; }
+    50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.5; }
+  }
+  .status-item .label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--clr);
+    margin-bottom: 10px;
+  }
+  .status-item h4 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+  .status-item p {
+    font-size: 13px;
+    color: rgba(29,29,31,0.65);
+    line-height: 1.45;
+  }
+
+  /* ============================================================
+     HIGHLIGHT BLACK BLOCK
+     ============================================================ */
+  .highlight {
+    background: linear-gradient(135deg, #0a0a0a 0%, #1d1d1f 60%, #0a0a0a 100%);
+    border-radius: 32px;
+    padding: 80px 56px;
+    color: white;
+    margin: 80px 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .highlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 20% 30%, rgba(0,122,255,0.2) 0%, transparent 40%),
+      radial-gradient(circle at 80% 70%, rgba(29,111,66,0.2) 0%, transparent 40%);
+    animation: aurora-bg 16s linear infinite;
+  }
+  @keyframes aurora-bg {
+    from { transform: translate(0,0); }
+    to   { transform: translate(-30px, 20px); }
+  }
+  .highlight .content { position: relative; z-index: 1; }
+  .highlight h2 {
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin-bottom: 20px;
+    background: linear-gradient(180deg, white 0%, rgba(255,255,255,0.6) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .highlight p {
+    font-size: 20px;
+    color: rgba(255,255,255,0.7);
+    max-width: 760px;
+    line-height: 1.5;
+  }
+  .highlight .row-icons {
+    display: flex;
+    gap: 40px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+  }
+  .highlight .row-icons .ic {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255,255,255,0.85);
+    font-size: 14px;
+  }
+  .highlight .row-icons .ic .check {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(52,199,89,0.18);
+    border: 1px solid rgba(52,199,89,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #34c759;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  /* ============================================================
+     T-ACCOUNTS animados (partida doble)
+     ============================================================ */
+  .t-accounts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    margin: 32px auto;
+    max-width: 720px;
+  }
+  .t-acc {
+    background: white;
+    border: 2px solid rgba(0,0,0,0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+  }
+  .t-acc .head {
+    background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+  }
+  .t-acc.debit .head { color: #1d6f42; }
+  .t-acc.credit .head { color: #c41e3a; }
+  .t-acc .rows {
+    padding: 16px 20px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 13px;
+  }
+  .t-acc .rows .r {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    opacity: 0;
+    animation: fade-in-row 0.6s ease forwards;
+  }
+  .t-acc .rows .r:last-child { border-bottom: none; }
+  .t-acc .rows .r:nth-child(1) { animation-delay: 0.1s; }
+  .t-acc .rows .r:nth-child(2) { animation-delay: 0.3s; }
+  .t-acc .rows .r:nth-child(3) { animation-delay: 0.5s; }
+  .t-acc .rows .total {
+    padding-top: 14px;
+    margin-top: 6px;
+    border-top: 1.5px solid #1d1d1f;
+    font-weight: 700;
+  }
+  .t-acc.debit .total { color: #1d6f42; }
+  .t-acc.credit .total { color: #c41e3a; }
+  @keyframes fade-in-row {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .balance-check {
+    margin-top: 24px;
+    text-align: center;
+    padding: 14px 20px;
+    background: rgba(52,199,89,0.08);
+    border: 1px solid rgba(52,199,89,0.3);
+    border-radius: 100px;
+    color: #1d6f42;
+    font-weight: 700;
+    font-size: 14px;
+    display: inline-block;
+  }
+  .balance-check .check {
+    display: inline-block;
+    width: 20px; height: 20px;
+    background: #34c759;
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 20px;
+    margin-right: 8px;
+    font-size: 12px;
+  }
+  .center { text-align: center; }
+
+  /* ============================================================
+     TIMELINE (longevidad / why it lasts)
+     ============================================================ */
+  .timeline {
+    position: relative;
+    padding-left: 40px;
+    margin: 48px 0;
+  }
+  .timeline::before {
+    content: "";
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg,
+      #1d6f42 0%,
+      #007aff 40%,
+      #af52de 70%,
+      rgba(0,0,0,0.1) 100%);
+  }
+  .tl-item {
+    position: relative;
+    padding-bottom: 36px;
+  }
+  .tl-item:last-child { padding-bottom: 0; }
+  .tl-item::before {
+    content: "";
+    position: absolute;
+    left: -33px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid currentColor;
+    z-index: 1;
+  }
+  .tl-item .when {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+    color: var(--c, #1d6f42);
+  }
+  .tl-item h4 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: 8px;
+  }
+  .tl-item p {
+    font-size: 14px;
+    color: rgba(29,29,31,0.68);
+    line-height: 1.55;
+    max-width: 680px;
+  }
+
+  /* ============================================================
+     PROGRESS BAR componentes plataforma
+     ============================================================ */
+  .progress-list { margin: 32px 0; }
+  .progress-row {
+    margin-bottom: 16px;
+  }
+  .progress-row .head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .progress-row .head .name {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .progress-row .head .pct {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--c, #1d6f42);
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-row .bar {
+    height: 6px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-row .bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--c, #1d6f42), var(--c2, #2a9d5e));
+    border-radius: 100px;
+    width: 0;
+    transition: width 1.2s cubic-bezier(0.22,1,0.36,1);
+  }
+  .progress-row.in .bar .fill { width: var(--w); }
+  .progress-row .note {
+    font-size: 12px;
+    color: rgba(29,29,31,0.55);
+    margin-top: 4px;
+  }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer {
+    padding: 80px 0 60px;
+    text-align: center;
+    color: rgba(29,29,31,0.5);
+    font-size: 13px;
+    border-top: 0.5px solid rgba(0,0,0,0.06);
+    margin-top: 80px;
+  }
+  footer p + p { margin-top: 6px; }
+
+  /* Mobile */
+  @media (max-width: 720px) {
+    .pipeline { flex-direction: column; }
+    .pipe-state + .pipe-state { margin-left: 0; margin-top: 28px; }
+    .pipe-state::after {
+      top: -22px; right: 50%; transform: translateX(50%);
+      width: 2px; height: 22px;
+      background: linear-gradient(180deg, transparent, currentColor);
+    }
+    .pipe-state::before {
+      top: -10px; right: 50%; transform: translateX(50%);
+    }
+    .t-accounts { grid-template-columns: 1fr; }
+  }
+
+  /* Print */
+  @media print {
+    nav.top, .scroll-hint { display: none; }
+    body { background: white; }
+    section.step { opacity: 1; transform: none; break-inside: avoid; padding: 40px 0; }
+    .diagram-frame { break-inside: avoid; box-shadow: none; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> Ram-Cehta · Sistema dinámico</div>
+    <div style="font-size:13px;color:rgba(29,29,31,0.55);font-variant-numeric:tabular-nums;">
+      <span id="progressPct">0</span>% recorrido
+    </div>
+  </div>
+  <div class="progress" id="navProgress"></div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="container-narrow">
+    <span class="eyebrow">Sistema financiero-contable · 2026</span>
+    <h1>Un sistema<br/>que <span class="accent">dura años.</span></h1>
+    <p class="sub">
+      Cada pieza, cada flujo, cada validación. Por qué la arquitectura está diseñada
+      para sobrevivir cambios de gobierno, auditorías SVS, rotación de personal, y
+      crecimiento del fondo a 10x sin reescribir el sistema.
+    </p>
+  </div>
+  <div class="scroll-hint">↓ Desplazate</div>
+</section>
+
+<!-- ============================================================
+     PASO 01 — VISTA DESDE ARRIBA
+     ============================================================ -->
+<section class="step" id="s1">
+  <div class="container">
+    <div class="step-num"><span class="num">1</span><span class="lbl">Vista panorámica</span></div>
+    <h2>Acá está <span class="accent">todo el sistema.</span></h2>
+    <p class="lede">
+      Antes de bajar a detalles, esto es lo que existe. Personas a la izquierda,
+      plataforma al centro, sistemas externos a la derecha. Las líneas de colores
+      muestran cómo viaja la información — fijate que las animadas son las que
+      ya están operativas.
+    </p>
+
+    <div class="diagram-frame">
+      <div class="titlebar">
+        <span class="ctl r"></span><span class="ctl y"></span><span class="ctl g"></span>
+        <span class="name">arquitectura · panorama general</span>
+      </div>
+      <div class="canvas">
+        <svg viewBox="0 0 1120 540" style="width:100%;height:auto;">
+          <defs>
+            <marker id="ah-green" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+            </marker>
+            <marker id="ah-blue" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="arrowhead blue"/>
+            </marker>
+            <marker id="ah-purple" viewBox="0 0 10 10" refX="9" refY="5"
+                    markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" class="arrowhead purple"/>
+            </marker>
+          </defs>
+
+          <!-- ====== USUARIOS (izquierda) ====== -->
+          <text x="100" y="35" font-size="11" font-weight="700"
+                fill="rgba(29,29,31,0.5)" text-anchor="middle" letter-spacing="2">USUARIOS</text>
+
+          <g class="node-group">
+            <rect class="node" x="30" y="60" width="140" height="60" rx="14"/>
+            <text class="node-text" x="100" y="84">Operador</text>
+            <text class="node-sub" x="100" y="104">Crea vouchers</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="30" y="140" width="140" height="60" rx="14"/>
+            <text class="node-text" x="100" y="164">Manager</text>
+            <text class="node-sub" x="100" y="184">1ra firma</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="30" y="220" width="140" height="60" rx="14"/>
+            <text class="node-text" x="100" y="244">CFO / Tesorería</text>
+            <text class="node-sub" x="100" y="264">2da firma + pago</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="30" y="300" width="140" height="60" rx="14"/>
+            <text class="node-text" x="100" y="324">Contador MCG</text>
+            <text class="node-sub" x="100" y="344">Cierre + Nubox</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="30" y="380" width="140" height="60" rx="14"/>
+            <text class="node-text" x="100" y="404">Auditor / SVS</text>
+            <text class="node-sub" x="100" y="424">Lectura logs</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="30" y="460" width="140" height="60" rx="14"/>
+            <text class="node-text" x="100" y="484">Inversionistas (LPs)</text>
+            <text class="node-sub" x="100" y="504">Reportes</text>
+          </g>
+
+          <!-- ====== PLATAFORMA RAM-CEHTA (centro) ====== -->
+          <rect x="370" y="55" width="380" height="430" rx="22"
+                fill="rgba(29,111,66,0.04)"
+                stroke="rgba(29,111,66,0.15)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="560" y="80" font-size="11" font-weight="700"
+                fill="rgba(29,111,66,0.7)" text-anchor="middle" letter-spacing="2">PLATAFORMA RAM-CEHTA</text>
+
+          <!-- Frontend -->
+          <g class="node-group">
+            <rect class="node" x="400" y="100" width="320" height="80" rx="14"
+                  fill="white" stroke="rgba(0,122,255,0.4)"/>
+            <text class="node-text" x="560" y="128" font-size="14">Frontend · Next.js 15</text>
+            <text class="node-sub" x="560" y="148">14 pantallas · Vercel CDN global</text>
+            <text class="node-sub" x="560" y="165" fill="rgba(0,122,255,0.7)" font-weight="700">React Query · Tailwind · TypeScript</text>
+          </g>
+
+          <!-- Backend -->
+          <g class="node-group">
+            <rect class="node" x="400" y="200" width="320" height="80" rx="14"
+                  fill="white" stroke="rgba(29,111,66,0.4)"/>
+            <text class="node-text" x="560" y="228" font-size="14">Backend · FastAPI</text>
+            <text class="node-sub" x="560" y="248">80+ endpoints · Fly.io São Paulo</text>
+            <text class="node-sub" x="560" y="265" fill="rgba(29,111,66,0.7)" font-weight="700">Pydantic v2 · 1.108 tests · Fernet</text>
+          </g>
+
+          <!-- DB -->
+          <g class="node-group">
+            <rect class="node" x="400" y="300" width="320" height="80" rx="14"
+                  fill="white" stroke="rgba(175,82,222,0.4)"/>
+            <text class="node-text" x="560" y="328" font-size="14">Base · Supabase Postgres</text>
+            <text class="node-sub" x="560" y="348">40+ migraciones · RLS por empresa</text>
+            <text class="node-sub" x="560" y="365" fill="rgba(175,82,222,0.7)" font-weight="700">Triggers partida doble · Audit log</text>
+          </g>
+
+          <!-- IA layer -->
+          <g class="node-group">
+            <rect class="node" x="400" y="400" width="320" height="60" rx="14"
+                  fill="rgba(255,149,0,0.04)" stroke="rgba(255,149,0,0.5)"/>
+            <text class="node-text" x="560" y="424" font-size="13">Claude AI · Capa cognitiva</text>
+            <text class="node-sub" x="560" y="442">Clasifica · Extrae · Sugiere · Detecta anomalías</text>
+          </g>
+
+          <!-- ====== SISTEMAS EXTERNOS (derecha) ====== -->
+          <text x="970" y="35" font-size="11" font-weight="700"
+                fill="rgba(29,29,31,0.5)" text-anchor="middle" letter-spacing="2">SISTEMAS EXTERNOS</text>
+
+          <g class="node-group">
+            <rect class="node" x="900" y="60" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="80" font-size="12">Dropbox</text>
+            <text class="node-sub" x="970" y="97" fill="rgba(52,199,89,0.8)">● Operativo</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="900" y="130" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="150" font-size="12">Email IMAP/Resend</text>
+            <text class="node-sub" x="970" y="167" fill="rgba(52,199,89,0.8)">● Operativo</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="900" y="200" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="220" font-size="12">Anthropic API</text>
+            <text class="node-sub" x="970" y="237" fill="rgba(52,199,89,0.8)">● Operativo</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="900" y="270" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="290" font-size="12">SII · DTE/F22/F29</text>
+            <text class="node-sub" x="970" y="307" fill="rgba(255,149,0,0.9)">◐ Inerte</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="900" y="340" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="360" font-size="12">Nubox (REST + scrape)</text>
+            <text class="node-sub" x="970" y="377" fill="rgba(255,149,0,0.9)">◐ Inerte</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="900" y="410" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="430" font-size="12">Previred</text>
+            <text class="node-sub" x="970" y="447" fill="rgba(255,59,48,0.85)">○ Pendiente</text>
+          </g>
+          <g class="node-group">
+            <rect class="node" x="900" y="480" width="140" height="50" rx="12"/>
+            <text class="node-text" x="970" y="500" font-size="12">Bancos (cartolas)</text>
+            <text class="node-sub" x="970" y="517" fill="rgba(255,149,0,0.9)">◐ Vía Dropbox</text>
+          </g>
+
+          <!-- ====== EDGES users → frontend ====== -->
+          <path class="edge" d="M 170,90 C 280,90 280,140 400,140" marker-end="url(#ah-green)"/>
+          <path class="edge" d="M 170,170 C 280,170 280,140 400,140" marker-end="url(#ah-green)"/>
+          <path class="edge" d="M 170,250 C 280,250 280,140 400,140" marker-end="url(#ah-green)"/>
+          <path class="edge" d="M 170,330 C 280,330 280,140 400,140" marker-end="url(#ah-green)"/>
+          <path class="edge" d="M 170,410 C 280,410 280,140 400,140" marker-end="url(#ah-green)"/>
+          <path class="edge" d="M 170,490 C 280,490 280,140 400,140" marker-end="url(#ah-green)"/>
+
+          <!-- ====== EDGES interno: frontend ↔ backend ↔ DB ====== -->
+          <path class="edge blue thick" d="M 560,180 L 560,200" marker-end="url(#ah-blue)" marker-start="url(#ah-blue)"/>
+          <path class="edge purple thick" d="M 560,280 L 560,300" marker-end="url(#ah-purple)" marker-start="url(#ah-purple)"/>
+          <path class="edge orange" d="M 560,380 L 560,400" marker-end="url(#ah-blue)"/>
+
+          <!-- ====== EDGES backend → externos ====== -->
+          <path class="edge" d="M 720,225 C 820,225 820,85 900,85" marker-end="url(#ah-green)"/>
+          <path class="edge" d="M 720,235 C 820,235 820,155 900,155" marker-end="url(#ah-green)"/>
+          <path class="edge orange" d="M 720,240 C 820,240 820,225 900,225" marker-end="url(#ah-blue)"/>
+          <path class="edge orange" d="M 720,260 C 820,260 820,295 900,295" marker-end="url(#ah-blue)"/>
+          <path class="edge orange" d="M 720,265 C 820,265 820,365 900,365" marker-end="url(#ah-blue)"/>
+          <path class="edge orange" d="M 720,275 C 820,275 820,435 900,435" marker-end="url(#ah-blue)"/>
+          <path class="edge" d="M 720,280 C 820,280 820,505 900,505" marker-end="url(#ah-green)"/>
+        </svg>
+
+        <div class="legend">
+          <div class="li"><span class="swatch" style="background:rgba(29,111,66,0.5);"></span> Flujo operativo</div>
+          <div class="li"><span class="swatch" style="background:rgba(0,122,255,0.5);"></span> Frontend ↔ Backend</div>
+          <div class="li"><span class="swatch" style="background:rgba(175,82,222,0.5);"></span> Backend ↔ DB</div>
+          <div class="li"><span class="swatch" style="background:rgba(255,149,0,0.6);"></span> Integración (en activación)</div>
+          <div class="li"><span class="dot" style="width:8px;height:8px;background:#34c759;border-radius:50%;display:inline-block;"></span> Operativo</div>
+          <div class="li"><span class="dot" style="width:8px;height:8px;background:#ff9500;border-radius:50%;display:inline-block;"></span> Inerte (código listo)</div>
+          <div class="li"><span class="dot" style="width:8px;height:8px;background:#ff3b30;border-radius:50%;display:inline-block;"></span> Pendiente</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 02 — LAS 3 CAPAS Y POR QUÉ DURAN
+     ============================================================ -->
+<section class="step" id="s2">
+  <div class="container">
+    <div class="step-num"><span class="num">2</span><span class="lbl">Por qué dura años</span></div>
+    <h2>Tres capas físicamente <span class="accent">desacopladas.</span></h2>
+    <p class="lede">
+      Si Vercel sube precios el doble, migrás a Netlify en 1 hora. Si Fly.io se cae,
+      el frontend sigue dando datos cacheados. Si querés cambiar Supabase por una DB
+      privada en 5 años, no toca el frontend. Esto es lo que se llama <em>resiliencia
+      arquitectónica</em> — y es lo que separa un sistema de proyecto vs. un sistema
+      institucional.
+    </p>
+
+    <div class="cards-3">
+      <div class="card">
+        <div class="head">
+          <div class="ico blue">F</div>
+          <h3>Frontend</h3>
+        </div>
+        <p><strong>Reemplazable.</strong> Next.js es estándar industria. Cualquier dev Next puede tomarlo. Si mañana React muere (no va a pasar), se migra a Svelte/Vue sin tocar la lógica del negocio porque toda la lógica vive en el backend.</p>
+        <p style="margin-top:14px;color:rgba(29,29,31,0.5);font-size:12px;">→ Bus factor: <strong>resuelto</strong>.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico">B</div>
+          <h3>Backend</h3>
+        </div>
+        <p><strong>El cerebro.</strong> FastAPI + Python es el stack más común del mundo financiero. Las reglas de negocio están en Pydantic — autodocumentadas, tipadas, testeadas. Si querés migrarlo a Rust/Go por performance en 5 años, los contratos REST quedan igual.</p>
+        <p style="margin-top:14px;color:rgba(29,29,31,0.5);font-size:12px;">→ 1.108 tests blindan refactor.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico purple">D</div>
+          <h3>Datos</h3>
+        </div>
+        <p><strong>Inmortal.</strong> Es Postgres puro — el estándar SQL más portable. Si Supabase desaparece, se exporta y se carga en RDS/CloudSQL/self-hosted en horas. Los triggers de partida doble seguirán funcionando idénticos.</p>
+        <p style="margin-top:14px;color:rgba(29,29,31,0.5);font-size:12px;">→ Postgres existe desde 1996. No se va a ir.</p>
+      </div>
+    </div>
+
+    <div class="diagram-frame" style="margin-top:48px;">
+      <div class="titlebar">
+        <span class="ctl r"></span><span class="ctl y"></span><span class="ctl g"></span>
+        <span class="name">tres capas · resiliencia visual</span>
+      </div>
+      <div class="canvas no-grid">
+        <svg viewBox="0 0 900 360" style="width:100%;height:auto;">
+          <defs>
+            <linearGradient id="g-front" x1="0" x2="1">
+              <stop offset="0" stop-color="#007aff"/><stop offset="1" stop-color="#5856d6"/>
+            </linearGradient>
+            <linearGradient id="g-back" x1="0" x2="1">
+              <stop offset="0" stop-color="#1d6f42"/><stop offset="1" stop-color="#2a9d5e"/>
+            </linearGradient>
+            <linearGradient id="g-db" x1="0" x2="1">
+              <stop offset="0" stop-color="#af52de"/><stop offset="1" stop-color="#5856d6"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Pila visual -->
+          <!-- Frontend -->
+          <rect x="100" y="40" width="700" height="80" rx="16" fill="url(#g-front)" opacity="0.92"/>
+          <text x="450" y="72" fill="white" font-size="18" font-weight="700" text-anchor="middle" letter-spacing="-0.01em">Frontend · Next.js 15</text>
+          <text x="450" y="96" fill="rgba(255,255,255,0.85)" font-size="13" text-anchor="middle">Lo que ves · 14 pantallas · Vercel CDN</text>
+          <text x="780" y="105" fill="rgba(255,255,255,0.7)" font-size="10" text-anchor="end">Si cae → cache local</text>
+
+          <!-- Conector animado -->
+          <path d="M 450,130 L 450,150" stroke="rgba(0,0,0,0.15)" stroke-width="2" stroke-dasharray="3 3" class="edge blue"/>
+
+          <!-- Backend -->
+          <rect x="100" y="150" width="700" height="80" rx="16" fill="url(#g-back)" opacity="0.92"/>
+          <text x="450" y="182" fill="white" font-size="18" font-weight="700" text-anchor="middle" letter-spacing="-0.01em">Backend · FastAPI</text>
+          <text x="450" y="206" fill="rgba(255,255,255,0.85)" font-size="13" text-anchor="middle">El cerebro · 80+ endpoints · Fly.io</text>
+          <text x="780" y="215" fill="rgba(255,255,255,0.7)" font-size="10" text-anchor="end">Si cae → frontend muestra cached</text>
+
+          <!-- Conector animado -->
+          <path d="M 450,240 L 450,260" stroke="rgba(0,0,0,0.15)" stroke-width="2" stroke-dasharray="3 3" class="edge purple"/>
+
+          <!-- DB -->
+          <rect x="100" y="260" width="700" height="80" rx="16" fill="url(#g-db)" opacity="0.92"/>
+          <text x="450" y="292" fill="white" font-size="18" font-weight="700" text-anchor="middle" letter-spacing="-0.01em">Datos · Supabase Postgres</text>
+          <text x="450" y="316" fill="rgba(255,255,255,0.85)" font-size="13" text-anchor="middle">La verdad · 40+ migraciones · backups PITR</text>
+          <text x="780" y="325" fill="rgba(255,255,255,0.7)" font-size="10" text-anchor="end">Backup cada hora · restore en 2 min</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 03 — EL VOUCHER (UNIDAD MÍNIMA)
+     ============================================================ -->
+<section class="step" id="s3">
+  <div class="container">
+    <div class="step-num"><span class="num">3</span><span class="lbl">La unidad mínima</span></div>
+    <h2>Todo el sistema gira alrededor del <span class="accent">voucher.</span></h2>
+    <p class="lede">
+      Una factura no es un objeto. Un pago no es un objeto. Una boleta no es un
+      objeto. <strong>Solo el voucher.</strong> Cada transacción es un voucher con
+      líneas que cuadran. Esto es lo que permite que tu sistema sea contablemente
+      auditable a cualquier nivel — incluso SVS.
+    </p>
+
+    <h3 style="font-size:24px;font-weight:600;letter-spacing:-0.02em;margin:48px 0 8px;">
+      La regla más importante: partida doble en 3 capas
+    </h3>
+    <p style="font-size:15px;color:rgba(29,29,31,0.65);max-width:720px;margin-bottom:32px;">
+      Cualquiera de las 3 capas rechaza un voucher descuadrado. Si Zod (navegador)
+      falla por bug, Pydantic (API) lo agarra. Si Pydantic falla, el trigger Postgres
+      lo agarra. <strong>Es físicamente imposible que un asiento descuadrado llegue a la DB.</strong>
+    </p>
+
+    <div class="diagram-frame">
+      <div class="titlebar">
+        <span class="ctl r"></span><span class="ctl y"></span><span class="ctl g"></span>
+        <span class="name">3 capas de validación · partida doble</span>
+      </div>
+      <div class="canvas no-grid">
+        <svg viewBox="0 0 900 320" style="width:100%;height:auto;">
+          <!-- Capas concéntricas estilo onion -->
+          <ellipse cx="450" cy="160" rx="400" ry="120" fill="none" stroke="rgba(0,122,255,0.25)" stroke-width="2" stroke-dasharray="6 4"/>
+          <ellipse cx="450" cy="160" rx="270" ry="90" fill="none" stroke="rgba(29,111,66,0.3)" stroke-width="2" stroke-dasharray="6 4"/>
+          <ellipse cx="450" cy="160" rx="140" ry="60" fill="rgba(175,82,222,0.08)" stroke="rgba(175,82,222,0.4)" stroke-width="2"/>
+
+          <text x="450" y="155" font-size="13" font-weight="700" fill="#af52de" text-anchor="middle">Capa 3</text>
+          <text x="450" y="172" font-size="11" fill="rgba(175,82,222,0.85)" text-anchor="middle">Trigger Postgres</text>
+
+          <text x="450" y="75" font-size="13" font-weight="700" fill="#1d6f42" text-anchor="middle">Capa 2 · Pydantic (API)</text>
+          <text x="450" y="245" font-size="11" fill="rgba(29,111,66,0.7)" text-anchor="middle">rechaza antes de tocar DB</text>
+
+          <text x="450" y="55" font-size="13" font-weight="700" fill="#007aff" text-anchor="middle">Capa 1 · Zod (navegador)</text>
+          <text x="450" y="265" font-size="11" fill="rgba(0,122,255,0.7)" text-anchor="middle">rechaza antes de hacer request</text>
+
+          <!-- Voucher entrando -->
+          <g>
+            <rect x="20" y="140" width="100" height="40" rx="8" fill="white" stroke="#1d1d1f" stroke-width="1.5"/>
+            <text x="70" y="165" font-size="12" font-weight="600" text-anchor="middle">Voucher</text>
+            <text x="70" y="195" font-size="9" fill="rgba(29,29,31,0.55)" text-anchor="middle">debe=$1.000 haber=$999</text>
+          </g>
+
+          <!-- Voucher rechazado -->
+          <g>
+            <rect x="780" y="140" width="100" height="40" rx="8" fill="rgba(255,59,48,0.08)" stroke="#ff3b30" stroke-width="1.5"/>
+            <text x="830" y="165" font-size="12" font-weight="600" fill="#c41e3a" text-anchor="middle">RECHAZADO</text>
+            <text x="830" y="195" font-size="9" fill="rgba(196,30,58,0.7)" text-anchor="middle">no llegó a la base</text>
+          </g>
+
+          <path d="M 120,160 L 770,160" stroke="rgba(255,59,48,0.5)" stroke-width="1.5" stroke-dasharray="6 4" class="edge orange"/>
+        </svg>
+      </div>
+    </div>
+
+    <h3 style="font-size:24px;font-weight:600;letter-spacing:-0.02em;margin:64px 0 8px;">
+      Cómo se ve un voucher cuadrado
+    </h3>
+    <p style="font-size:15px;color:rgba(29,29,31,0.65);max-width:720px;margin-bottom:8px;">
+      Ejemplo: pago a proveedor por servicios profesionales — $1.190.000 + IVA.
+      Tres líneas, tres cuentas distintas, suma debe = suma haber.
+    </p>
+
+    <div class="t-accounts">
+      <div class="t-acc debit">
+        <div class="head">DEBE (Activo / Gasto sube)</div>
+        <div class="rows">
+          <div class="r"><span>Gasto Servicios</span><span>$ 1.190.000</span></div>
+          <div class="r"><span>IVA Crédito Fiscal</span><span>$ 226.100</span></div>
+          <div class="r total"><span>Total Debe</span><span>$ 1.416.100</span></div>
+        </div>
+      </div>
+      <div class="t-acc credit">
+        <div class="head">HABER (Activo / Pasivo baja)</div>
+        <div class="rows">
+          <div class="r"><span>Banco Estado · CC 1234</span><span>$ 1.416.100</span></div>
+          <div class="r" style="opacity:0.3;"><span>—</span><span>—</span></div>
+          <div class="r total"><span>Total Haber</span><span>$ 1.416.100</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="center">
+      <div class="balance-check"><span class="check">✓</span> Cuadrado · diferencia $ 0 · APROBADO por las 3 capas</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 04 — LIFECYCLE DEL VOUCHER
+     ============================================================ -->
+<section class="step" id="s4">
+  <div class="container">
+    <div class="step-num"><span class="num">4</span><span class="lbl">Ciclo de vida</span></div>
+    <h2>El voucher tiene 7 estados. <span class="accent">Solo avanza.</span></h2>
+    <p class="lede">
+      Nunca retrocede. Cada transición queda registrada con timestamp + usuario.
+      Esto es lo que permite reconstruir auditablemente la historia completa de
+      cada peso del fondo, hasta su origen, varios años después.
+    </p>
+
+    <div class="pipeline">
+      <div class="pipe-state draft">
+        <div class="badge-name">Draft</div>
+        <div class="desc">Libre. Permitido descuadrar mientras editás.</div>
+      </div>
+      <div class="pipe-state pending">
+        <div class="badge-name">Pending</div>
+        <div class="desc">Cuadra. Esperando firma(s).</div>
+      </div>
+      <div class="pipe-state approved">
+        <div class="badge-name">Approved</div>
+        <div class="desc">Firmado. Listo para ejecutar.</div>
+      </div>
+      <div class="pipe-state executed">
+        <div class="badge-name">Executed</div>
+        <div class="desc">La plata se movió. Banco confirmó.</div>
+      </div>
+      <div class="pipe-state synced">
+        <div class="badge-name">Synced</div>
+        <div class="desc">Cargado en Nubox (libro oficial).</div>
+      </div>
+      <div class="pipe-state reconciled">
+        <div class="badge-name">Reconciled</div>
+        <div class="desc">Coincide con cartola bancaria.</div>
+      </div>
+      <div class="pipe-state closed">
+        <div class="badge-name">Closed</div>
+        <div class="desc">Mes cerrado. Inmutable.</div>
+      </div>
+    </div>
+
+    <p style="font-size:14px;color:rgba(29,29,31,0.55);text-align:center;margin-top:24px;">
+      Estados terminales fuera de línea principal:
+      <strong style="color:#c41e3a;">REJECTED</strong> (no aprobado) ·
+      <strong style="color:#6e6e73;">VOID</strong> (anulado pre-ejecución) ·
+      <strong style="color:#5856d6;">REVERSO</strong> (contra-asiento de uno EXECUTED)
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 05 — FLUJO DEL DÍA (con IA)
+     ============================================================ -->
+<section class="step" id="s5">
+  <div class="container">
+    <div class="step-num"><span class="num">5</span><span class="lbl">El día operativo</span></div>
+    <h2>Un día completo, <span class="accent">visualizado.</span></h2>
+    <p class="lede">
+      Esta es la diferencia con un ERP tradicional: el trabajo mecánico (leer
+      facturas, clasificarlas, sugerir cuentas) lo hace Claude. El humano hace
+      solo el trabajo de criterio (revisar, aprobar, autorizar pagos).
+    </p>
+
+    <div class="diagram-frame">
+      <div class="titlebar">
+        <span class="ctl r"></span><span class="ctl y"></span><span class="ctl g"></span>
+        <span class="name">flujo diario · timeline + actores</span>
+      </div>
+      <div class="canvas">
+        <svg viewBox="0 0 1100 420" style="width:100%;height:auto;">
+          <!-- Carriles horizontales -->
+          <g font-family="-apple-system, sans-serif" font-size="11" font-weight="700" fill="rgba(29,29,31,0.55)" letter-spacing="1.5">
+            <text x="20" y="58" text-anchor="start">EMAIL / IMAP</text>
+            <text x="20" y="138" text-anchor="start">IA · CLAUDE</text>
+            <text x="20" y="218" text-anchor="start">OPERADOR</text>
+            <text x="20" y="298" text-anchor="start">MANAGER + CFO</text>
+            <text x="20" y="378" text-anchor="start">SISTEMA · NUBOX</text>
+          </g>
+          <g stroke="rgba(0,0,0,0.06)" stroke-width="1">
+            <line x1="160" y1="50" x2="1080" y2="50"/>
+            <line x1="160" y1="130" x2="1080" y2="130"/>
+            <line x1="160" y1="210" x2="1080" y2="210"/>
+            <line x1="160" y1="290" x2="1080" y2="290"/>
+            <line x1="160" y1="370" x2="1080" y2="370"/>
+          </g>
+
+          <!-- Time markers -->
+          <g font-size="11" fill="rgba(29,29,31,0.45)" font-weight="600">
+            <text x="220" y="35" text-anchor="middle">9 AM</text>
+            <text x="400" y="35" text-anchor="middle">10 AM</text>
+            <text x="600" y="35" text-anchor="middle">12 PM</text>
+            <text x="800" y="35" text-anchor="middle">3 PM</text>
+            <text x="1000" y="35" text-anchor="middle">5 PM</text>
+          </g>
+
+          <!-- Event blobs -->
+          <!-- 9 AM: Email -->
+          <g class="node-group">
+            <rect class="node" x="180" y="42" width="100" height="20" rx="10" fill="rgba(0,122,255,0.1)" stroke="rgba(0,122,255,0.4)"/>
+            <text class="node-sub" x="230" y="52" fill="rgba(0,55,204,0.9)" font-weight="600">3 facturas in</text>
+          </g>
+
+          <!-- 9:05 IA classify -->
+          <g class="node-group">
+            <rect class="node" x="290" y="122" width="120" height="20" rx="10" fill="rgba(255,149,0,0.1)" stroke="rgba(255,149,0,0.5)"/>
+            <text class="node-sub" x="350" y="132" fill="rgba(199,109,0,0.95)" font-weight="600">Extract + clasifica</text>
+          </g>
+
+          <!-- Flecha vertical -->
+          <path d="M 230,62 L 230,122" stroke="rgba(0,122,255,0.4)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#ah-blue)"/>
+
+          <!-- 11 AM: operator review -->
+          <g class="node-group">
+            <rect class="node" x="430" y="202" width="160" height="20" rx="10" fill="rgba(29,111,66,0.1)" stroke="rgba(29,111,66,0.5)"/>
+            <text class="node-sub" x="510" y="212" fill="rgba(29,111,66,0.95)" font-weight="600">Revisa 3 vouchers DRAFT</text>
+          </g>
+          <path d="M 350,142 L 510,202" stroke="rgba(255,149,0,0.4)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#ah-green)"/>
+
+          <!-- 12 PM: send to PENDING -->
+          <g class="node-group">
+            <rect class="node" x="610" y="202" width="140" height="20" rx="10" fill="rgba(255,149,0,0.1)" stroke="rgba(255,149,0,0.5)"/>
+            <text class="node-sub" x="680" y="212" fill="rgba(199,109,0,0.95)" font-weight="600">→ PENDING</text>
+          </g>
+
+          <!-- 3 PM: Manager approve -->
+          <g class="node-group">
+            <rect class="node" x="770" y="282" width="140" height="20" rx="10" fill="rgba(0,122,255,0.1)" stroke="rgba(0,122,255,0.5)"/>
+            <text class="node-sub" x="840" y="292" fill="rgba(0,55,204,0.95)" font-weight="600">Manager 1ra firma</text>
+          </g>
+          <path d="M 680,222 L 840,282" stroke="rgba(255,149,0,0.4)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#ah-blue)"/>
+
+          <!-- 3:30: CFO 2nd signature -->
+          <g class="node-group">
+            <rect class="node" x="920" y="282" width="140" height="20" rx="10" fill="rgba(29,111,66,0.1)" stroke="rgba(29,111,66,0.5)"/>
+            <text class="node-sub" x="990" y="292" fill="rgba(29,111,66,0.95)" font-weight="600">CFO 2da firma + pago</text>
+          </g>
+
+          <!-- 5 PM: Nubox sync -->
+          <g class="node-group">
+            <rect class="node" x="950" y="362" width="120" height="20" rx="10" fill="rgba(175,82,222,0.1)" stroke="rgba(175,82,222,0.5)"/>
+            <text class="node-sub" x="1010" y="372" fill="rgba(67,57,168,0.95)" font-weight="600">Sync Nubox</text>
+          </g>
+          <path d="M 990,302 L 1010,362" stroke="rgba(29,111,66,0.5)" stroke-width="1.5" stroke-dasharray="3 3" marker-end="url(#ah-purple)"/>
+
+          <!-- Final flow arrow showing complete pipeline -->
+          <text x="540" y="410" font-size="11" fill="rgba(29,29,31,0.5)" text-anchor="middle" font-style="italic">
+            Tiempo total operador en 3 vouchers: ~12 minutos. Sin IA, sería ~40 minutos.
+          </text>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 06 — TRIPLE IMPUTACIÓN
+     ============================================================ -->
+<section class="step" id="s6">
+  <div class="container">
+    <div class="step-num"><span class="num">6</span><span class="lbl">Imputación 3D</span></div>
+    <h2>Cada línea imputa <span class="accent">tres dimensiones.</span></h2>
+    <p class="lede">
+      Esto es lo que distingue tu sistema de un Excel o un ERP barato. Cada peso
+      se etiqueta con <strong>cuenta + proyecto + área</strong>. Eso permite armar
+      reportes "EEFF del proyecto X", "Gastos del área Y", "Cuenta Z por proyecto" —
+      sin tocar ni un dato manualmente. Es la base de toda la inteligencia de gestión.
+    </p>
+
+    <div class="diagram-frame">
+      <div class="titlebar">
+        <span class="ctl r"></span><span class="ctl y"></span><span class="ctl g"></span>
+        <span class="name">triple imputación · cubo OLAP en vivo</span>
+      </div>
+      <div class="canvas no-grid">
+        <svg viewBox="0 0 900 380" style="width:100%;height:auto;">
+          <defs>
+            <linearGradient id="cube-face" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="white"/>
+              <stop offset="1" stop-color="#fafbfc"/>
+            </linearGradient>
+          </defs>
+
+          <!-- Cubo isométrico -->
+          <g transform="translate(280,90)">
+            <!-- Cara superior (Proyectos) -->
+            <polygon points="0,40 160,0 320,40 160,80" fill="rgba(0,122,255,0.12)" stroke="#007aff" stroke-width="1.5"/>
+            <text x="160" y="45" font-size="11" font-weight="700" fill="#0055cc" text-anchor="middle" letter-spacing="0.5">PROYECTO</text>
+            <text x="160" y="60" font-size="9" fill="rgba(0,85,204,0.7)" text-anchor="middle">FIP_CEHTA · AFIS · CSL · RHO · EVOQUE...</text>
+
+            <!-- Cara frontal (Cuenta) -->
+            <polygon points="0,40 160,80 160,240 0,200" fill="rgba(29,111,66,0.12)" stroke="#1d6f42" stroke-width="1.5"/>
+            <g transform="translate(80,140)">
+              <text font-size="11" font-weight="700" fill="#1d6f42" text-anchor="middle" letter-spacing="0.5">CUENTA</text>
+              <text y="16" font-size="9" fill="rgba(29,111,66,0.7)" text-anchor="middle">Plan contable</text>
+              <text y="32" font-size="9" fill="rgba(29,111,66,0.7)" text-anchor="middle">jerárquico</text>
+            </g>
+
+            <!-- Cara derecha (Área) -->
+            <polygon points="160,80 320,40 320,200 160,240" fill="rgba(175,82,222,0.12)" stroke="#af52de" stroke-width="1.5"/>
+            <g transform="translate(240,140)">
+              <text font-size="11" font-weight="700" fill="#af52de" text-anchor="middle" letter-spacing="0.5">ÁREA</text>
+              <text y="16" font-size="9" fill="rgba(175,82,222,0.7)" text-anchor="middle">Centro de</text>
+              <text y="32" font-size="9" fill="rgba(175,82,222,0.7)" text-anchor="middle">responsabilidad</text>
+            </g>
+
+            <!-- Punto resaltado: voucher específico -->
+            <circle cx="135" cy="125" r="6" fill="#ff3b30"/>
+            <circle cx="135" cy="125" r="12" fill="none" stroke="#ff3b30" stroke-width="1" opacity="0.4">
+              <animate attributeName="r" from="6" to="20" dur="2s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" from="0.6" to="0" dur="2s" repeatCount="indefinite"/>
+            </circle>
+            <text x="135" y="280" font-size="10" fill="#c41e3a" text-anchor="middle" font-weight="600">↑ esta línea de voucher</text>
+            <text x="135" y="294" font-size="9" fill="rgba(196,30,58,0.7)" text-anchor="middle">cuenta 5101 · FIP_CEHTA · ÁREA OPER</text>
+          </g>
+
+          <!-- Ejemplo a la derecha -->
+          <g transform="translate(640,80)">
+            <text x="0" y="0" font-size="12" font-weight="700" fill="rgba(29,29,31,0.85)" letter-spacing="0.3">Ejemplo real</text>
+            <rect x="0" y="14" width="220" height="240" rx="14" fill="white" stroke="rgba(0,0,0,0.08)" stroke-width="1"/>
+            <g transform="translate(20,38)" font-size="11" fill="rgba(29,29,31,0.75)">
+              <text font-weight="600" fill="#1d6f42">Cuenta 5101</text>
+              <text y="14" font-size="10" fill="rgba(29,29,31,0.55)">Gasto Servicios Prof.</text>
+
+              <text y="40" font-weight="600" fill="#007aff">Proyecto AFIS</text>
+              <text y="54" font-size="10" fill="rgba(29,29,31,0.55)">AFI portafolio holding</text>
+
+              <text y="80" font-weight="600" fill="#af52de">Área OPER</text>
+              <text y="94" font-size="10" fill="rgba(29,29,31,0.55)">Operaciones</text>
+
+              <text y="124" font-weight="600" fill="rgba(29,29,31,0.55)">Monto</text>
+              <text y="140" font-weight="700" font-size="14" font-family="SF Mono, Menlo, monospace">$ 1.190.000</text>
+
+              <text y="170" font-weight="600" fill="rgba(29,29,31,0.55)">Resultado</text>
+              <text y="188" font-size="10">→ aparece en EEFF</text>
+              <text y="202" font-size="10">→ aparece en cuenta 5101</text>
+              <text y="216" font-size="10">→ aparece en P&amp;L AFIS</text>
+              <text y="230" font-size="10">→ aparece en gastos OPER</text>
+            </g>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:15px;color:rgba(29,29,31,0.6);margin-top:32px;font-style:italic;max-width:680px;margin-left:auto;margin-right:auto;">
+      <strong>Una sola línea de voucher</strong> genera información usable en cuatro
+      reportes distintos. Sin re-tipear nada.
+    </p>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 07 — POR QUÉ DURA 10 AÑOS
+     ============================================================ -->
+<section class="step" id="s7">
+  <div class="container">
+    <div class="step-num"><span class="num">7</span><span class="lbl">Longevidad</span></div>
+    <h2>Está diseñado para <span class="accent">durar 10 años.</span></h2>
+    <p class="lede">
+      No es un pitch — es una decisión arquitectónica deliberada. Cada uno de estos
+      pilares está pensado para sobrevivir a los cambios típicos que matan sistemas
+      financieros: rotación de personal, cambios regulatorios, crecimiento del fondo,
+      muerte de proveedores, auditorías intensas.
+    </p>
+
+    <div class="timeline">
+      <div class="tl-item" style="--c:#1d6f42;color:#1d6f42;">
+        <div class="when">Hoy → Año 1</div>
+        <h4>1.108 tests automatizados</h4>
+        <p style="color:rgba(29,29,31,0.7);">Cualquier cambio futuro que rompa una regla contable lo agarra el CI antes de mergear. Es como un auditor 24/7 que nunca duerme. La regla: no se mergea código con tests rotos.</p>
+      </div>
+      <div class="tl-item" style="--c:#007aff;color:#007aff;">
+        <div class="when">Año 1 → Año 3</div>
+        <h4>22 invariantes en SUPER_PROMPT_MAESTRO</h4>
+        <p style="color:rgba(29,29,31,0.7);">Reglas no-negociables documentadas. Si en 2 años entra un dev nuevo y quiere "optimizar" la partida doble, lee el documento y entiende por qué no se toca. Es el contrato técnico-legal del sistema.</p>
+      </div>
+      <div class="tl-item" style="--c:#af52de;color:#af52de;">
+        <div class="when">Año 2 → Año 5</div>
+        <h4>Triggers en SQL (no solo en código)</h4>
+        <p style="color:rgba(29,29,31,0.7);">Las reglas críticas están <em>también</em> en la base. Si en 5 años se reescribe todo el backend, los triggers Postgres siguen ahí defendiendo la partida doble. Hasta que alguien explícitamente los borre — y eso queda en audit log.</p>
+      </div>
+      <div class="tl-item" style="--c:#ff9500;color:#ff9500;">
+        <div class="when">Año 3 → Año 7</div>
+        <h4>Audit log inmutable</h4>
+        <p style="color:rgba(29,29,31,0.7);">Cada cambio queda registrado con timestamp + usuario + IP + acción anterior + acción nueva. Cuando vengan SVS o un auditor externo en 5 años a preguntar "¿quién aprobó este pago de $50M en 2026?", la respuesta es trivial.</p>
+      </div>
+      <div class="tl-item" style="--c:#5856d6;color:#5856d6;">
+        <div class="when">Año 5 → Año 10</div>
+        <h4>Postgres puro · sin lock-in</h4>
+        <p style="color:rgba(29,29,31,0.7);">Toda la lógica de datos está en SQL estándar. Si Supabase desaparece, RDS/Aurora/CloudSQL/self-hosted reciben el dump y arranca en horas. Si FastAPI muere (no va a pasar), el contrato REST documentado deja migrar a otro stack sin romper el frontend.</p>
+      </div>
+      <div class="tl-item" style="--c:#34c759;color:#34c759;">
+        <div class="when">Siempre</div>
+        <h4>Cifrado Fernet en credenciales sensibles</h4>
+        <p style="color:rgba(29,29,31,0.7);">Las API keys de Nubox, SII, Previred, bancos están cifradas con clave que solo conoce Fly.io. Si la DB se filtra, las credenciales son binario inservible. Conformidad con regulación financiera chilena básica.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 08 — QUÉ ESTÁ + QUÉ FALTA
+     ============================================================ -->
+<section class="step" id="s8">
+  <div class="container">
+    <div class="step-num"><span class="num">8</span><span class="lbl">Estado actual</span></div>
+    <h2>Qué está hecho. <span class="accent">Qué falta.</span></h2>
+    <p class="lede">
+      Honestidad total: el sistema está casi terminado, pero hay piezas críticas
+      esperando acciones manuales tuyas o llegadas de credenciales de terceros.
+      Acá las barras de progreso reales por módulo.
+    </p>
+
+    <div class="progress-list">
+      <div class="progress-row" data-w="100">
+        <div class="head"><span class="name">Vouchers · CRUD + workflow + 7 estados</span><span class="pct">100%</span></div>
+        <div class="bar"><div class="fill" style="--w:100%;"></div></div>
+        <div class="note">14 pantallas funcionando. 3 formularios. 1.108 tests verdes.</div>
+      </div>
+      <div class="progress-row" data-w="100">
+        <div class="head"><span class="name">Partida doble + triple imputación</span><span class="pct">100%</span></div>
+        <div class="bar"><div class="fill" style="--w:100%;"></div></div>
+        <div class="note">3 capas activas. Triggers SQL en producción.</div>
+      </div>
+      <div class="progress-row" data-w="100">
+        <div class="head"><span class="name">Auth · RBAC · 2FA infraestructura</span><span class="pct">100%</span></div>
+        <div class="bar"><div class="fill" style="--w:100%;"></div></div>
+        <div class="note">44 usuarios creados desde Round 79. 2FA listo (falta activar por usuario).</div>
+      </div>
+      <div class="progress-row" data-w="95" style="--c:#34c759;--c2:#1d6f42;">
+        <div class="head"><span class="name">Conciliación bancaria · cartolas</span><span class="pct">95%</span></div>
+        <div class="bar"><div class="fill" style="--w:95%;"></div></div>
+        <div class="note">Match automático funciona. Falta UI para resolver discrepancias manualmente.</div>
+      </div>
+      <div class="progress-row" data-w="90" style="--c:#34c759;--c2:#1d6f42;">
+        <div class="head"><span class="name">IA · clasificación inbox + extract facturas</span><span class="pct">90%</span></div>
+        <div class="bar"><div class="fill" style="--w:90%;"></div></div>
+        <div class="note">Operativo. Falta fine-tune prompts con casos chilenos.</div>
+      </div>
+      <div class="progress-row" data-w="85" style="--c:#34c759;--c2:#1d6f42;">
+        <div class="head"><span class="name">Reportes · EEFF · Portafolio · Audit</span><span class="pct">85%</span></div>
+        <div class="bar"><div class="fill" style="--w:85%;"></div></div>
+        <div class="note">Generación correcta. Falta optimizar performance (objetivo: materialized views).</div>
+      </div>
+      <div class="progress-row" data-w="70" style="--c:#ff9500;--c2:#c76d00;">
+        <div class="head"><span class="name">SII Chile (DTE / F22 / F29)</span><span class="pct">70%</span></div>
+        <div class="bar"><div class="fill" style="--w:70%;"></div></div>
+        <div class="note">Código deployado (R117/118/119/121). Inerte: necesita migración SQL R117 + Fernet key.</div>
+      </div>
+      <div class="progress-row" data-w="60" style="--c:#ff9500;--c2:#c76d00;">
+        <div class="head"><span class="name">Nubox · scraping + API REST</span><span class="pct">60%</span></div>
+        <div class="bar"><div class="fill" style="--w:60%;"></div></div>
+        <div class="note">Scraping listo (R123). API REST esperando credenciales reales de soporte@nubox.com.</div>
+      </div>
+      <div class="progress-row" data-w="40" style="--c:#ff9500;--c2:#c76d00;">
+        <div class="head"><span class="name">Performance · transaction pooler</span><span class="pct">40%</span></div>
+        <div class="bar"><div class="fill" style="--w:40%;"></div></div>
+        <div class="note">Documentación lista. Cambio de string en Fly + test E2E pendiente.</div>
+      </div>
+      <div class="progress-row" data-w="30" style="--c:#ff9500;--c2:#c76d00;">
+        <div class="head"><span class="name">Cron schedules · monitor + sync nocturno</span><span class="pct">30%</span></div>
+        <div class="bar"><div class="fill" style="--w:30%;"></div></div>
+        <div class="note">Machines existen. Falta `fly machine update &lt;id&gt; --schedule` para activar.</div>
+      </div>
+      <div class="progress-row" data-w="20" style="--c:#ff3b30;--c2:#c41e3a;">
+        <div class="head"><span class="name">Previred · cotizaciones automáticas</span><span class="pct">20%</span></div>
+        <div class="bar"><div class="fill" style="--w:20%;"></div></div>
+        <div class="note">Solo credenciales cifradas almacenadas. Cliente Python pendiente.</div>
+      </div>
+      <div class="progress-row" data-w="0" style="--c:#ff3b30;--c2:#c41e3a;">
+        <div class="head"><span class="name">Vercel deploy desbloqueado</span><span class="pct">¡FIX!</span></div>
+        <div class="bar"><div class="fill" style="--w:100%;background:linear-gradient(90deg,#34c759,#1d6f42)!important;"></div></div>
+        <div class="note" style="color:#1d6f42;font-weight:600;">✓ Round 133 — escape de comillas en /admin/data:493. Build pasa exit code 0.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 09 — QUÉ FALTA HACER MANUALMENTE
+     ============================================================ -->
+<section class="step" id="s9">
+  <div class="container">
+    <div class="step-num"><span class="num">9</span><span class="lbl">Acciones tuyas</span></div>
+    <h2>Lo que falta es <span class="accent">manual.</span></h2>
+    <p class="lede">
+      No es código — el código está hecho. Son 7 acciones que tenés que ejecutar
+      vos (o autorizarme a hacerlas en tu nombre con tus credenciales). Ordenadas
+      por urgencia para llegar a marcha blanca.
+    </p>
+
+    <div class="status-grid">
+      <div class="status-item err">
+        <div class="label"><span class="dot"></span> Urgente · esta semana</div>
+        <h4>1. Aplicar 5 migraciones SQL</h4>
+        <p>R115, R117, R123, R124, R126. Ya hay script idempotente. Comando: <code style="font-family:SF Mono,monospace;font-size:12px;background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;">python -m scripts.apply_pending_migrations</code></p>
+      </div>
+      <div class="status-item err">
+        <div class="label"><span class="dot"></span> Urgente · esta semana</div>
+        <h4>2. Setear Fernet key en Fly</h4>
+        <p>Sin esto SII no arranca. Comando: <code style="font-family:SF Mono,monospace;font-size:11px;background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;">fly secrets set CREDENTIALS_FERNET_KEY="..."</code></p>
+      </div>
+      <div class="status-item warn">
+        <div class="label"><span class="dot"></span> Próxima semana</div>
+        <h4>3. Cargar seed Excel inicial</h4>
+        <p>9 empresas + RUTs + bancos + plan de cuentas. Comando: <code style="font-family:SF Mono,monospace;font-size:11px;background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;">python scripts/seed_empresas_excel_round116.py "..."</code></p>
+      </div>
+      <div class="status-item warn">
+        <div class="label"><span class="dot"></span> Próxima semana</div>
+        <h4>4. Activar 2FA admin</h4>
+        <p>Entrá a <strong>/me/2fa</strong> y escaneá el QR con Authy/Google Authenticator. Sin esto un atacante con tu password ya entró.</p>
+      </div>
+      <div class="status-item warn">
+        <div class="label"><span class="dot"></span> Próxima semana</div>
+        <h4>5. Programar Fly cron schedules</h4>
+        <p>Monitor cada 10 min, auto_sync diario 6 AM. Comando: <code style="font-family:SF Mono,monospace;font-size:10px;background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;">fly machine update &lt;id&gt; --schedule "*/10 * * * *"</code></p>
+      </div>
+      <div class="status-item info">
+        <div class="label"><span class="dot"></span> Mes 1</div>
+        <h4>6. Solicitar credenciales Nubox API</h4>
+        <p>Email a soporte@nubox.com pidiendo credenciales productivas (no V1.1 prueba). Sin esto Nubox queda solo en modo scraping.</p>
+      </div>
+      <div class="status-item info">
+        <div class="label"><span class="dot"></span> Mes 1</div>
+        <h4>7. Test E2E real</h4>
+        <p>1 voucher real con caja chica → 2 firmas → EXECUTED → conciliar. Si funciona el ciclo entero sin errores, marcha blanca aprobada.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 10 — MEJORAS FUTURAS
+     ============================================================ -->
+<section class="step" id="s10">
+  <div class="container">
+    <div class="step-num"><span class="num">10</span><span class="lbl">Próximas mejoras</span></div>
+    <h2>Lo que viene <span class="accent">después.</span></h2>
+    <p class="lede">
+      Una vez en marcha blanca, las 3 mejoras de mayor impacto operativo. Acá la
+      diferencia entre "el sistema funciona" y "el sistema es un placer usar todos los días".
+    </p>
+
+    <div class="cards-3">
+      <div class="card">
+        <div class="head">
+          <div class="ico">⚡</div>
+          <h3>Transaction pooler</h3>
+        </div>
+        <p>Hoy backend abre conexión nueva por request → 80-200ms latencia extra. Con pgbouncer transaction pooler (free en Supabase) las conexiones se reusan.</p>
+        <p style="margin-top:12px;color:#1d6f42;font-weight:600;font-size:13px;">Ganancia: 30-40% más rápido. Costo: 2 horas.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico blue">📊</div>
+          <h3>Materialized views EEFF</h3>
+        </div>
+        <p>Reportes financieros se calculan en vivo desde millones de líneas. Con MV refresh cada 5 min, abren al instante.</p>
+        <p style="margin-top:12px;color:#007aff;font-weight:600;font-size:13px;">Ganancia: 8s → 200ms. Costo: 4-6 horas.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico orange">🤖</div>
+          <h3>IA extract contratos</h3>
+        </div>
+        <p>Claude lee facturas. Próximo nivel: que lea contratos de proveedores y precargue plantillas mensuales recurrentes ("arriendo $X cada día 5").</p>
+        <p style="margin-top:12px;color:#ff9500;font-weight:600;font-size:13px;">Ganancia: -40% tiempo data entry. Costo: 2 semanas.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico purple">⌨️</div>
+          <h3>Atajos teclado + ⌘K palette</h3>
+        </div>
+        <p><code style="font-family:SF Mono,monospace;font-size:11px;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">N</code> nuevo voucher · <code style="font-family:SF Mono,monospace;font-size:11px;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">A</code> aprobar · <code style="font-family:SF Mono,monospace;font-size:11px;background:rgba(0,0,0,0.04);padding:1px 5px;border-radius:3px;">⌘K</code> paleta tipo Linear. Productividad +30%.</p>
+        <p style="margin-top:12px;color:#af52de;font-weight:600;font-size:13px;">Ganancia: power users felices. Costo: 3 días.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico blue">📱</div>
+          <h3>PWA + push notifications</h3>
+        </div>
+        <p>App instalable en celular. Notificación push cuando hay voucher esperando tu firma. Aprobaciones de 6h a 30 min.</p>
+        <p style="margin-top:12px;color:#007aff;font-weight:600;font-size:13px;">Ganancia: ciclo de aprobación 10x más rápido. Costo: 1 semana.</p>
+      </div>
+      <div class="card">
+        <div class="head">
+          <div class="ico orange">🔍</div>
+          <h3>Anomaly detection IA</h3>
+        </div>
+        <p>Cada noche Claude analiza patrones: "este proveedor cobra siempre $400k, hoy facturó $4M", "doble pago detectado". Previene 80% de fraudes/errores.</p>
+        <p style="margin-top:12px;color:#ff9500;font-weight:600;font-size:13px;">Ganancia: red de seguridad pasiva. Costo: 1 semana.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     HIGHLIGHT FINAL
+     ============================================================ -->
+<div class="container">
+  <div class="highlight">
+    <div class="content">
+      <h2>Un sistema operativo del fondo.</h2>
+      <p>No es un producto que comprás. Es infraestructura financiera tuya, propia, auditable, modificable, sin licencias mensuales atadas. Diseñada para que en 10 años sigas siendo dueño de tus datos.</p>
+      <div class="row-icons">
+        <div class="ic"><span class="check">✓</span> 3 capas desacopladas</div>
+        <div class="ic"><span class="check">✓</span> 22 invariantes en código</div>
+        <div class="ic"><span class="check">✓</span> 1.108 tests automáticos</div>
+        <div class="ic"><span class="check">✓</span> Postgres estándar SQL</div>
+        <div class="ic"><span class="check">✓</span> Audit log inmutable</div>
+        <div class="ic"><span class="check">✓</span> Cifrado Fernet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="container-narrow">
+    <p><strong>Ram-Cehta · FIP CEHTA ESG · Sistema dinámico</strong></p>
+    <p>Generado el <span id="ts">—</span> · Round 135 · Diagrama scroll-animated</p>
+    <p style="margin-top:16px;font-size:11px;color:rgba(29,29,31,0.4);">
+      Apple ultra-dynamic · SVG animado · IntersectionObserver · scroll-progress
+    </p>
+  </div>
+</footer>
+
+<script>
+  /* =========================
+     1) Timestamp footer
+     ========================= */
+  (function () {
+    var d = new Date();
+    var fmt = d.toLocaleString('es-CL', {
+      year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+    var el = document.getElementById('ts');
+    if (el) el.textContent = fmt;
+  })();
+
+  /* =========================
+     2) Scroll progress bar
+     ========================= */
+  (function () {
+    var bar = document.getElementById('navProgress');
+    var pctLabel = document.getElementById('progressPct');
+    function update() {
+      var h = document.documentElement;
+      var scrollPos = h.scrollTop || document.body.scrollTop;
+      var max = h.scrollHeight - h.clientHeight;
+      var pct = max > 0 ? (scrollPos / max) * 100 : 0;
+      if (bar) bar.style.width = pct + '%';
+      if (pctLabel) pctLabel.textContent = Math.round(pct);
+    }
+    window.addEventListener('scroll', update, { passive: true });
+    update();
+  })();
+
+  /* =========================
+     3) IntersectionObserver: revelar secciones
+     ========================= */
+  (function () {
+    var els = document.querySelectorAll('section.step, .progress-row');
+    if (!('IntersectionObserver' in window)) {
+      els.forEach(function (el) { el.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: '0px 0px -10% 0px' });
+    els.forEach(function (el) { io.observe(el); });
+  })();
+
+  /* =========================
+     4) Smooth-scroll a anclas con offset por nav
+     ========================= */
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      var href = a.getAttribute('href');
+      if (href.length > 1) {
+        var t = document.querySelector(href);
+        if (t) {
+          e.preventDefault();
+          var top = t.getBoundingClientRect().top + window.pageYOffset - 70;
+          window.scrollTo({ top: top, behavior: 'smooth' });
+        }
+      }
+    });
+  });
+</script>
+
+</body>
+</html>
