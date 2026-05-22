@@ -46,7 +46,7 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
-from app.models.voucher import Voucher, VoucherLine
+from app.models.voucher import Voucher, VoucherAttachment, VoucherLine
 from app.schemas.proveedor import ProveedorCreate
 from app.services.audit_service import audit_log
 from app.services.empresa_scope_service import (
@@ -916,6 +916,29 @@ async def create_voucher_nubox_form(
         )
         db.add(vl)
         line_num += 1
+
+    # Round 142 hotfix — Auto-attachment desde documento_dropbox_path.
+    # El campo `voucher.documento_dropbox_path` es un atajo: el operador ya
+    # subió el archivo a Dropbox y solo pega el path. Sin esto, /submit
+    # rechaza con "COMPRA requiere al menos un adjunto" porque la validación
+    # mira core.voucher_attachments (tabla), no el campo del voucher. Creamos
+    # una fila en voucher_attachments para que el submit pase, sin
+    # requerir que el operador suba el archivo otra vez vía POST attachments.
+    # Si después sube el archivo real, ese queda como attachment adicional.
+    if body.documento_dropbox_path:
+        # Extraer file_name del path Dropbox (último segmento).
+        path = body.documento_dropbox_path.strip()
+        file_name = path.rsplit("/", 1)[-1] if "/" in path else path
+        if not file_name:
+            file_name = "documento.pdf"
+        att = VoucherAttachment(
+            voucher_id=voucher.voucher_id,
+            tipo="FACTURA",  # default sensible para nubox-form (siempre COMPRA)
+            file_name=file_name[:200],
+            dropbox_path=path[:500],
+            uploaded_by=str(user.sub),
+        )
+        db.add(att)
 
     # Capturar IDs ANTES del commit (que en async puede expirar la instancia
     # despite expire_on_commit=False cuando operaciones subsiguientes ejecutan
