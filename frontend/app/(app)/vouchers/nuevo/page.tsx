@@ -1004,16 +1004,34 @@ export default function NuevoVoucherPage() {
                 <Save className="h-4 w-4" strokeWidth={1.75} />
                 Guardar borrador
               </button>
-              <button
-                type="button"
-                onClick={() => submit("PENDING")}
-                disabled={submitting || !isBalanced}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                title={!isBalanced ? "Cuadrá las líneas antes de enviar" : "Enviar a aprobación"}
-              >
-                <Send className="h-4 w-4" strokeWidth={1.75} />
-                Enviar a aprobación
-              </button>
+              {/* Round 143 — gating del boton "Enviar a aprobacion" para
+                  COMPRA/VENTA sin documento_dropbox_path. El backend lo
+                  rechaza con 400 (invariante #14), preferimos prevenirlo
+                  en UI con tooltip explicativo. */}
+              {(() => {
+                const needsAttachmentForSubmit =
+                  (tipo === "COMPRA" || tipo === "VENTA") &&
+                  !documentoDropboxPath.trim();
+                const submitDisabled =
+                  submitting || !isBalanced || needsAttachmentForSubmit;
+                const submitTitle = !isBalanced
+                  ? "Cuadrá las líneas antes de enviar"
+                  : needsAttachmentForSubmit
+                  ? `Para ${tipo} pegá el path Dropbox del documento arriba, o guardalo como borrador y subí adjunto desde el detalle`
+                  : "Enviar a aprobación";
+                return (
+                  <button
+                    type="button"
+                    onClick={() => submit("PENDING")}
+                    disabled={submitDisabled}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    title={submitTitle}
+                  >
+                    <Send className="h-4 w-4" strokeWidth={1.75} />
+                    Enviar a aprobación
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>
