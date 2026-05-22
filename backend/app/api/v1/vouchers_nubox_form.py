@@ -305,6 +305,24 @@ class NuboxFormCreate(BaseModel):
             )
         return self
 
+    @model_validator(mode="after")
+    def _validate_doc_tributario_no_NA(self) -> "NuboxFormCreate":
+        """Round 141 — tipo_documento='NA' es ambiguo en un form Nubox que
+        siempre crea vouchers tipo COMPRA. Si el operador no tiene un
+        documento tributario real (boleta de proveedor sin folio, comprobante
+        de caja chica), debería usar el form genérico /vouchers/nuevo con
+        tipo EGRESO en vez de hacer pasar el gasto como una COMPRA sin doc.
+        Invariante #14 del MAESTRO: COMPRA/VENTA exigen doc_tributario válido.
+        """
+        if self.tipo_documento == "NA":
+            raise ValueError(
+                "tipo_documento='NA' no es válido en el form Nubox (siempre "
+                "crea vouchers tipo COMPRA y la regla #14 del MAESTRO exige "
+                "documento tributario válido). Usá /vouchers/nuevo con tipo "
+                "EGRESO si no hay documento."
+            )
+        return self
+
 
 class NuboxFormResponse(BaseModel):
     voucher_id: int

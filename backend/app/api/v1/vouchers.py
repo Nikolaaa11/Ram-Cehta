@@ -1804,9 +1804,29 @@ async def submit_voucher(
             roles_req = matched_rule.get("required_roles") or []
             if isinstance(roles_req, (list, tuple)) and len(roles_req) == 0:
                 auto_approved = True
-    except Exception:
+    except Exception as exc:
         # Si fallar la lookup de reglas no debe bloquear el flujo: caer
-        # al comportamiento normal (PENDING).
+        # al comportamiento normal (PENDING). Round 141 hotfix: pero SÍ
+        # loggear el error con detalle — si las reglas están rotas, la
+        # cola de aprobaciones podría llenarse silenciosamente con vouchers
+        # que nunca van a poder ser firmados (find_matching_rule retornaría
+        # None y el endpoint /approve diría "sin regla configurada").
+        # Sin este log, el problema solo se descubre cuando un user reporta
+        # "no puedo aprobar nada".
+        try:
+            from structlog import get_logger
+            get_logger().error(
+                "auto_approve_rule_lookup_failed",
+                voucher_id=v.voucher_id,
+                empresa=v.empresa_codigo,
+                tipo=v.tipo,
+                error=str(exc),
+                exc_info=True,
+            )
+        except Exception:
+            # structlog puede no estar disponible en algunos contextos; no
+            # rompamos por logging.
+            pass
         auto_approved = False
         matched_rule = None
 
@@ -3869,6 +3889,29 @@ async def bulk_approve_vouchers(
 
     for vid in body.voucher_ids:
         try:
+            # Round 141 hotfix — Lock pesimista del voucher para evitar race
+            # conditions en bulk-approve. Sin esto, dos requests simultáneos
+            # de bulk-approve con el mismo voucher_id podrían leer ambos el
+            # mismo approval_count=0 y agregar las dos firmas del mismo paso,
+            # violando el invariante "1 firma por paso del flow". El SELECT
+            # FOR UPDATE serializa accesos al row del voucher dentro de la
+            # transacción actual; los otros workers esperan a que ésta haga
+            # commit o rollback antes de leerlo.
+            lock_row = (await db.execute(
+                text(
+                    "SELECT voucher_id FROM core.vouchers "
+                    "WHERE voucher_id = :vid FOR UPDATE"
+                ),
+                {"vid": vid},
+            )).fetchone()
+            if lock_row is None:
+                items.append(BulkApproveItemResult(
+                    voucher_id=vid, success=False,
+                    error="Voucher no encontrado",
+                ))
+                continue
+            # Cargar el voucher ORM tras tener el lock. El SELECT FOR UPDATE
+            # ya estableció la barrera; db.get respeta la transacción actual.
             voucher = await db.get(Voucher, vid)
             if voucher is None:
                 items.append(BulkApproveItemResult(
