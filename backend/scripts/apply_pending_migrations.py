@@ -89,7 +89,11 @@ def run() -> int:
 
     print(f"🔍 Aplicando migraciones pendientes contra {url[:60]}...\n")
 
-    with engine.connect() as conn:
+    # R138 fix: usar AUTOCOMMIT isolation para DDL — SQLAlchemy 2.x
+    # autobegin invalida el patrón `with conn.begin()` después de un select.
+    # En migraciones DDL no necesitamos rollback granular (cada archivo
+    # SQL ya tiene BEGIN/COMMIT internos si los necesita).
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
         for round_num, filename, (schema, canonical_table) in MIGRATIONS:
             sql_path = sql_dir / filename
             if not sql_path.exists():
@@ -112,12 +116,19 @@ def run() -> int:
             print(f"→ Round {round_num}: aplicando {filename}...")
             sql_text = sql_path.read_text(encoding="utf-8")
 
-            # Ejecutar en una transacción explícita.
-            # Algunas migraciones tienen múltiples statements separados por ';'.
-            # SQLAlchemy con psycopg2 lo maneja si se ejecuta con `exec_driver_sql`.
+            # En AUTOCOMMIT cada statement se comitea automáticamente.
+            # Las migraciones pueden tener múltiples statements separados por ';'.
+            # R138 fix: usar raw cursor (no exec_driver_sql) para evitar
+            # que psycopg2 interprete `%` literales en LIKE '%foo%' como
+            # parameter substitution. exec_driver_sql pasa params={} que
+            # dispara substitution; el raw cursor con params=None no.
             try:
-                with conn.begin():
-                    conn.exec_driver_sql(sql_text)
+                raw_conn = conn.connection
+                cur = raw_conn.cursor()
+                try:
+                    cur.execute(sql_text)
+                finally:
+                    cur.close()
                 # Re-verificar
                 if table_exists(conn, schema, canonical_table):
                     print(f"✓ Round {round_num}: aplicado OK")
