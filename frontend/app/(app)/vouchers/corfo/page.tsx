@@ -99,7 +99,7 @@ export default function VoucherCorfoPage() {
   const [pctEmpresa, setPctEmpresa] = useState<number>(30);
 
   // Fetch proyectos de la empresa
-  const { data: proyectos } = useQuery<ProyectoContable[]>({
+  const { data: proyectosAll } = useQuery<ProyectoContable[]>({
     queryKey: ["proyectos-contables-corfo", empresa],
     queryFn: () =>
       apiClient.get<ProyectoContable[]>(
@@ -108,6 +108,19 @@ export default function VoucherCorfoPage() {
       ),
     enabled: !!session,
   });
+
+  // Round 142 hotfix — filtrar solo proyectos tipo CORFO. Antes el form
+  // mostraba TODOS los proyectos de REVTECH/TRONGKAI (incluyendo los
+  // INTERNO), y los INTERNO no tienen las cuentas cuenta_aporte_*
+  // configuradas → el preview mostraba "?" en columna CUENTA → al crear
+  // el voucher el backend rechazaba con "Cuenta '?' no existe".
+  // El form CORFO está DISEÑADO para gastos imputables al subsidio
+  // CORFO, así que filtrar tiene sentido semántico también.
+  const proyectos = useMemo(() => {
+    return (proyectosAll ?? []).filter(
+      (p) => p.tipo_financiamiento === "CORFO",
+    );
+  }, [proyectosAll]);
 
   // Auto-seleccionar primer proyecto del empresa cuando cambia
   useEffect(() => {
@@ -508,15 +521,17 @@ export default function VoucherCorfoPage() {
             onChange={(e) => setProyectoCodigo(e.target.value)}
             className="form-input"
           >
-            {!proyectos && <option>Cargando proyectos...</option>}
-            {proyectos &&
+            {!proyectosAll && <option>Cargando proyectos...</option>}
+            {proyectos.length > 0 &&
               proyectos.map((p) => (
                 <option key={p.codigo} value={p.codigo}>
                   {p.codigo} — {p.nombre}
                 </option>
               ))}
-            {proyectos && proyectos.length === 0 && (
-              <option value="">⚠ No hay proyectos cargados para {empresa}</option>
+            {proyectosAll && proyectos.length === 0 && (
+              <option value="">
+                ⚠ {empresa} no tiene proyectos tipo CORFO configurados
+              </option>
             )}
           </select>
           {subsidio && (
