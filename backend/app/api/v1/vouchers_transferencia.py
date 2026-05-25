@@ -411,7 +411,12 @@ def _build_workbook_santander(
     "/transferencia-masiva",
     dependencies=[Depends(require_scope("voucher:execute"))],
 )
-@limiter.limit("5/minute")
+# NOTA Round 148: @limiter.limit("5/minute") removido — rompe Pydantic
+# schema inference cuando el endpoint tiene Annotated[..., Depends(...)]
+# combinado con BaseModel body y StreamingResponse. Síntoma: FastAPI
+# trata `user`, `db`, `scope`, `body` como query params requeridos y
+# devuelve 422 "Field required" para todos. Mismo problema documentado
+# en vouchers_extract.py. Default rate limit global aplica.
 async def export_transferencia_masiva(
     request: Request,
     user: Annotated[AuthenticatedUser, Depends(require_scope("voucher:execute"))],
