@@ -276,13 +276,9 @@ export default function TransferenciasPage() {
       toast.error("Seleccioná al menos un voucher");
       return;
     }
-    // Round 149 — comprobante de pago obligatorio
-    if (!executeFile) {
-      toast.error(
-        "Adjuntá el comprobante de pago antes de confirmar (PDF, JPG o PNG).",
-      );
-      return;
-    }
+    // Round 150 — comprobante de pago opcional. Si hay archivo, se sube
+    // después del bulk-execute. Si no, se confirma sin adjunto (el
+    // operador puede subirlo manualmente después desde el detalle).
     setExecuting(true);
     try {
       const resp = await apiClient.post<BulkExecuteResponse>(
@@ -721,13 +717,13 @@ export default function TransferenciasPage() {
                     </span>
                   </label>
 
-                  {/* Round 149 — Comprobante de pago OBLIGATORIO.
-                      Se sube como attachment tipo TRANSFERENCIA a cada
-                      voucher del batch después del bulk-execute exitoso. */}
+                  {/* Round 150 — Comprobante de pago OPCIONAL.
+                      Si se adjunta, se sube como attachment tipo
+                      TRANSFERENCIA a cada voucher del batch después del
+                      bulk-execute exitoso. Si no, se confirma igual. */}
                   <div>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
-                      Adjunta comprobante de pago
-                      <span className="ml-1 text-negative">*</span>
+                      Adjunta comprobante de pago (opcional)
                     </span>
                     {!executeFile ? (
                       <button
@@ -776,9 +772,11 @@ export default function TransferenciasPage() {
                       }}
                     />
                     <span className="mt-1 block text-[10px] text-ink-500">
-                      Subí el comprobante del banco (PDF, JPG o PNG). Se va
-                      a adjuntar a {selectedSummary.count} voucher
+                      Si tenés el comprobante del banco (PDF, JPG o PNG),
+                      adjuntalo. Se va a guardar en los{" "}
+                      {selectedSummary.count} voucher
                       {selectedSummary.count === 1 ? "" : "s"} como respaldo.
+                      Si no, podés subirlo después desde el detalle.
                     </span>
                   </div>
                 </div>
@@ -796,13 +794,13 @@ export default function TransferenciasPage() {
                   <button
                     type="button"
                     onClick={handleBulkExecute}
-                    disabled={executing || !executeFile}
-                    aria-disabled={executing || !executeFile}
+                    disabled={executing}
+                    aria-disabled={executing}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                     title={
-                      !executeFile
-                        ? "Adjuntá el comprobante de pago antes de confirmar"
-                        : "Confirmar y subir comprobante a los vouchers"
+                      executeFile
+                        ? "Confirmar y subir comprobante a los vouchers"
+                        : "Confirmar pagos (sin comprobante)"
                     }
                   >
                     {executing ? (
