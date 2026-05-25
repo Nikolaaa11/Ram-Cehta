@@ -1,0 +1,2232 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Migración Supabase a Brasil · Ram-Cehta</title>
+<style>
+  /* ============================================================
+     RESET + BASE
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+                 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #fbfbfd;
+    color: #1d1d1f;
+    line-height: 1.5;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 50% 40% at 12% 18%, rgba(0,122,255,0.05) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 40% at 88% 25%, rgba(29,111,66,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 50% 85%, rgba(175,82,222,0.04) 0%, transparent 50%);
+    animation: drift 30s ease-in-out infinite alternate;
+  }
+  @keyframes drift {
+    0%   { transform: translate(0,0); }
+    100% { transform: translate(2%,-1%); }
+  }
+
+  /* ============================================================
+     NAV STICKY
+     ============================================================ */
+  nav.bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: saturate(200%) blur(30px);
+    -webkit-backdrop-filter: saturate(200%) blur(30px);
+    background: rgba(251, 251, 253, 0.82);
+    border-bottom: 0.5px solid rgba(0,0,0,0.08);
+  }
+  nav.bar .inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  nav.bar .brand {
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  nav.bar .brand .apple {
+    font-size: 18px;
+    line-height: 1;
+  }
+  nav.bar .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12px;
+    color: rgba(29,29,31,0.6);
+  }
+  nav.bar .progress {
+    width: 200px;
+    height: 4px;
+    background: rgba(0,0,0,0.06);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  nav.bar .progress .fill {
+    height: 100%;
+    background: linear-gradient(90deg, #1d6f42 0%, #007aff 100%);
+    border-radius: 100px;
+    width: 0%;
+    transition: width 0.4s cubic-bezier(0.22,1,0.36,1);
+  }
+  nav.bar .progress-count {
+    font-weight: 600;
+    color: #1d1d1f;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 720px) {
+    nav.bar .progress { width: 120px; }
+  }
+
+  /* ============================================================
+     CONTAINER
+     ============================================================ */
+  .container {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================================
+     HERO
+     ============================================================ */
+  section.hero {
+    padding: 120px 0 80px;
+    text-align: center;
+  }
+  .hero .badge-flag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: rgba(29, 111, 66, 0.08);
+    color: #1d6f42;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 24px;
+    text-transform: uppercase;
+  }
+  .hero h1 {
+    font-size: clamp(44px, 7vw, 84px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    margin-bottom: 24px;
+  }
+  .hero h1 .accent {
+    background: linear-gradient(135deg, #1d6f42 0%, #007aff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero .sub {
+    font-size: clamp(18px, 2vw, 22px);
+    color: rgba(29,29,31,0.62);
+    max-width: 680px;
+    margin: 0 auto 40px;
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  }
+  .hero .estimates {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 32px;
+  }
+  .hero .estimate {
+    padding: 10px 18px;
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 100px;
+    font-size: 13px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .hero .estimate .num {
+    font-weight: 700;
+    color: #1d6f42;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============================================================
+     SECTION (paso)
+     ============================================================ */
+  section.step {
+    padding: 60px 0;
+    position: relative;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s cubic-bezier(0.22,1,0.36,1),
+                transform 0.8s cubic-bezier(0.22,1,0.36,1);
+  }
+  section.step.in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .step-card {
+    background: white;
+    border-radius: 28px;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    box-shadow:
+      0 1px 2px rgba(0,0,0,0.03),
+      0 8px 24px rgba(0,0,0,0.04);
+    padding: 44px;
+    overflow: hidden;
+  }
+  @media (max-width: 640px) {
+    .step-card { padding: 28px 22px; }
+  }
+
+  .step-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 28px;
+    padding-bottom: 24px;
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #1d1d1f 0%, #2c2c2e 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  .step-num.actor-you   { background: linear-gradient(135deg, #1d6f42, #2a9d5e); }
+  .step-num.actor-me    { background: linear-gradient(135deg, #007aff, #5856d6); }
+  .step-num.actor-both  { background: linear-gradient(135deg, #af52de, #ff2d55); }
+  .step-num.actor-wait  { background: linear-gradient(135deg, #ff9500, #ff2d55); }
+
+  .step-title {
+    flex: 1;
+    min-width: 0;
+  }
+  .step-title .meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .step-title .actor-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .actor-chip.you  { background: rgba(29,111,66,0.1); color: #1d6f42; }
+  .actor-chip.me   { background: rgba(0,122,255,0.1); color: #0055cc; }
+  .actor-chip.both { background: rgba(175,82,222,0.1); color: #8f3eb5; }
+  .actor-chip.wait { background: rgba(255,149,0,0.1); color: #c76d00; }
+  .step-title .time {
+    font-size: 11px;
+    color: rgba(29,29,31,0.5);
+    font-weight: 500;
+  }
+  .step-title h2 {
+    font-size: clamp(24px, 3vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    color: #1d1d1f;
+  }
+  .step-checkbox {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid rgba(0,0,0,0.12);
+    background: white;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: transparent;
+    user-select: none;
+  }
+  .step-checkbox:hover {
+    border-color: #1d6f42;
+    background: rgba(29,111,66,0.05);
+  }
+  .step-checkbox.done {
+    background: #1d6f42;
+    border-color: #1d6f42;
+    color: white;
+  }
+
+  /* ============================================================
+     STEP BODY
+     ============================================================ */
+  .step-body {
+    font-size: 16px;
+    line-height: 1.6;
+    color: rgba(29,29,31,0.85);
+  }
+  .step-body p {
+    margin-bottom: 16px;
+  }
+  .step-body p:last-child { margin-bottom: 0; }
+  .step-body strong {
+    color: #1d1d1f;
+    font-weight: 600;
+  }
+  .step-body em {
+    font-style: italic;
+    color: rgba(29,29,31,0.7);
+  }
+  .step-body ol,
+  .step-body ul {
+    margin: 16px 0 16px 24px;
+  }
+  .step-body li {
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+  .step-body a {
+    color: #007aff;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(0,122,255,0.3);
+    transition: all 0.2s;
+  }
+  .step-body a:hover {
+    border-bottom-color: #007aff;
+  }
+  .step-body code {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 0.88em;
+    background: rgba(0,0,0,0.04);
+    color: #1d1d1f;
+    padding: 2px 7px;
+    border-radius: 5px;
+    border: 0.5px solid rgba(0,0,0,0.05);
+  }
+
+  /* ============================================================
+     CODE BLOCK con copy button
+     ============================================================ */
+  .code-block {
+    position: relative;
+    margin: 20px 0;
+    background: #0a0a0a;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+  }
+  .code-block .code-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px 8px;
+    background: #161616;
+    border-bottom: 0.5px solid rgba(255,255,255,0.05);
+  }
+  .code-block .code-lang {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: "SF Mono", monospace;
+  }
+  .code-block .code-lang .dots {
+    display: flex;
+    gap: 5px;
+  }
+  .code-block .code-lang .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+  .dot.r { background: #ff5f57; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .code-block .copy-btn {
+    background: rgba(255,255,255,0.06);
+    border: 0.5px solid rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+    padding: 5px 11px;
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: -apple-system, sans-serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .code-block .copy-btn:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+  }
+  .code-block .copy-btn.copied {
+    background: rgba(40,200,64,0.15);
+    border-color: rgba(40,200,64,0.4);
+    color: #28c840;
+  }
+  .code-block pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #f0f0f0;
+    background: #0a0a0a;
+  }
+  .code-block code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+  .code-block .placeholder {
+    color: #ffae57;
+    font-weight: 600;
+    background: rgba(255,174,87,0.08);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  .code-block .comment {
+    color: #6b7280;
+    font-style: italic;
+  }
+
+  /* ============================================================
+     CALLOUTS
+     ============================================================ */
+  .callout {
+    margin: 22px 0;
+    padding: 18px 20px;
+    border-radius: 14px;
+    border-left: 4px solid;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+  .callout .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .callout p { margin-bottom: 8px; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.info {
+    background: rgba(0,122,255,0.06);
+    border-color: #007aff;
+    color: rgba(29,29,31,0.85);
+  }
+  .callout.info .title { color: #0055cc; }
+  .callout.warn {
+    background: rgba(255,149,0,0.07);
+    border-color: #ff9500;
+  }
+  .callout.warn .title { color: #c76d00; }
+  .callout.danger {
+    background: rgba(255,59,48,0.07);
+    border-color: #ff3b30;
+  }
+  .callout.danger .title { color: #c41e3a; }
+  .callout.success {
+    background: rgba(52,199,89,0.07);
+    border-color: #34c759;
+  }
+  .callout.success .title { color: #248a3d; }
+
+  /* ============================================================
+     FORM SIM — para mostrar lo que verás en Supabase Dashboard
+     ============================================================ */
+  .ui-mock {
+    margin: 24px 0;
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.06);
+  }
+  .ui-mock .titlebar {
+    height: 36px;
+    background: linear-gradient(180deg, #fafbfc 0%, #f3f4f6 100%);
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 7px;
+  }
+  .ui-mock .titlebar .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .ui-mock .titlebar .title-text {
+    flex: 1;
+    text-align: center;
+    font-size: 11px;
+    font-family: "SF Mono", monospace;
+    color: rgba(29,29,31,0.5);
+  }
+  .ui-mock .body {
+    padding: 24px;
+  }
+  .ui-mock .field {
+    margin-bottom: 18px;
+  }
+  .ui-mock .field:last-child { margin-bottom: 0; }
+  .ui-mock .field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(29,29,31,0.6);
+    margin-bottom: 6px;
+  }
+  .ui-mock .field-input {
+    padding: 10px 14px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 8px;
+    font-family: "SF Mono", monospace;
+    font-size: 13px;
+    background: #fafbfc;
+    color: rgba(29,29,31,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .ui-mock .field-input.highlight {
+    border-color: #1d6f42;
+    background: rgba(29,111,66,0.04);
+  }
+  .ui-mock .field-input .pill-tag {
+    font-family: -apple-system, sans-serif;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pill-tag.brazil {
+    background: rgba(29,111,66,0.1);
+    color: #1d6f42;
+  }
+  .pill-tag.copy-this {
+    background: rgba(255,149,0,0.1);
+    color: #c76d00;
+  }
+  .ui-mock .field-hint {
+    font-size: 11px;
+    color: rgba(29,29,31,0.5);
+    margin-top: 6px;
+  }
+  .ui-mock .btn-mock {
+    padding: 10px 24px;
+    background: #1d6f42;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: default;
+    margin-top: 8px;
+    pointer-events: none;
+  }
+
+  /* ============================================================
+     ARROW STEPS — para connection string anatomy
+     ============================================================ */
+  .conn-anatomy {
+    margin: 24px 0;
+    padding: 22px 20px;
+    background: #0a0a0a;
+    border-radius: 14px;
+    font-family: "SF Mono", monospace;
+    font-size: 12px;
+    color: #f0f0f0;
+    overflow-x: auto;
+  }
+  .conn-anatomy .label {
+    color: #ffae57;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    display: block;
+    margin: 12px 0 4px;
+    font-family: -apple-system, sans-serif;
+  }
+  .conn-anatomy .label:first-child { margin-top: 0; }
+  .conn-anatomy .arrow {
+    color: #6b7280;
+    margin: 0 6px;
+  }
+  .conn-anatomy .seg-user { color: #66d9ef; }
+  .conn-anatomy .seg-pass { color: #ff79c6; font-weight: 600; }
+  .conn-anatomy .seg-host { color: #50fa7b; }
+  .conn-anatomy .seg-port { color: #ffb86c; }
+  .conn-anatomy .seg-db   { color: #bd93f9; }
+
+  /* ============================================================
+     ACTOR LEGEND
+     ============================================================ */
+  .legend {
+    background: rgba(255,255,255,0.7);
+    backdrop-filter: blur(20px);
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 18px;
+    padding: 22px 24px;
+    margin: 24px 0 40px;
+  }
+  .legend h3 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(29,29,31,0.55);
+    margin-bottom: 14px;
+  }
+  .legend .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .legend .item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .legend .swatch {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  .legend .swatch.you  { background: linear-gradient(135deg, #1d6f42, #2a9d5e); }
+  .legend .swatch.me   { background: linear-gradient(135deg, #007aff, #5856d6); }
+  .legend .swatch.both { background: linear-gradient(135deg, #af52de, #ff2d55); }
+  .legend .swatch.wait { background: linear-gradient(135deg, #ff9500, #ff2d55); }
+  .legend .item .info {
+    flex: 1;
+  }
+  .legend .item .info strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-bottom: 2px;
+  }
+  .legend .item .info span {
+    font-size: 12px;
+    color: rgba(29,29,31,0.6);
+    line-height: 1.5;
+  }
+
+  /* ============================================================
+     CHECKLIST PRE-FLIGHT
+     ============================================================ */
+  .preflight {
+    background: linear-gradient(135deg, rgba(0,122,255,0.04), rgba(29,111,66,0.04));
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 24px;
+    padding: 36px 32px;
+    margin-bottom: 60px;
+  }
+  .preflight h2 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin-bottom: 8px;
+  }
+  .preflight p.sub {
+    color: rgba(29,29,31,0.6);
+    margin-bottom: 22px;
+    font-size: 15px;
+  }
+  .preflight .item-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .preflight .item-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 0.5px solid rgba(0,0,0,0.06);
+    font-size: 14px;
+  }
+  .preflight .item-list li:last-child { border-bottom: none; }
+  .preflight .check-empty {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0,0,0,0.15);
+    border-radius: 50%;
+    margin-top: 2px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: transparent;
+  }
+  .preflight .check-empty:hover {
+    border-color: #1d6f42;
+  }
+  .preflight .check-empty.checked {
+    background: #1d6f42;
+    border-color: #1d6f42;
+    color: white;
+  }
+  .preflight .item-list strong {
+    display: block;
+    margin-bottom: 2px;
+  }
+  .preflight .item-list .desc {
+    font-size: 13px;
+    color: rgba(29,29,31,0.65);
+  }
+
+  /* ============================================================
+     TIMELINE — visualización flujo cronológico
+     ============================================================ */
+  .timeline-vis {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 24px;
+    padding: 32px;
+    margin: 32px 0 60px;
+  }
+  .timeline-vis h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .timeline-vis p {
+    color: rgba(29,29,31,0.6);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .timeline-vis .track {
+    position: relative;
+    padding-left: 22px;
+  }
+  .timeline-vis .track::before {
+    content: "";
+    position: absolute;
+    left: 9px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: linear-gradient(180deg,
+      #1d6f42 0%,
+      #007aff 50%,
+      #ff9500 80%,
+      rgba(0,0,0,0.1) 100%);
+  }
+  .timeline-vis .ev {
+    position: relative;
+    padding: 6px 0 6px 16px;
+    font-size: 13px;
+  }
+  .timeline-vis .ev::before {
+    content: "";
+    position: absolute;
+    left: -19px;
+    top: 12px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: white;
+    border: 2px solid currentColor;
+  }
+  .timeline-vis .ev.you   { color: #1d6f42; }
+  .timeline-vis .ev.me    { color: #0055cc; }
+  .timeline-vis .ev.wait  { color: #c76d00; }
+  .timeline-vis .ev .lbl  {
+    color: rgba(29,29,31,0.85);
+    font-weight: 500;
+  }
+  .timeline-vis .ev .t {
+    font-family: "SF Mono", monospace;
+    font-size: 11px;
+    margin-left: 8px;
+    opacity: 0.7;
+  }
+  .timeline-vis .ev.downtime {
+    color: #ff3b30;
+    font-weight: 700;
+    padding: 14px 0 14px 16px;
+  }
+  .timeline-vis .ev.downtime::before {
+    background: #ff3b30;
+    border-color: #ff3b30;
+    width: 14px;
+    height: 14px;
+    left: -21px;
+    animation: pulse-warn 2s infinite;
+  }
+  @keyframes pulse-warn {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,59,48,0.5); }
+    50%      { box-shadow: 0 0 0 8px rgba(255,59,48,0); }
+  }
+
+  /* ============================================================
+     SUB-STEPS NUMBERED LIST
+     ============================================================ */
+  ol.sub-steps {
+    counter-reset: substep;
+    list-style: none;
+    margin: 20px 0 !important;
+    padding-left: 0 !important;
+  }
+  ol.sub-steps > li {
+    counter-increment: substep;
+    position: relative;
+    padding: 16px 16px 16px 56px;
+    margin-bottom: 12px !important;
+    background: rgba(0,0,0,0.02);
+    border: 0.5px solid rgba(0,0,0,0.05);
+    border-radius: 14px;
+  }
+  ol.sub-steps > li::before {
+    content: counter(substep);
+    position: absolute;
+    left: 14px;
+    top: 14px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #1d1d1f;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============================================================
+     FAQ / TROUBLESHOOTING
+     ============================================================ */
+  .faq-block {
+    margin-top: 60px;
+    padding: 40px 0;
+  }
+  .faq-block h2 {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+  .faq-block .lede {
+    text-align: center;
+    color: rgba(29,29,31,0.6);
+    margin-bottom: 36px;
+    font-size: 16px;
+  }
+  details.faq {
+    background: white;
+    border: 0.5px solid rgba(0,0,0,0.08);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: all 0.25s;
+  }
+  details.faq[open] {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.05);
+  }
+  details.faq summary {
+    padding: 18px 22px;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    user-select: none;
+    font-size: 15px;
+  }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::after {
+    content: "+";
+    font-size: 24px;
+    font-weight: 300;
+    color: rgba(29,29,31,0.4);
+    transition: transform 0.25s;
+    line-height: 1;
+  }
+  details.faq[open] summary::after {
+    transform: rotate(45deg);
+    color: #1d6f42;
+  }
+  details.faq .body {
+    padding: 0 22px 22px;
+    font-size: 14px;
+    color: rgba(29,29,31,0.75);
+    line-height: 1.6;
+  }
+  details.faq .body p:not(:last-child) { margin-bottom: 12px; }
+  details.faq .body code {
+    font-family: "SF Mono", monospace;
+    font-size: 12px;
+    background: rgba(0,0,0,0.04);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ============================================================
+     FOOTER
+     ============================================================ */
+  footer {
+    padding: 60px 0 40px;
+    text-align: center;
+    color: rgba(29,29,31,0.5);
+    font-size: 13px;
+    border-top: 0.5px solid rgba(0,0,0,0.06);
+    margin-top: 80px;
+  }
+  footer p + p { margin-top: 6px; }
+
+  /* Print */
+  @media print {
+    nav.bar { display: none; }
+    body::before { display: none; }
+    section.step { opacity: 1 !important; transform: none !important; padding: 16px 0; break-inside: avoid; }
+    .step-card { box-shadow: none; border: 1px solid #ccc; }
+    .code-block { break-inside: avoid; }
+    .step-checkbox { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav class="bar">
+  <div class="inner">
+    <div class="brand">
+      <span class="apple">🍎</span>
+      Migración Supabase · EE.UU. → Brasil
+    </div>
+    <div class="progress-wrap">
+      <span><span class="progress-count" id="navCount">0</span>/10</span>
+      <div class="progress"><div class="fill" id="navFill"></div></div>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="container">
+    <div class="badge-flag">🇺🇸 <span>→</span> 🇧🇷  Migración multi-región</div>
+    <h1>
+      Mover tu base de datos a <span class="accent">Brasil.</span>
+    </h1>
+    <p class="sub">
+      Guía paso a paso con todos los comandos, screenshots conceptuales y
+      checkboxes para no perderte. Marcá cada paso como completado a
+      medida que avanzás.
+    </p>
+    <div class="estimates">
+      <div class="estimate"><span class="num">45–60</span> min total</div>
+      <div class="estimate"><span class="num">~15</span> min downtime</div>
+      <div class="estimate"><span class="num">10</span> pasos</div>
+      <div class="estimate"><span class="num">≤ $0</span> costo extra</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LEGEND ============ -->
+<div class="container">
+  <div class="legend">
+    <h3>Color por actor — quién hace cada paso</h3>
+    <div class="grid">
+      <div class="item">
+        <div class="swatch you">👤</div>
+        <div class="info">
+          <strong>Vos hacés esto</strong>
+          <span>Acciones en Supabase / Fly / Vercel que requieren tu login.</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="swatch me">🤖</div>
+        <div class="info">
+          <strong>Yo hago esto</strong>
+          <span>Migración SQL, código backend, validaciones automáticas.</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="swatch both">⚡</div>
+        <div class="info">
+          <strong>Hacemos juntos</strong>
+          <span>Vos en chat y yo respondiendo en el momento.</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="swatch wait">⏳</div>
+        <div class="info">
+          <strong>Esperar</strong>
+          <span>Supabase / Fly provisionando. No tocar.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PRE-FLIGHT ============ -->
+<div class="container">
+  <div class="preflight">
+    <h2>🛫 Pre-flight — antes de empezar</h2>
+    <p class="sub">Tildá cada uno cuando lo confirmes. Si falta alguno, paramos antes de tocar la DB.</p>
+    <ul class="item-list">
+      <li>
+        <div class="check-empty" data-check></div>
+        <div>
+          <strong>Sesión Supabase activa</strong>
+          <div class="desc">Andá a <a href="https://supabase.com/dashboard" target="_blank">supabase.com/dashboard</a> y confirmá que ves el proyecto <code>dqwwqfhzejscgcynkbip</code></div>
+        </div>
+      </li>
+      <li>
+        <div class="check-empty" data-check></div>
+        <div>
+          <strong>Sesión Fly activa</strong>
+          <div class="desc">En PowerShell: <code>fly auth whoami</code> → debería devolver tu email. Si no: <code>fly auth login</code></div>
+        </div>
+      </li>
+      <li>
+        <div class="check-empty" data-check></div>
+        <div>
+          <strong>Acceso a Vercel</strong>
+          <div class="desc">Andá a <a href="https://vercel.com/dashboard" target="_blank">vercel.com/dashboard</a> y confirmá que ves el proyecto Ram-Cehta</div>
+        </div>
+      </li>
+      <li>
+        <div class="check-empty" data-check></div>
+        <div>
+          <strong>Tarjeta de crédito / billing</strong>
+          <div class="desc">Si el proyecto actual es plan Pro, confirmá que tu tarjeta no esté vencida (Settings → Billing en Supabase)</div>
+        </div>
+      </li>
+      <li>
+        <div class="check-empty" data-check></div>
+        <div>
+          <strong>Sin operaciones críticas en curso</strong>
+          <div class="desc">No estamos en día 1-10 del mes (cierre mensual). No hay pagos urgentes en cola. ~15 min de downtime tolerables ahora.</div>
+        </div>
+      </li>
+      <li>
+        <div class="check-empty" data-check></div>
+        <div>
+          <strong>Gestor de passwords listo (1Password / Bitwarden / similar)</strong>
+          <div class="desc">Vas a generar 2 secretos nuevos. Necesitás dónde guardarlos seguros.</div>
+        </div>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============ TIMELINE VISUAL ============ -->
+<div class="container">
+  <div class="timeline-vis">
+    <h3>📅 Cronología de toda la migración</h3>
+    <p>Visión completa de qué pasa y cuándo. El downtime real es ~15 min en el medio.</p>
+    <div class="track">
+      <div class="ev you"><span class="lbl"><strong>1.</strong> Snapshot proyecto viejo</span><span class="t">5 min</span></div>
+      <div class="ev you"><span class="lbl"><strong>2.</strong> Crear proyecto Brasil</span><span class="t">8 min</span></div>
+      <div class="ev me"><span class="lbl"><strong>3.</strong> pg_dump del viejo (yo, paralelo a #2)</span><span class="t">5 min</span></div>
+      <div class="ev you"><span class="lbl"><strong>4.</strong> Pegarme las credenciales</span><span class="t">3 min</span></div>
+      <div class="ev me"><span class="lbl"><strong>5.</strong> Restore + integrity check</span><span class="t">8 min</span></div>
+      <div class="ev downtime"><span class="lbl">⚠ DOWNTIME EMPIEZA</span></div>
+      <div class="ev me"><span class="lbl"><strong>6.</strong> Actualizar código del backend</span><span class="t">2 min</span></div>
+      <div class="ev you"><span class="lbl"><strong>7.</strong> fly secrets set + restart</span><span class="t">3 min</span></div>
+      <div class="ev you"><span class="lbl"><strong>8.</strong> Vercel env vars + redeploy</span><span class="t">3 min</span></div>
+      <div class="ev downtime"><span class="lbl">✓ DOWNTIME TERMINA (~15 min total)</span></div>
+      <div class="ev me"><span class="lbl"><strong>9.</strong> Smoke tests end-to-end</span><span class="t">5 min</span></div>
+      <div class="ev you"><span class="lbl"><strong>10.</strong> Logout/login + validación manual</span><span class="t">3 min</span></div>
+      <div class="ev wait"><span class="lbl">📅 Cleanup en 2 semanas → eliminar proyecto viejo</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PASO 1 — SNAPSHOT
+     ============================================================ -->
+<section class="step" id="step-1">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-you">1</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip you">👤 VOS</span>
+            <span class="time">⏱ 5 min</span>
+          </div>
+          <h2>Snapshot del proyecto actual</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="1">✓</div>
+      </div>
+      <div class="step-body">
+        <p>
+          Antes de tocar cualquier cosa, generamos un backup explícito.
+          Si en cualquier momento algo sale mal, restauramos desde acá y
+          el negocio sigue como si nada.
+        </p>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Andá al dashboard del proyecto actual</strong>
+            <p style="margin-top:8px;">URL: <a href="https://supabase.com/dashboard/project/dqwwqfhzejscgcynkbip" target="_blank">https://supabase.com/dashboard/project/dqwwqfhzejscgcynkbip</a></p>
+          </li>
+          <li>
+            <strong>Menú izquierdo → Settings (icono engranaje abajo) → Database</strong>
+          </li>
+          <li>
+            <strong>Bajá hasta la sección "Backups"</strong>
+            <p style="margin-top:8px;">Verás una lista de backups automáticos diarios (si estás en Pro tier) o un mensaje
+            "Manual backups available" si estás en Free.</p>
+          </li>
+          <li>
+            <strong>Click en "Create backup now"</strong> (o botón equivalente)
+            <p style="margin-top:8px;">Esperá hasta que el estado pase de <em>Pending</em> a <em>Completed</em>. Toma 1-3 minutos.</p>
+          </li>
+          <li>
+            <strong>Copiá el ID o nombre del backup</strong> y guardalo en tu gestor de passwords con la nota:
+            <code>Snapshot pre-migración Brasil — fecha de hoy</code>
+          </li>
+        </ol>
+
+        <div class="callout success">
+          <div class="title">✓ Por qué hacemos esto</div>
+          <p>Si la migración a Brasil sale mal por cualquier razón, podemos restaurar este backup
+          al proyecto actual y volver al estado pre-migración en ~5 minutos. Es la red de seguridad.</p>
+        </div>
+
+        <div class="callout warn">
+          <div class="title">⚠️ Si estás en Free tier</div>
+          <p>Supabase Free tier no permite backups manuales en algunos casos. Si no ves el botón
+          "Create backup now", igual seguí adelante — yo voy a hacer un <code>pg_dump</code>
+          completo en el Paso 3 que cumple la misma función.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 2 — CREAR PROYECTO BRASIL
+     ============================================================ -->
+<section class="step" id="step-2">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-you">2</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip you">👤 VOS</span>
+            <span class="time">⏱ 8 min</span>
+          </div>
+          <h2>Crear el proyecto nuevo en São Paulo 🇧🇷</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="2">✓</div>
+      </div>
+      <div class="step-body">
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Andá a la lista de proyectos</strong>
+            <p style="margin-top:8px;">URL exacta: <a href="https://supabase.com/dashboard/projects" target="_blank">https://supabase.com/dashboard/projects</a></p>
+          </li>
+          <li>
+            <strong>Click en el botón verde "New project"</strong> (arriba a la derecha)
+          </li>
+          <li>
+            <strong>Si te pregunta por organización, elegí la MISMA donde está el proyecto actual</strong>
+            <p style="margin-top:8px;">Si tenés una org personal y una de Cehta, elegí la de Cehta. Si solo tenés una, esa.</p>
+            <div class="callout warn">
+              <div class="title">⚠ Trampa</div>
+              <p>Si elegís una org distinta, el billing queda separado y vas a tener que mover el proyecto manualmente después. Asegurate de la misma org.</p>
+            </div>
+          </li>
+          <li>
+            <strong>Completá el formulario exactamente así:</strong>
+            <div class="ui-mock">
+              <div class="titlebar">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="title-text">supabase.com — Create project</span>
+              </div>
+              <div class="body">
+                <div class="field">
+                  <label class="field-label">Project name</label>
+                  <div class="field-input highlight">
+                    <span>cehta-prod-br</span>
+                    <span class="pill-tag copy-this">copiar literal</span>
+                  </div>
+                  <div class="field-hint">Lo nombramos así para distinguirlo del viejo (dqwwqfhzejscgcynkbip).</div>
+                </div>
+
+                <div class="field">
+                  <label class="field-label">Database Password</label>
+                  <div class="field-input">
+                    <span>Click "Generate a password"</span>
+                    <span class="pill-tag copy-this">guardar en 1Password</span>
+                  </div>
+                  <div class="field-hint">🔒 CRÍTICO: copiala AHORA. Después no se ve más. Si la perdés, hay que resetear.</div>
+                </div>
+
+                <div class="field">
+                  <label class="field-label">Region</label>
+                  <div class="field-input highlight">
+                    <span>South America (São Paulo) — sa-east-1</span>
+                    <span class="pill-tag brazil">🇧🇷 BRASIL</span>
+                  </div>
+                  <div class="field-hint">Está casi al final del dropdown (scroll). NO dejes la default (US East).</div>
+                </div>
+
+                <div class="field">
+                  <label class="field-label">Pricing Plan</label>
+                  <div class="field-input">
+                    <span>Free (o el mismo que tenés ahora)</span>
+                  </div>
+                  <div class="field-hint">Si dudás, Free. Después podés upgrade. Para Ram-Cehta Free alcanza (500MB DB, 50 MAU).</div>
+                </div>
+
+                <button class="btn-mock">Create new project</button>
+              </div>
+            </div>
+          </li>
+          <li>
+            <strong>Click "Create new project"</strong> y <em>esperá ~2-3 minutos</em>
+            <p style="margin-top:8px;">Pantalla con loader "Setting up your project...". <strong>NO cierres la pestaña.</strong></p>
+          </li>
+          <li>
+            <strong>Cuando termine, te lleva al dashboard del proyecto nuevo</strong>
+            <p style="margin-top:8px;">Anotá el <strong>Project Reference ID</strong> (lo ves en la URL,
+            será algo tipo <code>https://supabase.com/dashboard/project/<span style="color:#ff9500;font-weight:600;">abc123xyz</span></code>).
+            En el Paso 4 te pido este ID + las API keys.</p>
+          </li>
+        </ol>
+
+        <div class="callout info">
+          <div class="title">💡 Por qué São Paulo y no otra región LATAM</div>
+          <p>Supabase tiene sa-east-1 (São Paulo) como única región sudamericana. Tu backend Fly está en <strong>gru</strong> (también São Paulo). Mismo datacenter físico = latencia mínima (~5ms en lugar de 120-150ms).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 3 — PG_DUMP (YO)
+     ============================================================ -->
+<section class="step" id="step-3">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-me">3</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip me">🤖 YO</span>
+            <span class="time">⏱ 5 min · en paralelo a tu Paso 2</span>
+          </div>
+          <h2>Dump completo del proyecto viejo</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="3">✓</div>
+      </div>
+      <div class="step-body">
+        <p>
+          Mientras vos llenás el formulario, yo ejecuto en mi máquina:
+        </p>
+
+        <div class="code-block">
+          <div class="code-head">
+            <div class="code-lang">
+              <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+              bash · mi terminal
+            </div>
+            <button class="copy-btn" data-copy>📋 Copy</button>
+          </div>
+<pre><code><span class="comment"># Dump completo del proyecto viejo (us-east-1)</span>
+pg_dump <span class="placeholder">"$DATABASE_URL_VIEJO"</span> \
+  --clean --if-exists --no-owner --no-acl --no-comments \
+  --schema=core \
+  --schema=auth \
+  --schema=public \
+  --schema=audit \
+  --schema=app \
+  --exclude-schema=storage \
+  --exclude-schema=realtime \
+  --file=ram-cehta-dump-<span class="placeholder">YYYYMMDD-HHMM</span>.sql</code></pre>
+        </div>
+
+        <p>
+          Esto genera un archivo SQL con <strong>todo el contenido</strong>:
+        </p>
+
+        <ul>
+          <li>📊 10 empresas (AFIS, CEHTA, CENERGY, CSL, DTE, EVOQUE, FIP_CEHTA, REVTECH, RHO, TRONGKAI)</li>
+          <li>👥 45 usuarios + 72 roles activos</li>
+          <li>📒 212 cuentas del plan contable</li>
+          <li>📝 56+ vouchers con sus líneas, firmas y attachments references</li>
+          <li>⚖️ 10 reglas de aprobación</li>
+          <li>📜 Audit log completo (cada cambio, IP, timestamp)</li>
+          <li>🔄 5 migraciones SQL aplicadas (R115, R117, R123, R124, R126)</li>
+        </ul>
+
+        <div class="callout info">
+          <div class="title">🔒 Tu data está segura</div>
+          <p>El dump corre en mi máquina con TU connection string. El archivo .sql NO se sube
+          a ningún lado — solo lo uso para restaurar al proyecto nuevo en el Paso 5. Después
+          se borra de mi máquina al final del proceso.</p>
+        </div>
+
+        <p>Mientras yo hago esto, vos seguí con el Paso 2. <strong>No me esperes</strong>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 4 — COPIAR CREDENCIALES
+     ============================================================ -->
+<section class="step" id="step-4">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-you">4</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip you">👤 VOS</span>
+            <span class="time">⏱ 3 min</span>
+          </div>
+          <h2>Copiar las credenciales del proyecto nuevo</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="4">✓</div>
+      </div>
+      <div class="step-body">
+        <p>
+          Ahora que el proyecto nuevo está activo, necesitamos sus credenciales.
+          Vamos a copiar <strong>6 valores</strong> distintos.
+        </p>
+
+        <h3 style="margin-top:24px;font-size:18px;font-weight:600;letter-spacing:-0.01em;">🔑 Bloque 1 — API keys</h3>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Andá a Settings → API</strong>
+            <p style="margin-top:8px;">URL exacta (reemplazá <code>&lt;nuevo-id&gt;</code> por tu Project Reference ID del Paso 2.6):</p>
+            <p style="margin-top:8px;"><code>https://supabase.com/dashboard/project/&lt;nuevo-id&gt;/settings/api</code></p>
+          </li>
+          <li>
+            <strong>Vas a ver esta pantalla:</strong>
+            <div class="ui-mock">
+              <div class="titlebar">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="title-text">cehta-prod-br — Settings → API</span>
+              </div>
+              <div class="body">
+                <div class="field">
+                  <label class="field-label">Project URL</label>
+                  <div class="field-input highlight">
+                    <span>https://abc123xyz.supabase.co</span>
+                    <span class="pill-tag copy-this">📋 copiar #1</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">anon public</label>
+                  <div class="field-input highlight">
+                    <span>eyJhbGciOiJIUz...muy-largo...</span>
+                    <span class="pill-tag copy-this">📋 copiar #2</span>
+                  </div>
+                  <div class="field-hint">Es seguro compartir (cliente la usa).</div>
+                </div>
+                <div class="field">
+                  <label class="field-label">service_role secret</label>
+                  <div class="field-input highlight">
+                    <span>🔒 [Reveal] eyJhbGciOi...</span>
+                    <span class="pill-tag copy-this">📋 copiar #3</span>
+                  </div>
+                  <div class="field-hint">🚨 SECRETO. Equivale a root de la DB. Click "Reveal" antes de copy.</div>
+                </div>
+              </div>
+            </div>
+          </li>
+          <li>
+            <strong>Click "Copy" en cada uno de los 3</strong> y guardalos en tu gestor.
+          </li>
+        </ol>
+
+        <h3 style="margin-top:32px;font-size:18px;font-weight:600;letter-spacing:-0.01em;">🔐 Bloque 2 — JWT Secret</h3>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>En la misma página Settings → API</strong>, bajá hasta la sección <strong>"JWT Settings"</strong>
+          </li>
+          <li>
+            <strong>Click "Reveal" en "JWT Secret"</strong>
+            <p style="margin-top:8px;">Es un string tipo <code>super-secret-1234abcd...</code></p>
+          </li>
+          <li>
+            <strong>Copy → guardalo como "JWT Secret #4"</strong>
+            <div class="callout danger">
+              <div class="title">🚨 Cambiar este invalida TODAS las sesiones activas</div>
+              <p>Cuando cambiemos el SUPABASE_JWT_SECRET en el backend (Paso 7), todos los
+              usuarios logueados tienen que volver a loguear. Esto es esperado. Avisales antes.</p>
+            </div>
+          </li>
+        </ol>
+
+        <h3 style="margin-top:32px;font-size:18px;font-weight:600;letter-spacing:-0.01em;">🗄️ Bloque 3 — Database Connection Strings</h3>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Navegá a Settings → Database</strong>
+            <p style="margin-top:8px;"><code>https://supabase.com/dashboard/project/&lt;nuevo-id&gt;/settings/database</code></p>
+          </li>
+          <li>
+            <strong>Vas a ver 2 secciones de connection strings</strong>
+          </li>
+          <li>
+            <strong>Connection string (Direct connection)</strong> — usá la pestaña "URI"
+            <div class="conn-anatomy">
+              <span class="label">Direct connection (puerto 5432) — para migraciones</span>
+              <span class="seg-user">postgres.abc123xyz</span><span class="arrow">:</span><span class="seg-pass">[TU-PASSWORD]</span><span class="arrow">@</span><span class="seg-host">aws-0-sa-east-1.supabase.com</span><span class="arrow">:</span><span class="seg-port">5432</span><span class="arrow">/</span><span class="seg-db">postgres</span>
+            </div>
+            <p style="margin-top:8px;font-size:13px;color:rgba(29,29,31,0.6);">
+              📋 <strong>Copiá esta URL completa</strong> → guardala como "Direct DB URL #5"
+            </p>
+            <div class="callout warn">
+              <div class="title">⚠ Reemplazá [TU-PASSWORD]</div>
+              <p>Donde dice <code>[YOUR-PASSWORD]</code> en la URL real, reemplazalo manualmente con
+              la DB password que generaste en el Paso 2.3. Si la perdiste: Settings → Database
+              → "Reset database password" (genera una nueva).</p>
+            </div>
+          </li>
+          <li>
+            <strong>Connection pooler (Transaction mode)</strong>
+            <div class="conn-anatomy">
+              <span class="label">Transaction pooler (puerto 6543) — para producción</span>
+              <span class="seg-user">postgres.abc123xyz</span><span class="arrow">:</span><span class="seg-pass">[TU-PASSWORD]</span><span class="arrow">@</span><span class="seg-host">aws-0-sa-east-1.pooler.supabase.com</span><span class="arrow">:</span><span class="seg-port">6543</span><span class="arrow">/</span><span class="seg-db">postgres</span>
+            </div>
+            <p style="margin-top:8px;font-size:13px;color:rgba(29,29,31,0.6);">
+              📋 <strong>Copiá esta URL completa también</strong> → guardala como "Pooler DB URL #6"
+            </p>
+          </li>
+        </ol>
+
+        <div class="callout success">
+          <div class="title">✓ Resumen — los 6 valores que tenés que tener guardados</div>
+          <p>
+            1. Project URL → <code>https://abc123.supabase.co</code><br/>
+            2. anon public key → <code>eyJ...</code><br/>
+            3. service_role secret 🔒 → <code>eyJ...</code><br/>
+            4. JWT Secret 🔒 → <code>super-secret-...</code><br/>
+            5. Direct DB URL → <code>postgres://...5432/postgres</code><br/>
+            6. Pooler DB URL → <code>postgres://...6543/postgres</code>
+          </p>
+        </div>
+
+        <h3 style="margin-top:32px;font-size:18px;font-weight:600;letter-spacing:-0.01em;">📤 Cómo pasármelas — 2 opciones</h3>
+
+        <div class="callout info">
+          <div class="title">Opción A — Más rápida (riesgo bajo)</div>
+          <p>Pegámelas todas en el chat. Yo las uso para el restore (Paso 5) y actualizar el código.
+          Después podés <strong>rotar la service_role key</strong> desde el dashboard cuando termine
+          la migración (Settings → API → "Generate new service_role key").</p>
+        </div>
+
+        <div class="callout warn">
+          <div class="title">Opción B — Más segura (recomendada)</div>
+          <p>Pegáme solo: <strong>#1 (URL), #2 (anon), #5 (Direct DB), #6 (Pooler DB)</strong>.</p>
+          <p>Los secretos #3 (service_role) y #4 (JWT) los cargás vos directamente con
+          <code>fly secrets set</code> en el Paso 7 sin que pasen por mí. Más arriba en este doc te paso el comando exacto.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 5 — RESTORE (YO)
+     ============================================================ -->
+<section class="step" id="step-5">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-me">5</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip me">🤖 YO</span>
+            <span class="time">⏱ 8 min</span>
+          </div>
+          <h2>Restore al proyecto nuevo + verificación</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="5">✓</div>
+      </div>
+      <div class="step-body">
+        <p>Con las credenciales que me pasaste, yo ejecuto:</p>
+
+        <div class="code-block">
+          <div class="code-head">
+            <div class="code-lang">
+              <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+              bash · mi terminal
+            </div>
+            <button class="copy-btn" data-copy>📋 Copy</button>
+          </div>
+<pre><code><span class="comment"># Restore al proyecto nuevo en Brasil</span>
+psql <span class="placeholder">"$DATABASE_URL_NUEVO_DIRECT"</span> \
+  --file=ram-cehta-dump-YYYYMMDD-HHMM.sql \
+  --single-transaction \
+  --set ON_ERROR_STOP=on
+
+<span class="comment"># Si hay UN error, rollback total. No queda DB nueva a medias.</span></code></pre>
+        </div>
+
+        <p>Después corro las queries de <strong>verificación de integridad</strong>:</p>
+
+        <div class="code-block">
+          <div class="code-head">
+            <div class="code-lang">
+              <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+              sql · check integridad
+            </div>
+            <button class="copy-btn" data-copy>📋 Copy</button>
+          </div>
+<pre><code><span class="comment">-- Compara conteos viejo vs nuevo. Deben coincidir exactamente.</span>
+SELECT 'empresas' AS tabla, COUNT(*) FROM core.empresas
+UNION ALL SELECT 'vouchers', COUNT(*) FROM core.vouchers
+UNION ALL SELECT 'voucher_lines', COUNT(*) FROM core.voucher_lines
+UNION ALL SELECT 'voucher_approvals', COUNT(*) FROM core.voucher_approvals
+UNION ALL SELECT 'voucher_attachments', COUNT(*) FROM core.voucher_attachments
+UNION ALL SELECT 'user_company_roles', COUNT(*) FROM core.user_company_roles
+UNION ALL SELECT 'auth.users', COUNT(*) FROM auth.users
+UNION ALL SELECT 'approval_rules', COUNT(*) FROM core.approval_rules
+UNION ALL SELECT 'plan_cuentas', COUNT(*) FROM core.plan_cuentas
+UNION ALL SELECT 'audit.action_log', COUNT(*) FROM audit.action_log;</code></pre>
+        </div>
+
+        <p>
+          Espero ver exactamente estos números (los que verifiqué ayer en producción):
+        </p>
+
+        <div class="ui-mock">
+          <div class="titlebar">
+            <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+            <span class="title-text">resultado esperado</span>
+          </div>
+          <div class="body" style="font-family:SF Mono,monospace;font-size:13px;color:#1d1d1f;">
+            empresas             10<br/>
+            vouchers             56<br/>
+            voucher_lines        ~280<br/>
+            voucher_approvals    ~6<br/>
+            voucher_attachments  varios (depende de uploads)<br/>
+            user_company_roles   ~72<br/>
+            auth.users           45<br/>
+            approval_rules       10<br/>
+            plan_cuentas         212<br/>
+            audit.action_log     muchos miles
+          </div>
+        </div>
+
+        <div class="callout success">
+          <div class="title">✓ Si todos los conteos coinciden</div>
+          <p>Integridad verificada. Sigo con Paso 6.</p>
+        </div>
+
+        <div class="callout danger">
+          <div class="title">🚨 Si algún conteo NO coincide</div>
+          <p>Abortamos la migración acá. El proyecto viejo sigue intacto en EE.UU., el frontend
+          y backend siguen apuntando ahí. Investigamos qué pasó y reintentamos. Cero riesgo de pérdida de data.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DOWNTIME WARNING
+     ============================================================ -->
+<div class="container">
+  <div class="callout danger" style="text-align:center;padding:32px;margin:40px 0 60px;">
+    <div style="font-size:32px;margin-bottom:12px;">⏸️</div>
+    <div class="title" style="font-size:18px;justify-content:center;margin-bottom:12px;">DOWNTIME EMPIEZA — pasos 6-8</div>
+    <p style="font-size:15px;">
+      A partir de acá, durante los próximos <strong>~15 minutos</strong>, la app va a estar
+      apuntando a una mezcla (backend a la DB nueva, frontend a la vieja, o viceversa).
+      Los usuarios pueden ver errores temporales. Mejor avisar antes a Camilo, jocuevas, etc.
+    </p>
+  </div>
+</div>
+
+<!-- ============================================================
+     PASO 6 — ACTUALIZAR CÓDIGO BACKEND (YO)
+     ============================================================ -->
+<section class="step" id="step-6">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-me">6</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip me">🤖 YO</span>
+            <span class="time">⏱ 2 min</span>
+          </div>
+          <h2>Actualizar el código del backend</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="6">✓</div>
+      </div>
+      <div class="step-body">
+        <p>Edito 2 cosas en el repo:</p>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>backend/.env</strong> (local, solo para dev)
+            <p style="margin-top:8px;">Reemplazo <code>DATABASE_URL</code>, <code>SUPABASE_URL</code>, <code>SUPABASE_ANON_KEY</code>, etc.</p>
+          </li>
+          <li>
+            <strong>Grep por hardcoded references al proyecto viejo</strong>
+            <p style="margin-top:8px;">Busco <code>dqwwqfhzejscgcynkbip</code> en todo el repo. Si aparece en algún
+            archivo, lo reemplazo por el nuevo Project Reference ID.</p>
+          </li>
+          <li>
+            <strong>Commit + push</strong>
+            <p style="margin-top:8px;">Mensaje sugerido: <code>chore(infra): migrar Supabase a region sa-east-1 (São Paulo)</code></p>
+          </li>
+        </ol>
+
+        <div class="callout info">
+          <div class="title">📌 El backend en producción sigue apuntando a la DB vieja todavía</div>
+          <p>Hasta que vos hagas <code>fly secrets set</code> en el Paso 7, las machines de Fly siguen
+          usando las credenciales viejas. Es decir, el backend está vivo pero hablando con la DB de EE.UU.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 7 — FLY SECRETS SET (VOS)
+     ============================================================ -->
+<section class="step" id="step-7">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-you">7</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip you">👤 VOS</span>
+            <span class="time">⏱ 3 min</span>
+          </div>
+          <h2>Aplicar nuevas credenciales en Fly</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="7">✓</div>
+      </div>
+      <div class="step-body">
+        <p>
+          Este es el momento crítico. Vas a redirigir el backend en producción a la DB nueva
+          con un solo comando. Fly hace restart automático y en 60-90s el sistema está hablando
+          con Brasil.
+        </p>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Abrí PowerShell en cualquier carpeta</strong>
+          </li>
+          <li>
+            <strong>Verificá que estás autenticado en Fly</strong>
+            <div class="code-block">
+              <div class="code-head">
+                <div class="code-lang">
+                  <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+                  PowerShell
+                </div>
+                <button class="copy-btn" data-copy>📋 Copy</button>
+              </div>
+<pre><code>fly auth whoami</code></pre>
+            </div>
+            <p style="margin-top:8px;">Si responde tu email → continuá. Si dice "Not logged in" → corré <code>fly auth login</code> primero.</p>
+          </li>
+          <li>
+            <strong>Ejecutá este comando con TUS valores reales</strong> (reemplazá los placeholders en naranja):
+            <div class="code-block">
+              <div class="code-head">
+                <div class="code-lang">
+                  <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+                  PowerShell · fly secrets set
+                </div>
+                <button class="copy-btn" data-copy>📋 Copy</button>
+              </div>
+<pre><code>fly secrets set `
+  DATABASE_URL=<span class="placeholder">"&lt;Pooler DB URL del Paso 4 — #6&gt;"</span> `
+  SUPABASE_URL=<span class="placeholder">"&lt;Project URL del Paso 4 — #1&gt;"</span> `
+  SUPABASE_ANON_KEY=<span class="placeholder">"&lt;anon key del Paso 4 — #2&gt;"</span> `
+  SUPABASE_SERVICE_ROLE_KEY=<span class="placeholder">"&lt;service_role del Paso 4 — #3&gt;"</span> `
+  SUPABASE_JWT_SECRET=<span class="placeholder">"&lt;JWT Secret del Paso 4 — #4&gt;"</span> `
+  -a cehta-backend</code></pre>
+            </div>
+            <div class="callout warn">
+              <div class="title">💡 Sintaxis PowerShell</div>
+              <p>El backtick <code>`</code> al final de cada línea es continuación (equivale al
+              <code>\</code> de bash). Las comillas dobles son obligatorias porque las URLs y keys
+              tienen caracteres especiales (<code>=</code>, <code>?</code>, <code>+</code>, etc.) que PowerShell
+              interpretaría mal sin ellas.</p>
+            </div>
+          </li>
+          <li>
+            <strong>Verificá que se aplicaron</strong>
+            <div class="code-block">
+              <div class="code-head">
+                <div class="code-lang">
+                  <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+                  PowerShell
+                </div>
+                <button class="copy-btn" data-copy>📋 Copy</button>
+              </div>
+<pre><code>fly secrets list -a cehta-backend</code></pre>
+            </div>
+            <p style="margin-top:8px;">Los 5 que cambiamos deberían decir <code>CREATED AT: Just now</code>.</p>
+          </li>
+          <li>
+            <strong>Esperá el restart automático</strong>
+            <p style="margin-top:8px;">Fly reinicia las 16 machines en ~60-90 segundos. Verás output tipo:</p>
+            <div class="code-block">
+              <div class="code-head">
+                <div class="code-lang">
+                  <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+                  output esperado
+                </div>
+              </div>
+<pre><code>Released v124 to cehta-backend
+Updating 16 machines...
+Machine 18509ddb11d1d8: stopping... starting...
+...
+Machine 287e360f6d9258: stopping... starting...
+✓ All machines updated</code></pre>
+            </div>
+          </li>
+          <li>
+            <strong>Health check final</strong>
+            <div class="code-block">
+              <div class="code-head">
+                <div class="code-lang">
+                  <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+                  PowerShell
+                </div>
+                <button class="copy-btn" data-copy>📋 Copy</button>
+              </div>
+<pre><code>curl https://cehta-backend.fly.dev/api/v1/health</code></pre>
+            </div>
+            <div class="callout success">
+              <div class="title">✓ Respuesta esperada</div>
+              <p><code>{"status":"ok","database":"ok"}</code></p>
+              <p>Si ves esto → el backend ya está conectado a la DB de Brasil. 🇧🇷</p>
+            </div>
+            <div class="callout danger">
+              <div class="title">🚨 Si responde "degraded" o "database: down"</div>
+              <p>La connection string está mal. Avisame y revisamos juntos. Lo más común: el
+              <code>[YOUR-PASSWORD]</code> que dejaste literal sin reemplazar por el password real.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 8 — VERCEL
+     ============================================================ -->
+<section class="step" id="step-8">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-you">8</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip you">👤 VOS</span>
+            <span class="time">⏱ 3 min</span>
+          </div>
+          <h2>Actualizar Vercel env vars + redeploy</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="8">✓</div>
+      </div>
+      <div class="step-body">
+        <ol class="sub-steps">
+          <li>
+            <strong>Andá a Vercel Dashboard</strong>
+            <p style="margin-top:8px;"><a href="https://vercel.com/dashboard" target="_blank">https://vercel.com/dashboard</a> → proyecto Ram-Cehta</p>
+          </li>
+          <li>
+            <strong>Settings → Environment Variables</strong>
+          </li>
+          <li>
+            <strong>Editá estas 2 variables</strong>:
+            <div class="ui-mock">
+              <div class="titlebar">
+                <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+                <span class="title-text">Vercel — Environment Variables</span>
+              </div>
+              <div class="body">
+                <div class="field">
+                  <label class="field-label">NEXT_PUBLIC_SUPABASE_URL</label>
+                  <div class="field-input highlight">
+                    <span>https://abc123xyz.supabase.co (valor #1 del Paso 4)</span>
+                    <span class="pill-tag copy-this">📝 editar</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label class="field-label">NEXT_PUBLIC_SUPABASE_ANON_KEY</label>
+                  <div class="field-input highlight">
+                    <span>eyJhbGci... (valor #2 del Paso 4)</span>
+                    <span class="pill-tag copy-this">📝 editar</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <p style="margin-top:8px;font-size:13px;color:rgba(29,29,31,0.6);">
+              Click "Edit" en cada una, pegá el nuevo valor, "Save".
+            </p>
+          </li>
+          <li>
+            <strong>Redeploy desde la pestaña "Deployments"</strong>
+            <p style="margin-top:8px;">Click en el deployment más reciente → menú "⋯" → <strong>"Redeploy"</strong> → confirmar.</p>
+            <p style="margin-top:8px;">Esperá ~2 minutos a que termine el build.</p>
+          </li>
+          <li>
+            <strong>Verificá el build marker</strong>
+            <div class="code-block">
+              <div class="code-head">
+                <div class="code-lang">
+                  <div class="dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div>
+                  PowerShell · verificar Vercel
+                </div>
+                <button class="copy-btn" data-copy>📋 Copy</button>
+              </div>
+<pre><code>curl -s https://ram-cehta.vercel.app/login | Select-String "x-cehta-build"</code></pre>
+            </div>
+            <p style="margin-top:8px;">Si ves un build marker reciente → Vercel ya está sirviendo el bundle nuevo.</p>
+          </li>
+        </ol>
+
+        <div class="callout success" style="margin-top:20px;">
+          <div class="title">⏸️ → ✓ DOWNTIME TERMINA</div>
+          <p>A partir de ahora la app vuelve a estar 100% operativa, pero conectada a la DB
+          de Brasil. Los usuarios pueden trabajar normal.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 9 — SMOKE TESTS (YO)
+     ============================================================ -->
+<section class="step" id="step-9">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-me">9</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip me">🤖 YO</span>
+            <span class="time">⏱ 5 min</span>
+          </div>
+          <h2>Smoke tests end-to-end</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="9">✓</div>
+      </div>
+      <div class="step-body">
+        <p>Ejecuto la batería estándar de pruebas:</p>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Health check</strong>
+            <p style="margin-top:8px;">→ <code>{"status":"ok","database":"ok"}</code></p>
+          </li>
+          <li>
+            <strong>Conteos en producción (DB Brasil)</strong>
+            <p style="margin-top:8px;">→ Mismos números que el dump del paso 3</p>
+          </li>
+          <li>
+            <strong>Listar vouchers PENDING sin token</strong>
+            <p style="margin-top:8px;">→ HTTP 401 (correcto)</p>
+          </li>
+          <li>
+            <strong>Listar vouchers con token real</strong>
+            <p style="margin-top:8px;">→ Lista completa con los vouchers que esperás ver</p>
+          </li>
+          <li>
+            <strong>Endpoint de mis-pendientes</strong>
+            <p style="margin-top:8px;">→ Cola de aprobaciones funcional</p>
+          </li>
+          <li>
+            <strong>Verificar latencia DB</strong>
+            <p style="margin-top:8px;">→ Antes ~150ms / esperado ahora ~10ms</p>
+          </li>
+        </ol>
+
+        <p>Si los 6 pasan → migración exitosa. Te mando el reporte.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PASO 10 — LOGOUT/LOGIN + VALIDACIÓN MANUAL
+     ============================================================ -->
+<section class="step" id="step-10">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-you">10</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip you">👤 VOS</span>
+            <span class="time">⏱ 3 min</span>
+          </div>
+          <h2>Validación manual desde el browser</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="10">✓</div>
+      </div>
+      <div class="step-body">
+        <ol class="sub-steps">
+          <li>
+            <strong>Logout</strong> de la app (top right → tu nombre → Logout)
+          </li>
+          <li>
+            <strong>Hard reload</strong> (Ctrl+Shift+R) para limpiar caché
+          </li>
+          <li>
+            <strong>Login fresh</strong> con tu email + password
+            <div class="callout warn">
+              <div class="title">⚠ Si el login falla con "Invalid credentials"</div>
+              <p>Es porque el JWT secret cambió. Usá "Olvidé mi contraseña" para resetear.
+              Te llega un email de Supabase con link de reset. Esto pasa una sola vez.</p>
+            </div>
+          </li>
+          <li>
+            <strong>Navegá a /vouchers</strong>
+            <p style="margin-top:8px;">Confirmá que ves los 56+ vouchers (todos los estados).</p>
+          </li>
+          <li>
+            <strong>Navegá a /aprobaciones</strong>
+            <p style="margin-top:8px;">Verificá que las 4 PENDING que firmabas vos siguen ahí.</p>
+          </li>
+          <li>
+            <strong>Abrí un voucher cualquiera</strong>
+            <p style="margin-top:8px;">Confirmá que los detalles, líneas, firmas y attachments están todos.</p>
+          </li>
+          <li>
+            <strong>Bonus — crear un voucher de prueba</strong>
+            <p style="margin-top:8px;">Andá a /vouchers/nuevo, crealo, mandalo a firma. Si todo funciona → migración 100% exitosa.</p>
+          </li>
+        </ol>
+
+        <div class="callout success">
+          <div class="title">🎉 Migración completa</div>
+          <p>El sistema ahora corre con DB en Brasil. Latencia ~10-15x menor.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     POST-MIGRACIÓN
+     ============================================================ -->
+<section class="step" id="step-cleanup">
+  <div class="container">
+    <div class="step-card">
+      <div class="step-header">
+        <div class="step-num actor-wait">⏳</div>
+        <div class="step-title">
+          <div class="meta">
+            <span class="actor-chip wait">⏳ ESPERAR 2 SEMANAS</span>
+            <span class="time">⏱ después: 2 min</span>
+          </div>
+          <h2>Cleanup — apagar el proyecto viejo</h2>
+        </div>
+        <div class="step-checkbox" data-stepcheck="11">✓</div>
+      </div>
+      <div class="step-body">
+        <p>
+          Esperá <strong>al menos 2 semanas</strong> antes de eliminar el proyecto viejo.
+          Razón: si surge algún bug operativo que apunte a un problema de la migración,
+          podemos restaurar al estado pre-migración con el snapshot del Paso 1.
+        </p>
+
+        <p>Pasadas 2 semanas sin issues:</p>
+
+        <ol class="sub-steps">
+          <li>
+            <strong>Andá al proyecto viejo en Supabase</strong>
+            <p style="margin-top:8px;"><code>https://supabase.com/dashboard/project/dqwwqfhzejscgcynkbip</code></p>
+          </li>
+          <li>
+            <strong>Settings → General → scroll abajo</strong>
+          </li>
+          <li>
+            <strong>Opción A (recomendada):</strong> <em>"Pause project"</em>
+            <p style="margin-top:8px;">Lo pausa. No factura. Si en el futuro lo necesitás, lo despertás. Gratis.</p>
+          </li>
+          <li>
+            <strong>Opción B (irreversible):</strong> <em>"Delete project"</em>
+            <p style="margin-top:8px;">Lo borra para siempre. Solo si estás 100% seguro que todo está OK en el nuevo.</p>
+          </li>
+        </ol>
+
+        <div class="callout info">
+          <div class="title">💡 Costo de mantener el viejo pausado</div>
+          <p>$0. Supabase no factura proyectos pausados (ni en Pro ni en Free). Pueden quedar
+          pausados indefinidamente como red de seguridad.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     TROUBLESHOOTING
+     ============================================================ -->
+<div class="container">
+  <div class="faq-block">
+    <h2>🛠 Troubleshooting</h2>
+    <p class="lede">Si algo sale mal en algún paso, buscá acá primero.</p>
+
+    <details class="faq">
+      <summary>El dropdown de region no muestra "South America (São Paulo)"</summary>
+      <div class="body">
+        <p>Supabase a veces oculta opciones según el plan. Verificá:</p>
+        <p>1. Que estés en Free tier o Pro (no Enterprise legacy con regiones limitadas).</p>
+        <p>2. Que el browser no esté bloqueando algún recurso de Supabase (desactivá ad-blocker temporalmente).</p>
+        <p>3. Probá en una pestaña incógnita.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>fly secrets set falla con "Error: failed to update app secrets"</summary>
+      <div class="body">
+        <p>Causa más común: token Fly expirado o app name mal escrito.</p>
+        <p>Solución:</p>
+        <p>1. <code>fly auth login</code> de nuevo.</p>
+        <p>2. Verificar que la app se llama exactamente <code>cehta-backend</code>: <code>fly apps list</code></p>
+        <p>3. Reintentar el <code>fly secrets set</code>.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>El health check dice "database: down" después del Paso 7</summary>
+      <div class="body">
+        <p>Hay 3 causas posibles:</p>
+        <p><strong>A.</strong> La connection string tiene <code>[YOUR-PASSWORD]</code> literal (no reemplazado por la DB password real). Más común.</p>
+        <p><strong>B.</strong> Estás usando la <em>direct</em> URL (puerto 5432) en lugar de la <em>pooler</em> URL (puerto 6543). Producción usa pooler.</p>
+        <p><strong>C.</strong> El IP de Fly São Paulo no está whitelisteado en la DB nueva. Por default Supabase permite todo, pero si activaste IP allowlist tenés que agregarlo.</p>
+        <p>Avisame y miro logs juntos: <code>fly logs -a cehta-backend</code></p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Después del login, sale "JWT validation failed"</summary>
+      <div class="body">
+        <p>El SUPABASE_JWT_SECRET en backend no coincide con el del proyecto nuevo.</p>
+        <p>Verificá en Supabase Dashboard → Settings → API → JWT Settings → "Reveal" del JWT Secret y comparalo contra el valor que pusiste en <code>fly secrets list</code>.</p>
+        <p>Si difieren: <code>fly secrets set SUPABASE_JWT_SECRET="..." -a cehta-backend</code></p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Los usuarios no pueden loguear con su password vieja</summary>
+      <div class="body">
+        <p>Esto es <strong>esperado</strong>. Cuando cambia el JWT secret, todas las sesiones se invalidan. Pero los <em>passwords</em> en la tabla <code>auth.users</code> siguen siendo válidos — los users pueden usar el mismo password de antes.</p>
+        <p>Si el password no funciona: usá "Olvidé mi contraseña" en el login. Se manda email de reset desde el proyecto nuevo.</p>
+        <p>Si nadie recibe el email de reset: hay que configurar SMTP en el proyecto nuevo (Settings → Auth → Email Templates). Por default Supabase usa su propio SMTP que tiene rate limit de 3 emails/hora — para uso normal alcanza.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Los integrity counts NO coinciden entre proyecto viejo y nuevo</summary>
+      <div class="body">
+        <p>Esto NO debería pasar con <code>pg_dump --single-transaction</code>. Si pasa:</p>
+        <p>1. Comparar tabla por tabla cuál difiere.</p>
+        <p>2. Si la tabla con diff es <code>audit.action_log</code>, puede ser que durante el dump alguien generó nuevos audit logs. No crítico.</p>
+        <p>3. Si la tabla con diff es <code>core.vouchers</code> o similar, hay problema serio. Abortamos y restauramos del backup del Paso 1.</p>
+      </div>
+    </details>
+
+    <details class="faq">
+      <summary>Quiero abortar la migración a mitad del proceso</summary>
+      <div class="body">
+        <p>Depende del paso donde estés:</p>
+        <p><strong>Antes del Paso 7</strong> (vos no hiciste <code>fly secrets set</code> todavía): la app sigue 100% funcional contra la DB vieja. No hiciste cambios en producción. Solo eliminás el proyecto nuevo de Supabase y listo.</p>
+        <p><strong>Después del Paso 7</strong>: hacé rollback del <code>fly secrets set</code> con las credenciales viejas (las que están en <code>backend/.env</code> antes de los cambios míos del Paso 6). Esto restaura producción a la DB vieja en 60-90s.</p>
+        <p>El proyecto nuevo en Brasil queda creado pero sin uso — lo pausás o eliminás.</p>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="container">
+    <p><strong>Ram-Cehta · Migración Supabase a Brasil</strong></p>
+    <p>Documento generado el <span id="ts">—</span></p>
+    <p style="margin-top:12px;font-size:11px;color:rgba(29,29,31,0.4);letter-spacing:0.1em;text-transform:uppercase;">
+      Apple-tier white · SF Pro · Print-ready · Interactivo
+    </p>
+  </div>
+</footer>
+
+<script>
+  // Timestamp
+  (function () {
+    var d = new Date();
+    var fmt = d.toLocaleString('es-CL', {
+      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    var el = document.getElementById('ts');
+    if (el) el.textContent = fmt;
+  })();
+
+  // Copy buttons
+  document.querySelectorAll('.copy-btn[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var block = btn.closest('.code-block');
+      var code = block ? block.querySelector('pre code') : null;
+      if (!code) return;
+      var text = code.innerText;
+      // Limpiar placeholders del texto (los chevrons)
+      text = text.replace(/^\s+|\s+$/g, '');
+      try {
+        navigator.clipboard.writeText(text);
+        btn.classList.add('copied');
+        btn.textContent = '✓ Copiado';
+        setTimeout(function () {
+          btn.classList.remove('copied');
+          btn.innerHTML = '📋 Copy';
+        }, 2000);
+      } catch (e) {
+        alert('No se pudo copiar — seleccioná y Ctrl+C manualmente');
+      }
+    });
+  });
+
+  // Step checkboxes
+  var totalSteps = document.querySelectorAll('[data-stepcheck]').length;
+  function updateProgress() {
+    var done = document.querySelectorAll('.step-checkbox.done').length;
+    var pct = totalSteps > 0 ? (done / totalSteps) * 100 : 0;
+    var fill = document.getElementById('navFill');
+    var count = document.getElementById('navCount');
+    if (fill) fill.style.width = pct + '%';
+    if (count) count.textContent = done;
+    try {
+      localStorage.setItem('migration-progress', JSON.stringify(
+        Array.from(document.querySelectorAll('.step-checkbox.done')).map(function (b) {
+          return b.getAttribute('data-stepcheck');
+        })
+      ));
+    } catch (e) {}
+  }
+  document.querySelectorAll('.step-checkbox').forEach(function (cb) {
+    cb.addEventListener('click', function () {
+      cb.classList.toggle('done');
+      updateProgress();
+    });
+  });
+  // Restore from localStorage
+  try {
+    var saved = JSON.parse(localStorage.getItem('migration-progress') || '[]');
+    saved.forEach(function (id) {
+      var cb = document.querySelector('[data-stepcheck="' + id + '"]');
+      if (cb) cb.classList.add('done');
+    });
+    updateProgress();
+  } catch (e) {}
+
+  // Pre-flight checkboxes
+  document.querySelectorAll('[data-check]').forEach(function (cb) {
+    cb.addEventListener('click', function () {
+      cb.classList.toggle('checked');
+      if (cb.classList.contains('checked')) cb.textContent = '✓';
+      else cb.textContent = '';
+    });
+  });
+
+  // IntersectionObserver para reveal
+  (function () {
+    var els = document.querySelectorAll('section.step');
+    if (!('IntersectionObserver' in window)) {
+      els.forEach(function (e) { e.classList.add('in'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          e.target.classList.add('in');
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -8% 0px' });
+    els.forEach(function (e) { io.observe(e); });
+  })();
+</script>
+
+</body>
+</html>
