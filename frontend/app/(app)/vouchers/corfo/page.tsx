@@ -37,6 +37,7 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
 import type {
+  PlanCuenta,
   ProyectoContable,
   RepartoDefault,
   SubsidioRead,
@@ -161,6 +162,34 @@ export default function VoucherCorfoPage() {
     enabled: !!session && !!reparto?.subsidio_codigo,
   });
 
+  // Round 146 — Cargar el plan de cuentas habilitado para la empresa.
+  // Solo cuentas imputables (nivel 4) + activas + habilitadas para esta
+  // empresa. Este es el universo de opciones que el combo box muestra
+  // en cada fila del preview de líneas.
+  const { data: cuentasDisponibles } = useQuery<PlanCuenta[]>({
+    queryKey: ["plan-cuentas-corfo", empresa],
+    queryFn: () =>
+      apiClient.get<PlanCuenta[]>(
+        `/plan-cuentas?empresa_codigo=${empresa}&imputable=true&activa=true`,
+        session,
+      ),
+    enabled: !!session && !!empresa,
+  });
+
+  // Round 146 — overrides manuales de cuenta por fuente. Si el operador
+  // cambia la cuenta default del reparto en el combo box, guardamos el
+  // override acá indexado por fuente. Si está vacío, usamos el default
+  // del reparto. Cuando cambia el proyecto, reseteamos.
+  const [cuentaOverrides, setCuentaOverrides] = useState<Record<string, string>>({});
+  useEffect(() => {
+    // Al cambiar proyecto, limpiar overrides (toma los defaults del nuevo reparto)
+    setCuentaOverrides({});
+  }, [proyectoCodigo]);
+
+  const setOverride = (fuente: string, cuenta: string) => {
+    setCuentaOverrides((prev) => ({ ...prev, [fuente]: cuenta }));
+  };
+
   // Cálculos derivados
   const sumaPct = pctCorfo + pctPtec + pctEmpresa;
   const sumaOk = Math.abs(sumaPct - 100) < 0.01;
@@ -187,43 +216,55 @@ export default function VoucherCorfoPage() {
       label: string;
       fuente: string;
       cuenta: string;
+      cuentaDefault: string; // cuenta default del reparto (para reset al hacer click "default")
       monto: number;
     }> = [];
+    // Round 146 — resolveCuenta toma el override si existe, sino el default.
+    const resolveCuenta = (fuente: string, defaultCuenta: string | null) =>
+      cuentaOverrides[fuente] || defaultCuenta || "";
     if (effectivePcts.corfo > 0) {
+      const def = reparto.cuenta_aporte_corfo ?? "";
       out.push({
         label: `CORFO ${effectivePcts.corfo}%`,
         fuente: "CORFO_SUBSIDIO",
-        cuenta: reparto.cuenta_aporte_corfo ?? "?",
+        cuenta: resolveCuenta("CORFO_SUBSIDIO", def),
+        cuentaDefault: def,
         monto: Math.round((neto * effectivePcts.corfo) / 100),
       });
     }
     if (effectivePcts.ptec > 0) {
+      const def = reparto.cuenta_aporte_ptec_cehta ?? "";
       out.push({
         label: `P-tec (CEHTA) ${effectivePcts.ptec}%`,
         fuente: "PTEC_CEHTA",
-        cuenta: reparto.cuenta_aporte_ptec_cehta ?? "?",
+        cuenta: resolveCuenta("PTEC_CEHTA", def),
+        cuentaDefault: def,
         monto: Math.round((neto * effectivePcts.ptec) / 100),
       });
     }
     if (effectivePcts.empresa > 0) {
+      const def = reparto.cuenta_aporte_empresa_directa ?? "";
       out.push({
         label: `Empresa directa ${effectivePcts.empresa}%`,
         fuente: "EMPRESA_DIRECTA",
-        cuenta: reparto.cuenta_aporte_empresa_directa ?? "?",
+        cuenta: resolveCuenta("EMPRESA_DIRECTA", def),
+        cuentaDefault: def,
         monto: Math.round((neto * effectivePcts.empresa) / 100),
       });
     }
     // IVA siempre corporativo si afecta
     if (afecta && iva > 0) {
+      const def = reparto.cuenta_iva_corporativo ?? "";
       out.push({
         label: "IVA crédito fiscal (siempre corporativo)",
         fuente: "IVA_CORPORATIVO",
-        cuenta: reparto.cuenta_iva_corporativo ?? "?",
+        cuenta: resolveCuenta("IVA_CORPORATIVO", def),
+        cuentaDefault: def,
         monto: iva,
       });
     }
     return out;
-  }, [reparto, effectivePcts, neto, iva, afecta]);
+  }, [reparto, effectivePcts, neto, iva, afecta, cuentaOverrides]);
 
   // Round 142 hotfix — bug "?" en columna CUENTA del preview.
   // Si el RepartoDefault del proyecto no tiene cuentas configuradas
@@ -231,7 +272,7 @@ export default function VoucherCorfoPage() {
   // backend rechaza al crear con "Cuenta '?' no existe". Detectamos el
   // estado y bloqueamos el submit con UX clara antes del POST.
   const cuentasFaltantes = useMemo(() => {
-    return lineasPreview.filter((l) => !l.cuenta || l.cuenta === "?").length;
+    return lineasPreview.filter((l) => !l.cuenta || l.cuenta === "?" || l.cuenta === "").length;
   }, [lineasPreview]);
 
   // Round 142 — Helper compartido por los 2 botones (DRAFT y PENDING).
@@ -700,25 +741,70 @@ export default function VoucherCorfoPage() {
               </thead>
               <tbody>
                 {lineasPreview.map((l, i) => {
-                  const cuentaVacia = !l.cuenta || l.cuenta === "?";
+                  const cuentaVacia = !l.cuenta || l.cuenta === "?" || l.cuenta === "";
+                  const overrideado =
+                    !!cuentaOverrides[l.fuente] &&
+                    cuentaOverrides[l.fuente] !== l.cuentaDefault;
                   return (
                     <tr key={i} className="border-t border-cehta-green/10">
-                      <td className="py-1.5">{l.label}</td>
-                      <td
-                        className={`py-1.5 font-mono text-xs ${
-                          cuentaVacia
-                            ? "text-negative font-semibold"
-                            : "text-ink-700"
-                        }`}
-                        title={
-                          cuentaVacia
-                            ? `El proyecto ${proyectoCodigo} no tiene esta cuenta configurada en el reparto-default`
-                            : undefined
-                        }
-                      >
-                        {cuentaVacia ? "⚠ FALTA CUENTA" : l.cuenta}
+                      <td className="py-1.5 align-top">{l.label}</td>
+                      <td className="py-1.5 align-top">
+                        {/* Round 146 — combo box de cuentas habilitadas
+                            para la empresa. Default = cuenta del reparto
+                            del proyecto. El operador puede sobrescribir
+                            con cualquier cuenta nivel 4 activa. */}
+                        <select
+                          value={l.cuenta}
+                          onChange={(e) => setOverride(l.fuente, e.target.value)}
+                          className={`w-full rounded-md border bg-white px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-cehta-green ${
+                            cuentaVacia
+                              ? "border-negative ring-1 ring-negative/30 text-negative"
+                              : overrideado
+                                ? "border-amber-300 text-amber-900"
+                                : "border-hairline text-ink-700"
+                          }`}
+                          title={
+                            cuentaVacia
+                              ? `El proyecto ${proyectoCodigo} no tiene cuenta default para ${l.fuente}. Elegí una manualmente.`
+                              : overrideado
+                                ? `Override manual. Default del proyecto: ${l.cuentaDefault || "—"}`
+                                : `Cuenta default del reparto del proyecto ${proyectoCodigo}`
+                          }
+                        >
+                          <option value="">— Elegir cuenta —</option>
+                          {cuentasDisponibles?.map((c) => (
+                            <option key={c.codigo} value={c.codigo}>
+                              {c.codigo} — {c.nombre}
+                            </option>
+                          ))}
+                          {/* Si la cuenta actual no está en la lista
+                              (ej. cuenta inactiva pero seteada en el reparto)
+                              la mostramos igual para no perderla. */}
+                          {l.cuenta &&
+                            !cuentasDisponibles?.some((c) => c.codigo === l.cuenta) && (
+                              <option value={l.cuenta}>
+                                {l.cuenta} ⚠ (no listada)
+                              </option>
+                            )}
+                        </select>
+                        {overrideado && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = { ...cuentaOverrides };
+                              delete next[l.fuente];
+                              setCuentaOverrides(next);
+                            }}
+                            className="mt-1 text-[10px] text-amber-700 hover:underline"
+                            title={`Restaurar a la cuenta del reparto: ${l.cuentaDefault}`}
+                          >
+                            ↩ Volver al default ({l.cuentaDefault})
+                          </button>
+                        )}
                       </td>
-                      <td className="py-1.5 text-right font-mono">{fmtCLP(l.monto)}</td>
+                      <td className="py-1.5 text-right font-mono align-top">
+                        {fmtCLP(l.monto)}
+                      </td>
                     </tr>
                   );
                 })}
