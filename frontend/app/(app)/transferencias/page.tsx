@@ -23,7 +23,7 @@
  *   - Bulk export de N vouchers necesita selector multiple amigable;
  *     mezclarlo con la cola de firma seria ruido.
  */
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import Link from "next/link";
 import type { Route } from "next";
@@ -37,7 +37,9 @@ import {
   ExternalLink,
   Loader2,
   MessageCircle,
+  Paperclip,
   Wallet,
+  X as XIcon,
 } from "lucide-react";
 import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { apiClient, ApiError } from "@/lib/api/client";
@@ -108,6 +110,11 @@ export default function TransferenciasPage() {
   const [executeNota, setExecuteNota] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const [executeFecha, setExecuteFecha] = useState(today);
+  // Round 149 — comprobante de pago obligatorio al marcar EXECUTED.
+  // Después del bulk-execute exitoso, este archivo se sube como
+  // attachment tipo TRANSFERENCIA a CADA voucher seleccionado (loop).
+  const [executeFile, setExecuteFile] = useState<File | null>(null);
+  const executeFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const { data, isLoading, error, refetch } = useQuery<PreviewResponse>({
     queryKey: ["transferencias-preview"],
@@ -258,6 +265,8 @@ export default function TransferenciasPage() {
 
   // Etapa A — bulk mark EXECUTED. Despues de subir el Excel al banco y
   // confirmar transferencias, el user marca aca todos los que se pagaron.
+  // Round 149 — ahora exige comprobante de pago (archivo) que se sube
+  // como attachment tipo TRANSFERENCIA a cada voucher del batch.
   const handleBulkExecute = async () => {
     if (!session) {
       toast.error("Sesión expirada");
@@ -265,6 +274,13 @@ export default function TransferenciasPage() {
     }
     if (selectedIds.size === 0) {
       toast.error("Seleccioná al menos un voucher");
+      return;
+    }
+    // Round 149 — comprobante de pago obligatorio
+    if (!executeFile) {
+      toast.error(
+        "Adjuntá el comprobante de pago antes de confirmar (PDF, JPG o PNG).",
+      );
       return;
     }
     setExecuting(true);
@@ -279,14 +295,60 @@ export default function TransferenciasPage() {
         session,
       );
 
+      // Round 149 — subir el comprobante a cada voucher EXECUTED del
+      // batch (loop). Si algún upload falla, lo reportamos pero NO
+      // revertimos la marca EXECUTED — el operador puede subir el
+      // archivo manualmente desde el detalle del voucher después.
+      // Lookup contra data.items (no items filtrado) por si el operador
+      // seleccionó vouchers de varias empresas con filtro intermedio.
+      const allItems = data?.items ?? [];
+      const executedVoucherIds = (resp.executed_codes ?? []).map((codigo) => {
+        const v = allItems.find((it) => it.codigo === codigo);
+        return v?.voucher_id;
+      }).filter((v): v is number => v !== undefined);
+
+      let attachedOk = 0;
+      let attachedFail = 0;
+      if (executeFile && executedVoucherIds.length > 0) {
+        for (const vid of executedVoucherIds) {
+          try {
+            const fd = new FormData();
+            fd.append("file", executeFile);
+            fd.append("tipo", "TRANSFERENCIA");
+            const r = await fetch(
+              `${API_BASE}/vouchers/${vid}/attachments`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: fd,
+                cache: "no-store",
+              },
+            );
+            if (r.ok) attachedOk++;
+            else attachedFail++;
+          } catch {
+            attachedFail++;
+          }
+        }
+      }
+
+      const attachMsg =
+        attachedFail === 0
+          ? attachedOk > 0
+            ? ` · comprobante subido a ${attachedOk} voucher${attachedOk === 1 ? "" : "s"}`
+            : ""
+          : ` · ⚠ comprobante falló en ${attachedFail} voucher${attachedFail === 1 ? "" : "s"} (subir manualmente)`;
+
       if (resp.failed === 0) {
         toast.success(
-          `✓ ${resp.succeeded} vouchers marcados como EXECUTED`,
-          { duration: 6000 },
+          `✓ ${resp.succeeded} vouchers marcados como EXECUTED${attachMsg}`,
+          { duration: 8000 },
         );
       } else {
         toast.info(
-          `${resp.succeeded} marcados · ${resp.failed} fallaron. Revisá los detalles.`,
+          `${resp.succeeded} marcados · ${resp.failed} fallaron${attachMsg}. Revisá los detalles.`,
           { duration: 10000 },
         );
         // Mostrar primeros 3 errores en toasts adicionales
@@ -298,6 +360,7 @@ export default function TransferenciasPage() {
       }
       setShowExecuteConfirm(false);
       setExecuteNota("");
+      setExecuteFile(null);
       setSelectedIds(new Set());
       // Round 7 pattern — invalidar caches relacionadas para que la
       // lista refresque automaticamente.
@@ -657,6 +720,67 @@ export default function TransferenciasPage() {
                       Queda en el audit log de cada voucher.
                     </span>
                   </label>
+
+                  {/* Round 149 — Comprobante de pago OBLIGATORIO.
+                      Se sube como attachment tipo TRANSFERENCIA a cada
+                      voucher del batch después del bulk-execute exitoso. */}
+                  <div>
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
+                      Adjunta comprobante de pago
+                      <span className="ml-1 text-negative">*</span>
+                    </span>
+                    {!executeFile ? (
+                      <button
+                        type="button"
+                        onClick={() => executeFileInputRef.current?.click()}
+                        className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-hairline bg-ink-50/50 px-4 py-4 text-sm font-medium text-ink-600 transition-colors hover:border-cehta-green/50 hover:bg-cehta-green/5 hover:text-cehta-green"
+                      >
+                        <Paperclip className="size-4" />
+                        Adjunta comprobante de pago
+                      </button>
+                    ) : (
+                      <div className="mt-1 flex items-center gap-2 rounded-xl border border-cehta-green/30 bg-cehta-green/5 px-3 py-2.5">
+                        <Paperclip className="size-4 shrink-0 text-cehta-green" />
+                        <span
+                          className="flex-1 truncate text-sm text-ink-900"
+                          title={executeFile.name}
+                        >
+                          {executeFile.name}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-ink-500">
+                          {(executeFile.size / 1024).toFixed(0)} KB
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExecuteFile(null);
+                            if (executeFileInputRef.current)
+                              executeFileInputRef.current.value = "";
+                          }}
+                          disabled={executing}
+                          className="shrink-0 rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-negative"
+                          title="Quitar archivo"
+                        >
+                          <XIcon className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                    <input
+                      ref={executeFileInputRef}
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,image/*,application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) setExecuteFile(f);
+                      }}
+                    />
+                    <span className="mt-1 block text-[10px] text-ink-500">
+                      Subí el comprobante del banco (PDF, JPG o PNG). Se va
+                      a adjuntar a {selectedSummary.count} voucher
+                      {selectedSummary.count === 1 ? "" : "s"} como respaldo.
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">
@@ -672,9 +796,14 @@ export default function TransferenciasPage() {
                   <button
                     type="button"
                     onClick={handleBulkExecute}
-                    disabled={executing}
-                    aria-disabled={executing}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
+                    disabled={executing || !executeFile}
+                    aria-disabled={executing || !executeFile}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-5 py-2 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    title={
+                      !executeFile
+                        ? "Adjuntá el comprobante de pago antes de confirmar"
+                        : "Confirmar y subir comprobante a los vouchers"
+                    }
                   >
                     {executing ? (
                       <Loader2 className="size-4 animate-spin" />
