@@ -3435,7 +3435,11 @@ async def execute_voucher(
     response_model=BulkExecuteResponse,
     dependencies=[Depends(require_scope("voucher:execute"))],
 )
-@limiter.limit("10/minute")
+# NOTA Round 151: @limiter.limit("10/minute") removido — mismo bug que
+# en /transferencia-masiva (R148) y /extract-from-text. Rompe Pydantic
+# schema inference cuando el endpoint combina Annotated[..., Depends(...)]
+# con BaseModel body. Síntoma: 422 con loc=['query', 'user'/'db'/'body'].
+# El endpoint sigue protegido por require_scope("voucher:execute").
 async def bulk_execute_vouchers(
     user: Annotated[AuthenticatedUser, Depends(require_scope("voucher:execute"))],
     db: DBSession,
@@ -3573,7 +3577,7 @@ class BulkDeleteDraftsResponse(BaseModel):
     response_model=BulkDeleteDraftsResponse,
     dependencies=[Depends(require_scope("legal:write"))],
 )
-@limiter.limit("10/minute")
+# NOTA Round 151: @limiter.limit removido — mismo bug FastAPI schema.
 async def bulk_delete_drafts(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
@@ -3916,7 +3920,7 @@ class BulkApproveResponse(BaseModel):
     response_model=BulkApproveResponse,
     dependencies=[Depends(require_scope("legal:write"))],
 )
-@limiter.limit("10/minute")
+# NOTA Round 151: @limiter.limit removido — mismo bug FastAPI schema.
 async def bulk_approve_vouchers(
     user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
     db: DBSession,
