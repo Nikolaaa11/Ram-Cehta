@@ -790,20 +790,28 @@ async def create_voucher_nubox_form(
                         f"{proy['empresa_codigo']}, no a {body.empresa_codigo}"
                     ),
                 )
-            # CORFO eligibility — protege rendiciones del fondo CORFO
-            corfo_err = validate_corfo_eligibility(
-                cuenta_corfo_elegible=cuenta_info["corfo_elegible"],
-                cuenta_tipo_gasto_corfo=cuenta_info["tipo_gasto_corfo"],
-                proyecto_es_corfo=(proy["tipo_financiamiento"] == "CORFO"),
-                proyecto_eligible_types=list(
-                    proy["tipos_gasto_elegibles"] or []
-                ),
-            )
-            if corfo_err:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Línea {section} #{idx}: {corfo_err}",
-                )
+            # Round 147 — Decisión operativa: validate_corfo_eligibility
+            # desactivada por pedido del usuario. Antes restringía las
+            # cuentas a las que tienen `corfo_elegible=true` y matchean
+            # `tipo_gasto_corfo`. Eso obligaba a usar cuentas específicas
+            # (ej. 1170-01 para IVA, 4102-01 para servicios). Ahora cualquier
+            # cuenta vale en líneas con proyecto CORFO. Si en el futuro se
+            # quiere reactivar el invariante CORFO de elegibilidad estricta,
+            # descomentar el bloque siguiente.
+            #
+            # corfo_err = validate_corfo_eligibility(
+            #     cuenta_corfo_elegible=cuenta_info["corfo_elegible"],
+            #     cuenta_tipo_gasto_corfo=cuenta_info["tipo_gasto_corfo"],
+            #     proyecto_es_corfo=(proy["tipo_financiamiento"] == "CORFO"),
+            #     proyecto_eligible_types=list(
+            #         proy["tipos_gasto_elegibles"] or []
+            #     ),
+            # )
+            # if corfo_err:
+            #     raise HTTPException(
+            #         status_code=400,
+            #         detail=f"Línea {section} #{idx}: {corfo_err}",
+            #     )
 
         if line.area_codigo and not await is_area_aplica_a_empresa(
             db, line.area_codigo, body.empresa_codigo

@@ -1509,18 +1509,21 @@ async def create_voucher(
                         f"pertenece a {proy['empresa_codigo']}, no a {body.empresa_codigo}"
                     ),
                 )
-            # CORFO eligibility
-            corfo_err = validate_corfo_eligibility(
-                cuenta_corfo_elegible=cuenta["corfo_elegible"],
-                cuenta_tipo_gasto_corfo=cuenta["tipo_gasto_corfo"],
-                proyecto_es_corfo=(proy["tipo_financiamiento"] == "CORFO"),
-                proyecto_eligible_types=list(proy["tipos_gasto_elegibles"] or []),
-            )
-            if corfo_err:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Línea {line.line_number}: {corfo_err}",
-                )
+            # Round 147 — validate_corfo_eligibility desactivada por
+            # decisión operativa. Misma razón que en vouchers_nubox_form.py.
+            # Si en el futuro se quiere reactivar, descomentar:
+            #
+            # corfo_err = validate_corfo_eligibility(
+            #     cuenta_corfo_elegible=cuenta["corfo_elegible"],
+            #     cuenta_tipo_gasto_corfo=cuenta["tipo_gasto_corfo"],
+            #     proyecto_es_corfo=(proy["tipo_financiamiento"] == "CORFO"),
+            #     proyecto_eligible_types=list(proy["tipos_gasto_elegibles"] or []),
+            # )
+            # if corfo_err:
+            #     raise HTTPException(
+            #         status_code=status.HTTP_400_BAD_REQUEST,
+            #         detail=f"Línea {line.line_number}: {corfo_err}",
+            #     )
 
         if line.area_codigo and not await is_area_aplica_a_empresa(
             db, line.area_codigo, body.empresa_codigo
@@ -1777,44 +1780,45 @@ async def submit_voucher(
     #         ),
     #     )
 
-    # Round 81 — Bloque E Ajuste E8 (regla bloqueante CORFO):
-    # El IVA crédito fiscal NUNCA se distribuye al subsidio. Si una línea
-    # con fuente=CORFO_SUBSIDIO tiene cuenta que matchea IVA (codigo
-    # empieza con 1170/1180 según plan IFRS Nubox, o el nombre contiene
-    # 'IVA'), bloqueamos el submit. Esto cubre el caso típico del operador
-    # confundido que asigna el IVA al pozo del subsidio por error.
-    iva_en_corfo_rows = await db.execute(
-        text(
-            """
-            SELECT vl.line_number, vl.cuenta_codigo, vl.debit, vl.credit,
-                   pc.nombre AS cuenta_nombre
-            FROM core.voucher_lines vl
-            LEFT JOIN core.plan_cuentas pc ON pc.codigo = vl.cuenta_codigo
-            WHERE vl.voucher_id = :v
-              AND vl.fuente_financiamiento = 'CORFO_SUBSIDIO'
-              AND (
-                vl.cuenta_codigo LIKE '1170%'
-                OR vl.cuenta_codigo LIKE '1180%'
-                OR vl.cuenta_codigo LIKE '2170%'
-                OR pc.nombre ILIKE '%IVA%'
-              )
-            """
-        ),
-        {"v": voucher_id},
-    )
-    iva_en_corfo = iva_en_corfo_rows.first()
-    if iva_en_corfo is not None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Regla CORFO bloqueante: el IVA no es elegible al subsidio. "
-                f"La línea {iva_en_corfo[0]} (cuenta {iva_en_corfo[1]}"
-                f"{' - ' + iva_en_corfo[4] if iva_en_corfo[4] else ''}) "
-                f"está marcada como fuente CORFO_SUBSIDIO. "
-                f"Asignar IVA al 100% a la cuenta corporativa "
-                f"(fuente IVA_CORPORATIVO o EMPRESA_DIRECTA)."
-            ),
-        )
+    # Round 147 — Regla bloqueante "IVA en CORFO_SUBSIDIO" DESACTIVADA
+    # por decisión operativa. Antes, el endpoint rechazaba si una línea
+    # con fuente=CORFO_SUBSIDIO tenía cuenta IVA (códigos 1170*/1180*/2170*
+    # o nombre que contiene "IVA"). Ahora la regla está comentada y el
+    # operador es responsable de imputar correctamente. Para reactivar
+    # la red de seguridad, descomentar el bloque siguiente.
+    #
+    # iva_en_corfo_rows = await db.execute(
+    #     text(
+    #         """
+    #         SELECT vl.line_number, vl.cuenta_codigo, vl.debit, vl.credit,
+    #                pc.nombre AS cuenta_nombre
+    #         FROM core.voucher_lines vl
+    #         LEFT JOIN core.plan_cuentas pc ON pc.codigo = vl.cuenta_codigo
+    #         WHERE vl.voucher_id = :v
+    #           AND vl.fuente_financiamiento = 'CORFO_SUBSIDIO'
+    #           AND (
+    #             vl.cuenta_codigo LIKE '1170%'
+    #             OR vl.cuenta_codigo LIKE '1180%'
+    #             OR vl.cuenta_codigo LIKE '2170%'
+    #             OR pc.nombre ILIKE '%IVA%'
+    #           )
+    #         """
+    #     ),
+    #     {"v": voucher_id},
+    # )
+    # iva_en_corfo = iva_en_corfo_rows.first()
+    # if iva_en_corfo is not None:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail=(
+    #             f"Regla CORFO bloqueante: el IVA no es elegible al subsidio. "
+    #             f"La línea {iva_en_corfo[0]} (cuenta {iva_en_corfo[1]}"
+    #             f"{' - ' + iva_en_corfo[4] if iva_en_corfo[4] else ''}) "
+    #             f"está marcada como fuente CORFO_SUBSIDIO. "
+    #             f"Asignar IVA al 100% a la cuenta corporativa "
+    #             f"(fuente IVA_CORPORATIVO o EMPRESA_DIRECTA)."
+    #         ),
+    #     )
 
     # Round 56 — auto-approve si la regla matched tiene required_roles=[].
     # Caso de uso: vouchers de bajo monto (ej. ≤ $200K) creados por finance,
