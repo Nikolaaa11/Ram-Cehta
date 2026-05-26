@@ -8,6 +8,10 @@
 docs/*credentials*.local.md
 docs/test_credentials*.md
 
+# Database backups (contienen PII y credenciales auditadas — NUNCA committear)
+backup_cehta_*.sql
+backup_cehta_*_manifest.txt
+
 # Python
 __pycache__/
 *.py[cod]
