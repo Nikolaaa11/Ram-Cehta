@@ -61,5 +61,3 @@ backend/openapi.json.bak
 
 # Alembic — versions SI se commitean, pero no los logs
 backend/alembic.log
-.claude/settings.local.json
-.env.*
