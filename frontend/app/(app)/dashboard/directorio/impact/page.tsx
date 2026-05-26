@@ -34,7 +34,7 @@ interface ImpactCard {
   verified_count: number;
 }
 
-// Pre-fetched data structure desde nuevos endpoints
+// Pre-fetched data structure desde endpoints /dashboard/impact/dimensions y /sdg
 interface ImpactDimensionRow {
   empresa_codigo: string;
   ticker: string;
@@ -43,7 +43,7 @@ interface ImpactDimensionRow {
   how_much_score: number;
   contribution_score: number;
   risk_score: number;
-  narrative: string | null;
+  narrative?: string | null;
 }
 
 interface SdgAlignmentRow {
@@ -107,42 +107,43 @@ export default function ImpactPage() {
     staleTime: 60_000,
   });
 
-  // Para Impact Dimensions y SDG, llamamos un endpoint que no existe aun;
-  // por ahora hard-codeamos un fallback con los datos del seed
-  // (esto se reemplazara cuando agreguemos endpoint /dashboard/impact/dimensions)
-  const dimensionsFallback: ImpactDimensionRow[] = [
-    { empresa_codigo: "CSL", ticker: "CSL", what_score: 4, who_score: 4, how_much_score: 4, contribution_score: 5, risk_score: 2, narrative: "Leasing equipos cleantech permite acceso PYMES a tecnologia limpia." },
-    { empresa_codigo: "RHO", ticker: "RHO", what_score: 5, who_score: 3, how_much_score: 5, contribution_score: 4, risk_score: 3, narrative: "Generacion 100% renovable. Beneficio amplio." },
-    { empresa_codigo: "DTE", ticker: "DTE", what_score: 4, who_score: 3, how_much_score: 3, contribution_score: 4, risk_score: 2, narrative: "Consultoria habilita proyectos cleantech corporates." },
-    { empresa_codigo: "REVTECH", ticker: "REVTECH", what_score: 4, who_score: 4, how_much_score: 3, contribution_score: 5, risk_score: 3, narrative: "Revalorizacion escorias mineras reduce impacto ambiental." },
-    { empresa_codigo: "EVOQUE", ticker: "EVOQUE", what_score: 5, who_score: 4, how_much_score: 4, contribution_score: 5, risk_score: 2, narrative: "Economia circular industrial." },
-    { empresa_codigo: "TRONGKAI", ticker: "TRONGKAI", what_score: 4, who_score: 4, how_much_score: 3, contribution_score: 4, risk_score: 3, narrative: "Valorizacion subproductos agro." },
-  ];
+  const { data: dimensionsResp } = useQuery<{ rows: ImpactDimensionRow[] }>({
+    queryKey: ["dashboard", "impact", "dimensions"],
+    queryFn: () =>
+      apiClient.get<{ rows: ImpactDimensionRow[] }>(
+        "/dashboard/impact/dimensions",
+        session,
+      ),
+    enabled: !!session,
+    staleTime: 60_000,
+  });
 
-  const sdgFallback: SdgAlignmentRow[] = [
-    { empresa_codigo: "CSL", ticker: "CSL", sdg_number: 7, alignment_score: 5 },
-    { empresa_codigo: "CSL", ticker: "CSL", sdg_number: 9, alignment_score: 4 },
-    { empresa_codigo: "CSL", ticker: "CSL", sdg_number: 13, alignment_score: 5 },
-    { empresa_codigo: "RHO", ticker: "RHO", sdg_number: 7, alignment_score: 5 },
-    { empresa_codigo: "RHO", ticker: "RHO", sdg_number: 8, alignment_score: 3 },
-    { empresa_codigo: "RHO", ticker: "RHO", sdg_number: 13, alignment_score: 5 },
-    { empresa_codigo: "DTE", ticker: "DTE", sdg_number: 7, alignment_score: 4 },
-    { empresa_codigo: "DTE", ticker: "DTE", sdg_number: 9, alignment_score: 5 },
-    { empresa_codigo: "DTE", ticker: "DTE", sdg_number: 13, alignment_score: 4 },
-    { empresa_codigo: "REVTECH", ticker: "REVTECH", sdg_number: 9, alignment_score: 5 },
-    { empresa_codigo: "REVTECH", ticker: "REVTECH", sdg_number: 12, alignment_score: 5 },
-    { empresa_codigo: "REVTECH", ticker: "REVTECH", sdg_number: 13, alignment_score: 4 },
-    { empresa_codigo: "EVOQUE", ticker: "EVOQUE", sdg_number: 9, alignment_score: 4 },
-    { empresa_codigo: "EVOQUE", ticker: "EVOQUE", sdg_number: 12, alignment_score: 5 },
-    { empresa_codigo: "EVOQUE", ticker: "EVOQUE", sdg_number: 13, alignment_score: 4 },
-    { empresa_codigo: "TRONGKAI", ticker: "TRONGKAI", sdg_number: 2, alignment_score: 4 },
-    { empresa_codigo: "TRONGKAI", ticker: "TRONGKAI", sdg_number: 12, alignment_score: 5 },
-    { empresa_codigo: "TRONGKAI", ticker: "TRONGKAI", sdg_number: 13, alignment_score: 4 },
-  ];
+  const { data: sdgResp } = useQuery<{ rows: SdgAlignmentRow[] }>({
+    queryKey: ["dashboard", "impact", "sdg"],
+    queryFn: () =>
+      apiClient.get<{ rows: SdgAlignmentRow[] }>(
+        "/dashboard/impact/sdg",
+        session,
+      ),
+    enabled: !!session,
+    staleTime: 60_000,
+  });
+
+  const dimensionsRows = useMemo(() => dimensionsResp?.rows ?? [], [dimensionsResp]);
+  const sdgRows = useMemo(() => sdgResp?.rows ?? [], [sdgResp]);
 
   // G14: Radar agregado del fondo (promedio de las 5 dimensiones)
   const radarData = useMemo(() => {
-    const dims: Array<keyof (typeof dimensionsFallback)[number]> = [
+    if (dimensionsRows.length === 0) {
+      return [
+        { dimension: "What", score: 0 },
+        { dimension: "Who", score: 0 },
+        { dimension: "How Much", score: 0 },
+        { dimension: "Contribution", score: 0 },
+        { dimension: "Risk", score: 0 },
+      ];
+    }
+    const dims: Array<keyof ImpactDimensionRow> = [
       "what_score",
       "who_score",
       "how_much_score",
@@ -153,10 +154,10 @@ export default function ImpactPage() {
     return dims.map((d, i) => ({
       dimension: labels[i],
       score:
-        dimensionsFallback.reduce((sum, row) => sum + (row[d] as number), 0) /
-        dimensionsFallback.length,
+        dimensionsRows.reduce((sum, row) => sum + (row[d] as number), 0) /
+        dimensionsRows.length,
     }));
-  }, []);
+  }, [dimensionsRows]);
 
   // G15: SDG Grid mapping para render
   const sdgGrid = useMemo(() => {
@@ -164,7 +165,7 @@ export default function ImpactPage() {
     for (const ticker of PORTFOLIO_TICKERS) {
       grid[ticker] = {};
     }
-    for (const row of sdgFallback) {
+    for (const row of sdgRows) {
       const tickerGrid = grid[row.ticker] ?? (grid[row.ticker] = {});
       tickerGrid[row.sdg_number] = row.alignment_score;
     }
@@ -351,17 +352,28 @@ export default function ImpactPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-hairline">
-              {dimensionsFallback.map((row) => (
-                <tr key={row.empresa_codigo} className="hover:bg-ink-50/40">
-                  <td className="px-4 py-2.5 font-mono font-semibold">{row.ticker}</td>
-                  <ScoreCell value={row.what_score} />
-                  <ScoreCell value={row.who_score} />
-                  <ScoreCell value={row.how_much_score} />
-                  <ScoreCell value={row.contribution_score} />
-                  <ScoreCell value={row.risk_score} invertedColor />
-                  <td className="px-4 py-2.5 text-xs text-ink-600">{row.narrative}</td>
+              {dimensionsRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-4 py-8 text-center text-xs text-ink-400"
+                  >
+                    Sin datos de Impact Frontiers. Carga company_impact_dimensions.
+                  </td>
                 </tr>
-              ))}
+              ) : (
+                dimensionsRows.map((row) => (
+                  <tr key={row.empresa_codigo} className="hover:bg-ink-50/40">
+                    <td className="px-4 py-2.5 font-mono font-semibold">{row.ticker}</td>
+                    <ScoreCell value={row.what_score} />
+                    <ScoreCell value={row.who_score} />
+                    <ScoreCell value={row.how_much_score} />
+                    <ScoreCell value={row.contribution_score} />
+                    <ScoreCell value={row.risk_score} invertedColor />
+                    <td className="px-4 py-2.5 text-xs text-ink-600">{row.narrative ?? "—"}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

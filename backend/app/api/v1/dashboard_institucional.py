@@ -419,6 +419,121 @@ async def get_impact_aggregated(
 
 
 # ---------------------------------------------------------------------------
+# G14 — Impact Frontiers 5 dimensions (per company)
+# ---------------------------------------------------------------------------
+
+
+class ImpactDimensionRow(BaseModel):
+    empresa_codigo: str
+    ticker: str
+    what_score: int
+    who_score: int
+    how_much_score: int
+    contribution_score: int
+    risk_score: int
+
+
+class ImpactDimensionsResponse(BaseModel):
+    rows: list[ImpactDimensionRow]
+
+
+@router.get("/dashboard/impact/dimensions", response_model=ImpactDimensionsResponse)
+async def get_impact_dimensions(
+    user: CurrentUser,
+    db: DBSession,
+) -> ImpactDimensionsResponse:
+    """G14 Radar — Impact Frontiers 5-dimensions per portfolio company.
+
+    Returns most-recent record per company. Si la empresa no tiene fila,
+    no aparece (frontend usa 0 como default visual).
+    """
+    rows = (await db.execute(
+        text(
+            """
+            SELECT DISTINCT ON (cid.empresa_codigo)
+                cid.empresa_codigo,
+                pcm.ticker,
+                cid.what_score,
+                cid.who_score,
+                cid.how_much_score,
+                cid.contribution_score,
+                cid.risk_score
+            FROM core.company_impact_dimensions cid
+            JOIN core.portfolio_companies_meta pcm ON pcm.empresa_codigo = cid.empresa_codigo
+            WHERE pcm.is_portfolio = TRUE
+            ORDER BY cid.empresa_codigo, cid.as_of_date DESC
+            """
+        ),
+    )).fetchall()
+
+    return ImpactDimensionsResponse(
+        rows=[
+            ImpactDimensionRow(
+                empresa_codigo=r[0],
+                ticker=r[1] or r[0],
+                what_score=int(r[2] or 0),
+                who_score=int(r[3] or 0),
+                how_much_score=int(r[4] or 0),
+                contribution_score=int(r[5] or 0),
+                risk_score=int(r[6] or 0),
+            )
+            for r in rows
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
+# G15 — SDG Alignment grid (per company × per SDG)
+# ---------------------------------------------------------------------------
+
+
+class SdgAlignmentRow(BaseModel):
+    empresa_codigo: str
+    ticker: str
+    sdg_number: int
+    alignment_score: int  # 1-5
+
+
+class SdgAlignmentResponse(BaseModel):
+    rows: list[SdgAlignmentRow]
+
+
+@router.get("/dashboard/impact/sdg", response_model=SdgAlignmentResponse)
+async def get_impact_sdg(
+    user: CurrentUser,
+    db: DBSession,
+) -> SdgAlignmentResponse:
+    """G15 SDG Grid — UN 17 SDGs alignment per portfolio company."""
+    rows = (await db.execute(
+        text(
+            """
+            SELECT
+                csa.empresa_codigo,
+                pcm.ticker,
+                csa.sdg_number,
+                csa.alignment_score
+            FROM core.company_sdg_alignment csa
+            JOIN core.portfolio_companies_meta pcm ON pcm.empresa_codigo = csa.empresa_codigo
+            WHERE pcm.is_portfolio = TRUE
+            ORDER BY csa.empresa_codigo, csa.sdg_number
+            """
+        ),
+    )).fetchall()
+
+    return SdgAlignmentResponse(
+        rows=[
+            SdgAlignmentRow(
+                empresa_codigo=r[0],
+                ticker=r[1] or r[0],
+                sdg_number=int(r[2]),
+                alignment_score=int(r[3]),
+            )
+            for r in rows
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
 # Compliance OPIM / CMF / CORFO
 # ---------------------------------------------------------------------------
 
