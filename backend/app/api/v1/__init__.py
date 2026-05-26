@@ -57,6 +57,7 @@ from app.api.v1 import (
     saved_views,
     search,
     sii,
+    dashboard_institucional,
     subsidios,
     suscripciones,
     trabajadores,
@@ -256,3 +257,9 @@ api_router.include_router(
 # + draft response. Endpoints viven bajo /admin/mailbox/* (las rutas internas
 # del router ya incluyen ese prefix).
 api_router.include_router(mailbox.router, tags=["mailbox"])
+# Round 152: Dashboard Institucional CEHTA Capital — vistas director + LPs
+# con modelo ILPA v2.0 + IRIS+ v5.3 + OPIM compliance.
+api_router.include_router(
+    dashboard_institucional.router,
+    tags=["dashboard-institucional"],
+)

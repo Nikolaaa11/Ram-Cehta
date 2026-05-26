@@ -190,6 +190,14 @@ const GROUPS: NavGroup[] = [
         tourId: "vouchers",
       },
       { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
+      // Round 152 — Dashboard Institucional CEHTA Capital (ILPA v2.0 + IRIS+)
+      {
+        href: "/dashboard/directorio" as Route,
+        label: "Dashboard Institucional",
+        icon: Sparkles,
+        title:
+          "Vista nivel Blackstone/KKR para directorio + LPs. ILPA v2.0 + IRIS+ v5.3.",
+      },
     ],
   },
   {

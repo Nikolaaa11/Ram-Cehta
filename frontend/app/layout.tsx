@@ -77,7 +77,7 @@ export default function RootLayout({
             servido es el más reciente. Se puede leer con curl en el HTML
             sin necesidad de auth. Si este marker se ve === bundle nuevo
             está deployado. Si no se ve === Vercel sirve build viejo. */}
-        <meta name="x-cehta-build" content="2026-05-25-R150-comprobante-pago-opcional" />
+        <meta name="x-cehta-build" content="2026-05-26-R152-dashboard-institucional-cehta" />
       </head>
       <body>
         <Providers>{children}</Providers>
