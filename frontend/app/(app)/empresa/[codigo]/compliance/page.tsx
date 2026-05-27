@@ -20,10 +20,8 @@ interface ComplianceItem {
   notes: string | null;
 }
 
-const STATUS_CONFIG: Record<
-  string,
-  { label: string; color: string; bg: string; icon: typeof CheckCircle2 }
-> = {
+type StatusCfg = { label: string; color: string; bg: string; icon: typeof CheckCircle2 };
+const STATUS_CONFIG: Record<string, StatusCfg> = {
   compliant: {
     label: "Cumple",
     color: "text-emerald-700",
