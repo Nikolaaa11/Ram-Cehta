@@ -30,16 +30,19 @@ export function Toaster() {
       toastOptions={{
         unstyled: false,
         classNames: {
+          // R152e: removidos TODOS los dark: variants. Plataforma es light-only.
+          // Antes, si algo añadía .dark al html momentáneamente, el toast
+          // flasheaba negro hasta que la mutación se revertía.
           toast:
-            "group relative overflow-hidden rounded-2xl ring-1 ring-hairline shadow-elevated-lg bg-white/90 backdrop-blur-xl text-ink-900 p-4 pl-5 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-ink-300 before:rounded-l-2xl dark:bg-ink-900/90 dark:text-ink-100 dark:ring-ink-700",
+            "group relative overflow-hidden rounded-2xl ring-1 ring-hairline shadow-elevated-lg bg-white/95 backdrop-blur-xl text-ink-900 p-4 pl-5 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-ink-300 before:rounded-l-2xl",
           title: "text-sm font-semibold tracking-tight",
-          description: "text-xs text-ink-500 mt-0.5 dark:text-ink-400",
+          description: "text-xs text-ink-500 mt-0.5",
           actionButton:
             "rounded-lg bg-cehta-green px-3 py-1 text-xs font-medium text-white hover:bg-cehta-green-600 transition-colors",
           cancelButton:
-            "rounded-lg bg-ink-100 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-200 transition-colors dark:bg-ink-800 dark:text-ink-300",
+            "rounded-lg bg-ink-100 px-3 py-1 text-xs font-medium text-ink-700 hover:bg-ink-200 transition-colors",
           closeButton:
-            "!bg-white/90 !ring-1 !ring-hairline hover:!bg-ink-50 transition-colors dark:!bg-ink-800 dark:!ring-ink-700",
+            "!bg-white/95 !ring-1 !ring-hairline hover:!bg-ink-50 transition-colors",
           success:
             "before:!bg-positive [&_[data-icon]]:!text-positive",
           error:

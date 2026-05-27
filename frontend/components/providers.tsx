@@ -26,16 +26,23 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
 
-  // V5++ HOTFIX: SW deshabilitado (estaba causando flash de pantalla negra
-  // cada ~3s en producción). En vez de registrar, UNREGISTRA cualquier SW
-  // existente y limpia caches. Cuando esté arreglado el bug, se re-habilita.
+  // R152e: Fix definitivo parpadeo negro. Combina:
+  //   1) Unregister cualquier SW residual (la causa raíz histórica del flash)
+  //   2) FORZAR un reload si encontramos SW activo — porque unregister NO
+  //      detiene el controller actual hasta la próxima navegación. Sin reload,
+  //      el SW sigue interceptando fetches y flashea negro cada ~3s.
+  //   3) Marca sessionStorage para evitar reload-loop infinito.
+  //   4) MutationObserver elimina cualquier `.dark` que aparezca dinámicamente.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!("serviceWorker" in navigator)) return;
 
-    const cleanup = async () => {
+    // Capa 1+2+3: SW cleanup con reload-once
+    const swCleanup = async () => {
+      if (!("serviceWorker" in navigator)) return;
       try {
+        const hasController = !!navigator.serviceWorker.controller;
         const registrations = await navigator.serviceWorker.getRegistrations();
+        const foundAny = registrations.length > 0;
         for (const r of registrations) {
           await r.unregister();
         }
@@ -43,11 +50,25 @@ export function Providers({ children }: { children: React.ReactNode }) {
           const keys = await caches.keys();
           await Promise.all(keys.map((k) => caches.delete(k)));
         }
+        const alreadyReloaded = sessionStorage.getItem("sw-cleanup-done");
+        if ((hasController || foundAny) && !alreadyReloaded) {
+          sessionStorage.setItem("sw-cleanup-done", "1");
+          window.location.reload();
+        }
       } catch {
         // ignore
       }
     };
-    cleanup();
+    swCleanup();
+
+    // Capa 4: Watch html.classList y remover `.dark` si aparece
+    const root = document.documentElement;
+    if (root.classList.contains("dark")) root.classList.remove("dark");
+    const observer = new MutationObserver(() => {
+      if (root.classList.contains("dark")) root.classList.remove("dark");
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
   }, []);
 
   return (
