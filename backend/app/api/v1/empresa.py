@@ -1150,3 +1150,423 @@ async def get_empresa_logo_url(
         ) from exc
 
     return LogoUrlResponse(url=url, expires_in_hours=4)
+
+
+# ============================================================================
+# Round 152d — Tabs institucionales por empresa
+# ============================================================================
+# Endpoints adicionales para las pestañas Valuación, KPIs Op., Impact ESG,
+# Compliance y Tributario.
+#
+# Todos devuelven 200 con `{ rows: [...] }` o `{ items: [...] }` aunque la
+# empresa no tenga data (frontend muestra estado vacío gracefully).
+
+
+class ValuationRow(BaseModel):
+    as_of_date: str
+    invested_amount_usd: float | None = None
+    realized_value_usd: float | None = None
+    unrealized_fv_usd: float | None = None
+    moic_net: float | None = None
+    irr_net: float | None = None
+
+
+class ValuationResponse(BaseModel):
+    rows: list[ValuationRow]
+
+
+@router.get("/{empresa_codigo}/valuation", response_model=ValuationResponse)
+async def get_empresa_valuation(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+) -> ValuationResponse:
+    """Histórico de valuaciones (company_valuations) ordenado asc."""
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT as_of_date::text,
+                       invested_amount_usd,
+                       realized_value_usd,
+                       unrealized_fv_usd,
+                       moic_net,
+                       irr_net
+                FROM core.company_valuations
+                WHERE empresa_codigo = :c
+                ORDER BY as_of_date ASC
+                """
+            ),
+            {"c": empresa_codigo},
+        )
+    ).fetchall()
+    return ValuationResponse(
+        rows=[
+            ValuationRow(
+                as_of_date=r[0],
+                invested_amount_usd=float(r[1]) if r[1] is not None else None,
+                realized_value_usd=float(r[2]) if r[2] is not None else None,
+                unrealized_fv_usd=float(r[3]) if r[3] is not None else None,
+                moic_net=float(r[4]) if r[4] is not None else None,
+                irr_net=float(r[5]) if r[5] is not None else None,
+            )
+            for r in rows
+        ]
+    )
+
+
+class KpiPoint(BaseModel):
+    period: str
+    metric_name: str
+    metric_value: float
+    unit: str | None = None
+
+
+class KpisResponse(BaseModel):
+    rows: list[KpiPoint]
+
+
+@router.get("/{empresa_codigo}/kpis", response_model=KpisResponse)
+async def get_empresa_kpis(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+) -> KpisResponse:
+    """KPIs operativos mensuales (company_operational_kpis)."""
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT period::text, metric_name, metric_value, unit
+                FROM core.company_operational_kpis
+                WHERE empresa_codigo = :c
+                ORDER BY period ASC, metric_name ASC
+                """
+            ),
+            {"c": empresa_codigo},
+        )
+    ).fetchall()
+    return KpisResponse(
+        rows=[
+            KpiPoint(
+                period=r[0],
+                metric_name=r[1],
+                metric_value=float(r[2]),
+                unit=r[3],
+            )
+            for r in rows
+        ]
+    )
+
+
+class IrisMetric(BaseModel):
+    iris_metric_id: str
+    metric_name: str
+    metric_value: float
+    unit: str | None = None
+    framework: str
+    verified: bool
+
+
+class SdgItem(BaseModel):
+    sdg_number: int
+    alignment_score: int
+    evidence: str | None = None
+
+
+class DimensionsDetail(BaseModel):
+    what_score: int
+    who_score: int
+    how_much_score: int
+    contribution_score: int
+    risk_score: int
+    narrative: str | None = None
+    as_of_date: str
+
+
+class ImpactSummaryResponse(BaseModel):
+    iris_metrics: list[IrisMetric]
+    sdg_alignment: list[SdgItem]
+    dimensions: DimensionsDetail | None
+    b_corp_score: float | None
+
+
+@router.get("/{empresa_codigo}/impact", response_model=ImpactSummaryResponse)
+async def get_empresa_impact(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+) -> ImpactSummaryResponse:
+    """Resumen Impact ESG por empresa: IRIS+ + SDG + Frontiers + B-Corp."""
+    iris_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT iris_metric_id, metric_name, metric_value, unit,
+                       framework, verified
+                FROM core.impact_metrics
+                WHERE empresa_codigo = :c
+                ORDER BY iris_metric_id
+                """
+            ),
+            {"c": empresa_codigo},
+        )
+    ).fetchall()
+    sdg_rows = (
+        await db.execute(
+            text(
+                """
+                SELECT sdg_number, alignment_score, evidence
+                FROM core.company_sdg_alignment
+                WHERE empresa_codigo = :c
+                ORDER BY sdg_number
+                """
+            ),
+            {"c": empresa_codigo},
+        )
+    ).fetchall()
+    dim_row = (
+        await db.execute(
+            text(
+                """
+                SELECT what_score, who_score, how_much_score,
+                       contribution_score, risk_score, narrative,
+                       as_of_date::text
+                FROM core.company_impact_dimensions
+                WHERE empresa_codigo = :c
+                ORDER BY as_of_date DESC
+                LIMIT 1
+                """
+            ),
+            {"c": empresa_codigo},
+        )
+    ).fetchone()
+    bcorp = (
+        await db.execute(
+            text(
+                "SELECT b_corp_score FROM core.portfolio_companies_meta WHERE empresa_codigo = :c"
+            ),
+            {"c": empresa_codigo},
+        )
+    ).scalar()
+
+    return ImpactSummaryResponse(
+        iris_metrics=[
+            IrisMetric(
+                iris_metric_id=r[0],
+                metric_name=r[1],
+                metric_value=float(r[2]),
+                unit=r[3],
+                framework=r[4],
+                verified=bool(r[5]),
+            )
+            for r in iris_rows
+        ],
+        sdg_alignment=[
+            SdgItem(
+                sdg_number=int(r[0]),
+                alignment_score=int(r[1]),
+                evidence=r[2],
+            )
+            for r in sdg_rows
+        ],
+        dimensions=(
+            DimensionsDetail(
+                what_score=int(dim_row[0]),
+                who_score=int(dim_row[1]),
+                how_much_score=int(dim_row[2]),
+                contribution_score=int(dim_row[3]),
+                risk_score=int(dim_row[4]),
+                narrative=dim_row[5],
+                as_of_date=dim_row[6],
+            )
+            if dim_row
+            else None
+        ),
+        b_corp_score=float(bcorp) if bcorp is not None else None,
+    )
+
+
+class ComplianceItem(BaseModel):
+    framework: str
+    principle_or_item: str
+    status: str
+    last_review_date: str | None = None
+    next_review_date: str | None = None
+    notes: str | None = None
+
+
+class ComplianceResp(BaseModel):
+    items: list[ComplianceItem]
+
+
+@router.get("/{empresa_codigo}/compliance", response_model=ComplianceResp)
+async def get_empresa_compliance(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+) -> ComplianceResp:
+    """Compliance items asociados a la empresa (portfolio company)."""
+    rows = (
+        await db.execute(
+            text(
+                """
+                SELECT cci.framework, cci.principle_or_item, cci.status,
+                       cci.last_review_date::text, cci.next_review_date::text,
+                       cci.notes
+                FROM core.compliance_checks_institutional cci
+                WHERE cci.empresa_codigo = :c
+                ORDER BY cci.framework, cci.principle_or_item
+                """
+            ),
+            {"c": empresa_codigo},
+        )
+    ).fetchall()
+    return ComplianceResp(
+        items=[
+            ComplianceItem(
+                framework=r[0],
+                principle_or_item=r[1],
+                status=r[2],
+                last_review_date=r[3],
+                next_review_date=r[4],
+                notes=r[5],
+            )
+            for r in rows
+        ]
+    )
+
+
+class F29Row(BaseModel):
+    periodo: str
+    estado: str
+    fecha_vencimiento: str | None = None
+    fecha_presentacion: str | None = None
+    monto_iva_debito: float | None = None
+    monto_iva_credito: float | None = None
+
+
+class F22Row(BaseModel):
+    ano_tributario: int
+    estado: str
+    fecha_vencimiento: str | None = None
+    monto_a_pagar: float | None = None
+    monto_a_devolver: float | None = None
+
+
+class SiiDocRow(BaseModel):
+    tipo_dte: str
+    folio: int
+    emisor_rut: str | None = None
+    receptor_rut: str | None = None
+    fecha_emision: str
+    monto_total: float
+
+
+class TributarioResp(BaseModel):
+    f29: list[F29Row]
+    f22: list[F22Row]
+    sii_docs_recent: list[SiiDocRow]
+
+
+@router.get("/{empresa_codigo}/tributario", response_model=TributarioResp)
+async def get_empresa_tributario(
+    empresa_codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+) -> TributarioResp:
+    """Resumen tributario: F29 + F22 + DTEs SII recientes (30 días)."""
+    # F29 — defensivo, devuelve [] si tabla no existe o vacía
+    try:
+        f29_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT periodo, estado, fecha_vencimiento::text,
+                           fecha_presentacion::text,
+                           monto_iva_debito, monto_iva_credito
+                    FROM core.f29_obligaciones
+                    WHERE empresa_codigo = :c
+                    ORDER BY periodo DESC
+                    LIMIT 24
+                    """
+                ),
+                {"c": empresa_codigo},
+            )
+        ).fetchall()
+    except Exception:
+        f29_rows = []
+
+    try:
+        f22_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT ano_tributario, estado, fecha_vencimiento::text,
+                           monto_a_pagar, monto_a_devolver
+                    FROM core.f22_obligaciones
+                    WHERE empresa_codigo = :c
+                    ORDER BY ano_tributario DESC
+                    LIMIT 10
+                    """
+                ),
+                {"c": empresa_codigo},
+            )
+        ).fetchall()
+    except Exception:
+        f22_rows = []
+
+    try:
+        sii_rows = (
+            await db.execute(
+                text(
+                    """
+                    SELECT tipo_dte, folio, emisor_rut, receptor_rut,
+                           fecha_emision::text, monto_total
+                    FROM core.sii_documentos
+                    WHERE empresa_codigo = :c
+                      AND fecha_emision >= (CURRENT_DATE - INTERVAL '30 days')
+                    ORDER BY fecha_emision DESC
+                    LIMIT 100
+                    """
+                ),
+                {"c": empresa_codigo},
+            )
+        ).fetchall()
+    except Exception:
+        sii_rows = []
+
+    return TributarioResp(
+        f29=[
+            F29Row(
+                periodo=r[0],
+                estado=r[1],
+                fecha_vencimiento=r[2],
+                fecha_presentacion=r[3],
+                monto_iva_debito=float(r[4]) if r[4] is not None else None,
+                monto_iva_credito=float(r[5]) if r[5] is not None else None,
+            )
+            for r in f29_rows
+        ],
+        f22=[
+            F22Row(
+                ano_tributario=int(r[0]),
+                estado=r[1],
+                fecha_vencimiento=r[2],
+                monto_a_pagar=float(r[3]) if r[3] is not None else None,
+                monto_a_devolver=float(r[4]) if r[4] is not None else None,
+            )
+            for r in f22_rows
+        ],
+        sii_docs_recent=[
+            SiiDocRow(
+                tipo_dte=r[0],
+                folio=int(r[1]),
+                emisor_rut=r[2],
+                receptor_rut=r[3],
+                fecha_emision=r[4],
+                monto_total=float(r[5]),
+            )
+            for r in sii_rows
+        ],
+    )

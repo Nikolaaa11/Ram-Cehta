@@ -13,6 +13,11 @@ import {
   TrendingUp,
   Receipt,
   Layers,
+  Leaf,
+  LineChart,
+  Activity,
+  ShieldCheck,
+  Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -20,6 +25,7 @@ import { cn } from "@/lib/utils";
 /**
  * Tabs sticky para sub-secciones dentro de una empresa.
  * Apple style: subrayado active con color cehta-green.
+ * Round 152d — expandido con tabs institucionales (Valuation, KPIs, Impact, Compliance, Tributario).
  */
 
 interface TabDef {
@@ -33,6 +39,11 @@ const TABS: TabDef[] = [
   { suffix: "/flujo-mensual", label: "Flujo Mensual", icon: TrendingUp },
   { suffix: "/transacciones", label: "Transacciones", icon: Receipt },
   { suffix: "/categorias", label: "Categorías", icon: Layers },
+  { suffix: "/valuation", label: "Valuación", icon: LineChart },
+  { suffix: "/kpis", label: "KPIs Op.", icon: Activity },
+  { suffix: "/impact", label: "Impact ESG", icon: Leaf },
+  { suffix: "/compliance", label: "Compliance", icon: ShieldCheck },
+  { suffix: "/tributario", label: "Tributario", icon: Landmark },
   { suffix: "/trabajadores", label: "Trabajadores", icon: Users },
   { suffix: "/legal", label: "Legal", icon: Scale },
   { suffix: "/avance", label: "Avance", icon: Target },
