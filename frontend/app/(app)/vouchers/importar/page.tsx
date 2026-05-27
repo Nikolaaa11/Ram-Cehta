@@ -20,6 +20,8 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  Download,
+  FileSpreadsheet,
   FileText,
   Image as ImageIcon,
   Loader2,
@@ -586,6 +588,43 @@ export default function ImportarVoucherPage() {
               <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">
                 <Sparkles className="size-3.5" /> Presentación PPTX
               </span>
+            </div>
+          </div>
+
+          {/* Round 152f — Template Excel descargable para bulk-import via CSV */}
+          <div
+            className="rounded-2xl border border-hairline bg-gradient-to-br from-emerald-50/40 to-white p-5 shadow-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-emerald-100/70 text-cehta-green">
+                <FileSpreadsheet className="size-6" strokeWidth={1.5} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink-900">
+                  ¿Tenés que cargar muchos vouchers a la vez?
+                </p>
+                <p className="mt-1 text-xs text-ink-600">
+                  Descargá el template Excel con la estructura exacta + 4 ejemplos
+                  pre-cargados (Compra, Venta, Pago, Traspaso) + hojas de valores
+                  válidos e instrucciones. Llenalo, exportalo como CSV y subilo en{" "}
+                  <Link
+                    href={"/vouchers/import" as never}
+                    className="font-medium text-cehta-green hover:underline"
+                  >
+                    /vouchers/import
+                  </Link>{" "}
+                  para bulk-load (sin pasar por la IA).
+                </p>
+              </div>
+              <a
+                href="/templates/Template_Vouchers_Import.xlsx"
+                download
+                className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-cehta-green-700"
+              >
+                <Download className="size-4" />
+                Descargar template
+              </a>
             </div>
           </div>
         </>
