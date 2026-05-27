@@ -243,7 +243,7 @@ export default function ImpactPage({
             </div>
             {data.dimensions.narrative && (
               <p className="mt-3 text-xs italic text-ink-600">
-                "{data.dimensions.narrative}"
+                &ldquo;{data.dimensions.narrative}&rdquo;
               </p>
             )}
           </section>
