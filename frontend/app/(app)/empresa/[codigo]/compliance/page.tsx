@@ -54,6 +54,14 @@ const STATUS_CONFIG: Record<string, StatusCfg> = {
   },
 };
 
+// Fallback tipado fuerte (evita undefined bajo noUncheckedIndexedAccess).
+const FALLBACK_CFG: StatusCfg = {
+  label: "N/A",
+  color: "text-ink-500",
+  bg: "bg-ink-50 border-hairline",
+  icon: Circle,
+};
+
 export default function CompliancePage({
   params,
 }: {
@@ -125,7 +133,7 @@ export default function CompliancePage({
           </header>
           <ul className="divide-y divide-hairline">
             {items.map((it, i) => {
-              const cfg = STATUS_CONFIG[it.status] ?? STATUS_CONFIG.N_A;
+              const cfg = STATUS_CONFIG[it.status] ?? FALLBACK_CFG;
               const Icon = cfg.icon;
               return (
                 <li key={i} className="px-6 py-4 hover:bg-ink-50/40">

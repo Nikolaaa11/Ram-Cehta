@@ -100,9 +100,13 @@ type NavGroup = {
     | "estrategia"
     | "documentos"
     | "contabilidad"
-    | "admin";
+    | "admin"
+    | "avanzado";
   label: string;
   items: NavItem[];
+  /** Round 152h — si true, el grupo arranca colapsado y se expande con click.
+   * Usado para "Avanzado / Futuro": módulos que existen pero no se usan a diario. */
+  collapsible?: boolean;
 };
 
 const GROUPS: NavGroup[] = [
@@ -176,7 +180,6 @@ const GROUPS: NavGroup[] = [
           "Reparto editable CORFO/P-tec/Empresa, IVA siempre corporativo.",
       },
       { href: "/proveedores", label: "Proveedores", icon: Users },
-      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
       { href: "/f29", label: "F29 / Mensual", icon: Receipt },
@@ -205,29 +208,6 @@ const GROUPS: NavGroup[] = [
     label: "Estrategia",
     items: [
       { href: "/avance" as Route, label: "Avance Empresas", icon: Target },
-      { href: "/fondos" as Route, label: "Búsqueda de Fondos", icon: Search },
-      {
-        href: "/suscripciones" as Route,
-        label: "Suscripciones FIP",
-        icon: TrendingUp,
-      },
-      // V4 fase 9: Pipeline LPs + Informes LP virales
-      {
-        href: "/admin/lps" as Route,
-        label: "Inversionistas (LPs)",
-        icon: Users,
-      },
-      {
-        href: "/admin/informes-lp" as Route,
-        label: "Informes a Inversionistas",
-        icon: Sparkles,
-      },
-      {
-        href: "/asistente" as Route,
-        label: "AI Asistente",
-        icon: Sparkles,
-        tourId: "asistente",
-      },
     ],
   },
   {
@@ -464,6 +444,35 @@ const GROUPS: NavGroup[] = [
       },
     ],
   },
+  // Round 152h — Módulos que existen pero no se usan a diario (vacíos o
+  // pendientes de activación). Agrupados y colapsados por default para no
+  // saturar el menú principal. Se reactivan cuando tengan uso real.
+  {
+    id: "avanzado",
+    label: "Avanzado / Futuro",
+    collapsible: true,
+    items: [
+      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
+      { href: "/fondos" as Route, label: "Búsqueda de Fondos", icon: Search },
+      {
+        href: "/suscripciones" as Route,
+        label: "Suscripciones FIP",
+        icon: TrendingUp,
+      },
+      { href: "/admin/lps" as Route, label: "Inversionistas (LPs)", icon: Users },
+      {
+        href: "/admin/informes-lp" as Route,
+        label: "Informes a Inversionistas",
+        icon: Sparkles,
+      },
+      {
+        href: "/asistente" as Route,
+        label: "AI Asistente",
+        icon: Sparkles,
+        tourId: "asistente",
+      },
+    ],
+  },
 ];
 
 // Sub-items que aparecen al expandir cada empresa.
@@ -494,8 +503,30 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const visibleGroups = GROUPS.filter((g) => {
     if (g.id === "ejecutivo") return isExecutive;
     if (g.id === "admin") return isAdmin;
-    return true; // operaciones, estrategia, documentos → todos
+    return true; // operaciones, estrategia, documentos, avanzado → todos
   });
+
+  // Round 152h — estado de grupos colapsables (ej. "Avanzado / Futuro").
+  // Persiste en localStorage para que el usuario no tenga que re-expandir.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem("sidebar-open-groups") || "{}");
+    } catch {
+      return {};
+    }
+  });
+  const toggleGroup = (id: string) => {
+    setOpenGroups((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem("sidebar-open-groups", JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   // V5++ perf: 1 endpoint composite reemplaza 4 queries paralelas.
   // Latencia ~250ms (era ~1.8s en cascade). SSE invalida cuando cambia.
@@ -559,10 +590,26 @@ export function AppSidebar({ email }: AppSidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2">
         {visibleGroups.map((group) => (
           <div key={group.id}>
-            <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 dark:text-ink-500">
-              {group.label}
-            </h3>
-            <div className="space-y-0.5">
+            {group.collapsible ? (
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.id)}
+                className="mb-1.5 mt-4 flex w-full items-center gap-1 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 transition-colors hover:text-ink-500 dark:text-ink-500"
+              >
+                <ChevronRight
+                  className={`size-3 transition-transform ${openGroups[group.id] ? "rotate-90" : ""}`}
+                />
+                {group.label}
+              </button>
+            ) : (
+              <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 dark:text-ink-500">
+                {group.label}
+              </h3>
+            )}
+            <div
+              className="space-y-0.5"
+              hidden={group.collapsible ? !openGroups[group.id] : false}
+            >
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive =
