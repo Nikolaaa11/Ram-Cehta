@@ -1,0 +1,71 @@
+===============================================================================
+EMAIL — Solicitud credenciales API REST a Nubox
+===============================================================================
+Para:   soporte@nubox.com
+Cc:     contactocehta@gmail.com
+De:     contactocehta@gmail.com
+Asunto: Solicitud de credenciales API REST oficial (partner_token + api_key) — Cehta Capital
+-------------------------------------------------------------------------------
+
+Estimados:
+
+Soy Nicolás Rietta, en representación de Cehta Capital SpA y el FIP CEHTA ESG.
+Necesitamos integrar nuestra plataforma operativa interna con la API REST
+oficial de Nubox para 9 empresas que ya operan en Nubox bajo nuestra
+contabilidad (MCG Consultores como contador externo).
+
+Lo que necesitamos:
+
+  1) Credenciales API REST por empresa:
+       - partner_token (organización)
+       - company_api_key (por empresa contribuyente)
+       - Ambiente: producción (no sandbox)
+
+  2) Acceso a los siguientes endpoints/servicios:
+       - Factura electrónica: emisión de DTE desde nuestro sistema
+       - Lectura de ventas emitidas y compras recibidas
+       - Lectura de PDFs y XMLs de DTEs
+
+  3) Documentación oficial actualizada de la API REST de Nubox
+     (Factura + Administración), idealmente OpenAPI/Swagger.
+
+  4) Lista de IPs salientes del backend que deberían whitelistear:
+       - Hosting en Fly.io, región São Paulo (Brasil)
+       - Podemos proveer IPs estáticas si lo requieren
+
+Empresas para las que necesitamos credenciales (RUTs):
+
+  Empresa                               RUT
+  ------------------------------------------------
+  AFIS                                  77.423.556-6
+  Cehta Capital SpA (CEHTA holding)     [pendiente confirmar]
+  Cenergy Ltda (CENERGY)                76.108.687-1
+  Climate Smart Leasing SpA (CSL)       77.868.887-5
+  DTE SpA                               77.826.369-6
+  Evoque Energy SpA (EVOQUE)            76.282.088-9
+  FIP CEHTA ESG                         77.751.766-K
+  Ingeniería e Innovación SpA (REVTECH) 77.018.739-7
+  RHO Generación SpA                    77.931.386-7
+  Agrotecnologías e Ingeniería SpA (TRONGKAI) 77.221.203-8
+
+Pueden mandar las credenciales cifradas al email contactocehta@gmail.com
+o vía PGP si tienen disponible.
+
+Quedo atento a cualquier requisito adicional de su lado (acuerdos de
+confidencialidad, validación técnica, etc.).
+
+Gracias,
+Nicolás Rietta
+Cehta Capital SpA — FIP CEHTA ESG
++56 9 [agregar teléfono]
+contactocehta@gmail.com
+
+===============================================================================
+NOTAS INTERNAS (no enviar):
+  - Cuando lleguen las credenciales, cargar via:
+    POST /admin/nubox-api/credentials/{empresa_codigo}
+    con partner_token + company_api_key + environment='production'
+  - Validar con: POST /admin/nubox-api/test/{empresa_codigo}
+  - Si todo OK, empezar a sincronizar ventas con:
+    POST /admin/nubox-api/sync-sales/{empresa_codigo}?periodo=YYYY-MM
+===============================================================================

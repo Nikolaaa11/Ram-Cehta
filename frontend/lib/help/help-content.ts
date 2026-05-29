@@ -144,14 +144,52 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     match: "/admin/sii",
     title: "Integración SII",
-    what: "Conexión con el Servicio de Impuestos Internos. Las 9 empresas tienen credenciales cifradas y validadas.",
+    what: "Conexión con el SII. Las 9 empresas tienen credenciales cifradas y validadas (login OK 9/9). La descarga automática del RCV está rota temporalmente porque el SII cambió su endpoint en 2025 — mientras tanto, usar el flujo manual.",
     steps: [
-      "Probar login → verifica que la clave SII funcione.",
-      "Sincronizar RCV → baja compras y ventas del mes.",
+      "Probar login → verifica que la clave SII funcione (esto SÍ anda).",
+      "Para traer compras/ventas: ir al SII web, descargar el CSV del RCV, y subirlo en 'Importar CSV RCV' acá.",
       "Conciliar → matchea documentos SII con vouchers locales.",
-      "F29 estimado → calcula el formulario a partir del RCV.",
+      "F29 estimado → calcula el formulario a partir del RCV importado.",
+    ],
+    tips: [
+      "Sincronizar RCV (botón 'Sincronizar') va a fallar con 404 hasta que actualicemos el endpoint nuevo del SII.",
+      "El flujo manual con CSV funciona perfecto. Es 2 clicks más, nada más.",
     ],
     guide: { label: "Guía de la Plataforma", href: "/ayuda/plataforma.html#sii" },
+  },
+  {
+    match: "/admin/nubox-api",
+    title: "Nubox API REST oficial",
+    what: "Integración API REST con Nubox (Factura electrónica + Administración). INERTE — falta partner_token + company_api_key que se solicita a soporte@nubox.com.",
+    steps: [
+      "1) Solicitar credenciales API a soporte@nubox.com (email template en docs/EMAIL_NUBOX_API.txt).",
+      "2) Cargar partner_token + company_api_key cifrados via /admin/nubox-api/credentials.",
+      "3) Probar conexión con /admin/nubox-api/test.",
+      "4) Empezar a emitir DTEs desde vouchers locales o sincronizar ventas.",
+    ],
+    tips: ["Hasta que estén las credenciales, usar el flujo 'Exportar a Nubox' (CSV manual) que ya funciona."],
+  },
+  {
+    match: "/admin/nubox",
+    title: "Nubox — Libro de Remuneraciones (scraping)",
+    what: "Bajada automática del libro de remuneraciones mensual desde el portal Nubox. INERTE — falta cargar usuario+contraseña Nubox de cada empresa.",
+    steps: [
+      "Cargar credenciales Nubox (user+pwd web) en core.empresa_credenciales con sistema='nubox'.",
+      "Probar login.",
+      "Sincronizar remuneraciones mensual.",
+    ],
+    tips: ["Alternativa: el botón 'Importar Excel' acepta el libro descargado manualmente desde Nubox web."],
+  },
+  {
+    match: "/admin/nubox-exports",
+    title: "Exportar vouchers a Nubox (CSV)",
+    what: "Genera un CSV con los vouchers APPROVED del período para que el contador externo los suba a Nubox. NO requiere credenciales Nubox — funciona ya hoy.",
+    steps: [
+      "Filtrar por empresa + rango de fechas.",
+      "Clic en 'Generar batch' → CSV se descarga, los vouchers quedan marcados como EXPORTED.",
+      "El contador sube el CSV en Nubox web.",
+      "Volver acá y confirmar con los folios Nubox → vouchers pasan a SYNCED.",
+    ],
   },
 
   // ─── Dashboard Institucional ────────────────────────────────────────
