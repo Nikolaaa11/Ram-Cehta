@@ -242,6 +242,8 @@ const GROUPS: NavGroup[] = [
         icon: FileBarChart,
       },
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
+      // Round 152i — Centro de Ayuda: guías HTML interactivas servidas in-app.
+      { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
     ],
   },
   // V5: Contabilidad — plan de cuentas + proyectos contables + áreas.

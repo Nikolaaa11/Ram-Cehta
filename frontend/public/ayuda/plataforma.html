@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Guía de la Plataforma · Cehta Capital</title>
+<style>
+  :root {
+    --green: #1d6f42;
+    --green-light: #e7f3ec;
+    --ink-900: #1d1d1f;
+    --ink-700: #424245;
+    --ink-500: #6e6e73;
+    --ink-300: #a1a1a6;
+    --hairline: #e5e5ea;
+    --bg: #ffffff;
+    --bg-soft: #f5f5f7;
+    --blue: #0071e3;
+    --amber: #b25000;
+    --red: #b91c1c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink-900);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* NAV */
+  .navbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--hairline);
+    padding: 0 24px;
+  }
+  .navbar-inner {
+    max-width: 1100px; margin: 0 auto;
+    height: 52px; display: flex; align-items: center; gap: 14px;
+  }
+  .navbar .logo { font-weight: 600; font-size: 17px; letter-spacing: -0.02em; }
+  .navbar .logo span { color: var(--green); }
+  .navbar .tag {
+    font-size: 11px; color: var(--ink-500);
+    border-left: 1px solid var(--hairline); padding-left: 14px;
+  }
+  .progress-track {
+    position: absolute; bottom: -1px; left: 0; height: 2px;
+    background: var(--green); width: 0%; transition: width 0.1s;
+  }
+
+  /* HERO */
+  .hero {
+    max-width: 820px; margin: 0 auto; padding: 80px 24px 48px; text-align: center;
+  }
+  .hero h1 {
+    font-size: 52px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05;
+    background: linear-gradient(135deg, var(--ink-900) 0%, var(--green) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p { font-size: 21px; color: var(--ink-500); margin-top: 18px; font-weight: 400; }
+  .hero .meta { margin-top: 24px; font-size: 13px; color: var(--ink-300); }
+
+  /* LAYOUT */
+  .layout { max-width: 1100px; margin: 0 auto; padding: 0 24px 100px; display: grid; grid-template-columns: 220px 1fr; gap: 48px; }
+  @media (max-width: 820px) { .layout { grid-template-columns: 1fr; } .toc { display: none; } }
+
+  /* TOC */
+  .toc { position: sticky; top: 80px; align-self: start; font-size: 13px; }
+  .toc h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-300); margin-bottom: 12px; }
+  .toc a { display: block; color: var(--ink-500); text-decoration: none; padding: 5px 0; border-left: 2px solid transparent; padding-left: 12px; margin-left: -12px; transition: all 0.15s; }
+  .toc a:hover { color: var(--green); }
+  .toc a.active { color: var(--green); border-left-color: var(--green); font-weight: 500; }
+
+  /* SECTIONS */
+  section { margin-bottom: 56px; scroll-margin-top: 70px; }
+  section > h2 {
+    font-size: 32px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  section > h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--green-light); color: var(--green); font-size: 18px; font-weight: 700;
+  }
+  section > .lead { font-size: 17px; color: var(--ink-500); margin-bottom: 24px; }
+
+  h3 { font-size: 21px; font-weight: 600; letter-spacing: -0.01em; margin: 28px 0 12px; }
+  p { margin-bottom: 14px; color: var(--ink-700); }
+
+  /* CARDS */
+  .card {
+    border: 1px solid var(--hairline); border-radius: 16px; padding: 22px 24px;
+    margin-bottom: 16px; background: var(--bg); transition: box-shadow 0.2s;
+  }
+  .card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.06); }
+  .card h3 { margin-top: 0; }
+  .card .sub { font-size: 13px; color: var(--ink-500); }
+
+  /* MODULE GRID */
+  .mod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin: 18px 0; }
+  .mod {
+    border: 1px solid var(--hairline); border-radius: 14px; padding: 18px;
+    background: var(--bg);
+  }
+  .mod .icon { width: 36px; height: 36px; border-radius: 9px; background: var(--green-light); display: flex; align-items: center; justify-content: center; font-size: 18px; margin-bottom: 10px; }
+  .mod .name { font-weight: 600; font-size: 15px; }
+  .mod .desc { font-size: 13px; color: var(--ink-500); margin-top: 4px; }
+  .mod .path { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 11px; color: var(--green); margin-top: 8px; background: var(--green-light); padding: 2px 8px; border-radius: 6px; display: inline-block; }
+
+  /* ROLE BADGES */
+  .role { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; margin: 2px; }
+  .role.admin { background: #fde8e8; color: var(--red); }
+  .role.gg { background: var(--green-light); color: var(--green); }
+  .role.finance { background: #dbeafe; color: var(--blue); }
+  .role.contador { background: #fef3c7; color: var(--amber); }
+  .role.director { background: #ede9fe; color: #6d28d9; }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th { background: var(--bg-soft); text-align: left; padding: 10px 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-500); border-bottom: 1px solid var(--hairline); }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--hairline); color: var(--ink-700); }
+  tr:last-child td { border-bottom: none; }
+
+  /* CALLOUT */
+  .callout { border-radius: 14px; padding: 16px 20px; margin: 18px 0; font-size: 14px; display: flex; gap: 12px; align-items: flex-start; }
+  .callout .ico { font-size: 18px; flex-shrink: 0; }
+  .callout.tip { background: var(--green-light); color: #0f5132; }
+  .callout.warn { background: #fef3c7; color: #7c5400; }
+  .callout.info { background: #dbeafe; color: #1e40af; }
+
+  /* COLLAPSIBLE */
+  details { border: 1px solid var(--hairline); border-radius: 14px; margin-bottom: 12px; overflow: hidden; }
+  details summary { padding: 16px 20px; font-weight: 600; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; background: var(--bg); transition: background 0.15s; }
+  details summary:hover { background: var(--bg-soft); }
+  details summary::-webkit-details-marker { display: none; }
+  details summary .chev { transition: transform 0.2s; color: var(--ink-300); }
+  details[open] summary .chev { transform: rotate(90deg); }
+  details .body { padding: 0 20px 20px; }
+
+  /* STEP FLOW */
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 18px 0; }
+  .flow .step { background: var(--bg-soft); border: 1px solid var(--hairline); border-radius: 10px; padding: 8px 14px; font-size: 13px; font-weight: 500; }
+  .flow .arr { color: var(--ink-300); }
+
+  .footer { max-width: 1100px; margin: 0 auto; padding: 40px 24px; border-top: 1px solid var(--hairline); text-align: center; font-size: 13px; color: var(--ink-300); }
+
+  kbd { font-family: "SF Mono", Menlo, monospace; font-size: 12px; background: var(--bg-soft); border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="navbar-inner">
+    <span class="logo">Cehta<span>Capital</span></span>
+    <span class="tag">Guía de la Plataforma · para encargados</span>
+  </div>
+  <div class="progress-track" id="progress"></div>
+</nav>
+
+<div class="hero">
+  <h1>Cómo funciona la plataforma</h1>
+  <p>Guía completa para quienes administran y operan el sistema del FIP CEHTA ESG. Cada módulo, qué hace y quién lo usa.</p>
+  <div class="meta">Round 152 · Actualizada mayo 2026 · ram-cehta.vercel.app</div>
+</div>
+
+<div class="layout">
+  <aside class="toc">
+    <h4>Contenido</h4>
+    <a href="#intro">Qué es la plataforma</a>
+    <a href="#acceso">Acceso y roles</a>
+    <a href="#nucleo">Núcleo operativo</a>
+    <a href="#empresas">Empresas</a>
+    <a href="#sii">Integración SII</a>
+    <a href="#dashboard">Dashboard Institucional</a>
+    <a href="#contabilidad">Contabilidad</a>
+    <a href="#documentos">Documentos</a>
+    <a href="#admin">Administración</a>
+    <a href="#avanzado">Avanzado / Futuro</a>
+    <a href="#mantener">Buenas prácticas</a>
+  </aside>
+
+  <main>
+    <!-- INTRO -->
+    <section id="intro">
+      <h2><span class="num">1</span> Qué es la plataforma</h2>
+      <p class="lead">Es el sistema operativo del fondo: centraliza pagos, contabilidad, documentos y reportes de las 10 entidades del grupo CEHTA.</p>
+      <p>La plataforma <strong>no reemplaza la contabilidad oficial</strong> (esa la lleva el contador externo en Nubox). Lo que hace es ser el <strong>sistema operativo previo</strong>: acá se aprueban los pagos, se generan los vouchers, se concilian los movimientos bancarios y se prepara todo para mandar a Nubox.</p>
+
+      <div class="mod-grid">
+        <div class="mod"><div class="icon">💸</div><div class="name">Pagos ordenados</div><div class="desc">Cada egreso pasa por aprobación con 2 firmas antes de salir.</div></div>
+        <div class="mod"><div class="icon">📊</div><div class="name">Contabilidad operativa</div><div class="desc">Vouchers con partida doble, listos para exportar a Nubox.</div></div>
+        <div class="mod"><div class="icon">🏛️</div><div class="name">Reporte institucional</div><div class="desc">Dashboard nivel directorio + LPs (CORFO).</div></div>
+        <div class="mod"><div class="icon">🧾</div><div class="name">Tributario</div><div class="desc">SII conectado: F29, F22, documentos electrónicos.</div></div>
+      </div>
+
+      <div class="callout info"><span class="ico">ℹ️</span><div><strong>Las 10 entidades:</strong> 6 empresas portafolio (CSL, RHO, DTE, REVTECH, EVOQUE, TRONGKAI) + 4 estructurales (CEHTA holding, FIP CEHTA fondo, AFIS administradora, CENERGY).</div></div>
+    </section>
+
+    <!-- ACCESO -->
+    <section id="acceso">
+      <h2><span class="num">2</span> Acceso y roles</h2>
+      <p class="lead">El menú y los permisos cambian según el rol de cada usuario. Hay roles globales (todo el fondo) y roles por empresa.</p>
+
+      <h3>Roles globales</h3>
+      <table>
+        <thead><tr><th>Rol</th><th>Qué ve / puede hacer</th></tr></thead>
+        <tbody>
+          <tr><td><span class="role admin">admin</span></td><td>Acceso total. Configura usuarios, integraciones, webhooks, reglas de aprobación. Solo cuentas master.</td></tr>
+          <tr><td><span class="role finance">finance</span></td><td>Ve vouchers, movimientos y reportes financieros de todas las empresas. El rol más común para gerentes.</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Roles por empresa</h3>
+      <table>
+        <thead><tr><th>Rol</th><th>Función</th></tr></thead>
+        <tbody>
+          <tr><td><span class="role gg">GG</span> Gerente General</td><td>Firma vouchers de su empresa. <strong>Victoria y Benja son GG de las 10</strong> — firman cuando un gerente titular no puede y velan por el funcionamiento.</td></tr>
+          <tr><td><span class="role director">DIRECTOR</span></td><td>Firmante del directorio del fondo. Aprueba a nivel institucional.</td></tr>
+          <tr><td><span class="role contador">CONTADOR</span></td><td>Carga y revisa vouchers/contabilidad de su empresa específica.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip"><span class="ico">💡</span><div><strong>Cómo entrar:</strong> ir a <kbd>cehta-capital.vercel.app/login</kbd>, ingresar email + contraseña. Si olvidaste la clave, un admin la resetea. Activá el <strong>2FA</strong> en Configuración para mayor seguridad (obligatorio para acciones críticas).</div></div>
+    </section>
+
+    <!-- NUCLEO -->
+    <section id="nucleo">
+      <h2><span class="num">3</span> Núcleo operativo</h2>
+      <p class="lead">Lo que se usa todos los días. Son los módulos del grupo "Operaciones" en el menú lateral.</p>
+
+      <div class="mod-grid">
+        <div class="mod"><div class="icon">🎯</div><div class="name">Action Center</div><div class="desc">Tu bandeja de "qué tengo que hacer hoy" — todo lo que requiere tu acción en un solo lugar.</div><span class="path">/action-center</span></div>
+        <div class="mod"><div class="icon">📥</div><div class="name">Mis pendientes</div><div class="desc">Vouchers que esperan tu intervención (tuyos o asignados).</div><span class="path">/mis-pendientes</span></div>
+        <div class="mod"><div class="icon">✍️</div><div class="name">Aprobaciones</div><div class="desc">Cola de vouchers esperando tu firma. Pensado para el rol aprobador.</div><span class="path">/aprobaciones</span></div>
+        <div class="mod"><div class="icon">⬇️</div><div class="name">Confirmar pagos</div><div class="desc">Vouchers aprobados listos para transferir. Genera la planilla Excel para el banco.</div><span class="path">/transferencias</span></div>
+        <div class="mod"><div class="icon">🧾</div><div class="name">Vouchers contables</div><div class="desc">El corazón del sistema. Comprobantes con partida doble.</div><span class="path">/vouchers</span></div>
+        <div class="mod"><div class="icon">👥</div><div class="name">Proveedores</div><div class="desc">228 proveedores con RUT, banco y datos de contacto.</div><span class="path">/proveedores</span></div>
+        <div class="mod"><div class="icon">📈</div><div class="name">Movimientos</div><div class="desc">Cartolas bancarias: 2.550 movimientos conciliables con vouchers.</div><span class="path">/movimientos</span></div>
+        <div class="mod"><div class="icon">📅</div><div class="name">Calendario</div><div class="desc">Vencimientos y obligaciones tributarias/legales.</div><span class="path">/calendario</span></div>
+      </div>
+
+      <div class="callout warn"><span class="ico">⚠️</span><div><strong>El flujo de un pago</strong> es siempre: crear voucher → 2 firmas → confirmar pago (planilla banco) → marcar pagado con comprobante → exportar a Nubox. Nunca sale plata sin las 2 firmas. Ver la <strong>Guía de Vouchers</strong> para el detalle.</div></div>
+    </section>
+
+    <!-- EMPRESAS -->
+    <section id="empresas">
+      <h2><span class="num">4</span> Empresas</h2>
+      <p class="lead">Cada una de las 10 entidades tiene su propia ficha con 14 pestañas. Se accede desde la lista de "Empresas" al final del menú lateral.</p>
+
+      <h3>Las 14 pestañas de cada empresa</h3>
+      <table>
+        <thead><tr><th>Pestaña</th><th>Qué muestra</th></tr></thead>
+        <tbody>
+          <tr><td>Resumen</td><td>Vista general de la empresa: KPIs principales, saldos.</td></tr>
+          <tr><td>Flujo Mensual</td><td>Abonos, egresos, flujo neto y saldo acumulado por mes.</td></tr>
+          <tr><td>Transacciones</td><td>Detalle de movimientos contables.</td></tr>
+          <tr><td>Categorías</td><td>Desglose por categoría de gasto/ingreso.</td></tr>
+          <tr><td>Valuación</td><td>Invested vs Fair Value + MOIC + IRR (empresas portafolio).</td></tr>
+          <tr><td>KPIs Op.</td><td>Revenue, EBITDA, headcount, MW instalados — sparklines últimos 6 meses.</td></tr>
+          <tr><td>Impact ESG</td><td>IRIS+ + SDG alignment + Impact Frontiers 5-dim + B-Corp.</td></tr>
+          <tr><td>Compliance</td><td>Status OPIM / CMF / UAF / CORFO por empresa.</td></tr>
+          <tr><td>Tributario</td><td>F29 mensual + F22 anual + documentos SII recientes.</td></tr>
+          <tr><td>Trabajadores</td><td>26 trabajadores + sus documentos.</td></tr>
+          <tr><td>Legal</td><td>855 documentos legales (contratos, certificados).</td></tr>
+          <tr><td>Avance</td><td>Hitos y proyectos de la empresa.</td></tr>
+          <tr><td>Documentos</td><td>Archivos en Dropbox de la empresa.</td></tr>
+          <tr><td>AI Asistente</td><td>Chat con IA sobre los documentos de la empresa (requiere indexar).</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout info"><span class="ico">🤖</span><div><strong>El AI Asistente</strong> responde preguntas sobre los documentos de la empresa. Para que funcione, un admin debe hacer clic en "Re-indexar" una vez por empresa — eso lee los PDFs de Dropbox y los convierte en conocimiento consultable.</div></div>
+    </section>
+
+    <!-- SII -->
+    <section id="sii">
+      <h2><span class="num">5</span> Integración SII</h2>
+      <p class="lead">Conexión directa con el Servicio de Impuestos Internos. Las 9 empresas tienen sus credenciales cargadas y validadas.</p>
+
+      <p>Desde <kbd>/admin/sii</kbd> se puede:</p>
+      <ul style="margin: 0 0 16px 22px; color: var(--ink-700);">
+        <li><strong>Probar login</strong> — verifica que la clave SII de cada empresa funcione.</li>
+        <li><strong>Sincronizar RCV</strong> — baja el Registro de Compras y Ventas del mes.</li>
+        <li><strong>Conciliar</strong> — matchea los documentos del SII contra los vouchers locales.</li>
+        <li><strong>F29 estimado</strong> — calcula el formulario 29 a partir del RCV bajado.</li>
+      </ul>
+
+      <div class="callout tip"><span class="ico">✅</span><div><strong>Estado actual:</strong> los 9 logins SII funcionan (AFIS, CENERGY, CSL, DTE, EVOQUE, FIP_CEHTA, REVTECH, RHO, TRONGKAI). Las credenciales están cifradas con Fernet — nunca se ven en pantalla.</div></div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dashboard">
+      <h2><span class="num">6</span> Dashboard Institucional</h2>
+      <p class="lead">La vista nivel directorio + inversionistas (CORFO). Estándar ILPA v2.0 + IRIS+ v5.3, como los fondos Blackstone/KKR.</p>
+
+      <p>Tiene 5 pestañas en <kbd>/dashboard/directorio</kbd>:</p>
+      <table>
+        <thead><tr><th>Tab</th><th>Contenido</th></tr></thead>
+        <tbody>
+          <tr><td>Overview</td><td>KPIs del fondo (AUM, TVPI, DPI, RVPI), J-Curve, portfolio.</td></tr>
+          <tr><td>Capital</td><td>NAV Waterfall, Capital Stack, Capital Calls timeline.</td></tr>
+          <tr><td>Companies</td><td>Tabla de las 6 portfolio companies con MOIC.</td></tr>
+          <tr><td>Impact</td><td>Radar 5-dimensiones, SDG grid, métricas IRIS+.</td></tr>
+          <tr><td>Compliance</td><td>Status OPIM / CMF / CORFO / ILPA.</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout warn"><span class="ico">⚠️</span><div><strong>Importante:</strong> el dashboard está <strong>vacío hasta cargar la data real</strong> del fondo. Antes tenía números de demostración que se borraron para evitar confusiones. Para llenarlo: usar el archivo <kbd>Template_Data_Fondo_REAL.xlsx</kbd> (valuaciones, capital calls, KPIs) y correr el script de import.</div></div>
+
+      <p>También hay una vista para inversionistas en <kbd>/dashboard/inversionistas</kbd> con el PCAP (Partner Capital Account Statement) estándar ILPA.</p>
+    </section>
+
+    <!-- CONTABILIDAD -->
+    <section id="contabilidad">
+      <h2><span class="num">7</span> Contabilidad</h2>
+      <p class="lead">Los catálogos que sostienen los vouchers. Todo el flujo contable pasa por acá antes de generar un comprobante.</p>
+
+      <div class="mod-grid">
+        <div class="mod"><div class="icon">📚</div><div class="name">Plan de cuentas</div><div class="desc">2.120 cuentas contables por empresa. La base de toda imputación.</div><span class="path">/admin/plan-cuentas</span></div>
+        <div class="mod"><div class="icon">📁</div><div class="name">Proyectos contables</div><div class="desc">60 proyectos para imputar gastos (ej. subsidio CORFO).</div><span class="path">/admin/proyectos-contables</span></div>
+        <div class="mod"><div class="icon">🏢</div><div class="name">Áreas</div><div class="desc">Centros de costo (ADM, COM, OPE, IDA).</div><span class="path">/admin/areas</span></div>
+        <div class="mod"><div class="icon">🛡️</div><div class="name">Reglas de aprobación</div><div class="desc">10 reglas que definen quién firma según monto/empresa.</div><span class="path">/admin/approval-rules</span></div>
+        <div class="mod"><div class="icon">🗄️</div><div class="name">Exportar a Nubox</div><div class="desc">Envía los asientos a la contabilidad oficial.</div><span class="path">/admin/nubox-exports</span></div>
+        <div class="mod"><div class="icon">🏦</div><div class="name">Conciliación bancaria</div><div class="desc">Matchea movimientos del banco con vouchers.</div><span class="path">/admin/conciliacion</span></div>
+      </div>
+
+      <div class="callout info"><span class="ico">🧮</span><div><strong>Imputación triple:</strong> cada línea de voucher se imputa a una <em>cuenta</em> × <em>proyecto</em> × <em>área</em>. Esto permite reportes cruzados (ej. "cuánto gastó el proyecto CORFO en el área de operaciones").</div></div>
+    </section>
+
+    <!-- DOCUMENTOS -->
+    <section id="documentos">
+      <h2><span class="num">8</span> Documentos</h2>
+      <p class="lead">Todo lo legal, las políticas y los reportes formales del fondo.</p>
+
+      <div class="mod-grid">
+        <div class="mod"><div class="icon">⚖️</div><div class="name">Legal</div><div class="desc">Documentos legales por empresa (855 docs sincronizados de Dropbox).</div><span class="path">/legal</span></div>
+        <div class="mod"><div class="icon">📋</div><div class="name">Entregables FIP</div><div class="desc">Compromisos y entregables del fondo.</div><span class="path">/entregables</span></div>
+        <div class="mod"><div class="icon">🛡️</div><div class="name">Políticas del fondo</div><div class="desc">Reglamento, manual UAF, código ética. Auditable por CMF.</div><span class="path">/admin/policies-fondo</span></div>
+        <div class="mod"><div class="icon">📜</div><div class="name">Actas del fondo</div><div class="desc">Directorio AFIS, Comité Inversión, Asamblea LPs.</div><span class="path">/admin/fondo-actas</span></div>
+        <div class="mod"><div class="icon">📊</div><div class="name">Reportes</div><div class="desc">Contables, EEFF, tributario, portafolio, fondo.</div><span class="path">/reportes</span></div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="admin">
+      <h2><span class="num">9</span> Administración</h2>
+      <p class="lead">Solo para administradores. Configuración del sistema y herramientas de monitoreo.</p>
+
+      <details>
+        <summary><span class="chev">▶</span> Usuarios y permisos</summary>
+        <div class="body">
+          <p><strong>Usuarios</strong> (<kbd>/admin/usuarios</kbd>): crear, editar y resetear claves. <strong>Roles por empresa</strong> (<kbd>/admin/user-company-roles</kbd>): asignar GG, contador, director a cada persona por empresa.</p>
+        </div>
+      </details>
+      <details>
+        <summary><span class="chev">▶</span> Monitoreo del sistema</summary>
+        <div class="body">
+          <p><strong>Estado del sistema</strong>, <strong>Health detallado</strong>, <strong>Checklist marcha blanca</strong> (¿estamos listos para operar?), <strong>Bitácora</strong> y <strong>Auditoría de cambios</strong> (todo cambio queda registrado, requisito CMF/UAF).</p>
+        </div>
+      </details>
+      <details>
+        <summary><span class="chev">▶</span> Integraciones</summary>
+        <div class="body">
+          <p><strong>SII</strong> (tributario), <strong>Nubox</strong> (remuneraciones + contabilidad oficial), <strong>Dropbox</strong> (documentos), <strong>Email</strong> (inbox contactocehta), <strong>Subsidio CORFO</strong> ($3.000MM, dónde están las platas).</p>
+        </div>
+      </details>
+      <details>
+        <summary><span class="chev">▶</span> Datos del fondo</summary>
+        <div class="body">
+          <p><strong>Data del fondo</strong> (<kbd>/admin/data</kbd>): vista única de empresas portafolio + directorio + inversionistas. <strong>Empresas portfolio</strong>: configuración de cada entidad.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- AVANZADO -->
+    <section id="avanzado">
+      <h2><span class="num">10</span> Avanzado / Futuro</h2>
+      <p class="lead">Módulos que existen pero todavía no se usan a diario. Están agrupados y colapsados al final del menú para no saturar.</p>
+
+      <table>
+        <thead><tr><th>Módulo</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr><td>Órdenes de Compra</td><td>Sin uso actual — para cuando se formalicen OCs.</td></tr>
+          <tr><td>Búsqueda de Fondos</td><td>Herramienta de fundraising (mapear inversionistas).</td></tr>
+          <tr><td>Suscripciones FIP</td><td>Gestión de suscripciones de cuotas.</td></tr>
+          <tr><td>Inversionistas (LPs)</td><td>Pipeline de Limited Partners — futuro.</td></tr>
+          <tr><td>Informes a Inversionistas</td><td>Generación de informes LP.</td></tr>
+          <tr><td>AI Asistente</td><td>Chat IA general (requiere indexar documentos).</td></tr>
+        </tbody>
+      </table>
+
+      <div class="callout tip"><span class="ico">💡</span><div>Para abrirlos, hacé clic en <strong>"Avanzado / Futuro"</strong> al final del menú lateral. Se expande y recuerda tu preferencia. Cuando alguno empiece a usarse de verdad, lo subimos al núcleo.</div></div>
+    </section>
+
+    <!-- MANTENER -->
+    <section id="mantener">
+      <h2><span class="num">11</span> Buenas prácticas para encargados</h2>
+      <p class="lead">Cómo mantener la plataforma sana y confiable.</p>
+
+      <div class="card">
+        <h3>🔐 Seguridad</h3>
+        <p>Activá 2FA en todas las cuentas con rol admin o GG. Nunca compartas claves por chat. Si alguien deja el equipo, desactivá su usuario (no lo borres — para mantener la auditoría).</p>
+      </div>
+      <div class="card">
+        <h3>📥 Datos reales, no demo</h3>
+        <p>El Dashboard Institucional solo debe mostrar números reales. Si ves un número que no cuadra, verificá contra Nubox antes de tomar decisiones. Cargá la data del fondo con el template oficial.</p>
+      </div>
+      <div class="card">
+        <h3>✍️ El flujo de firma es sagrado</h3>
+        <p>Ningún pago sale sin 2 firmas. Victoria y Benja (GG de las 10) firman cuando un gerente no puede. Si un voucher está trabado, revisá en "Aprobaciones" quién falta firmar.</p>
+      </div>
+      <div class="card">
+        <h3>🔄 Conciliá seguido</h3>
+        <p>Una vez por semana: bajá el RCV del SII, conciliá los movimientos bancarios y exportá a Nubox. Así la contabilidad oficial siempre está al día.</p>
+      </div>
+      <div class="card">
+        <h3>🆘 Si algo se rompe</h3>
+        <p>Si una página da error, copiá el "digest" del mensaje y reportalo. La mayoría de errores son transitorios (reintentar suele funcionar). Hay backups automáticos de la base de datos.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="footer">
+  Cehta Capital · FIP CEHTA ESG · Plataforma interna · Guía generada para los encargados de la plataforma.<br>
+  Para el detalle del flujo de pagos, ver la <strong>Guía de Vouchers</strong>.
+</div>
+
+<script>
+  // Progress bar
+  const progress = document.getElementById('progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+    progress.style.width = scrolled + '%';
+  });
+  // TOC active state
+  const links = document.querySelectorAll('.toc a');
+  const sections = [...links].map(a => document.querySelector(a.getAttribute('href')));
+  window.addEventListener('scroll', () => {
+    let idx = sections.findIndex((s, i) => {
+      const next = sections[i+1];
+      const top = s.getBoundingClientRect().top;
+      return top <= 120 && (!next || next.getBoundingClientRect().top > 120);
+    });
+    links.forEach((a, i) => a.classList.toggle('active', i === idx));
+  });
+</script>
+</body>
+</html>

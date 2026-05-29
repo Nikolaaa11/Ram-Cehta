@@ -9,6 +9,7 @@ import { TourTrigger } from "@/components/onboarding/TourTrigger";
 import { QuickActionsFab } from "@/components/layout/QuickActionsFab";
 import { GlobalShortcutsHelp } from "@/components/layout/GlobalShortcutsHelp";
 import { GlobalNavShortcuts } from "@/components/layout/GlobalNavShortcuts";
+import { HelpButton } from "@/components/help/HelpButton";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -45,6 +46,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <GlobalShortcutsHelp />
       {/* V4 fase 7.14: Atajos de navegación globales (g + d/c/e/r/a/p) */}
       <GlobalNavShortcuts />
+      {/* Round 152i: botón flotante de ayuda contextual (bottom-left, desktop).
+          Lee la ruta y muestra el instructivo del módulo. 100% aditivo. */}
+      <HelpButton />
     </RealtimeProvider>
   );
 }
