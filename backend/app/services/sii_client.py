@@ -232,7 +232,25 @@ class SiiClient:
         return await self._descargar_rcv(periodo, flujo="venta")
 
     async def _descargar_rcv(self, periodo: str, *, flujo: str) -> list[SiiDocumento]:
-        """Pega al endpoint JSON del RCV y parsea el resultado."""
+        """Pega al endpoint JSON del RCV y parsea el resultado.
+
+        Round 152n — IMPORTANTE: el SII desmanteló el portal
+        anotacionesRcvInternetUI en 2025 y los endpoints de este método
+        ahora devuelven 404 sistemáticamente. La login al SII sigue
+        funcionando (zeusr.sii.cl/cgi_AUT2000) pero la descarga de RCV
+        no. Para obtener los DTEs hay 2 caminos vivos:
+
+          1) Nubox API REST (recomendado, automático):
+             NuboxApiClient.list_sales()       → ventas (= RCV-ventas)
+             NuboxApiClient.list_purchases()   → compras (= RCV-compras)
+             NuboxApiClient.list_expenses()    → gastos (honorarios, etc)
+
+          2) SII manual: bajar el CSV desde el portal nuevo del SII
+             (siichile.cl) y subirlo via /admin/sii/import-csv.
+
+        Este método se mantiene por compat hasta tener la URL del portal
+        nuevo del SII reverse-engineered. Si lo llamás, vas a recibir 404.
+        """
         self._require_logged_in()
         periodo_norm = _normalizar_periodo(periodo)
         periodo_param = periodo_norm.replace("-", "")  # SII espera YYYYMM

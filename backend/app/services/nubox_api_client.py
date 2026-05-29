@@ -289,6 +289,66 @@ class NuboxApiClient:
         return [self._parse_sale_summary(d) for d in body], total
 
     # ------------------------------------------------------------------
+    # Round 152n — Equivalente al RCV de compras del SII:
+    # GET /v1/purchases — listar compras recibidas (facturas de proveedores)
+    # GET /v1/expenses  — listar gastos (boletas honorarios, comisiones, etc)
+    # Cubren el caso de uso que antes resolvíamos via SII RCV-compras.
+    # ------------------------------------------------------------------
+
+    async def list_purchases(
+        self,
+        period: str | None = None,
+        page: int = 1,
+        size: int = 100,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Lista facturas de compra recibidas (espejo del RCV-compras del SII).
+
+        Returns: (lista de docs raw como dict, total_count)
+        Devolvemos dicts porque el schema de compras tiene campos distintos
+        a las ventas y aún no necesitamos un dataclass tipado.
+        """
+        params: dict[str, Any] = {"page": page, "size": size}
+        if period:
+            params["period"] = period
+        url = self._build_url("/v1/purchases")
+        try:
+            resp = await self._http.get(url, params=params)
+        except httpx.RequestError as exc:
+            raise NuboxApiError(f"Falló GET /purchases: {exc}") from exc
+        if resp.status_code == 204:
+            return [], 0
+        await self._raise_for_error(resp)
+        total = int(resp.headers.get("x-total-count", "0") or "0")
+        body = resp.json()
+        if not isinstance(body, list):
+            raise NuboxApiError("Respuesta /purchases esperada: array")
+        return body, total
+
+    async def list_expenses(
+        self,
+        period: str | None = None,
+        page: int = 1,
+        size: int = 100,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Lista gastos (boletas honorarios, comisiones de pasarelas, etc)."""
+        params: dict[str, Any] = {"page": page, "size": size}
+        if period:
+            params["period"] = period
+        url = self._build_url("/v1/expenses")
+        try:
+            resp = await self._http.get(url, params=params)
+        except httpx.RequestError as exc:
+            raise NuboxApiError(f"Falló GET /expenses: {exc}") from exc
+        if resp.status_code == 204:
+            return [], 0
+        await self._raise_for_error(resp)
+        total = int(resp.headers.get("x-total-count", "0") or "0")
+        body = resp.json()
+        if not isinstance(body, list):
+            raise NuboxApiError("Respuesta /expenses esperada: array")
+        return body, total
+
+    # ------------------------------------------------------------------
     # GET /v1/sales/{id} — detalle de una venta
     # ------------------------------------------------------------------
 
@@ -368,10 +428,18 @@ class NuboxApiClient:
         emission_status = d.get("emissionStatus") or {}
         data_cl = d.get("dataCl") or {}
 
+        # Round 152n — algunos legalCode no son DTEs oficiales (ej. 'COT' =
+        # Cotización, 'GUI' = Guía interna). En esos casos seteamos tipo_dte=0
+        # en vez de crashear el parse. El downstream puede filtrarlos.
+        raw_lc = type_info.get("legalCode")
+        try:
+            tipo_dte_val = int(raw_lc) if raw_lc not in (None, "") else 0
+        except (ValueError, TypeError):
+            tipo_dte_val = 0
         return NuboxDocumentSummary(
             id=int(d.get("id") or 0),
             number=str(d.get("number") or "") or None,
-            tipo_dte=int(type_info.get("legalCode") or 0),
+            tipo_dte=tipo_dte_val,
             folio=str(d.get("number") or "") or None,
             fecha_emision=d.get("emissionDate"),
             cliente_rut=str(client_id.get("value") or ""),
