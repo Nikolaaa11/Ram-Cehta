@@ -246,10 +246,37 @@ class SiiClient:
              NuboxApiClient.list_expenses()    → gastos (honorarios, etc)
 
           2) SII manual: bajar el CSV desde el portal nuevo del SII
-             (siichile.cl) y subirlo via /admin/sii/import-csv.
+             y subirlo via /admin/sii/import-csv.
 
-        Este método se mantiene por compat hasta tener la URL del portal
-        nuevo del SII reverse-engineered. Si lo llamás, vas a recibir 404.
+        Round 152o — HALLAZGO REVERSE-ENGINEER:
+          El endpoint nuevo es POST a:
+            https://www4.sii.cl/consdcvinternetui/services/data/facadeService/
+              getDetalleVenta   (ventas)
+              getDetalleCompra  (compras)
+
+          Body JSON:
+            {
+              "metaData": {
+                "namespace": "cl.sii.sdi.lob.diii.consdcv.data.api.interfaces.FacadeService/getDetalleVenta",
+                "conversationId": "<TOKEN>",
+                "transactionId": "0"
+              },
+              "data": {
+                "rutEmisor": "76108687", "dvEmisor": "1",
+                "ptributario": "202512",
+                "codTipoDoc": "33",
+                "operacion": "VENTA",  // o "COMPRA"
+                "estadoContab": "REGISTRO",
+                "accionRecaptcha": "RCV_DDETV",  // o "RCV_DDETC"
+                "tokenRecaptcha": "c3"
+              }
+            }
+
+          BLOCKER: el portal CONSDCV redirige a la pantalla nueva de login
+          (zeusr.sii.cl/AUT2000/InicioAutenticacion/IngresoRutClave.html),
+          que NO acepta la cookie que produce el login viejo cgi_AUT2000.
+          Implementar el flujo nuevo requiere Playwright headless o
+          reimplementar form-based auth con captcha. Pendiente.
         """
         self._require_logged_in()
         periodo_norm = _normalizar_periodo(periodo)
