@@ -160,14 +160,19 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     match: "/admin/nubox-api",
     title: "Nubox API REST oficial",
-    what: "Integración API REST con Nubox (Factura electrónica + Administración). INERTE — falta partner_token + company_api_key que se solicita a soporte@nubox.com.",
+    what: "Integración API REST con Nubox (Factura electrónica + Administración). CONECTADO en UAT (certificación) para las 10 empresas — devuelve 216 docs de prueba. Falta el par de credenciales de PRODUCCIÓN para emitir DTEs reales.",
     steps: [
-      "1) Solicitar credenciales API a soporte@nubox.com (email template en docs/EMAIL_NUBOX_API.txt).",
-      "2) Cargar partner_token + company_api_key cifrados via /admin/nubox-api/credentials.",
-      "3) Probar conexión con /admin/nubox-api/test.",
-      "4) Empezar a emitir DTEs desde vouchers locales o sincronizar ventas.",
+      "✅ UAT (certificación) activo — podés probar emisión y sincronización sin afectar SII real.",
+      "Para activar PRODUCCIÓN: pedir a Nubox el partner_token + api_key del ambiente 'environment-pyme'.",
+      "Cargar el par PROD via /admin/nubox-api/credentials/{empresa}.",
+      "Cambiar environment='production' y base_url='https://api.pyme.nubox.com/nbxpymapi-environment-pyme'.",
+      "Probar con /admin/nubox-api/test/{empresa} → debe responder 200.",
+      "Sincronizar ventas con /admin/nubox-api/sync-sales/{empresa}?periodo=YYYY-MM.",
     ],
-    tips: ["Hasta que estén las credenciales, usar el flujo 'Exportar a Nubox' (CSV manual) que ya funciona."],
+    tips: [
+      "El cliente usa Bearer + X-Api-Key headers. NUNCA loguea los tokens en plaintext (cifrados con Fernet).",
+      "UAT está disponible L-V 11:00-00:00 GMT. Si responde 503, es ventana de mantenimiento.",
+    ],
   },
   {
     match: "/admin/nubox",
