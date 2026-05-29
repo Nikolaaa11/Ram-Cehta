@@ -104,15 +104,20 @@ type NavGroup = {
     | "avanzado";
   label: string;
   items: NavItem[];
-  /** Round 152h — si true, el grupo arranca colapsado y se expande con click.
-   * Usado para "Avanzado / Futuro": módulos que existen pero no se usan a diario. */
+  /** Round 152h — si true, el grupo se puede colapsar con click. */
   collapsible?: boolean;
+  /** Round 152j — si true, arranca EXPANDIDO; si false/undefined, COLAPSADO.
+   * Los grupos "núcleo" (operaciones, documentos) arrancan expandidos para
+   * que se vean al primer click; los secundarios colapsados para limpieza. */
+  defaultOpen?: boolean;
 };
 
 const GROUPS: NavGroup[] = [
   {
     id: "ejecutivo",
     label: "Ejecutivo",
+    collapsible: true,
+    defaultOpen: false,
     items: [
       { href: "/ceo" as Route, label: "Dashboard CEO", icon: LineChart },
       {
@@ -136,6 +141,8 @@ const GROUPS: NavGroup[] = [
   {
     id: "operaciones",
     label: "Operaciones",
+    collapsible: true,
+    defaultOpen: true,
     items: [
       {
         href: "/action-center" as Route,
@@ -206,6 +213,8 @@ const GROUPS: NavGroup[] = [
   {
     id: "estrategia",
     label: "Estrategia",
+    collapsible: true,
+    defaultOpen: false,
     items: [
       { href: "/avance" as Route, label: "Avance Empresas", icon: Target },
     ],
@@ -213,6 +222,8 @@ const GROUPS: NavGroup[] = [
   {
     id: "documentos",
     label: "Documentos",
+    collapsible: true,
+    defaultOpen: true,
     items: [
       { href: "/legal" as Route, label: "Legal", icon: Scale },
       {
@@ -252,6 +263,8 @@ const GROUPS: NavGroup[] = [
   {
     id: "contabilidad",
     label: "Contabilidad",
+    collapsible: true,
+    defaultOpen: false,
     items: [
       {
         href: "/admin/plan-cuentas" as Route,
@@ -296,6 +309,8 @@ const GROUPS: NavGroup[] = [
   {
     id: "admin",
     label: "Admin",
+    collapsible: true,
+    defaultOpen: false,
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
       // Round 89 — dashboard "donde estan las platas" del subsidio CORFO.
@@ -508,14 +523,24 @@ export function AppSidebar({ email }: AppSidebarProps) {
     return true; // operaciones, estrategia, documentos, avanzado → todos
   });
 
-  // Round 152h — estado de grupos colapsables (ej. "Avanzado / Futuro").
-  // Persiste en localStorage para que el usuario no tenga que re-expandir.
+  // Round 152j — estado de grupos colapsables. Cada grupo arranca con su
+  // defaultOpen (operaciones+documentos = true, resto = false). Si el user
+  // ya tocó un grupo, su preferencia (localStorage) gana sobre el default.
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    if (typeof window === "undefined") return {};
+    // 1. Empezar con los defaults de cada grupo
+    const defaults: Record<string, boolean> = {};
+    for (const g of GROUPS) {
+      defaults[g.id] = g.defaultOpen ?? false;
+    }
+    // 2. Mergear con preferencias persistidas (user override)
+    if (typeof window === "undefined") return defaults;
     try {
-      return JSON.parse(localStorage.getItem("sidebar-open-groups") || "{}");
+      const stored = JSON.parse(
+        localStorage.getItem("sidebar-open-groups") || "{}",
+      ) as Record<string, boolean>;
+      return { ...defaults, ...stored };
     } catch {
-      return {};
+      return defaults;
     }
   });
   const toggleGroup = (id: string) => {
