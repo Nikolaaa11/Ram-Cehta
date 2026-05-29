@@ -43,6 +43,8 @@ log = logging.getLogger(__name__)
 SII_LOGIN_URL = "https://zeusr.sii.cl/cgi_AUT2000/CAutInicio.cgi"
 SII_HOME_URL = "https://homer.sii.cl/"
 SII_RCV_BASE = "https://www4.sii.cl/anotacionesRcvInternetUI/services/data"
+# Round 152p — portal nuevo del RCV (vivo, el viejo está caído)
+SII_CONSDCV_BASE = "https://www4.sii.cl/consdcvinternetui/"
 
 
 # Tipos DTE comunes (lista oficial del SII tiene >50, estos son los más usuales)
@@ -152,8 +154,16 @@ class SiiClient:
         self._logged_in = False
 
     @classmethod
-    async def login(cls, rut: str, clave: str, timeout: float = 30.0) -> SiiClient:
-        """Crea un cliente y hace login. Raise SiiAuthError si falla."""
+    async def login(
+        cls, rut: str, clave: str, timeout: float = 30.0,
+        referencia: str | None = None,
+    ) -> SiiClient:
+        """Crea un cliente y hace login. Raise SiiAuthError si falla.
+
+        Round 152p — `referencia` opcional indica el portal destino para
+        que la sesión sirva en sub-aplicaciones específicas. Para descargar
+        el RCV: referencia="https://www4.sii.cl/consdcvinternetui/".
+        """
         http = httpx.AsyncClient(
             timeout=timeout,
             follow_redirects=True,
@@ -165,11 +175,12 @@ class SiiClient:
                 ),
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                 "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
+                "Referer": "https://zeusr.sii.cl/AUT2000/InicioAutenticacion/IngresoRutClave.html",
             },
         )
         cli = cls(rut, clave, http)
         try:
-            await cli._do_login()
+            await cli._do_login(referencia=referencia)
         except Exception:
             await http.aclose()
             raise
@@ -184,14 +195,27 @@ class SiiClient:
     async def close(self) -> None:
         await self._http.aclose()
 
-    async def _do_login(self) -> None:
-        """Hace POST al login endpoint del SII y verifica session válida."""
-        # El portal SII espera el RUT con DV como un solo campo
-        # más algunos campos hidden. El payload mínimo es:
+    async def _do_login(self, referencia: str | None = None) -> None:
+        """Hace POST al login endpoint del SII y verifica session válida.
+
+        Round 152p — El form real (`IngresoRutClave.html`) divide el RUT
+        en 2 campos hidden separados (`rut`, `dv`), tiene un campo
+        misterioso `name="411"` (sin valor) y un `referencia` que indica
+        el portal destino. Sin esos campos, la cookie de sesión sirve
+        para algunos portales viejos (homer.sii.cl) pero NO para los
+        nuevos como CONSDCV (RCV).
+
+        Para activar la sesión en CONSDCV (descarga RCV), pasar
+        `referencia="https://www4.sii.cl/consdcvinternetui/"`.
+        """
         payload = {
-            "rut": f"{self._rut_num}-{self._dv}",
+            "rut": str(self._rut_num),
+            "dv": self._dv,
+            "referencia": referencia or SII_HOME_URL,
+            "411": "",  # campo hidden del form, sin valor visible
             "clave": self._clave,
-            "referencia": SII_HOME_URL,
+            # algunos handlers viejos del SII aceptan también este campo
+            "rutcntr": f"{self._rut_num}-{self._dv}",
         }
         try:
             resp = await self._http.post(SII_LOGIN_URL, data=payload)
@@ -230,6 +254,92 @@ class SiiClient:
     async def descargar_rcv_ventas(self, periodo: str) -> list[SiiDocumento]:
         """Baja el RCV de ventas para un período (YYYY-MM)."""
         return await self._descargar_rcv(periodo, flujo="venta")
+
+    async def _descargar_rcv_NUEVO(
+        self, periodo: str, *, flujo: str,
+        tipos_doc: list[str] | None = None,
+        throttle_seconds: float = 2.0,
+    ) -> list[dict]:
+        """Round 152p — descarga RCV via el endpoint nuevo CONSDCV.
+
+        REQUIERE: el cliente debe haber sido creado con
+        SiiClient.login(rut, clave, referencia="https://www4.sii.cl/consdcvinternetui/")
+        para que la cookie TOKEN esté presente.
+
+        Args:
+            periodo: "YYYY-MM"
+            flujo:   "venta" o "compra"
+            tipos_doc: lista de codTipoDoc a iterar (default: facturas + boletas)
+            throttle_seconds: pausa entre requests para evitar rate-limit
+
+        Returns:
+            lista de dicts raw del SII (cada dict = un DTE).
+
+        IMPORTANTE: el SII tiene rate-limit agresivo. Si abusás te banea por
+        24h+ con mensaje "consultas recurrentes". Default conservador: 2s
+        entre requests, solo tipos comunes.
+        """
+        import asyncio as _aio
+        self._require_logged_in()
+        periodo_param = _normalizar_periodo(periodo).replace("-", "")
+        # Garantizar que la sesión está activa en CONSDCV (TOKEN cookie)
+        await self._http.get(SII_CONSDCV_BASE, follow_redirects=True)
+        token = self._http.cookies.get("TOKEN", domain=".sii.cl") or self._http.cookies.get("TOKEN")
+        if not token:
+            raise SiiAuthError(
+                "Cookie TOKEN no presente. ¿Loginste con referencia=CONSDCV?"
+            )
+
+        op = "VENTA" if flujo == "venta" else "COMPRA"
+        action = "RCV_DDETV" if flujo == "venta" else "RCV_DDETC"
+        ns_op = "getDetalleVenta" if flujo == "venta" else "getDetalleCompra"
+        url = f"{SII_CONSDCV_BASE}services/data/facadeService/{ns_op}"
+        tipos = tipos_doc or ["33", "34", "39", "41", "56", "61"]
+
+        all_docs: list[dict] = []
+        for tipo in tipos:
+            body = {
+                "metaData": {
+                    "namespace": f"cl.sii.sdi.lob.diii.consdcv.data.api.interfaces.FacadeService/{ns_op}",
+                    "conversationId": token, "transactionId": "0",
+                },
+                "data": {
+                    "rutEmisor": self._rut_num, "dvEmisor": self._dv,
+                    "ptributario": periodo_param,
+                    "codTipoDoc": tipo, "operacion": op,
+                    "estadoContab": "REGISTRO",
+                    "accionRecaptcha": action, "tokenRecaptcha": "c3",
+                },
+            }
+            try:
+                resp = await self._http.post(url, json=body, headers={
+                    "Content-Type": "application/json;charset=utf-8",
+                    "Accept": "application/json, text/javascript, */*; q=0.01",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Referer": SII_CONSDCV_BASE,
+                })
+            except httpx.RequestError as exc:
+                raise SiiClientError(f"Falló POST a {ns_op}: {exc}") from exc
+            if "consultas recurrentes" in resp.text.lower():
+                raise SiiClientError(
+                    "SII rate-limit: detectó consultas recurrentes. "
+                    "Esperá 30-60 min antes de reintentar."
+                )
+            if resp.status_code != 200:
+                raise SiiClientError(
+                    f"SII {ns_op} tipo {tipo} devolvió {resp.status_code}"
+                )
+            try:
+                payload = resp.json()
+            except Exception:
+                continue
+            docs = payload.get("data") or []
+            if isinstance(docs, list):
+                for d in docs:
+                    d["_codTipoDoc"] = tipo
+                all_docs.extend(docs)
+            await _aio.sleep(throttle_seconds)
+        return all_docs
 
     async def _descargar_rcv(self, periodo: str, *, flujo: str) -> list[SiiDocumento]:
         """Pega al endpoint JSON del RCV y parsea el resultado.
