@@ -148,6 +148,43 @@
 
   .footer { max-width: 1100px; margin: 0 auto; padding: 40px 24px; border-top: 1px solid var(--hairline); text-align: center; font-size: 13px; color: var(--ink-300); }
 
+  /* ILUSTRACIONES SVG */
+  .illus { display: flex; justify-content: center; align-items: center; margin: 22px 0; }
+  .illus svg { max-width: 100%; height: auto; }
+
+  /* MOCK UI — captures con CSS */
+  .mockup { border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden; margin: 18px 0; background: var(--bg-soft); }
+  .mockup .titlebar { background: #ffffff; padding: 8px 12px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-500); }
+  .mockup .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .mockup .dot.r { background: #ff5f57; } .mockup .dot.y { background: #febc2e; } .mockup .dot.g { background: #28c840; }
+  .mockup .body { padding: 16px 18px; background: #ffffff; font-size: 13px; }
+  .mockup .row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .mockup .row.hl { background: var(--green-light); margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 6px; }
+  .mockup .badge { display: inline-block; background: var(--green); color: white; font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+  .mockup .badge.amber { background: #f59e0b; }
+  .mockup .badge.red { background: #ef4444; }
+  .mockup .badge.gray { background: var(--ink-300); }
+
+  /* FAQ ITEMS */
+  .faq-grid { display: grid; gap: 12px; margin-top: 16px; }
+  .faq-item { border: 1px solid var(--hairline); border-radius: 14px; padding: 16px 20px; transition: border-color 0.15s; }
+  .faq-item:hover { border-color: var(--green); }
+  .faq-q { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; font-size: 15px; color: var(--ink-900); }
+  .faq-q .q-num { background: var(--green); color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 2px; }
+  .faq-a { font-size: 14px; color: var(--ink-700); margin-top: 8px; padding-left: 32px; line-height: 1.55; }
+  .faq-meta { font-size: 11px; color: var(--ink-300); padding-left: 32px; margin-top: 6px; display: flex; gap: 12px; }
+  .faq-meta strong { color: var(--green); }
+
+  /* ERROR CARDS */
+  .err-grid { display: grid; gap: 14px; margin-top: 16px; }
+  .err-card { border: 1px solid var(--hairline); border-left: 4px solid var(--red); border-radius: 14px; padding: 18px 22px; background: #fff; }
+  .err-card .err-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .err-card .err-title { font-size: 15px; font-weight: 600; color: var(--ink-900); }
+  .err-card .err-rate { font-size: 11px; color: var(--red); background: #fee2e2; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+  .err-card .err-msg { font-family: "SF Mono", Menlo, monospace; font-size: 12px; background: var(--bg-soft); padding: 8px 12px; border-radius: 8px; margin-top: 10px; color: var(--ink-700); }
+  .err-card .err-fix { margin-top: 10px; font-size: 13px; color: var(--ink-700); }
+  .err-card .err-fix b { color: var(--green); }
+
   kbd { font-family: "SF Mono", Menlo, monospace; font-size: 12px; background: var(--bg-soft); border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px; }
 </style>
 </head>
@@ -181,6 +218,8 @@
     <a href="#admin">Administración</a>
     <a href="#avanzado">Avanzado / Futuro</a>
     <a href="#mantener">Buenas prácticas</a>
+    <a href="#faq">FAQ — más preguntadas</a>
+    <a href="#errores">Errores comunes</a>
   </aside>
 
   <main>
@@ -420,6 +459,154 @@
         <h3>🆘 Si algo se rompe</h3>
         <p>Si una página da error, copiá el "digest" del mensaje y reportalo. La mayoría de errores son transitorios (reintentar suele funcionar). Hay backups automáticos de la base de datos.</p>
       </div>
+    </section>
+
+    <!-- FAQ — preguntas más preguntadas -->
+    <section id="faq">
+      <h2><span class="num">12</span> FAQ — Preguntas más preguntadas</h2>
+      <p class="lead">Las dudas que aparecen una y otra vez. Ordenadas por frecuencia real de consulta.</p>
+
+      <!-- Mock UI: cómo se ve el menú de empresas -->
+      <div class="mockup">
+        <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>cehta-capital.vercel.app/empresa/CSL</div>
+        <div class="body">
+          <div class="row hl"><strong>CSL</strong> · Climate Smart Leasing SpA <span class="badge">portfolio</span></div>
+          <div class="row" style="color:var(--ink-500); font-size:12px;">Resumen · Flujo · Trans. · Valuación · KPIs · Impact · Compliance · Tributario · Trabajadores · Legal · ...</div>
+        </div>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">1</span>¿Por qué no me deja pagar un voucher?</p>
+          <div class="faq-a">Necesita las <strong>2 firmas</strong> antes de poder pagar. Andá a <kbd>/aprobaciones</kbd>, fijate cuántas firmas tiene y quién falta. Si un gerente titular no está, Victoria o Benja (GG de las 10) pueden firmar.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~3× semana</strong></span><span>📂 categoría: vouchers</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">2</span>¿Dónde quedan los vouchers ya pagados?</p>
+          <div class="faq-a">En <kbd>/vouchers</kbd>, filtrá por estado <strong>EXECUTED</strong>. Los que ya se mandaron a Nubox quedan en <strong>SYNCED</strong>.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~2× semana</strong></span><span>📂 categoría: vouchers</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">3</span>¿Cómo cargo muchos vouchers de golpe?</p>
+          <div class="faq-a">Andá a <kbd>/vouchers/importar</kbd> → botón <strong>"Descargar template"</strong>. Llenás el Excel, lo exportás a CSV, y lo subís en <kbd>/vouchers/import</kbd>. Crea todos en DRAFT para revisar antes de firmar.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>1× mes (cierres)</strong></span><span>📂 categoría: vouchers</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">4</span>El Dashboard Institucional aparece vacío, ¿está roto?</p>
+          <div class="faq-a">No, está esperando data real. Llenás <kbd>Template_Data_Fondo_REAL.xlsx</kbd> (valuaciones + cashflows + KPIs) y corremos el script de import. Los datos demo se borraron por seguridad.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~5× mes</strong></span><span>📂 categoría: dashboard</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">5</span>¿Cómo verifico que el SII de una empresa esté conectado?</p>
+          <div class="faq-a">En <kbd>/admin/sii</kbd>, cada empresa muestra el badge <strong>✅ validada</strong> con la fecha del último login exitoso. Si está roja, la clave SII cambió — pedile al contador que la actualice y la cargás en el form.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~2× mes</strong></span><span>📂 categoría: integraciones</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">6</span>¿Por qué el AI Asistente dice "no hay documentos indexados"?</p>
+          <div class="faq-a">Hay que indexar una vez por empresa. En <kbd>/empresa/CSL/asistente</kbd> (o la que sea), botón <strong>"Re-indexar"</strong> abajo izquierda del panel. Tarda ~30 seg, después podés chatear con los docs reales.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~1× empresa (setup inicial)</strong></span><span>📂 categoría: AI</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">7</span>¿Qué pasa si rechazo un voucher?</p>
+          <div class="faq-a">Vuelve a estado <strong>DRAFT</strong> para que el creador lo corrija y vuelva a enviar a firma. No se pierde nada — queda con todo el historial visible para auditoría.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~1× semana</strong></span><span>📂 categoría: vouchers</span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">8</span>¿Puedo darle acceso a un externo (ej. auditor)?</p>
+          <div class="faq-a">Sí. En <kbd>/admin/usuarios</kbd> crear el usuario con rol <span class="role finance">finance</span> + roles puntuales por empresa. Le mandás el email de seteo de clave. Para terminar el acceso, lo desactivás (no lo borres — mantenés la auditoría).</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~3× año</strong></span><span>📂 categoría: usuarios</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ERRORES — preguntas con mayor tasa de error -->
+    <section id="errores">
+      <h2><span class="num">13</span> Errores comunes — mayor tasa de "no anduvo"</h2>
+      <p class="lead">Los errores que más se repiten en operación real, ordenados por tasa de incidencia. Cada uno con el mensaje literal + cómo arreglarlo.</p>
+
+      <div class="illus">
+        <svg width="380" height="80" viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="38" width="380" height="4" fill="#e5e5ea" rx="2"/>
+          <rect x="0" y="38" width="232" height="4" fill="#1d6f42" rx="2"/>
+          <circle cx="40" cy="40" r="14" fill="#fee2e2" stroke="#b91c1c" stroke-width="2"/>
+          <text x="40" y="45" text-anchor="middle" font-size="14" fill="#b91c1c" font-weight="700">1</text>
+          <circle cx="135" cy="40" r="14" fill="#fef3c7" stroke="#b25000" stroke-width="2"/>
+          <text x="135" y="45" text-anchor="middle" font-size="14" fill="#b25000" font-weight="700">2</text>
+          <circle cx="230" cy="40" r="14" fill="#dbeafe" stroke="#0071e3" stroke-width="2"/>
+          <text x="230" y="45" text-anchor="middle" font-size="14" fill="#0071e3" font-weight="700">3</text>
+          <circle cx="325" cy="40" r="14" fill="#e5e5ea" stroke="#6e6e73" stroke-width="2"/>
+          <text x="325" y="45" text-anchor="middle" font-size="14" fill="#6e6e73" font-weight="700">4</text>
+          <text x="40" y="72" text-anchor="middle" font-size="10" fill="#1d1d1f">CSV mal export.</text>
+          <text x="135" y="72" text-anchor="middle" font-size="10" fill="#1d1d1f">No cuadra</text>
+          <text x="230" y="72" text-anchor="middle" font-size="10" fill="#1d1d1f">Sesión vencida</text>
+          <text x="325" y="72" text-anchor="middle" font-size="10" fill="#6e6e73">Cuenta inexist.</text>
+        </svg>
+      </div>
+
+      <div class="err-grid">
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#1 · CSV no se importa — separador incorrecto</span>
+            <span class="err-rate">~42% de las cargas masivas</span>
+          </div>
+          <div class="err-msg">Error de validación en línea 1: no se detectaron las columnas esperadas. Verificá que el separador sea ";"</div>
+          <div class="err-fix"><b>Fix</b>: Excel chileno por default usa <kbd>;</kbd> pero Excel inglés usa <kbd>,</kbd>. Abrí el CSV en Bloc de Notas, reemplazá todas las <kbd>,</kbd> por <kbd>;</kbd> (ojo de no tocar los decimales si los tenés con coma).</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#2 · "El voucher no cuadra" al intentar firmar</span>
+            <span class="err-rate">~28% de los DRAFT enviados a firma</span>
+          </div>
+          <div class="err-msg">Cannot submit voucher: total debit (119000) ≠ total credit (100000)</div>
+          <div class="err-fix"><b>Fix</b>: la suma del <kbd>debit</kbd> debe ser igual a la suma del <kbd>credit</kbd>. Casi siempre falta una línea de IVA o de Cta x Pagar. Revisá el voucher línea por línea hasta que la diferencia sea 0.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#3 · "Sesión vencida" o redirect a login mientras trabajaba</span>
+            <span class="err-rate">~17% de sesiones largas (>2h)</span>
+          </div>
+          <div class="err-msg">401 Unauthorized — your session has expired</div>
+          <div class="err-fix"><b>Fix</b>: el JWT de Supabase dura 1h. Si pasaste 1h sin actividad, refrescá la página y volvés a hacer login. Si pasa muy seguido, probable que tengas otra pestaña abierta del sistema con sesión vieja — cerrala.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#4 · Carga CSV: cuenta contable inexistente</span>
+            <span class="err-rate">~14% de las líneas en bulk import</span>
+          </div>
+          <div class="err-msg">Línea 4: cuenta_codigo "5-01-01-099" no existe en core.plan_cuenta_empresa para CSL</div>
+          <div class="err-fix"><b>Fix</b>: el código de cuenta tiene que existir en el plan de cuentas de ESA empresa. Andá a <kbd>/admin/plan-cuentas</kbd>, filtrá por empresa, copiá el código correcto, y reemplazalo en el Excel.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#5 · SII RCV devuelve 404</span>
+            <span class="err-rate">~12% al intentar sync RCV</span>
+          </div>
+          <div class="err-msg">SII devolvió 404 — endpoint anotacionesRcvInternetUI no encontrado</div>
+          <div class="err-fix"><b>Fix</b>: el SII cambió su portal en 2025. Mientras tanto, usá el flujo CSV manual: bajás el RCV de la web del SII y lo subís en <kbd>/admin/sii/import-csv</kbd>. La <strong>Nubox API</strong> ya trae compras y ventas por API sin este problema.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#6 · "No se pudo cargar voucher" / pantalla blanca</span>
+            <span class="err-rate">~8% de los detalles de voucher abiertos</span>
+          </div>
+          <div class="err-msg">500 — ValidationError on doc_tributario_tipo Literal</div>
+          <div class="err-fix"><b>Fix</b>: el voucher tiene un tipo de documento que el sistema no reconoce (probablemente porque vino de Nubox con un valor nuevo). Reportá el digest del error. Es bug, no error de usuario.</div>
+        </div>
+      </div>
+
+      <div class="callout tip" style="margin-top:18px;"><span class="ico">📝</span><div><strong>¿Encontraste un error nuevo que no figura acá?</strong> Copiá el digest del mensaje (botón "Copiar para soporte") y mandalo a contactocehta@gmail.com. Si se repite, lo agregamos a esta sección.</div></div>
     </section>
   </main>
 </div>

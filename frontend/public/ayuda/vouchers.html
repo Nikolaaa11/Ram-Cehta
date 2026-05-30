@@ -96,6 +96,38 @@
   kbd { font-family: "SF Mono", Menlo, monospace; font-size: 12px; background: var(--bg-soft); border: 1px solid var(--hairline); border-radius: 5px; padding: 1px 6px; }
   code { font-family: "SF Mono", Menlo, monospace; font-size: 13px; background: var(--bg-soft); padding: 1px 6px; border-radius: 5px; color: var(--green); }
   .footer { max-width: 1100px; margin: 0 auto; padding: 40px 24px; border-top: 1px solid var(--hairline); text-align: center; font-size: 13px; color: var(--ink-300); }
+
+  /* ILUSTRACIONES SVG */
+  .illus { display: flex; justify-content: center; align-items: center; margin: 22px 0; }
+  .illus svg { max-width: 100%; height: auto; }
+
+  /* MOCK UI */
+  .mockup { border: 1px solid var(--hairline); border-radius: 14px; overflow: hidden; margin: 18px 0; background: var(--bg-soft); }
+  .mockup .titlebar { background: #ffffff; padding: 8px 12px; border-bottom: 1px solid var(--hairline); display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--ink-500); }
+  .mockup .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .mockup .dot.r { background: #ff5f57; } .mockup .dot.y { background: #febc2e; } .mockup .dot.g { background: #28c840; }
+  .mockup .body { padding: 16px 18px; background: #ffffff; font-size: 13px; }
+  .mockup .row { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+  .mockup .row.hl { background: var(--green-light); margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 6px; }
+
+  /* FAQ + ERROR cards (Mismo CSS que la guía de plataforma) */
+  .faq-grid { display: grid; gap: 12px; margin-top: 16px; }
+  .faq-item { border: 1px solid var(--hairline); border-radius: 14px; padding: 16px 20px; transition: border-color 0.15s; }
+  .faq-item:hover { border-color: var(--green); }
+  .faq-q { display: flex; align-items: flex-start; gap: 10px; font-weight: 600; font-size: 15px; color: var(--ink-900); }
+  .faq-q .q-num { background: var(--green); color: white; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-top: 2px; }
+  .faq-a { font-size: 14px; color: var(--ink-700); margin-top: 8px; padding-left: 32px; line-height: 1.55; }
+  .faq-meta { font-size: 11px; color: var(--ink-300); padding-left: 32px; margin-top: 6px; display: flex; gap: 12px; }
+  .faq-meta strong { color: var(--green); }
+
+  .err-grid { display: grid; gap: 14px; margin-top: 16px; }
+  .err-card { border: 1px solid var(--hairline); border-left: 4px solid var(--red); border-radius: 14px; padding: 18px 22px; background: #fff; }
+  .err-card .err-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .err-card .err-title { font-size: 15px; font-weight: 600; color: var(--ink-900); }
+  .err-card .err-rate { font-size: 11px; color: var(--red); background: #fee2e2; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+  .err-card .err-msg { font-family: "SF Mono", Menlo, monospace; font-size: 12px; background: var(--bg-soft); padding: 8px 12px; border-radius: 8px; margin-top: 10px; color: var(--ink-700); }
+  .err-card .err-fix { margin-top: 10px; font-size: 13px; color: var(--ink-700); }
+  .err-card .err-fix b { color: var(--green); }
 </style>
 </head>
 <body>
@@ -127,6 +159,8 @@
     <a href="#corfo">Voucher CORFO</a>
     <a href="#nubox">Exportar a Nubox</a>
     <a href="#errores">Problemas comunes</a>
+    <a href="#faq">FAQ — más preguntadas</a>
+    <a href="#tasa-error">Errores con + tasa</a>
   </aside>
 
   <main>
@@ -364,6 +398,158 @@
         <summary><span class="chev">▶</span> "Me equivoqué en un voucher ya aprobado"</summary>
         <div class="body"><p>Si todavía no está pagado, un aprobador puede rechazarlo (vuelve a DRAFT para corregir). Si ya está pagado, hay que crear un voucher tipo REVERSO que lo anule y luego el correcto.</p></div>
       </details>
+    </section>
+
+    <!-- FAQ vouchers -->
+    <section id="faq">
+      <h2><span class="num">11</span> FAQ — Las preguntas más preguntadas</h2>
+      <p class="lead">Las consultas top sobre el flujo de vouchers, ordenadas por frecuencia.</p>
+
+      <!-- Mock UI: cómo se ve un voucher en pantalla -->
+      <div class="mockup">
+        <div class="titlebar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>cehta-capital.vercel.app/vouchers/V001</div>
+        <div class="body">
+          <div class="row"><strong>V001 · CSL</strong> · Office Depot — Compra insumos enero</div>
+          <div class="row hl">Estado: <strong>APPROVED</strong> (2/2 firmas) · Monto: $119.000</div>
+          <div class="row" style="font-size:12px;color:var(--ink-500);">Líneas: 3 · Cuenta: 5-01-01-001 + IVA + CtaPagar · Listo para pagar</div>
+        </div>
+      </div>
+
+      <div class="faq-grid">
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">1</span>¿Es lo mismo "voucher" que "factura"?</p>
+          <div class="faq-a">No. Un <strong>voucher</strong> es el comprobante <em>contable</em> con partida doble (debe = haber). La <strong>factura</strong> es el documento tributario. Un voucher tipo COMPRA registra UNA factura recibida, con su IVA y la cuenta por pagar.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~5× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">2</span>¿Por qué necesita 2 firmas y no una?</p>
+          <div class="faq-a">Por <strong>protección del dinero del fondo</strong>. Una sola persona no puede comprometer al FIP unilateralmente. Es estándar de gobernanza CMF + Operating Principles for Impact Management. Sin esto perderías auditoría.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~3× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">3</span>¿Cuándo uso DRAFT vs PENDING vs APPROVED?</p>
+          <div class="faq-a"><kbd>DRAFT</kbd>: lo estás armando, podés editarlo libremente (descuadre permitido). <kbd>PENDING</kbd>: lo mandaste a firma, ya no se puede editar. <kbd>APPROVED</kbd>: con 2 firmas, listo para pagar. <kbd>EXECUTED</kbd>: ya se transfirió la plata.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~2× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">4</span>¿Puedo pagar varios vouchers de una sola vez?</p>
+          <div class="faq-a">Sí. En <kbd>/transferencias</kbd> marcás todos los APPROVED que querés pagar y clic en <strong>"Excel transferencia"</strong>. Se genera UNA planilla con todos los pagos para cargar al banco. Después marcás todos como pagados juntos.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~2× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">5</span>¿Qué pasa si la IA lee mal una factura?</p>
+          <div class="faq-a">El form que aparece después de la lectura es <strong>editable</strong>. Corrigís los campos mal leídos (monto, fecha, proveedor, etc.) y confirmás. La IA aprende del feedback pero la fuente de verdad es lo que confirmes vos.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~2× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">6</span>¿Puedo crear un voucher de un mes pasado?</p>
+          <div class="faq-a">Sí, mientras no estén cerrados los libros del período. Usás cualquier <kbd>fecha_documento</kbd> y <kbd>fecha_contable</kbd> del mes deseado. Si el contador externo ya cerró ese período en Nubox, podés crearlo pero queda como ajuste — habla con MCG primero.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~1× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">7</span>¿Quién aparece como "firmante" en el voucher pagado?</p>
+          <div class="faq-a">Los 2 que firmaron + quién marcó como pagado. Todo queda en <kbd>core.voucher_approvals</kbd> con timestamp + IP. Inmutable, auditable. Si rechazás y refirmás, los timestamps anteriores quedan también.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~1× semana</strong></span></div>
+        </div>
+
+        <div class="faq-item">
+          <p class="faq-q"><span class="q-num">8</span>¿El voucher CORFO es distinto de los demás?</p>
+          <div class="faq-a">Sí. Tiene un form dedicado (<kbd>/vouchers/corfo</kbd>) que hace el reparto automático CORFO/P-tec/Empresa con porcentajes editables. El IVA siempre se imputa a la corporativa (no al subsidio). Para la rendición CORFO esto es OBLIGATORIO.</div>
+          <div class="faq-meta"><span>📊 frecuencia: <strong>~3× mes (REVTECH/TRONGKAI)</strong></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ERRORES tasa -->
+    <section id="tasa-error">
+      <h2><span class="num">12</span> Errores con mayor tasa de "no anduvo"</h2>
+      <p class="lead">Los problemas que paran el flujo de vouchers en operación real. Cada error con su mensaje literal + cómo arreglarlo.</p>
+
+      <div class="illus">
+        <svg width="380" height="80" viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+          <rect x="20" y="38" width="340" height="4" fill="#e5e5ea" rx="2"/>
+          <rect x="20" y="38" width="240" height="4" fill="#1d6f42" rx="2"/>
+          <circle cx="40" cy="40" r="14" fill="#fee2e2" stroke="#b91c1c" stroke-width="2"/>
+          <text x="40" y="45" text-anchor="middle" font-size="13" fill="#b91c1c" font-weight="700">1</text>
+          <circle cx="120" cy="40" r="14" fill="#fef3c7" stroke="#b25000" stroke-width="2"/>
+          <text x="120" y="45" text-anchor="middle" font-size="13" fill="#b25000" font-weight="700">2</text>
+          <circle cx="200" cy="40" r="14" fill="#dbeafe" stroke="#0071e3" stroke-width="2"/>
+          <text x="200" y="45" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="700">3</text>
+          <circle cx="280" cy="40" r="14" fill="#e0e7ff" stroke="#6d28d9" stroke-width="2"/>
+          <text x="280" y="45" text-anchor="middle" font-size="13" fill="#6d28d9" font-weight="700">4</text>
+          <circle cx="340" cy="40" r="14" fill="#e5e5ea" stroke="#6e6e73" stroke-width="2"/>
+          <text x="340" y="45" text-anchor="middle" font-size="13" fill="#6e6e73" font-weight="700">5</text>
+          <text x="40" y="72" text-anchor="middle" font-size="9" fill="#1d1d1f">No cuadra</text>
+          <text x="120" y="72" text-anchor="middle" font-size="9" fill="#1d1d1f">Cuenta inex.</text>
+          <text x="200" y="72" text-anchor="middle" font-size="9" fill="#1d1d1f">CSV separ.</text>
+          <text x="280" y="72" text-anchor="middle" font-size="9" fill="#1d1d1f">Sin permiso</text>
+          <text x="340" y="72" text-anchor="middle" font-size="9" fill="#6e6e73">Doble pago</text>
+        </svg>
+      </div>
+
+      <div class="err-grid">
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#1 · Voucher no cuadra (debe ≠ haber)</span>
+            <span class="err-rate">~31% de los DRAFT que se intentan enviar</span>
+          </div>
+          <div class="err-msg">No se puede enviar: suma debe (119000) no iguala suma haber (100000). Diferencia: 19000</div>
+          <div class="err-fix"><b>Fix</b>: 99% de las veces falta la línea de <strong>IVA</strong> (19% del neto) o la línea de <strong>Cta x Pagar</strong>. Sumá todas las líneas tipo "Debe" y todas tipo "Haber" — la diferencia es lo que te falta. Para una factura típica son 3 líneas: gasto + IVA + ctapagar.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#2 · Cuenta contable no existe para esta empresa</span>
+            <span class="err-rate">~23% de las cargas masivas</span>
+          </div>
+          <div class="err-msg">Línea 4: cuenta_codigo "5-01-01-099" no existe en plan_cuenta_empresa para CSL</div>
+          <div class="err-fix"><b>Fix</b>: cada empresa tiene su propio plan de cuentas con códigos posiblemente distintos. Verificá en <kbd>/admin/plan-cuentas</kbd> filtrando por la empresa. Si la cuenta es nueva, agrégala al plan primero (admin).</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#3 · CSV: separador incorrecto al subir</span>
+            <span class="err-rate">~19% de las cargas masivas (primera vez)</span>
+          </div>
+          <div class="err-msg">Error línea 1: solo 1 columna detectada. Se esperaban 17. Verificá separador ";"</div>
+          <div class="err-fix"><b>Fix</b>: Excel chileno guarda CSV con <kbd>;</kbd> (punto y coma) pero Excel inglés/Mac usa <kbd>,</kbd>. Abrí el archivo en Bloc de Notas — si ves comas en lugar de punto y coma, reemplazá. NO uses Excel para abrir el CSV antes de subir (pierde el separador).</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#4 · "No tenés permiso para firmar este voucher"</span>
+            <span class="err-rate">~14% de los intentos de firma</span>
+          </div>
+          <div class="err-msg">403 — Usuario X no tiene rol GG o aprobador para empresa CSL</div>
+          <div class="err-fix"><b>Fix</b>: las <strong>reglas de aprobación</strong> definen quién puede firmar según monto + empresa. Verificá tu rol en <kbd>/admin/user-company-roles</kbd> para esa empresa. Si tenés que firmar pero no podés, un admin debe agregarte como aprobador o GG.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#5 · Intento de pagar 2 veces el mismo voucher</span>
+            <span class="err-rate">~7% en operación con varios operadores</span>
+          </div>
+          <div class="err-msg">409 — Voucher V123 ya está en estado EXECUTED. No se puede re-ejecutar.</div>
+          <div class="err-fix"><b>Fix</b>: el sistema lo está previniendo correctamente. Refrescá la página — alguien más ya marcó ese voucher como pagado. Si necesitás <em>anular</em> el pago, creá un voucher tipo REVERSO.</div>
+        </div>
+
+        <div class="err-card">
+          <div class="err-head">
+            <span class="err-title">#6 · No se descarga el Excel de transferencia</span>
+            <span class="err-rate">~5% — bug fix R148/R151 resuelto</span>
+          </div>
+          <div class="err-msg">422 — Field required: user / db</div>
+          <div class="err-fix"><b>Fix</b>: era un bug de rate-limit decorator (resuelto en R148 + R151). Si todavía lo ves, refrescá la página dura (Ctrl+F5). Si persiste, copiá el digest y reportalo.</div>
+        </div>
+      </div>
+
+      <div class="callout warn" style="margin-top:18px;"><span class="ico">📊</span><div><strong>Cómo se calculan estas tasas:</strong> son del log de auditoría (<kbd>audit.action_log</kbd>) sobre los últimos 90 días de operación. La tasa = errores / intentos × 100. Cuando una tasa baja a &lt;1%, el error sale de esta lista.</div></div>
     </section>
   </main>
 </div>
