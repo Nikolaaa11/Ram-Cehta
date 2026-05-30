@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Building2,
   Wallet,
+  MessageCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 const GUIDES = [
@@ -23,14 +25,46 @@ const GUIDES = [
     desc: "Para los encargados. Explica cada módulo y función: roles, núcleo operativo, empresas, SII, dashboard institucional, contabilidad y administración.",
     href: "/ayuda/plataforma.html",
     icon: BookOpen,
-    badge: "11 secciones",
+    badge: "13 secciones",
   },
   {
     title: "Guía de Vouchers",
     desc: "El flujo completo de vouchers de la A a la Z: qué son, ciclo de vida, cómo crearlos, firmarlos, pagarlos, carga masiva y exportar a Nubox.",
     href: "/ayuda/vouchers.html",
     icon: Receipt,
-    badge: "10 secciones",
+    badge: "12 secciones",
+  },
+];
+
+// Round 152r — destacados directos a las secciones más útiles (FAQ + Errores).
+const HIGHLIGHTS = [
+  {
+    title: "FAQ — Plataforma",
+    desc: "Las 8 preguntas más preguntadas por los encargados, ordenadas por frecuencia real.",
+    href: "/ayuda/plataforma.html#faq",
+    icon: MessageCircle,
+    accent: "emerald",
+  },
+  {
+    title: "Errores comunes — Plataforma",
+    desc: "6 errores con su tasa de incidencia + mensaje literal + cómo arreglarlo.",
+    href: "/ayuda/plataforma.html#errores",
+    icon: AlertTriangle,
+    accent: "red",
+  },
+  {
+    title: "FAQ — Vouchers",
+    desc: "Las 8 dudas top sobre el flujo de vouchers: firmas, estados, pagos, CORFO.",
+    href: "/ayuda/vouchers.html#faq",
+    icon: MessageCircle,
+    accent: "emerald",
+  },
+  {
+    title: "Errores Vouchers — mayor tasa",
+    desc: "Top 6 problemas que paran el flujo: no cuadra, cuenta inexistente, doble pago, etc.",
+    href: "/ayuda/vouchers.html#tasa-error",
+    icon: AlertTriangle,
+    accent: "red",
   },
 ];
 
@@ -84,6 +118,49 @@ export default function AyudaPage() {
                 <ExternalLink className="size-3.5 text-ink-300 transition-colors group-hover:text-cehta-green" />
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-ink-600">{g.desc}</p>
+            </a>
+          );
+        })}
+      </div>
+
+      {/* Highlights — FAQ + Errores (acceso directo) */}
+      <h3 className="mt-10 mb-4 text-xs font-semibold uppercase tracking-wider text-ink-400">
+        Atajos directos a lo más útil
+      </h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {HIGHLIGHTS.map((h) => {
+          const Icon = h.icon;
+          const isRed = h.accent === "red";
+          return (
+            <a
+              key={h.href}
+              href={h.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`group flex gap-3 rounded-xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-card ${
+                isRed
+                  ? "border-red-100 bg-red-50/30 hover:border-red-200"
+                  : "border-emerald-100 bg-emerald-50/30 hover:border-emerald-200"
+              }`}
+            >
+              <div
+                className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+                  isRed
+                    ? "bg-red-100 text-red-700"
+                    : "bg-emerald-100 text-emerald-700"
+                }`}
+              >
+                <Icon className="size-4" strokeWidth={1.6} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-ink-900">
+                  {h.title}
+                  <ExternalLink className="size-3 text-ink-300" />
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-ink-600">
+                  {h.desc}
+                </p>
+              </div>
             </a>
           );
         })}

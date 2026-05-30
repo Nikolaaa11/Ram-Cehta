@@ -126,24 +126,58 @@ export function HelpButton() {
                   {help.guide.label}
                 </a>
               )}
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href="/ayuda/plataforma.html#faq"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
+                >
+                  💬 FAQ Plataforma
+                </a>
+                <a
+                  href="/ayuda/plataforma.html#errores"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
+                >
+                  ⚠️ Errores comunes
+                </a>
+                <a
+                  href="/ayuda/vouchers.html#faq"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100"
+                >
+                  💬 FAQ Vouchers
+                </a>
+                <a
+                  href="/ayuda/vouchers.html#tasa-error"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 rounded-xl bg-red-50 px-3 py-2 text-xs font-medium text-red-700 transition-colors hover:bg-red-100"
+                >
+                  ⚠️ Errores Vouchers
+                </a>
+              </div>
+              <div className="mt-2 flex gap-2">
                 <a
                   href="/ayuda/plataforma.html"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-xs font-medium text-ink-700 transition-colors hover:bg-ink-50"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink-50"
                 >
-                  <CheckCircle2 className="size-3.5" />
-                  Guía Plataforma
+                  <CheckCircle2 className="size-3" />
+                  Guía completa Plataforma
                 </a>
                 <a
                   href="/ayuda/vouchers.html"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-xs font-medium text-ink-700 transition-colors hover:bg-ink-50"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-hairline px-3 py-2 text-[11px] font-medium text-ink-500 transition-colors hover:bg-ink-50"
                 >
-                  <CheckCircle2 className="size-3.5" />
-                  Guía Vouchers
+                  <CheckCircle2 className="size-3" />
+                  Guía completa Vouchers
                 </a>
               </div>
             </div>
