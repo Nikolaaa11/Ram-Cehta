@@ -1287,7 +1287,12 @@ export function VouchersClientView({
                 el viewport en mobile (los contadores pueden mirar la lista
                 desde celular). */}
             <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[800px]">
+            {/* R152hh — TooltipProvider envuelve la tabla para que cada
+                codigo de voucher tenga tooltip rico con delay 300ms.
+                Un solo Provider con delay compartido = menos jitter al
+                hover entre rows consecutivos. */}
+            <TooltipProvider delayDuration={300} skipDelayDuration={150}>
+            <table className={`w-full min-w-[800px] ${isCompact ? "text-xs" : "text-sm"}`}>
               {/* Round 9 — sticky header. En listas >20 filas el header se
                   iba al scrollear y el user perdia contexto de las columnas.
                   Con sticky el header queda visible mientras se navega la
@@ -1295,7 +1300,7 @@ export function VouchersClientView({
               <thead className="sticky top-0 z-10 bg-ink-50/95 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 backdrop-blur-sm">
                 <tr>
                   {(hasPendingVisible || estadoFilter === "DRAFT") && (
-                    <th className="w-8 px-3 py-3">
+                    <th className={`${tdPadNarrow} w-8`}>
                       {hasPendingVisible && (
                         <input
                           type="checkbox"
@@ -1308,45 +1313,61 @@ export function VouchersClientView({
                       )}
                     </th>
                   )}
-                  <th className="px-4 py-3">Código</th>
-                  <th className="px-4 py-3">Tipo</th>
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Glosa · Contraparte</th>
-                  <th className="px-4 py-3">Proyecto</th>
-                  <th className="px-4 py-3 text-right">Total</th>
-                  <th className="px-4 py-3">Estado</th>
+                  <th className={tdPad}>Código</th>
+                  <th className={tdPad}>Tipo</th>
+                  <th className={tdPad}>Fecha</th>
+                  <th className={tdPad}>Glosa · Contraparte</th>
+                  <th className={tdPad}>Proyecto</th>
+                  <th className={`${tdPad} text-right`}>Total</th>
+                  <th className={tdPad}>Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-hairline" data-virtualized>
-                {filteredVouchers.map((v) => {
+                {filteredVouchers.map((v, i) => {
                   const meta = TIPO_META[v.tipo];
                   const Icon = meta.icon;
                   const status = STATUS_META[v.status];
-                  return (
-                    <tr
-                      key={v.voucher_id}
-                      className={`cursor-pointer transition-colors hover:bg-ink-50/40 ${
-                        selectedIds.has(v.voucher_id)
-                          ? "bg-cehta-green/5"
-                          : ""
-                      }`}
-                      // Round 7 perf — antes usabamos window.location.href que
-                      // dispara hard navigation (pierde TanStack cache, full
-                      // page reload, ~500ms+). Ahora router.push hace SPA nav
-                      // instantanea. onMouseEnter dispara prefetch del bundle
-                      // de la ruta /vouchers/[id] (Next.js cachea por 30s).
-                      onClick={() => {
-                        router.push(`/vouchers/${v.voucher_id}` as Route);
-                      }}
-                      onMouseEnter={() => {
-                        router.prefetch(`/vouchers/${v.voucher_id}` as Route);
-                      }}
-                    >
+                  // R152hh — stagger animation solo si hay <=15 filas (perf).
+                  // Para listados grandes (cierre mensual, 100+ vouchers)
+                  // saltearse la animacion evita 4s+ de stagger y mantiene
+                  // el primer paint snappy.
+                  const shouldAnimate = filteredVouchers.length <= 15;
+                  // Empresa razon social para el tooltip rico.
+                  const empresaInfo = (empresas ?? []).find(
+                    (e) => e.codigo === v.empresa_codigo,
+                  );
+                  // Fecha contable larga (ej: "lunes, 15 de mayo de 2026")
+                  const fechaLarga = (() => {
+                    try {
+                      return new Date(v.fecha_contable + "T00:00:00").toLocaleDateString(
+                        "es-CL",
+                        {
+                          weekday: "long",
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        },
+                      );
+                    } catch {
+                      return v.fecha_contable;
+                    }
+                  })();
+                  const rowClass = `cursor-pointer transition-colors hover:bg-ink-50/40 ${
+                    selectedIds.has(v.voucher_id) ? "bg-cehta-green/5" : ""
+                  }`;
+                  const onRowClick = () => {
+                    router.push(`/vouchers/${v.voucher_id}` as Route);
+                  };
+                  const onRowEnter = () => {
+                    router.prefetch(`/vouchers/${v.voucher_id}` as Route);
+                  };
+                  const cells = (
+                    <>
                       {/* Etapa K — columna selector visible si hay PENDING
                           (firma masiva) o si el filtro es DRAFT (limpieza
                           masiva). Cada fila habilita su checkbox segun status. */}
                       {(hasPendingVisible || estadoFilter === "DRAFT") && (
-                        <td className="w-8 px-3 py-3">
+                        <td className={`${tdPadNarrow} w-8`}>
                           {(v.status === "PENDING" ||
                             (v.status === "DRAFT" &&
                               estadoFilter === "DRAFT")) && (
@@ -1361,10 +1382,58 @@ export function VouchersClientView({
                           )}
                         </td>
                       )}
-                      <td className="px-4 py-3">
-                        <code className="font-mono text-xs tabular-nums text-ink-700">
-                          {v.codigo}
-                        </code>
+                      <td className={tdPad}>
+                        {/* R152hh — Tooltip Radix sobre el codigo, 300ms
+                            delay (configurado via Provider). asChild para
+                            mantener el layout del <code>. */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <code className="cursor-help font-mono text-xs tabular-nums text-ink-700 underline decoration-dotted decoration-ink-300 underline-offset-2">
+                              {v.codigo}
+                            </code>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="right"
+                            className="max-w-xs bg-ink-900 text-white"
+                          >
+                            <div className="space-y-1.5 p-1">
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-white/60">
+                                  Empresa
+                                </p>
+                                <p className="text-[11px] font-medium">
+                                  {empresaInfo?.razon_social ?? v.empresa_codigo}
+                                </p>
+                              </div>
+                              {v.contraparte_nombre && (
+                                <div>
+                                  <p className="text-[9px] uppercase tracking-wider text-white/60">
+                                    Contraparte
+                                  </p>
+                                  <p className="text-[11px] font-medium">
+                                    {v.contraparte_nombre}
+                                  </p>
+                                </div>
+                              )}
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-white/60">
+                                  Fecha contable
+                                </p>
+                                <p className="text-[11px] font-medium capitalize">
+                                  {fechaLarga}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[9px] uppercase tracking-wider text-white/60">
+                                  Total
+                                </p>
+                                <p className="font-mono text-[11px] font-semibold tabular-nums">
+                                  {fmt(Number(v.total_debit ?? 0), v.moneda)}
+                                </p>
+                              </div>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
                         {v.threshold_aplicado && (
                           <span
                             title="Voucher reforzado (sobre umbral)"
@@ -1381,7 +1450,7 @@ export function VouchersClientView({
                           {v.empresa_codigo}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={tdPad}>
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ring-inset ${meta.color}`}
                         >
@@ -1389,11 +1458,11 @@ export function VouchersClientView({
                           {meta.label}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs tabular-nums text-ink-600">
+                      <td className={`${tdPad} font-mono text-xs tabular-nums text-ink-600`}>
                         {v.fecha_contable}
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="line-clamp-1 text-ink-900">
+                      <td className={tdPad}>
+                        <p className={`line-clamp-1 text-ink-900 ${tdText}`}>
                           {v.glosa}
                         </p>
                         {v.contraparte_nombre && (
@@ -1402,7 +1471,7 @@ export function VouchersClientView({
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={tdPad}>
                         {v.proyecto_dominante ? (
                           <span
                             className="inline-block rounded-md bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 text-[10px] font-mono text-ink-700 dark:text-ink-300 max-w-[180px] truncate"
@@ -1414,14 +1483,14 @@ export function VouchersClientView({
                           <span className="text-[10px] text-ink-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className={`${tdPad} text-right`}>
                         <Currency
                           value={Number(v.total_debit)}
                           moneda={v.moneda}
                           size="sm"
                         />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={tdPad}>
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ring-inset ${status.color}`}
                         >
@@ -1434,11 +1503,44 @@ export function VouchersClientView({
                           {status.label}
                         </span>
                       </td>
+                    </>
+                  );
+                  if (shouldAnimate) {
+                    // R152hh — motion.tr con stagger 40ms por fila.
+                    // initial→opacity 0 + y:6px; animate→opacity 1 + y:0.
+                    return (
+                      <motion.tr
+                        key={v.voucher_id}
+                        className={rowClass}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04, duration: 0.18 }}
+                        onClick={onRowClick}
+                        onMouseEnter={onRowEnter}
+                      >
+                        {cells}
+                      </motion.tr>
+                    );
+                  }
+                  return (
+                    // Round 7 perf — antes usabamos window.location.href que
+                    // dispara hard navigation (pierde TanStack cache, full
+                    // page reload, ~500ms+). Ahora router.push hace SPA nav
+                    // instantanea. onMouseEnter dispara prefetch del bundle
+                    // de la ruta /vouchers/[id] (Next.js cachea por 30s).
+                    <tr
+                      key={v.voucher_id}
+                      className={rowClass}
+                      onClick={onRowClick}
+                      onMouseEnter={onRowEnter}
+                    >
+                      {cells}
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </TooltipProvider>
             </div>{/* cierre overflow-x wrapper */}
           </div>
         )}
