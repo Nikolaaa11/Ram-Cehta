@@ -153,7 +153,7 @@ export default function DirectorioPage() {
     queryKey: ["dashboard", "fund-metrics"],
     queryFn: () => apiClient.get<FundMetrics>("/dashboard/fund/metrics", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: jcurve } = useQuery<{ fund_codigo: string; points: JCurvePoint[] }>({
@@ -164,7 +164,7 @@ export default function DirectorioPage() {
         session,
       ),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: portfolio } = useQuery<PortfolioResponse>({
@@ -172,14 +172,14 @@ export default function DirectorioPage() {
     queryFn: () =>
       apiClient.get<PortfolioResponse>("/dashboard/portfolio", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: impact } = useQuery<ImpactResponse>({
     queryKey: ["dashboard", "impact"],
     queryFn: () => apiClient.get<ImpactResponse>("/dashboard/impact", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   // J-Curve data prep para Recharts

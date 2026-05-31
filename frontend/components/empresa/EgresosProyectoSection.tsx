@@ -32,7 +32,7 @@ export function EgresosProyectoSection({
         session,
       ),
     enabled: !sessionLoading && !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
     initialData: showAll ? undefined : initialData,
   });
 

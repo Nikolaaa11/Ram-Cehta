@@ -86,7 +86,7 @@ export default function InversionistasPage() {
     queryKey: ["dashboard-lp", "pcap"],
     queryFn: () => apiClient.get<MyPcap>("/dashboard/lps/mine", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: jcurve } = useQuery<{ points: JCurvePoint[] }>({
@@ -97,7 +97,7 @@ export default function InversionistasPage() {
         session,
       ),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: impact } = useQuery<{ period: string; cards: ImpactCard[] }>({
@@ -105,7 +105,7 @@ export default function InversionistasPage() {
     queryFn: () =>
       apiClient.get<{ period: string; cards: ImpactCard[] }>("/dashboard/impact", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const jcurveData = useMemo(() => {

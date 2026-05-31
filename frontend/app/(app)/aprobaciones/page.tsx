@@ -163,7 +163,7 @@ export default function AprobacionesPage() {
           session,
         ),
       enabled: !!session,
-      staleTime: 60_000,
+      staleTime: 30_000, // R152zz: queue operativa, refrescar 30s
     });
 
   // Round 76 — counters globales para empty-state contextual. Reutilizan

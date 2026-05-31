@@ -76,14 +76,14 @@ export default function CapitalPage() {
     queryKey: ["dashboard", "lps"],
     queryFn: () => apiClient.get<LpRow[]>("/dashboard/lps", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: metrics } = useQuery<FundMetrics>({
     queryKey: ["dashboard", "fund-metrics"],
     queryFn: () => apiClient.get<FundMetrics>("/dashboard/fund/metrics", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: jcurve } = useQuery<{ points: JCurvePoint[] }>({
@@ -94,7 +94,7 @@ export default function CapitalPage() {
         session,
       ),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   // G06 Capital Stack — segmentos del compromiso total

@@ -669,7 +669,7 @@ export function VouchersClientView({
     queryFn: () =>
       apiClient.get("/vouchers/stats/by-source", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 30_000, // R152zz: queue operativa, refrescar 30s
   });
 
   // KPIs derivados

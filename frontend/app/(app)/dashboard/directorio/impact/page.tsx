@@ -104,7 +104,7 @@ export default function ImpactPage() {
     queryFn: () =>
       apiClient.get<{ period: string; cards: ImpactCard[] }>("/dashboard/impact", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: dimensionsResp } = useQuery<{ rows: ImpactDimensionRow[] }>({
@@ -115,7 +115,7 @@ export default function ImpactPage() {
         session,
       ),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const { data: sdgResp } = useQuery<{ rows: SdgAlignmentRow[] }>({
@@ -126,7 +126,7 @@ export default function ImpactPage() {
         session,
       ),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   const dimensionsRows = useMemo(() => dimensionsResp?.rows ?? [], [dimensionsResp]);

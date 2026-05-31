@@ -123,7 +123,7 @@ export default function CompaniesPage() {
     queryFn: () =>
       apiClient.get<PortfolioResponse>("/dashboard/portfolio", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   // G10 simplificado — invested por sector

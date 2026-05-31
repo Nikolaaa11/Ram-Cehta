@@ -160,7 +160,7 @@ export default function AgingReportPage() {
         session,
       ),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152zz: datos institucionales cambian lentamente
   });
 
   // Filtrar filas por bucket activo
