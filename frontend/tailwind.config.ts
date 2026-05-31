@@ -2,7 +2,14 @@ import type { Config } from "tailwindcss";
 import animatePlugin from "tailwindcss-animate";
 
 const config: Config = {
-  darkMode: ["class"],
+  // R152xx — darkMode removido. El script en app/layout.tsx remueve
+  // forzosamente la class .dark del html (Round 26 fix de FOUC). Sin
+  // ThemeProvider y sin dark mode funcional, las ~410 classes "dark:"
+  // que hay en el JSX generaban CSS que NUNCA se activaba (~5-10 kB
+  // gzipped de dead CSS). Al sacar este config, Tailwind ignora el
+  // variant "dark:" y las classes en JSX quedan como strings sin efecto
+  // pero NO generan CSS. Si en el futuro se reactiva dark mode,
+  // restaurar: darkMode: ["class"]
   content: [
     "./app/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
