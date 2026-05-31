@@ -255,6 +255,8 @@ const GROUPS: NavGroup[] = [
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
       // Round 152i — Centro de Ayuda: guías HTML interactivas servidas in-app.
       { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
+      // Round 152v — Centro de Aprendizaje: módulos + quizzes con badges.
+      { href: "/aprender" as Route, label: "Centro de Aprendizaje", icon: Sparkles },
     ],
   },
   // V5: Contabilidad — plan de cuentas + proyectos contables + áreas.
@@ -313,6 +315,8 @@ const GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
+      // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
+      { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users },
       // Round 89 — dashboard "donde estan las platas" del subsidio CORFO.
       // Hardcodea el codigo del subsidio activo (CORFO-2026-REVTECH-TRONGKAI)
       // porque hay solo 1 subsidio activo. Cuando haya mas, hacer pagina
