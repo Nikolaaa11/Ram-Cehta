@@ -93,7 +93,8 @@ export default function SiiDashboardPage() {
     queryFn: () =>
       apiClient.get<EmpresaSiiStatus[]>("/admin/sii/empresas", session),
     enabled: !!session,
-    staleTime: 30_000,
+    // R152ww — sync SII es manual (no cambia minuto a minuto). 2 min default.
+    staleTime: 2 * 60_000,
   });
 
   const stats = useMemo(() => {

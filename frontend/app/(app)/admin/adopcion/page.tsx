@@ -78,7 +78,7 @@ export default function AdopcionPage() {
     queryFn: () =>
       apiClient.get<AdoptionRow[]>("/admin/adoption/map", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152ww — adopción cambia lentamente (5 min)
   });
 
   const stats = useMemo(() => {

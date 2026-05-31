@@ -74,7 +74,7 @@ export default function FeedbackDashboardPage() {
     queryFn: () =>
       apiClient.get<FeedbackSummary[]>("/admin/feedback/summary", session),
     enabled: !!session,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000, // R152ww — feedback cambia lentamente (5 min)
   });
 
   const totals = useMemo(() => {
