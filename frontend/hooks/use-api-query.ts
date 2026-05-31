@@ -43,11 +43,10 @@ export function useApiQuery<T>(
     queryKey: Array.isArray(key) ? key : [key],
     queryFn: () => apiClient.get<T>(path, session),
     enabled: !loading && (enabled ?? true),
-    // R152ww — defaults sensibles. Override via opts si la page necesita
-    // comportamiento distinto (ej. realtime widget con staleTime: 0).
-    staleTime: 30 * 1000, // 30 segundos
-    gcTime: 5 * 60 * 1000, // 5 minutos en cache antes de garbage-collect
-    refetchOnWindowFocus: false, // no refetch al cambiar tab del browser
+    // R152ccc — los defaults DE TODA LA APP ya están en components/providers.tsx
+    // (staleTime 2min, gcTime 10min, refetchOnWindowFocus false, retry 1).
+    // Acá NO hacemos override de staleTime — heredamos del QueryClient global.
+    // Si la page necesita comportamiento distinto, pasalo en opts.
     ...opts,
   });
 }
