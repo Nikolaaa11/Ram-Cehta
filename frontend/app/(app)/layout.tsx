@@ -10,6 +10,8 @@ import { QuickActionsFab } from "@/components/layout/QuickActionsFab";
 import { GlobalShortcutsHelp } from "@/components/layout/GlobalShortcutsHelp";
 import { GlobalNavShortcuts } from "@/components/layout/GlobalNavShortcuts";
 import { HelpButton } from "@/components/help/HelpButton";
+import { PendingFeedbackPrompt } from "@/components/feedback/PendingFeedbackPrompt";
+import { WhatsNewBanner } from "@/components/layout/WhatsNewBanner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -34,6 +36,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         {/* V4 fase 2: banner amarillo si admin sin 2FA. Self-managed
             (renderea null si la condición no aplica). */}
         <TwoFactorBanner />
+        {/* R152aa — banner "Novedades R152" dismissable (localStorage) */}
+        <WhatsNewBanner />
         {children}
       </MobileLayoutShell>
       <CommandPaletteProvider />
@@ -49,6 +53,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* Round 152i: botón flotante de ayuda contextual (bottom-left, desktop).
           Lee la ruta y muestra el instructivo del módulo. 100% aditivo. */}
       <HelpButton />
+      {/* R152aa — wrapper global del FeedbackPrompt: lee sessionStorage y
+          monta el toast del lado destino tras router.push (p.ej. voucher.crear). */}
+      <PendingFeedbackPrompt />
     </RealtimeProvider>
   );
 }

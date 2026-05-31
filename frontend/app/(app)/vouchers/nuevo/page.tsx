@@ -41,6 +41,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { queueFeedback } from "@/components/feedback/PendingFeedbackPrompt";
 import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
@@ -464,6 +465,12 @@ export default function NuevoVoucherPage() {
       queryClient.invalidateQueries({ queryKey: ["vouchers"] });
       queryClient.invalidateQueries({ queryKey: ["vouchers-kpis"] });
       queryClient.invalidateQueries({ queryKey: ["sidebar-state"] });
+      // R152aa — feedback NPS post-creación (se levanta del lado destino)
+      queueFeedback({
+        actionType: "voucher.crear",
+        question: "¿Qué tan fácil fue crear el voucher?",
+        context: { codigo: result.codigo, target_status: targetStatus },
+      });
       router.push(`/vouchers/${result.voucher_id}` as Route);
     } catch (err) {
       const msg = err instanceof ApiError ? err.detail : "Error desconocido";

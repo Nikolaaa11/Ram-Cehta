@@ -18,6 +18,11 @@ import {
   CheckCircle2,
   ArrowRight,
   Trophy,
+  Sparkles,
+  Star,
+  Award,
+  Medal,
+  Lock,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -52,6 +57,44 @@ export default function AprenderPage() {
   const completed = modules?.filter((m) => m.completed).length ?? 0;
   const total = modules?.length ?? 0;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const perfectScore = modules?.filter((m) => m.completed && m.my_score === 100).length ?? 0;
+  const avgScore = (() => {
+    const scored = modules?.filter((m) => m.completed && m.my_score !== null) ?? [];
+    if (scored.length === 0) return 0;
+    return Math.round(scored.reduce((s, m) => s + (m.my_score ?? 0), 0) / scored.length);
+  })();
+
+  // R152aa — Badges gamification (Formación Continua + recompensa por progreso)
+  const badges = [
+    {
+      key: "first-step",
+      label: "Primer paso",
+      icon: Sparkles,
+      unlocked: completed >= 1,
+      desc: "Completaste tu primer módulo",
+    },
+    {
+      key: "halfway",
+      label: "A mitad de camino",
+      icon: Star,
+      unlocked: total > 0 && completed >= Math.ceil(total / 2),
+      desc: `Completaste al menos ${Math.ceil(total / 2)} módulos`,
+    },
+    {
+      key: "champion",
+      label: "Campeón",
+      icon: Award,
+      unlocked: total > 0 && completed === total,
+      desc: "Completaste todos los módulos",
+    },
+    {
+      key: "perfectionist",
+      label: "Perfeccionista",
+      icon: Medal,
+      unlocked: perfectScore >= 1,
+      desc: "Sacaste 100% en al menos un quiz",
+    },
+  ];
 
   return (
     <div className="mx-auto max-w-5xl px-6 py-10 lg:px-10">
@@ -97,6 +140,60 @@ export default function AprenderPage() {
             className="h-full bg-cehta-green transition-all duration-500"
             style={{ width: `${pct}%` }}
           />
+        </div>
+        {completed > 0 && (
+          <div className="mt-3 flex items-center justify-between text-[11px] text-ink-500">
+            <span>
+              Promedio de quizzes: <strong className="text-ink-900">{avgScore}%</strong>
+            </span>
+            <span>
+              Quizzes perfectos: <strong className="text-ink-900">{perfectScore}</strong>
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* R152aa — Badges desbloqueables */}
+      <div className="mt-6 rounded-2xl border border-hairline bg-white p-5 shadow-card">
+        <div className="flex items-center gap-2">
+          <Trophy className="size-4 text-amber-500" strokeWidth={2} />
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-700">
+            Logros
+          </h2>
+          <span className="text-[10px] text-ink-400">
+            ({badges.filter((b) => b.unlocked).length}/{badges.length})
+          </span>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4">
+          {badges.map((b) => {
+            const Icon = b.unlocked ? b.icon : Lock;
+            return (
+              <div
+                key={b.key}
+                className={`flex flex-col items-center gap-1 rounded-xl border px-3 py-3 text-center transition-all ${
+                  b.unlocked
+                    ? "border-amber-200 bg-gradient-to-br from-amber-50 to-white"
+                    : "border-hairline bg-ink-50/30 opacity-50"
+                }`}
+                title={b.desc}
+              >
+                <Icon
+                  className={`size-5 ${b.unlocked ? "text-amber-500" : "text-ink-400"}`}
+                  strokeWidth={1.8}
+                />
+                <span
+                  className={`text-[11px] font-semibold ${
+                    b.unlocked ? "text-ink-900" : "text-ink-400"
+                  }`}
+                >
+                  {b.label}
+                </span>
+                <span className="text-[9px] leading-tight text-ink-500">
+                  {b.desc}
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
 

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useModalA11y } from "@/lib/use-modal-a11y";
+import { FeedbackPrompt } from "@/components/feedback/FeedbackPrompt";
 import { useSession } from "@/hooks/use-session";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
@@ -149,6 +150,9 @@ export default function AprobacionesPage() {
   // rechazo necesita su razón > 10 chars).
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkSigningRole, setBulkSigningRole] = useState<string | null>(null);
+  // R152aa — feedback NPS post-firma
+  const [showFeedbackAfterFirma, setShowFeedbackAfterFirma] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState<Record<string, unknown>>({});
 
   const { data, isLoading, isError, refetch, isFetching } =
     useQuery<MisPendientesResponse>({
@@ -234,6 +238,9 @@ export default function AprobacionesPage() {
         toast.success(
           `✓ Firmados ${resp.succeeded} vouchers como ${bulkSigningRole}`,
         );
+        // R152aa — solo pedimos feedback si TODO salió bien
+        setFeedbackContext({ count: resp.succeeded, role: bulkSigningRole, mode: "bulk" });
+        setShowFeedbackAfterFirma(true);
       } else {
         toast.info(
           `${resp.succeeded} firmados · ${resp.failed} con error. Revisá la lista actualizada.`,
@@ -532,6 +539,13 @@ export default function AprobacionesPage() {
           item={signingFor}
           onClose={() => setSigningFor(null)}
           onSuccess={() => {
+            // R152aa — feedback NPS post-firma individual
+            setFeedbackContext({
+              codigo: signingFor.codigo,
+              role: signingFor.mi_rol_para_firmar,
+              mode: "single",
+            });
+            setShowFeedbackAfterFirma(true);
             setSigningFor(null);
             qc.invalidateQueries({ queryKey: ["vouchers", "mis-pendientes"] });
             qc.invalidateQueries({ queryKey: ["vouchers"] });
@@ -547,6 +561,15 @@ export default function AprobacionesPage() {
             qc.invalidateQueries({ queryKey: ["vouchers", "mis-pendientes"] });
             qc.invalidateQueries({ queryKey: ["vouchers"] });
           }}
+        />
+      )}
+
+      {/* R152aa — FeedbackPrompt post-firma (cooldown 14d via localStorage) */}
+      {showFeedbackAfterFirma && (
+        <FeedbackPrompt
+          actionType="voucher.firmar"
+          question="¿Qué tan fácil fue firmar?"
+          context={feedbackContext}
         />
       )}
     </div>
