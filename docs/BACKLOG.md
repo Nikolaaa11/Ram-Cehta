@@ -41,6 +41,28 @@ Formato:
 - [M] (4h) **[TECH] DJ 1879 (honorarios) generación** automática. Vence 22 marzo.
 - [M] (4h) **[TECH] DJ 1887 (sueldos) generación** automática. Vence 22 marzo.
 
+## ✅ R152 — Gestión del Cambio + Presentación (DONE)
+
+- [done 2026-05-31] R152t · NPS in-app + tabla user_feedback
+- [done 2026-05-31] R152u · Mapa de Adopción (45 users clasificados)
+- [done 2026-05-31] R152v · Centro de Aprendizaje + 5 módulos + quizzes
+- [done 2026-05-31] R152w · Generador Rendiciones CORFO REVTECH/TRONGKAI
+- [done 2026-05-31] R152x · UI bulk mapeo cuenta_local → CORFO
+- [done 2026-05-31] R152y · Auto-sugerencia mapeo + Wire NPS transferencias
+- [done 2026-05-31] R152z · Fix calendarios surfacing F22 (Renta)
+- [done 2026-05-31] R152aa · Wire FeedbackPrompt + What's New + Badges
+- [done 2026-05-31] R152bb · Charts dinámicos (AnimatedNumber, Sparkline, ChartCard, DonutKPI)
+- [done 2026-05-31] R152cc · AdoptionQuadrant 4×3 grid en /admin/adopcion
+- [done 2026-05-31] R152dd · Dashboard NPS para admin en /admin/feedback
+- [done 2026-05-31] R152ff · 3 video scripts profesionales
+
+## 🔁 Schedules persistentes activos (creados R152aa-gg)
+
+- `ram-cehta-daily-health-check` — diario 7:17am · monitorea endpoints + reporta
+- `ram-cehta-weekly-ux-audit` — lunes 9:23am · audit visual 1-2 pestañas
+- `ram-cehta-video-tutorial-gen` — miércoles 10:19am · genera 1 video script
+- `ram-cehta-platform-improvements` — viernes 9:11am · ejecuta 1 mejora del backlog
+
 ## 🟢 Mejoras de calidad de vida
 
 - [M] (6h) **[TECH] Cliente Previred httpx** para bajar nómina automática (similar a Nubox scraping pero distinto portal). Round 123 dejó la base.
