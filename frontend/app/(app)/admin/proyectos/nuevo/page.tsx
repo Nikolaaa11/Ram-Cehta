@@ -147,7 +147,7 @@ export default function ProyectoNuevoPage() {
         Volver al listado
       </Link>
 
-      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 ring-1 ring-hairline p-8 shadow-card">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-50"
@@ -170,10 +170,10 @@ export default function ProyectoNuevoPage() {
               Admin · Nuevo proyecto
             </p>
           </div>
-          <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+          <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent">
             Crear proyecto contable
           </h1>
-          <p className="mt-2 text-sm md:text-base text-ink-500 dark:text-ink-400 max-w-2xl">
+          <p className="mt-2 text-sm md:text-base text-ink-500 max-w-2xl">
             Mínimo necesario para que el proyecto aparezca en el dropdown de
             vouchers. Después lo configurás con % Bloque E si aplica.
           </p>

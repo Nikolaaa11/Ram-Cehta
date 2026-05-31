@@ -128,30 +128,30 @@ export default function MisPendientesPage() {
     return (
       <div className="max-w-6xl mx-auto p-6 space-y-6">
         <div>
-          <div className="h-8 w-48 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-2" />
-          <div className="h-4 w-80 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
+          <div className="h-8 w-48 bg-ink-200 rounded animate-pulse mb-2" />
+          <div className="h-4 w-80 bg-ink-100 rounded animate-pulse" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Surface key={i} className="p-4">
-              <div className="h-5 w-32 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-3" />
-              <div className="h-9 w-16 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-2" />
-              <div className="h-3 w-48 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
+              <div className="h-5 w-32 bg-ink-200 rounded animate-pulse mb-3" />
+              <div className="h-9 w-16 bg-ink-200 rounded animate-pulse mb-2" />
+              <div className="h-3 w-48 bg-ink-100 rounded animate-pulse" />
             </Surface>
           ))}
         </div>
         <Surface className="p-6">
-          <div className="h-6 w-64 bg-ink-200 dark:bg-ink-800 rounded animate-pulse mb-4" />
+          <div className="h-6 w-64 bg-ink-200 rounded animate-pulse mb-4" />
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="flex justify-between items-center p-3 mb-2 border-b border-ink-100 dark:border-ink-800"
+              className="flex justify-between items-center p-3 mb-2 border-b border-ink-100"
             >
               <div className="space-y-2">
-                <div className="h-4 w-40 bg-ink-200 dark:bg-ink-800 rounded animate-pulse" />
-                <div className="h-3 w-64 bg-ink-100 dark:bg-ink-900 rounded animate-pulse" />
+                <div className="h-4 w-40 bg-ink-200 rounded animate-pulse" />
+                <div className="h-3 w-64 bg-ink-100 rounded animate-pulse" />
               </div>
-              <div className="h-5 w-20 bg-ink-200 dark:bg-ink-800 rounded animate-pulse" />
+              <div className="h-5 w-20 bg-ink-200 rounded animate-pulse" />
             </div>
           ))}
         </Surface>
@@ -167,7 +167,7 @@ export default function MisPendientesPage() {
         isPulling={pull.isPulling}
       />
       {/* Round 97 — hero pattern unificado (grid + glow + gradient text) */}
-      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 ring-1 ring-hairline p-8 shadow-card">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-50"
@@ -190,12 +190,12 @@ export default function MisPendientesPage() {
               Tu bandeja personal
             </p>
           </div>
-          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent">
             Mis pendientes
           </h1>
-          <p className="text-sm md:text-base text-ink-500 dark:text-ink-400 mt-2">
+          <p className="text-sm md:text-base text-ink-500 mt-2">
             Todo lo que requiere tu acción ahora. Actualizado en vivo. Atajo:{" "}
-            <kbd className="text-xs px-1.5 py-0.5 bg-ink-100 dark:bg-ink-800 rounded font-mono">
+            <kbd className="text-xs px-1.5 py-0.5 bg-ink-100 rounded font-mono">
               g p
             </kbd>
           </p>
@@ -239,7 +239,7 @@ export default function MisPendientesPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <PenTool className="size-5 text-blue-500" />
-              <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+              <h2 className="text-lg font-medium text-ink-900">
                 Esperan tu firma ({pending.length})
               </h2>
             </div>
@@ -264,7 +264,7 @@ export default function MisPendientesPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <FileEdit className="size-5 text-amber-500" />
-              <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+              <h2 className="text-lg font-medium text-ink-900">
                 Tus borradores ({drafts.length})
               </h2>
             </div>
@@ -289,7 +289,7 @@ export default function MisPendientesPage() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Download className="size-5 text-cehta-green" />
-              <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+              <h2 className="text-lg font-medium text-ink-900">
                 Listos para pagar ({approved.length})
               </h2>
             </div>
@@ -335,7 +335,7 @@ export default function MisPendientesPage() {
       <Surface className="p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="size-5 text-cehta-green" />
-          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+          <h2 className="text-lg font-medium text-ink-900">
             Tus empresas ({empresas.length})
           </h2>
         </div>
@@ -349,10 +349,10 @@ export default function MisPendientesPage() {
               <Link
                 key={e.codigo}
                 href={`/vouchers?empresa_codigo=${e.codigo}` as Route}
-                className="block rounded-lg border border-hairline p-3 hover:border-cehta-green/40 hover:bg-cehta-green/5 transition-colors dark:bg-ink-900"
+                className="block rounded-lg border border-hairline p-3 hover:border-cehta-green/40 hover:bg-cehta-green/5 transition-colors"
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-xs bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">
+                  <span className="font-mono text-xs bg-ink-100 px-1.5 py-0.5 rounded">
                     {e.codigo}
                   </span>
                   {e.roles.map((r) => (
@@ -370,7 +370,7 @@ export default function MisPendientesPage() {
                     </span>
                   ))}
                 </div>
-                <div className="text-sm text-ink-900 dark:text-ink-100 font-medium truncate">
+                <div className="text-sm text-ink-900 font-medium truncate">
                   {e.razon_social}
                 </div>
               </Link>
@@ -402,12 +402,12 @@ function Card({
         ? "text-blue-500"
         : tone === "success"
           ? "text-cehta-green"
-          : "text-ink-900 dark:text-ink-100";
+          : "text-ink-900";
   return (
     <Surface className="p-4">
       <div className="flex items-center gap-2 mb-2">
         {icon}
-        <span className="text-sm font-medium text-ink-700 dark:text-ink-300">
+        <span className="text-sm font-medium text-ink-700">
           {label}
         </span>
       </div>
@@ -428,11 +428,11 @@ function VoucherRow({ v }: { v: Voucher }) {
       // Round 8 — prefetch eager. En mis-pendientes el user casi siempre
       // clickea alguna fila, vale la pena precargar el bundle.
       prefetch={true}
-      className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-900/40 transition-colors group"
+      className="flex items-center justify-between gap-3 p-3 rounded-lg hover:bg-ink-50 transition-colors group"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="font-mono text-xs bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">
+          <span className="font-mono text-xs bg-ink-100 px-1.5 py-0.5 rounded">
             {v.codigo}
           </span>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-cehta-green/10 text-cehta-green font-medium">
@@ -442,7 +442,7 @@ function VoucherRow({ v }: { v: Voucher }) {
             {v.tipo}
           </span>
         </div>
-        <div className="text-sm text-ink-900 dark:text-ink-100 truncate">
+        <div className="text-sm text-ink-900 truncate">
           {v.glosa}
         </div>
         <div className="text-xs text-ink-500">
@@ -451,7 +451,7 @@ function VoucherRow({ v }: { v: Voucher }) {
         </div>
       </div>
       <div className="text-right">
-        <div className="text-sm font-semibold text-ink-900 dark:text-ink-100">
+        <div className="text-sm font-semibold text-ink-900">
           ${total.toLocaleString("es-CL")}
         </div>
         <ArrowRight className="size-4 text-ink-400 group-hover:text-cehta-green ml-auto mt-1" />

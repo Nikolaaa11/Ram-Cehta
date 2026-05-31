@@ -767,7 +767,7 @@ export function VouchersClientView({
             </button>
             <Link
               href={"/vouchers/import" as Route}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
               title="Importar vouchers desde CSV (Excel chileno)"
             >
               <ArrowDownToLine className="h-4 w-4" strokeWidth={1.75} />
@@ -775,7 +775,7 @@ export function VouchersClientView({
             </Link>
             <Link
               href={"/vouchers/templates" as Route}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
               title="Plantillas para vouchers recurrentes (sueldos, arriendos, servicios)"
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.75} />
@@ -804,7 +804,7 @@ export function VouchersClientView({
                 como secundario para apertura/cierre/traspaso. */}
             <Link
               href={"/vouchers/nuevo" as Route}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
               title="Asiento manual (apertura, cierre, traspaso interno, sin factura)"
             >
               <FileSignature className="h-4 w-4" strokeWidth={1.75} />
@@ -1474,7 +1474,7 @@ export function VouchersClientView({
                       <td className={tdPad}>
                         {v.proyecto_dominante ? (
                           <span
-                            className="inline-block rounded-md bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 text-[10px] font-mono text-ink-700 dark:text-ink-300 max-w-[180px] truncate"
+                            className="inline-block rounded-md bg-ink-100 px-1.5 py-0.5 text-[10px] font-mono text-ink-700 max-w-[180px] truncate"
                             title={v.proyecto_dominante}
                           >
                             {v.proyecto_dominante}

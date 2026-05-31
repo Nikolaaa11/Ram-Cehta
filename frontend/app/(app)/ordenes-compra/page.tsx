@@ -269,7 +269,7 @@ export default function OrdenesCompraPage() {
           />
           <Link
             href="/ordenes-compra/import"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
             title="Importar OCs desde CSV (Excel chileno)"
           >
             <ArrowDownToLine className="h-4 w-4" strokeWidth={1.75} />
@@ -285,7 +285,7 @@ export default function OrdenesCompraPage() {
           </Link>
           <Link
             href="/ordenes-compra/desde-mensaje"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
             title="Pegá un email, WhatsApp o texto y la IA arma la OC"
           >
             <MessageSquare className="h-4 w-4" strokeWidth={1.75} />

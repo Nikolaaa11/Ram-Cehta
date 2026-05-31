@@ -207,7 +207,7 @@ export function CuentaTypeahead({
       />
       {open && (
         <ul
-          className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-hairline bg-white dark:bg-ink-900 shadow-lg"
+          className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
           role="listbox"
         >
           {isLoading && (
@@ -240,12 +240,12 @@ export function CuentaTypeahead({
                     : "hover:bg-cehta-green/10"
                 } ${priority ? "" : "opacity-80"}`}
               >
-                <div className="font-mono text-ink-900 dark:text-ink-100">
+                <div className="font-mono text-ink-900">
                   {highlightMatch(c.codigo, query).map((seg, i) =>
                     seg.highlight ? (
                       <mark
                         key={i}
-                        className="bg-cehta-green/30 text-ink-900 dark:text-ink-100 rounded-sm px-0.5"
+                        className="bg-cehta-green/30 text-ink-900 rounded-sm px-0.5"
                       >
                         {seg.text}
                       </mark>
@@ -254,7 +254,7 @@ export function CuentaTypeahead({
                     ),
                   )}
                   {!priority && (
-                    <span className="ml-2 rounded bg-amber-100 px-1 text-[10px] text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                    <span className="ml-2 rounded bg-amber-100 px-1 text-[10px] text-amber-700">
                       no habitual
                     </span>
                   )}
@@ -264,7 +264,7 @@ export function CuentaTypeahead({
                     seg.highlight ? (
                       <mark
                         key={i}
-                        className="bg-cehta-green/30 text-ink-700 dark:text-ink-200 rounded-sm px-0.5"
+                        className="bg-cehta-green/30 text-ink-700 rounded-sm px-0.5"
                       >
                         {seg.text}
                       </mark>
@@ -277,14 +277,14 @@ export function CuentaTypeahead({
             );
           })}
           {totalMatches > filtered.length && (
-            <li className="border-t border-hairline bg-ink-50/60 dark:bg-ink-800/60 px-3 py-1.5 text-[11px] text-ink-500">
+            <li className="border-t border-hairline bg-ink-50/60 px-3 py-1.5 text-[11px] text-ink-500">
               Mostrando {filtered.length} de {totalMatches} — afiná la búsqueda
             </li>
           )}
         </ul>
       )}
       {showWarning && (
-        <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+        <p className="mt-1 text-[11px] text-amber-600">
           Cuenta no habitual para esta sección. ¿Confirmas?
         </p>
       )}

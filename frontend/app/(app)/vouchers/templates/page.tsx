@@ -107,12 +107,12 @@ export default function VoucherTemplatesPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/vouchers"
-          className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+          className="text-ink-500 hover:text-ink-900"
         >
           <ArrowLeft className="size-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+          <h1 className="text-2xl font-semibold text-ink-900">
             Plantillas de vouchers
           </h1>
           <p className="text-sm text-ink-500 mt-1">
@@ -188,7 +188,7 @@ export default function VoucherTemplatesPage() {
                     <span
                       className={`text-xs px-1.5 py-0.5 rounded font-semibold uppercase tracking-wider ${
                         TIPO_PILL_COLOR[tpl.tipo] ??
-                        "bg-ink-100 dark:bg-ink-800 text-ink-700 dark:text-ink-300"
+                        "bg-ink-100 text-ink-700"
                       }`}
                     >
                       {tpl.tipo}
@@ -197,7 +197,7 @@ export default function VoucherTemplatesPage() {
                       {tpl.empresa_codigo}
                     </span>
                   </div>
-                  <h3 className="font-medium text-ink-900 dark:text-ink-100 text-sm">
+                  <h3 className="font-medium text-ink-900 text-sm">
                     {tpl.nombre}
                   </h3>
                 </div>
@@ -282,7 +282,7 @@ function SortButton({
       className={`text-xs px-3 py-1.5 rounded transition-colors ${
         active
           ? "bg-cehta-green text-white"
-          : "text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+          : "text-ink-500 hover:text-ink-900"
       }`}
     >
       {children}

@@ -492,7 +492,7 @@ export function MailboxClientView({ initialItems }: Props) {
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed border-cehta-green/40 bg-cehta-green/5 px-4 py-3">
           <Sparkles className="h-4 w-4 text-cehta-green" strokeWidth={1.75} />
           <div className="text-xs">
-            <p className="font-medium text-ink-900 dark:text-ink-100">
+            <p className="font-medium text-ink-900">
               Bulk auto-crear vouchers desde inbox
             </p>
             <p className="text-ink-500">

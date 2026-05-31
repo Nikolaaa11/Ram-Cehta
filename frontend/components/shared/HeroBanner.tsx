@@ -58,7 +58,7 @@ export function HeroBanner({
 }: HeroBannerProps) {
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card ${flushBottom ? "" : ""}`}
+      className={`relative overflow-hidden rounded-3xl bg-ink-50/40 ring-1 ring-hairline p-8 shadow-card ${flushBottom ? "" : ""}`}
     >
       {/* Grid SVG background con maskImage radial */}
       <div
@@ -86,11 +86,11 @@ export function HeroBanner({
                 {pillText}
               </p>
             </div>
-            <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+            <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-sm md:text-base text-ink-500 dark:text-ink-400 mt-2 max-w-2xl">
+              <p className="text-sm md:text-base text-ink-500 mt-2 max-w-2xl">
                 {subtitle}
               </p>
             )}

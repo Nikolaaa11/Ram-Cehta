@@ -67,18 +67,18 @@ export function MobileLayoutShell({
           `print:hidden` para que en imprimir no aparezca el chrome.
           V5++ ola Z: dark mode + safe-area-inset-top para iPhone notch. */}
       <header
-        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden print:hidden dark:border-ink-800 dark:bg-ink-950/95"
+        className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center gap-3 border-b border-hairline bg-white/95 px-4 backdrop-blur-md md:hidden print:hidden"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Abrir menú"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-100/40 dark:text-ink-300 dark:hover:bg-ink-800/40"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-700 transition-colors duration-150 ease-apple hover:bg-ink-100/40"
         >
           <Menu className="h-5 w-5" strokeWidth={1.75} />
         </button>
-        <p className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+        <p className="text-sm font-semibold tracking-tight text-ink-900">
           {brandLabel}
         </p>
       </header>

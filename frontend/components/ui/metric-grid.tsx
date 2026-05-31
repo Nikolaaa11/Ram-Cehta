@@ -97,15 +97,15 @@ export function MetricItem({
         "group relative overflow-hidden rounded-xl bg-white p-3.5 ring-1 ring-hairline shadow-card transition-all duration-200 ease-apple hover:shadow-card-hover hover:-translate-y-0.5",
         "before:absolute before:left-0 before:top-3 before:bottom-3 before:w-0.5 before:rounded-r-full",
         toneAccent[tone],
-        "dark:bg-ink-900 dark:ring-ink-800",
+        "",
         className,
       )}
     >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500 dark:text-ink-400">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
         {label}
       </p>
       <div className="mt-1 flex items-baseline gap-2">
-        <p className="font-display text-2xl font-semibold tabular-nums tracking-tight text-ink-900 dark:text-ink-100">
+        <p className="font-display text-2xl font-semibold tabular-nums tracking-tight text-ink-900">
           {value}
         </p>
         {delta && (
@@ -120,7 +120,7 @@ export function MetricItem({
         )}
       </div>
       {hint && (
-        <p className="mt-0.5 text-[11px] text-ink-500 dark:text-ink-400 line-clamp-1">
+        <p className="mt-0.5 text-[11px] text-ink-500 line-clamp-1">
           {hint}
         </p>
       )}

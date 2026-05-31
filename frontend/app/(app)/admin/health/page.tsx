@@ -76,10 +76,10 @@ export default function AdminHealthPage() {
           <ChevronLeft className="h-3.5 w-3.5" strokeWidth={1.5} />
           Panel admin
         </Link>
-        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+        <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink-900">
           Health del sistema
         </h1>
-        <p className="mt-1 text-sm text-ink-500 dark:text-ink-400">
+        <p className="mt-1 text-sm text-ink-500">
           Status en tiempo real del backend, DB, servicios externos y counts
           operativos. Polling cada 30s.
         </p>
@@ -90,7 +90,7 @@ export default function AdminHealthPage() {
       )}
 
       {isError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:bg-red-950/20">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
           <p className="text-sm font-medium text-red-700">
             No se pudo conectar al backend
           </p>
@@ -110,8 +110,8 @@ export default function AdminHealthPage() {
           <div
             className={`rounded-2xl border p-5 ${
               data.status === "ok"
-                ? "border-cehta-green/30 bg-cehta-green/5 dark:bg-cehta-green/10"
-                : "border-red-300 bg-red-50 dark:bg-red-950/20"
+                ? "border-cehta-green/30 bg-cehta-green/5"
+                : "border-red-300 bg-red-50"
             }`}
           >
             <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export default function AdminHealthPage() {
                 <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
                   Status overall
                 </p>
-                <p className="font-display text-2xl font-semibold text-ink-900 dark:text-ink-100">
+                <p className="font-display text-2xl font-semibold text-ink-900">
                   {data.status === "ok" ? "Operativo" : "Degradado"}
                 </p>
                 <p className="text-xs text-ink-500">
@@ -142,23 +142,23 @@ export default function AdminHealthPage() {
           </div>
 
           {/* Servicios externos */}
-          <div className="rounded-2xl border border-hairline bg-white p-5 dark:border-ink-800 dark:bg-ink-900">
+          <div className="rounded-2xl border border-hairline bg-white p-5">
             <div className="flex items-center gap-2 mb-3">
               <Activity
                 className="h-4 w-4 text-ink-500"
                 strokeWidth={1.75}
               />
-              <h2 className="font-display text-lg font-semibold text-ink-900 dark:text-ink-100">
+              <h2 className="font-display text-lg font-semibold text-ink-900">
                 Servicios externos
               </h2>
             </div>
-            <ul className="divide-y divide-hairline dark:divide-ink-800">
+            <ul className="divide-y divide-hairline">
               {Object.entries(data.services).map(([key, status]) => (
                 <li
                   key={key}
                   className="flex items-center justify-between py-2.5"
                 >
-                  <p className="text-sm text-ink-700 dark:text-ink-300">
+                  <p className="text-sm text-ink-700">
                     {SERVICE_LABELS[key] ?? key}
                   </p>
                   {status === "configured" ? (
@@ -184,13 +184,13 @@ export default function AdminHealthPage() {
           </div>
 
           {/* Counts operativos */}
-          <div className="rounded-2xl border border-hairline bg-white p-5 dark:border-ink-800 dark:bg-ink-900">
+          <div className="rounded-2xl border border-hairline bg-white p-5">
             <div className="flex items-center gap-2 mb-3">
               <Database
                 className="h-4 w-4 text-ink-500"
                 strokeWidth={1.75}
               />
-              <h2 className="font-display text-lg font-semibold text-ink-900 dark:text-ink-100">
+              <h2 className="font-display text-lg font-semibold text-ink-900">
                 Counts operativos
               </h2>
             </div>
@@ -198,12 +198,12 @@ export default function AdminHealthPage() {
               {Object.entries(data.counts).map(([key, value]) => (
                 <div
                   key={key}
-                  className="rounded-xl border border-hairline bg-ink-50/30 p-3 dark:border-ink-800 dark:bg-ink-800/30"
+                  className="rounded-xl border border-hairline bg-ink-50/30 p-3"
                 >
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
                     {COUNT_LABELS[key] ?? key}
                   </p>
-                  <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-ink-900 dark:text-ink-100">
+                  <p className="mt-1 font-mono text-2xl font-semibold tabular-nums text-ink-900">
                     {value.toLocaleString("es-CL")}
                   </p>
                 </div>

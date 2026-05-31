@@ -498,13 +498,13 @@ export default function ImportarVoucherPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/vouchers"
-          className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+          className="text-ink-500 hover:text-ink-900"
           aria-label="Volver a vouchers"
         >
           <ArrowLeft className="size-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100 flex items-center gap-2">
+          <h1 className="text-2xl font-semibold text-ink-900 flex items-center gap-2">
             <Sparkles className="size-6 text-cehta-green" />
             Importar voucher desde archivo
           </h1>
@@ -518,7 +518,7 @@ export default function ImportarVoucherPage() {
       {step === "pick" && meta && (
         <>
           <Surface className="p-6">
-            <label className="block text-xs font-medium text-ink-700 dark:text-ink-300 mb-1">
+            <label className="block text-xs font-medium text-ink-700 mb-1">
               Empresa receptora *
             </label>
             <select
@@ -545,7 +545,7 @@ export default function ImportarVoucherPage() {
             className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-12 text-center transition-colors ${
               dragOver
                 ? "border-cehta-green bg-cehta-green/5"
-                : "border-ink-200 hover:border-cehta-green/50 hover:bg-ink-50/40 dark:border-ink-700 dark:hover:bg-ink-900/40"
+                : "border-ink-200 hover:border-cehta-green/50 hover:bg-ink-50/40"
             }`}
             role="button"
             tabIndex={0}
@@ -568,7 +568,7 @@ export default function ImportarVoucherPage() {
               className="mx-auto size-12 text-cehta-green/70"
               strokeWidth={1.3}
             />
-            <p className="mt-4 text-lg font-medium text-ink-900 dark:text-ink-100">
+            <p className="mt-4 text-lg font-medium text-ink-900">
               Arrastrá tu archivo aquí o hacé click para elegir
             </p>
             <p className="mt-2 text-sm text-ink-500">
@@ -579,13 +579,13 @@ export default function ImportarVoucherPage() {
               una imagen del portapapeles.
             </p>
             <div className="mt-6 flex justify-center gap-3 text-xs text-ink-500">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1">
                 <ImageIcon className="size-3.5" /> Foto de factura
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1">
                 <FileText className="size-3.5" /> PDF / DOCX
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1 dark:bg-ink-800/60">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-ink-100/60 px-3 py-1">
                 <Sparkles className="size-3.5" /> Presentación PPTX
               </span>
             </div>
@@ -633,7 +633,7 @@ export default function ImportarVoucherPage() {
       {step === "analyzing" && (
         <Surface className="p-12 text-center">
           <Loader2 className="mx-auto size-12 animate-spin text-cehta-green" />
-          <p className="mt-4 text-lg font-medium text-ink-900 dark:text-ink-100">
+          <p className="mt-4 text-lg font-medium text-ink-900">
             Leyendo el archivo con IA…
           </p>
           <p className="mt-2 text-sm text-ink-500">
@@ -704,7 +704,7 @@ export default function ImportarVoucherPage() {
               </button>
             </div>
             {extraction.warnings.length > 0 && (
-              <div className="mt-3 space-y-1 text-xs text-amber-700 dark:text-amber-400">
+              <div className="mt-3 space-y-1 text-xs text-amber-700">
                 {extraction.warnings.map((w, i) => (
                   <div key={i} className="flex items-start gap-2">
                     <AlertCircle className="size-3.5 mt-0.5 shrink-0" />
@@ -716,22 +716,22 @@ export default function ImportarVoucherPage() {
             {/* V5++ ola CF — Quick summary: proveedor + items detectados */}
             {extraction.suggestion && (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                <div className="rounded-lg bg-ink-50 dark:bg-ink-900 p-2.5">
+                <div className="rounded-lg bg-ink-50 p-2.5">
                   <p className="text-[10px] uppercase tracking-wider text-ink-500">
                     Proveedor detectado
                   </p>
-                  <p className="mt-1 font-medium text-ink-900 dark:text-ink-100 break-words">
+                  <p className="mt-1 font-medium text-ink-900 break-words">
                     {extraction.suggestion.proveedor_nombre || "(no detectado)"}
                   </p>
                   <p className="mt-0.5 font-mono text-[11px] text-ink-600">
                     {extraction.suggestion.proveedor_rut || "—"}
                   </p>
                 </div>
-                <div className="rounded-lg bg-ink-50 dark:bg-ink-900 p-2.5">
+                <div className="rounded-lg bg-ink-50 p-2.5">
                   <p className="text-[10px] uppercase tracking-wider text-ink-500">
                     Documento
                   </p>
-                  <p className="mt-1 text-ink-900 dark:text-ink-100">
+                  <p className="mt-1 text-ink-900">
                     <span className="font-medium">
                       {extraction.suggestion.tipo_documento}
                     </span>{" "}
@@ -746,7 +746,7 @@ export default function ImportarVoucherPage() {
                   </p>
                 </div>
                 {extraction.suggestion.informacion_contable.length > 0 && (
-                  <div className="md:col-span-2 rounded-lg bg-ink-50 dark:bg-ink-900 p-2.5">
+                  <div className="md:col-span-2 rounded-lg bg-ink-50 p-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-1">
                       Líneas detectadas ({extraction.suggestion.informacion_contable.length})
                     </p>
@@ -759,7 +759,7 @@ export default function ImportarVoucherPage() {
                           <span className="text-ink-700 truncate">
                             {l.comentario || "(sin descripción)"}
                           </span>
-                          <span className="font-mono text-ink-900 dark:text-ink-100 shrink-0">
+                          <span className="font-mono text-ink-900 shrink-0">
                             $
                             {Number(l.total || 0).toLocaleString("es-CL")}
                           </span>
@@ -779,7 +779,7 @@ export default function ImportarVoucherPage() {
 
           {/* Header */}
           <Surface className="p-6">
-            <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100 mb-4">
+            <h2 className="text-lg font-medium text-ink-900 mb-4">
               Datos del documento
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -988,7 +988,7 @@ export default function ImportarVoucherPage() {
       <style jsx>{`
         :global(.form-input) {
           @apply mt-1 block w-full px-3 py-2 rounded-lg border border-hairline
-                 text-sm bg-white dark:bg-ink-900 dark:text-ink-100
+                 text-sm bg-white
                  focus:outline-none focus:ring-2 focus:ring-cehta-green focus:border-cehta-green;
         }
       `}</style>
@@ -998,7 +998,7 @@ export default function ImportarVoucherPage() {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-xs font-medium text-ink-700 dark:text-ink-300 mb-1">
+    <label className="block text-xs font-medium text-ink-700 mb-1">
       {children}
     </label>
   );
@@ -1018,9 +1018,9 @@ function Stat({
       ? "text-cehta-green"
       : tone === "danger"
         ? "text-red-500"
-        : "text-ink-900 dark:text-ink-100";
+        : "text-ink-900";
   return (
-    <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+    <div className="rounded border border-ink-200 p-3 bg-white">
       <div className="text-xs text-ink-500">{label}</div>
       <div className={`text-xl font-semibold mt-1 ${color}`}>{value}</div>
     </div>

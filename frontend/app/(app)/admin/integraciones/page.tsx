@@ -80,7 +80,7 @@ export default async function IntegracionesPage() {
   return (
     <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-display font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+        <h1 className="text-3xl font-display font-semibold tracking-tight text-ink-900">
           Integraciones
         </h1>
         <p className="mt-2 text-base text-ink-500">
@@ -106,7 +106,7 @@ export default async function IntegracionesPage() {
           </span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-display font-semibold text-ink-900 dark:text-ink-100">
+              <h2 className="text-lg font-display font-semibold text-ink-900">
                 Dropbox
               </h2>
               {status.connected ? (
@@ -193,7 +193,7 @@ export default async function IntegracionesPage() {
               )}
             </span>
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-display font-semibold text-ink-900 dark:text-ink-100">
+              <h2 className="text-lg font-display font-semibold text-ink-900">
                 Data Madre
               </h2>
               {dataMadre?.found_data_madre && dataMadre.data_madre ? (
@@ -279,7 +279,7 @@ export default async function IntegracionesPage() {
           </span>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-display font-semibold text-ink-900 dark:text-ink-100">
+              <h2 className="text-lg font-display font-semibold text-ink-900">
                 Inbox · contactocehta@gmail.com
               </h2>
               {mailbox?.imap_configured ? (

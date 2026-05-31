@@ -41,10 +41,10 @@ export function DashboardEmptyState() {
             strokeWidth={1.5}
           />
         </div>
-        <h2 className="mt-8 font-display text-3xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+        <h2 className="mt-8 font-display text-3xl font-semibold tracking-tight text-ink-900">
           Aún no hay datos disponibles
         </h2>
-        <p className="mt-3 max-w-md text-sm text-ink-500 dark:text-ink-400">
+        <p className="mt-3 max-w-md text-sm text-ink-500">
           El ETL todavía no ha corrido. Cuando se ejecute por primera vez, los
           datos del dashboard aparecerán aquí.
         </p>

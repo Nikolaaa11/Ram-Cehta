@@ -53,7 +53,7 @@ const toneStyles: Record<
 > = {
   default: {
     gradient:
-      "from-white via-cehta-green/3 to-emerald-50/30 dark:from-ink-900 dark:via-cehta-green/10 dark:to-cehta-green/5",
+      "from-white via-cehta-green/3 to-emerald-50/30",
     blob: "bg-cehta-green/15",
     pillBg: "bg-cehta-green/10 ring-cehta-green/20",
     pillText: "text-cehta-green",
@@ -62,16 +62,16 @@ const toneStyles: Record<
   },
   gold: {
     gradient:
-      "from-white via-amber-50/30 to-yellow-50/40 dark:from-ink-900 dark:via-amber-950/15 dark:to-amber-950/20",
+      "from-white via-amber-50/30 to-yellow-50/40",
     blob: "bg-amber-300/20",
-    pillBg: "bg-amber-100 ring-amber-300/40 dark:bg-amber-900/40",
-    pillText: "text-amber-700 dark:text-amber-300",
+    pillBg: "bg-amber-100 ring-amber-300/40",
+    pillText: "text-amber-700",
     pillDot: "bg-amber-500",
     pillPulse: "bg-amber-500/50",
   },
   blue: {
     gradient:
-      "from-white via-sf-blue/3 to-blue-50/30 dark:from-ink-900 dark:via-sf-blue/10 dark:to-blue-950/20",
+      "from-white via-sf-blue/3 to-blue-50/30",
     blob: "bg-sf-blue/15",
     pillBg: "bg-sf-blue/10 ring-sf-blue/20",
     pillText: "text-sf-blue",
@@ -80,7 +80,7 @@ const toneStyles: Record<
   },
   red: {
     gradient:
-      "from-white via-red-50/30 to-orange-50/40 dark:from-ink-900 dark:via-red-950/15 dark:to-orange-950/20",
+      "from-white via-red-50/30 to-orange-50/40",
     blob: "bg-negative/15",
     pillBg: "bg-negative/10 ring-negative/20",
     pillText: "text-negative",
@@ -169,7 +169,7 @@ export function PageHeader({
             className={cn(
               "mt-2 font-display font-semibold tracking-tight",
               compact ? "text-2xl" : "text-3xl",
-              gradient ? "text-gradient" : "text-ink-900 dark:text-ink-100",
+              gradient ? "text-gradient" : "text-ink-900",
             )}
           >
             {title}
@@ -177,7 +177,7 @@ export function PageHeader({
           {description && (
             <p
               className={cn(
-                "mt-1 text-sm text-ink-500 dark:text-ink-400 max-w-2xl",
+                "mt-1 text-sm text-ink-500 max-w-2xl",
                 compact && "text-xs",
               )}
             >

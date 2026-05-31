@@ -70,7 +70,7 @@ export function SpotlightCard({
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       className={cn(
-        "relative overflow-hidden rounded-2xl bg-white ring-1 ring-hairline shadow-card transition-all duration-300 ease-apple hover:shadow-card-hover dark:bg-ink-900 dark:ring-ink-800",
+        "relative overflow-hidden rounded-2xl bg-white ring-1 ring-hairline shadow-card transition-all duration-300 ease-apple hover:shadow-card-hover",
         className,
       )}
       style={

@@ -163,12 +163,12 @@ export default function ImportOcsPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/ordenes-compra"
-          className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+          className="text-ink-500 hover:text-ink-900"
         >
           <ArrowLeft className="size-5" />
         </Link>
         <div>
-          <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+          <h1 className="text-2xl font-semibold text-ink-900">
             Importar OCs desde CSV
           </h1>
           <p className="text-sm text-ink-500 mt-1">
@@ -179,7 +179,7 @@ export default function ImportOcsPage() {
 
       <Surface className="p-6">
         <div className="flex items-start justify-between mb-4">
-          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+          <h2 className="text-lg font-medium text-ink-900">
             1. Descargar plantilla
           </h2>
           <Button variant="outline" size="sm" onClick={downloadTemplate}>
@@ -189,14 +189,14 @@ export default function ImportOcsPage() {
         </div>
         <p className="text-sm text-ink-500">
           Una fila = un ítem. Filas con el mismo{" "}
-          <code className="px-1.5 py-0.5 bg-ink-100 dark:bg-ink-800 rounded">numero_oc</code> +{" "}
-          <code className="px-1.5 py-0.5 bg-ink-100 dark:bg-ink-800 rounded">empresa_codigo</code>{" "}
+          <code className="px-1.5 py-0.5 bg-ink-100 rounded">numero_oc</code> +{" "}
+          <code className="px-1.5 py-0.5 bg-ink-100 rounded">empresa_codigo</code>{" "}
           se agrupan en una OC. El neto se calcula automáticamente como Σ(precio × cantidad).
         </p>
       </Surface>
 
       <Surface className="p-6">
-        <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100 mb-4">
+        <h2 className="text-lg font-medium text-ink-900 mb-4">
           2. Subir archivo
         </h2>
         <div
@@ -210,7 +210,7 @@ export default function ImportOcsPage() {
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
             isDragging
               ? "border-cehta-green bg-cehta-green/5"
-              : "border-ink-300 dark:border-ink-700 hover:border-ink-400 dark:hover:border-ink-600"
+              : "border-ink-300 hover:border-ink-400"
           }`}
         >
           <input
@@ -227,7 +227,7 @@ export default function ImportOcsPage() {
             <div className="flex items-center justify-center gap-3">
               <FileTextIcon className="size-8 text-cehta-green" />
               <div className="text-left">
-                <p className="font-medium text-ink-900 dark:text-ink-100">{file.name}</p>
+                <p className="font-medium text-ink-900">{file.name}</p>
                 <p className="text-xs text-ink-500">{(file.size / 1024).toFixed(1)} KB</p>
               </div>
               <button
@@ -247,7 +247,7 @@ export default function ImportOcsPage() {
           ) : (
             <>
               <Upload className="size-8 text-ink-400 mx-auto mb-2" />
-              <p className="text-sm text-ink-700 dark:text-ink-300 font-medium">
+              <p className="text-sm text-ink-700 font-medium">
                 Arrastrá el .csv acá o click para seleccionar
               </p>
               <p className="text-xs text-ink-500 mt-1">Hasta 10 MB · Excel chileno (separador ;)</p>
@@ -276,7 +276,7 @@ export default function ImportOcsPage() {
 
       {report && (
         <Surface className="p-6">
-          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100 mb-4">
+          <h2 className="text-lg font-medium text-ink-900 mb-4">
             3. Reporte
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -298,13 +298,13 @@ export default function ImportOcsPage() {
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle2 className="size-4 text-cehta-green" />
-                <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                <h3 className="text-sm font-medium text-ink-900">
                   OCs procesadas
                 </h3>
               </div>
-              <div className="rounded border border-ink-200 dark:border-ink-800 overflow-hidden">
+              <div className="rounded border border-ink-200 overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-ink-50 dark:bg-ink-900 text-ink-500">
+                  <thead className="bg-ink-50 text-ink-500">
                     <tr>
                       <th className="text-left px-3 py-2 font-medium">N° OC</th>
                       <th className="text-left px-3 py-2 font-medium">Empresa</th>
@@ -313,7 +313,7 @@ export default function ImportOcsPage() {
                       <th className="text-right px-3 py-2 font-medium">Items</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+                  <tbody className="divide-y divide-ink-100">
                     {report.ocs_created.map((oc) => (
                       <tr key={oc.oc_id}>
                         <td className="px-3 py-2 font-mono">
@@ -344,7 +344,7 @@ export default function ImportOcsPage() {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <AlertCircle className="size-4 text-red-500" />
-                <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100">
+                <h3 className="text-sm font-medium text-ink-900">
                   Errores ({report.errors_count})
                 </h3>
               </div>
@@ -352,12 +352,12 @@ export default function ImportOcsPage() {
                 {Object.entries(errorsByOc).map(([numero, errs]) => (
                   <div
                     key={numero}
-                    className="rounded border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-3"
+                    className="rounded border border-red-200 bg-red-50/50 p-3"
                   >
-                    <div className="font-mono text-xs font-medium text-ink-900 dark:text-ink-100 mb-1">
+                    <div className="font-mono text-xs font-medium text-ink-900 mb-1">
                       {numero}
                     </div>
-                    <ul className="text-sm text-red-700 dark:text-red-400 space-y-0.5">
+                    <ul className="text-sm text-red-700 space-y-0.5">
                       {errs.map((e, i) => (
                         <li key={i}>
                           {e.row > 0 && <span className="text-ink-500">fila {e.row}: </span>}
@@ -393,9 +393,9 @@ function Stat({
       ? "text-cehta-green"
       : tone === "danger"
       ? "text-red-500"
-      : "text-ink-900 dark:text-ink-100";
+      : "text-ink-900";
   return (
-    <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+    <div className="rounded border border-ink-200 p-3 bg-white">
       <div className="text-xs text-ink-500">{label}</div>
       <div className={`text-2xl font-semibold mt-1 ${colorClass}`}>
         {value.toLocaleString("es-CL")}

@@ -59,10 +59,10 @@ export default function NotFound() {
           </div>
         </div>
 
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink-900">
           Página no encontrada
         </h1>
-        <p className="mt-2 max-w-md mx-auto text-sm text-ink-500 dark:text-ink-400">
+        <p className="mt-2 max-w-md mx-auto text-sm text-ink-500">
           La ruta que buscás no existe o fue movida. Te llevamos de vuelta al dashboard.
         </p>
 
@@ -77,7 +77,7 @@ export default function NotFound() {
           </Link>
           <Link
             href="/asistente"
-            className="inline-flex items-center gap-2 rounded-xl bg-white/80 backdrop-blur px-5 py-2.5 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-all duration-200 ease-apple hover:bg-white hover:ring-cehta-green/30 hover:text-cehta-green hover:-translate-y-0.5 dark:bg-ink-900/60 dark:text-ink-300 dark:ring-ink-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-white/80 backdrop-blur px-5 py-2.5 text-sm font-medium text-ink-700 ring-1 ring-hairline transition-all duration-200 ease-apple hover:bg-white hover:ring-cehta-green/30 hover:text-cehta-green hover:-translate-y-0.5"
           >
             Preguntarle a Claude
           </Link>

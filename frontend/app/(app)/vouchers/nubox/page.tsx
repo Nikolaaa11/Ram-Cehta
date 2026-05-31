@@ -1137,13 +1137,13 @@ export default function NuboxFormPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/vouchers"
-          className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+          className="text-ink-500 hover:text-ink-900"
         >
           <ArrowLeft className="size-5" />
         </Link>
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+            <h1 className="text-2xl font-semibold text-ink-900">
               Nuevo voucher — Form Nubox
             </h1>
             {hasSaved && isDirty && (
@@ -1158,11 +1158,11 @@ export default function NuboxFormPage() {
             doble). Inicia en DRAFT y requiere aprobación de Líder + Director.
             <span className="ml-2 hidden text-xs text-ink-400 sm:inline">
               · Atajos:{" "}
-              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘S</kbd>{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono">⌘S</kbd>{" "}
               guardar ·{" "}
-              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘⇧S</kbd>{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono">⌘⇧S</kbd>{" "}
               guardar y crear otro ·{" "}
-              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono dark:bg-ink-800">⌘↵</kbd>{" "}
+              <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono">⌘↵</kbd>{" "}
               agregar línea
             </span>
           </p>
@@ -1194,13 +1194,13 @@ export default function NuboxFormPage() {
           className={`rounded-2xl border-2 border-dashed p-4 transition-colors ${
             aiDragActive
               ? "border-cehta-green bg-cehta-green/5"
-              : "border-hairline bg-ink-50/40 dark:bg-ink-900/40"
+              : "border-hairline bg-ink-50/40"
           }`}
         >
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 text-sm">
               <Sparkles className="size-5 text-cehta-green" />
-              <span className="font-medium text-ink-900 dark:text-ink-100">
+              <span className="font-medium text-ink-900">
                 ¿Tenés la factura en PDF/imagen?
               </span>
               <span className="text-ink-500">
@@ -1277,14 +1277,14 @@ export default function NuboxFormPage() {
         {/* V5++ ola CE — Warning si el backend detecta vouchers con la
             misma firma (empresa+RUT+folio+tipo). NO bloquea — solo avisa. */}
         {duplicates.length > 0 && (
-          <Surface className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+          <Surface className="p-4 bg-amber-50 border border-amber-200">
             <div className="flex items-start gap-3">
               <AlertCircle className="size-5 shrink-0 text-amber-600 mt-0.5" />
               <div className="flex-1 text-sm">
-                <p className="font-medium text-amber-900 dark:text-amber-200">
+                <p className="font-medium text-amber-900">
                   Ya existe {duplicates.length === 1 ? "un voucher" : `${duplicates.length} vouchers`} con esta combinación de empresa + RUT + folio + tipo.
                 </p>
-                <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                <p className="mt-1 text-xs text-amber-800">
                   Revisá antes de crear uno nuevo. Si es legítimo (ej. nota de crédito que referencia la factura), seguí adelante.
                 </p>
                 <ul className="mt-2 space-y-1">
@@ -1297,7 +1297,7 @@ export default function NuboxFormPage() {
                       >
                         {d.codigo}
                       </Link>
-                      <span className="ml-2 text-amber-800 dark:text-amber-300">
+                      <span className="ml-2 text-amber-800">
                         · {d.status}
                         {d.fecha_documento ? ` · ${d.fecha_documento}` : ""}
                         {d.total ? ` · $${Number(d.total).toLocaleString("es-CL")}` : ""}
@@ -1313,7 +1313,7 @@ export default function NuboxFormPage() {
         <Surface className="p-6">
           <div className="flex items-center gap-2 mb-4">
             <Receipt className="size-5 text-cehta-green" />
-            <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+            <h2 className="text-lg font-medium text-ink-900">
               Información solicitada por Nubox
             </h2>
           </div>
@@ -1430,7 +1430,7 @@ export default function NuboxFormPage() {
                 value={proveedorRut}
                 readOnly
                 placeholder="Se completa al seleccionar el proveedor"
-                className="form-input bg-ink-50 dark:bg-ink-900/60 text-ink-700 dark:text-ink-300 cursor-not-allowed"
+                className="form-input bg-ink-50 text-ink-700 cursor-not-allowed"
                 aria-readonly="true"
                 tabIndex={-1}
               />
@@ -1572,11 +1572,11 @@ export default function NuboxFormPage() {
 
           {/* Empresa info bloqueada */}
           {selectedEmpresa && (
-            <div className="mt-4 p-3 rounded bg-ink-50 dark:bg-ink-900 text-sm">
-              <div className="font-medium text-ink-700 dark:text-ink-300 mb-1">
+            <div className="mt-4 p-3 rounded bg-ink-50 text-sm">
+              <div className="font-medium text-ink-700 mb-1">
                 Datos del receptor (bloqueados):
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-ink-600 dark:text-ink-400">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-ink-600">
                 <div>
                   <strong>Razón:</strong> {selectedEmpresa.razon_social}
                 </div>
@@ -1671,7 +1671,7 @@ export default function NuboxFormPage() {
         <Surface className="p-6">
           <div className="flex items-center gap-2 mb-3">
             <Paperclip className="size-5 text-cehta-green" />
-            <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+            <h2 className="text-lg font-medium text-ink-900">
               Adjuntar archivos
             </h2>
             <span className="ml-auto text-xs text-ink-500">
@@ -1817,7 +1817,7 @@ export default function NuboxFormPage() {
             calculado en Bruto. */}
         <Surface className="p-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4" aria-live="polite">
-            <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+            <div className="rounded border border-ink-200 p-3 bg-white">
               <div className="text-xs text-ink-500">Σ Contable</div>
               <div className="mt-1 flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-ink-500">Neto:</span>
@@ -1828,7 +1828,7 @@ export default function NuboxFormPage() {
                 <Currency value={totalContableBruto} size="lg" />
               </div>
             </div>
-            <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+            <div className="rounded border border-ink-200 p-3 bg-white">
               <div className="text-xs text-ink-500">Σ Financiera</div>
               <div className="mt-1 flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-ink-500">Neto:</span>
@@ -1839,7 +1839,7 @@ export default function NuboxFormPage() {
                 <Currency value={totalFinancieraBruto} size="lg" />
               </div>
             </div>
-            <div className="rounded border border-ink-200 dark:border-ink-800 p-3 bg-white dark:bg-ink-900">
+            <div className="rounded border border-ink-200 p-3 bg-white">
               <div className="text-xs text-ink-500">Diferencia</div>
               <div className="mt-1 flex items-baseline justify-between gap-2">
                 <span className="text-[11px] text-ink-500">Neto:</span>
@@ -1939,7 +1939,7 @@ export default function NuboxFormPage() {
       <style jsx>{`
         :global(.form-input) {
           @apply mt-1 block w-full px-3 py-2 rounded-lg border border-hairline
-                 text-sm bg-white dark:bg-ink-900 dark:text-ink-100
+                 text-sm bg-white
                  focus:outline-none focus:ring-2 focus:ring-cehta-green focus:border-cehta-green;
         }
       `}</style>
@@ -1955,7 +1955,7 @@ function Label({
   hint?: string;
 }) {
   return (
-    <label className="block text-xs font-medium text-ink-700 dark:text-ink-300 mb-1">
+    <label className="block text-xs font-medium text-ink-700 mb-1">
       <span className="inline-flex items-center gap-1.5">
         {children}
         {hint && <FieldHint text={hint} />}
@@ -2011,7 +2011,7 @@ function LineSection({
           <Icon
             className={`size-5 ${tone === "contable" ? "text-amber-500" : "text-blue-500"}`}
           />
-          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+          <h2 className="text-lg font-medium text-ink-900">
             {title}
           </h2>
         </div>
@@ -2059,7 +2059,7 @@ function LineSection({
               <th className="w-10"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+          <tbody className="divide-y divide-ink-100">
             {lines.map((line, idx) => {
               const neto = parseFloat(line.total) || 0;
               return (
@@ -2125,7 +2125,7 @@ function LineSection({
                     />
                   </td>
                   <td
-                    className="px-2 py-1.5 text-right font-mono text-ink-600 dark:text-ink-400 tabular-nums"
+                    className="px-2 py-1.5 text-right font-mono text-ink-600 tabular-nums"
                     aria-readonly="true"
                   >
                     {formatBruto(neto)}

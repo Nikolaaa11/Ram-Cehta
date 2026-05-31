@@ -138,7 +138,7 @@ export default function ProyectoAdminPage({
       </div>
 
       {/* Header — Round 99: hero pattern unificado */}
-      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 ring-1 ring-hairline p-8 shadow-card">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-50"
@@ -161,10 +161,10 @@ export default function ProyectoAdminPage({
               Proyecto contable · {proyecto.empresa_codigo}
             </p>
           </div>
-          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent">
             {proyecto.nombre}
           </h1>
-          <p className="text-sm md:text-base text-ink-500 dark:text-ink-400 mt-2">
+          <p className="text-sm md:text-base text-ink-500 mt-2">
             Código: <span className="font-mono">{proyecto.codigo}</span>
             {proyecto.subsidio_codigo && (
               <>

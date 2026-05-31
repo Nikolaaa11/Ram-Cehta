@@ -49,7 +49,7 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
         "sticky top-0 z-30 -mx-6 lg:-mx-10 mb-6 overflow-hidden",
         "bg-white/75 backdrop-blur-2xl",
         "border-b border-hairline",
-        "dark:bg-ink-900/75",
+        "",
       )}
     >
       {/* Gradient mesh decoration — sólo visible muy sutil arriba */}
@@ -64,7 +64,7 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
       <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between gap-4 px-6 lg:px-10">
         <div className="flex items-center gap-3">
           <div className="flex flex-col">
-            <h1 className="font-display text-xl font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+            <h1 className="font-display text-xl font-semibold tracking-tight text-ink-900">
               Dashboard
             </h1>
             <p className="text-xs text-ink-500 tabular-nums">
@@ -90,7 +90,7 @@ export function DashboardHeader({ lastEtlRun, etlStatus }: DashboardHeaderProps)
                 "active:scale-95",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
                 "disabled:opacity-60",
-                "dark:bg-ink-900 dark:ring-ink-700 dark:text-ink-300",
+                "",
               )}
             >
               <RefreshCw

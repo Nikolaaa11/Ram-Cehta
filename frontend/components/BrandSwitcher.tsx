@@ -94,7 +94,7 @@ export function BrandSwitcher({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "group flex items-center gap-3 min-w-0 flex-1 rounded-xl px-1 py-1 -mx-1",
-          "hover:bg-ink-50 dark:hover:bg-ink-900/40 transition-all duration-200 ease-apple",
+          "hover:bg-ink-50 transition-all duration-200 ease-apple",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
         )}
         aria-haspopup="listbox"
@@ -147,13 +147,13 @@ export function BrandSwitcher({
           className={cn(
             "absolute left-0 top-full mt-2 w-72 rounded-2xl border border-hairline",
             "bg-white/95 backdrop-blur-xl shadow-elevated-lg z-50 max-h-96 overflow-y-auto",
-            "dark:bg-ink-900/95 dark:border-ink-700",
+            "",
             "animate-slide-down-fade",
           )}
           role="listbox"
         >
           {/* Header sutil del dropdown */}
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl border-b border-hairline px-3 py-2 dark:bg-ink-900/95 dark:border-ink-800">
+          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-xl border-b border-hairline px-3 py-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
                 Cambiar empresa · {empresas.length}
@@ -179,9 +179,9 @@ export function BrandSwitcher({
             className={cn(
               "group/item w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors",
               "hover:bg-gradient-to-r hover:from-cehta-green/5 hover:to-transparent",
-              "dark:hover:from-cehta-green/15",
-              "border-b border-hairline dark:border-ink-800",
-              activeCodigo === null && "bg-cehta-green/5 dark:bg-cehta-green/15",
+              "",
+              "border-b border-hairline",
+              activeCodigo === null && "bg-cehta-green/5",
             )}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white ring-1 ring-hairline transition-all duration-200 group-hover/item:ring-cehta-green/40 group-hover/item:scale-110">
@@ -200,7 +200,7 @@ export function BrandSwitcher({
                   "text-sm font-medium truncate",
                   activeCodigo === null
                     ? "text-cehta-green"
-                    : "text-ink-900 dark:text-ink-100",
+                    : "text-ink-900",
                 )}
               >
                 Cehta Capital
@@ -230,8 +230,8 @@ export function BrandSwitcher({
                 className={cn(
                   "group/item w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all",
                   "hover:bg-gradient-to-r hover:from-cehta-green/5 hover:to-transparent",
-                  "dark:hover:from-cehta-green/15",
-                  isActive && "bg-cehta-green/5 dark:bg-cehta-green/15",
+                  "",
+                  isActive && "bg-cehta-green/5",
                   "animate-slide-up-fade",
                 )}
               >
@@ -251,7 +251,7 @@ export function BrandSwitcher({
                       "text-sm truncate",
                       isActive
                         ? "font-semibold text-cehta-green"
-                        : "font-medium text-ink-900 dark:text-ink-100",
+                        : "font-medium text-ink-900",
                     )}
                     title={emp.razon_social}
                   >

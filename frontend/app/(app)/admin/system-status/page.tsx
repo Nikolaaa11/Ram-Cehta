@@ -103,7 +103,7 @@ export default function SystemStatusPage() {
       {/* Hero — Round 94: rediseñado con grid background + glow brand
           siguiendo patrón del prompt v2 (adaptado al brand Cehta Capital).
           KPIs principales en cards grandes con números serif. */}
-      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 ring-1 ring-hairline p-8 shadow-card">
         {/* Grid sutil background */}
         <div
           aria-hidden
@@ -129,7 +129,7 @@ export default function SystemStatusPage() {
               Mayo 2026 · Estado operativo
             </p>
           </div>
-          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent">
             Health check operativo
           </h1>
           <p className="text-sm md:text-base text-ink-500 mt-2 max-w-2xl">
@@ -167,11 +167,11 @@ export default function SystemStatusPage() {
 
           {/* Crafted by footer del hero */}
           <div className="mt-6 flex items-center justify-center">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/40 dark:bg-ink-800/40 px-3 py-1 ring-1 ring-hairline backdrop-blur">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/40 px-3 py-1 ring-1 ring-hairline backdrop-blur">
               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-cehta-green to-cehta-green-700 text-[10px] font-bold text-white shadow-glow-green">
                 C
               </span>
-              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500 dark:text-ink-400">
+              <p className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
                 Cehta Capital · FIP CEHTA ESG
               </p>
             </div>
@@ -449,20 +449,20 @@ function HeroStat({
 }) {
   const valueColor =
     tone === "warn"
-      ? "text-amber-600 dark:text-amber-400"
+      ? "text-amber-600"
       : tone === "info"
-        ? "text-blue-600 dark:text-blue-400"
+        ? "text-blue-600"
         : tone === "success"
-          ? "text-cehta-green dark:text-cehta-green"
-          : "text-ink-900 dark:text-white";
+          ? "text-cehta-green"
+          : "text-ink-900";
   return (
-    <div className="rounded-2xl border border-hairline bg-white/60 dark:bg-ink-800/40 backdrop-blur p-5">
+    <div className="rounded-2xl border border-hairline bg-white/60 backdrop-blur p-5">
       <p
         className={`font-display text-3xl md:text-4xl font-semibold tabular-nums tracking-tight ${valueColor}`}
       >
         {value}
       </p>
-      <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-ink-500 dark:text-ink-400 font-semibold">
+      <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-ink-500 font-semibold">
         {label}
       </p>
     </div>

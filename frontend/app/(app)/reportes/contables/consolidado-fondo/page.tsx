@@ -41,7 +41,7 @@ export default function ConsolidadoFondoPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-hairline bg-white p-6 shadow-card dark:border-ink-800 dark:bg-ink-900">
+      <div className="rounded-2xl border border-hairline bg-white p-6 shadow-card">
         <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
@@ -53,7 +53,7 @@ export default function ConsolidadoFondoPage() {
               max={2100}
               value={anio}
               onChange={(e) => setAnio(Number(e.target.value))}
-              className="mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green dark:bg-ink-800 dark:text-ink-100 dark:ring-ink-700"
+              className="mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
             />
           </div>
         </div>
@@ -63,7 +63,7 @@ export default function ConsolidadoFondoPage() {
             href={buildUrl(false)}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
           >
             <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
             Abrir reporte

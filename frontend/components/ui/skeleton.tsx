@@ -28,7 +28,7 @@ export function Skeleton({
   return (
     <div
       className={cn(
-        "rounded-md bg-ink-100/60 dark:bg-ink-800/60",
+        "rounded-md bg-ink-100/60",
         variant === "pulse" && "animate-pulse",
         variant === "shimmer" && "skeleton-shimmer",
         variant === "wave" && "skeleton-shimmer animate-pulse",
@@ -73,7 +73,7 @@ export function SkeletonCard({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-2xl bg-white p-6 ring-1 ring-hairline shadow-card dark:bg-ink-900 dark:ring-ink-800",
+        "rounded-2xl bg-white p-6 ring-1 ring-hairline shadow-card",
         className,
       )}
     >
@@ -96,7 +96,7 @@ export function SkeletonStat({ className }: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-2xl bg-white p-6 ring-1 ring-hairline shadow-card grid h-[160px] grid-rows-[auto_1fr_20px] dark:bg-ink-900 dark:ring-ink-800",
+        "rounded-2xl bg-white p-6 ring-1 ring-hairline shadow-card grid h-[160px] grid-rows-[auto_1fr_20px]",
         className,
       )}
     >
@@ -155,18 +155,18 @@ export function SkeletonTable({
   return (
     <div
       className={cn(
-        "rounded-2xl bg-white ring-1 ring-hairline shadow-card overflow-hidden dark:bg-ink-900 dark:ring-ink-800",
+        "rounded-2xl bg-white ring-1 ring-hairline shadow-card overflow-hidden",
         className,
       )}
     >
       {/* Header */}
-      <div className="flex gap-3 border-b border-hairline px-4 py-3 dark:border-ink-800">
+      <div className="flex gap-3 border-b border-hairline px-4 py-3">
         {Array.from({ length: columns }).map((_, i) => (
           <Skeleton key={i} className="h-3 flex-1" />
         ))}
       </div>
       {/* Rows */}
-      <div className="divide-y divide-hairline dark:divide-ink-800">
+      <div className="divide-y divide-hairline">
         {Array.from({ length: rows }).map((_, i) => (
           <div
             key={i}
@@ -205,7 +205,7 @@ export function SkeletonList({
       {Array.from({ length: items }).map((_, i) => (
         <div
           key={i}
-          className="rounded-xl bg-white p-4 ring-1 ring-hairline shadow-card flex items-center gap-3 dark:bg-ink-900 dark:ring-ink-800"
+          className="rounded-xl bg-white p-4 ring-1 ring-hairline shadow-card flex items-center gap-3"
           style={{ animationDelay: `${i * 60}ms` }}
         >
           <Skeleton className="h-10 w-10 rounded-xl shrink-0" />

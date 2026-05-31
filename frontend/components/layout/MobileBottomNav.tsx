@@ -99,7 +99,7 @@ export function MobileBottomNav() {
       aria-label="Navegación primaria"
       className={cn(
         "fixed bottom-0 left-0 right-0 z-30 border-t border-hairline bg-white/95 backdrop-blur-md",
-        "dark:border-ink-800 dark:bg-ink-950/95",
+        "",
         "md:hidden print:hidden",
         // iOS safe area inset bottom (home bar)
         "pb-[env(safe-area-inset-bottom)]",
@@ -121,7 +121,7 @@ export function MobileBottomNav() {
                   "min-h-[3rem]",  // touch target ≥48px
                   active
                     ? "text-cehta-green"
-                    : "text-ink-500 active:text-ink-900 dark:active:text-ink-100",
+                    : "text-ink-500 active:text-ink-900",
                 )}
                 aria-current={active ? "page" : undefined}
               >

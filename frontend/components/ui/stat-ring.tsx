@@ -110,7 +110,7 @@ export function StatRing({
           stroke="currentColor"
           strokeWidth={stroke}
           fill="none"
-          className="text-ink-100 dark:text-ink-700"
+          className="text-ink-100"
           opacity={0.25}
         />
         {/* Progress */}
@@ -132,11 +132,11 @@ export function StatRing({
       {!hideText && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           {label && (
-            <span className="text-[10px] font-medium uppercase tracking-wide text-ink-500 dark:text-ink-300">
+            <span className="text-[10px] font-medium uppercase tracking-wide text-ink-500">
               {label}
             </span>
           )}
-          <span className="font-display text-2xl font-semibold tabular-nums tracking-tight text-ink-900 dark:text-ink-100">
+          <span className="font-display text-2xl font-semibold tabular-nums tracking-tight text-ink-900">
             {decimals > 0
               ? displayPct.toFixed(decimals)
               : Math.round(displayPct)}

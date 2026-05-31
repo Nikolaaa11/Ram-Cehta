@@ -101,7 +101,7 @@ export function HoverCard({
             sidePositioning[side],
           )}
         >
-          <span className="block rounded-2xl bg-white/95 backdrop-blur-xl ring-1 ring-hairline shadow-elevated-lg p-4 dark:bg-ink-900/95 dark:ring-ink-700">
+          <span className="block rounded-2xl bg-white/95 backdrop-blur-xl ring-1 ring-hairline shadow-elevated-lg p-4">
             {content}
           </span>
         </span>

@@ -161,7 +161,7 @@ export function ProveedorTypeaheadCached({
       />
       {open && results.length > 0 && (
         <ul
-          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white dark:bg-ink-900 shadow-lg"
+          className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
           role="listbox"
         >
           {results.map((hit, idx) => {
@@ -189,13 +189,13 @@ export function ProveedorTypeaheadCached({
                     : "hover:bg-cehta-green/10"
                 }`}
               >
-                <div className="font-medium text-ink-900 dark:text-ink-100">
+                <div className="font-medium text-ink-900">
                   {highlightMatch(hit.razon_social, searchQuery).map(
                     (seg, i) =>
                       seg.highlight ? (
                         <mark
                           key={i}
-                          className="bg-cehta-green/30 text-ink-900 dark:text-ink-100 rounded-sm px-0.5"
+                          className="bg-cehta-green/30 text-ink-900 rounded-sm px-0.5"
                         >
                           {seg.text}
                         </mark>
@@ -218,7 +218,7 @@ export function ProveedorTypeaheadCached({
             );
           })}
           {totalMatches > results.length && (
-            <li className="border-t border-hairline bg-ink-50/60 dark:bg-ink-800/60 px-3 py-1.5 text-[11px] text-ink-500">
+            <li className="border-t border-hairline bg-ink-50/60 px-3 py-1.5 text-[11px] text-ink-500">
               Mostrando {results.length} de {totalMatches} — afiná la búsqueda
             </li>
           )}

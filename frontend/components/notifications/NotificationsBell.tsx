@@ -95,12 +95,12 @@ export function NotificationsBell() {
             "hover:bg-cehta-green/5 hover:ring-cehta-green/30 hover:-translate-y-0.5 hover:shadow-glow-green",
             "active:scale-95",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
-            "dark:bg-ink-900/80 dark:ring-ink-700",
+            "",
           )}
         >
           <Bell
             className={cn(
-              "h-4 w-4 text-ink-700 transition-all duration-300 ease-apple group-hover:text-cehta-green dark:text-ink-300",
+              "h-4 w-4 text-ink-700 transition-all duration-300 ease-apple group-hover:text-cehta-green",
               unreadCount > 0 && "animate-bounce-soft",
             )}
             strokeWidth={1.5}
@@ -117,7 +117,7 @@ export function NotificationsBell() {
                 className={cn(
                   "absolute -right-1 -top-1 flex min-w-[18px] items-center justify-center",
                   "rounded-full bg-gradient-to-br from-red-500 via-negative to-red-600 px-1 text-[10px] font-semibold text-white",
-                  "ring-2 ring-white dark:ring-ink-900 shadow-sm",
+                  "ring-2 ring-white shadow-sm",
                 )}
               >
                 {badgeText}
@@ -130,10 +130,10 @@ export function NotificationsBell() {
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="w-[380px] p-0 ring-hairline bg-white/95 backdrop-blur-2xl shadow-elevated-lg animate-slide-down-fade dark:bg-ink-900/95 dark:ring-ink-700"
+        className="w-[380px] p-0 ring-hairline bg-white/95 backdrop-blur-2xl shadow-elevated-lg animate-slide-down-fade"
       >
         {/* Header con gradient mesh sutil */}
-        <div className="relative flex items-center justify-between border-b border-hairline px-4 py-3 dark:border-ink-800 overflow-hidden">
+        <div className="relative flex items-center justify-between border-b border-hairline px-4 py-3 overflow-hidden">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 opacity-50"
@@ -143,10 +143,10 @@ export function NotificationsBell() {
             }}
           />
           <div className="relative">
-            <h3 className="text-sm font-semibold tracking-tight text-ink-900 dark:text-ink-100">
+            <h3 className="text-sm font-semibold tracking-tight text-ink-900">
               Notificaciones
             </h3>
-            <p className="text-[11px] text-ink-500 dark:text-ink-400 tabular-nums">
+            <p className="text-[11px] text-ink-500 tabular-nums">
               {unreadCount > 0 ? `${unreadCount} sin leer` : "Todo al día"}
             </p>
           </div>
@@ -159,7 +159,7 @@ export function NotificationsBell() {
               "text-ink-700 transition-all duration-200 ease-apple",
               "hover:bg-cehta-green/10 hover:text-cehta-green hover:scale-105",
               "disabled:cursor-not-allowed disabled:opacity-40",
-              "dark:text-ink-300",
+              "",
             )}
           >
             <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.5} />
@@ -186,15 +186,15 @@ export function NotificationsBell() {
               <div className="relative inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-cehta-green/10 ring-1 ring-cehta-green/20 mb-3 float-slow">
                 <Bell className="h-5 w-5 text-cehta-green" strokeWidth={1.5} />
               </div>
-              <p className="text-sm font-medium text-ink-700 dark:text-ink-300">
+              <p className="text-sm font-medium text-ink-700">
                 ¡Todo al día!
               </p>
-              <p className="text-xs text-ink-500 dark:text-ink-400 mt-0.5">
+              <p className="text-xs text-ink-500 mt-0.5">
                 No tenés notificaciones pendientes.
               </p>
             </div>
           ) : (
-            <ul className="divide-y divide-hairline dark:divide-ink-800">
+            <ul className="divide-y divide-hairline">
               {items.map((n, i) => (
                 <li
                   key={n.id}
@@ -211,7 +211,7 @@ export function NotificationsBell() {
           )}
         </div>
 
-        <div className="border-t border-hairline px-3 py-2 dark:border-ink-800">
+        <div className="border-t border-hairline px-3 py-2">
           <Link
             href={"/notificaciones" as never}
             onClick={() => setOpen(false)}
@@ -248,14 +248,14 @@ function NotificationItem({
       className={cn(
         "group/notif flex gap-3 px-4 py-3 transition-all duration-200 ease-apple",
         "hover:bg-gradient-to-r hover:from-cehta-green/8 hover:to-transparent",
-        isUnread && "bg-cehta-green/[0.04] dark:bg-cehta-green/10",
+        isUnread && "bg-cehta-green/[0.04]",
       )}
     >
       <div
         className={cn(
           "relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 transition-transform duration-200 ease-apple group-hover/notif:scale-110",
           sev.ring,
-          "bg-white dark:bg-ink-900",
+          "bg-white",
         )}
       >
         <Icon className={cn("h-4 w-4", sev.iconClass)} strokeWidth={2} />
@@ -264,7 +264,7 @@ function NotificationItem({
         <div className="flex items-start justify-between gap-2">
           <p
             className={cn(
-              "text-[13px] leading-snug text-ink-900 dark:text-ink-100",
+              "text-[13px] leading-snug text-ink-900",
               isUnread ? "font-semibold" : "font-medium",
             )}
           >
@@ -278,11 +278,11 @@ function NotificationItem({
           )}
         </div>
         {notification.body && (
-          <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-500 dark:text-ink-400">
+          <p className="mt-0.5 line-clamp-2 text-[12px] text-ink-500">
             {notification.body}
           </p>
         )}
-        <p className="mt-1 text-[11px] text-ink-300 tabular-nums dark:text-ink-500">
+        <p className="mt-1 text-[11px] text-ink-300 tabular-nums">
           {formatRelative(notification.created_at)}
         </p>
       </div>

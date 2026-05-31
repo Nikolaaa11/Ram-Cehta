@@ -35,9 +35,9 @@ const premiumButtonVariants = cva(
         gold:
           "bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700 text-white shadow-glow-gold hover:shadow-elevated-lg hover:-translate-y-0.5",
         outline:
-          "border border-hairline bg-white text-ink-900 shadow-glass hover:bg-cehta-green/5 hover:border-cehta-green/40 hover:-translate-y-0.5 dark:bg-ink-900 dark:text-ink-100 dark:border-ink-700 dark:hover:bg-cehta-green/15",
+          "border border-hairline bg-white text-ink-900 shadow-glass hover:bg-cehta-green/5 hover:border-cehta-green/40 hover:-translate-y-0.5",
         ghost:
-          "bg-transparent text-ink-700 hover:bg-ink-100/60 dark:text-ink-300 dark:hover:bg-ink-800/60",
+          "bg-transparent text-ink-700 hover:bg-ink-100/60",
         destructive:
           "bg-negative text-white shadow-sm hover:bg-red-600 hover:shadow-glow-red hover:-translate-y-0.5",
       },

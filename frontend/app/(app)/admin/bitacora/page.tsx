@@ -133,12 +133,12 @@ export default function BitacoraPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin"
-            className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+            className="text-ink-500 hover:text-ink-900"
           >
             <ArrowLeft className="size-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+            <h1 className="text-2xl font-semibold text-ink-900">
               Bitácora
             </h1>
             <p className="text-sm text-ink-500 mt-1">
@@ -149,7 +149,7 @@ export default function BitacoraPage() {
         </div>
         <button
           onClick={fetchData}
-          className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-white px-3 py-2 text-sm hover:border-cehta-green/40 dark:bg-ink-900 dark:text-ink-300"
+          className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-white px-3 py-2 text-sm hover:border-cehta-green/40"
         >
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           Refrescar
@@ -165,7 +165,7 @@ export default function BitacoraPage() {
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               windowHours === w.hours
                 ? "bg-cehta-green text-white"
-                : "bg-white text-ink-700 hover:bg-ink-50 dark:bg-ink-900 dark:text-ink-300 border border-hairline"
+                : "bg-white text-ink-700 hover:bg-ink-50 border border-hairline"
             }`}
           >
             {w.label}
@@ -203,7 +203,7 @@ export default function BitacoraPage() {
       {summary && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Surface className="p-4">
-            <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-medium text-ink-900 mb-3 flex items-center gap-2">
               <UserIcon className="size-4 text-amber-500" />
               Top usuarios por actividad
             </h3>
@@ -218,11 +218,11 @@ export default function BitacoraPage() {
                   >
                     <button
                       onClick={() => setUserEmailFilter(u.user_email)}
-                      className="text-ink-700 dark:text-ink-300 truncate mr-2 hover:text-cehta-green text-left"
+                      className="text-ink-700 truncate mr-2 hover:text-cehta-green text-left"
                     >
                       {u.user_email}
                     </button>
-                    <span className="font-medium text-ink-900 dark:text-ink-100 px-2 py-0.5 rounded bg-ink-100 dark:bg-ink-800 text-xs">
+                    <span className="font-medium text-ink-900 px-2 py-0.5 rounded bg-ink-100 text-xs">
                       {u.actions}
                     </span>
                   </li>
@@ -232,7 +232,7 @@ export default function BitacoraPage() {
           </Surface>
 
           <Surface className="p-4">
-            <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100 mb-3 flex items-center gap-2">
+            <h3 className="text-sm font-medium text-ink-900 mb-3 flex items-center gap-2">
               <ListChecks className="size-4 text-purple-500" />
               Top entidades editadas
             </h3>
@@ -245,10 +245,10 @@ export default function BitacoraPage() {
                     key={e.entity_type}
                     className="flex justify-between items-center"
                   >
-                    <span className="text-ink-700 dark:text-ink-300 font-mono text-xs">
+                    <span className="text-ink-700 font-mono text-xs">
                       {e.entity_type}
                     </span>
-                    <span className="font-medium text-ink-900 dark:text-ink-100 px-2 py-0.5 rounded bg-ink-100 dark:bg-ink-800 text-xs">
+                    <span className="font-medium text-ink-900 px-2 py-0.5 rounded bg-ink-100 text-xs">
                       {e.n}
                     </span>
                   </li>
@@ -271,14 +271,14 @@ export default function BitacoraPage() {
             placeholder="Email del usuario (filtra al tipear)"
             value={userEmailFilter}
             onChange={(e) => setUserEmailFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-hairline text-sm bg-white dark:bg-ink-900 dark:text-ink-100"
+            className="px-3 py-2 rounded-lg border border-hairline text-sm bg-white"
           />
           <input
             type="text"
             placeholder="Empresa (ej. EVOQUE)"
             value={empresaFilter}
             onChange={(e) => setEmpresaFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-hairline text-sm bg-white dark:bg-ink-900 dark:text-ink-100"
+            className="px-3 py-2 rounded-lg border border-hairline text-sm bg-white"
           />
           <button
             onClick={() => {
@@ -286,7 +286,7 @@ export default function BitacoraPage() {
               setEmpresaFilter("");
               fetchData();
             }}
-            className="px-3 py-2 rounded-lg border border-hairline text-sm hover:bg-ink-50 dark:bg-ink-900 dark:text-ink-300"
+            className="px-3 py-2 rounded-lg border border-hairline text-sm hover:bg-ink-50"
           >
             Limpiar filtros
           </button>
@@ -296,7 +296,7 @@ export default function BitacoraPage() {
       {/* Timeline */}
       <Surface className="overflow-hidden">
         <div className="px-4 py-3 border-b border-hairline flex items-center justify-between">
-          <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100">
+          <h3 className="text-sm font-medium text-ink-900">
             Timeline cronológico ({filteredItems.length} eventos)
           </h3>
           {loading && (
@@ -308,17 +308,17 @@ export default function BitacoraPage() {
             Sin actividad para los filtros aplicados
           </div>
         ) : (
-          <ul className="divide-y divide-ink-100 dark:divide-ink-800">
+          <ul className="divide-y divide-ink-100">
             {filteredItems.map((it, idx) => (
               <li
                 key={idx}
-                className="px-4 py-3 hover:bg-ink-50 dark:hover:bg-ink-900/40"
+                className="px-4 py-3 hover:bg-ink-50"
               >
                 <div className="flex items-start gap-3">
                   <SourceBadge source={it.source} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline justify-between gap-3">
-                      <span className="font-medium text-sm text-ink-900 dark:text-ink-100 truncate">
+                      <span className="font-medium text-sm text-ink-900 truncate">
                         {it.summary}
                       </span>
                       <span className="text-xs text-ink-400 whitespace-nowrap">
@@ -333,7 +333,7 @@ export default function BitacoraPage() {
                         </span>
                       )}
                       {it.entity_type && (
-                        <span className="font-mono text-[10px] bg-ink-100 dark:bg-ink-800 px-1.5 py-0.5 rounded">
+                        <span className="font-mono text-[10px] bg-ink-100 px-1.5 py-0.5 rounded">
                           {it.entity_type}
                           {it.entity_id && ` #${it.entity_id}`}
                         </span>
@@ -384,7 +384,7 @@ function KpiCard({
         {icon}
         {label}
       </div>
-      <div className="text-2xl font-semibold mt-2 text-ink-900 dark:text-ink-100">
+      <div className="text-2xl font-semibold mt-2 text-ink-900">
         {value.toLocaleString("es-CL")}
       </div>
     </Surface>
@@ -400,7 +400,7 @@ function SourceBadge({ source }: { source: "action" | "http" }) {
     );
   }
   return (
-    <span className="inline-flex items-center justify-center size-7 rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 flex-shrink-0">
+    <span className="inline-flex items-center justify-center size-7 rounded-full bg-blue-100 text-blue-600 flex-shrink-0">
       <Zap className="size-4" />
     </span>
   );

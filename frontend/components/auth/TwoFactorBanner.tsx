@@ -27,7 +27,7 @@ export function TwoFactorBanner() {
   return (
     <div
       role="alert"
-      className="relative overflow-hidden border-b border-warning/30 bg-gradient-to-r from-warning/5 via-warning/10 to-amber-100/30 px-4 py-3 dark:from-warning/10 dark:via-warning/15 dark:to-amber-900/15"
+      className="relative overflow-hidden border-b border-warning/30 bg-gradient-to-r from-warning/5 via-warning/10 to-amber-100/30 px-4 py-3"
     >
       {/* Decorative blob */}
       <div
@@ -46,9 +46,9 @@ export function TwoFactorBanner() {
             aria-hidden
           />
         </span>
-        <p className="flex-1 text-sm text-ink-900 dark:text-ink-100">
+        <p className="flex-1 text-sm text-ink-900">
           <span className="font-semibold">Como admin, debés activar 2FA.</span>{" "}
-          <span className="text-ink-700 dark:text-ink-300">
+          <span className="text-ink-700">
             Algunas acciones críticas (crear usuarios, webhooks, enviar digest)
             requieren autenticación de dos factores.
           </span>

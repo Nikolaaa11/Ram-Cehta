@@ -102,7 +102,7 @@ export function VoucherLineSection({
               tone === "contable" ? "text-amber-500" : "text-blue-500"
             }`}
           />
-          <h2 className="text-lg font-medium text-ink-900 dark:text-ink-100">
+          <h2 className="text-lg font-medium text-ink-900">
             {title}
           </h2>
         </div>
@@ -138,7 +138,7 @@ export function VoucherLineSection({
               <th className="w-10"></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+          <tbody className="divide-y divide-ink-100">
             {lines.map((line, idx) => {
               const neto = parseFloat(line.total) || 0;
               return (
@@ -186,7 +186,7 @@ export function VoucherLineSection({
                     />
                   </td>
                   <td
-                    className="px-2 py-1.5 text-right font-mono text-ink-600 dark:text-ink-400 tabular-nums"
+                    className="px-2 py-1.5 text-right font-mono text-ink-600 tabular-nums"
                     aria-readonly="true"
                   >
                     {formatMonto(calcBruto(neto))}

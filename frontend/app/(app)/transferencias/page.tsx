@@ -428,7 +428,7 @@ export default function TransferenciasPage() {
         isPulling={pull.isPulling}
       />
       {/* Hero — Round 98: pattern unificado con system-status y otras */}
-      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 dark:bg-ink-900 ring-1 ring-hairline p-8 shadow-card">
+      <div className="relative overflow-hidden rounded-3xl bg-ink-50/40 ring-1 ring-hairline p-8 shadow-card">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0 opacity-50"
@@ -451,10 +451,10 @@ export default function TransferenciasPage() {
               Confirmar pagos · Planilla bancaria
             </p>
           </div>
-          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent dark:from-white dark:via-ink-100 dark:to-cehta-green">
+          <h1 className="mt-3 font-display text-4xl md:text-5xl font-semibold tracking-tight bg-gradient-to-br from-ink-900 via-ink-700 to-cehta-green bg-clip-text text-transparent">
             Validar y pagar
           </h1>
-          <p className="text-sm md:text-base text-ink-500 dark:text-ink-400 mt-2 max-w-2xl">
+          <p className="text-sm md:text-base text-ink-500 mt-2 max-w-2xl">
             Vouchers <strong>APPROVED</strong> (firmados GG + Director) listos
             para pago. Revisá datos, seleccioná los del día y descargá el
             Excel para cargar al banco.

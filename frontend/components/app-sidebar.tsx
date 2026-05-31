@@ -780,7 +780,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
               <button
                 type="button"
                 onClick={() => toggleGroup(group.id)}
-                className="mb-1.5 mt-4 flex w-full items-center gap-1 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 transition-colors hover:text-ink-500 dark:text-ink-500"
+                className="mb-1.5 mt-4 flex w-full items-center gap-1 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 transition-colors hover:text-ink-500"
               >
                 <ChevronRight
                   className={`size-3 transition-transform ${openGroups[group.id] ? "rotate-90" : ""}`}
@@ -788,7 +788,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 {group.label}
               </button>
             ) : (
-              <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300 dark:text-ink-500">
+              <h3 className="mb-1.5 mt-4 px-3 text-[10px] font-semibold uppercase tracking-[0.08em] text-ink-300">
                 {group.label}
               </h3>
             )}
@@ -853,8 +853,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ease-apple",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
                       isActive
-                        ? "bg-gradient-to-r from-cehta-green/15 via-cehta-green/10 to-transparent text-cehta-green dark:from-cehta-green/25 dark:via-cehta-green/15"
-                        : "text-ink-700 hover:bg-cehta-green/[0.06] hover:text-cehta-green hover:translate-x-0.5 dark:text-ink-300 dark:hover:bg-cehta-green/15 dark:hover:text-cehta-green",
+                        ? "bg-gradient-to-r from-cehta-green/15 via-cehta-green/10 to-transparent text-cehta-green"
+                        : "text-ink-700 hover:bg-cehta-green/[0.06] hover:text-cehta-green hover:translate-x-0.5",
                     )}
                   >
                     {/* Active indicator — barra vertical izquierda */}
@@ -970,10 +970,10 @@ export function AppSidebar({ email }: AppSidebarProps) {
       </nav>
 
       {/* Footer */}
-      <div className="space-y-2 border-t border-hairline px-4 py-4 dark:border-ink-800">
+      <div className="space-y-2 border-t border-hairline px-4 py-4">
         <div className="flex items-center justify-between gap-2">
           <p
-            className="truncate px-2 text-xs text-ink-500 tabular-nums dark:text-ink-400"
+            className="truncate px-2 text-xs text-ink-500 tabular-nums"
             title={email}
           >
             {email}
@@ -984,8 +984,8 @@ export function AppSidebar({ email }: AppSidebarProps) {
           <button
             type="submit"
             className={cn(
-              "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple dark:text-ink-300",
-              "hover:bg-negative/10 hover:text-negative dark:hover:bg-negative/20",
+              "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-ink-700 transition-colors duration-150 ease-apple",
+              "hover:bg-negative/10 hover:text-negative",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
             )}
           >

@@ -596,7 +596,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
                   toast.error(`Error: ${msg}`);
                 }
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green dark:bg-ink-900 dark:text-ink-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
               title="Guardar como plantilla para reusar en el futuro"
             >
               <Sparkles className="h-4 w-4" strokeWidth={1.75} />

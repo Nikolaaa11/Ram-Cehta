@@ -62,12 +62,12 @@ export function ProgressBar({
       {(label || showValue) && (
         <div className="mb-1 flex items-baseline justify-between gap-2">
           {label && (
-            <span className="text-[11px] font-medium uppercase tracking-wide text-ink-500 dark:text-ink-400">
+            <span className="text-[11px] font-medium uppercase tracking-wide text-ink-500">
               {label}
             </span>
           )}
           {showValue && pct !== null && (
-            <span className="text-xs font-semibold tabular-nums text-ink-700 dark:text-ink-300">
+            <span className="text-xs font-semibold tabular-nums text-ink-700">
               {pct.toFixed(0)}%
             </span>
           )}
@@ -79,7 +79,7 @@ export function ProgressBar({
         aria-valuemax={max}
         aria-valuenow={value ?? undefined}
         className={cn(
-          "relative w-full overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800",
+          "relative w-full overflow-hidden rounded-full bg-ink-100",
           sizeClasses[size],
         )}
       >
@@ -135,7 +135,7 @@ export function ProgressSplitBar({
     <div
       role="progressbar"
       className={cn(
-        "flex w-full overflow-hidden rounded-full bg-ink-100 dark:bg-ink-800",
+        "flex w-full overflow-hidden rounded-full bg-ink-100",
         sizeClasses[size],
         className,
       )}

@@ -81,11 +81,11 @@ export function UseTemplateDialog({ template, onClose, onSuccess }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 backdrop-blur-sm p-4">
-      <div className="bg-white dark:bg-ink-950 rounded-xl shadow-card-hover w-full max-w-md p-6 relative">
+      <div className="bg-white rounded-xl shadow-card-hover w-full max-w-md p-6 relative">
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3 right-3 text-ink-400 hover:text-ink-700 dark:hover:text-ink-200"
+          className="absolute top-3 right-3 text-ink-400 hover:text-ink-700"
           aria-label="Cerrar"
         >
           <X className="size-4" />
@@ -96,7 +96,7 @@ export function UseTemplateDialog({ template, onClose, onSuccess }: Props) {
             <Sparkles className="size-4 text-cehta-green" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-ink-900 dark:text-ink-100">
+            <h2 className="text-lg font-semibold text-ink-900">
               Usar plantilla
             </h2>
             <p className="text-xs text-ink-500 mt-0.5">{template.nombre}</p>

@@ -125,12 +125,12 @@ export default function HttpTrailPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin"
-            className="text-ink-500 hover:text-ink-900 dark:hover:text-ink-100"
+            className="text-ink-500 hover:text-ink-900"
           >
             <ArrowLeft className="size-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-semibold text-ink-900 dark:text-ink-100">
+            <h1 className="text-2xl font-semibold text-ink-900">
               Audit trail HTTP
             </h1>
             <p className="text-sm text-ink-500 mt-1">
@@ -140,7 +140,7 @@ export default function HttpTrailPage() {
         </div>
         <button
           onClick={refresh}
-          className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-white px-3 py-2 text-sm hover:border-cehta-green/40 dark:bg-ink-900 dark:text-ink-300"
+          className="inline-flex items-center gap-2 rounded-lg border border-hairline bg-white px-3 py-2 text-sm hover:border-cehta-green/40"
         >
           <RefreshCw className={`size-4 ${loading ? "animate-spin" : ""}`} />
           Refrescar
@@ -159,7 +159,7 @@ export default function HttpTrailPage() {
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               windowHours === opt.value
                 ? "bg-cehta-green text-white"
-                : "bg-white text-ink-700 hover:bg-ink-50 dark:bg-ink-900 dark:text-ink-300 border border-hairline"
+                : "bg-white text-ink-700 hover:bg-ink-50 border border-hairline"
             }`}
           >
             {opt.label}
@@ -188,32 +188,32 @@ export default function HttpTrailPage() {
       {summary && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Surface className="p-4">
-            <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100 mb-3">
+            <h3 className="text-sm font-medium text-ink-900 mb-3">
               Top users (volumen)
             </h3>
             <ul className="space-y-1.5 text-sm">
               {summary.top_users.slice(0, 8).map((u) => (
                 <li key={u.user_email} className="flex justify-between">
-                  <span className="text-ink-700 dark:text-ink-300 truncate mr-2">
+                  <span className="text-ink-700 truncate mr-2">
                     {u.user_email}
                   </span>
-                  <span className="font-medium text-ink-900 dark:text-ink-100">{u.n}</span>
+                  <span className="font-medium text-ink-900">{u.n}</span>
                 </li>
               ))}
             </ul>
           </Surface>
 
           <Surface className="p-4">
-            <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100 mb-3">
+            <h3 className="text-sm font-medium text-ink-900 mb-3">
               Top endpoints (volumen + latencia)
             </h3>
             <ul className="space-y-1.5 text-sm">
               {summary.top_paths.slice(0, 8).map((p, i) => (
                 <li key={i} className="flex justify-between">
-                  <span className="font-mono text-xs text-ink-700 dark:text-ink-300 truncate mr-2">
+                  <span className="font-mono text-xs text-ink-700 truncate mr-2">
                     {p.path}
                   </span>
-                  <span className="font-medium text-ink-900 dark:text-ink-100 whitespace-nowrap">
+                  <span className="font-medium text-ink-900 whitespace-nowrap">
                     {p.n} · {p.avg_ms}ms
                   </span>
                 </li>
@@ -222,7 +222,7 @@ export default function HttpTrailPage() {
           </Surface>
 
           <Surface className="p-4">
-            <h3 className="text-sm font-medium text-ink-900 dark:text-ink-100 mb-3">
+            <h3 className="text-sm font-medium text-ink-900 mb-3">
               Top errores
             </h3>
             {summary.top_errors.length === 0 ? (
@@ -231,7 +231,7 @@ export default function HttpTrailPage() {
               <ul className="space-y-1.5 text-sm">
                 {summary.top_errors.slice(0, 8).map((e, i) => (
                   <li key={i} className="flex justify-between">
-                    <span className="font-mono text-xs text-red-600 dark:text-red-400 truncate mr-2">
+                    <span className="font-mono text-xs text-red-600 truncate mr-2">
                       [{e.status_code}] {e.path}
                     </span>
                     <span className="font-medium">{e.n}</span>
@@ -251,12 +251,12 @@ export default function HttpTrailPage() {
             placeholder="user_email (ej. grietta@cehta...)"
             value={userEmail}
             onChange={(e) => setUserEmail(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-hairline text-sm dark:bg-ink-900 dark:text-ink-100"
+            className="px-3 py-2 rounded-lg border border-hairline text-sm"
           />
           <select
             value={methodFilter}
             onChange={(e) => setMethodFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-hairline text-sm dark:bg-ink-900 dark:text-ink-100"
+            className="px-3 py-2 rounded-lg border border-hairline text-sm"
           >
             <option value="">Todos los métodos</option>
             <option value="POST">POST</option>
@@ -269,10 +269,10 @@ export default function HttpTrailPage() {
             placeholder="Path prefix (ej. /api/v1/vouchers)"
             value={pathPrefix}
             onChange={(e) => setPathPrefix(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-hairline text-sm dark:bg-ink-900 dark:text-ink-100"
+            className="px-3 py-2 rounded-lg border border-hairline text-sm"
           />
           <div className="flex gap-3 items-center">
-            <label className="flex items-center gap-1.5 text-sm text-ink-700 dark:text-ink-300">
+            <label className="flex items-center gap-1.5 text-sm text-ink-700">
               <input
                 type="checkbox"
                 checked={onlyErrors}
@@ -281,7 +281,7 @@ export default function HttpTrailPage() {
               <AlertCircle className="size-3.5 text-red-500" />
               Solo errores
             </label>
-            <label className="flex items-center gap-1.5 text-sm text-ink-700 dark:text-ink-300">
+            <label className="flex items-center gap-1.5 text-sm text-ink-700">
               <input
                 type="checkbox"
                 checked={onlySlow}
@@ -304,14 +304,14 @@ export default function HttpTrailPage() {
 
       {/* Table */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 dark:bg-red-950/20 p-3 text-sm text-red-700">
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           {error}
         </div>
       )}
 
       <Surface className="overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-ink-50 dark:bg-ink-900 text-ink-500">
+          <thead className="bg-ink-50 text-ink-500">
             <tr>
               <th className="text-left px-3 py-2 font-medium">Timestamp</th>
               <th className="text-left px-3 py-2 font-medium">User</th>
@@ -321,15 +321,15 @@ export default function HttpTrailPage() {
               <th className="text-right px-3 py-2 font-medium">Latencia</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink-100 dark:divide-ink-800">
+          <tbody className="divide-y divide-ink-100">
             {(mutations?.items || []).map((m) => (
               <tr
                 key={m.id}
                 className={
                   m.status_code >= 500
-                    ? "bg-red-50/30 dark:bg-red-950/10"
+                    ? "bg-red-50/30"
                     : m.status_code >= 400
-                    ? "bg-amber-50/30 dark:bg-amber-950/10"
+                    ? "bg-amber-50/30"
                     : ""
                 }
               >
@@ -413,7 +413,7 @@ function Card({
       ? "text-red-500"
       : tone === "warn"
       ? "text-amber-500"
-      : "text-ink-900 dark:text-ink-100";
+      : "text-ink-900";
   return (
     <Surface className="p-3">
       <div className="text-xs text-ink-500">{label}</div>

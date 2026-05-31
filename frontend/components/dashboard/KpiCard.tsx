@@ -108,11 +108,11 @@ export function KpiCard({
       </div>
 
       <div className="flex flex-col justify-end gap-0.5">
-        <p className="font-display text-kpi-lg tabular-nums tracking-tight text-ink-900 dark:text-ink-100">
+        <p className="font-display text-kpi-lg tabular-nums tracking-tight text-ink-900">
           {value}
         </p>
         {subtitle && (
-          <p className="line-clamp-1 text-sm tabular-nums text-ink-500 dark:text-ink-400">
+          <p className="line-clamp-1 text-sm tabular-nums text-ink-500">
             {subtitle}
           </p>
         )}
@@ -131,7 +131,7 @@ export function KpiCard({
           >
             {DirIcon && <DirIcon className="h-3 w-3" strokeWidth={2} />}
             <span className="font-semibold tabular-nums">{delta.value}</span>
-            <span className="text-ink-500 dark:text-ink-400">
+            <span className="text-ink-500">
               {delta.label}
             </span>
           </div>

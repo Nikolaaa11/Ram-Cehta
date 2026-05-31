@@ -35,7 +35,7 @@ export function SectionDivider({
     return (
       <hr
         className={cn(
-          "my-6 border-t border-hairline dark:border-ink-800",
+          "my-6 border-t border-hairline",
           variant === "gradient" &&
             "border-0 h-px bg-gradient-to-r from-transparent via-cehta-green/30 to-transparent",
           className,
@@ -54,17 +54,17 @@ export function SectionDivider({
           "flex-1 border-t",
           variant === "gradient"
             ? "border-0 h-px bg-gradient-to-r from-transparent to-cehta-green/30"
-            : "border-hairline dark:border-ink-800",
+            : "border-hairline",
         )}
       />
-      <div className="mx-3 flex items-center gap-2 rounded-full bg-white/80 backdrop-blur px-3 py-1 ring-1 ring-hairline shadow-glass dark:bg-ink-900/80 dark:ring-ink-700">
+      <div className="mx-3 flex items-center gap-2 rounded-full bg-white/80 backdrop-blur px-3 py-1 ring-1 ring-hairline shadow-glass">
         {Icon && (
           <Icon
             className="h-3.5 w-3.5 text-cehta-green"
             strokeWidth={1.75}
           />
         )}
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-700 dark:text-ink-300">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-700">
           {label}
         </span>
       </div>
@@ -73,7 +73,7 @@ export function SectionDivider({
           "flex-1 border-t",
           variant === "gradient"
             ? "border-0 h-px bg-gradient-to-l from-transparent to-cehta-green/30"
-            : "border-hairline dark:border-ink-800",
+            : "border-hairline",
         )}
       />
     </div>

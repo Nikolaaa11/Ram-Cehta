@@ -65,7 +65,7 @@ export function AiDataQAWidget() {
   };
 
   return (
-    <section className="rounded-3xl border border-hairline bg-gradient-to-br from-white to-cehta-green/5 p-6 shadow-card dark:border-ink-800 dark:from-ink-900 dark:to-cehta-green/10">
+    <section className="rounded-3xl border border-hairline bg-gradient-to-br from-white to-cehta-green/5 p-6 shadow-card">
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-cehta-green/10 text-cehta-green ring-1 ring-cehta-green/20">
           <Sparkles className="h-5 w-5" strokeWidth={1.5} />
@@ -74,7 +74,7 @@ export function AiDataQAWidget() {
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
             Pregunta a Claudia Data
           </p>
-          <h3 className="mt-0.5 font-display text-lg font-semibold text-ink-900 dark:text-ink-100">
+          <h3 className="mt-0.5 font-display text-lg font-semibold text-ink-900">
             ¿Qué querés saber del fondo?
           </h3>
           <p className="mt-1 text-xs text-ink-500">
@@ -95,7 +95,7 @@ export function AiDataQAWidget() {
           }}
           placeholder={EXAMPLE_QUESTIONS[exampleIdx]}
           onFocus={() => setExampleIdx((i) => (i + 1) % EXAMPLE_QUESTIONS.length)}
-          className="flex-1 rounded-xl border-0 bg-white px-4 py-2.5 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green dark:bg-ink-800 dark:text-ink-100 dark:ring-ink-700"
+          className="flex-1 rounded-xl border-0 bg-white px-4 py-2.5 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
         />
         <button
           type="button"
@@ -114,7 +114,7 @@ export function AiDataQAWidget() {
 
       {/* Respuesta */}
       {askMut.isSuccess && askMut.data && (
-        <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-hairline dark:bg-ink-800 dark:ring-ink-700">
+        <div className="mt-5 rounded-2xl bg-white p-4 ring-1 ring-hairline">
           <p className="whitespace-pre-wrap text-sm text-ink-800 leading-relaxed">
             {askMut.data.answer}
           </p>

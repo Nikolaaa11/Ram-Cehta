@@ -131,7 +131,7 @@ export default function AsistentePickerPage() {
                 key={emp.codigo}
                 href={`/empresa/${emp.codigo}/asistente`}
                 style={{ animationDelay: `${Math.min(idx, 12) * 40}ms` }}
-                className="group relative block overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-hairline shadow-card transition-all duration-300 ease-apple hover:-translate-y-1 hover:shadow-elevated-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green animate-slide-up-fade dark:bg-ink-900 dark:ring-ink-800"
+                className="group relative block overflow-hidden rounded-2xl bg-white p-5 ring-1 ring-hairline shadow-card transition-all duration-300 ease-apple hover:-translate-y-1 hover:shadow-elevated-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green animate-slide-up-fade"
               >
                 {/* Accent border top */}
                 <span
@@ -160,10 +160,10 @@ export default function AsistentePickerPage() {
                     <EmpresaLogo empresaCodigo={emp.codigo} size={44} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-display text-base font-semibold tracking-tight text-ink-900 dark:text-ink-100 transition-colors group-hover:text-cehta-green">
+                    <p className="font-display text-base font-semibold tracking-tight text-ink-900 transition-colors group-hover:text-cehta-green">
                       {emp.codigo}
                     </p>
-                    <p className="mt-0.5 line-clamp-1 text-sm text-ink-500 dark:text-ink-400">
+                    <p className="mt-0.5 line-clamp-1 text-sm text-ink-500">
                       {emp.razon_social ?? "—"}
                     </p>
                   </div>
