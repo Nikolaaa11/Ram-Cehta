@@ -108,6 +108,7 @@ type NavGroup = {
     | "operaciones"
     | "estrategia"
     | "sii"
+    | "claudia"
     | "documentos"
     | "contabilidad"
     | "admin"
@@ -120,7 +121,40 @@ type NavGroup = {
    * Los grupos "núcleo" (operaciones, documentos) arrancan expandidos para
    * que se vean al primer click; los secundarios colapsados para limpieza. */
   defaultOpen?: boolean;
+  /** R152ss — Gate de visibilidad opcional. Si está, el grupo solo se
+   * muestra para users que cumplen el predicado. Si no está, el grupo se
+   * muestra para todos. Usado para el grupo ClaudIA (acceso restringido a
+   * Claudia, GG de REVTECH/TRONGKAI, Guido y admins). */
+  requiresAccess?: (user: {
+    email?: string | null;
+    app_role?: string;
+  }) => boolean;
 };
+
+// R152ss — Whitelist de emails con acceso al grupo ClaudIA.
+// Editar acá si hay que sumar más coordinadores. Los admins siempre tienen
+// acceso (ver predicado en el grupo).
+const CLAUDIA_GROUP_EMAILS = new Set([
+  "claudia@trongkai.com",
+  // Agregar más a medida que se confirmen los emails de los GG y Guido:
+  // "guido@...",
+  // "gg-revtech@...",
+  // "gg-trongkai@...",
+]);
+
+// R152ss — Dominios cuyos users SIEMPRE ven el grupo ClaudIA.
+// (Cualquier email @trongkai.com o @revtech.com se considera del equipo CORFO.)
+const CLAUDIA_GROUP_DOMAINS = ["@trongkai.com", "@revtech.com", "@revtech.cl"];
+
+function canSeeClaudiaGroup(user: { email?: string | null; app_role?: string }): boolean {
+  if (user.app_role === "admin") return true;
+  const email = (user.email ?? "").toLowerCase().trim();
+  if (!email) return false;
+  if (CLAUDIA_GROUP_EMAILS.has(email)) return true;
+  if (CLAUDIA_GROUP_DOMAINS.some((d) => email.endsWith(d))) return true;
+  if (email.includes("guido")) return true;
+  return false;
+}
 
 const GROUPS: NavGroup[] = [
   {
@@ -186,25 +220,8 @@ const GROUPS: NavGroup[] = [
           "Vouchers APPROVED listos para transferir. Descarga la planilla Excel para cargar al banco.",
         tourId: "confirmar-pagos",
       },
-      // Round 85 — voucher CORFO dedicado a REVTECH/TRONGKAI con bifurcacion
-      // F.E/F.A + reparto CORFO/P-tec/Empresa. IVA siempre corporativo.
-      {
-        href: "/vouchers/corfo" as Route,
-        label: "Voucher CORFO · REVTECH/TRONGKAI",
-        icon: Sparkles,
-        title:
-          "Form dedicado para vouchers del subsidio CORFO 2026 ($3.000MM). " +
-          "Reparto editable CORFO/P-tec/Empresa, IVA siempre corporativo.",
-      },
-      // R152pp — Generador Rendiciones CORFO movido desde Admin a
-      // Operaciones (queda junto al voucher CORFO para flujo natural).
-      {
-        href: "/admin/rendiciones-corfo" as Route,
-        label: "Rendiciones CORFO · REVTECH/TRONGKAI",
-        icon: CircleDollarSign,
-        title: "Generador de Excel oficial de rendiciones CORFO (Gastos + RRHH) pre-llenado desde los vouchers y datos de Nubox.",
-        isNew: true,
-      },
+      // R152ss — Voucher CORFO, Rendiciones CORFO y Subsidio CORFO
+      // movidos al nuevo grupo "ClaudIA" (acceso restringido).
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
@@ -235,6 +252,63 @@ const GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { href: "/avance" as Route, label: "Avance Empresas", icon: Target },
+    ],
+  },
+  // R152ss — Grupo ClaudIA · Coordinación CORFO 2024-265638 (REVTECH+TRONGKAI).
+  // Acceso restringido por whitelist + dominios + admin. Claudia coordina
+  // todo lo del subsidio CORFO desde acá: creación de vouchers, reparto por
+  // fuente de financiamiento (CORFO/P-tec/Empresa), rendiciones oficiales,
+  // y dashboard de ejecución del fondo $3.000MM.
+  {
+    id: "claudia",
+    label: "ClaudIA · CORFO 2026",
+    collapsible: true,
+    defaultOpen: true,
+    requiresAccess: canSeeClaudiaGroup,
+    items: [
+      // Dashboard ejecución subsidio (R89 — "donde están las platas").
+      {
+        href: "/admin/subsidios/CORFO-2026-REVTECH-TRONGKAI" as Route,
+        label: "Subsidio CORFO · $3.000MM",
+        icon: CircleDollarSign,
+        title:
+          "Dashboard de ejecución del subsidio CORFO 2026 ($3.000MM). " +
+          "Reparto por empresa coejecutora (REVTECH/TRONGKAI), desglose por " +
+          "fuente CORFO/P-tec/Empresa, gasto acumulado vs presupuesto.",
+        isNew: true,
+      },
+      // Form dedicado para vouchers CORFO con bifurcación F.E/F.A.
+      {
+        href: "/vouchers/corfo" as Route,
+        label: "Crear voucher CORFO",
+        icon: Sparkles,
+        title:
+          "Form dedicado para vouchers del subsidio CORFO 2026. " +
+          "Bifurcación F.E (sin IVA) vs F.A (con IVA + asignación), " +
+          "reparto editable CORFO/P-tec/Empresa, IVA siempre corporativo.",
+      },
+      // Generador de planillas oficiales (R152w + R152mm sección embebida).
+      {
+        href: "/admin/rendiciones-corfo" as Route,
+        label: "Rendiciones oficiales CORFO",
+        icon: FileSpreadsheet,
+        title:
+          "Generador de los 2 Excel oficiales del folio 2024-265638 " +
+          "(Carga_Gastos 21 cols + Carga_RRHH 17 cols). Pre-llenado " +
+          "desde vouchers aprobados + remuneraciones Nubox del período. " +
+          "Auto-sugerencia de mapeo cuenta_local → CORFO.",
+        isNew: true,
+      },
+      // Editor masivo de mapeo cuenta_local → CORFO (R152x).
+      {
+        href: "/admin/rendiciones-corfo/mapping" as Route,
+        label: "Editor mapeo CORFO",
+        icon: FileCheck,
+        title:
+          "Editor masivo para mapear cuentas del plan local a las cuentas " +
+          "oficiales CORFO. Auto-sugerencia con 18 keywords (Honorario→" +
+          "SUBCONTRATOS, Arriendo→ARRIENDO, etc.).",
+      },
     ],
   },
   // R152rr — Grupo SII dedicado. Centraliza todo lo tributario:
@@ -395,18 +469,7 @@ const GROUPS: NavGroup[] = [
         title: "Respuestas de feedback de usuarios por flujo (crear, firmar, pagar, CORFO).",
         isNew: true,
       },
-      // R152pp — Rendiciones CORFO movido a Operaciones (cerca de voucher CORFO).
-      // Round 89 — dashboard "donde estan las platas" del subsidio CORFO.
-      // Hardcodea el codigo del subsidio activo (CORFO-2026-REVTECH-TRONGKAI)
-      // porque hay solo 1 subsidio activo. Cuando haya mas, hacer pagina
-      // index /admin/subsidios que liste todos.
-      {
-        href: "/admin/subsidios/CORFO-2026-REVTECH-TRONGKAI" as Route,
-        label: "Subsidio CORFO · $3.000MM",
-        icon: CircleDollarSign,
-        title:
-          "Dashboard donde estan las platas. Ejecucion por empresa coejecutora (REVTECH/TRONGKAI), desglose por fuente CORFO/P-tec/Empresa.",
-      },
+      // R152ss — Subsidio CORFO movido al grupo "ClaudIA".
       // Round 92 — catalogo de proyectos para configurar % + cuentas sin SQL
       {
         href: "/admin/proyectos" as Route,
@@ -596,6 +659,10 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const visibleGroups = GROUPS.filter((g) => {
     if (g.id === "ejecutivo") return isExecutive;
     if (g.id === "admin") return isAdmin;
+    // R152ss — grupos con requiresAccess se filtran caso a caso.
+    if (g.requiresAccess) {
+      return g.requiresAccess({ email, app_role: role });
+    }
     return true; // operaciones, estrategia, documentos, avanzado → todos
   });
 
