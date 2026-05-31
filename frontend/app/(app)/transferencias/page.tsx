@@ -50,6 +50,7 @@ import { Surface } from "@/components/ui/surface";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
+import { FeedbackPrompt } from "@/components/feedback/FeedbackPrompt";
 import { toast } from "@/components/ui/toast";
 import { toCLP, toDate } from "@/lib/format";
 
@@ -107,6 +108,9 @@ export default function TransferenciasPage() {
   // Etapa A — bulk execute
   const [executing, setExecuting] = useState(false);
   const [showExecuteConfirm, setShowExecuteConfirm] = useState(false);
+  // R152y — NPS feedback prompt tras marcar pagos exitosamente
+  const [showFeedbackAfterPaid, setShowFeedbackAfterPaid] = useState(false);
+  const [feedbackContext, setFeedbackContext] = useState<{ count: number } | null>(null);
   const [executeNota, setExecuteNota] = useState("");
   const today = new Date().toISOString().slice(0, 10);
   const [executeFecha, setExecuteFecha] = useState(today);
@@ -342,6 +346,9 @@ export default function TransferenciasPage() {
           `✓ ${resp.succeeded} vouchers marcados como EXECUTED${attachMsg}`,
           { duration: 8000 },
         );
+        // R152y — disparar NPS feedback tras pago exitoso (con cooldown 14d).
+        setFeedbackContext({ count: resp.succeeded });
+        setShowFeedbackAfterPaid(true);
       } else {
         toast.info(
           `${resp.succeeded} marcados · ${resp.failed} fallaron${attachMsg}. Revisá los detalles.`,
@@ -977,6 +984,16 @@ export default function TransferenciasPage() {
             voucher como EXECUTED desde su pantalla de detalle.
           </p>
         </>
+      )}
+
+      {/* R152y — NPS feedback prompt tras marcar pagos exitosamente.
+          El componente tiene cooldown 14d en localStorage, así no spammea. */}
+      {showFeedbackAfterPaid && (
+        <FeedbackPrompt
+          actionType="transferencia.confirmar"
+          question="¿Qué tan fácil fue confirmar el pago?"
+          context={feedbackContext ?? undefined}
+        />
       )}
     </div>
   );

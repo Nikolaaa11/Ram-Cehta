@@ -18,7 +18,93 @@ import {
   CheckCircle2,
   CircleAlert,
   Search,
+  Sparkles,
+  Wand2,
 } from "lucide-react";
+
+// =========================================================================
+// AUTO-SUGERENCIA: fuzzy match nombre cuenta local → CORFO
+// =========================================================================
+// Mapping basado en keywords que aparecen en planes de cuenta chilenos
+// vs los 22 valores de Cuenta CORFO + 14 valores de Ítem.
+// Devuelve la mejor sugerencia con un score 0-100 (umbral 35 para sugerir).
+
+const KEYWORD_MAP_CUENTA: Array<[string[], string]> = [
+  // [keywords (lowercase, sin acentos), Cuenta CORFO oficial]
+  [["honorario", "boleta hon"], "SUBCONTRATOS"],
+  [["subcontrat", "subconctra", "asesoria", "consultoria"], "SUBCONTRATOS"],
+  [["capacitacion", "training", "curso", "taller"], "CAPACITACION"],
+  [["difusion", "marketing", "publicidad", "evento"], "DIFUSIÓN"],
+  [["arriendo", "alquiler", "leasing"], "ARRIENDO"],
+  [["inversion", "activo fijo", "equipo", "maquinaria"], "GASTOS DE INVERSIÓN"],
+  [["administra", "contador", "ofic", "gerencia"], "GASTOS DE ADMINISTRACIÓN"],
+  [["servicios bas", "luz", "agua", "internet", "telefon", "electric"], "SERVICIOS BÁSICOS"],
+  [["operacion", "insumo", "material", "materiales", "consumible"], "GASTOS DE OPERACIÓN"],
+  [["gira", "viaje", "viatic", "movilizacion"], "GIRAS TECNOLÓGICAS"],
+  [["patrocin", "sponsor"], "PATROCINADOR"],
+  [["impuesto", "iva", "sii", "f29", "f22"], "IMPUESTO"],
+  [["transferencia bancaria", "comision banc"], "TRANSFERENCIAS"],
+  [["overhead", "indirecto"], "OVERHEAD"],
+  [["propiedad intelectual", "patente", "marca registrada"], "PROPIEDAD INTELECTUAL"],
+  [["contrato persona juridica", "contrato spa", "contrato ltda"], "CONTRATOS CON PERSONA JURÍDICA"],
+  [["constitucion", "notaria", "derecho"], "CONSTITUCIÓN DE DERECHOS"],
+  [["reembolso", "rendicion"], "Gastos reembolsables"],
+];
+
+const KEYWORD_MAP_ITEM: Array<[string[], string]> = [
+  [["laboratorio", "ensayo", "analisis quimic"], "Análisis de laboratorio"],
+  [["arriendo prototipo", "espacio prueba"], "Arriendo de espacio prueba de prototipo"],
+  [["formulacion proyecto", "elaboracion proyecto"], "Formulación de proyecto"],
+  [["garantia", "fianza", "seguro"], "Garantías"],
+  [["viaje internacional", "viatico extranjero"], "Gastos de movilización Internacional"],
+  [["viaje", "viatico", "movilizacion"], "Gastos de movilización nacional"],
+  [["sistema", "integracion", "software", "api"], "Integración de sistema"],
+  [["material", "insumo", "consumible"], "Materiales e insumos"],
+  [["patente", "marca", "propiedad intelectual"], "Propiedad Intelectual"],
+  [["prospeccion", "comercial", "mercado"], "Prospección comercial nacional e internacional"],
+  [["ingenieria", "diseño"], "Servicos de Ingeniería"],
+  [["taller", "galpon", "bodega"], "Talleres y Galpones"],
+  [["transporte", "envio", "logistica"], "Transporte"],
+  [["administracion", "contabilidad", "gerencia"], "Servicio de Administración"],
+];
+
+function _normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+function suggest(cuentaLocal: string, cuentaNombre: string | null): { cuenta: string | null; item: string | null } {
+  const txt = _normalize((cuentaNombre || "") + " " + cuentaLocal);
+  let bestCuenta: string | null = null;
+  let bestCuentaScore = 0;
+  for (const [keys, corfoCuenta] of KEYWORD_MAP_CUENTA) {
+    for (const k of keys) {
+      if (txt.includes(_normalize(k))) {
+        const score = k.length; // keyword más larga = match más específico
+        if (score > bestCuentaScore) {
+          bestCuentaScore = score;
+          bestCuenta = corfoCuenta;
+        }
+      }
+    }
+  }
+  let bestItem: string | null = null;
+  let bestItemScore = 0;
+  for (const [keys, corfoItem] of KEYWORD_MAP_ITEM) {
+    for (const k of keys) {
+      if (txt.includes(_normalize(k))) {
+        const score = k.length;
+        if (score > bestItemScore) {
+          bestItemScore = score;
+          bestItem = corfoItem;
+        }
+      }
+    }
+  }
+  return { cuenta: bestCuenta, item: bestItem };
+}
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 
@@ -208,7 +294,7 @@ export default function MappingBulkPage() {
         </div>
       </div>
 
-      {/* Filtro + Save */}
+      {/* Filtro + Auto-sugerir + Save */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[280px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-400" />
@@ -220,6 +306,31 @@ export default function MappingBulkPage() {
             className="w-full rounded-xl border border-hairline py-2 pl-10 pr-3 text-sm focus:border-cehta-green focus:outline-none"
           />
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            const newEdits: typeof edits = { ...edits };
+            let suggested = 0;
+            for (const c of cuentas ?? []) {
+              if (c.corfo_cuenta) continue; // ya mapeada, no tocar
+              const s = suggest(c.cuenta_codigo, c.cuenta_nombre);
+              if (s.cuenta) {
+                newEdits[c.cuenta_codigo] = {
+                  corfo_cuenta: s.cuenta,
+                  corfo_item: s.item ?? undefined,
+                };
+                suggested++;
+              }
+            }
+            setEdits(newEdits);
+          }}
+          disabled={!cuentas || cuentas.filter((c) => !c.corfo_cuenta).length === 0}
+          className="inline-flex items-center gap-2 rounded-xl border border-cehta-green bg-cehta-green/10 px-4 py-2 text-sm font-semibold text-cehta-green transition-colors hover:bg-cehta-green/20 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Sugiere automáticamente Cuenta + Ítem CORFO basado en el nombre de la cuenta local"
+        >
+          <Wand2 className="size-4" />
+          Auto-sugerir mapeo
+        </button>
         <button
           type="button"
           onClick={() => saveMut.mutate()}
@@ -343,7 +454,26 @@ export default function MappingBulkPage() {
                         ) : isMapped ? (
                           <CheckCircle2 className="mx-auto size-4 text-emerald-600" />
                         ) : (
-                          <CircleAlert className="mx-auto size-4 text-amber-400" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const s = suggest(c.cuenta_codigo, c.cuenta_nombre);
+                              if (s.cuenta) {
+                                setEdits((prev) => ({
+                                  ...prev,
+                                  [c.cuenta_codigo]: {
+                                    corfo_cuenta: s.cuenta!,
+                                    corfo_item: s.item ?? undefined,
+                                  },
+                                }));
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full bg-cehta-green/10 px-2 py-0.5 text-[10px] font-semibold text-cehta-green hover:bg-cehta-green/20"
+                            title="Sugerir mapeo automático para esta cuenta"
+                          >
+                            <Sparkles className="size-3" />
+                            Sugerir
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -372,13 +502,17 @@ export default function MappingBulkPage() {
 
       {/* Help */}
       <div className="mt-8 rounded-2xl bg-cehta-green/5 px-5 py-4 text-xs text-ink-700">
-        <p className="font-semibold text-cehta-green">💡 Tip</p>
-        <p className="mt-1 leading-relaxed">
-          Las cuentas más usadas aparecen primero. Empezá por las 5 más
-          frecuentes — eso ya cubre el 80% de las facturas. El resto se puede
-          mapear cuando aparezca por primera vez. <strong>El mapeo es por empresa</strong>:
-          REVTECH y TRONGKAI tienen mapeos independientes.
-        </p>
+        <p className="font-semibold text-cehta-green">💡 Tips</p>
+        <ul className="mt-2 ml-5 list-disc space-y-1 leading-relaxed">
+          <li>
+            <strong>Auto-sugerencia</strong>: click en <kbd>Wand2 Auto-sugerir mapeo</kbd> (arriba) o el botón "Sugerir" de cada fila.
+            El sistema analiza el nombre de la cuenta local y propone Cuenta + Ítem CORFO basado en keywords (honorarios → SUBCONTRATOS, arriendo → ARRIENDO, etc.). Siempre podés sobrescribir.
+          </li>
+          <li>Las cuentas más usadas aparecen primero. Empezá por las 5 más
+            frecuentes — eso ya cubre el 80% de las facturas.</li>
+          <li><strong>El mapeo es por empresa</strong>: REVTECH y TRONGKAI tienen mapeos independientes.</li>
+          <li>Los cambios solo persisten cuando hacés clic en <strong>Guardar N cambios</strong>.</li>
+        </ul>
       </div>
     </div>
   );
