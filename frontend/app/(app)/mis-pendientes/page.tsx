@@ -12,7 +12,7 @@
  *
  * Es la primera página que un líder/director debe abrir al loguear.
  */
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import {
@@ -417,7 +417,11 @@ function Card({
   );
 }
 
-function VoucherRow({ v }: { v: Voucher }) {
+// R152ddd — memo: VoucherRow se renderiza N veces en la lista (hasta 50).
+// Sin memo, cualquier re-render del parent (filtros, scroll, etc.) re-rendea
+// los N rows aunque la data del voucher no haya cambiado. Memo compara v
+// por shallow equality — TanStack Query devuelve la misma ref si data igual.
+const VoucherRow = memo(function VoucherRow({ v }: { v: Voucher }) {
   const total =
     typeof v.total_debit === "string"
       ? parseFloat(v.total_debit)
@@ -458,4 +462,4 @@ function VoucherRow({ v }: { v: Voucher }) {
       </div>
     </Link>
   );
-}
+});

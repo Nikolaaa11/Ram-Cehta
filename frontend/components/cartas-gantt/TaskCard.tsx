@@ -14,7 +14,7 @@
  * On hover: <TaskQuickActions> aparece flotante en top-right.
  * Click: abre detalle (opcional fase 2 — por ahora link a /empresa/{cod}/avance).
  */
-import { useState } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
@@ -29,7 +29,10 @@ interface Props {
   onDragStart?: (hitoId: number) => void;
 }
 
-export function TaskCard({ hito, bucket, draggable, onDragStart }: Props) {
+// R152ddd — memo: TaskCard se renderiza N veces en el Gantt (puede ser 50-100).
+// onDragStart debería ser useCallback en el parent para que la ref no cambie
+// por render. Si cambia, memo no ayuda.
+export const TaskCard = memo(function TaskCard({ hito, bucket, draggable, onDragStart }: Props) {
   const [hover, setHover] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -149,7 +152,7 @@ export function TaskCard({ hito, bucket, draggable, onDragStart }: Props) {
       </div>
     </article>
   );
-}
+});
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
