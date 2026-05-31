@@ -1,0 +1,1018 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cehta Capital · Módulo Vouchers — Guía visual</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --ink-900: #1d1d1f;
+    --ink-700: #36363a;
+    --ink-500: #6e6e73;
+    --ink-300: #a1a1a6;
+    --ink-100: #e8e8ed;
+    --ink-50:  #f5f5f7;
+    --hairline: #d2d2d7;
+    --cehta-green: #1d6f42;
+    --cehta-green-light: #e7f3ec;
+    --amber: #c2410c;
+    --amber-bg: #fef3c7;
+    --cyan: #0e7490;
+    --cyan-bg: #cffafe;
+    --blue: #1e40af;
+    --blue-bg: #dbeafe;
+    --emerald: #065f46;
+    --emerald-bg: #d1fae5;
+    --negative: #b91c1c;
+    --negative-bg: #fee2e2;
+    --purple: #6b21a8;
+    --purple-bg: #f3e8ff;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink-900);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-feature-settings: "ss01", "ss02";
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+    font-size: 16px;
+  }
+
+  /* Navbar */
+  .navbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .nav-inner {
+    max-width: 980px; margin: 0 auto;
+    padding: 14px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .nav-brand .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--cehta-green);
+  }
+  .nav-progress {
+    font-size: 13px; color: var(--ink-500);
+    display: flex; align-items: center; gap: 14px;
+  }
+  .nav-progress .bar-wrap {
+    width: 120px; height: 4px; background: var(--ink-100);
+    border-radius: 4px; overflow: hidden;
+  }
+  .nav-progress .bar {
+    height: 100%; background: var(--cehta-green);
+    width: 0%; transition: width 0.3s ease;
+  }
+
+  /* Hero */
+  .hero {
+    max-width: 980px; margin: 0 auto;
+    padding: 72px 24px 48px;
+    text-align: center;
+  }
+  .hero .eyebrow {
+    font-size: 13px; font-weight: 600;
+    color: var(--cehta-green); text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: clamp(40px, 6vw, 64px);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-weight: 700;
+    margin: 0 0 18px;
+  }
+  .hero .lede {
+    font-size: 21px; color: var(--ink-500);
+    max-width: 640px; margin: 0 auto;
+    line-height: 1.4;
+  }
+  .hero .meta {
+    margin-top: 28px;
+    display: inline-flex; gap: 24px;
+    font-size: 13px; color: var(--ink-500);
+  }
+  .hero .meta strong { color: var(--ink-900); font-weight: 600; }
+
+  /* Section */
+  section.block {
+    max-width: 980px; margin: 0 auto;
+    padding: 48px 24px;
+  }
+  section.block + section.block {
+    border-top: 1px solid var(--hairline);
+  }
+  .section-head { margin-bottom: 32px; }
+  .section-head h2 {
+    font-size: clamp(28px, 4vw, 40px);
+    letter-spacing: -0.02em; font-weight: 700;
+    margin: 0 0 8px;
+  }
+  .section-head p {
+    font-size: 17px; color: var(--ink-500);
+    margin: 0; max-width: 720px;
+  }
+
+  /* Card grid */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 720px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    padding: 24px;
+    background: var(--bg);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+  .card:hover {
+    box-shadow: 0 8px 24px -8px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+  }
+  .card .tag {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+    letter-spacing: 0.02em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 19px; letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+  .card p {
+    margin: 0;
+    color: var(--ink-500); font-size: 14px; line-height: 1.55;
+  }
+  .card .meta-line {
+    margin-top: 12px;
+    font-size: 12px; color: var(--ink-300);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Status pills */
+  .pill-DRAFT     { background: var(--ink-50);      color: var(--ink-500);  }
+  .pill-PENDING   { background: var(--amber-bg);    color: var(--amber);    }
+  .pill-APPROVED  { background: var(--cehta-green-light); color: var(--cehta-green); }
+  .pill-EXECUTED  { background: var(--cyan-bg);     color: var(--cyan);     }
+  .pill-SYNCED    { background: var(--blue-bg);     color: var(--blue);     }
+  .pill-RECONCILED { background: var(--emerald-bg); color: var(--emerald);  }
+  .pill-CLOSED    { background: var(--ink-100);     color: var(--ink-700);  }
+  .pill-REJECTED  { background: var(--negative-bg); color: var(--negative); }
+  .pill-VOID      { background: var(--negative-bg); color: var(--negative); opacity: 0.7; }
+  .pill-AI        { background: var(--purple-bg);   color: var(--purple);   }
+
+  /* Flow diagram */
+  .flow {
+    background: var(--ink-50);
+    border-radius: 22px;
+    padding: 32px;
+    margin-top: 24px;
+  }
+  .flow-steps {
+    display: flex; align-items: stretch;
+    gap: 0; flex-wrap: wrap;
+  }
+  .flow-step {
+    flex: 1; min-width: 140px;
+    background: var(--bg);
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 18px 16px;
+    text-align: center;
+    position: relative;
+    margin: 8px;
+  }
+  .flow-step .arrow {
+    position: absolute; right: -14px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-300); font-size: 18px;
+    z-index: 1;
+  }
+  .flow-step:last-child .arrow { display: none; }
+  .flow-step h4 {
+    margin: 0 0 4px;
+    font-size: 14px; font-weight: 600;
+  }
+  .flow-step .sub {
+    font-size: 11px; color: var(--ink-500);
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+
+  /* Mock UI */
+  .mock {
+    border: 1px solid var(--hairline);
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--bg);
+    margin-top: 28px;
+  }
+  .mock-titlebar {
+    background: var(--ink-50);
+    border-bottom: 1px solid var(--hairline);
+    padding: 10px 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mock-titlebar .dots {
+    display: flex; gap: 6px;
+  }
+  .mock-titlebar .dots span {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--ink-100);
+  }
+  .mock-titlebar .url {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px; color: var(--ink-500);
+    margin-left: 12px;
+  }
+  .mock-body { padding: 24px; }
+  .mock-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 14px 0;
+  }
+  .mock-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--hairline);
+    background: var(--bg);
+    font-size: 13px; color: var(--ink-700);
+    cursor: default;
+  }
+  .mock-chip.active-amber { background: var(--amber-bg); color: var(--amber); border-color: transparent; }
+  .mock-chip.active-ink   { background: var(--ink-50);    color: var(--ink-700); }
+  .mock-chip.active-blue  { background: var(--blue-bg);  color: var(--blue); border-color: transparent;  }
+  .mock-chip.active-purple{ background: var(--purple-bg); color: var(--purple); border-color: transparent; }
+
+  table.mock-table {
+    width: 100%; border-collapse: collapse;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+  table.mock-table th {
+    text-align: left; font-weight: 600;
+    color: var(--ink-500); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  table.mock-table td {
+    padding: 12px 12px;
+    border-bottom: 1px solid var(--ink-100);
+  }
+  table.mock-table tr:last-child td { border-bottom: none; }
+
+  /* Approval signatures */
+  .signatures {
+    display: grid; grid-template-columns: repeat(2, 1fr);
+    gap: 12px; margin-top: 20px;
+  }
+  @media (max-width: 720px) {
+    .signatures { grid-template-columns: 1fr; }
+  }
+  .sig {
+    border: 1px solid var(--hairline);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .sig .avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--cehta-green-light);
+    color: var(--cehta-green);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600; font-size: 15px;
+  }
+  .sig .meta-sig { flex: 1; }
+  .sig .role { font-size: 11px; font-weight: 600;
+    color: var(--ink-500); text-transform: uppercase;
+    letter-spacing: 0.08em; }
+  .sig .name { font-size: 14px; font-weight: 600; margin-top: 2px; }
+  .sig .when { font-size: 12px; color: var(--ink-500); margin-top: 1px; }
+  .sig .check {
+    color: var(--cehta-green);
+    font-size: 22px;
+  }
+
+  /* FAQ */
+  details.faq {
+    border-bottom: 1px solid var(--hairline);
+    padding: 18px 0;
+  }
+  details.faq summary {
+    cursor: pointer; list-style: none;
+    font-size: 17px; font-weight: 500;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::after {
+    content: "+";
+    color: var(--ink-500); font-size: 22px;
+    transition: transform 0.2s;
+    line-height: 1;
+  }
+  details.faq[open] summary::after { content: "−"; }
+  details.faq p {
+    margin: 14px 0 0;
+    color: var(--ink-500);
+    font-size: 15px; line-height: 1.55;
+  }
+
+  /* Footer */
+  footer {
+    max-width: 980px; margin: 0 auto;
+    padding: 48px 24px 80px;
+    text-align: center;
+    color: var(--ink-300);
+    font-size: 12px;
+  }
+  footer p { margin: 4px 0; }
+
+  /* Toggle / checkbox button */
+  .check-btn {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: none; border: none; cursor: pointer;
+    color: var(--ink-500); font-size: 14px;
+    padding: 4px 0;
+    user-select: none;
+  }
+  .check-btn .box {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    border: 1.5px solid var(--ink-300);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .check-btn.done { color: var(--cehta-green); }
+  .check-btn.done .box {
+    background: var(--cehta-green);
+    border-color: var(--cehta-green);
+    color: white;
+  }
+  .check-btn .box::after {
+    content: ""; opacity: 0;
+    width: 6px; height: 11px;
+    border-right: 2px solid white;
+    border-bottom: 2px solid white;
+    transform: rotate(45deg) translateY(-1px);
+    transition: opacity 0.15s;
+  }
+  .check-btn.done .box::after { opacity: 1; }
+
+  /* Highlight box */
+  .highlight {
+    background: var(--cehta-green-light);
+    border-left: 3px solid var(--cehta-green);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 20px 0;
+    font-size: 15px;
+    color: var(--ink-700);
+  }
+  .highlight strong { color: var(--ink-900); }
+
+  /* Code-like inline */
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    background: var(--ink-50);
+    padding: 2px 6px;
+    border-radius: 5px;
+    color: var(--ink-700);
+  }
+
+  .anchor-target { scroll-margin-top: 72px; }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="nav-inner">
+    <div class="nav-brand">
+      <span class="dot"></span>
+      <span>Cehta Capital · Vouchers</span>
+    </div>
+    <div class="nav-progress">
+      <span><span id="progressCount">0</span>/9 secciones leídas</span>
+      <div class="bar-wrap"><div class="bar" id="progressBar"></div></div>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="eyebrow">Módulo operativo · FIP CEHTA ESG</div>
+  <h1>Vouchers</h1>
+  <p class="lede">
+    El corazón administrativo del fondo: un voucher es la unidad mínima
+    de toda operación financiera. Esta guía te muestra las pestañas, los
+    9 estados del ciclo de vida y las 4 vistas rápidas para operadores.
+  </p>
+  <div class="meta">
+    <span><strong>56</strong> vouchers activos</span>
+    <span><strong>10</strong> empresas</span>
+    <span><strong>9</strong> estados</span>
+    <span><strong>4</strong> vistas rápidas</span>
+  </div>
+</header>
+
+<section class="block anchor-target" id="que-es">
+  <div class="section-head">
+    <h2>¿Qué es un voucher?</h2>
+    <p>Un voucher representa una transacción contable controlada: pago a proveedor,
+       reembolso, ajuste, transferencia entre cuentas. Cada uno cruza por un flujo
+       de aprobaciones y queda como evidencia tributaria + auditable.</p>
+  </div>
+
+  <div class="highlight">
+    <strong>Regla de oro:</strong> ninguna plata sale sin un voucher en estado
+    APPROVED (con las 2 firmas requeridas: contador + director). Esta es la
+    salvaguarda principal frente al CMF, UAF y el auditor externo.
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <h3>📑 Origen</h3>
+      <p>Manual (carga de OC pagada), import Excel/CSV, scraping Nubox/SII,
+         clasificación IA de inbox/PDFs Dropbox.</p>
+    </div>
+    <div class="card">
+      <h3>✍️ Doble firma</h3>
+      <p>Workflow de aprobaciones: <code>CONTADOR</code> + <code>DIRECTOR</code>
+         o <code>CEO</code> + <code>CFO</code> según monto y empresa.</p>
+    </div>
+    <div class="card">
+      <h3>🔁 Conciliación</h3>
+      <p>Al ejecutarse, se cruza contra cartolas bancarias y se exporta a
+         Nubox (sistema contable oficial) cuando llega a SYNCED.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="estados">
+  <div class="section-head">
+    <h2>Los 9 estados del voucher</h2>
+    <p>Cada estado tiene una etiqueta visible, un código de color institucional y
+       transiciones específicas. No se puede saltar pasos: el flujo es estricto.</p>
+  </div>
+
+  <div class="grid grid-3">
+
+    <div class="card">
+      <span class="tag pill-DRAFT">DRAFT · Borrador</span>
+      <h3>Recién creado</h3>
+      <p>El operador armó el voucher pero aún no lo manda a firma. Editable
+         libremente. Aparece en el filtro <em>Borradores</em>.</p>
+      <div class="meta-line">→ Acción: enviar a firma</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-PENDING">PENDING · Pendiente</span>
+      <h3>En firma</h3>
+      <p>Esperando aprobación. Se notifica al firmante elegible (vía email +
+         badge en sidebar). Editable solo si el firmante rechaza.</p>
+      <div class="meta-line">→ Acciones: aprobar / rechazar</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-APPROVED">APPROVED · Aprobado</span>
+      <h3>Firmas completas</h3>
+      <p>Las 2 (o 3) firmas requeridas se completaron. Listo para
+         ejecutarse: transferencia bancaria desde tesorería.</p>
+      <div class="meta-line">→ Acción: marcar como ejecutado</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-EXECUTED">EXECUTED · Ejecutado</span>
+      <h3>Pagado</h3>
+      <p>La transferencia salió del banco. Se puede subir comprobante PDF
+         (opcional, no obligatorio).</p>
+      <div class="meta-line">→ Acción: sincronizar a Nubox</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-SYNCED">SYNCED · Sync Nubox</span>
+      <h3>Exportado a contabilidad</h3>
+      <p>El asiento contable se mandó a Nubox. MCG Consultores lo recibe
+         como movimiento oficial.</p>
+      <div class="meta-line">→ Acción: conciliar con cartola</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-RECONCILED">RECONCILED · Conciliado</span>
+      <h3>Cruzado con banco</h3>
+      <p>Se matchea con el movimiento real en la cartola bancaria.
+         Estado terminal "feliz". Listo para cierre mensual.</p>
+      <div class="meta-line">→ Acción: cerrar mes</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-CLOSED">CLOSED · Cerrado</span>
+      <h3>Mes cerrado</h3>
+      <p>El cierre contable del período se aprobó. El voucher es inmutable
+         a partir de este punto, salvo ajustes auditables.</p>
+      <div class="meta-line">→ Estado terminal</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-REJECTED">REJECTED · Rechazado</span>
+      <h3>Firma denegada</h3>
+      <p>El firmante rechazó con motivo. Vuelve a DRAFT para que el operador
+         corrija y re-envíe. Queda traza del rechazo.</p>
+      <div class="meta-line">→ Acción: editar y re-enviar</div>
+    </div>
+
+    <div class="card">
+      <span class="tag pill-VOID">VOID · Anulado</span>
+      <h3>Anulado</h3>
+      <p>Cancelado deliberadamente (error material, duplicado, etc.).
+         Requiere comentario obligatorio. No se borra: queda como evidencia.</p>
+      <div class="meta-line">→ Estado terminal</div>
+    </div>
+
+  </div>
+</section>
+
+<section class="block anchor-target" id="flujo">
+  <div class="section-head">
+    <h2>Flujo principal · feliz path</h2>
+    <p>El recorrido normal de un voucher cuando todo sale bien — desde la
+       carga inicial hasta el cierre del mes.</p>
+  </div>
+
+  <div class="flow">
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="sub">1</div>
+        <h4>DRAFT</h4>
+        <span class="arrow">→</span>
+      </div>
+      <div class="flow-step">
+        <div class="sub">2</div>
+        <h4>PENDING</h4>
+        <span class="arrow">→</span>
+      </div>
+      <div class="flow-step">
+        <div class="sub">3</div>
+        <h4>APPROVED</h4>
+        <span class="arrow">→</span>
+      </div>
+      <div class="flow-step">
+        <div class="sub">4</div>
+        <h4>EXECUTED</h4>
+        <span class="arrow">→</span>
+      </div>
+      <div class="flow-step">
+        <div class="sub">5</div>
+        <h4>SYNCED</h4>
+        <span class="arrow">→</span>
+      </div>
+      <div class="flow-step">
+        <div class="sub">6</div>
+        <h4>RECONCILED</h4>
+        <span class="arrow">→</span>
+      </div>
+      <div class="flow-step">
+        <div class="sub">7</div>
+        <h4>CLOSED</h4>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="vistas">
+  <div class="section-head">
+    <h2>Las 4 vistas rápidas</h2>
+    <p>Atajos de un click que filtran la lista de vouchers según el caso de
+       uso diario más común. Personalizables después de aplicarlas.</p>
+  </div>
+
+  <div class="mock">
+    <div class="mock-titlebar">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="url">/vouchers</div>
+    </div>
+    <div class="mock-body">
+      <div style="font-size: 11px; font-weight: 600; text-transform: uppercase;
+                  letter-spacing: 0.16em; color: var(--ink-500);">
+        Vistas rápidas
+      </div>
+      <div class="mock-chips">
+        <span class="mock-chip active-amber">🔔 Pendientes de firma</span>
+        <span class="mock-chip active-ink">✏️ Borradores</span>
+        <span class="mock-chip active-blue">📅 Este mes</span>
+        <span class="mock-chip active-purple">🤖 Importados por IA</span>
+      </div>
+
+      <div style="margin-top: 20px;">
+        <table class="mock-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Empresa</th><th>Proveedor</th>
+              <th>Monto</th><th>Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>V-1042</td><td>CSL</td><td>Falabella SpA</td>
+              <td style="text-align:right">$ 845.000</td>
+              <td><span class="tag pill-PENDING" style="margin:0">PENDING</span></td>
+            </tr>
+            <tr>
+              <td>V-1041</td><td>RHO</td><td>Servipag</td>
+              <td style="text-align:right">$ 320.500</td>
+              <td><span class="tag pill-PENDING" style="margin:0">PENDING</span></td>
+            </tr>
+            <tr>
+              <td>V-1040</td><td>EVOQUE</td><td>Despachos Norte</td>
+              <td style="text-align:right">$ 1.245.000</td>
+              <td><span class="tag pill-APPROVED" style="margin:0">APPROVED</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-2" style="margin-top:24px;">
+    <div class="card">
+      <span class="tag pill-PENDING">🔔 Pendientes de firma</span>
+      <h3>Para el firmante</h3>
+      <p>Vouchers que esperan tu firma. Filtra <code>status=PENDING</code> en
+         las empresas donde sos contador o director. Cero clicks adicionales.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-DRAFT">✏️ Borradores</span>
+      <h3>Para el operador</h3>
+      <p>Vouchers a medio armar. Sirve para retomar trabajo cargado el día
+         anterior o para limpiar borradores que ya no sirven.</p>
+    </div>
+    <div class="card">
+      <span class="tag" style="background:var(--blue-bg); color:var(--blue)">📅 Este mes</span>
+      <h3>Para el cierre mensual</h3>
+      <p>Aplica filtro de fecha desde/hasta al mes corriente. Útil al revisar
+         el universo del cierre o preparar el reporte EEFF.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-AI">🤖 Importados por IA</span>
+      <h3>Para revisar IA</h3>
+      <p>Vouchers que la IA cargó automáticamente desde inbox, OCR de PDFs
+         Dropbox, o extracción de OCs. Revisar antes de firmar.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="filtros">
+  <div class="section-head">
+    <h2>Filtros disponibles</h2>
+    <p>Adicional a las vistas rápidas, podés filtrar por cualquier combinación
+       de estos campos. Los filtros se persisten en la URL para compartir vistas.</p>
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <h3>Empresa</h3>
+      <p>Filtra por una de las 10 empresas del fondo (6 portfolio + 4 holding).</p>
+    </div>
+    <div class="card">
+      <h3>Tipo de voucher</h3>
+      <p>Pago, reembolso, transferencia interna, ajuste contable, otros.</p>
+    </div>
+    <div class="card">
+      <h3>Estado</h3>
+      <p>Cualquiera de los 9 estados. Combina con vistas rápidas.</p>
+    </div>
+    <div class="card">
+      <h3>Rango de fechas</h3>
+      <p>Fecha desde + fecha hasta. Por defecto: últimos 90 días.</p>
+    </div>
+    <div class="card">
+      <h3>RUT contraparte</h3>
+      <p>Buscar todos los vouchers asociados a un proveedor específico.</p>
+    </div>
+    <div class="card">
+      <h3>Fuente / Origen</h3>
+      <p>Manual, Excel import, Nubox, SII, IA inbox, OCR Dropbox.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="detalle">
+  <div class="section-head">
+    <h2>Vista de detalle</h2>
+    <p>Al clickear un voucher en la lista, se abre la pantalla completa con
+       toda la info: encabezado, líneas contables, adjuntos, historial de firmas
+       y trazabilidad.</p>
+  </div>
+
+  <div class="mock">
+    <div class="mock-titlebar">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="url">/vouchers/1042</div>
+    </div>
+    <div class="mock-body">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div style="font-size: 11px; color: var(--ink-500); text-transform: uppercase; letter-spacing: 0.08em;">
+            Voucher · CSL
+          </div>
+          <h3 style="margin:4px 0 0; font-size: 24px;">V-1042 · Compra insumos Falabella</h3>
+          <div style="font-size: 13px; color: var(--ink-500); margin-top: 4px;">
+            Pago a proveedor · 2026-05-20
+          </div>
+        </div>
+        <span class="tag pill-PENDING" style="font-size:13px; padding:6px 14px;">PENDING</span>
+      </div>
+
+      <div style="margin-top: 24px; border-top: 1px solid var(--hairline); padding-top: 20px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--ink-500); letter-spacing: 0.08em; margin-bottom: 12px;">
+          Líneas contables
+        </div>
+        <table class="mock-table">
+          <thead>
+            <tr><th>Cuenta</th><th>Concepto</th><th style="text-align:right">Debe</th><th style="text-align:right">Haber</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>5101 Insumos</td><td>Falabella · OC #4421</td><td style="text-align:right">710.084</td><td></td></tr>
+            <tr><td>2104 IVA Crédito</td><td>IVA 19%</td><td style="text-align:right">134.916</td><td></td></tr>
+            <tr><td>1101 Banco BCI</td><td>Egreso transferencia</td><td></td><td style="text-align:right">845.000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top: 24px;">
+        <div style="font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--ink-500); letter-spacing: 0.08em; margin-bottom: 4px;">
+          Firmas requeridas
+        </div>
+        <div class="signatures">
+          <div class="sig">
+            <div class="avatar">EN</div>
+            <div class="meta-sig">
+              <div class="role">Contador</div>
+              <div class="name">Esteban Navarro</div>
+              <div class="when">Firmado 2026-05-21 · 14:32</div>
+            </div>
+            <div class="check">✓</div>
+          </div>
+          <div class="sig" style="background: var(--ink-50);">
+            <div class="avatar" style="background:var(--amber-bg); color:var(--amber)">??</div>
+            <div class="meta-sig">
+              <div class="role">Director</div>
+              <div class="name" style="color:var(--ink-500); font-weight:500;">Pendiente</div>
+              <div class="when">Esperando firma desde 2026-05-21</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="acciones">
+  <div class="section-head">
+    <h2>Acciones masivas (bulk)</h2>
+    <p>Cuando se acumulan vouchers, hay 3 acciones que permiten operar sobre
+       muchos a la vez seleccionando con checkbox.</p>
+  </div>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <h3>✓ Firmar lote</h3>
+      <p>Para el firmante: seleccionás N vouchers PENDING y firmás todos
+         con un solo click. El backend itera 1 por 1 y reporta éxitos/saltos.</p>
+    </div>
+    <div class="card">
+      <h3>$ Marcar pagados</h3>
+      <p>Para tesorería: tras hacer la transferencia bancaria, seleccionás
+         los APPROVED y los pasás a EXECUTED. Permite (opcional) subir
+         comprobante adjunto.</p>
+    </div>
+    <div class="card">
+      <h3>📤 Excel transferencia</h3>
+      <p>Descarga un .xlsx con columnas (RUT, banco, cuenta, monto, glosa)
+         listas para pegar en la plataforma del banco y hacer la nómina.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="rutas">
+  <div class="section-head">
+    <h2>Las 7 sub-rutas</h2>
+    <p>Adicional a la lista principal y al detalle, el módulo tiene 7
+       pantallas especializadas para casos puntuales.</p>
+  </div>
+
+  <div class="grid grid-2">
+    <div class="card">
+      <span class="tag pill-PENDING">/vouchers/nuevo</span>
+      <h3>Crear manualmente</h3>
+      <p>Formulario completo para un voucher desde cero: empresa, proveedor,
+         líneas, fechas. Útil cuando no hay OC previa.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-AI">/vouchers/import</span>
+      <h3>Importar Excel</h3>
+      <p>Sube un Excel con N filas y se crean N vouchers en estado DRAFT.
+         Validación previa con dry-run.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-AI">/vouchers/importar</span>
+      <h3>Importar (legacy)</h3>
+      <p>Versión anterior del importador. Mantenida para compatibilidad
+         con plantillas previas a R110.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-AI">/vouchers/desde-mensaje</span>
+      <h3>Desde inbox IA</h3>
+      <p>La IA detectó un mensaje (email o PDF Dropbox) que parece factura.
+         Esta pantalla muestra los campos extraídos para confirmar y crear el voucher.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-SYNCED">/vouchers/nubox</span>
+      <h3>Nubox sync</h3>
+      <p>Vouchers que están listos o ya se exportaron a Nubox (CSV o API REST).
+         Manejo del batch + reintentos.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-APPROVED">/vouchers/corfo</span>
+      <h3>Rendición CORFO</h3>
+      <p>Filtro especial para vouchers que se rinden contra el subsidio CORFO.
+         Genera el reporte requerido para la rendición trimestral.</p>
+    </div>
+    <div class="card">
+      <span class="tag pill-DRAFT">/vouchers/templates</span>
+      <h3>Plantillas recurrentes</h3>
+      <p>Vouchers que se repiten cada mes (sueldos, AFP, leasings).
+         Configurar una vez, generar copia mensual con 1 click.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block anchor-target" id="faq">
+  <div class="section-head">
+    <h2>Preguntas frecuentes</h2>
+    <p>Si el voucher no aparece en la lista o no podés firmarlo, leé estas
+       respuestas antes de pedir soporte.</p>
+  </div>
+
+  <details class="faq">
+    <summary>¿Por qué no veo el botón "Firmar" en un voucher PENDING?</summary>
+    <p>Tu rol en esa empresa no te permite firmar ese voucher específico.
+       Cada empresa configura sus reglas de aprobación (en
+       <code>/admin/approval-rules</code>) — pueden requerir firmas
+       específicas según monto. Si el voucher está PENDING pero vos no sos
+       el firmante elegible, el botón no aparece.</p>
+  </details>
+  <details class="faq">
+    <summary>¿Puedo editar un voucher después de firmarlo?</summary>
+    <p>No. Una vez en APPROVED, EXECUTED, SYNCED, RECONCILED o CLOSED,
+       el voucher es inmutable. La única forma de "modificar" es anularlo
+       (VOID) con comentario y crear uno nuevo. Esto es regulatorio:
+       el SII y la CMF exigen que la traza no se borre.</p>
+  </details>
+  <details class="faq">
+    <summary>¿Qué pasa si me equivoco al firmar?</summary>
+    <p>Si firmaste por error y todavía no se ejecutó (estado APPROVED),
+       podés "rechazar" desde el panel de aprobaciones — vuelve a DRAFT y
+       queda traza del cambio. Si ya pasó a EXECUTED, hay que VOID y rehacer.</p>
+  </details>
+  <details class="faq">
+    <summary>¿Por qué algunos vouchers tienen un ícono 🤖?</summary>
+    <p>Son vouchers cargados automáticamente por la IA (inbox classifier o
+       OCR de PDFs Dropbox). Siempre se crean en DRAFT y requieren que un
+       humano revise los campos extraídos antes de pasar a PENDING.</p>
+  </details>
+  <details class="faq">
+    <summary>¿Qué significa "Sync Nubox"?</summary>
+    <p>Nubox es nuestro sistema contable externo oficial — MCG Consultores lleva
+       la contabilidad ahí. Cuando un voucher se ejecuta, hay que mandar el
+       asiento contable a Nubox vía CSV o API REST. SYNCED indica que el
+       asiento ya quedó replicado en Nubox.</p>
+  </details>
+  <details class="faq">
+    <summary>¿Y la conciliación bancaria?</summary>
+    <p>Cuando el banco descarga su cartola del mes a la plataforma, el sistema
+       intenta matchear cada línea de cartola con un voucher EXECUTED. Si
+       hay match (por monto + fecha + glosa), el voucher pasa a RECONCILED.
+       Si no, queda como excepción para revisión manual.</p>
+  </details>
+  <details class="faq">
+    <summary>¿Quién puede anular (VOID) un voucher?</summary>
+    <p>Solo roles ADMIN o CFO. Y siempre con comentario obligatorio
+       explicando el motivo. La acción queda en <code>audit.action_log</code>
+       con timestamp, user_id y motivo para auditoría futura.</p>
+  </details>
+</section>
+
+<section class="block anchor-target" id="checklist">
+  <div class="section-head">
+    <h2>Tu checklist de exploración</h2>
+    <p>Si querés ir paso a paso por el módulo para conocerlo, te dejo
+       este checklist guiado. Tus avances se guardan en este navegador.</p>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <button class="check-btn" data-step="1">
+      <span class="box"></span>
+      <span>Abrir <code>/vouchers</code> y mirar la lista completa</span>
+    </button>
+    <button class="check-btn" data-step="2">
+      <span class="box"></span>
+      <span>Click en chip "🔔 Pendientes de firma" y observar el subconjunto</span>
+    </button>
+    <button class="check-btn" data-step="3">
+      <span class="box"></span>
+      <span>Click en chip "📅 Este mes" y combinar con filtro de empresa</span>
+    </button>
+    <button class="check-btn" data-step="4">
+      <span class="box"></span>
+      <span>Abrir un voucher en estado PENDING (click en la fila)</span>
+    </button>
+    <button class="check-btn" data-step="5">
+      <span class="box"></span>
+      <span>Revisar las líneas contables — debe cuadrar Debe = Haber</span>
+    </button>
+    <button class="check-btn" data-step="6">
+      <span class="box"></span>
+      <span>Ver el panel de firmas y quién está pendiente</span>
+    </button>
+    <button class="check-btn" data-step="7">
+      <span class="box"></span>
+      <span>Volver a la lista y probar el filtro por estado=APPROVED</span>
+    </button>
+    <button class="check-btn" data-step="8">
+      <span class="box"></span>
+      <span>Seleccionar 2 vouchers APPROVED y descargar "Excel transferencia"</span>
+    </button>
+    <button class="check-btn" data-step="9">
+      <span class="box"></span>
+      <span>Explorar <code>/vouchers/nuevo</code> sin guardar nada</span>
+    </button>
+  </div>
+</section>
+
+<footer>
+  <p><strong>Cehta Capital · FIP CEHTA ESG</strong></p>
+  <p>Plataforma operativa interna · Round 152d · Generado para mostrar el módulo vouchers</p>
+  <p style="margin-top:16px;">Esta guía es <strong>estática</strong>. Para operar de verdad ir a <code>https://cehta-capital.vercel.app/vouchers</code></p>
+</footer>
+
+<script>
+  // Checklist persistente con localStorage
+  (function(){
+    const KEY = "cehta-voucher-guide-checklist";
+    const buttons = document.querySelectorAll(".check-btn");
+    const sectionsTotal = 9;
+
+    let state = {};
+    try { state = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch(_) {}
+
+    function syncUi() {
+      let done = 0;
+      buttons.forEach(b => {
+        const step = b.dataset.step;
+        if (state[step]) {
+          b.classList.add("done");
+          done++;
+        } else {
+          b.classList.remove("done");
+        }
+      });
+      document.getElementById("progressCount").textContent = done;
+      const pct = (done / buttons.length) * 100;
+      document.getElementById("progressBar").style.width = pct + "%";
+    }
+
+    buttons.forEach(b => {
+      b.addEventListener("click", () => {
+        const step = b.dataset.step;
+        state[step] = !state[step];
+        localStorage.setItem(KEY, JSON.stringify(state));
+        syncUi();
+      });
+    });
+
+    syncUi();
+  })();
+</script>
+
+</body>
+</html>

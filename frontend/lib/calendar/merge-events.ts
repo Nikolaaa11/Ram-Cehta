@@ -19,6 +19,7 @@ import type {
 // Como TipoEvento es un Literal cerrado, usamos casts deliberados.
 const OBLIGATION_TO_EVENT_TIPO: Record<string, string> = {
   f29: "f29",
+  f22: "f22", // R152z: F22 (Renta) — venía cayendo a "otro" y se perdía
   legal: "legal",
   oc: "oc",
   suscripcion: "suscripcion",

@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 const TIPO_COLOR: Record<string, string> = {
   f29: "bg-cehta-green",
+  f22: "bg-warning",
   reporte_lp: "bg-sf-blue",
   comite: "bg-sf-purple",
   reporte_trimestral: "bg-warning",
@@ -41,6 +42,7 @@ export function EventDot({
 
 export const TIPO_LABEL: Record<string, string> = {
   f29: "F29",
+  f22: "F22 (Renta)",
   reporte_lp: "Reporte LP",
   comite: "Comité",
   reporte_trimestral: "Reporte Trim.",

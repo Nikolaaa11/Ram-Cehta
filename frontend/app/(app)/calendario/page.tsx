@@ -38,6 +38,7 @@ import type {
 
 const TIPOS_LEGEND = [
   "f29",
+  "f22", // R152z: F22 anual (renta)
   "reporte_lp",
   "comite",
   "reporte_trimestral",
@@ -55,6 +56,7 @@ type Tab = "mes" | "obligaciones";
 
 const OBLIGATION_TIPOS: { value: ObligationTipo; label: string }[] = [
   { value: "f29", label: "F29" },
+  { value: "f22", label: "F22 (Renta)" }, // R152z
   { value: "legal", label: "Legal" },
   { value: "oc", label: "OC" },
   { value: "suscripcion", label: "Suscripción" },

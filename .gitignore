@@ -2,11 +2,18 @@
 .env
 .env.local
 .env.*.local
+.env.backup*
 *.pem
 *.key
 # Round 79 — credenciales temporales de testing (NUNCA committear)
 docs/*credentials*.local.md
 docs/test_credentials*.md
+# R152z — scripts ad-hoc con secrets hardcoded (NUNCA committear)
+backend/scripts/reset_passwords_*.py
+backend/scripts/apply_sql_to_brasil.py
+backend/scripts/dump_schema.py
+backend/scripts/migrate_auth_users.py
+backend/scripts/backup_supabase.py
 
 # Database backups (contienen PII y credenciales auditadas — NUNCA committear)
 backup_cehta_*.sql
@@ -65,3 +72,6 @@ backend/openapi.json.bak
 
 # Alembic — versions SI se commitean, pero no los logs
 backend/alembic.log
+.env.brasil*
+
+.vercel

@@ -33,6 +33,7 @@ const TIPO_META: Record<
   { label: string; icon: React.ElementType; color: string }
 > = {
   f29: { label: "F29 / Tributario", icon: Receipt, color: "text-warning" },
+  f22: { label: "F22 / Renta Anual", icon: Receipt, color: "text-warning" }, // R152z
   legal: { label: "Contratos & Legal", icon: ScrollText, color: "text-info" },
   oc: { label: "Órdenes de Compra", icon: FileText, color: "text-cehta-green" },
   suscripcion: {
@@ -81,7 +82,16 @@ const SEVERITY_META: Record<
   },
 };
 
-const TIPO_ORDER: Tipo[] = ["f29", "oc", "legal", "suscripcion", "event"];
+const TIPO_ORDER: Tipo[] = [
+  "f29",
+  "f22", // R152z
+  "oc",
+  "legal",
+  "suscripcion",
+  "hito",
+  "entregable",
+  "event",
+];
 
 function formatRelative(daysUntil: number): string {
   if (daysUntil < 0) return `Vencido hace ${Math.abs(daysUntil)}d`;
@@ -164,6 +174,7 @@ export default function ActionCenterPage() {
   const grouped = useMemo(() => {
     const m: Record<Tipo, ObligationItem[]> = {
       f29: [],
+      f22: [], // R152z
       oc: [],
       legal: [],
       suscripcion: [],

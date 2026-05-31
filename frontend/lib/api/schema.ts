@@ -699,6 +699,7 @@ export interface AgentRunReport {
 
 export type ObligationTipo =
   | "f29"
+  | "f22"         // R152z: declaración anual de impuesto a la renta (vence abril)
   | "legal"
   | "oc"
   | "suscripcion"

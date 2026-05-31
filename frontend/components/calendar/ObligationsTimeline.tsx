@@ -27,6 +27,7 @@ import type {
 
 const TIPO_LABEL: Record<ObligationTipo, string> = {
   f29: "F29",
+  f22: "F22 (Renta)",
   legal: "Legal",
   oc: "OC",
   suscripcion: "Suscripción",
@@ -37,6 +38,7 @@ const TIPO_LABEL: Record<ObligationTipo, string> = {
 
 const TIPO_ICON: Record<ObligationTipo, typeof Receipt> = {
   f29: Receipt,
+  f22: Receipt,
   legal: Scale,
   oc: FileText,
   suscripcion: TrendingUp,
@@ -48,6 +50,7 @@ const TIPO_ICON: Record<ObligationTipo, typeof Receipt> = {
 // Color de pill por tipo (chip pequeño con badge del tipo).
 const TIPO_PILL: Record<ObligationTipo, string> = {
   f29: "bg-cehta-green/10 text-cehta-green",
+  f22: "bg-warning/15 text-warning",
   legal: "bg-sf-purple/10 text-sf-purple",
   oc: "bg-sf-blue/10 text-sf-blue",
   suscripcion: "bg-warning/15 text-warning",
