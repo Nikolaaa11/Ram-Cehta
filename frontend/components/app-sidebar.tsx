@@ -44,6 +44,7 @@ import {
   Book,
   ClipboardList,
   GanttChartSquare,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -317,6 +318,13 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users },
+      // R152dd — Dashboard NPS feedback.
+      {
+        href: "/admin/feedback" as Route,
+        label: "Feedback NPS",
+        icon: MessageSquare,
+        title: "Respuestas de feedback de usuarios por flujo (crear, firmar, pagar, CORFO).",
+      },
       // Round 152w — Generador Rendiciones CORFO (REVTECH + TRONGKAI).
       {
         href: "/admin/rendiciones-corfo" as Route,

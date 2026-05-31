@@ -19,6 +19,8 @@ import {
   Crown,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
+import { AdoptionQuadrant } from "@/components/admin/AdoptionQuadrant";
+import { DonutKPI } from "@/components/charts/DonutKPI";
 import { useSession } from "@/hooks/use-session";
 
 interface AdoptionRow {
@@ -155,6 +157,62 @@ export default function AdopcionPage() {
           bg="bg-ink-50"
         />
       </div>
+
+      {/* R152cc — Donuts de salud de adopción */}
+      <div className="mt-6 flex flex-wrap items-center justify-around gap-4 rounded-2xl border border-hairline bg-gradient-to-br from-white to-ink-50/40 p-6 shadow-card">
+        <div className="text-center">
+          <DonutKPI
+            value={stats.aliados}
+            total={Math.max(stats.total, 1)}
+            label="% Aliados"
+            color="#10B981"
+            size={130}
+          />
+        </div>
+        <div className="text-center">
+          <DonutKPI
+            value={stats.total - stats.sin_activar}
+            total={Math.max(stats.total, 1)}
+            label="% Activos"
+            color="#3B82F6"
+            size={130}
+          />
+        </div>
+        <div className="text-center">
+          <DonutKPI
+            value={stats.detractores}
+            total={Math.max(stats.total, 1)}
+            label="% Detractores"
+            color="#DC2626"
+            size={130}
+          />
+        </div>
+        <div className="text-center">
+          <DonutKPI
+            value={stats.impactoA}
+            total={Math.max(stats.total, 1)}
+            label="% Alto impacto"
+            color="#F59E0B"
+            size={130}
+          />
+        </div>
+      </div>
+
+      {/* R152cc — Mapa cuadrante 2×2 */}
+      <section className="mt-6 rounded-2xl border border-hairline bg-white p-6 shadow-card">
+        <header className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-semibold tracking-tight text-ink-900">
+              Mapa de cuadrantes · clasificación × impacto
+            </h3>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Cada punto es un usuario. Tu prioridad: <strong>Aliados-A</strong>{" "}
+              (cultivar) y <strong>Detractores-A</strong> (intervenir ya).
+            </p>
+          </div>
+        </header>
+        {!isLoading && rows && <AdoptionQuadrant rows={rows} />}
+      </section>
 
       {/* Concept card */}
       <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/50 p-5 text-sm text-amber-900">
