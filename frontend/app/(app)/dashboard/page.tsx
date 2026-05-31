@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -7,7 +8,28 @@ import { KpiHeroSkeleton } from "@/components/dashboard/KpiHeroSkeleton";
 import { KpiSecondarySection } from "@/components/dashboard/KpiSecondarySection";
 import { KpiSecondarySkeleton } from "@/components/dashboard/KpiSecondarySkeleton";
 import { DashboardEmptyState } from "@/components/dashboard/DashboardEmptyState";
-import { ChartsGrid } from "@/components/dashboard/ChartsGrid";
+
+// R152vv — Lazy-load ChartsGrid (4 charts recharts, ~80kB).
+// Aparece below the fold, no necesita estar en first-load.
+// Loading state: 4 skeletons grid matching final layout.
+const ChartsGrid = dynamic(
+  () =>
+    import("@/components/dashboard/ChartsGrid").then((m) => ({
+      default: m.ChartsGrid,
+    })),
+  {
+    loading: () => (
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-72 animate-pulse rounded-2xl bg-ink-100/40 ring-1 ring-hairline"
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 import { ProyectosRanking } from "@/components/dashboard/ProyectosRanking";
 import { ProyectosRankingSkeleton } from "@/components/dashboard/ProyectosRankingSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
@@ -109,27 +131,37 @@ export default async function DashboardPage({ searchParams }: PageProps) {
         </Suspense>
 
         {/* V5: Vouchers KPI strip — pendientes de firma, no conciliados, batches Nubox. */}
+        {/* R152vv — Suspense permite que el shell aparezca antes de los fetches. */}
         <ErrorBoundary>
-          <VouchersKpiStrip />
+          <Suspense fallback={<div className="h-24 animate-pulse rounded-2xl bg-ink-100/40" />}>
+            <VouchersKpiStrip />
+          </Suspense>
         </ErrorBoundary>
 
         {/* V5++: Pregunta natural sobre el fondo (Claude + snapshot). */}
         <ErrorBoundary>
-          <AiDataQAWidget />
+          <Suspense fallback={<div className="h-32 animate-pulse rounded-2xl bg-ink-100/40" />}>
+            <AiDataQAWidget />
+          </Suspense>
         </ErrorBoundary>
 
+        {/* ChartsGrid es lazy (dynamic) arriba — su propio loading state ya provee skeleton. */}
         <ErrorBoundary>
           <ChartsGrid />
         </ErrorBoundary>
 
         {/* V4 fase 7.15 — Mi semana: timeline horizontal 7 días */}
         <ErrorBoundary>
-          <MiSemanaWidget />
+          <Suspense fallback={<div className="h-40 animate-pulse rounded-2xl bg-ink-100/40" />}>
+            <MiSemanaWidget />
+          </Suspense>
         </ErrorBoundary>
 
         {/* V4 fase 7.10 — Compliance leaderboard cross-empresa */}
         <ErrorBoundary>
-          <ComplianceLeaderboard />
+          <Suspense fallback={<div className="h-48 animate-pulse rounded-2xl bg-ink-100/40" />}>
+            <ComplianceLeaderboard />
+          </Suspense>
         </ErrorBoundary>
 
         {/* Bottom row — ranking + activity feed (5/7 split en lg, stack en mobile) */}
