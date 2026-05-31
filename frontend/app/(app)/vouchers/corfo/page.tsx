@@ -36,7 +36,24 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
-import { RendicionDescargaSection } from "@/components/corfo/RendicionDescargaSection";
+import dynamic from "next/dynamic";
+
+// R152tt — Lazy-load RendicionDescargaSection. Ese componente importa
+// recharts (~80kB gzipped) y AnimatedNumber para los donuts. Como vive
+// debajo del form principal, no necesita estar en el primer-load.
+// Reduce /vouchers/corfo de 313kB → ~230kB First Load JS.
+const RendicionDescargaSection = dynamic(
+  () =>
+    import("@/components/corfo/RendicionDescargaSection").then((m) => ({
+      default: m.RendicionDescargaSection,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-72 animate-pulse rounded-3xl bg-amber-50/40 ring-1 ring-amber-200/40" />
+    ),
+  },
+);
 import type {
   PlanCuenta,
   ProyectoContable,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
@@ -533,11 +533,7 @@ const GROUPS: NavGroup[] = [
         label: "Auditoría de cambios",
         icon: ScrollText,
       },
-      {
-        href: "/admin/http-trail" as Route,
-        label: "Audit trail HTTP",
-        icon: ScrollText,
-      },
+      // R152tt — http-trail movido a "Avanzado" (es muy técnico, dev-only).
       {
         href: "/admin/data-quality" as Route,
         label: "Data Quality",
@@ -564,31 +560,8 @@ const GROUPS: NavGroup[] = [
         label: "Importar CSV",
         icon: Upload,
       },
-      {
-        href: "/admin/status" as Route,
-        label: "Status del sistema",
-        icon: Activity,
-      },
-      {
-        href: "/admin/health" as Route,
-        label: "Health detallado",
-        icon: Activity,
-      },
-      {
-        href: "/admin/webhooks" as Route,
-        label: "Webhooks",
-        icon: Webhook,
-      },
-      {
-        href: "/admin/api-tokens" as Route,
-        label: "API tokens",
-        icon: Key,
-      },
-      {
-        href: "/admin/api-docs" as Route,
-        label: "API docs",
-        icon: Book,
-      },
+      // R152tt — Movidos a "Avanzado": Status/Health duplicaban system-status,
+      // y Webhooks/API tokens/API docs/HTTP trail son dev-only.
       {
         // V4 fase 2: 2FA TOTP. Visible bajo "Admin" (mismo grupo que el
         // resto de configuración sensible). El target page acepta a
@@ -627,6 +600,45 @@ const GROUPS: NavGroup[] = [
         icon: Sparkles,
         tourId: "asistente",
       },
+      // R152tt — Items dev-only movidos desde Admin a Avanzado.
+      // Las URLs siguen siendo válidas — solo cambia el agrupamiento del sidebar
+      // para reducir bloat del menú Admin (era 25 items, ahora 18).
+      {
+        href: "/admin/http-trail" as Route,
+        label: "Audit trail HTTP",
+        icon: ScrollText,
+        title: "Log detallado de cada request HTTP entrante. Dev-only.",
+      },
+      {
+        href: "/admin/status" as Route,
+        label: "Status básico",
+        icon: Activity,
+        title: "Status rápido del sistema. Para vista completa usá Estado del sistema en Admin.",
+      },
+      {
+        href: "/admin/health" as Route,
+        label: "Health detallado",
+        icon: Activity,
+        title: "Health check exhaustivo de todas las integraciones. Tarda más en cargar.",
+      },
+      {
+        href: "/admin/webhooks" as Route,
+        label: "Webhooks",
+        icon: Webhook,
+        title: "Configurar webhooks salientes a sistemas externos.",
+      },
+      {
+        href: "/admin/api-tokens" as Route,
+        label: "API tokens",
+        icon: Key,
+        title: "Generar/revocar tokens API para integraciones externas.",
+      },
+      {
+        href: "/admin/api-docs" as Route,
+        label: "API docs",
+        icon: Book,
+        title: "Documentación OpenAPI del backend (Swagger UI).",
+      },
     ],
   },
 ];
@@ -656,15 +668,19 @@ export function AppSidebar({ email }: AppSidebarProps) {
   // como nivel ejecutivo: ve EJECUTIVO pero NO ve ADMIN.
   const isExecutive = isAdmin || role === "ceo";
 
-  const visibleGroups = GROUPS.filter((g) => {
-    if (g.id === "ejecutivo") return isExecutive;
-    if (g.id === "admin") return isAdmin;
-    // R152ss — grupos con requiresAccess se filtran caso a caso.
-    if (g.requiresAccess) {
-      return g.requiresAccess({ email, app_role: role });
-    }
-    return true; // operaciones, estrategia, documentos, avanzado → todos
-  });
+  // R152tt — Memoizar visibleGroups. Solo recalcula si cambian role/email,
+  // no en cada navegación. GROUPS es const, así que solo dependemos de los 3
+  // inputs reales. Antes: 72 items filtrados en CADA render = waste.
+  const visibleGroups = useMemo(
+    () =>
+      GROUPS.filter((g) => {
+        if (g.id === "ejecutivo") return isExecutive;
+        if (g.id === "admin") return isAdmin;
+        if (g.requiresAccess) return g.requiresAccess({ email, app_role: role });
+        return true;
+      }),
+    [isExecutive, isAdmin, role, email],
+  );
 
   // Round 152j — estado de grupos colapsables. Cada grupo arranca con su
   // defaultOpen (operaciones+documentos = true, resto = false). Si el user
