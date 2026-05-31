@@ -18,6 +18,7 @@ import {
   Activity,
   ShieldCheck,
   Landmark,
+  CircleDollarSign,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,7 +33,12 @@ interface TabDef {
   suffix: string;
   label: string;
   icon: LucideIcon;
+  /** Si está, solo aparece para empresas en este Set */
+  onlyForEmpresas?: Set<string>;
 }
+
+// R152ll — empresas con proyecto CORFO activo
+const CORFO_EMPRESAS = new Set(["REVTECH", "TRONGKAI"]);
 
 const TABS: TabDef[] = [
   { suffix: "", label: "Resumen", icon: Building2 },
@@ -47,6 +53,12 @@ const TABS: TabDef[] = [
   { suffix: "/trabajadores", label: "Trabajadores", icon: Users },
   { suffix: "/legal", label: "Legal", icon: Scale },
   { suffix: "/avance", label: "Avance", icon: Target },
+  {
+    suffix: "/rendicion-corfo",
+    label: "Rendición CORFO",
+    icon: CircleDollarSign,
+    onlyForEmpresas: CORFO_EMPRESAS,
+  },
   { suffix: "/documentos", label: "Documentos", icon: FolderOpen },
   { suffix: "/asistente", label: "AI Asistente", icon: Sparkles },
 ];
@@ -58,7 +70,7 @@ export function EmpresaTabs({ codigo }: { codigo: string }) {
   return (
     <nav className="-mx-6 lg:-mx-10 sticky top-0 z-20 border-b border-hairline bg-white/70 px-6 lg:px-10 backdrop-blur-xl">
       <ul className="flex flex-nowrap gap-1 overflow-x-auto pb-px">
-        {TABS.map((t) => {
+        {TABS.filter((t) => !t.onlyForEmpresas || t.onlyForEmpresas.has(codigo)).map((t) => {
           const Icon = t.icon;
           const href = `${base}${t.suffix}` as Route;
           const isActive =

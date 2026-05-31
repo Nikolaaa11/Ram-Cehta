@@ -394,7 +394,7 @@ async def generar_excel(
     # Pre-fill datos reales
     y, m = body.periodo.split("-")
     if body.tipo == "gastos":
-        # Vouchers tipo COMPRA del período
+        # Vouchers tipo COMPRA del período + fecha_ejecucion para llenar Forma/Fecha Pago
         rows_db = (await db.execute(text("""
             SELECT
                 v.voucher_id, v.fecha_contable::text, v.contraparte_rut, v.contraparte_nombre,
@@ -404,7 +404,9 @@ async def generar_excel(
                 COALESCE((SELECT SUM(vl.iva_amount) FROM core.voucher_lines vl
                           WHERE vl.voucher_id = v.voucher_id AND vl.iva_amount IS NOT NULL), 0) AS iva,
                 (SELECT vl.cuenta_codigo FROM core.voucher_lines vl WHERE vl.voucher_id = v.voucher_id
-                 AND vl.balance_treatment='GASTO' ORDER BY vl.line_number LIMIT 1) AS cuenta
+                 AND vl.balance_treatment='GASTO' ORDER BY vl.line_number LIMIT 1) AS cuenta,
+                v.fecha_ejecucion::text AS fecha_ejecucion,
+                v.status
             FROM core.vouchers v
             WHERE v.empresa_codigo = :emp AND v.tipo = 'COMPRA'
               AND EXTRACT(YEAR FROM v.fecha_contable) = :y
@@ -422,11 +424,19 @@ async def generar_excel(
         for ridx, r in enumerate(rows_db, start=2):
             cc, ci = mapping.get(r[8] or "", (None, None))
             neto = float(r[6] or 0); iva = float(r[7] or 0)
+            # R152ll — si el voucher ya está EXECUTED/SYNCED/RECONCILED y tiene
+            # fecha_ejecucion, prellenamos Forma de Pago + Fecha de Pago.
+            fecha_ejecucion = r[9] if len(r) > 9 else None
+            status_v = r[10] if len(r) > 10 else None
+            ejecutado = status_v in ("EXECUTED", "SYNCED", "RECONCILED")
+            forma_pago_val = "Transferencia electrónica" if ejecutado else ""
+            fecha_pago_val = fecha_ejecucion if (ejecutado and fecha_ejecucion) else ""
             row_data = [
                 cc, ci, "CORFO", periodo_corfo, "ETAPA 1",
                 "FACTURA", r[4] or "", r[2] or "", r[3] or "",
                 neto, iva, neto + iva, neto + iva,  # Monto a Rendir default = total
-                r[1], neto + iva, "", "", r[1], r[5], "", "",
+                r[1], neto + iva, forma_pago_val, fecha_pago_val,
+                r[1], r[5], "", "",
             ]
             for cidx, val in enumerate(row_data, start=1):
                 cell = ws.cell(row=ridx, column=cidx, value=val)
@@ -435,7 +445,10 @@ async def generar_excel(
                 # Marcar en amarillo lo que SE TIENE QUE COMPLETAR manualmente
                 if cidx in (1, 2) and not val:  # Cuenta + Ítem sin mapeo
                     cell.fill = YELLOW
-                if cidx in (16, 17):  # Forma de Pago + Fecha de Pago
+                # R152ll — solo marcamos Forma/Fecha Pago en amarillo si NO se llenaron
+                if cidx == 16 and not forma_pago_val:
+                    cell.fill = YELLOW
+                if cidx == 17 and not fecha_pago_val:
                     cell.fill = YELLOW
                 # Formato numérico
                 if cidx in (10, 11, 12, 13, 15) and isinstance(val, (int, float)):
