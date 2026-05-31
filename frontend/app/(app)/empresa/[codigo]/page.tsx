@@ -4,8 +4,12 @@ import { Surface } from "@/components/ui/surface";
 import { ResumenHero } from "@/components/empresa/ResumenHero";
 import { KpisGrid } from "@/components/empresa/KpisGrid";
 import { ComposicionTable } from "@/components/empresa/ComposicionTable";
-import { EgresosTipoCard } from "@/components/empresa/EgresosTipoCard";
-import { EgresosProyectoSection } from "@/components/empresa/EgresosProyectoSection";
+// R152fff — Lazy wrapper de los 2 charts pesados (recharts ~80kB).
+// Reduce /empresa/[codigo] de 396kB → ~310kB First Load JS.
+import {
+  LazyEgresosTipoCard as EgresosTipoCard,
+  LazyEgresosProyectoSection as EgresosProyectoSection,
+} from "@/components/empresa/LazyEgresosCharts";
 import { EntregablesEmpresaWidget } from "@/components/empresa/EntregablesEmpresaWidget";
 import type {
   EgresoProyectoItem,
