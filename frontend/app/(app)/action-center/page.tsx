@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
-  CheckCircle2,
   Receipt,
   FileText,
   ScrollText,
@@ -19,12 +18,16 @@ import {
 import { Surface } from "@/components/ui/surface";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
 import { useObligations } from "@/hooks/use-obligations";
 import type { ObligationItem } from "@/lib/api/schema";
 import { cn } from "@/lib/utils";
+import { HeaderBigNumber } from "@/components/action-center/HeaderBigNumber";
+import { TrendSparkline } from "@/components/action-center/TrendSparkline";
+import { SeverityDonuts } from "@/components/action-center/SeverityDonuts";
+import { EmptyStatePremium } from "@/components/action-center/EmptyStatePremium";
+import { StickyCriticalBar } from "@/components/action-center/StickyCriticalBar";
 
 type Tipo = ObligationItem["tipo"];
 
@@ -166,9 +169,17 @@ function ActionRow({ item }: { item: ObligationItem }) {
 
 export default function ActionCenterPage() {
   const [empresa, setEmpresa] = useState<string | null>(null);
+  const firstCriticalRef = useRef<HTMLDivElement | null>(null);
   const { data, isLoading, error, refetch } = useObligations(
     empresa ? { empresa_codigo: empresa } : {},
   );
+
+  const handleJumpToCritical = () => {
+    firstCriticalRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  };
 
   // Agrupar por tipo, ordenar por severity DESC + days_until ASC
   const grouped = useMemo(() => {
@@ -214,7 +225,12 @@ export default function ActionCenterPage() {
   }, [data]);
 
   return (
-    <div className="mx-auto max-w-[1200px] space-y-6">
+    <div
+      className={cn(
+        "mx-auto max-w-[1200px] space-y-6",
+        counts.critical > 0 && "pb-24",
+      )}
+    >
       {/* Header premium con gradient mesh — light mode only (Apple-tier) */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-cehta-green/[0.04] to-emerald-50/40 ring-1 ring-cehta-green/15 p-6 shadow-card">
         <div
@@ -246,9 +262,14 @@ export default function ActionCenterPage() {
               suscripciones, eventos. Agrupado por tipo, ordenado por urgencia.
             </p>
           </div>
-          {isLoading && (
-            <Loader2 className="h-5 w-5 animate-spin text-cehta-green shrink-0" />
-          )}
+          <div className="flex flex-col items-end gap-2">
+            {isLoading && (
+              <Loader2 className="h-5 w-5 animate-spin text-cehta-green shrink-0" />
+            )}
+            {!isLoading && !error && counts.total > 0 && (
+              <HeaderBigNumber total={counts.total} />
+            )}
+          </div>
         </div>
       </div>
 
@@ -306,6 +327,18 @@ export default function ActionCenterPage() {
         </Surface>
       </div>
 
+      {/* Donuts por severidad + sparkline de tendencia (R152jj) */}
+      {!isLoading && !error && counts.total > 0 && (
+        <>
+          <SeverityDonuts
+            critical={counts.critical}
+            warning={counts.warning}
+            info={counts.info}
+          />
+          <TrendSparkline obligations={data ?? []} />
+        </>
+      )}
+
       {/* Filter de empresa */}
       {empresasPresentes.length > 1 && (
         <div className="flex flex-wrap items-center gap-1.5">
@@ -359,67 +392,79 @@ export default function ActionCenterPage() {
         />
       )}
 
-      {/* Empty state — inbox zero! */}
-      {!isLoading && !error && counts.total === 0 && (
-        <EmptyState
-          icon={CheckCircle2}
-          title="Sin acciones pendientes"
-          description="No hay alertas críticas en este momento."
-          tone="positive"
-        />
-      )}
+      {/* Empty state premium — Caja regulatoria al día (R152jj) */}
+      {!isLoading && !error && counts.total === 0 && <EmptyStatePremium />}
 
       {/* Grouped sections */}
       {!isLoading && !error && counts.total > 0 && (
         <div className="space-y-4">
-          {TIPO_ORDER.map((tipo) => {
-            const items = grouped[tipo];
-            if (items.length === 0) return null;
-            const meta = TIPO_META[tipo];
-            const Icon = meta.icon;
-            const criticalInGroup = items.filter(
-              (i) => i.severity === "critical",
-            ).length;
-            return (
-              <Surface key={tipo} padding="none">
-                <Surface.Header className="border-b border-hairline px-5 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`inline-flex h-7 w-7 items-center justify-center rounded-lg bg-ink-100/40 ${meta.color}`}
-                      >
-                        <Icon className="h-4 w-4" strokeWidth={1.75} />
-                      </span>
-                      <Surface.Title>{meta.label}</Surface.Title>
-                      <Badge variant="neutral">{items.length}</Badge>
-                      {criticalInGroup > 0 && (
-                        <Badge variant="danger">
-                          <AlertTriangle
-                            className="mr-1 inline h-3 w-3"
-                            strokeWidth={2}
-                          />
-                          {criticalInGroup} urgente
-                          {criticalInGroup === 1 ? "" : "s"}
-                        </Badge>
+          {(() => {
+            let firstCriticalAssigned = false;
+            return TIPO_ORDER.map((tipo) => {
+              const items = grouped[tipo];
+              if (items.length === 0) return null;
+              const meta = TIPO_META[tipo];
+              const Icon = meta.icon;
+              const criticalInGroup = items.filter(
+                (i) => i.severity === "critical",
+              ).length;
+              return (
+                <Surface key={tipo} padding="none">
+                  <Surface.Header className="border-b border-hairline px-5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-lg bg-ink-100/40 ${meta.color}`}
+                        >
+                          <Icon className="h-4 w-4" strokeWidth={1.75} />
+                        </span>
+                        <Surface.Title>{meta.label}</Surface.Title>
+                        <Badge variant="neutral">{items.length}</Badge>
+                        {criticalInGroup > 0 && (
+                          <Badge variant="danger">
+                            <AlertTriangle
+                              className="mr-1 inline h-3 w-3"
+                              strokeWidth={2}
+                            />
+                            {criticalInGroup} urgente
+                            {criticalInGroup === 1 ? "" : "s"}
+                          </Badge>
+                        )}
+                      </div>
+                      {items.length > 5 && (
+                        <span className="text-xs text-ink-400">
+                          Mostrando todos los {items.length}
+                        </span>
                       )}
                     </div>
-                    {items.length > 5 && (
-                      <span className="text-xs text-ink-400">
-                        Mostrando todos los {items.length}
-                      </span>
-                    )}
+                  </Surface.Header>
+                  <div className="divide-y divide-hairline p-1">
+                    {items.map((item) => {
+                      const isFirstCritical =
+                        !firstCriticalAssigned && item.severity === "critical";
+                      if (isFirstCritical) firstCriticalAssigned = true;
+                      return (
+                        <div
+                          key={item.id}
+                          ref={isFirstCritical ? firstCriticalRef : undefined}
+                        >
+                          <ActionRow item={item} />
+                        </div>
+                      );
+                    })}
                   </div>
-                </Surface.Header>
-                <div className="divide-y divide-hairline p-1">
-                  {items.map((item) => (
-                    <ActionRow key={item.id} item={item} />
-                  ))}
-                </div>
-              </Surface>
-            );
-          })}
+                </Surface>
+              );
+            });
+          })()}
         </div>
       )}
+
+      {/* Sticky action bar — solo si hay críticas (R152jj) */}
+      <StickyCriticalBar
+        count={counts.critical}
+        onJump={handleJumpToCritical}
+      />
 
       {/* Footer cue */}
       {!isLoading && !error && counts.total > 0 && (

@@ -11,12 +11,18 @@
  * Botón "Nuevo voucher" → /vouchers/nuevo
  *
  * Apple-tier: hero editorial + KPIs + tabla con hover + filtros sticky.
+ *
+ * Round 152 (R152hh) — quick-filter chips extra (esta semana, sobre UF 100,
+ * pendiente mi firma), empty state Inbox, animacion stagger framer-motion
+ * para <=15 filas, toggle densidad compacto/comodo persistido en
+ * localStorage, tooltip rico Radix sobre el codigo del voucher.
  */
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowDownToLine,
@@ -26,10 +32,13 @@ import {
   FileSignature,
   MessageSquare,
   FileText,
+  Inbox,
   Loader2,
   Plus,
   Receipt,
   Package,
+  Rows3,
+  Rows4,
   RotateCcw,
   Search,
   Trash2,
@@ -37,6 +46,12 @@ import {
   Wallet,
   X,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -227,9 +242,17 @@ export function VouchersClientView({
     () => searchParams.get("hasta") ?? "",
   );
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
+  // R152hh — chip "Sobre UF 100". Declarado acá arriba para que el
+  // useEffect de URL sync (debajo) lo pueda leer sin error TS de
+  // "used before declaration".
+  const [uf100Active, setUf100Active] = useState<boolean>(
+    () => searchParams.get("ufgt100") === "1",
+  );
 
   // Sync filters → URL (replaceState, no re-render forzado, no nueva
   // entry en history para no romper el boton back).
+  // R152hh — incluimos ufgt100 para que el chip "Sobre UF 100" sea
+  // bookmarkeable como el resto de los filtros.
   useEffect(() => {
     const params = new URLSearchParams();
     if (empresaFilter) params.set("empresa", empresaFilter);
@@ -240,6 +263,7 @@ export function VouchersClientView({
     if (fechaDesde) params.set("desde", fechaDesde);
     if (fechaHasta) params.set("hasta", fechaHasta);
     if (search.trim()) params.set("q", search.trim());
+    if (uf100Active) params.set("ufgt100", "1");
     const qs = params.toString();
     const url = qs ? `/vouchers?${qs}` : "/vouchers";
     window.history.replaceState(null, "", url);
@@ -252,6 +276,7 @@ export function VouchersClientView({
     fechaDesde,
     fechaHasta,
     search,
+    uf100Active,
   ]);
   // Round 9 — helper para resetear todos los filtros de una. Lo usan los
   // quick filter chips y el empty state "limpiar filtros".
@@ -263,7 +288,8 @@ export function VouchersClientView({
     !!proyectoFilter ||
     !!fechaDesde ||
     !!fechaHasta ||
-    !!search.trim();
+    !!search.trim() ||
+    uf100Active;
   const clearAllFilters = () => {
     setEmpresaFilter("");
     setTipoFilter("");
@@ -273,12 +299,16 @@ export function VouchersClientView({
     setFechaDesde("");
     setFechaHasta("");
     setSearch("");
+    setUf100Active(false);
   };
 
   // Round 9 — quick filter chips. Presets de uso diario que aplican una
   // combinacion comun en 1 click. Cada chip resetea + aplica un set
   // especifico. El user puede personalizar cualquier filtro despues.
-  const applyPreset = (preset: "pending" | "draft" | "this-month" | "ai") => {
+  // R152hh — sumamos presets "Esta semana" (ultimos 7 dias) y "Sobre UF 100".
+  const applyPreset = (
+    preset: "pending" | "draft" | "this-month" | "ai" | "this-week" | "uf-100",
+  ) => {
     clearAllFilters();
     if (preset === "pending") {
       setEstadoFilter("PENDING");
@@ -292,8 +322,67 @@ export function VouchersClientView({
       setFechaHasta(last.toISOString().slice(0, 10));
     } else if (preset === "ai") {
       setSourceFilter("ai_import");
+    } else if (preset === "this-week") {
+      // R152hh — fecha_contable en los ultimos 7 dias (incluye hoy)
+      const now = new Date();
+      const weekAgo = new Date(now);
+      weekAgo.setDate(now.getDate() - 7);
+      setFechaDesde(weekAgo.toISOString().slice(0, 10));
+      setFechaHasta(now.toISOString().slice(0, 10));
+    } else if (preset === "uf-100") {
+      // R152hh — el toggle de monto se aplica client-side via uf100Active,
+      // no toca otros filtros (clearAllFilters ya corrio). El estado se
+      // mantiene visualmente con uf100Active.
+      setUf100Active(true);
+      return;
     }
+    setUf100Active(false);
   };
+
+  // R152hh — chip "Esta semana" detecta si fechaDesde coincide con los
+  // ultimos 7 dias para resaltar visualmente el chip activo.
+  const thisWeekActive = useMemo(() => {
+    if (!fechaDesde || !fechaHasta) return false;
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(now.getDate() - 7);
+    return (
+      fechaDesde === weekAgo.toISOString().slice(0, 10) &&
+      fechaHasta === now.toISOString().slice(0, 10)
+    );
+  }, [fechaDesde, fechaHasta]);
+
+  // R152hh — Toggle densidad. localStorage `vouchers-list-density`.
+  // compact = padding reducido + texto menor. comfortable = default actual.
+  const [density, setDensity] = useState<"compact" | "comfortable">(
+    "comfortable",
+  );
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("vouchers-list-density");
+      if (stored === "compact" || stored === "comfortable") {
+        setDensity(stored);
+      }
+    } catch {
+      // localStorage puede no estar disponible (SSR / modo privado)
+    }
+  }, []);
+  const toggleDensity = () => {
+    setDensity((prev) => {
+      const next = prev === "compact" ? "comfortable" : "compact";
+      try {
+        window.localStorage.setItem("vouchers-list-density", next);
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+  const isCompact = density === "compact";
+  // Clases derivadas para celdas (py-1.5 compacto vs py-3 comodo) y texto.
+  const tdPad = isCompact ? "px-4 py-1.5" : "px-4 py-3";
+  const tdPadNarrow = isCompact ? "px-3 py-1.5" : "px-3 py-3";
+  const tdText = isCompact ? "text-[12px]" : "text-sm";
 
   // Bulk approve state — checkbox visible cuando hay >=1 fila PENDING visible.
   // Iteramos POST /vouchers/{id}/approve en secuencia (no hay endpoint bulk
@@ -456,18 +545,30 @@ export function VouchersClientView({
 
   // Filtro: si search >= 3 chars usa server (full-text Postgres tsvector
   // con stemming español + ranking por relevancia), si no, filtro local.
+  // R152hh — capa adicional client-side para "Sobre UF 100": solo se aplica
+  // sobre vouchers en moneda UF (no convertimos CLP→UF porque la lista no
+  // trae exchange_rate). Si el user quisiera comparar CLP a UF habria que
+  // hacerlo desde el detalle.
   const filteredVouchers = useMemo(() => {
-    if (useServerSearch) return searchResults ?? [];
-    if (!vouchers) return [];
-    if (!search.trim()) return vouchers;
-    const q = search.toLowerCase();
-    return vouchers.filter(
-      (v) =>
-        v.codigo.toLowerCase().includes(q) ||
-        v.glosa.toLowerCase().includes(q) ||
-        (v.contraparte_nombre ?? "").toLowerCase().includes(q),
+    const base = useServerSearch
+      ? (searchResults ?? [])
+      : !vouchers
+        ? []
+        : !search.trim()
+          ? vouchers
+          : vouchers.filter(
+              (v) =>
+                v.codigo.toLowerCase().includes(search.toLowerCase()) ||
+                v.glosa.toLowerCase().includes(search.toLowerCase()) ||
+                (v.contraparte_nombre ?? "")
+                  .toLowerCase()
+                  .includes(search.toLowerCase()),
+            );
+    if (!uf100Active) return base;
+    return base.filter(
+      (v) => v.moneda === "UF" && Number(v.total_debit ?? 0) > 100,
     );
-  }, [vouchers, search, useServerSearch, searchResults]);
+  }, [vouchers, search, useServerSearch, searchResults, uf100Active]);
 
   // Bulk-approve derivations sobre la lista visible.
   const pendingVisible = useMemo(
@@ -808,9 +909,14 @@ export function VouchersClientView({
           </div>
         )}
 
-        {/* Round 9 — Quick filter chips: presets de uso diario aplicables
-            con 1 click. Cada chip resetea los filtros actuales y aplica
-            la combinacion del preset. El user puede ajustar despues. */}
+        {/* Round 9 / R152hh — Quick filter chips: presets de uso diario
+            aplicables con 1 click. Cada chip resetea los filtros actuales
+            y aplica la combinacion del preset. El user puede ajustar
+            despues. R152hh suma "Esta semana", "Sobre UF 100" y un Link
+            a /aprobaciones para "Pendiente mi firma". "Mi día" se saltea
+            porque VoucherListItem no incluye created_by (solo VoucherFull
+            lo expone), traer ese campo requiere tocar el backend.
+            // R152hh-skip: "Mi día" — VoucherListItem no expone created_by. */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
             Vistas rápidas:
@@ -818,57 +924,113 @@ export function VouchersClientView({
           <button
             type="button"
             onClick={() => applyPreset("pending")}
-            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
               estadoFilter === "PENDING" && !empresaFilter && !tipoFilter
                 ? "bg-cehta-green/10 text-cehta-green ring-cehta-green/30"
                 : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
             }`}
           >
-            🔔 Pendientes de firma
+            Pendientes de firma
           </button>
+          <Link
+            href={"/aprobaciones" as Route}
+            className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-600 ring-1 ring-hairline transition-colors hover:bg-cehta-green/5 hover:text-cehta-green hover:ring-cehta-green/30"
+            title="Ir a /aprobaciones — bandeja de vouchers donde sos firmante elegible"
+          >
+            <FileSignature className="h-3 w-3" strokeWidth={2} />
+            Pendiente mi firma
+            <kbd className="ml-1 rounded bg-ink-100 px-1 text-[9px] text-ink-500">
+              →
+            </kbd>
+          </Link>
           <button
             type="button"
             onClick={() => applyPreset("draft")}
-            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
               estadoFilter === "DRAFT" && !empresaFilter && !tipoFilter
                 ? "bg-amber-50 text-amber-700 ring-amber-200"
                 : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
             }`}
           >
-            ✏️ Borradores
+            Borradores
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPreset("this-week")}
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              thisWeekActive
+                ? "bg-blue-50 text-blue-700 ring-blue-200"
+                : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+            }`}
+            title="Vouchers con fecha_contable en los últimos 7 días"
+          >
+            Esta semana
           </button>
           <button
             type="button"
             onClick={() => applyPreset("this-month")}
-            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
-              fechaDesde && fechaHasta
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              fechaDesde && fechaHasta && !thisWeekActive
                 ? "bg-blue-50 text-blue-700 ring-blue-200"
                 : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
             }`}
           >
-            📅 Este mes
+            Este mes
+          </button>
+          <button
+            type="button"
+            onClick={() => setUf100Active((v) => !v)}
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+              uf100Active
+                ? "bg-purple-50 text-purple-700 ring-purple-200"
+                : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
+            }`}
+            title="Solo vouchers en UF con monto > 100 UF"
+          >
+            Sobre UF 100
           </button>
           <button
             type="button"
             onClick={() => applyPreset("ai")}
-            className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
+            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
               sourceFilter === "ai_import"
                 ? "bg-purple-50 text-purple-700 ring-purple-200"
                 : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
             }`}
           >
-            🤖 Importados por IA
+            Importados por IA
           </button>
           {hasActiveFilters && (
             <button
               type="button"
               onClick={clearAllFilters}
-              className="ml-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-500 ring-1 ring-hairline hover:bg-negative/5 hover:text-negative hover:ring-negative/20"
+              className="ml-1 inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-500 ring-1 ring-hairline hover:bg-negative/5 hover:text-negative hover:ring-negative/20"
               title="Quitar todos los filtros aplicados"
             >
-              ✕ Limpiar filtros
+              <X className="h-3 w-3" strokeWidth={2} />
+              Limpiar filtros
             </button>
           )}
+          {/* R152hh — Toggle densidad. Posicionamos al final del row con
+              ml-auto para que quede a la derecha sin romper el wrap. */}
+          <button
+            type="button"
+            onClick={toggleDensity}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-600 ring-1 ring-hairline transition-colors hover:bg-ink-50"
+            title={
+              isCompact
+                ? "Cambiar a vista cómoda (más espacio entre filas)"
+                : "Cambiar a vista compacta (más filas visibles)"
+            }
+            aria-label={`Densidad: ${isCompact ? "Compacto" : "Cómodo"}. Click para alternar.`}
+          >
+            {isCompact ? (
+              <Rows4 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            ) : (
+              <Rows3 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+            {isCompact ? "Compacto" : "Cómodo"}
+          </button>
         </div>
 
         {/* Filtros */}
@@ -1049,39 +1211,74 @@ export function VouchersClientView({
             hint="Antes de crear vouchers, asegurate de haber importado el plan de cuentas en /admin/etl."
           />
         ) : filteredVouchers.length === 0 ? (
-          // Round 9 — empty state accionable. Antes solo decia "Sin
-          // resultados" sin nada para hacer. Ahora ofrece CTA de
-          // resetear filtros (>90% de los casos en que esto aparece).
+          // Round 9 / R152hh — empty state accionable con icono Inbox y
+          // copy diferente segun haya o no filtros activos. Si no hay
+          // filtros pero la lista filtrada quedo vacia (ej: solo era
+          // server-search sin resultados), igual ofrecemos crear voucher.
           <div className="rounded-2xl border border-dashed border-hairline bg-white p-10 text-center">
-            <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-ink-100 text-ink-400">
-              <Search className="size-5" strokeWidth={1.5} />
+            <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-ink-50 text-ink-400">
+              <Inbox className="size-8" strokeWidth={1.5} />
             </div>
-            <p className="text-sm font-medium text-ink-700">
-              Sin vouchers que matcheen
-            </p>
-            <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
-              Probaste{" "}
-              {[
-                empresaFilter && `empresa=${empresaFilter}`,
-                tipoFilter && `tipo=${tipoFilter}`,
-                estadoFilter && `estado=${estadoFilter}`,
-                sourceFilter && `origen=${sourceFilter}`,
-                fechaDesde && `desde=${fechaDesde}`,
-                fechaHasta && `hasta=${fechaHasta}`,
-                search.trim() && `búsqueda="${search.trim()}"`,
-              ]
-                .filter(Boolean)
-                .join(", ") || "estos filtros"}
-              . Ajustá los filtros o limpiá todo para ver la lista completa.
-            </p>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearAllFilters}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
-              >
-                Limpiar todos los filtros
-              </button>
+            {hasActiveFilters ? (
+              <>
+                <p className="text-sm font-medium text-ink-700">
+                  No hay vouchers que coincidan con los filtros
+                </p>
+                <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
+                  Probaste{" "}
+                  {[
+                    empresaFilter && `empresa=${empresaFilter}`,
+                    tipoFilter && `tipo=${tipoFilter}`,
+                    estadoFilter && `estado=${estadoFilter}`,
+                    sourceFilter && `origen=${sourceFilter}`,
+                    proyectoFilter && `proyecto=${proyectoFilter}`,
+                    fechaDesde && `desde=${fechaDesde}`,
+                    fechaHasta && `hasta=${fechaHasta}`,
+                    uf100Active && `monto>UF 100`,
+                    search.trim() && `búsqueda="${search.trim()}"`,
+                  ]
+                    .filter(Boolean)
+                    .join(", ") || "estos filtros"}
+                  . Ajustá los filtros o creá un voucher nuevo.
+                </p>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-4 py-2 text-xs font-semibold text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
+                  >
+                    <X className="h-3.5 w-3.5" strokeWidth={2} />
+                    Limpiar filtros
+                  </button>
+                  <Link
+                    href={"/vouchers/nuevo" as Route}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    Crear voucher
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-ink-700">
+                  Aún no hay vouchers en la plataforma
+                </p>
+                <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
+                  Empezá registrando comprobantes contables. Cada operación
+                  (compra, venta, pago, traspaso) se anota como voucher con
+                  partida doble validada automáticamente.
+                </p>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                  <Link
+                    href={"/vouchers/nuevo" as Route}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-xs font-semibold text-white hover:bg-cehta-green-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    Crear voucher
+                  </Link>
+                </div>
+              </>
             )}
           </div>
         ) : (

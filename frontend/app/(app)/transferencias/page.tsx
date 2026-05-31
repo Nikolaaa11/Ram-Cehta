@@ -30,7 +30,6 @@ import type { Route } from "next";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
-  Building2,
   CheckCircle2,
   CheckCheck,
   Download,
@@ -53,6 +52,11 @@ import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicat
 import { FeedbackPrompt } from "@/components/feedback/FeedbackPrompt";
 import { toast } from "@/components/ui/toast";
 import { toCLP, toDate } from "@/lib/format";
+// R152ii — componentes premium de la pestaña.
+import { TransferenciasKpiHeader } from "@/components/transferencias/TransferenciasKpiHeader";
+import { EmpresaProgressChips } from "@/components/transferencias/EmpresaProgressChips";
+import { CajaAlDiaState } from "@/components/transferencias/CajaAlDiaState";
+import { TransferenciasSkeleton } from "@/components/transferencias/TransferenciasSkeleton";
 
 interface TransferenciaItem {
   voucher_id: number;
@@ -184,6 +188,20 @@ export default function TransferenciasPage() {
     const sinBanco = sel.filter((i) => !i.tiene_datos_bancarios).length;
     return { count: sel.length, total, sinBanco };
   }, [items, selectedIds]);
+
+  // R152ii — selected count por empresa (para el mini-donut del chip).
+  // Se cuenta sobre TODO el dataset (no items filtrado) para que el ring
+  // refleje "X firmadas → seleccionadas para pagar" por compañía.
+  const selectedByEmpresa = useMemo(() => {
+    const all = data?.items ?? [];
+    const map: Record<string, number> = {};
+    for (const it of all) {
+      if (selectedIds.has(it.voucher_id)) {
+        map[it.empresa_codigo] = (map[it.empresa_codigo] ?? 0) + 1;
+      }
+    }
+    return map;
+  }, [data, selectedIds]);
 
   const handleDownload = async () => {
     if (!session) {
@@ -342,9 +360,25 @@ export default function TransferenciasPage() {
           : ` · ⚠ comprobante falló en ${attachedFail} voucher${attachedFail === 1 ? "" : "s"} (subir manualmente)`;
 
       if (resp.failed === 0) {
+        // R152ii — toast premium con monto pagado, descripción y CTA a la
+        // pestaña de vouchers EXECUTED para validar el resultado.
+        const montoLote = selectedSummary.total;
         toast.success(
-          `✓ ${resp.succeeded} vouchers marcados como EXECUTED${attachMsg}`,
-          { duration: 8000 },
+          `${resp.succeeded} pago${resp.succeeded === 1 ? "" : "s"} confirmado${resp.succeeded === 1 ? "" : "s"}`,
+          {
+            description: `${toCLP(montoLote)} transferidos${attachMsg ? attachMsg.replace(/^ · /, " · ") : ""}.`,
+            duration: 9000,
+            action: {
+              label: "Ver confirmados",
+              onClick: () => {
+                // Lista de vouchers ya EXECUTED. Si la ruta tipada falla
+                // en strict mode, el fallback es navegación dura.
+                if (typeof window !== "undefined") {
+                  window.location.href = "/vouchers?status=EXECUTED";
+                }
+              },
+            },
+          },
         );
         // R152y — disparar NPS feedback tras pago exitoso (con cooldown 14d).
         setFeedbackContext({ count: resp.succeeded });
@@ -428,28 +462,10 @@ export default function TransferenciasPage() {
         </div>
       </div>
 
-      {/* Loading skeleton matching layout (KPI cards + tabla)
-          QA fix 14/05/2026 — antes Loader2 + texto genérico. */}
-      {isLoading && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[1, 2, 3].map((i) => (
-              <Surface key={i} className="p-4">
-                <div className="h-4 w-32 mb-2 animate-pulse rounded bg-ink-100" />
-                <div className="h-8 w-40 animate-pulse rounded bg-ink-100" />
-              </Surface>
-            ))}
-          </div>
-          <div className="mt-6 space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="h-16 w-full animate-pulse rounded-xl bg-ink-100"
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Loading skeleton matching layout (R152ii — reemplaza el placeholder
+          básico anterior por un skeleton premium que reproduce KPIs +
+          chips + tabla con shimmer). */}
+      {isLoading && <TransferenciasSkeleton />}
 
       {error && (
         <ErrorState
@@ -459,123 +475,53 @@ export default function TransferenciasPage() {
         />
       )}
 
-      {/* Empty — Round 74: guidance contextual segun el estado del pipeline. */}
+      {/* Empty — Round 74: guidance contextual segun el estado del pipeline.
+          R152ii: cuando NO hay nada pendiente en ningún lado, usamos el
+          estado premium "Caja al día". Cuando hay drafts o firmas
+          pendientes, mantenemos el EmptyState con CTAs contextuales. */}
       {!isLoading && !error && data && data.count === 0 && (
-        <EmptyState
-          icon={CheckCircle2}
-          tone={pendingMyApproval > 0 || draftsMine > 0 ? "info" : "positive"}
-          title={
-            pendingMyApproval > 0
-              ? `Tenés ${pendingMyApproval} voucher${pendingMyApproval > 1 ? "s" : ""} esperando tu firma`
-              : draftsMine > 0
-                ? `Tenés ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación`
-                : "Sin vouchers pendientes de pago"
-          }
-          description={
-            pendingMyApproval > 0
-              ? "Acá aparecen los vouchers APPROVED listos para transferir. Primero firmalos en Aprobaciones — cuando un voucher tenga las 2 firmas (GG + DIRECTOR), pasa a APPROVED y aparece acá."
-              : draftsMine > 0
-                ? "El flujo es: crear voucher → adjuntar factura → enviar a aprobación → firmar GG y DIRECTOR → aparece acá para transferir. Empezá enviando tus borradores a aprobación."
-                : "Todo lo aprobado ya se pagó. Cuando se aprueben nuevos vouchers, aparecerán acá automáticamente."
-          }
-          primaryAction={
-            pendingMyApproval > 0
-              ? { label: "Ir a Aprobaciones", href: "/aprobaciones" }
-              : draftsMine > 0
-                ? { label: "Ver mis vouchers", href: "/vouchers" }
-                : undefined
-          }
-          secondaryAction={
-            (pendingMyApproval > 0 || draftsMine > 0)
-              ? { label: "Crear voucher nuevo", href: "/vouchers/nuevo" }
-              : undefined
-          }
-        />
+        pendingMyApproval === 0 && draftsMine === 0 ? (
+          <CajaAlDiaState />
+        ) : (
+          <EmptyState
+            icon={CheckCircle2}
+            tone="info"
+            title={
+              pendingMyApproval > 0
+                ? `Tenés ${pendingMyApproval} voucher${pendingMyApproval > 1 ? "s" : ""} esperando tu firma`
+                : `Tenés ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación`
+            }
+            description={
+              pendingMyApproval > 0
+                ? "Acá aparecen los vouchers APPROVED listos para transferir. Primero firmalos en Aprobaciones — cuando un voucher tenga las 2 firmas (GG + DIRECTOR), pasa a APPROVED y aparece acá."
+                : "El flujo es: crear voucher → adjuntar factura → enviar a aprobación → firmar GG y DIRECTOR → aparece acá para transferir. Empezá enviando tus borradores a aprobación."
+            }
+            primaryAction={
+              pendingMyApproval > 0
+                ? { label: "Ir a Aprobaciones", href: "/aprobaciones" }
+                : { label: "Ver mis vouchers", href: "/vouchers" }
+            }
+            secondaryAction={{ label: "Crear voucher nuevo", href: "/vouchers/nuevo" }}
+          />
+        )
       )}
 
       {/* Content */}
       {!isLoading && !error && data && data.count > 0 && (
         <>
-          {/* KPI cards + filtro por empresa */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Surface className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Wallet className="size-5 text-cehta-green" />
-                <span className="text-sm font-medium text-ink-700">
-                  Total aprobado
-                </span>
-              </div>
-              <div className="text-3xl font-semibold text-ink-900">
-                {data.count}
-              </div>
-              <div className="text-xs text-ink-500 mt-1">
-                {toCLP(data.total_clp)}
-              </div>
-            </Surface>
-            <Surface className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="size-5 text-blue-500" />
-                <span className="text-sm font-medium text-ink-700">
-                  Seleccionados
-                </span>
-              </div>
-              <div className="text-3xl font-semibold text-blue-600">
-                {selectedSummary.count}
-              </div>
-              <div className="text-xs text-ink-500 mt-1">
-                {toCLP(selectedSummary.total)} a transferir
-              </div>
-            </Surface>
-            <Surface className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <AlertTriangle className="size-5 text-amber-500" />
-                <span className="text-sm font-medium text-ink-700">
-                  Sin datos bancarios
-                </span>
-              </div>
-              <div className="text-3xl font-semibold text-amber-600">
-                {selectedSummary.sinBanco}
-              </div>
-              <div className="text-xs text-ink-500 mt-1">
-                Filas con campos en blanco — completar manualmente
-              </div>
-            </Surface>
-          </div>
+          {/* R152ii — KPI header animado (count, total, promedio, antigüedad).
+              Reemplaza al grid de 3 cards anteriores. La info de "seleccionados"
+              y "sin banco" sigue viva en el sticky action bar inferior. */}
+          <TransferenciasKpiHeader items={data.items} totalClp={data.total_clp} />
 
-          {/* Empresa chips */}
-          {data.by_empresa.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
-                Por empresa:
-              </span>
-              <button
-                type="button"
-                onClick={() => setEmpresaFilter("")}
-                className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
-                  empresaFilter === ""
-                    ? "bg-cehta-green/10 text-cehta-green ring-cehta-green/30"
-                    : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
-                }`}
-              >
-                Todas ({data.count})
-              </button>
-              {data.by_empresa.map((b) => (
-                <button
-                  key={b.empresa_codigo}
-                  type="button"
-                  onClick={() => setEmpresaFilter(b.empresa_codigo)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium ring-1 transition-colors ${
-                    empresaFilter === b.empresa_codigo
-                      ? "bg-blue-50 text-blue-700 ring-blue-200"
-                      : "bg-white text-ink-600 ring-hairline hover:bg-ink-50"
-                  }`}
-                >
-                  <Building2 className="inline size-3 -mt-0.5 mr-1" />
-                  {b.empresa_codigo} ({b.count})
-                </button>
-              ))}
-            </div>
-          )}
+          {/* R152ii — chips de empresa con mini-donut de progreso seleccionado/total. */}
+          <EmpresaProgressChips
+            byEmpresa={data.by_empresa}
+            selectedByEmpresa={selectedByEmpresa}
+            totalCount={data.count}
+            empresaFilter={empresaFilter}
+            onChange={setEmpresaFilter}
+          />
 
           {/* Bulk action bar — sticky bottom. Etapa A: agregamos boton
               "Marcar EXECUTED" para cerrar el loop: download Excel →
