@@ -88,7 +88,10 @@ export default function SiiDashboardPage() {
   const { session } = useSession();
   const { data, isLoading, error } = useQuery<EmpresaSiiStatus[]>({
     queryKey: ["sii", "empresas"],
-    queryFn: () => apiClient.get<EmpresaSiiStatus[]>("/sii/empresas", session),
+    // R152tt — fix endpoint path: router registrado con prefix /admin/sii
+    // en backend/app/api/v1/__init__.py línea 129, NO /sii.
+    queryFn: () =>
+      apiClient.get<EmpresaSiiStatus[]>("/admin/sii/empresas", session),
     enabled: !!session,
     staleTime: 30_000,
   });
