@@ -36,8 +36,8 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
-import { AnimatedNumber } from "@/components/charts/AnimatedNumber";
-import { DonutKPI } from "@/components/charts/DonutKPI";
+// R152uu — Lazy DonutKPI (recharts ~80kB).
+import { AnimatedNumber, LazyDonutKPI as DonutKPI } from "@/components/charts/lazy";
 
 const CORFO_EMPRESAS = new Set(["REVTECH", "TRONGKAI"]);
 

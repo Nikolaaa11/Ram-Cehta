@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { AdoptionQuadrant } from "@/components/admin/AdoptionQuadrant";
-import { DonutKPI } from "@/components/charts/DonutKPI";
+// R152uu — Lazy DonutKPI (recharts ~80kB).
+import { LazyDonutKPI as DonutKPI } from "@/components/charts/lazy";
 import { useSession } from "@/hooks/use-session";
 
 interface AdoptionRow {

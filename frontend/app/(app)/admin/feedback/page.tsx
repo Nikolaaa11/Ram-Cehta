@@ -24,9 +24,12 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
-import { ChartCard } from "@/components/charts/ChartCard";
-import { DonutKPI } from "@/components/charts/DonutKPI";
-import { AnimatedNumber } from "@/components/charts/AnimatedNumber";
+// R152uu — Lazy DonutKPI (recharts ~80kB). ChartCard y AnimatedNumber NO usan recharts.
+import {
+  ChartCard,
+  LazyDonutKPI as DonutKPI,
+  AnimatedNumber,
+} from "@/components/charts/lazy";
 
 interface Comment {
   comment: string | null;

@@ -6,7 +6,8 @@
  * Agrupa los items por bucket de 7 días desde hoy. Muestra sparkline + label.
  */
 import { useMemo } from "react";
-import { Sparkline } from "@/components/charts/Sparkline";
+// R152uu — Lazy Sparkline (recharts ~80kB).
+import { LazySparkline as Sparkline } from "@/components/charts/lazy";
 import type { ObligationItem } from "@/lib/api/schema";
 
 interface Props {

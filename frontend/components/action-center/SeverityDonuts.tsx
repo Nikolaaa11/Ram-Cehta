@@ -5,7 +5,8 @@
  *
  * Calcula porcentaje de cada severity sobre total.
  */
-import { DonutKPI } from "@/components/charts/DonutKPI";
+// R152uu — Lazy DonutKPI (recharts ~80kB).
+import { LazyDonutKPI as DonutKPI } from "@/components/charts/lazy";
 
 interface Props {
   critical: number;
