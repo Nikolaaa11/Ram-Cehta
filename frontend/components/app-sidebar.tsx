@@ -45,6 +45,10 @@ import {
   ClipboardList,
   GanttChartSquare,
   MessageSquare,
+  Landmark,
+  RefreshCw,
+  FileCheck,
+  FileSpreadsheet,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -103,6 +107,7 @@ type NavGroup = {
     | "ejecutivo"
     | "operaciones"
     | "estrategia"
+    | "sii"
     | "documentos"
     | "contabilidad"
     | "admin"
@@ -203,8 +208,7 @@ const GROUPS: NavGroup[] = [
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
-      { href: "/f29", label: "F29 / Mensual", icon: Receipt },
-      { href: "/f22" as Route, label: "F22 / Anual", icon: Receipt },
+      // R152rr — F29/F22 movidos al grupo "SII" dedicado.
       // V5: Vouchers (comprobantes contables) — corazón del módulo contable.
       // Imputación triple cuenta × proyecto × área con partida doble.
       {
@@ -231,6 +235,58 @@ const GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { href: "/avance" as Route, label: "Avance Empresas", icon: Target },
+    ],
+  },
+  // R152rr — Grupo SII dedicado. Centraliza todo lo tributario:
+  // F29/F22, sync RCV, conciliación, dashboard de status por empresa.
+  // Cada item lleva a una pantalla con función específica clara.
+  {
+    id: "sii",
+    label: "SII · Tributario",
+    collapsible: true,
+    defaultOpen: false,
+    items: [
+      // R152rr — Dashboard hub central con stats de las 9 empresas.
+      {
+        href: "/sii" as Route,
+        label: "Dashboard SII",
+        icon: Landmark,
+        title:
+          "Hub central del SII: status de credenciales, último sync, DTEs pendientes de conciliar, F29 estimado por empresa. CTAs rápidos a las acciones operativas.",
+        isNew: true,
+      },
+      // Sync RCV (antes "Integración SII" en Admin).
+      {
+        href: "/admin/sii" as Route,
+        label: "Sincronizar RCV",
+        icon: RefreshCw,
+        title:
+          "Disparar y monitorear el sync del Registro de Compras y Ventas con sii.cl. Status por run + log de errores.",
+      },
+      // Conciliación DTE ↔ vouchers locales.
+      {
+        href: "/admin/sii?tab=conciliar" as Route,
+        label: "Conciliar DTE",
+        icon: FileCheck,
+        title:
+          "Match automático: cada DTE descargado del SII vs los vouchers locales. Marca matches exactos, sugiere parciales, y permite crear voucher desde DTE faltante.",
+      },
+      // F29 mensual (declaración IVA).
+      {
+        href: "/f29",
+        label: "F29 · IVA Mensual",
+        icon: Receipt,
+        title:
+          "Formulario 29 mensual: IVA débito, crédito y PPM. Vence día 12 del mes siguiente (paperless: 20). Estado por empresa.",
+      },
+      // F22 anual (declaración renta).
+      {
+        href: "/f22" as Route,
+        label: "F22 · Renta Anual",
+        icon: FileSpreadsheet,
+        title:
+          "Formulario 22 anual: declaración de renta. Vence 30 abril del año siguiente al ejercicio. Estado por empresa + folio.",
+      },
     ],
   },
   {
@@ -383,14 +439,7 @@ const GROUPS: NavGroup[] = [
         title:
           "Vista unica de empresas portafolio, directorio formal e inversionistas/aportantes. Una sola pantalla con todo el contexto del fondo.",
       },
-      // Round 117 — SII integration
-      {
-        href: "/admin/sii" as Route,
-        label: "Integración SII",
-        icon: ShieldCheck,
-        title:
-          "Sincronizar el Registro de Compras y Ventas del SII, conciliar con vouchers locales, ver F29 estimado y crear vouchers desde DTE no conciliados.",
-      },
+      // R152rr — Integración SII movida al grupo "SII" dedicado.
       // Round 123 — Nubox remuneraciones
       {
         href: "/admin/nubox" as Route,
