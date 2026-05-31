@@ -250,6 +250,44 @@ export default function AprenderPage() {
           );
         })}
       </div>
+
+      {/* R152qq — Tips de uso al final del Centro */}
+      {!isLoading && (modules ?? []).length > 0 && (
+        <div className="mt-10 rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/60 to-white p-6 shadow-card">
+          <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">
+            💡 Tips para sacarle más jugo
+          </p>
+          <ul className="mt-3 grid grid-cols-1 gap-2 text-sm text-ink-700 md:grid-cols-2">
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>
+                Hacé los quizzes en orden — cada uno asume conceptos del anterior.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>
+                Si no estás seguro de una respuesta, revisá el contenido antes de
+                marcar — los badges premian la calidad, no la velocidad.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>
+                Necesitás 70% para aprobar un módulo. 100% desbloquea el badge{" "}
+                <strong>Perfeccionista</strong>.
+              </span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
+              <span>
+                Podés repasar un módulo cuando quieras — el progreso queda
+                guardado.
+              </span>
+            </li>
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

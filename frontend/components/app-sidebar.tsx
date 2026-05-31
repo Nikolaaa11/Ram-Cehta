@@ -92,6 +92,10 @@ type NavItem = {
   /** Round 73 — title (HTML tooltip) opcional, util cuando el label
    * solo no comunica bien la accion (ej. "Confirmar pagos"). */
   title?: string;
+  /** R152qq — Marca el item con un chip "Nuevo" durante un tiempo después
+   * de liberarlo. El chip se oculta automaticamente si el usuario ya
+   * visitó la URL (almacenado en localStorage 'sidebar-visited-X'). */
+  isNew?: boolean;
 };
 
 type NavGroup = {
@@ -187,6 +191,15 @@ const GROUPS: NavGroup[] = [
           "Form dedicado para vouchers del subsidio CORFO 2026 ($3.000MM). " +
           "Reparto editable CORFO/P-tec/Empresa, IVA siempre corporativo.",
       },
+      // R152pp — Generador Rendiciones CORFO movido desde Admin a
+      // Operaciones (queda junto al voucher CORFO para flujo natural).
+      {
+        href: "/admin/rendiciones-corfo" as Route,
+        label: "Rendiciones CORFO · REVTECH/TRONGKAI",
+        icon: CircleDollarSign,
+        title: "Generador de Excel oficial de rendiciones CORFO (Gastos + RRHH) pre-llenado desde los vouchers y datos de Nubox.",
+        isNew: true,
+      },
       { href: "/proveedores", label: "Proveedores", icon: Users },
       { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
@@ -257,7 +270,7 @@ const GROUPS: NavGroup[] = [
       // Round 152i — Centro de Ayuda: guías HTML interactivas servidas in-app.
       { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
       // Round 152v — Centro de Aprendizaje: módulos + quizzes con badges.
-      { href: "/aprender" as Route, label: "Centro de Aprendizaje", icon: Sparkles },
+      { href: "/aprender" as Route, label: "Centro de Aprendizaje", icon: Sparkles, isNew: true },
     ],
   },
   // V5: Contabilidad — plan de cuentas + proyectos contables + áreas.
@@ -317,21 +330,16 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
-      { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users },
+      { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users, isNew: true },
       // R152dd — Dashboard NPS feedback.
       {
         href: "/admin/feedback" as Route,
         label: "Feedback NPS",
         icon: MessageSquare,
         title: "Respuestas de feedback de usuarios por flujo (crear, firmar, pagar, CORFO).",
+        isNew: true,
       },
-      // Round 152w — Generador Rendiciones CORFO (REVTECH + TRONGKAI).
-      {
-        href: "/admin/rendiciones-corfo" as Route,
-        label: "Rendiciones CORFO · REVTECH/TRONGKAI",
-        icon: CircleDollarSign,
-        title: "Generador de Excel oficial de rendiciones CORFO (Gastos + RRHH) pre-llenado desde los vouchers de la plataforma.",
-      },
+      // R152pp — Rendiciones CORFO movido a Operaciones (cerca de voucher CORFO).
       // Round 89 — dashboard "donde estan las platas" del subsidio CORFO.
       // Hardcodea el codigo del subsidio activo (CORFO-2026-REVTECH-TRONGKAI)
       // porque hay solo 1 subsidio activo. Cuando haya mas, hacer pagina
@@ -732,6 +740,17 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       strokeWidth={isActive ? 2 : 1.5}
                     />
                     <span className="flex-1">{item.label}</span>
+                    {/* R152qq — chip "Nuevo" para features recién liberadas.
+                        Se autoesconde cuando isActive (estás en la URL → ya la
+                        viste) para mantener el sidebar limpio. */}
+                    {item.isNew && !isActive && (
+                      <span
+                        aria-label="Nuevo"
+                        className="inline-flex items-center rounded-full bg-cehta-green/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cehta-green ring-1 ring-cehta-green/30"
+                      >
+                        Nuevo
+                      </span>
+                    )}
                     {showUnreadBadge && (
                       <span
                         aria-label={`${unreadCount} sin leer`}
