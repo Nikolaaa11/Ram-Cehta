@@ -317,6 +317,13 @@ const GROUPS: NavGroup[] = [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users },
+      // Round 152w — Generador Rendiciones CORFO (REVTECH + TRONGKAI).
+      {
+        href: "/admin/rendiciones-corfo" as Route,
+        label: "Rendiciones CORFO · REVTECH/TRONGKAI",
+        icon: CircleDollarSign,
+        title: "Generador de Excel oficial de rendiciones CORFO (Gastos + RRHH) pre-llenado desde los vouchers de la plataforma.",
+      },
       // Round 89 — dashboard "donde estan las platas" del subsidio CORFO.
       // Hardcodea el codigo del subsidio activo (CORFO-2026-REVTECH-TRONGKAI)
       // porque hay solo 1 subsidio activo. Cuando haya mas, hacer pagina

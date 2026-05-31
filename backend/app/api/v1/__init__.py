@@ -78,12 +78,15 @@ from app.api.v1 import (
 )
 from app.api.v1 import stream as stream_router
 from app.api.v1 import change_management  # Round 152t/u/v
+from app.api.v1 import corfo_rendiciones  # Round 152w
 
 api_router = APIRouter(prefix="/api/v1")
 
 api_router.include_router(health.router, tags=["health"])
 # Round 152t/u/v — Change Management (NPS + Adopción + Aprendizaje)
 api_router.include_router(change_management.router)
+# Round 152w — Rendiciones CORFO (REVTECH + TRONGKAI)
+api_router.include_router(corfo_rendiciones.router)
 api_router.include_router(validate.router, prefix="/validate", tags=["validate"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(proveedores.router, prefix="/proveedores", tags=["proveedores"])
