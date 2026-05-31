@@ -11,6 +11,8 @@
  * los catálogos oficiales para completar a mano lo restante.
  */
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import type { Route } from "next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   CircleDollarSign,
@@ -19,6 +21,7 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Users,
+  Settings2,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -183,17 +186,41 @@ export default function RendicionesCorfoPage() {
       {(preview.data?.sin_mapeo ?? 0) > 0 && (
         <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900">
           <AlertTriangle className="size-5 shrink-0 text-amber-600" />
-          <div>
+          <div className="flex-1">
             <p className="font-semibold">
               {preview.data?.sin_mapeo} cuentas locales sin mapeo a CORFO
             </p>
             <p className="mt-1 text-xs">
               El Excel se va a generar igual pero esas filas tendrán la
-              columna "Cuenta" y "Ítem" en amarillo (vacías). Podés completarlas
-              a mano usando los dropdowns oficiales del Excel, o mejor: hacer
-              el mapeo persistente una sola vez y queda para siempre.
+              columna "Cuenta" y "Ítem" en amarillo (vacías). Si configurás
+              el mapeo una sola vez, las próximas rendiciones salen 100%
+              pre-llenadas.
             </p>
           </div>
+          <Link
+            href={"/admin/rendiciones-corfo/mapping" as Route}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
+          >
+            <Settings2 className="size-3.5" />
+            Configurar mapeo
+          </Link>
+        </div>
+      )}
+
+      {/* Botón siempre visible para configurar mapeo */}
+      {(preview.data?.sin_mapeo ?? 0) === 0 && rows.length > 0 && (
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50/50 px-5 py-3 text-sm text-emerald-900">
+          <span className="inline-flex items-center gap-2">
+            <CheckCircle2 className="size-4 text-emerald-600" />
+            Todas las cuentas están mapeadas. El Excel sale completo.
+          </span>
+          <Link
+            href={"/admin/rendiciones-corfo/mapping" as Route}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:underline"
+          >
+            <Settings2 className="size-3" />
+            Editar mapeo
+          </Link>
         </div>
       )}
 

@@ -222,6 +222,67 @@ class MappingPost(BaseModel):
     items: list[MappingItem]
 
 
+# =====================================================================
+# R152x — vista FULL: todas las cuentas locales usadas en COMPRAS
+# históricas + mapeo CORFO actual (si existe) + usage_count para priorizar.
+# =====================================================================
+class CuentaUsoRow(BaseModel):
+    cuenta_codigo: str
+    cuenta_nombre: str | None
+    uso_count: int          # cuántos vouchers usaron esta cuenta
+    monto_acumulado: float  # total $ histórico
+    corfo_cuenta: str | None  # ya mapeada
+    corfo_item: str | None
+    corfo_cargo: str | None
+
+
+@router.get("/mapping/{empresa}/full", response_model=list[CuentaUsoRow])
+async def mapping_full(
+    empresa: str, user: CurrentUser, db: DBSession,
+) -> list[CuentaUsoRow]:
+    """Devuelve TODAS las cuentas contables usadas históricamente en
+    vouchers COMPRA de esta empresa, junto con el mapeo CORFO actual
+    si ya existe. Ordenado por uso descendente.
+    """
+    await _require_admin(user)
+    _require_corfo_empresa(empresa)
+    rows = (await db.execute(text("""
+        WITH usos AS (
+            SELECT
+                vl.cuenta_codigo,
+                COUNT(DISTINCT v.voucher_id) AS uso_count,
+                SUM(vl.debit) AS monto_acumulado
+            FROM core.vouchers v
+            JOIN core.voucher_lines vl ON vl.voucher_id = v.voucher_id
+            WHERE v.empresa_codigo = :emp
+              AND v.tipo = 'COMPRA'
+              AND vl.balance_treatment = 'GASTO'
+            GROUP BY vl.cuenta_codigo
+        )
+        SELECT
+            u.cuenta_codigo,
+            pce.nombre AS cuenta_nombre,
+            u.uso_count,
+            COALESCE(u.monto_acumulado, 0) AS monto_acumulado,
+            m.corfo_cuenta, m.corfo_item, m.corfo_cargo
+        FROM usos u
+        LEFT JOIN core.plan_cuenta_empresa pce
+          ON pce.codigo = u.cuenta_codigo AND pce.empresa_codigo = :emp
+        LEFT JOIN core.corfo_cuenta_mapping m
+          ON m.cuenta_codigo = u.cuenta_codigo AND m.empresa_codigo = :emp
+        ORDER BY u.uso_count DESC, u.cuenta_codigo
+    """), {"emp": empresa})).fetchall()
+    return [
+        CuentaUsoRow(
+            cuenta_codigo=r[0], cuenta_nombre=r[1],
+            uso_count=int(r[2]),
+            monto_acumulado=float(r[3] or 0),
+            corfo_cuenta=r[4], corfo_item=r[5], corfo_cargo=r[6],
+        )
+        for r in rows
+    ]
+
+
 @router.get("/mapping/{empresa}")
 async def get_mapping(empresa: str, user: CurrentUser, db: DBSession) -> list[MappingItem]:
     await _require_admin(user)
