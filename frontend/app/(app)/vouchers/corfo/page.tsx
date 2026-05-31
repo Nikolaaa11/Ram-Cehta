@@ -36,6 +36,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
+import { RendicionDescargaSection } from "@/components/corfo/RendicionDescargaSection";
 import type {
   PlanCuenta,
   ProyectoContable,
@@ -872,6 +873,12 @@ export default function VoucherCorfoPage() {
           </button>
         </div>
       </Surface>
+
+      {/* R152mm — Sección de descarga de planillas de rendición CORFO.
+          Aparece debajo del form de voucher CORFO, scoped a la empresa
+          actualmente seleccionada arriba (REVTECH o TRONGKAI). Llama a
+          los endpoints /admin/corfo/rendicion/* del backend. */}
+      <RendicionDescargaSection empresa={empresa} variant="full" />
     </div>
   );
 }
