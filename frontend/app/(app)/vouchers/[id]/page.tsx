@@ -41,13 +41,50 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import dynamic from "next/dynamic";
+// R152yy — above-the-fold (críticos) eager:
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
 import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
-import { VoucherReconcileCard } from "@/components/vouchers/VoucherReconcileCard";
-import { VoucherTimelineCard } from "@/components/vouchers/VoucherTimelineCard";
 import { VoucherNavigation } from "@/components/vouchers/VoucherNavigation";
-import { VoucherAnomaliesCard } from "@/components/vouchers/VoucherAnomaliesCard";
-import { VoucherCommentsCard } from "@/components/vouchers/VoucherCommentsCard";
+
+// R152yy — below-the-fold lazy con skeleton.
+// Estos 4 cards aparecen luego del scroll en /vouchers/[id]:
+// Reconcile (solo si EXECUTED), Timeline, Anomalies (solo si hay), Comments.
+// Beneficio: -50-70 kB del first-load del detalle voucher.
+const CardSkeleton = ({ h = 200 }: { h?: number }) => (
+  <div
+    className="animate-pulse rounded-2xl bg-ink-100/40 ring-1 ring-hairline"
+    style={{ height: h }}
+  />
+);
+const VoucherReconcileCard = dynamic(
+  () =>
+    import("@/components/vouchers/VoucherReconcileCard").then((m) => ({
+      default: m.VoucherReconcileCard,
+    })),
+  { ssr: false, loading: () => <CardSkeleton h={180} /> },
+);
+const VoucherTimelineCard = dynamic(
+  () =>
+    import("@/components/vouchers/VoucherTimelineCard").then((m) => ({
+      default: m.VoucherTimelineCard,
+    })),
+  { ssr: false, loading: () => <CardSkeleton h={240} /> },
+);
+const VoucherAnomaliesCard = dynamic(
+  () =>
+    import("@/components/vouchers/VoucherAnomaliesCard").then((m) => ({
+      default: m.VoucherAnomaliesCard,
+    })),
+  { ssr: false, loading: () => <CardSkeleton h={140} /> },
+);
+const VoucherCommentsCard = dynamic(
+  () =>
+    import("@/components/vouchers/VoucherCommentsCard").then((m) => ({
+      default: m.VoucherCommentsCard,
+    })),
+  { ssr: false, loading: () => <CardSkeleton h={300} /> },
+);
 import { buildWaLink, waMessages } from "@/lib/whatsapp";
 import { Currency } from "@/components/shared/Currency";
 import { Skeleton } from "@/components/ui/skeleton";
