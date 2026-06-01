@@ -566,6 +566,15 @@ const GROUPS: NavGroup[] = [
         label: "Integraciones",
         icon: Plug,
       },
+      // R152ooo — Status dashboard de TODAS las integraciones en una pantalla
+      {
+        href: "/admin/sistema-status" as Route,
+        label: "Status del sistema",
+        icon: Activity,
+        title:
+          "Health check live de las 8 integraciones externas (Dropbox, Resend, IMAP, Anthropic, OpenAI, SII, Nubox API, Nubox scraping) + tips de diagnóstico.",
+        isNew: true,
+      },
       // R152mmm — Bulk indexer del Asistente IA
       {
         href: "/admin/ai-index" as Route,

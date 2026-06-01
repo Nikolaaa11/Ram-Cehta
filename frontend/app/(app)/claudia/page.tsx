@@ -34,13 +34,18 @@ import { useSession } from "@/hooks/use-session";
 import { useMe } from "@/hooks/use-me";
 import { AnimatedNumber, LazyDonutKPI as DonutKPI } from "@/components/charts/lazy";
 
-interface SubsidioStatus {
+interface SubsidioEjecucion {
   subsidio_codigo: string;
   monto_total: number;
-  monto_ejecutado: number;
-  pct_ejecutado: number;
-  vouchers_count_mes: number;
-  empresas_count: number;
+  presupuesto_total: number;
+  ejecutado_total: number;
+  disponible_total: number;
+  pct_ejecucion: number;
+  empresas: Array<{
+    empresa_codigo: string;
+    presupuesto: number;
+    ejecutado: number;
+  }>;
 }
 
 function currentPeriodo(): string {
@@ -92,16 +97,17 @@ export default function ClaudiaHomePage() {
   const { data: me } = useMe();
   const [periodo] = useState(currentPeriodo());
 
-  // Status del subsidio CORFO
-  const subsidio = useQuery<SubsidioStatus>({
-    queryKey: ["subsidio", "CORFO-2026-REVTECH-TRONGKAI"],
+  // R152ooo — fix path: endpoint real es /ejecucion, no /status
+  const subsidio = useQuery<SubsidioEjecucion>({
+    queryKey: ["subsidio", "CORFO-2026-REVTECH-TRONGKAI", "ejecucion"],
     queryFn: () =>
-      apiClient.get<SubsidioStatus>(
-        "/subsidios/CORFO-2026-REVTECH-TRONGKAI/status",
+      apiClient.get<SubsidioEjecucion>(
+        "/subsidios/CORFO-2026-REVTECH-TRONGKAI/ejecucion",
         session,
       ),
     enabled: !!session,
     staleTime: 5 * 60_000,
+    retry: false, // si el subsidio no existe en DB, no reintentar
   });
 
   // Preview de vouchers del mes para REVTECH + TRONGKAI
@@ -401,13 +407,13 @@ export default function ClaudiaHomePage() {
         </div>
       </section>
 
-      {/* Subsidio info card */}
+      {/* Subsidio info card — solo si /ejecucion responde */}
       {subsidio.data && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 text-sm">
           <p className="font-semibold text-amber-900">
             Subsidio CORFO 2024-265638 — ejecución acumulada
           </p>
-          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-4">
             <div>
               <p className="text-[10px] uppercase text-amber-700">Monto total</p>
               <p className="font-display text-xl font-semibold text-amber-900">
@@ -417,13 +423,19 @@ export default function ClaudiaHomePage() {
             <div>
               <p className="text-[10px] uppercase text-amber-700">Ejecutado</p>
               <p className="font-display text-xl font-semibold text-amber-900">
-                ${(subsidio.data.monto_ejecutado / 1_000_000).toLocaleString("es-CL")}MM
+                ${(subsidio.data.ejecutado_total / 1_000_000).toLocaleString("es-CL")}MM
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase text-amber-700">Disponible</p>
+              <p className="font-display text-xl font-semibold text-amber-900">
+                ${(subsidio.data.disponible_total / 1_000_000).toLocaleString("es-CL")}MM
               </p>
             </div>
             <div>
               <p className="text-[10px] uppercase text-amber-700">% Ejecución</p>
               <p className="font-display text-xl font-semibold text-amber-900">
-                {subsidio.data.pct_ejecutado.toFixed(1)}%
+                {subsidio.data.pct_ejecucion.toFixed(1)}%
               </p>
             </div>
           </div>
