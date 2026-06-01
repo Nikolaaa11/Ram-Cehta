@@ -231,6 +231,58 @@ export default function EmpresaAsistentePage({
       {/* Chat area */}
       <div className="flex h-full flex-col">
         <div className="flex-1 overflow-y-auto">
+          {/* R152lll-3 — Si la base de conocimiento está vacía, mostrar un
+              banner grande en el área del chat ANTES de que el usuario
+              intente preguntar. Sin esto, el usuario manda mensaje y ve
+              "Failed to fetch" porque vector_search no encuentra nada.
+              Solo aparece si el índice cargó (no isLoading) y está vacío. */}
+          {indexQ.data &&
+            !indexQ.isLoading &&
+            (indexQ.data.chunk_count ?? 0) === 0 && (
+              <div className="m-6 rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-6 shadow-card">
+                <div className="flex items-start gap-4">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+                    <span className="text-2xl" aria-hidden>⚠</span>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-amber-900">
+                      Esta empresa no tiene documentos indexados todavía
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-amber-800">
+                      Para que el asistente pueda responder sobre{" "}
+                      <strong>{empresaCodigo}</strong>, primero hay que indexar
+                      los documentos del Dropbox de la empresa. Esto crea los
+                      embeddings que la búsqueda semántica usa para responder.
+                    </p>
+                    {isAdmin ? (
+                      <button
+                        type="button"
+                        onClick={() => reindexMutation.mutate()}
+                        disabled={reindexMutation.isPending}
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card transition-colors hover:bg-cehta-green-700 disabled:opacity-60"
+                      >
+                        {reindexMutation.isPending ? (
+                          <>
+                            <span className="size-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            Indexando documentos…
+                          </>
+                        ) : (
+                          <>
+                            <span aria-hidden>⚡</span>
+                            Indexar ahora
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <p className="mt-3 text-xs text-amber-700">
+                        Solo un usuario administrador puede iniciar la
+                        indexación. Contacta a tu administrador del sistema.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           <ChatMessages messages={streamMessages} empresa={empresaCodigo} />
         </div>
         {/* R152hhh — Banner de error inline cuando el stream falla. Antes era
