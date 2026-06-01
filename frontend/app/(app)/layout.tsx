@@ -15,11 +15,14 @@ import { WhatsNewBanner } from "@/components/layout/WhatsNewBanner";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
+  // R152ppp — usar getUser() en lugar de getSession() para validar el JWT
+  // con el server (más seguro). getSession() solo lee la cookie sin verificar
+  // y Supabase loggea warning "Using the user object ... is not secure".
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     redirect("/login");
   }
 
@@ -31,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <RealtimeProvider>
       <MobileLayoutShell
-        sidebar={<AppSidebar email={session.user.email ?? ""} />}
+        sidebar={<AppSidebar email={user.email ?? ""} />}
       >
         {/* V4 fase 2: banner amarillo si admin sin 2FA. Self-managed
             (renderea null si la condición no aplica). */}
