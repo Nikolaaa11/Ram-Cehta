@@ -144,15 +144,58 @@ async def chat_stream(
     await db.commit()
 
     # 2. Embed + vector search
+    # R152lll — TODO el pre-stream envuelto en try/except. Antes, si
+    # vector_search fallaba (tabla ai_documents no existe, extensión vector
+    # no instalada, schema mismatch), la excepción burbujeaba a FastAPI que
+    # cerraba la conexión sin terminar el SSE → el browser veía
+    # "TypeError: Failed to fetch" sin contexto. Ahora se emite un frame
+    # SSE de error legible antes de cerrar.
     try:
         query_emb = await embed_text(user_message)
     except EmbeddingNotConfigured as exc:
         yield _sse_frame({"type": "error", "detail": str(exc)})
         return
+    except Exception as exc:  # noqa: BLE001
+        log.error("ai.chat.embed_failed", error=str(exc))
+        yield _sse_frame(
+            {
+                "type": "error",
+                "detail": (
+                    "No se pudo generar el embedding del mensaje. "
+                    "Verifica que OPENAI_API_KEY esté configurado en backend. "
+                    f"Detalle técnico: {exc}"
+                ),
+            }
+        )
+        return
 
-    chunks = await vector_search(
-        db, conversation.empresa_codigo, query_emb, top_k=settings.ai_max_context_chunks
-    )
+    try:
+        chunks = await vector_search(
+            db,
+            conversation.empresa_codigo,
+            query_emb,
+            top_k=settings.ai_max_context_chunks,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error(
+            "ai.chat.vector_search_failed",
+            empresa=conversation.empresa_codigo,
+            error=str(exc),
+        )
+        yield _sse_frame(
+            {
+                "type": "error",
+                "detail": (
+                    f"No se pudo buscar en la base de conocimiento de {conversation.empresa_codigo}. "
+                    "Causas frecuentes: (1) la empresa todavía no fue indexada — usa el botón 'Re-indexar' "
+                    "en el panel lateral; (2) la extensión PostgreSQL 'vector' no está instalada; "
+                    "(3) la tabla core.ai_documents no existe en esta base de datos. "
+                    f"Detalle técnico: {exc}"
+                ),
+            }
+        )
+        return
+
     citations = [
         {
             "chunk_id": int(c["chunk_id"]),
