@@ -24,7 +24,8 @@
  *   - Footer "Mostrando N de M — afiná la búsqueda" cuando el cap recorta.
  *   - aria-activedescendant para lectores de pantalla.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
@@ -72,9 +73,39 @@ export function CuentaTypeahead({
 }: Props) {
   const { session } = useSession();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightedIdx, setHighlightedIdx] = useState(0);
+  // R152rrr — posición del dropdown calculada via getBoundingClientRect().
+  // Necesario para renderizar via portal en document.body y evitar que el
+  // overflow-x-auto del padre lo recorte. Se recalcula al scroll/resize.
+  const [dropdownPos, setDropdownPos] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  // Recalcular posición cuando el dropdown abre o cambia el viewport.
+  useLayoutEffect(() => {
+    if (!open || !inputRef.current) return;
+    const calcPos = () => {
+      if (!inputRef.current) return;
+      const r = inputRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: r.bottom + 4, // 4px de gap visual
+        left: r.left,
+        width: r.width,
+      });
+    };
+    calcPos();
+    window.addEventListener("scroll", calcPos, true); // capture para scroll del padre
+    window.addEventListener("resize", calcPos);
+    return () => {
+      window.removeEventListener("scroll", calcPos, true);
+      window.removeEventListener("resize", calcPos);
+    };
+  }, [open]);
 
   // Fetch cuentas imputables/activas para esta empresa. Cache 5 min.
   const { data: cuentas, isLoading } = useQuery<PlanCuenta[]>({
@@ -181,6 +212,7 @@ export function CuentaTypeahead({
   return (
     <div ref={containerRef} className="relative">
       <input
+        ref={inputRef}
         required={required}
         value={displayValue}
         onFocus={() => {
@@ -205,10 +237,20 @@ export function CuentaTypeahead({
         aria-expanded={open}
         aria-activedescendant={activeDescId}
       />
-      {open && (
+      {open && dropdownPos && typeof window !== "undefined" &&
+        createPortal(
         <ul
-          className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
+          className="fixed z-50 max-h-72 overflow-auto rounded-lg border border-hairline bg-white shadow-elevated-lg"
           role="listbox"
+          style={{
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+          }}
+          onMouseDown={(e) => {
+            // Evitar que el click cierre el dropdown via onBlur del input
+            e.preventDefault();
+          }}
         >
           {isLoading && (
             <li className="px-3 py-2 text-xs text-ink-500">Cargando cuentas…</li>
@@ -281,7 +323,8 @@ export function CuentaTypeahead({
               Mostrando {filtered.length} de {totalMatches} — afiná la búsqueda
             </li>
           )}
-        </ul>
+        </ul>,
+        document.body,
       )}
       {showWarning && (
         <p className="mt-1 text-[11px] text-amber-600">
