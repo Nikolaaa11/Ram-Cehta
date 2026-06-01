@@ -151,8 +151,24 @@ export function useChatStream(conversationId: number | null) {
           }
         }
       } catch (e) {
-        const msg = e instanceof Error ? e.message : "Error de red";
-        setError(msg);
+        // R152lll — "Failed to fetch" del fetch API es muy críptico. Convertirlo
+        // en algo que explique qué pasar para que el usuario sepa qué hacer.
+        const raw = e instanceof Error ? e.message : "Error desconocido";
+        let friendly: string;
+        if (raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
+          friendly =
+            "No se pudo conectar al servidor del asistente IA. Causas frecuentes: " +
+            "(1) el servidor cerró la conexión antes de responder — comúnmente porque la variable ANTHROPIC_API_KEY no está configurada en el backend; " +
+            "(2) tu conexión a internet se interrumpió; " +
+            "(3) un proxy o firewall corporativo bloqueó la petición. " +
+            "Recarga la página e inténtalo de nuevo. Si el problema persiste, contacta al administrador del sistema.";
+        } else if (raw.includes("AbortError")) {
+          friendly =
+            "La respuesta del asistente IA tardó demasiado y la petición fue cancelada. Inténtalo de nuevo con una pregunta más específica.";
+        } else {
+          friendly = raw;
+        }
+        setError(friendly);
       } finally {
         setStreaming(false);
       }
