@@ -268,6 +268,16 @@ const GROUPS: NavGroup[] = [
     defaultOpen: true,
     requiresAccess: canSeeClaudiaGroup,
     items: [
+      // R152nnn — Home/dashboard de coordinación (primer item).
+      {
+        href: "/claudia" as Route,
+        label: "Mi workspace",
+        icon: Sparkles,
+        title:
+          "Tu panel principal de coordinación: acciones rápidas, status del " +
+          "mes, guía del flujo CORFO en 5 pasos y botón de sugerencias.",
+        isNew: true,
+      },
       // Dashboard ejecución subsidio (R89 — "donde están las platas").
       {
         href: "/admin/subsidios/CORFO-2026-REVTECH-TRONGKAI" as Route,
@@ -310,6 +320,16 @@ const GROUPS: NavGroup[] = [
           "Editor masivo para mapear cuentas del plan local a las cuentas " +
           "oficiales CORFO. Auto-sugerencia con 18 keywords (Honorario→" +
           "SUBCONTRATOS, Arriendo→ARRIENDO, etc.).",
+      },
+      // R152nnn — Sugerencias estructuradas (también visibles a todos abajo).
+      {
+        href: "/sugerencias" as Route,
+        label: "Enviar sugerencia",
+        icon: MessageSquare,
+        title:
+          "Buzón de sugerencias estructuradas: feature, bug, UX, performance. " +
+          "Cada sugerencia se prioriza en el backlog semanal del equipo.",
+        isNew: true,
       },
     ],
   },
