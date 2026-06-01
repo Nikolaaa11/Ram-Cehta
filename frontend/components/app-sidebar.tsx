@@ -546,6 +546,15 @@ const GROUPS: NavGroup[] = [
         label: "Integraciones",
         icon: Plug,
       },
+      // R152mmm — Bulk indexer del Asistente IA
+      {
+        href: "/admin/ai-index" as Route,
+        label: "Índice Asistente IA",
+        icon: Sparkles,
+        title:
+          "Status del índice vectorial por empresa + botón para re-indexar masivamente todas las empresas del fondo.",
+        isNew: true,
+      },
       {
         href: "/admin/digest" as Route,
         label: "Digest CEO",
