@@ -26,7 +26,27 @@ async function coreFetch<T>(
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
   }
-  const res = await fetch(url, { ...options, headers, cache: "no-store" });
+  // R152sss — Capturar TypeError "Failed to fetch" del browser fetch API
+  // (causado por: red interrumpida, extensión bloqueando, CORS, mixed content,
+  // SSL handshake fallido, etc.) y convertirlo en un ApiError con detalle
+  // accionable. Antes burbujeaba como "TypeError: Failed to fetch" sin
+  // explicación para el usuario.
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers, cache: "no-store" });
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    if (raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
+      throw new ApiError(
+        0,
+        "No se pudo conectar con el servidor. Verifica tu conexión a internet. " +
+        "Si persiste: (1) recarga la página con Ctrl+Shift+R; (2) prueba en " +
+        "ventana incógnito (descarta extensiones bloqueando); (3) si usas VPN/" +
+        "proxy corporativo, podría estar bloqueando el backend cehta-backend.fly.dev.",
+      );
+    }
+    throw new ApiError(0, `Error de red: ${raw}`);
+  }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {
