@@ -61,6 +61,8 @@ import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { useMailboxPrefetch } from "@/hooks/use-mailbox";
 import { useF22Prefetch } from "@/hooks/use-f22";
+import { useAprobacionesPrefetch } from "@/hooks/use-aprobaciones-prefetch";
+import { useActionCenterPrefetch } from "@/hooks/use-action-center-prefetch";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useEntregablesPrefetch } from "@/hooks/use-entregables";
@@ -729,6 +731,9 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const prefetchEntregables = useEntregablesPrefetch();
   const prefetchMailbox = useMailboxPrefetch();
   const prefetchF22 = useF22Prefetch();
+  // R152iii — prefetch hover para items hot del sidebar
+  const prefetchAprobaciones = useAprobacionesPrefetch();
+  const prefetchActionCenter = useActionCenterPrefetch();
   // Atajos teclado globales (gd → dashboard, gv → vouchers, etc.)
   useKeyboardShortcuts();
 
@@ -839,7 +844,11 @@ export function AppSidebar({ email }: AppSidebarProps) {
                       ? prefetchMailbox
                       : hrefStr === "/f22"
                         ? prefetchF22
-                        : undefined;
+                        : hrefStr === "/aprobaciones"
+                          ? prefetchAprobaciones
+                          : hrefStr === "/action-center"
+                            ? prefetchActionCenter
+                            : undefined;
                 return (
                   <Link
                     key={item.href}
