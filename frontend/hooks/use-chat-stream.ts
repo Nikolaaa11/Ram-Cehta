@@ -77,8 +77,26 @@ export function useChatStream(conversationId: number | null) {
           body: JSON.stringify({ message: text }),
         });
         if (!res.ok || !res.body) {
+          // R152hhh — mensajes de error claros según código HTTP. El UX antes
+          // mostraba sólo "HTTP 503" sin contexto, lo que dejaba a los usuarios
+          // sin saber qué hacer. Ahora cada caso tiene una explicación accionable.
           const errBody = await res.text().catch(() => "");
-          throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+          let friendly: string;
+          if (res.status === 401) {
+            friendly = "Tu sesión expiró. Recarga la página e inicia sesión de nuevo.";
+          } else if (res.status === 403) {
+            friendly = "No tienes permisos para usar el asistente IA. Pídele acceso al administrador del sistema.";
+          } else if (res.status === 404) {
+            friendly = "La conversación no existe o fue eliminada. Crea una nueva en el panel lateral.";
+          } else if (res.status === 503) {
+            friendly =
+              "El asistente IA no está configurado en el backend (falta la variable ANTHROPIC_API_KEY). Contacta al administrador del sistema.";
+          } else if (res.status >= 500) {
+            friendly = `Error del servidor (${res.status}). Inténtalo de nuevo en unos minutos. Detalle: ${errBody.slice(0, 200)}`;
+          } else {
+            friendly = `Error HTTP ${res.status}: ${errBody.slice(0, 200)}`;
+          }
+          throw new Error(friendly);
         }
 
         const reader = res.body.getReader();

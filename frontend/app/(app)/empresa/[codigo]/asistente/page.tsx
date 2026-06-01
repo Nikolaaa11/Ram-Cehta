@@ -233,12 +233,33 @@ export default function EmpresaAsistentePage({
         <div className="flex-1 overflow-y-auto">
           <ChatMessages messages={streamMessages} empresa={empresaCodigo} />
         </div>
+        {/* R152hhh — Banner de error inline cuando el stream falla. Antes era
+            sólo un toast efímero. Ahora queda visible hasta que el usuario
+            intente de nuevo o cierre el banner manualmente. */}
+        {streamError && (
+          <div
+            role="alert"
+            className="mx-3 mb-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm"
+          >
+            <div className="flex items-start gap-2">
+              <span aria-hidden className="mt-0.5 text-red-600">⚠</span>
+              <div className="flex-1">
+                <p className="font-semibold text-red-900">
+                  El asistente no pudo responder
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-red-800">
+                  {streamError}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="border-t border-hairline bg-surface-muted p-3">
           <ChatInput onSend={handleSend} disabled={streaming} />
           <p className="mt-2 text-center text-[11px] text-ink-500">
-            Las respuestas se generan a partir de la knowledge base de{" "}
-            <span className="font-medium">{empresaCodigo}</span>. Verifica decisiones
-            financieras antes de actuar.
+            Las respuestas se generan a partir de la base de conocimiento de{" "}
+            <span className="font-medium">{empresaCodigo}</span>. Verifica las
+            decisiones financieras antes de actuar.
           </p>
         </div>
       </div>
