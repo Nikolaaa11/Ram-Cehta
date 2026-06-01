@@ -63,7 +63,7 @@ export default function AdminImportPage() {
           Importar CSV
         </h1>
         <p className="mt-1 text-sm text-ink-500">
-          Subí un CSV, validá fila por fila (sin escribir en DB todavía) y
+          Sube un CSV, validá fila por fila (sin escribir en DB todavía) y
           confirmá la importación. Tope 5 MB.
         </p>
       </div>
@@ -185,9 +185,9 @@ function ImportPanel({ entityType }: ImportPanelProps) {
       {/* Step 1: Upload */}
       <Surface>
         <Surface.Header>
-          <Surface.Title>Paso 1 · Subí el CSV</Surface.Title>
+          <Surface.Title>Paso 1 · Sube el CSV</Surface.Title>
           <Surface.Subtitle>
-            Drag-drop o clic. Descargá la plantilla si no sabés qué columnas
+            Drag-drop o clic. Descarga la plantilla si no sabés qué columnas
             poner.
           </Surface.Subtitle>
         </Surface.Header>
@@ -293,7 +293,7 @@ function PreviewSection({ report, executing, onExecute }: PreviewSectionProps) {
       <Surface.Header>
         <Surface.Title>Paso 2 · Revisión</Surface.Title>
         <Surface.Subtitle>
-          {report.total_rows} filas leídas. Revisá errores y duplicados antes
+          {report.total_rows} filas leídas. Revisa errores y duplicados antes
           de importar.
         </Surface.Subtitle>
       </Surface.Header>

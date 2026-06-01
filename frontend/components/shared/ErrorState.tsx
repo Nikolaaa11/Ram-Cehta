@@ -45,7 +45,7 @@ function extractDetail(error: Error | null | undefined): string | null {
       return "Servicio no configurado. Contactá al admin.";
     }
     if (error.status >= 500) {
-      return `Error del servidor (HTTP ${error.status}). Probá más tarde.`;
+      return `Error del servidor (HTTP ${error.status}). Prueba más tarde.`;
     }
     return error.detail;
   }

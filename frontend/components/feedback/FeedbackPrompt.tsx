@@ -93,7 +93,7 @@ export function FeedbackPrompt({
         <div>
           <p className="text-sm font-medium text-ink-900">{question}</p>
           <p className="mt-1 text-xs text-ink-500">
-            Contanos brevemente (opcional)
+            Cuéntanos brevemente (opcional)
           </p>
           <textarea
             value={comment}

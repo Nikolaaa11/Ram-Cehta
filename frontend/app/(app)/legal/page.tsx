@@ -242,8 +242,8 @@ export default function LegalPortafolioPage() {
           </p>
           <p className="mt-1 text-sm text-ink-500">
             {hasFilters
-              ? "Probá ajustar empresa, categoría o estado."
-              : "Cargá contratos, actas o pólizas desde la vista por empresa."}
+              ? "Prueba ajustar empresa, categoría o estado."
+              : "Carga contratos, actas o pólizas desde la vista por empresa."}
           </p>
         </Surface>
       )}

@@ -230,7 +230,7 @@ export default async function IntegracionesPage() {
                     .
                   </p>
                   <p className="mt-2 text-xs text-ink-500">
-                    Subí el archivo a:{" "}
+                    Sube el archivo a:{" "}
                     <span className="font-mono">
                       {dataMadre.inteligencia_negocios_path}
                     </span>

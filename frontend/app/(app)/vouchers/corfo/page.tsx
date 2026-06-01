@@ -304,7 +304,7 @@ export default function VoucherCorfoPage() {
     if (cuentasFaltantes > 0) {
       throw new Error(
         `El proyecto ${proyectoCodigo} no tiene las cuentas del reparto ` +
-          `configuradas (faltan ${cuentasFaltantes}). Andá a ` +
+          `configuradas (faltan ${cuentasFaltantes}). Anda a ` +
           `/admin/proyectos-contables/${proyectoCodigo} y completá ` +
           `"cuenta_aporte_corfo", "cuenta_aporte_ptec_cehta", ` +
           `"cuenta_aporte_empresa_directa" y "cuenta_iva_corporativo" ` +
@@ -783,7 +783,7 @@ export default function VoucherCorfoPage() {
                           }`}
                           title={
                             cuentaVacia
-                              ? `El proyecto ${proyectoCodigo} no tiene cuenta default para ${l.fuente}. Elegí una manualmente.`
+                              ? `El proyecto ${proyectoCodigo} no tiene cuenta default para ${l.fuente}. Elige una manualmente.`
                               : overrideado
                                 ? `Override manual. Default del proyecto: ${l.cuentaDefault || "—"}`
                                 : `Cuenta default del reparto del proyecto ${proyectoCodigo}`

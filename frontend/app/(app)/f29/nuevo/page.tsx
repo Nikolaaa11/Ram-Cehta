@@ -184,7 +184,7 @@ export default function F29NuevoPage() {
               Auto-fill con IA
             </h2>
             <span className="text-xs text-ink-500">
-              Subí el PDF del F29 y completamos los campos.
+              Sube el PDF del F29 y completamos los campos.
             </span>
           </div>
           <input

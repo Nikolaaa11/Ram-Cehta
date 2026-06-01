@@ -261,7 +261,7 @@ export default function AprenderPage() {
             <li className="flex items-start gap-2">
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
               <span>
-                Hacé los quizzes en orden — cada uno asume conceptos del anterior.
+                Haz los quizzes en orden — cada uno asume conceptos del anterior.
               </span>
             </li>
             <li className="flex items-start gap-2">
@@ -274,14 +274,14 @@ export default function AprenderPage() {
             <li className="flex items-start gap-2">
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
               <span>
-                Necesitás 70% para aprobar un módulo. 100% desbloquea el badge{" "}
+                Necesitas 70% para aprobar un módulo. 100% desbloquea el badge{" "}
                 <strong>Perfeccionista</strong>.
               </span>
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
               <span>
-                Podés repasar un módulo cuando quieras — el progreso queda
+                Puedes repasar un módulo cuando quieras — el progreso queda
                 guardado.
               </span>
             </li>

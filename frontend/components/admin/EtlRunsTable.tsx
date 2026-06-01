@@ -211,7 +211,7 @@ export function EtlRunsTable() {
             </p>
             <p className="mt-1 max-w-md text-sm text-ink-500">
               {status
-                ? "Probá quitar el filtro de status."
+                ? "Prueba quitar el filtro de status."
                 : "Cuando se ejecute el primer ETL, aparecerá aquí con su trazabilidad completa."}
             </p>
           </div>

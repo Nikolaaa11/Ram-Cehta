@@ -187,7 +187,7 @@ export default function EmpresaLegalPage({
           </p>
           <p className="mt-1 text-sm text-ink-500">
             {canCreate
-              ? "Subí el primer documento con el botón + Subir documento."
+              ? "Sube el primer documento con el botón + Subir documento."
               : "Pedile a un admin que cargue contratos, actas o pólizas."}
           </p>
         </Surface>

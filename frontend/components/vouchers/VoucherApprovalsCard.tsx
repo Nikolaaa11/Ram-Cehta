@@ -492,7 +492,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
                   <strong className="font-semibold">
                     Tu cuenta no tiene el rol {ROLE_LABEL[data.next_pending_role]}
                   </strong>{" "}
-                  en esta empresa. Hacé logout y entrá con una de las cuentas
+                  en esta empresa. Haz logout y entrá con una de las cuentas
                   autorizadas para firmar este paso:
                 </p>
               )}

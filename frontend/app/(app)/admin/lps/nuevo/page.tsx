@@ -149,7 +149,7 @@ export default function NuevoLpPage() {
             </span>
           </Surface.Title>
           <Surface.Subtitle>
-            Registrá un inversionista (potencial o activo) para luego poder
+            Registra un inversionista (potencial o activo) para luego poder
             generarle informes personalizados con AI.
           </Surface.Subtitle>
         </Surface.Header>

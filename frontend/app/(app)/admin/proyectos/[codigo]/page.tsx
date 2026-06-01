@@ -248,7 +248,7 @@ export default function ProyectoAdminPage({
             Cuentas contables destino
           </h2>
           <p className="text-xs text-ink-500 mt-1">
-            Cada fuente carga a una cuenta contable distinta. Usá códigos del
+            Cada fuente carga a una cuenta contable distinta. Usa códigos del
             plan IFRS Nubox (ej. <code>4102-01</code> para gasto operacional,{" "}
             <code>1170-01</code> para IVA crédito fiscal). La cuenta IVA
             siempre debe ser corporativa (regla CORFO).

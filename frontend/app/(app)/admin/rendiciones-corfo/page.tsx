@@ -338,11 +338,11 @@ export default function RendicionesCorfoPage() {
       <div className="mt-6 rounded-2xl bg-cehta-green/5 px-5 py-4 text-xs text-ink-700">
         <p className="font-semibold text-cehta-green">📋 Cómo funciona</p>
         <ol className="mt-2 ml-5 list-decimal space-y-1 leading-relaxed">
-          <li>Elegí empresa + período. El sistema lee los vouchers COMPRA aprobados de ese mes.</li>
+          <li>Elige empresa + período. El sistema lee los vouchers COMPRA aprobados de ese mes.</li>
           <li>Click en "Rendición de Gastos" → descarga el Excel con 21 columnas, dropdowns CORFO oficiales y los datos pre-llenados desde tus vouchers (folio, RUT proveedor, montos, fecha).</li>
           <li>Las columnas en <span className="rounded bg-amber-200 px-1.5 py-0.5">amarillo</span> son las que tenés que completar a mano: Cuenta CORFO + Ítem (si no hay mapeo aún), Forma de Pago, Fecha de Pago, Glosa.</li>
           <li>Si configurás el mapeo cuenta_local → CORFO_cuenta una vez, queda persistido y las próximas rendiciones se pre-llenan completas.</li>
-          <li>Subí el Excel resultante al portal CORFO como rendición oficial.</li>
+          <li>Sube el Excel resultante al portal CORFO como rendición oficial.</li>
         </ol>
       </div>
     </div>

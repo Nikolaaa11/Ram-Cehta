@@ -36,7 +36,7 @@ export default function PLAreaPage() {
     <ReportShell
       eyebrow="Reporte contable formal"
       title="P&L por Área"
-      subtitle={`Ingresos vs gastos agrupados por centro de costo. ${empresa || "Elegí empresa"}.`}
+      subtitle={`Ingresos vs gastos agrupados por centro de costo. ${empresa || "Elige empresa"}.`}
       filters={<ContableFilters />}
     >
       {isLoading ? (

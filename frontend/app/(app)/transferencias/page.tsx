@@ -277,7 +277,7 @@ export default function TransferenciasPage() {
           ? err.detail
           : err instanceof Error
             ? err.message
-            : "No se pudo generar el Excel. Reintentá en unos segundos.",
+            : "No se pudo generar el Excel. Reintenta en unos segundos.",
         { duration: 10000 },
       );
     } finally {
@@ -385,7 +385,7 @@ export default function TransferenciasPage() {
         setShowFeedbackAfterPaid(true);
       } else {
         toast.info(
-          `${resp.succeeded} marcados · ${resp.failed} fallaron${attachMsg}. Revisá los detalles.`,
+          `${resp.succeeded} marcados · ${resp.failed} fallaron${attachMsg}. Revisa los detalles.`,
           { duration: 10000 },
         );
         // Mostrar primeros 3 errores en toasts adicionales
@@ -456,7 +456,7 @@ export default function TransferenciasPage() {
           </h1>
           <p className="text-sm md:text-base text-ink-500 mt-2 max-w-2xl">
             Vouchers <strong>APPROVED</strong> (firmados GG + Director) listos
-            para pago. Revisá datos, seleccioná los del día y descargá el
+            para pago. Revisa datos, seleccioná los del día y descargá el
             Excel para cargar al banco.
           </p>
         </div>
@@ -488,8 +488,8 @@ export default function TransferenciasPage() {
             tone="info"
             title={
               pendingMyApproval > 0
-                ? `Tenés ${pendingMyApproval} voucher${pendingMyApproval > 1 ? "s" : ""} esperando tu firma`
-                : `Tenés ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación`
+                ? `Tienes ${pendingMyApproval} voucher${pendingMyApproval > 1 ? "s" : ""} esperando tu firma`
+                : `Tienes ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación`
             }
             description={
               pendingMyApproval > 0
@@ -635,7 +635,7 @@ export default function TransferenciasPage() {
                   .
                 </p>
                 <p className="text-xs text-ink-500">
-                  Hacé esto <em>después</em> de confirmar las transferencias
+                  Haz esto <em>después</em> de confirmar las transferencias
                   en el portal del banco. Una vez marcado, el voucher pasa
                   al historial y deja de aparecer en esta lista.
                 </p>

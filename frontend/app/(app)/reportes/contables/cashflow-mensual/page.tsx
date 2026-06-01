@@ -77,7 +77,7 @@ export default function CashflowMensualPage() {
               onChange={(e) => setEmpresa(e.target.value)}
               className="mt-1 w-full rounded-lg border-0 bg-ink-50 px-3 py-1.5 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
             >
-              <option value="">— Elegí empresa —</option>
+              <option value="">— Elige empresa —</option>
               {(empresas ?? []).map((e) => (
                 <option key={e.codigo} value={e.codigo}>
                   {e.codigo}
@@ -108,7 +108,7 @@ export default function CashflowMensualPage() {
             onClick={(e) => {
               if (!empresa) {
                 e.preventDefault();
-                alert("Elegí una empresa primero");
+                alert("Elige una empresa primero");
               }
             }}
             className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
@@ -123,7 +123,7 @@ export default function CashflowMensualPage() {
             onClick={(e) => {
               if (!empresa) {
                 e.preventDefault();
-                alert("Elegí una empresa primero");
+                alert("Elige una empresa primero");
               }
             }}
             className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"

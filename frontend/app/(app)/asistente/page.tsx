@@ -60,7 +60,7 @@ export default function AsistentePickerPage() {
           </h1>
           <p className="max-w-2xl text-base text-ink-500">
             Tu Asistente AI tiene contexto financiero, legal y operativo de cada
-            empresa. Elegí una para empezar la conversación.
+            empresa. Elige una para empezar la conversación.
           </p>
         </div>
       </header>
@@ -76,7 +76,7 @@ export default function AsistentePickerPage() {
           </p>
           <p className="mt-0.5 text-sm text-ink-500">
             Cada asistente tiene memoria de movimientos, OCs, F29 y documentos
-            legales de su empresa. Verificá decisiones financieras antes de
+            legales de su empresa. Verifica decisiones financieras antes de
             actuar.
           </p>
         </div>

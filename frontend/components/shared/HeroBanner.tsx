@@ -22,7 +22,7 @@
  *     pillIcon={<Wallet className="size-3.5 text-cehta-green" />}
  *     pillText="Confirmar pagos · Planilla bancaria"
  *     title="Validar y pagar"
- *     subtitle="Vouchers APPROVED listos para pago. Revisá datos..."
+ *     subtitle="Vouchers APPROVED listos para pago. Revisa datos..."
  *   />
  *
  * Con extras (right slot para badges/buttons):

@@ -210,7 +210,7 @@ export function ShareCard({ token, onClose }: Props) {
             {/* Link compartible directo (alternativa al email) */}
             <div className="rounded-2xl bg-ink-50/60 p-4 text-left">
               <p className="text-xs font-medium uppercase tracking-wider text-ink-500">
-                O compartilo vos mismo
+                O compartilo tú mismo
               </p>
               <div className="mt-2 flex items-center gap-2">
                 <input
@@ -239,7 +239,7 @@ export function ShareCard({ token, onClose }: Props) {
                 </button>
               </div>
               <p className="mt-2 text-[10px] text-ink-400">
-                Podés mandarlo por WhatsApp, LinkedIn, o donde prefieras.
+                Puedes mandarlo por WhatsApp, LinkedIn, o donde prefieras.
               </p>
             </div>
 

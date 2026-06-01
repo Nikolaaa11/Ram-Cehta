@@ -71,7 +71,7 @@ export function SmartInsights() {
         Icon: AlertTriangle,
         text: (
           <>
-            Tenés <strong>{vencidos.length} entregables vencidos</strong>{" "}
+            Tienes <strong>{vencidos.length} entregables vencidos</strong>{" "}
             ({breakdown}). Cada uno requiere explicación documentada en el
             acta del Comité de Vigilancia.
           </>

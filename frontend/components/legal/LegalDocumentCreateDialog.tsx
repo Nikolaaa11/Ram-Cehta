@@ -223,7 +223,7 @@ export function LegalDocumentCreateDialog({
       <DialogContent className="max-w-xl">
         <DialogTitle>Nuevo documento legal</DialogTitle>
         <DialogDescription>
-          Bóveda legal de {empresaCodigo}. Subí archivo a Dropbox y deja sus
+          Bóveda legal de {empresaCodigo}. Sube archivo a Dropbox y deja sus
           metadatos para alertas automáticas.
         </DialogDescription>
 

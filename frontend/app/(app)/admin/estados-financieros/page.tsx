@@ -542,7 +542,7 @@ function CreateEfDialog({
           ? err.detail
           : err instanceof Error
             ? err.message
-            : "No se pudo crear el EEFF. Reintentá en unos segundos.",
+            : "No se pudo crear el EEFF. Reintenta en unos segundos.",
       );
     } finally {
       setLoading(false);

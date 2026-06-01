@@ -281,7 +281,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
               ? "Este voucher pertenece a una empresa a la que no tenés acceso. Si creés que es un error, contactá a Nicolás."
               : status === 404
                 ? `El voucher con id ${voucherId} no existe. Quizás fue eliminado.`
-                : apiErr?.detail || "Reintentá en unos segundos."}
+                : apiErr?.detail || "Reintenta en unos segundos."}
           </p>
         </div>
       </div>
@@ -1180,7 +1180,7 @@ function VoidDialog({
           ? err.detail
           : err instanceof Error
             ? err.message
-            : "No se pudo anular el voucher. Reintentá en unos segundos.",
+            : "No se pudo anular el voucher. Reintenta en unos segundos.",
       );
     } finally {
       setLoading(false);

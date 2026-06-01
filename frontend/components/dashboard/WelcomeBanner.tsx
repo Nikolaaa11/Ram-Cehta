@@ -124,7 +124,7 @@ export function WelcomeBanner() {
           <div className="flex-1 pt-0.5">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-base font-semibold text-amber-900">
-                Tenés{" "}
+                Tienes{" "}
                 <span className="font-display tabular-nums">{totalPending}</span>{" "}
                 {totalPending === 1 ? "voucher" : "vouchers"} que requieren tu acción
               </h3>

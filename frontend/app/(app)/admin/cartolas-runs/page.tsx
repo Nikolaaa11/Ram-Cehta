@@ -339,7 +339,7 @@ export default function CartolasRunsPage() {
                 strokeWidth={1.25}
               />
               <p className="text-sm text-ink-500">
-                Sin runs todavía. Elegí una empresa arriba y tocá &ldquo;Sync
+                Sin runs todavía. Elige una empresa arriba y tocá &ldquo;Sync
                 cartolas&rdquo; para procesar los PDFs en Dropbox.
               </p>
             </div>
@@ -471,7 +471,7 @@ export default function CartolasRunsPage() {
             strokeWidth={1.25}
           />
           <p className="mt-2 text-sm font-medium text-ink-700">
-            Subí los PDFs de cartolas a Dropbox antes de sync
+            Sube los PDFs de cartolas a Dropbox antes de sync
           </p>
           <p className="mt-1 text-xs text-ink-500">
             Path:{" "}

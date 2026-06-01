@@ -873,7 +873,7 @@ export default function SiiAdminPage() {
             </table>
             {(!documentos || documentos.length === 0) && (
               <p className="p-6 text-center text-sm text-ink-500">
-                Sin documentos. Probá hacer un sync arriba.
+                Sin documentos. Prueba hacer un sync arriba.
               </p>
             )}
           </div>

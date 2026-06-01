@@ -483,7 +483,7 @@ export function F22ClientView({ initialEmpresas, initialF22Page }: Props) {
               type="button"
               onClick={() => {
                 if (!draft.empresa_codigo) {
-                  toast.error("Elegí empresa");
+                  toast.error("Elige empresa");
                   return;
                 }
                 createMut.mutate({

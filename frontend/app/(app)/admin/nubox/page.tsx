@@ -542,7 +542,7 @@ export default function NuboxAdminPage() {
               Sin remuneraciones para {selectedEmpresa} en {periodo}
             </p>
             <p className="mx-auto mt-1 max-w-md text-xs text-ink-500">
-              Subí el Libro de Remuneraciones del período arriba para
+              Sube el Libro de Remuneraciones del período arriba para
               cargar los datos.
             </p>
           </div>

@@ -363,7 +363,7 @@ export default function CartasGanttPage() {
                   Aún no hay Gantts en el portafolio
                 </p>
                 <p className="mx-auto mt-1 max-w-md text-sm text-ink-500">
-                  Subí los <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">Roadmap.xlsx</code> de
+                  Sube los <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs">Roadmap.xlsx</code> de
                   cada empresa a Dropbox y luego presioná{" "}
                   <span className="font-medium text-cehta-green">
                     Sincronizar todos los Gantts

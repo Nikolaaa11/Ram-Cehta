@@ -39,7 +39,7 @@ const STEPS: TourStep[] = [
     target: null,
     title: "Bienvenido a Cehta Capital",
     body:
-      "Te muestro los 5 atajos más útiles en menos de 1 minuto. Podés saltarlo en cualquier momento.",
+      "Te muestro los 5 atajos más útiles en menos de 1 minuto. Puedes saltarlo en cualquier momento.",
     position: "center",
     ctaLabel: "Empezar",
   },
@@ -97,7 +97,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="cartolas"]',
     title: "Cartolas Bancarias OCR",
     body:
-      "Subí PDFs de cartolas a Dropbox y el sistema parsea automáticamente los movimientos para conciliación. Soporta 10 bancos chilenos.",
+      "Sube PDFs de cartolas a Dropbox y el sistema parsea automáticamente los movimientos para conciliación. Soporta 10 bancos chilenos.",
     position: "right",
   },
   // Round 76 — paso del tour para "Confirmar pagos · Planilla". Cierra

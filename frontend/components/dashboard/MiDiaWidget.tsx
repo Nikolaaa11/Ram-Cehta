@@ -119,7 +119,7 @@ export function MiDiaWidget() {
               <Surface.Subtitle>
                 {totalAcciones === 0
                   ? "Todo al día — no tenés nada urgente que hacer ahora."
-                  : `Tenés ${totalAcciones} cosa${totalAcciones !== 1 ? "s" : ""} que requieren atención.`}
+                  : `Tienes ${totalAcciones} cosa${totalAcciones !== 1 ? "s" : ""} que requieren atención.`}
               </Surface.Subtitle>
             </div>
           </div>
@@ -287,7 +287,7 @@ export function MiDiaWidget() {
             >
               <Bell className="h-4 w-4 text-info" strokeWidth={1.75} />
               <span className="flex-1 text-sm text-ink-700">
-                Tenés{" "}
+                Tienes{" "}
                 <strong className="text-info">
                   {unreadCount} notificacion{unreadCount !== 1 ? "es" : ""} sin
                   leer

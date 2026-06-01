@@ -196,7 +196,7 @@ export default function PlanCuentasPage() {
             icon={<FileSpreadsheet strokeWidth={1.5} />}
             eyebrow="Plan de cuentas vacío"
             title="Importá el plan desde Excel"
-            body="Andá a /admin/etl y subí Plan_de_cuentas_v2.xlsx. El importer carga las 469 cuentas + habilitación por empresa + proyectos contables + áreas en una sola pasada. Idempotente: re-correr con el Excel actualizado no duplica nada."
+            body="Anda a /admin/etl y subí Plan_de_cuentas_v2.xlsx. El importer carga las 469 cuentas + habilitación por empresa + proyectos contables + áreas en una sola pasada. Idempotente: re-correr con el Excel actualizado no duplica nada."
             ctaLabel="Ir a Importar"
             onCta={() => {
               // Round 7 — SPA navigation.

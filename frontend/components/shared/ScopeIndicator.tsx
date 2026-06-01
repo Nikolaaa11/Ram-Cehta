@@ -39,7 +39,7 @@ export function ScopeIndicator({ className, compact }: ScopeIndicatorProps) {
   if (isAdmin && activeCodigo) {
     return (
       <span
-        title={`Vista filtrada por ${activeCodigo}. Sos admin global.`}
+        title={`Vista filtrada por ${activeCodigo}. Eres admin global.`}
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full bg-cehta-green/10 px-2.5 py-1 text-xs font-medium text-cehta-green ring-1 ring-cehta-green/20",
           className,
@@ -56,7 +56,7 @@ export function ScopeIndicator({ className, compact }: ScopeIndicatorProps) {
   if (isAdmin) {
     return (
       <span
-        title="Sos admin global. Estás viendo datos de todas las empresas."
+        title="Eres admin global. Estás viendo datos de todas las empresas."
         className={cn(
           "inline-flex items-center gap-1.5 rounded-full bg-amber-100/80 px-2.5 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-300/40",
           className,

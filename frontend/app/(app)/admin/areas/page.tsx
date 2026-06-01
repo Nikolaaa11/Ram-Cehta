@@ -122,7 +122,7 @@ export default function AreasPage() {
           ? err.detail
           : err instanceof Error
             ? err.message
-            : "No se pudo actualizar el área. Reintentá.",
+            : "No se pudo actualizar el área. Reintenta.",
       );
     },
     onSettled: () => {

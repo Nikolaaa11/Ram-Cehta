@@ -140,7 +140,7 @@ export function EmpresasClientView({ initialEmpresas }: Props) {
           Empresas del portafolio
         </h1>
         <p className="mt-1 text-sm text-ink-500">
-          Editá datos fiscales/contacto de cada empresa. El `codigo` no es
+          Edita datos fiscales/contacto de cada empresa. El `codigo` no es
           editable (es el identificador que se usa por toda la app). Para
           cambiarlo, abrir ticket técnico — requiere migración cross-tabla.
         </p>

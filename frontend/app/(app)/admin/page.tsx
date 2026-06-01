@@ -142,7 +142,7 @@ export default async function AdminLandingPage() {
         <AdminCard
           href={"/admin/empresas" as Route}
           title="Empresas portfolio"
-          description="Editá datos fiscales, contacto, OC prefix y toggle activo/inactivo de las 9 entidades del portafolio."
+          description="Edita datos fiscales, contacto, OC prefix y toggle activo/inactivo de las 9 entidades del portafolio."
           icon={Building2}
           metric="9"
           metricLabel="entidades"

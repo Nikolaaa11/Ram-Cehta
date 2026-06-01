@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         detail,
         hint:
           connectResponse.status === 403
-            ? "Solo usuarios admin pueden conectar Dropbox. Verificá tu rol con SQL en Supabase."
+            ? "Solo usuarios admin pueden conectar Dropbox. Verifica tu rol con SQL en Supabase."
             : connectResponse.status === 503
               ? "DROPBOX_CLIENT_ID/SECRET no están seteados en Fly. Correr `flyctl secrets set DROPBOX_CLIENT_ID=...`"
               : "Revisar logs del backend con `flyctl logs --app cehta-backend`.",

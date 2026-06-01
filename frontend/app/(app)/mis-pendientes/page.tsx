@@ -99,7 +99,7 @@ export default function MisPendientesPage() {
       setLoadError(
         err instanceof Error
           ? err
-          : new Error("No pude cargar tus pendientes. Reintentá en unos segundos."),
+          : new Error("No pude cargar tus pendientes. Reintenta en unos segundos."),
       );
     } finally {
       setLoading(false);

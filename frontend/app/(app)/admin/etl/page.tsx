@@ -43,7 +43,7 @@ export default function AdminEtlPage() {
             Importar plan de cuentas
           </p>
           <p className="mt-1.5 text-xs text-ink-600">
-            Subí el Plan_de_cuentas_v2.xlsx para cargar/actualizar las 469
+            Sube el Plan_de_cuentas_v2.xlsx para cargar/actualizar las 469
             cuentas + habilitación por empresa. Idempotente: re-correr con el
             mismo archivo no duplica. Hay que correrlo una vez al inicio y
             luego cada vez que el contador externo actualice el plan.

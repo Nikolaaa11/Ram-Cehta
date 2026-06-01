@@ -104,7 +104,7 @@ export function ImportarGanttDialog({
       toast.error(
         err instanceof ApiError
           ? err.detail
-          : "No se pudo procesar el archivo. Verificá que sea un .xlsx válido.",
+          : "No se pudo procesar el archivo. Verifica que sea un .xlsx válido.",
       );
     },
   });
@@ -218,7 +218,7 @@ export function ImportarGanttDialog({
         <div className="border-b border-hairline px-6 py-4">
           <DialogTitle>Importar Carta Gantt</DialogTitle>
           <DialogDescription className="mt-1">
-            Subí el Excel del Gantt de {empresaCodigo}. Detectamos
+            Sube el Excel del Gantt de {empresaCodigo}. Detectamos
             automáticamente el formato (clásico, EE o REVTECH) y previsualizamos
             antes de persistir.
           </DialogDescription>

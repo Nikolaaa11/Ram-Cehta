@@ -55,7 +55,7 @@ export default function LibroDiarioPage() {
       subtitle={
         empresa
           ? `Asientos de ${empresa} entre ${fechaDesde} y ${fechaHasta} (status APPROVED+).`
-          : "Elegí empresa y rango de fechas para generar el libro."
+          : "Elige empresa y rango de fechas para generar el libro."
       }
       filters={<ContableFilters />}
     >

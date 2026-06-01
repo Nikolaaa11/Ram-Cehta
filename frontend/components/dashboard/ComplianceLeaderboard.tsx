@@ -72,7 +72,7 @@ export function ComplianceLeaderboard() {
           <Surface.Title>Compliance Leaderboard YTD</Surface.Title>
         </Surface.Header>
         <p className="mt-3 text-sm italic text-ink-500">
-          Aún no hay entregables asignados a empresas específicas. Cargá vía
+          Aún no hay entregables asignados a empresas específicas. Carga vía
           import CSV o asigná desde la UI para ver el ranking.
         </p>
       </Surface>

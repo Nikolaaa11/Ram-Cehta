@@ -293,7 +293,7 @@ export function UsersTable() {
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         {canDelete ? (
                           isSelf ? (
-                            <SimpleTooltip content="No puedes revocarte a vos mismo">
+                            <SimpleTooltip content="No puedes revocarte a tú mismo">
                               <button
                                 type="button"
                                 disabled
@@ -349,7 +349,7 @@ export function UsersTable() {
                 {confirmDelete?.email ?? "este usuario"}
               </strong>
               ? Perderá inmediatamente todos sus permisos en la plataforma.
-              Podés volver a asignarle un rol más tarde.
+              Puedes volver a asignarle un rol más tarde.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

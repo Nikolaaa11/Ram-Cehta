@@ -33,7 +33,7 @@ export function PortfolioTrend({ trend, hasUsdRate }: Props) {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/40">
             <TrendingUp className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
           </div>
-          <p className="text-sm text-ink-500">Cargá movimientos para ver el trend.</p>
+          <p className="text-sm text-ink-500">Carga movimientos para ver el trend.</p>
         </Surface.Body>
       </Surface>
     );

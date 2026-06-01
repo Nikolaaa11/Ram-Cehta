@@ -45,7 +45,7 @@ const CLASSIFICATION_CFG: Record<
     color: "text-emerald-700",
     bg: "bg-emerald-50 border-emerald-200",
     ico: TrendingUp,
-    suggestion: "Convertilo en embajador del cambio. Pedí su feedback en decisiones.",
+    suggestion: "Convertilo en embajador del cambio. Pide su feedback en decisiones.",
   },
   espectador: {
     label: "Espectador",
@@ -101,7 +101,7 @@ export default function AdopcionPage() {
           <p className="mt-1 text-xs">
             {error instanceof Error ? error.message : "Error desconocido"}
           </p>
-          <p className="mt-2 text-xs">Verificá que tu rol sea admin.</p>
+          <p className="mt-2 text-xs">Verifica que tu rol sea admin.</p>
         </div>
       </div>
     );

@@ -3,7 +3,7 @@
 /**
  * /ordenes-compra/importar — V5++ ola CG
  *
- * Subí una cotización (PDF, imagen, DOCX, PPTX, XLSX, EML, HTML, TXT) o
+ * Sube una cotización (PDF, imagen, DOCX, PPTX, XLSX, EML, HTML, TXT) o
  * pegá un texto. La IA extrae proveedor + items + totales y precarga el
  * form de OC para que confirmes.
  */
@@ -130,7 +130,7 @@ export default function ImportarOcPage() {
 
   async function handleUpload(file: File) {
     if (!session || !empresaCodigo) {
-      toast.error("Elegí empresa antes de subir.");
+      toast.error("Elige empresa antes de subir.");
       return;
     }
     setStep("analyzing");
@@ -255,7 +255,7 @@ export default function ImportarOcPage() {
             Importar OC con IA
           </h1>
           <p className="text-sm text-ink-500 mt-1">
-            Subí una cotización del proveedor (PDF, imagen, Excel, email, etc.)
+            Sube una cotización del proveedor (PDF, imagen, Excel, email, etc.)
             y la IA precarga el form.
           </p>
         </div>

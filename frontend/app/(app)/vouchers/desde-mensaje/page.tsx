@@ -210,7 +210,7 @@ export default function DesdeMensajePage() {
 
   async function handleExtract() {
     if (!session || !empresaCodigo) {
-      toast.error("Elegí empresa y pegá un texto antes de analizar.");
+      toast.error("Elige empresa y pegá un texto antes de analizar.");
       return;
     }
     if (text.trim().length < 30) {

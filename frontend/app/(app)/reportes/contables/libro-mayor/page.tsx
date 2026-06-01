@@ -75,13 +75,13 @@ export default function LibroMayorPage() {
       subtitle={
         cuenta
           ? `Movimientos y saldo de ${cuenta} para ${empresa}.`
-          : "Elegí empresa, cuenta y rango de fechas."
+          : "Elige empresa, cuenta y rango de fechas."
       }
       filters={<ContableFilters extra={cuentaSelector} />}
     >
       {!cuenta ? (
         <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
-          Elegí una cuenta del selector arriba para ver su libro mayor.
+          Elige una cuenta del selector arriba para ver su libro mayor.
         </p>
       ) : isLoading ? (
         // QA fix 14/05/2026 — skeleton matching layout para evitar

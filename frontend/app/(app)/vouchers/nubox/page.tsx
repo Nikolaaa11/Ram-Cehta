@@ -537,7 +537,7 @@ export default function NuboxFormPage() {
       if (!session) return;
       if (!empresaCodigo) {
         toast.error(
-          "Elegí primero la empresa receptora antes de subir el documento",
+          "Elige primero la empresa receptora antes de subir el documento",
         );
         return;
       }
@@ -635,7 +635,7 @@ export default function NuboxFormPage() {
         setAiBanner({
           type: "success",
           msg:
-            `Datos extraídos de ${file.name}. Revisá los campos y completá ` +
+            `Datos extraídos de ${file.name}. Revisa los campos y completá ` +
             `cuenta contable + financiera antes de guardar.` +
             (data.warnings?.length
               ? ` Avisos: ${data.warnings.join(" · ")}`
@@ -1201,7 +1201,7 @@ export default function NuboxFormPage() {
             <div className="flex items-center gap-2 text-sm">
               <Sparkles className="size-5 text-cehta-green" />
               <span className="font-medium text-ink-900">
-                ¿Tenés la factura en PDF/imagen?
+                ¿Tienes la factura en PDF/imagen?
               </span>
               <span className="text-ink-500">
                 Arrastrala acá o
@@ -1285,7 +1285,7 @@ export default function NuboxFormPage() {
                   Ya existe {duplicates.length === 1 ? "un voucher" : `${duplicates.length} vouchers`} con esta combinación de empresa + RUT + folio + tipo.
                 </p>
                 <p className="mt-1 text-xs text-amber-800">
-                  Revisá antes de crear uno nuevo. Si es legítimo (ej. nota de crédito que referencia la factura), seguí adelante.
+                  Revisa antes de crear uno nuevo. Si es legítimo (ej. nota de crédito que referencia la factura), seguí adelante.
                 </p>
                 <ul className="mt-2 space-y-1">
                   {duplicates.map((d) => (
@@ -1473,7 +1473,7 @@ export default function NuboxFormPage() {
 
             {/* Fechas — Round 6: min/max para prevenir typos (1900/2099). */}
             <div>
-              <Label hint="Fecha que figura impresa en la factura/documento tributario. NO la fecha de pago. Usá la fecha de emisión real del proveedor.">
+              <Label hint="Fecha que figura impresa en la factura/documento tributario. NO la fecha de pago. Usa la fecha de emisión real del proveedor.">
                 Fecha documento *
               </Label>
               <input
@@ -1548,7 +1548,7 @@ export default function NuboxFormPage() {
               </select>
               {!empresaCodigo && (
                 <p className="mt-1 text-[10px] text-ink-400">
-                  Elegí empresa primero para ver sus proyectos.
+                  Elige empresa primero para ver sus proyectos.
                 </p>
               )}
             </div>

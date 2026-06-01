@@ -163,7 +163,7 @@ export default function VoucherTemplatesPage() {
           <EmptyState
             icon={Sparkles}
             title="Sin resultados"
-            description="Probá con otro término."
+            description="Prueba con otro término."
           />
         ) : (
           <EmptyState
@@ -230,7 +230,7 @@ export default function VoucherTemplatesPage() {
                     e.stopPropagation();
                     if (
                       confirm(
-                        `¿Desactivar plantilla "${tpl.nombre}"? Podés reactivarla después.`,
+                        `¿Desactivar plantilla "${tpl.nombre}"? Puedes reactivarla después.`,
                       )
                     ) {
                       deleteMutation.mutate(tpl.template_id);

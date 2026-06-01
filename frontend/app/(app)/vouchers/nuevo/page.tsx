@@ -364,7 +364,7 @@ export default function NuevoVoucherPage() {
       return;
     }
     if (!empresaCodigo) {
-      toast.error("Elegí una empresa");
+      toast.error("Elige una empresa");
       return;
     }
     if (glosa.trim().length < 5) {
@@ -400,7 +400,7 @@ export default function NuevoVoucherPage() {
       toast.error(
         `Partida doble descuadrada · debe=${totalDebit.toLocaleString("es-CL")} ` +
           `vs haber=${totalCredit.toLocaleString("es-CL")}. ` +
-          `Guardá como borrador o cuadrá las líneas antes de enviar.`,
+          `Guarda como borrador o cuadrá las líneas antes de enviar.`,
       );
       return;
     }

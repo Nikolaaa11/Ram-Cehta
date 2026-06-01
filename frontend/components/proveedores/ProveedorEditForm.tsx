@@ -179,7 +179,7 @@ export function ProveedorEditForm({ initialData }: Props) {
             detail.general = err.detail;
           }
           setErrors(detail);
-          toast.error("Revisá los campos marcados");
+          toast.error("Revisa los campos marcados");
         } else if (err.status === 409) {
           setErrors({ rut: "Ya existe un proveedor con ese RUT." });
           toast.error("RUT duplicado");

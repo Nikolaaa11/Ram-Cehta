@@ -331,7 +331,7 @@ function CreateRuleDialog({
     e.preventDefault();
     if (!session) return;
     if (requiredRoles.length === 0) {
-      toast.error("Elegí al menos un rol");
+      toast.error("Elige al menos un rol");
       return;
     }
     setLoading(true);

@@ -68,7 +68,7 @@ export default function AppSegmentError({
         </h1>
         <p className="mt-2 text-sm text-ink-700 leading-relaxed">
           Una excepción interrumpió el render. Es probable que sea un blip
-          transitorio (red lenta, sesión vencida, deploy en curso). Reintentá
+          transitorio (red lenta, sesión vencida, deploy en curso). Reintenta
           o volvé al inicio.
         </p>
 

@@ -82,7 +82,7 @@ export function CrearRiesgoDialog({
       <DialogContent className="max-w-lg">
         <DialogTitle>Nuevo riesgo</DialogTitle>
         <DialogDescription>
-          Registrá un riesgo identificado para {empresaCodigo} con su severidad
+          Registra un riesgo identificado para {empresaCodigo} con su severidad
           y probabilidad.
         </DialogDescription>
 

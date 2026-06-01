@@ -767,7 +767,7 @@ function VistaAgenda({ entregables }: { entregables: EntregableRead[] }) {
     <div className="space-y-4">
       <div className="rounded-xl border border-info/20 bg-info/5 p-3 text-sm text-ink-700">
         <strong>📋 Vista Agenda</strong> — Listado cronológico completo del año.
-        Marcá los <span className="font-mono">checkboxes</span> para hacer
+        Marca los <span className="font-mono">checkboxes</span> para hacer
         cambios masivos (cierre de mes en segundos), o usá{" "}
         <span className="rounded bg-ink-100/60 px-1 py-0.5 font-mono text-xs">
           Marcar ▾
@@ -1173,7 +1173,7 @@ function EmptyEntregables() {
           No hay entregables que coincidan
         </p>
         <p className="mt-1 text-sm text-ink-500">
-          Probá quitando filtros, cambiando de vista, o usá los atajos para
+          Prueba quitando filtros, cambiando de vista, o usá los atajos para
           navegar más rápido.
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">

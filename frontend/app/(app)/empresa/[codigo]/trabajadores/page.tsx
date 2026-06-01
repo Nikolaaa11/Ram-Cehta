@@ -159,7 +159,7 @@ export default function TrabajadoresPage({
           <p className="mt-1 text-sm text-ink-500">
             {estadoFilter === "activo"
               ? canCreate
-                ? "Hacé click en + Nuevo trabajador para empezar."
+                ? "Haz click en + Nuevo trabajador para empezar."
                 : "Pedile a un admin que agregue al primer trabajador."
               : "Cuando alguien deje la empresa, aparecerá acá."}
           </p>

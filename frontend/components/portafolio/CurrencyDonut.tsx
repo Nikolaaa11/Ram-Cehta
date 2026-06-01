@@ -51,7 +51,7 @@ export function CurrencyDonut({ breakdown }: Props) {
             <PieIcon className="h-6 w-6 text-ink-300" strokeWidth={1.5} />
           </div>
           <p className="text-sm text-ink-500">
-            Cargá movimientos para ver la composición.
+            Carga movimientos para ver la composición.
           </p>
         </Surface.Body>
       </Surface>

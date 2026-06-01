@@ -225,7 +225,7 @@ export default function ImportarVoucherPage() {
   async function handleUpload(file: File) {
     if (!session) return;
     if (!empresaCodigo) {
-      toast.error("Elegí primero la empresa receptora.");
+      toast.error("Elige primero la empresa receptora.");
       return;
     }
     setStep("analyzing");
@@ -243,11 +243,11 @@ export default function ImportarVoucherPage() {
       setStep("review");
       if (data.warnings.length > 0) {
         toast.info(
-          `Análisis con avisos (${data.warnings.length}). Revisá los campos.`,
+          `Análisis con avisos (${data.warnings.length}). Revisa los campos.`,
         );
       } else {
         toast.success(
-          `Datos extraídos (confianza ${(data.confidence * 100).toFixed(0)}%). Revisá y confirmá.`,
+          `Datos extraídos (confianza ${(data.confidence * 100).toFixed(0)}%). Revisa y confirmá.`,
         );
       }
     } catch (err) {
@@ -509,7 +509,7 @@ export default function ImportarVoucherPage() {
             Importar voucher desde archivo
           </h1>
           <p className="text-sm text-ink-500 mt-1">
-            Subí una imagen, foto de factura, PDF, DOCX o PPTX. La IA lee los
+            Sube una imagen, foto de factura, PDF, DOCX o PPTX. La IA lee los
             datos y los precarga en un form editable. Revisás y confirmás.
           </p>
         </div>
@@ -573,7 +573,7 @@ export default function ImportarVoucherPage() {
             </p>
             <p className="mt-2 text-sm text-ink-500">
               PDF, imagen (JPG/PNG/HEIC/WebP/TIFF/GIF), Office (DOCX/PPTX/XLSX),
-              email (EML), HTML, TXT, CSV. Hasta 15MB. Podés arrastrar{" "}
+              email (EML), HTML, TXT, CSV. Hasta 15MB. Puedes arrastrar{" "}
               <span className="font-medium">varios a la vez</span> o pegar{" "}
               <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[10px]">⌘V</kbd>{" "}
               una imagen del portapapeles.
@@ -602,10 +602,10 @@ export default function ImportarVoucherPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-ink-900">
-                  ¿Tenés que cargar muchos vouchers a la vez?
+                  ¿Tienes que cargar muchos vouchers a la vez?
                 </p>
                 <p className="mt-1 text-xs text-ink-600">
-                  Descargá el template Excel con la estructura exacta + 4 ejemplos
+                  Descarga el template Excel con la estructura exacta + 4 ejemplos
                   pre-cargados (Compra, Venta, Pago, Traspaso) + hojas de valores
                   válidos e instrucciones. Llenalo, exportalo como CSV y subilo en{" "}
                   <Link
@@ -839,7 +839,7 @@ export default function ImportarVoucherPage() {
                 />
                 {!extraction.suggestion.rut_es_valido && proveedorRut && (
                   <p className="mt-1 text-xs text-amber-600">
-                    Revisá el RUT — la IA no logró validarlo.
+                    Revisa el RUT — la IA no logró validarlo.
                   </p>
                 )}
               </div>

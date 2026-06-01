@@ -56,7 +56,7 @@ export function PullToRefreshIndicator({
             ? "Refrescando…"
             : reached
               ? "Soltá para refrescar"
-              : "Seguí tirando…"}
+              : "Sigue tirando…"}
         </span>
       </div>
     </div>

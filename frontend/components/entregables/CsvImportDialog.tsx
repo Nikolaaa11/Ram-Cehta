@@ -186,7 +186,7 @@ export function CsvImportDialog({ open, onOpenChange }: Props) {
             Importar entregables desde CSV
           </DialogTitle>
           <DialogDescription>
-            Subí un .csv con tu listado masivo de entregables. Las filas
+            Sube un .csv con tu listado masivo de entregables. Las filas
             duplicadas (mismo id_template + período) se saltan
             automáticamente.
           </DialogDescription>
@@ -203,7 +203,7 @@ export function CsvImportDialog({ open, onOpenChange }: Props) {
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-ink-700">
-                    ¿Primera vez? Descargá el template con el formato exacto.
+                    ¿Primera vez? Descarga el template con el formato exacto.
                   </p>
                   <p className="mt-0.5 text-[11px] text-ink-500">
                     Headers requeridos: id_template, nombre, categoria,

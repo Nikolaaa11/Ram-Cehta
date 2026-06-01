@@ -497,7 +497,7 @@ function GenerateBatchDialog({
       toast.success(
         `Batch #${res.batch_id} generado · ${res.voucher_count} vouchers`,
         {
-          description: `Total ${fmtCLP(Number(res.total_debit))}. Descargá el CSV y cargalo en Nubox.`,
+          description: `Total ${fmtCLP(Number(res.total_debit))}. Descarga el CSV y cargalo en Nubox.`,
           duration: 8000,
         },
       );

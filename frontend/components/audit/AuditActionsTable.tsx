@@ -478,7 +478,7 @@ export function AuditActionsTable() {
               No hay cambios para los filtros aplicados
             </p>
             <p className="mt-1 max-w-md text-sm text-ink-500">
-              Probá quitar los filtros o ampliar el rango de fechas.
+              Prueba quitar los filtros o ampliar el rango de fechas.
             </p>
           </div>
         </Surface>

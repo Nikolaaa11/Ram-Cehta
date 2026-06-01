@@ -219,7 +219,7 @@ export default function ModuloPage({
 
           {!result.passed && (
             <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              Necesitás 70% para aprobar. Revisá las respuestas correctas
+              Necesitas 70% para aprobar. Revisa las respuestas correctas
               abajo y reintenta.
             </div>
           )}

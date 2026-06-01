@@ -243,7 +243,7 @@ export default function AprobacionesPage() {
         setShowFeedbackAfterFirma(true);
       } else {
         toast.info(
-          `${resp.succeeded} firmados · ${resp.failed} con error. Revisá la lista actualizada.`,
+          `${resp.succeeded} firmados · ${resp.failed} con error. Revisa la lista actualizada.`,
           { duration: 10000 },
         );
       }
@@ -366,7 +366,7 @@ export default function AprobacionesPage() {
       {isError && (
         <ErrorState
           title="No pude cargar las aprobaciones"
-          error={new Error("Reintentá en unos segundos.")}
+          error={new Error("Reintenta en unos segundos.")}
           onRetry={() => refetch()}
         />
       )}
@@ -382,7 +382,7 @@ export default function AprobacionesPage() {
           </p>
           <p className="mt-1 text-sm text-ink-500">
             {approvedReady > 0
-              ? `Tenés ${approvedReady} voucher${approvedReady > 1 ? "s" : ""} APPROVED listo${approvedReady > 1 ? "s" : ""} para transferir — bajá la planilla y cargala al banco.`
+              ? `Tienes ${approvedReady} voucher${approvedReady > 1 ? "s" : ""} APPROVED listo${approvedReady > 1 ? "s" : ""} para transferir — bajá la planilla y cargala al banco.`
               : draftsMine > 0
                 ? `No esperás firmas. Te quedan ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación.`
                 : "No tenés vouchers esperando tu firma. Buen trabajo."}
@@ -1121,7 +1121,7 @@ function RejectDialog({
           ? err.detail
           : err instanceof Error
             ? err.message
-            : "No se pudo rechazar el voucher. Reintentá en unos segundos.",
+            : "No se pudo rechazar el voucher. Reintenta en unos segundos.",
         { duration: 8000 },
       );
     },

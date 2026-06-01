@@ -147,7 +147,7 @@ export function UploadDocumentoDialog({
       <DialogContent className="max-w-md">
         <DialogTitle>Subir documento</DialogTitle>
         <DialogDescription>
-          Subí archivo a la carpeta Dropbox de {trabajadorNombre}.
+          Sube archivo a la carpeta Dropbox de {trabajadorNombre}.
         </DialogDescription>
 
         <form

@@ -231,7 +231,7 @@ export default function AdminDigestPage() {
                 className="block w-full rounded-xl bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline transition-shadow placeholder:text-ink-300 focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
               <p className="text-[11px] text-ink-500">
-                Usá Enter, coma o espacio para agregar cada email.
+                Usa Enter, coma o espacio para agregar cada email.
               </p>
             </div>
 

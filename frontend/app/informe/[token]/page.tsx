@@ -152,7 +152,7 @@ export default function InformePage({
       <section className="bg-gradient-to-b from-cehta-green-700 to-ink-900 px-6 py-20 text-white">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="font-display text-3xl font-semibold sm:text-4xl">
-            ¿Querés saber más?
+            ¿Quieres saber más?
           </h2>
           <p className="mt-3 text-base text-white/80">
             Agendá una conversación con Guido Rietta (GP del fondo) y

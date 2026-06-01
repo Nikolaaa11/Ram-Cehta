@@ -320,7 +320,7 @@ export default function InformeEditorPage({
               disabled={publishMutation.isPending || hasChanges}
               title={
                 hasChanges
-                  ? "Guardá los cambios antes de publicar"
+                  ? "Guarda los cambios antes de publicar"
                   : "Publicar y mandar email al LP"
               }
               className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green-700 px-3 py-1.5 text-xs font-medium text-white hover:bg-cehta-green disabled:opacity-60"

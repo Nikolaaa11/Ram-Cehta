@@ -160,7 +160,7 @@ export function BrandSwitcher({
               </p>
               {myEmpresas?.is_admin && (
                 <span
-                  title="Sos admin global — tenés acceso a todas las empresas"
+                  title="Eres admin global — tenés acceso a todas las empresas"
                   className="inline-flex items-center gap-1 rounded-full bg-cehta-green/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cehta-green ring-1 ring-cehta-green/20"
                 >
                   ★ Admin

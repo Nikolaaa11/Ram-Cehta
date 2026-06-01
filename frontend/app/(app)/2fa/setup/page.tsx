@@ -195,7 +195,7 @@ export default function TwoFactorSetupPage() {
                 strokeWidth={1.5}
               />
               <p>
-                Necesitás una app:{" "}
+                Necesitas una app:{" "}
                 <span className="font-medium">
                   Google Authenticator, 1Password, Authy o Bitwarden
                 </span>
@@ -303,7 +303,7 @@ export default function TwoFactorSetupPage() {
           <Surface.Header>
             <Surface.Title>Ingresá el código de 6 dígitos</Surface.Title>
             <Surface.Subtitle>
-              Mirá tu app autenticadora y tipeá el número que aparece para
+              Mira tu app autenticadora y tipeá el número que aparece para
               Cehta Capital.
             </Surface.Subtitle>
           </Surface.Header>
@@ -365,7 +365,7 @@ export default function TwoFactorSetupPage() {
               2FA activado
             </h2>
             <p className="mt-1 max-w-md text-sm text-ink-500">
-              Guardá tus 10 backup codes ahora — no se vuelven a mostrar.
+              Guarda tus 10 backup codes ahora — no se vuelven a mostrar.
               Usalos si perdés acceso al autenticador.
             </p>
           </div>

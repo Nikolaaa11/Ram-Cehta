@@ -110,7 +110,7 @@ export default function FeedbackDashboardPage() {
           <p className="mt-1 text-xs">
             {error instanceof Error ? error.message : "Error desconocido"}
           </p>
-          <p className="mt-2 text-xs">Verificá que tu rol sea admin.</p>
+          <p className="mt-2 text-xs">Verifica que tu rol sea admin.</p>
         </div>
       </div>
     );

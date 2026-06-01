@@ -301,7 +301,7 @@ export default function ProveedoresPage() {
                     </p>
                     <p className="mt-1 text-sm text-ink-500">
                       {debouncedSearch
-                        ? "Probá con otro término de búsqueda."
+                        ? "Prueba con otro término de búsqueda."
                         : "Empezá creando tu primer proveedor."}
                     </p>
                     {!debouncedSearch && (

@@ -278,7 +278,7 @@ export default function OrdenesCompraPage() {
           <Link
             href="/ordenes-compra/importar"
             className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-gradient-to-r from-cehta-green/10 to-cehta-green/5 px-3 py-2 text-sm font-medium text-cehta-green hover:from-cehta-green/15 hover:to-cehta-green/10"
-            title="Subí una cotización (PDF/imagen/Excel/email) y la IA precarga la OC"
+            title="Sube una cotización (PDF/imagen/Excel/email) y la IA precarga la OC"
           >
             <Sparkles className="h-4 w-4" strokeWidth={1.75} />
             Importar con IA

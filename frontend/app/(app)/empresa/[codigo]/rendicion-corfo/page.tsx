@@ -269,7 +269,7 @@ export default function EmpresaRendicionCorfoPage({ params }: Props) {
           <p className="mt-1 text-xs text-ink-600">
             {todoMapeado
               ? `Las ${totalDocs} cuentas locales tienen su equivalente CORFO asignado. El Excel saldrá completo de tu lado del trabajo.`
-              : `${sinMapeo} de ${totalDocs} cuentas locales aún no tienen su CORFO equivalente. Hacé click en "Editor de mapeo" arriba para arreglarlo en bulk.`}
+              : `${sinMapeo} de ${totalDocs} cuentas locales aún no tienen su CORFO equivalente. Haz click en "Editor de mapeo" arriba para arreglarlo en bulk.`}
           </p>
           {!todoMapeado && (
             <Link

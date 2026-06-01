@@ -36,7 +36,7 @@ export default function PLProyectoPage() {
     <ReportShell
       eyebrow="Reporte contable formal"
       title="P&L por Proyecto"
-      subtitle={`Ingresos vs gastos agrupados por código de proyecto. ${empresa || "Elegí empresa"}.`}
+      subtitle={`Ingresos vs gastos agrupados por código de proyecto. ${empresa || "Elige empresa"}.`}
       filters={<ContableFilters />}
     >
       {isLoading ? (

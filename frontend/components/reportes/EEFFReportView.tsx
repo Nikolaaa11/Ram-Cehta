@@ -289,7 +289,7 @@ export function EEFFReportView({ eeff, empresas, filters }: Props) {
             Sin estados financieros para los filtros aplicados
           </p>
           <p className="mt-1 max-w-md mx-auto text-sm text-ink-500">
-            Probá ampliar el rango (cambiando año, periodicidad o tipo de EF) o
+            Prueba ampliar el rango (cambiando año, periodicidad o tipo de EF) o
             cargá los EEFF faltantes desde la consola de administración.
           </p>
           <Link

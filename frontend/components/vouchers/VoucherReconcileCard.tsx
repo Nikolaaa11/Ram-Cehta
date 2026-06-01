@@ -169,7 +169,7 @@ export function VoucherReconcileCard({ voucher }: Props) {
             <p className="text-xs text-ink-500">Buscando…</p>
           ) : !candidates || candidates.length === 0 ? (
             <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 text-xs text-amber-800">
-              Sin candidatos. Verificá que el movimiento bancario esté
+              Sin candidatos. Verifica que el movimiento bancario esté
               cargado en{" "}
               <code className="rounded bg-white px-1 py-0.5 font-mono text-[10px]">
                 core.movimientos

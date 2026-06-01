@@ -323,7 +323,7 @@ export function VoucherAttachmentsCard({
         </ul>
       ) : (
         <p className="mt-3 rounded-xl border border-dashed border-hairline bg-ink-50/40 p-4 text-center text-xs text-ink-500">
-          Sin adjuntos. Subí factura, contrato o respaldo técnico.
+          Sin adjuntos. Sube factura, contrato o respaldo técnico.
         </p>
       )}
 

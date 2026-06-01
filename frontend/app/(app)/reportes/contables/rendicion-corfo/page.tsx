@@ -76,13 +76,13 @@ export default function RendicionCorfoPage() {
       subtitle={
         proyecto
           ? `Proyecto ${proyecto} · ${fechaDesde} → ${fechaHasta}.`
-          : "Elegí proyecto CORFO + rango para generar la rendición."
+          : "Elige proyecto CORFO + rango para generar la rendición."
       }
       filters={<ContableFilters extra={proyectoSelector} />}
     >
       {!proyecto ? (
         <p className="rounded-2xl border border-dashed border-hairline bg-white p-8 text-center text-sm text-ink-500">
-          Elegí un proyecto CORFO del selector arriba.
+          Elige un proyecto CORFO del selector arriba.
         </p>
       ) : isLoading ? (
         <p className="text-sm text-ink-500">Cargando rendición…</p>

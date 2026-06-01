@@ -39,7 +39,7 @@ export function ChatMessages({
           Sin conversaciones aún
         </h3>
         <p className="max-w-sm text-sm text-ink-500">
-          Hacé tu primera pregunta sobre <span className="font-medium">{empresa}</span>.
+          Haz tu primera pregunta sobre <span className="font-medium">{empresa}</span>.
           Tengo acceso a contratos, F29, movimientos y la knowledge base de la empresa.
         </p>
       </div>

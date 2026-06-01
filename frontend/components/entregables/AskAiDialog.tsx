@@ -338,7 +338,7 @@ export function AskAiDialog({ open, onOpenChange, initialQuestion }: Props) {
               </p>
               <p className="text-[10px] text-ink-500">
                 {writeMode
-                  ? "Claude PUEDE mutar datos (marcar entregables). Usá frases explícitas como 'marcá X como entregado'. Cada mutación queda en audit log."
+                  ? "Claude PUEDE mutar datos (marcar entregables). Usa frases explícitas como 'marcá X como entregado'. Cada mutación queda en audit log."
                   : "Click para habilitar mutaciones. Sin esto, Claude solo puede leer."}
               </p>
             </div>

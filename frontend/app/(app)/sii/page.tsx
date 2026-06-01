@@ -136,7 +136,7 @@ export default function SiiDashboardPage() {
             {error instanceof Error ? error.message : "Error desconocido"}
           </p>
           <p className="mt-2 text-xs">
-            Verificá que tu rol sea admin. El endpoint{" "}
+            Verifica que tu rol sea admin. El endpoint{" "}
             <code>/api/v1/sii/empresas</code> requiere admin scope.
           </p>
         </div>

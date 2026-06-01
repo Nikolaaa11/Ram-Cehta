@@ -160,7 +160,7 @@ export function MailboxClientView({ initialItems }: Props) {
       } catch {
         // sessionStorage falla en modo privado — el navigate sigue igual.
       }
-      toast.success("Email cargado. Elegí empresa y dale a 'Analizar con IA'.");
+      toast.success("Email cargado. Elige empresa y dale a 'Analizar con IA'.");
       // Round 7 — SPA navigation (antes hard reload).
       router.push("/vouchers/desde-mensaje?from=mailbox" as Route);
     } catch (err) {
@@ -265,7 +265,7 @@ export function MailboxClientView({ initialItems }: Props) {
     mutationFn: () => {
       if (!autoCreateEmpresa) {
         return Promise.reject(
-          new Error("Elegí la empresa target antes de auto-crear drafts"),
+          new Error("Elige la empresa target antes de auto-crear drafts"),
         );
       }
       return apiClient.post<{
@@ -505,7 +505,7 @@ export function MailboxClientView({ initialItems }: Props) {
             onChange={(e) => setAutoCreateEmpresa(e.target.value)}
             className="rounded-lg border-0 bg-white px-3 py-1.5 text-xs ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
           >
-            <option value="">Elegí empresa target…</option>
+            <option value="">Elige empresa target…</option>
             {empresasCatalogo.map((e) => (
               <option key={e.codigo} value={e.codigo}>
                 {e.codigo} · {e.razon_social}

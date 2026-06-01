@@ -191,7 +191,7 @@ export default function ImportVouchersPage() {
           </Button>
         </div>
         <p className="text-sm text-ink-500">
-          Descargá el template para ver las columnas esperadas. Una fila = una línea del voucher.
+          Descarga el template para ver las columnas esperadas. Una fila = una línea del voucher.
           Filas con el mismo <code className="px-1.5 py-0.5 bg-ink-100 rounded">voucher_ref</code> se
           agrupan en un solo voucher.
         </p>
