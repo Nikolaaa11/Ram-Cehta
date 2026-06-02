@@ -114,6 +114,7 @@ type NavGroup = {
     | "documentos"
     | "recursos"
     | "contabilidad"
+    | "rrhh"
     | "admin"
     | "avanzado";
   label: string;
@@ -168,6 +169,19 @@ function canSeeFundDocs(user: { email?: string | null; app_role?: string }): boo
   const email = (user.email ?? "").toLowerCase().trim();
   if (!email) return false;
   if (email.includes("guido")) return true;
+  return false;
+}
+
+// R152vvv — Gating del item RRHH. Owners: Benjamín Toro (Adm. y Finanzas)
+// y Victoria. La fuente de verdad real es core.rrhh_allowlist en backend,
+// que devuelve 403 si no estás permitido; este predicate solo decide si
+// mostrar el LINK en el sidebar para evitar mostrarlo a todo el equipo.
+function canSeeRRHH(user: { email?: string | null; app_role?: string }): boolean {
+  if (user.app_role === "admin") return true;
+  const email = (user.email ?? "").toLowerCase().trim();
+  if (!email) return false;
+  if (email.includes("benja") || email.includes("benjamin")) return true;
+  if (email.includes("victoria")) return true;
   return false;
 }
 
@@ -444,6 +458,27 @@ const GROUPS: NavGroup[] = [
         href: "/aprender" as Route,
         label: "Centro de Aprendizaje",
         icon: Sparkles,
+        isNew: true,
+      },
+    ],
+  },
+  // R152vvv — Módulo RRHH (Benjamín Toro + Victoria + admin).
+  // MEJORAS IA.docx #10: calcular automáticamente el gasto real de la
+  // empresa por cada empleado (líquido + aportes patronales). El backend
+  // valida via core.rrhh_allowlist; este predicate solo controla la
+  // visibilidad del item en el sidebar para no contaminarlo a todo el
+  // equipo.
+  {
+    id: "rrhh",
+    label: "Recursos Humanos",
+    collapsible: true,
+    defaultOpen: true,
+    requiresAccess: canSeeRRHH,
+    items: [
+      {
+        href: "/rrhh" as Route,
+        label: "Costo / empleado",
+        icon: Users,
         isNew: true,
       },
     ],
