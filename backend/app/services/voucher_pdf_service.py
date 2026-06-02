@@ -315,10 +315,38 @@ async def _get_dropbox_or_none(db: AsyncSession):
 
 
 async def _try_fetch_logo(db: AsyncSession, empresa: dict[str, Any]) -> bytes | None:
-    """Intenta bajar el logo desde Dropbox. Devuelve None si falla."""
+    """Intenta obtener el logo. Soporta dos fuentes:
+       1. URL http(s)://... — descarga directa (R152AAAA: logos servidos
+          desde frontend/public/logos/ via Vercel).
+       2. Path Dropbox /Cehta Capital/... — vía API Dropbox.
+
+    Falla silenciosamente devolviendo None — el PDF se genera sin logo.
+    """
     path = empresa.get("logo_dropbox_path")
     if not path:
         path = _LOGO_FALLBACK_PATH_TPL.format(empresa=empresa.get("codigo") or "")
+
+    # R152AAAA — soporte URL HTTP(s) (frontend static logos)
+    if path.startswith("http://") or path.startswith("https://"):
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                r = await client.get(path)
+                if r.status_code == 200:
+                    return r.content
+                log.info(
+                    "voucher_pdf.logo_http_non_200",
+                    extra={"url": path, "status": r.status_code},
+                )
+                return None
+        except Exception as exc:
+            log.info(
+                "voucher_pdf.logo_http_failed",
+                extra={"url": path, "err": str(exc)},
+            )
+            return None
+
+    # Path Dropbox tradicional
     dbx = await _get_dropbox_or_none(db)
     if dbx is None:
         return None
