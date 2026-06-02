@@ -225,6 +225,13 @@ const GROUPS: NavGroup[] = [
         tourId: "action-center",
       },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      // R152zzz — Flujo de caja proyectado por proyecto (MEJORAS IA #8).
+      {
+        href: "/flujos-caja-proyecto" as Route,
+        label: "Flujo de caja · proyecto",
+        icon: TrendingUp,
+        isNew: true,
+      },
       // V5++ ola AV — Bandeja personal: vouchers que requieren tu acción
       { href: "/mis-pendientes" as Route, label: "Mis pendientes", icon: Inbox },
       // V5++ ola CI — Cola dedicada de aprobaciones (solo lo que requiere

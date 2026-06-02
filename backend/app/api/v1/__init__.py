@@ -82,6 +82,7 @@ from app.api.v1 import corfo_rendiciones  # Round 152w
 from app.api.v1 import rrhh  # R152vvv
 from app.api.v1 import empresa_oc_branding  # R152www
 from app.api.v1 import oc_cuotas  # R152yyy
+from app.api.v1 import flujos_caja_proyecto  # R152zzz
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -96,6 +97,8 @@ api_router.include_router(rrhh.router, prefix="/rrhh", tags=["rrhh"])
 api_router.include_router(empresa_oc_branding.router, tags=["empresa-oc-branding"])
 # R152yyy — Split de OC en cuotas + generar vouchers DRAFT por cuota
 api_router.include_router(oc_cuotas.router, tags=["oc-cuotas"])
+# R152zzz — Flujos de caja proyectado por proyecto contable
+api_router.include_router(flujos_caja_proyecto.router, tags=["flujos-caja-proyecto"])
 api_router.include_router(validate.router, prefix="/validate", tags=["validate"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(proveedores.router, prefix="/proveedores", tags=["proveedores"])
