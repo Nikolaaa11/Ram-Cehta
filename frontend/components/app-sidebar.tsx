@@ -103,6 +103,13 @@ type NavItem = {
    * de liberarlo. El chip se oculta automaticamente si el usuario ya
    * visitó la URL (almacenado en localStorage 'sidebar-visited-X'). */
   isNew?: boolean;
+  /** R152CCCC — Gate de visibilidad opcional a nivel ITEM (no grupo).
+   * Util cuando un item específico dentro de un grupo público debe estar
+   * restringido (ej: /rrhh dentro de Operaciones solo para Benja/Victoria). */
+  requiresAccess?: (user: {
+    email?: string | null;
+    app_role?: string;
+  }) => boolean;
 };
 
 type NavGroup = {
@@ -225,12 +232,26 @@ const GROUPS: NavGroup[] = [
         tourId: "action-center",
       },
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      // R152CCCC — OC movidas al grupo Operaciones (antes en "Avanzado").
+      // El branding por empresa ya viene embedded en el PDF generado
+      // (R152www: logo + GG + firma colectiva RHO automático).
+      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
       // R152zzz — Flujo de caja proyectado por proyecto (MEJORAS IA #8).
       {
         href: "/flujos-caja-proyecto" as Route,
         label: "Flujo de caja · proyecto",
         icon: TrendingUp,
         isNew: true,
+      },
+      // R152CCCC — Costo / empleado (RRHH) movido a Operaciones también.
+      // requiresAccess (item-level) filtra el link para no-autorizados.
+      // Solo Benja, Victoria y admin ven este link. El backend igual valida.
+      {
+        href: "/rrhh" as Route,
+        label: "Costo / empleado",
+        icon: Users,
+        isNew: true,
+        requiresAccess: canSeeRRHH,
       },
       // V5++ ola AV — Bandeja personal: vouchers que requieren tu acción
       { href: "/mis-pendientes" as Route, label: "Mis pendientes", icon: Inbox },
@@ -470,27 +491,9 @@ const GROUPS: NavGroup[] = [
       },
     ],
   },
-  // R152vvv — Módulo RRHH (Benjamín Toro + Victoria + admin).
-  // MEJORAS IA.docx #10: calcular automáticamente el gasto real de la
-  // empresa por cada empleado (líquido + aportes patronales). El backend
-  // valida via core.rrhh_allowlist; este predicate solo controla la
-  // visibilidad del item en el sidebar para no contaminarlo a todo el
-  // equipo.
-  {
-    id: "rrhh",
-    label: "Recursos Humanos",
-    collapsible: true,
-    defaultOpen: true,
-    requiresAccess: canSeeRRHH,
-    items: [
-      {
-        href: "/rrhh" as Route,
-        label: "Costo / empleado",
-        icon: Users,
-        isNew: true,
-      },
-    ],
-  },
+  // R152CCCC — Grupo "Recursos Humanos" eliminado. El item /rrhh ahora
+  // vive dentro de Operaciones con gate item-level (requiresAccess) para
+  // que solo Benja, Victoria y admin lo vean. Menos clutter en el sidebar.
   // V5: Contabilidad — plan de cuentas + proyectos contables + áreas.
   // Fundación del módulo Vouchers. Todo el flujo contable formal pasa
   // por estos 3 catálogos antes de llegar a un voucher.
@@ -547,13 +550,13 @@ const GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
-      // R152www — Branding/firmantes OC por empresa.
-      {
-        href: "/admin/oc-branding" as Route,
-        label: "Branding OC",
-        icon: ImageIcon,
-        isNew: true,
-      },
+      // R152CCCC — Item "Branding OC" eliminado del sidebar.
+      // El branding (logo + GG + firma colectiva RHO) ya viene incluido
+      // automáticamente al generar el PDF de cada OC: el oc_pdf_service
+      // bajaa el logo de Vercel CDN y arma el bloque de firma usando los
+      // campos de core.empresas. La página /admin/oc-branding sigue
+      // accesible por URL si necesitan editar nombres de firmantes, pero
+      // ya no contamina el menú principal.
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users, isNew: true },
       // R152dd — Dashboard NPS feedback.
@@ -694,7 +697,8 @@ const GROUPS: NavGroup[] = [
     label: "Avanzado / Futuro",
     collapsible: true,
     items: [
-      { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
+      // R152CCCC — /ordenes-compra movida al grupo Operaciones.
+      // Quedó comentado solo para que el git blame del cambio sea claro.
       { href: "/fondos" as Route, label: "Búsqueda de Fondos", icon: Search },
       {
         href: "/suscripciones" as Route,
@@ -912,7 +916,15 @@ export function AppSidebar({ email }: AppSidebarProps) {
               className="space-y-0.5"
               hidden={group.collapsible ? !openGroups[group.id] : false}
             >
-              {group.items.map((item) => {
+              {group.items
+                // R152CCCC — filtro a nivel ITEM. Si el item declara
+                // requiresAccess, ocultar para users que no cumplen.
+                .filter((item) =>
+                  item.requiresAccess
+                    ? item.requiresAccess({ email, app_role: role })
+                    : true,
+                )
+                .map((item) => {
                 const Icon = item.icon;
                 const isActive =
                   pathname === item.href ||

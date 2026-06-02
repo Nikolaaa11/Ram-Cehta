@@ -26,10 +26,11 @@ from fastapi import (
     File,
     HTTPException,
     Query,
+    Response,
     UploadFile,
     status,
 )
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
@@ -554,3 +555,284 @@ async def costo_empresa(
         "periodos": series,
         "total_costo_acumulado": total_costo,
     }
+
+
+# ─────────────────────────────────────────────────────────────────────
+# R152CCCC — CRUD empleados + edición de líneas del libro
+# ─────────────────────────────────────────────────────────────────────
+
+
+class EmpleadoCreate(BaseModel):
+    rut: str = Field(..., min_length=8, max_length=14)
+    nombre: str = Field(..., min_length=2, max_length=200)
+    empresa_codigo: str = Field(..., min_length=2, max_length=20)
+    area: str | None = Field(default=None, max_length=120)
+    cargo: str | None = Field(default=None, max_length=120)
+    fecha_ingreso: str | None = None  # YYYY-MM-DD
+    afp: str | None = None
+    salud: str | None = None
+    sueldo_base_actual: Decimal | None = Field(default=None, ge=0)
+    notas: str | None = None
+
+
+class EmpleadoUpdate(BaseModel):
+    nombre: str | None = Field(default=None, min_length=2, max_length=200)
+    area: str | None = Field(default=None, max_length=120)
+    cargo: str | None = Field(default=None, max_length=120)
+    fecha_ingreso: str | None = None
+    fecha_salida: str | None = None
+    activo: bool | None = None
+    afp: str | None = None
+    salud: str | None = None
+    sueldo_base_actual: Decimal | None = Field(default=None, ge=0)
+    notas: str | None = None
+
+
+class LineaUpdate(BaseModel):
+    """Permite editar campos básicos de una línea del libro."""
+
+    sueldo_base: Decimal | None = Field(default=None, ge=0)
+    horas_extras: Decimal | None = Field(default=None, ge=0)
+    gratificacion_legal: Decimal | None = Field(default=None, ge=0)
+    otros_imponibles: Decimal | None = Field(default=None, ge=0)
+    asignacion_familiar: Decimal | None = Field(default=None, ge=0)
+    otros_no_imponibles: Decimal | None = Field(default=None, ge=0)
+    prevision: Decimal | None = Field(default=None, ge=0)
+    salud: Decimal | None = Field(default=None, ge=0)
+    seguro_cesantia_trab: Decimal | None = Field(default=None, ge=0)
+    otros_descuentos_legales: Decimal | None = Field(default=None, ge=0)
+    descuentos_varios: Decimal | None = Field(default=None, ge=0)
+    aporte_afp_empleador: Decimal | None = Field(default=None, ge=0)
+    sis: Decimal | None = Field(default=None, ge=0)
+    seguro_cesantia_empleador: Decimal | None = Field(default=None, ge=0)
+    seguro_social: Decimal | None = Field(default=None, ge=0)
+    mutual: Decimal | None = Field(default=None, ge=0)
+
+
+@router.post("/empleados", response_model=EmpleadoRead, status_code=201)
+async def create_empleado(
+    user: CurrentUser, db: DBSession, body: EmpleadoCreate
+) -> EmpleadoRead:
+    """Crea un empleado manualmente (sin pasar por upload de libro)."""
+    await _check_rrhh_access(user, db)
+    e = await db.scalar(
+        text("SELECT 1 FROM core.empresas WHERE codigo = :c AND activo = TRUE"),
+        {"c": body.empresa_codigo},
+    )
+    if not e:
+        raise HTTPException(400, f"Empresa {body.empresa_codigo} no existe")
+
+    try:
+        await db.execute(
+            text(
+                """INSERT INTO core.empleados
+                       (rut, nombre, empresa_codigo, area, cargo,
+                        fecha_ingreso, afp, salud, sueldo_base_actual, notas, activo)
+                   VALUES (:rut, :nombre, :empresa_codigo, :area, :cargo,
+                           CAST(:fecha_ingreso AS DATE), :afp, :salud,
+                           :sueldo_base_actual, :notas, TRUE)"""
+            ),
+            body.model_dump(),
+        )
+        await db.commit()
+    except Exception as exc:
+        await db.rollback()
+        raise HTTPException(409, f"No se pudo crear empleado: {exc}") from exc
+
+    row = (
+        await db.execute(
+            text(
+                """SELECT rut, nombre, empresa_codigo, area, cargo,
+                          to_char(fecha_ingreso, 'YYYY-MM-DD') AS fecha_ingreso,
+                          activo, sueldo_base_actual
+                   FROM core.empleados WHERE rut = :r"""
+            ),
+            {"r": body.rut},
+        )
+    ).first()
+    return EmpleadoRead.model_validate(dict(row._mapping))
+
+
+@router.patch("/empleados/{rut}", response_model=EmpleadoRead)
+async def update_empleado(
+    user: CurrentUser, db: DBSession, rut: str, body: EmpleadoUpdate
+) -> EmpleadoRead:
+    """Edita campos del empleado. Solo los provistos cambian."""
+    await _check_rrhh_access(user, db)
+    fields = body.model_dump(exclude_none=True)
+    if not fields:
+        existing = (
+            await db.execute(
+                text(
+                    """SELECT rut, nombre, empresa_codigo, area, cargo,
+                              to_char(fecha_ingreso, 'YYYY-MM-DD') AS fecha_ingreso,
+                              activo, sueldo_base_actual
+                       FROM core.empleados WHERE rut = :r"""
+                ),
+                {"r": rut},
+            )
+        ).first()
+        if not existing:
+            raise HTTPException(404, "Empleado no encontrado")
+        return EmpleadoRead.model_validate(dict(existing._mapping))
+
+    set_clauses = []
+    params: dict = {"r": rut}
+    for k, v in fields.items():
+        if k in ("fecha_ingreso", "fecha_salida") and v is not None:
+            set_clauses.append(f"{k} = CAST(:{k} AS DATE)")
+        else:
+            set_clauses.append(f"{k} = :{k}")
+        params[k] = v
+    set_clauses.append("updated_at = NOW()")
+
+    sql = "UPDATE core.empleados SET " + ", ".join(set_clauses) + " WHERE rut = :r"
+    result = await db.execute(text(sql), params)
+    if result.rowcount == 0:
+        raise HTTPException(404, "Empleado no encontrado")
+    await db.commit()
+
+    row = (
+        await db.execute(
+            text(
+                """SELECT rut, nombre, empresa_codigo, area, cargo,
+                          to_char(fecha_ingreso, 'YYYY-MM-DD') AS fecha_ingreso,
+                          activo, sueldo_base_actual
+                   FROM core.empleados WHERE rut = :r"""
+            ),
+            {"r": rut},
+        )
+    ).first()
+    return EmpleadoRead.model_validate(dict(row._mapping))
+
+
+@router.delete(
+    "/empleados/{rut}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def delete_empleado(
+    user: CurrentUser, db: DBSession, rut: str
+) -> Response:
+    """Soft-delete: activo=FALSE + fecha_salida=hoy."""
+    await _check_rrhh_access(user, db)
+    result = await db.execute(
+        text(
+            "UPDATE core.empleados SET activo=FALSE, "
+            "fecha_salida=COALESCE(fecha_salida, CURRENT_DATE), "
+            "updated_at=NOW() WHERE rut = :r"
+        ),
+        {"r": rut},
+    )
+    if result.rowcount == 0:
+        raise HTTPException(404, "Empleado no encontrado")
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch(
+    "/libros/{libro_id}/lineas/{linea_id}",
+    response_model=LineaLibroRead,
+)
+async def update_linea(
+    user: CurrentUser,
+    db: DBSession,
+    libro_id: int,
+    linea_id: int,
+    body: LineaUpdate,
+) -> LineaLibroRead:
+    """Edita campos de una línea + recalcula totales derivados.
+
+    Después de cambiar un campo base (ej: sueldo_base), recalcula:
+      - total_imponibles, total_no_imponibles, total_haberes
+      - total_descuentos_legales, total_descuentos, liquido_pagado
+      - total_aportes_patronales, costo_total_empresa
+    Y re-suma los totales del libro cabecera.
+    """
+    await _check_rrhh_access(user, db)
+    fields = body.model_dump(exclude_none=True)
+    if not fields:
+        raise HTTPException(400, "Sin cambios")
+
+    set_clauses = [f"{k} = :{k}" for k in fields.keys()]
+    params = {**fields, "libro_id": libro_id, "linea_id": linea_id}
+    sql = (
+        "UPDATE core.libro_remuneraciones_lineas SET "
+        + ", ".join(set_clauses)
+        + " WHERE id = :linea_id AND libro_id = :libro_id"
+    )
+    result = await db.execute(text(sql), params)
+    if result.rowcount == 0:
+        raise HTTPException(404, "Línea no encontrada")
+
+    # Recalcular totales derivados
+    await db.execute(
+        text(
+            """UPDATE core.libro_remuneraciones_lineas SET
+                 total_imponibles = sueldo_base + horas_extras + gratificacion_legal + otros_imponibles,
+                 total_no_imponibles = asignacion_familiar + otros_no_imponibles,
+                 total_haberes = (sueldo_base + horas_extras + gratificacion_legal + otros_imponibles)
+                                 + (asignacion_familiar + otros_no_imponibles),
+                 total_descuentos_legales = prevision + salud + seguro_cesantia_trab + otros_descuentos_legales,
+                 total_descuentos = (prevision + salud + seguro_cesantia_trab + otros_descuentos_legales) + descuentos_varios,
+                 liquido_pagado = (
+                     (sueldo_base + horas_extras + gratificacion_legal + otros_imponibles)
+                     + (asignacion_familiar + otros_no_imponibles)
+                 ) - (
+                     (prevision + salud + seguro_cesantia_trab + otros_descuentos_legales) + descuentos_varios
+                 ),
+                 total_aportes_patronales = aporte_afp_empleador + sis + seguro_cesantia_empleador + seguro_social + mutual,
+                 costo_total_empresa = (
+                     (sueldo_base + horas_extras + gratificacion_legal + otros_imponibles)
+                     + (asignacion_familiar + otros_no_imponibles)
+                 ) + (
+                     aporte_afp_empleador + sis + seguro_cesantia_empleador + seguro_social + mutual
+                 )
+               WHERE id = :linea_id"""
+        ),
+        {"linea_id": linea_id},
+    )
+
+    # Re-sumar libro cabecera
+    await db.execute(
+        text(
+            """UPDATE core.libros_remuneraciones lr SET
+                 total_haberes = (
+                     SELECT COALESCE(SUM(total_haberes),0)
+                     FROM core.libro_remuneraciones_lineas WHERE libro_id = lr.id),
+                 total_liquido = (
+                     SELECT COALESCE(SUM(liquido_pagado),0)
+                     FROM core.libro_remuneraciones_lineas WHERE libro_id = lr.id),
+                 total_descuentos_legales = (
+                     SELECT COALESCE(SUM(total_descuentos_legales),0)
+                     FROM core.libro_remuneraciones_lineas WHERE libro_id = lr.id),
+                 total_aportes_patronales = (
+                     SELECT COALESCE(SUM(total_aportes_patronales),0)
+                     FROM core.libro_remuneraciones_lineas WHERE libro_id = lr.id),
+                 total_costo_empresa = (
+                     SELECT COALESCE(SUM(costo_total_empresa),0)
+                     FROM core.libro_remuneraciones_lineas WHERE libro_id = lr.id)
+               WHERE id = :libro_id"""
+        ),
+        {"libro_id": libro_id},
+    )
+    await db.commit()
+
+    row = (
+        await db.execute(
+            text(
+                """SELECT id, empleado_rut, nombre, area, dias_trabajados,
+                          total_haberes, liquido_pagado, total_descuentos_legales,
+                          total_aportes_patronales, costo_total_empresa,
+                          sueldo_base, horas_extras, gratificacion_legal,
+                          asignacion_familiar,
+                          aporte_afp_empleador, sis, seguro_cesantia_empleador,
+                          seguro_social, mutual,
+                          base_tributable, impuesto_unico
+                   FROM core.libro_remuneraciones_lineas
+                   WHERE id = :linea_id"""
+            ),
+            {"linea_id": linea_id},
+        )
+    ).first()
+    return LineaLibroRead.model_validate(dict(row._mapping))
