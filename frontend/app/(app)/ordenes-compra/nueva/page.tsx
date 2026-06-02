@@ -450,6 +450,33 @@ export default function NuevaOcPage() {
                     // No tocamos proveedorRut acá — el operador puede
                     // estar editando solo el nombre y mantener el RUT.
                   }}
+                  // R152xxx — MEJORAS IA #4b: si el proveedor no existe,
+                  // el dropdown ofrece "+ Crear: {query}" que llama
+                  // POST /proveedores/quick-create con datos mínimos.
+                  onCreate={async (query) => {
+                    try {
+                      const created = await apiClient.post<{
+                        proveedor_id: number;
+                        razon_social: string;
+                        rut: string | null;
+                      }>(
+                        "/proveedores/quick-create",
+                        { razon_social: query, rut: proveedorRut || null },
+                        session,
+                      );
+                      setProveedorNombre(created.razon_social);
+                      if (created.rut) setProveedorRut(created.rut);
+                      toast.success(
+                        `Proveedor "${created.razon_social}" creado. Completá los datos en /admin/proveedores cuando puedas.`,
+                        { duration: 8000 },
+                      );
+                      // Invalidar cache para que en próximos typeaheads aparezca.
+                      queryClient.invalidateQueries({ queryKey: ["proveedores-cache"] });
+                    } catch (e) {
+                      const msg = e instanceof ApiError ? e.detail : "Error creando";
+                      toast.error(`No se pudo crear proveedor: ${msg}`);
+                    }
+                  }}
                   inputClassName={inputBase}
                   idPrefix="oc-prov"
                   placeholder="Buscar por nombre o RUT…"

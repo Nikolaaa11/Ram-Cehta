@@ -5,7 +5,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -356,6 +356,92 @@ async def proveedores_cache(
         )
         for r in rows
     ]
+
+
+class QuickCreateBody(BaseModel):
+    """R152xxx — Payload mínimo para crear proveedor desde un typeahead.
+
+    Solo `razon_social` es realmente obligatoria. El resto se completa
+    después editando el proveedor en /admin/proveedores. Para el flujo
+    típico de OC: el operador tipea el nombre, no encuentra match en el
+    catálogo, clickea "Crear" y aparece el RUT en otro input opcional.
+    """
+
+    razon_social: str = Field(..., min_length=2, max_length=255)
+    rut: str | None = None
+
+    @field_validator("rut", mode="before")
+    @classmethod
+    def _check_rut(cls, v: str | None) -> str | None:
+        if v is None or str(v).strip() == "":
+            return None
+        if not validate_rut(v):
+            raise ValueError("RUT inválido (dígito verificador no coincide)")
+        return format_rut(v)
+
+
+@router.post("/quick-create", response_model=ProveedorRead, status_code=status.HTTP_201_CREATED)
+async def quick_create_proveedor(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:create"))],
+    db: DBSession,
+    request: Request,
+    body: QuickCreateBody,
+) -> ProveedorRead:
+    """R152xxx — Crea un proveedor con datos mínimos desde un typeahead.
+
+    Diferencia con POST /proveedores: este endpoint sólo requiere razón
+    social (RUT opcional). Si el RUT existe, devuelve el proveedor
+    existente en vez de 409 Conflict — para que el flujo del typeahead
+    no se rompa si el operador clickea Crear dos veces seguidas.
+
+    Pensado para integrarse al dropdown del componente
+    ProveedorTypeaheadCached con la opción "+ Crear nuevo: '{query}'".
+    """
+    repo = ProveedorRepository(db)
+    # Match idempotente por RUT — si ya existe lo devuelve
+    if body.rut:
+        existing = await repo.get_by_rut(body.rut)
+        if existing:
+            return ProveedorRead.model_validate(existing)
+    # También intentamos match por razón social exacta para idempotencia
+    rs_normalized = body.razon_social.strip()
+    if rs_normalized:
+        from sqlalchemy import func as _func
+        match_by_name = (
+            await db.execute(
+                text(
+                    """SELECT proveedor_id FROM core.proveedores
+                       WHERE activo = TRUE AND
+                             lower(razon_social) = lower(:rs)
+                       LIMIT 1"""
+                ),
+                {"rs": rs_normalized},
+            )
+        ).first()
+        if match_by_name:
+            existing = await repo.get(int(match_by_name[0]))
+            if existing:
+                return ProveedorRead.model_validate(existing)
+        # Avoid "imported but unused" warning if _func isn't used elsewhere
+        _ = _func
+
+    create_body = ProveedorCreate(
+        razon_social=rs_normalized, rut=body.rut
+    )
+    proveedor = await repo.create(create_body)
+    await db.commit()
+    created = ProveedorRead.model_validate(proveedor)
+    await audit_log(
+        db, request, user,
+        action="create",
+        entity_type="proveedor",
+        entity_id=str(created.proveedor_id),
+        entity_label=created.razon_social,
+        summary=f"Proveedor '{created.razon_social}' creado vía quick-create",
+        before=None,
+        after=created.model_dump(mode="json"),
+    )
+    return created
 
 
 @router.get("/search-by-rut", response_model=ProveedorSearchResult)

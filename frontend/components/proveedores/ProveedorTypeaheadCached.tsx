@@ -55,6 +55,16 @@ interface Props {
   disabled?: boolean;
   /** auto-focus al montar (útil para form veloz). */
   autoFocus?: boolean;
+  /**
+   * R152xxx — MEJORAS IA #4b: callback opcional para crear inteligente.
+   * Si está definido, el dropdown muestra "+ Crear: '{query}'" como
+   * última opción cuando hay query no vacía. El padre se encarga de
+   * llamar al backend (`POST /proveedores/quick-create`) con
+   * { razon_social: query, rut?: rutValue } y luego setear los datos.
+   */
+  onCreate?: (query: string) => void;
+  /** Si onCreate provista, este flag deshabilita el botón mientras se crea. */
+  isCreating?: boolean;
 }
 
 export function ProveedorTypeaheadCached({
@@ -68,6 +78,8 @@ export function ProveedorTypeaheadCached({
   required = false,
   disabled = false,
   autoFocus = false,
+  onCreate,
+  isCreating = false,
 }: Props) {
   const [query, setQuery] = useState(value);
   const [open, setOpen] = useState(false);
@@ -159,6 +171,44 @@ export function ProveedorTypeaheadCached({
             : undefined
         }
       />
+      {/* R152xxx — mostrar SOLO el botón "Crear" cuando no hay match, query
+          no vacío y onCreate fue provista. Esto cubre el caso típico: el
+          operador escribe un proveedor nuevo, no aparece, clickea Crear. */}
+      {open
+        && results.length === 0
+        && searchQuery.trim().length >= 2
+        && onCreate && (
+        <ul
+          className="absolute z-20 mt-1 w-full overflow-hidden rounded-lg border border-hairline bg-white shadow-lg"
+          role="listbox"
+        >
+          <li
+            role="option"
+            aria-selected={false}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              if (!isCreating) onCreate(searchQuery.trim());
+            }}
+            className={`flex items-center gap-2 cursor-pointer px-3 py-3 text-sm ${
+              isCreating ? "opacity-60" : "hover:bg-cehta-green/10"
+            }`}
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-cehta-green/15 text-cehta-green font-semibold">
+              +
+            </span>
+            <div className="flex-1">
+              <div className="font-medium text-ink-900">
+                {isCreating ? "Creando…" : `Crear proveedor "${searchQuery.trim()}"`}
+              </div>
+              <div className="text-[11px] text-ink-500">
+                {rutValue
+                  ? `Se creará con RUT ${rutValue}. Podés completar el resto luego.`
+                  : "Se creará con datos mínimos (sólo nombre). Completá RUT y banco luego desde /admin/proveedores."}
+              </div>
+            </div>
+          </li>
+        </ul>
+      )}
       {open && results.length > 0 && (
         <ul
           className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-hairline bg-white shadow-lg"
