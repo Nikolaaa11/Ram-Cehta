@@ -822,12 +822,37 @@ export default function NuevoVoucherPage() {
           <div className="rounded-3xl border border-hairline bg-white p-6 shadow-card">
             <div className="flex items-baseline justify-between">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cehta-green">
-                Líneas del asiento · imputación triple
+                Líneas del asiento contable
               </p>
               <p className="text-[11px] text-ink-500">
-                Cada línea: cuenta · proyecto · área · cargo O abono
+                Cada línea: cuenta contable · área · monto (cargo O abono)
               </p>
             </div>
+
+            {/* R152uuu — MEJORAS IA.docx #12: el operador no entendía qué es
+                "imputación". Bloque explicativo con el concepto en español
+                llano + link a la guía y a las páginas de setup. */}
+            <details className="mt-3 group rounded-2xl bg-cehta-green/5 ring-1 ring-cehta-green/20 text-xs">
+              <summary className="cursor-pointer list-none px-4 py-3 text-cehta-green font-semibold flex items-center justify-between">
+                <span>¿Qué es la imputación? · ayuda rápida</span>
+                <span className="text-ink-400 group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <div className="px-4 pb-4 space-y-2 text-ink-600 leading-relaxed">
+                <p>
+                  <strong>Imputar</strong> significa elegir <strong>a qué cuenta contable</strong> va cada peso del asiento.
+                  Cada línea tiene un cargo (debe) o un abono (haber).
+                  La suma de cargos tiene que ser igual a la de abonos — la partida doble se valida en vivo.
+                </p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Cuenta contable</strong> (obligatorio): qué cuenta del plan se afecta. Si la lista está vacía configurala en <a href="/admin/plan-cuentas" className="underline">/admin/plan-cuentas</a>.</li>
+                  <li><strong>Área</strong> (opcional): centro de costo o área interna. Setup en <a href="/admin/areas" className="underline">/admin/areas</a>.</li>
+                  <li><strong>Proyecto contable</strong> (opcional, va arriba en el header): para asignar gasto a CORFO / Privado / Interno. Setup en <a href="/admin/proyectos-contables" className="underline">/admin/proyectos-contables</a>.</li>
+                </ul>
+                <p>
+                  ¿Más dudas? <a href="/vouchers/ejemplos" className="underline">Ver ejemplos completos de vouchers</a> o la <a href="/ayuda" className="underline">Centro de Ayuda</a>.
+                </p>
+              </div>
+            </details>
 
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-sm">
@@ -838,10 +863,13 @@ export default function NuevoVoucherPage() {
                         en el header del voucher y se aplica a todas
                         las líneas al submit. */}
                     <th className="w-8 pb-2">#</th>
-                    <th className="pb-2">Planificación financiera</th>
+                    {/* R152uuu — el label decía "Planificación financiera"
+                        pero la columna es la cuenta contable del plan. Lo
+                        renombramos para que sea inequívoco. */}
+                    <th className="pb-2">Cuenta contable</th>
                     <th className="pb-2">Área</th>
-                    <th className="pb-2 text-right">Cargo</th>
-                    <th className="pb-2 text-right">Abono</th>
+                    <th className="pb-2 text-right">Cargo (debe)</th>
+                    <th className="pb-2 text-right">Abono (haber)</th>
                     <th className="w-8 pb-2"></th>
                   </tr>
                 </thead>

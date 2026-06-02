@@ -112,6 +112,7 @@ type NavGroup = {
     | "sii"
     | "claudia"
     | "documentos"
+    | "recursos"
     | "contabilidad"
     | "admin"
     | "avanzado";
@@ -154,6 +155,18 @@ function canSeeClaudiaGroup(user: { email?: string | null; app_role?: string }):
   if (!email) return false;
   if (CLAUDIA_GROUP_EMAILS.has(email)) return true;
   if (CLAUDIA_GROUP_DOMAINS.some((d) => email.endsWith(d))) return true;
+  if (email.includes("guido")) return true;
+  return false;
+}
+
+// R152uuu — Gating del grupo "Documentos del fondo" (Legal, Entregables FIP,
+// Políticas, Actas, Estados financieros, Reportes). Por pedido de MEJORAS IA
+// docx #11: visible solo para Guido + admin. Centro de Aprendizaje + Centro
+// de Ayuda quedan en otro grupo público (Recursos).
+function canSeeFundDocs(user: { email?: string | null; app_role?: string }): boolean {
+  if (user.app_role === "admin") return true;
+  const email = (user.email ?? "").toLowerCase().trim();
+  if (!email) return false;
   if (email.includes("guido")) return true;
   return false;
 }
@@ -384,9 +397,13 @@ const GROUPS: NavGroup[] = [
   },
   {
     id: "documentos",
-    label: "Documentos",
+    label: "Documentos del fondo",
     collapsible: true,
-    defaultOpen: true,
+    defaultOpen: false,
+    // R152uuu — MEJORAS IA.docx #11: solo Guido y admin ven los documentos
+    // del fondo (Legal, Entregables FIP, Políticas, Actas, EEFF, Reportes).
+    // El resto del equipo NO los necesita en su día a día.
+    requiresAccess: canSeeFundDocs,
     items: [
       { href: "/legal" as Route, label: "Legal", icon: Scale },
       {
@@ -394,32 +411,41 @@ const GROUPS: NavGroup[] = [
         label: "Entregables FIP",
         icon: ClipboardList,
       },
-      // V5: políticas internas del fondo (reglamento, manual UAF, código ética).
-      // Distinto de /legal que es por empresa portfolio. Auditable por CMF.
       {
         href: "/admin/policies-fondo" as Route,
         label: "Políticas del fondo",
         icon: ShieldCheck,
       },
-      // V5: actas formales del FIP (Directorio AFIS, Comité Inversión,
-      // Asamblea LPs, Comité Vigilancia). Distinto de actas portfolio.
       {
         href: "/admin/fondo-actas" as Route,
         label: "Actas del fondo",
         icon: ScrollText,
       },
-      // V5: estados financieros cross-empresa (balance, ER, flujo caja).
-      // Sync desde Dropbox /04-Financiero/.
       {
         href: "/admin/estados-financieros" as Route,
         label: "Estados financieros",
         icon: FileBarChart,
       },
       { href: "/reportes" as Route, label: "Reportes", icon: FileBarChart },
-      // Round 152i — Centro de Ayuda: guías HTML interactivas servidas in-app.
+    ],
+  },
+  // R152uuu — Grupo "Recursos" público: Centro de Ayuda + Centro de Aprendizaje.
+  // Visible para TODOS los usuarios (sin gate). Antes vivían dentro del grupo
+  // "Documentos" pero el Centro de Aprendizaje es para todo el equipo, no solo
+  // Guido/admin como el resto de los documentos del fondo.
+  {
+    id: "recursos",
+    label: "Recursos",
+    collapsible: true,
+    defaultOpen: true,
+    items: [
       { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
-      // Round 152v — Centro de Aprendizaje: módulos + quizzes con badges.
-      { href: "/aprender" as Route, label: "Centro de Aprendizaje", icon: Sparkles, isNew: true },
+      {
+        href: "/aprender" as Route,
+        label: "Centro de Aprendizaje",
+        icon: Sparkles,
+        isNew: true,
+      },
     ],
   },
   // V5: Contabilidad — plan de cuentas + proyectos contables + áreas.

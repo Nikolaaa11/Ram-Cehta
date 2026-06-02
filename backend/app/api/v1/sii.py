@@ -203,8 +203,12 @@ async def _get_credencial_sii(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=(
-                f"No hay credencial SII configurada para {empresa_codigo}. "
-                f"Cargala via el seed Round 116."
+                f"No hay credencial SII cargada para la empresa {empresa_codigo}. "
+                f"Esto es esperado en pre-marcha blanca: la integración SII está "
+                f"deployada pero requiere (1) aplicar las migraciones SQL R115/R117 "
+                f"en Supabase Studio, (2) configurar CREDENTIALS_FERNET_KEY en Fly, "
+                f"y (3) ejecutar el seed Round 116 con las credenciales encriptadas. "
+                f"Mientras tanto la sincronización SII queda inactiva por diseño."
             ),
         )
     try:
