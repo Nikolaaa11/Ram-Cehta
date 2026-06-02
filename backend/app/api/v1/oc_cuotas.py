@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
@@ -395,4 +395,119 @@ async def generar_vouchers(
         cuotas_procesadas=len(pendientes),
         vouchers_creados=len(creados),
         vouchers_codigos=creados,
+    )
+
+
+# ─────────────────────────────────────────────────────────────────────
+# R152DDDD — Cuotas próximas a vencer (para action-center + alerts)
+# ─────────────────────────────────────────────────────────────────────
+
+
+class CuotaPendiente(BaseModel):
+    cuota_id: int
+    oc_id: int
+    numero_oc: str | None
+    empresa_codigo: str
+    proveedor_nombre: str | None
+    numero_cuota: int
+    monto: Decimal
+    fecha_vencimiento: date
+    dias_a_vencer: int
+    descripcion: str | None
+    estado: str
+    voucher_id: int | None
+    voucher_codigo: str | None
+
+
+class CuotasResumen(BaseModel):
+    """Métricas agregadas para badge/sidebar."""
+    total_pendientes: int
+    vencidas: int
+    proximas_7_dias: int
+    proximas_30_dias: int
+    monto_total_pendiente: Decimal
+
+
+@router.get(
+    "/ordenes-compra/cuotas/proximas-a-vencer",
+    response_model=list[CuotaPendiente],
+)
+async def cuotas_proximas(
+    user: CurrentUser,
+    db: DBSession,
+    dias: Annotated[int, Query(ge=1, le=180)] = 30,
+    incluir_vencidas: bool = Query(default=True),
+) -> list[CuotaPendiente]:
+    """Lista cuotas con vencimiento ≤ N días, estado != PAGADA/ANULADA.
+
+    Default: próximas 30 días + vencidas. Ordenadas por fecha asc.
+    Pensado para widget "Próximos vencimientos" y badge sidebar.
+    """
+    where_clauses = [
+        "c.estado IN ('PENDIENTE', 'VOUCHER_GENERADO')",
+        f"c.fecha_vencimiento <= CURRENT_DATE + INTERVAL '{int(dias)} days'",
+    ]
+    if not incluir_vencidas:
+        where_clauses.append("c.fecha_vencimiento >= CURRENT_DATE")
+
+    rows = await db.execute(
+        text(
+            f"""SELECT c.cuota_id, c.oc_id,
+                       oc.numero_oc, oc.empresa_codigo,
+                       p.razon_social AS proveedor_nombre,
+                       c.numero_cuota, c.monto, c.fecha_vencimiento,
+                       (c.fecha_vencimiento - CURRENT_DATE) AS dias_a_vencer,
+                       c.descripcion, c.estado,
+                       c.voucher_id, v.codigo AS voucher_codigo
+                FROM core.oc_cuotas c
+                JOIN core.ordenes_compra oc ON oc.oc_id = c.oc_id
+                LEFT JOIN core.proveedores p ON p.proveedor_id = oc.proveedor_id
+                LEFT JOIN core.vouchers v ON v.voucher_id = c.voucher_id
+                WHERE {' AND '.join(where_clauses)}
+                ORDER BY c.fecha_vencimiento ASC, c.cuota_id ASC
+                LIMIT 100"""
+        ),
+    )
+    return [CuotaPendiente.model_validate(dict(r._mapping)) for r in rows]
+
+
+@router.get(
+    "/ordenes-compra/cuotas/resumen",
+    response_model=CuotasResumen,
+)
+async def cuotas_resumen(
+    user: CurrentUser, db: DBSession
+) -> CuotasResumen:
+    """Resumen de cuotas pendientes (badge/sidebar)."""
+    row = (
+        await db.execute(
+            text(
+                """SELECT
+                    COUNT(*) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')) AS total_pendientes,
+                    COUNT(*) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')
+                                     AND fecha_vencimiento < CURRENT_DATE) AS vencidas,
+                    COUNT(*) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')
+                                     AND fecha_vencimiento BETWEEN CURRENT_DATE
+                                         AND CURRENT_DATE + INTERVAL '7 days') AS proximas_7,
+                    COUNT(*) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')
+                                     AND fecha_vencimiento BETWEEN CURRENT_DATE
+                                         AND CURRENT_DATE + INTERVAL '30 days') AS proximas_30,
+                    COALESCE(SUM(monto) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')), 0) AS monto_total
+                   FROM core.oc_cuotas"""
+            ),
+        )
+    ).first()
+    if not row:
+        return CuotasResumen(
+            total_pendientes=0, vencidas=0,
+            proximas_7_dias=0, proximas_30_dias=0,
+            monto_total_pendiente=Decimal("0"),
+        )
+    m = dict(row._mapping)
+    return CuotasResumen(
+        total_pendientes=int(m["total_pendientes"] or 0),
+        vencidas=int(m["vencidas"] or 0),
+        proximas_7_dias=int(m["proximas_7"] or 0),
+        proximas_30_dias=int(m["proximas_30"] or 0),
+        monto_total_pendiente=Decimal(str(m["monto_total"] or 0)),
     )

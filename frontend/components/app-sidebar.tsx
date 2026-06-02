@@ -63,6 +63,7 @@ import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { useMailboxPrefetch } from "@/hooks/use-mailbox";
 import { useF22Prefetch } from "@/hooks/use-f22";
 import { useAprobacionesPrefetch } from "@/hooks/use-aprobaciones-prefetch";
+import { useCuotasResumen } from "@/hooks/use-cuotas-resumen";
 import { useActionCenterPrefetch } from "@/hooks/use-action-center-prefetch";
 import { useKeyboardShortcuts } from "@/hooks/use-keyboard-shortcuts";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -838,6 +839,10 @@ export function AppSidebar({ email }: AppSidebarProps) {
   const criticalObligationsCount = state?.critical_obligations ?? 0;
   const criticalEntregablesCount = state?.critical_entregables ?? 0;
   const mailboxPending = state?.mailbox_pending ?? 0;
+  // R152DDDD — Cuotas pendientes para badge en /ordenes-compra
+  const cuotasResumen = useCuotasResumen();
+  const cuotasPendientes = cuotasResumen.data?.total_pendientes ?? 0;
+  const cuotasVencidas = cuotasResumen.data?.vencidas ?? 0;
   // V5++ ola AT — counters de vouchers para el usuario
   const voucherDraftsMine = state?.voucher_drafts_mine ?? 0;
   const voucherPendingApprovals = state?.voucher_pending_approvals ?? 0;
@@ -956,6 +961,12 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const showValidacionBadge =
                   String(item.href) === "/transferencias" &&
                   voucherApprovedReady > 0;
+                // R152DDDD — Badge en /ordenes-compra con cuotas pendientes.
+                // Si hay vencidas, muestra el count vencidas (rojo).
+                // Si no, muestra total pendientes (amber).
+                const showOcCuotasBadge =
+                  String(item.href) === "/ordenes-compra" &&
+                  cuotasPendientes > 0;
                 // Prefetch on hover para rutas con datos pesados.
                 // V4 fase 7.5 — calienta cache TanStack antes del click.
                 // V5+ extendido a /admin/mailbox y /f22 (lists costosas).
@@ -1089,6 +1100,25 @@ export function AppSidebar({ email }: AppSidebarProps) {
                         className="inline-flex min-w-[20px] items-center justify-center rounded-full bg-cehta-green px-1.5 text-[10px] font-semibold text-white tabular-nums"
                       >
                         {voucherApprovedReady > 99 ? "99+" : voucherApprovedReady}
+                      </span>
+                    )}
+                    {/* R152DDDD — Badge OC cuotas pendientes/vencidas */}
+                    {showOcCuotasBadge && (
+                      <span
+                        aria-label={`${cuotasPendientes} cuotas pendientes (${cuotasVencidas} vencidas)`}
+                        title={`${cuotasPendientes} cuotas pendientes${cuotasVencidas > 0 ? ` (${cuotasVencidas} vencidas)` : ""}`}
+                        className={cn(
+                          "inline-flex min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold text-white tabular-nums",
+                          cuotasVencidas > 0
+                            ? "bg-negative pulse-glow-red"
+                            : "bg-amber-500",
+                        )}
+                      >
+                        {(cuotasVencidas > 0 ? cuotasVencidas : cuotasPendientes) > 99
+                          ? "99+"
+                          : cuotasVencidas > 0
+                            ? cuotasVencidas
+                            : cuotasPendientes}
                       </span>
                     )}
                   </Link>

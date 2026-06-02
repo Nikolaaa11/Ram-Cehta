@@ -20,6 +20,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
+import io
 from fastapi import (
     APIRouter,
     Depends,
@@ -30,6 +31,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
@@ -836,3 +838,226 @@ async def update_linea(
         )
     ).first()
     return LineaLibroRead.model_validate(dict(row._mapping))
+
+
+# ─────────────────────────────────────────────────────────────────────
+# R152DDDD — Excel export del libro (formato Nubox/SII estándar)
+# ─────────────────────────────────────────────────────────────────────
+
+
+@router.get("/libros/{libro_id}/export-excel")
+async def export_libro_excel(
+    user: CurrentUser, db: DBSession, libro_id: int
+) -> StreamingResponse:
+    """Genera el libro de remuneraciones en Excel formato Nubox/SII.
+
+    El layout matchea exactamente el del Excel original que el operador
+    puede subir, lo que facilita envío al contador externo o re-importar.
+
+    Estructura:
+      Filas 1-7: header con datos de la empresa
+      Fila 9: headers de tabla 1 (HABERES y DESCUENTOS)
+      Filas 10+: una por empleado
+      Fila X: TOTAL GENERAL
+      Fila X+2: header "Patronales" + "Calculo Imp Unico"
+      Fila X+3: headers tabla 2
+      Filas X+4+: una por empleado (aportes patronales)
+    """
+    await _check_rrhh_access(user, db)
+
+    # Cargar libro + empresa + líneas
+    libro_row = (
+        await db.execute(
+            text(
+                """SELECT lr.id, lr.empresa_codigo, lr.periodo,
+                          lr.total_haberes, lr.total_liquido,
+                          lr.total_descuentos_legales,
+                          lr.total_aportes_patronales,
+                          lr.total_costo_empresa, lr.cantidad_empleados,
+                          e.razon_social, e.rut AS empresa_rut,
+                          e.giro, e.direccion
+                   FROM core.libros_remuneraciones lr
+                   JOIN core.empresas e ON e.codigo = lr.empresa_codigo
+                   WHERE lr.id = :id"""
+            ),
+            {"id": libro_id},
+        )
+    ).first()
+    if not libro_row:
+        raise HTTPException(404, "Libro no encontrado")
+    lr = dict(libro_row._mapping)
+
+    lineas_rows = await db.execute(
+        text(
+            """SELECT * FROM core.libro_remuneraciones_lineas
+               WHERE libro_id = :id
+               ORDER BY area NULLS LAST, nombre"""
+        ),
+        {"id": libro_id},
+    )
+    lineas = [dict(r._mapping) for r in lineas_rows]
+
+    # Generar Excel
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "LIBRO DE REMUNERACIONES"
+
+    bold = Font(bold=True)
+    title_font = Font(bold=True, size=12)
+    header_fill = PatternFill("solid", start_color="DCFCE7")
+    total_fill = PatternFill("solid", start_color="FEF3C7")
+    border_thin = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+
+    meses_es = ["", "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+                "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"]
+    año, mes = lr["periodo"].split("-")
+    mes_label = f"{meses_es[int(mes)]} DEL {año}"
+
+    # Header empresa
+    ws["A1"] = (lr.get("razon_social") or "").upper()
+    ws["A1"].font = title_font
+    ws["A2"] = f"Rut: {lr.get('empresa_rut') or '-'}"
+    ws["A3"] = lr.get("giro") or ""
+    ws["A4"] = lr.get("direccion") or ""
+    ws["A6"] = "LIBRO DE REMUNERACIONES"
+    ws["A6"].font = bold
+    ws["A7"] = f"MES: {mes_label}"
+
+    # Tabla 1 headers (fila 9)
+    HEADERS_1 = [
+        "Cód", "R.U.T", "Nombre", "DT",
+        "S. Base", "H. Extras", "Grat. Legal", "Otros Imp.",
+        "Total Imp.", "Asig. Fam.", "Otr. No Imp.", "Tot. No Imp.",
+        "Tot. Haberes", "Previsión", "Salud", "Seg. Ces.",
+        "Otros D.Leg.", "Tot. D.Leg.", "Desc. Varios", "Tot. Desc.", "Líquido",
+    ]
+    for i, h in enumerate(HEADERS_1, start=1):
+        c = ws.cell(row=9, column=i, value=h)
+        c.font = bold
+        c.fill = header_fill
+        c.alignment = Alignment(horizontal="center")
+        c.border = border_thin
+
+    # Datos tabla 1
+    row_idx = 10
+    for i, l in enumerate(lineas, start=1):
+        cells = [
+            i, l["empleado_rut"], l["nombre"], int(l["dias_trabajados"] or 0),
+            int(l["sueldo_base"] or 0), int(l["horas_extras"] or 0),
+            int(l["gratificacion_legal"] or 0), int(l["otros_imponibles"] or 0),
+            int(l["total_imponibles"] or 0), int(l["asignacion_familiar"] or 0),
+            int(l["otros_no_imponibles"] or 0), int(l["total_no_imponibles"] or 0),
+            int(l["total_haberes"] or 0), int(l["prevision"] or 0),
+            int(l["salud"] or 0), int(l["seguro_cesantia_trab"] or 0),
+            int(l["otros_descuentos_legales"] or 0),
+            int(l["total_descuentos_legales"] or 0),
+            int(l["descuentos_varios"] or 0), int(l["total_descuentos"] or 0),
+            int(l["liquido_pagado"] or 0),
+        ]
+        for j, v in enumerate(cells, start=1):
+            c = ws.cell(row=row_idx, column=j, value=v)
+            c.border = border_thin
+            if j >= 4:
+                c.number_format = "#,##0"
+        row_idx += 1
+
+    # Total general tabla 1
+    total_row = row_idx
+    ws.cell(row=total_row, column=3, value="TOTAL GENERAL").font = bold
+    totals_1 = [
+        sum(int(l["dias_trabajados"] or 0) for l in lineas),
+        sum(int(l["sueldo_base"] or 0) for l in lineas),
+        sum(int(l["horas_extras"] or 0) for l in lineas),
+        sum(int(l["gratificacion_legal"] or 0) for l in lineas),
+        sum(int(l["otros_imponibles"] or 0) for l in lineas),
+        sum(int(l["total_imponibles"] or 0) for l in lineas),
+        sum(int(l["asignacion_familiar"] or 0) for l in lineas),
+        sum(int(l["otros_no_imponibles"] or 0) for l in lineas),
+        sum(int(l["total_no_imponibles"] or 0) for l in lineas),
+        sum(int(l["total_haberes"] or 0) for l in lineas),
+        sum(int(l["prevision"] or 0) for l in lineas),
+        sum(int(l["salud"] or 0) for l in lineas),
+        sum(int(l["seguro_cesantia_trab"] or 0) for l in lineas),
+        sum(int(l["otros_descuentos_legales"] or 0) for l in lineas),
+        sum(int(l["total_descuentos_legales"] or 0) for l in lineas),
+        sum(int(l["descuentos_varios"] or 0) for l in lineas),
+        sum(int(l["total_descuentos"] or 0) for l in lineas),
+        sum(int(l["liquido_pagado"] or 0) for l in lineas),
+    ]
+    for j, v in enumerate(totals_1, start=4):
+        c = ws.cell(row=total_row, column=j, value=v)
+        c.font = bold
+        c.fill = total_fill
+        c.number_format = "#,##0"
+        c.border = border_thin
+
+    # Tabla 2: Aportes patronales + Cálculo Imp. Único
+    row_idx = total_row + 2
+    ws.cell(row=row_idx, column=1, value="Patronales").font = bold
+    ws.cell(row=row_idx, column=11, value="Calculo Imp Unico").font = bold
+    row_idx += 1
+    HEADERS_2 = [
+        "Cód", "R.U.T", "Nombre", "DT",
+        "AFP EMP", "SIS", "Seg Cesantia", "Seg Social", "Mutual",
+        "", "Tributable", "Calculo",
+    ]
+    for i, h in enumerate(HEADERS_2, start=1):
+        if not h:
+            continue
+        c = ws.cell(row=row_idx, column=i, value=h)
+        c.font = bold
+        c.fill = header_fill
+        c.alignment = Alignment(horizontal="center")
+        c.border = border_thin
+    row_idx += 1
+
+    for i, l in enumerate(lineas, start=1):
+        cells = [
+            i, l["empleado_rut"], l["nombre"], int(l["dias_trabajados"] or 0),
+            float(l["aporte_afp_empleador"] or 0),
+            float(l["sis"] or 0),
+            float(l["seguro_cesantia_empleador"] or 0),
+            float(l["seguro_social"] or 0),
+            float(l["mutual"] or 0),
+            None,
+            int(l["base_tributable"] or 0),
+            float(l["impuesto_unico"] or 0),
+        ]
+        for j, v in enumerate(cells, start=1):
+            if v is None:
+                continue
+            c = ws.cell(row=row_idx, column=j, value=v)
+            c.border = border_thin
+            if j >= 4:
+                c.number_format = "#,##0" if j in (4, 11) else "#,##0.00"
+        row_idx += 1
+
+    # Auto-width columnas
+    for col_idx in range(1, 22):
+        max_len = 8
+        for row in ws.iter_rows(min_col=col_idx, max_col=col_idx):
+            for cell in row:
+                if cell.value is not None:
+                    max_len = max(max_len, len(str(cell.value)))
+        ws.column_dimensions[openpyxl.utils.get_column_letter(col_idx)].width = (
+            min(max_len + 2, 30)
+        )
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"libro_remuneraciones_{lr['empresa_codigo']}_{lr['periodo']}.xlsx"
+
+    return StreamingResponse(
+        buf,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )

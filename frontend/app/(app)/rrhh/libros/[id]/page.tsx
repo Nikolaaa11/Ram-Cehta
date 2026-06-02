@@ -17,7 +17,7 @@ import { use, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import type { Route } from "next";
-import { ArrowLeft, Calendar, Building2, Pencil } from "lucide-react";
+import { ArrowLeft, Calendar, Building2, Pencil, Download } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
@@ -130,18 +130,58 @@ export default function LibroDetallePage({
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
           Volver a RRHH
         </Link>
-        <h1 className="mt-2 font-display text-2xl font-semibold text-ink-900">
-          Libro de remuneraciones · {fmtPeriodo(l.periodo)}
-        </h1>
-        <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-ink-600">
-          <span className="inline-flex items-center gap-1.5">
-            <Building2 className="h-4 w-4 text-cehta-green" strokeWidth={1.75} />
-            <strong>{l.empresa_codigo}</strong>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-ink-400" strokeWidth={1.75} />
-            {l.cantidad_empleados} empleados
-          </span>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="mt-2 font-display text-2xl font-semibold text-ink-900">
+              Libro de remuneraciones · {fmtPeriodo(l.periodo)}
+            </h1>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-ink-600">
+              <span className="inline-flex items-center gap-1.5">
+                <Building2 className="h-4 w-4 text-cehta-green" strokeWidth={1.75} />
+                <strong>{l.empresa_codigo}</strong>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <Calendar className="h-4 w-4 text-ink-400" strokeWidth={1.75} />
+                {l.cantidad_empleados} empleados
+              </span>
+            </div>
+          </div>
+          {/* R152DDDD — Botón export Excel formato Nubox/SII */}
+          <a
+            href={`/api/v1/rrhh/libros/${libroId}/export-excel`}
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!session?.access_token) return;
+              try {
+                const res = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1"}/rrhh/libros/${libroId}/export-excel`,
+                  {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                  },
+                );
+                if (!res.ok) {
+                  toast.error(`Export falló: HTTP ${res.status}`);
+                  return;
+                }
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `libro_remuneraciones_${l.empresa_codigo}_${l.periodo}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                toast.success("Excel descargado");
+              } catch (err) {
+                toast.error("Error descargando Excel");
+              }
+            }}
+            className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white hover:bg-cehta-green/90 cursor-pointer"
+          >
+            <Download className="h-4 w-4" strokeWidth={2} />
+            Exportar Excel
+          </a>
         </div>
       </div>
 

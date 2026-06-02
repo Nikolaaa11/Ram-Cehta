@@ -28,6 +28,7 @@ import { TrendSparkline } from "@/components/action-center/TrendSparkline";
 import { SeverityDonuts } from "@/components/action-center/SeverityDonuts";
 import { EmptyStatePremium } from "@/components/action-center/EmptyStatePremium";
 import { StickyCriticalBar } from "@/components/action-center/StickyCriticalBar";
+import { CuotasProximasWidget } from "@/components/ordenes-compra/CuotasProximasWidget";
 
 type Tipo = ObligationItem["tipo"];
 
@@ -338,6 +339,9 @@ export default function ActionCenterPage() {
           <TrendSparkline obligations={data ?? []} />
         </>
       )}
+
+      {/* R152DDDD — Widget cuotas próximas a vencer */}
+      <CuotasProximasWidget dias={30} limit={6} />
 
       {/* Filter de empresa */}
       {empresasPresentes.length > 1 && (
