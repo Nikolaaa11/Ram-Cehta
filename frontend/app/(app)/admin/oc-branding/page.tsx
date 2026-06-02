@@ -167,19 +167,47 @@ export default function OcBrandingPage() {
             </h2>
             <div>
               <label className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 mb-1">
-                Path Dropbox del logo
+                URL del logo (HTTPS o path Dropbox)
               </label>
               <input
                 type="text"
                 value={logoPath}
                 onChange={(e) => setLogoPath(e.target.value)}
-                placeholder={`/Cehta Capital/01-Empresas/${empresaCodigo}/00-Branding/logo.png`}
+                placeholder={`https://cehta-capital.vercel.app/logos/${empresaCodigo.toLowerCase()}.png`}
                 className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm font-mono ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
               <p className="mt-1 text-xs text-ink-500">
-                Subí el logo PNG/JPG a esa ruta en Dropbox. El sistema lo bajará
-                automáticamente al renderizar el PDF.
+                Acepta dos formatos:
+                <br />
+                1. <strong>URL HTTPS</strong> (recomendado) — ej.{" "}
+                <code className="text-[10px]">/logos/{empresaCodigo.toLowerCase()}.png</code> en{" "}
+                <code className="text-[10px]">frontend/public/</code>.
+                <br />
+                2. <strong>Path Dropbox</strong> — ej.{" "}
+                <code className="text-[10px]">/Cehta Capital/01-Empresas/{empresaCodigo}/00-Branding/logo.png</code>.
               </p>
+              {/* R152BBBB — Preview del logo actual */}
+              {logoPath && (logoPath.startsWith("http://") || logoPath.startsWith("https://")) && (
+                <div className="mt-3 inline-flex items-center gap-3 rounded-xl border border-hairline bg-white p-3">
+                  <img
+                    src={logoPath}
+                    alt={`Logo ${empresaCodigo}`}
+                    className="h-16 w-auto max-w-[200px] object-contain"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      target.style.display = "none";
+                      target.parentElement!.querySelector(".logo-error")!.classList.remove("hidden");
+                    }}
+                  />
+                  <span className="logo-error hidden text-xs text-red-600">
+                    ✗ URL inválida o imagen no carga
+                  </span>
+                  <div className="text-xs text-ink-500">
+                    <div className="font-medium text-ink-900">Preview en vivo</div>
+                    <div>Se mostrará en el PDF de cada OC de {empresaCodigo}.</div>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 mb-1">
