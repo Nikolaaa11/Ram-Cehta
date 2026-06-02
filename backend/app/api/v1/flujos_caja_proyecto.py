@@ -13,7 +13,15 @@ import io
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
@@ -133,10 +141,11 @@ async def upsert_cell(
 @router.delete(
     "/flujos-caja/proyecto/{proyecto_codigo}/cell/{cell_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
 )
 async def delete_cell(
     user: CurrentUser, db: DBSession, proyecto_codigo: str, cell_id: int
-) -> None:
+) -> Response:
     await db.execute(
         text(
             """DELETE FROM core.flujos_caja_proyecto
@@ -145,6 +154,7 @@ async def delete_cell(
         {"id": cell_id, "c": proyecto_codigo},
     )
     await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

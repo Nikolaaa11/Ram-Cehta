@@ -17,7 +17,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
@@ -246,10 +246,11 @@ async def replace_cuotas(
 @router.delete(
     "/ordenes-compra/{oc_id}/cuotas/{cuota_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
 )
 async def delete_cuota(
     user: CurrentUser, db: DBSession, oc_id: int, cuota_id: int
-) -> None:
+) -> Response:
     row = (
         await db.execute(
             text(
@@ -274,6 +275,7 @@ async def delete_cuota(
         {"cid": cuota_id},
     )
     await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
