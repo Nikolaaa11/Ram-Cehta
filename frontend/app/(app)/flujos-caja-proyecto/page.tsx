@@ -50,7 +50,8 @@ const fmtPeriodo = (p: string) => {
     "", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
     "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
   ];
-  return `${meses[parseInt(m)]} ${y}`;
+  const idx = parseInt(m ?? "0", 10);
+  return `${meses[idx] ?? m ?? ""} ${y ?? ""}`;
 };
 
 const CATEGORIAS_DEFAULT = [
@@ -181,9 +182,10 @@ export default function FlujosCajaProyectoPage() {
   const totales = useMemo(() => {
     const t: Record<string, { ing: number; egr: number }> = {};
     (flujo.data ?? []).forEach((c) => {
-      if (!t[c.periodo]) t[c.periodo] = { ing: 0, egr: 0 };
-      if (c.tipo === "INGRESO") t[c.periodo].ing += Number(c.monto_proyectado);
-      else t[c.periodo].egr += Number(c.monto_proyectado);
+      const acc = t[c.periodo] ?? { ing: 0, egr: 0 };
+      if (c.tipo === "INGRESO") acc.ing += Number(c.monto_proyectado);
+      else acc.egr += Number(c.monto_proyectado);
+      t[c.periodo] = acc;
     });
     return t;
   }, [flujo.data]);

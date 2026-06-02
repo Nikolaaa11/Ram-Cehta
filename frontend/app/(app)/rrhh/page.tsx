@@ -83,7 +83,8 @@ const fmtPeriodo = (p: string) => {
     "", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
-  return `${meses[parseInt(m)]} ${y}`;
+  const idx = parseInt(m ?? "0", 10);
+  return `${meses[idx] ?? m ?? ""} ${y ?? ""}`;
 };
 
 export default function RRHHPage() {

@@ -70,8 +70,8 @@ export function OcCuotasSection({
   const qc = useQueryClient();
   const [showSplit, setShowSplit] = useState(false);
   const [cantidad, setCantidad] = useState(3);
-  const [primerVenc, setPrimerVenc] = useState(
-    new Date(Date.now() + 30 * 86400_000).toISOString().split("T")[0],
+  const [primerVenc, setPrimerVenc] = useState<string>(
+    new Date(Date.now() + 30 * 86400_000).toISOString().split("T")[0] ?? "",
   );
   const [diasEntre, setDiasEntre] = useState(30);
 
