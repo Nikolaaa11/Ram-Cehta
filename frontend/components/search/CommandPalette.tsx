@@ -15,6 +15,9 @@ import {
   CornerDownLeft,
   Mail,
   CalendarClock,
+  UserCircle,
+  Target,
+  CircleDollarSign,
 } from "lucide-react";
 import { useSearch } from "@/hooks/use-search";
 import { EmpresaLogo } from "@/components/empresa/EmpresaLogo";
@@ -32,6 +35,10 @@ const ICON_BY_ENTITY: Record<SearchEntityType, React.ElementType> = {
   suscripcion: Wallet,
   voucher: Receipt,
   inbox: Mail,
+  // R152EEEE
+  empleado: UserCircle,
+  proyecto_contable: Target,
+  oc_cuota: CircleDollarSign,
 };
 
 const LABEL_BY_ENTITY: Record<SearchEntityType, string> = {
@@ -46,12 +53,19 @@ const LABEL_BY_ENTITY: Record<SearchEntityType, string> = {
   suscripcion: "Suscripciones",
   voucher: "Vouchers contables",
   inbox: "Inbox emails",
+  // R152EEEE
+  empleado: "Empleados RRHH",
+  proyecto_contable: "Proyectos contables",
+  oc_cuota: "Cuotas OC",
 };
 
 const ENTITY_ORDER: SearchEntityType[] = [
   "empresa",
   "voucher",
   "orden_compra",
+  "oc_cuota",
+  "empleado",
+  "proyecto_contable",
   "trabajador",
   "f29",
   "f22",

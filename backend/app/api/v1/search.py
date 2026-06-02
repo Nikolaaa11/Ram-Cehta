@@ -442,5 +442,142 @@ async def global_search(
         # core.inbox_messages no existe (migration pendiente) — skipear silenciosamente
         pass
 
+    # ── R152EEEE: Empleados RRHH ──────────────────────────────────────────────
+    # Solo si la tabla existe (R152vvv aplicado). Sin scope: el frontend filtra
+    # los hits si el user no tiene acceso a RRHH; los endpoints CRUD igual
+    # bloquean (403). El campo "empresa_codigo" se aplica al filtro multi-tenant.
+    try:
+        emp_emp_filter = (
+            "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+        )
+        params_emp = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+        if allowed_emps is not None:
+            params_emp["allowed"] = allowed_emps
+        rows = (
+            await db.execute(
+                text(
+                    f"""
+                    SELECT rut, nombre, empresa_codigo, area, cargo, activo
+                    FROM core.empleados
+                    WHERE (rut ILIKE :p OR nombre ILIKE :p OR area ILIKE :p
+                           OR cargo ILIKE :p)
+                      {emp_emp_filter}
+                    ORDER BY activo DESC, nombre
+                    LIMIT :lim
+                    """  # noqa: S608
+                ),
+                params_emp,
+            )
+        ).fetchall()
+        if rows:
+            by_entity["empleado"] = [
+                _hit(
+                    "empleado",
+                    entity_id=r[0],
+                    title=r[1],
+                    subtitle=(
+                        f"{r[2]} · {r[3] or 'Sin área'} · RUT {r[0]}"
+                    ),
+                    badge=r[2],
+                    link="/rrhh",
+                )
+                for r in rows
+            ]
+    except Exception:
+        pass
+
+    # ── R152EEEE: Proyectos contables ─────────────────────────────────────────
+    try:
+        proy_emp_filter = (
+            "AND empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+        )
+        params_proy = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+        if allowed_emps is not None:
+            params_proy["allowed"] = allowed_emps
+        rows = (
+            await db.execute(
+                text(
+                    f"""
+                    SELECT codigo, empresa_codigo, nombre, tipo_financiamiento,
+                           estado, programa
+                    FROM core.proyectos_contables
+                    WHERE (codigo ILIKE :p OR nombre ILIKE :p OR programa ILIKE :p)
+                      {proy_emp_filter}
+                    ORDER BY
+                      CASE estado WHEN 'ACTIVE' THEN 0 ELSE 1 END,
+                      codigo
+                    LIMIT :lim
+                    """  # noqa: S608
+                ),
+                params_proy,
+            )
+        ).fetchall()
+        if rows:
+            by_entity["proyecto_contable"] = [
+                _hit(
+                    "proyecto_contable",
+                    entity_id=r[0],
+                    title=f"{r[0]} · {r[2]}",
+                    subtitle=(
+                        f"{r[1]} · {r[3]}"
+                        + (f" · {r[5]}" if r[5] else "")
+                    ),
+                    badge=r[4],
+                    link=f"/admin/proyectos-contables?codigo={r[0]}",
+                )
+                for r in rows
+            ]
+    except Exception:
+        pass
+
+    # ── R152EEEE: Cuotas OC ───────────────────────────────────────────────────
+    try:
+        cuotas_emp_filter = (
+            "AND oc.empresa_codigo = ANY(:allowed)" if allowed_emps is not None else ""
+        )
+        params_cuotas = {"p": pattern, "lim": _PER_ENTITY_LIMIT}
+        if allowed_emps is not None:
+            params_cuotas["allowed"] = allowed_emps
+        rows = (
+            await db.execute(
+                text(
+                    f"""
+                    SELECT c.cuota_id, c.oc_id, c.numero_cuota, c.monto,
+                           c.fecha_vencimiento, c.estado, c.descripcion,
+                           oc.numero_oc, oc.empresa_codigo,
+                           p.razon_social
+                    FROM core.oc_cuotas c
+                    JOIN core.ordenes_compra oc ON oc.oc_id = c.oc_id
+                    LEFT JOIN core.proveedores p ON p.proveedor_id = oc.proveedor_id
+                    WHERE (oc.numero_oc ILIKE :p
+                       OR p.razon_social ILIKE :p
+                       OR c.descripcion ILIKE :p
+                       OR CAST(c.monto AS TEXT) ILIKE :p)
+                      {cuotas_emp_filter}
+                    ORDER BY c.fecha_vencimiento ASC
+                    LIMIT :lim
+                    """  # noqa: S608
+                ),
+                params_cuotas,
+            )
+        ).fetchall()
+        if rows:
+            by_entity["oc_cuota"] = [
+                _hit(
+                    "oc_cuota",
+                    entity_id=str(r[0]),
+                    title=f"OC {r[7]} · Cuota {r[2]}",
+                    subtitle=(
+                        f"{r[9] or 'sin proveedor'} · ${int(r[3]):,}".replace(",", ".")
+                        + f" · vence {r[4].isoformat()}"
+                    ),
+                    badge=r[5],
+                    link=f"/ordenes-compra/{r[1]}",
+                )
+                for r in rows
+            ]
+    except Exception:
+        pass
+
     total = sum(len(v) for v in by_entity.values())
     return SearchResponse(query=q_clean, total=total, by_entity=by_entity)

@@ -22,6 +22,10 @@ SearchEntityType = Literal[
     "suscripcion",
     "voucher",  # V5: vouchers contables
     "inbox",  # V5+: emails procesados de contactocehta@gmail.com
+    # R152EEEE — módulos nuevos
+    "empleado",          # R152vvv: empleados RRHH (con gate canSeeRRHH)
+    "proyecto_contable", # R152w: proyectos CORFO/Privado/Interno
+    "oc_cuota",          # R152yyy: cuotas de OC con voucher asociado
 ]
 
 

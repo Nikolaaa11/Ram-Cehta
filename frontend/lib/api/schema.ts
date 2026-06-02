@@ -852,7 +852,11 @@ export type SearchEntityType =
   | "fondo"
   | "suscripcion"
   | "voucher"
-  | "inbox";
+  | "inbox"
+  // R152EEEE — módulos nuevos
+  | "empleado"
+  | "proyecto_contable"
+  | "oc_cuota";
 
 export interface SearchHit {
   entity_type: SearchEntityType;
