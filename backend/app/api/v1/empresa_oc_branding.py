@@ -7,18 +7,29 @@ Permite a un admin ajustar:
   - gerente_general_{nombre,cargo,email}
   - oc_firma_colectiva (toggle RHO)
   - firmantes_extra (lista JSON)
+
+R152AAAA — agregado POST /admin/empresas/{codigo}/logo/upload que sube un
+archivo de imagen a Dropbox usando las credenciales del servicio backend
+(refresh_token cifrado en core.integrations) y actualiza
+logo_dropbox_path. Esto evita que el operador tenga que copiar el archivo
+a Dropbox manualmente.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
 from app.core.security import AuthenticatedUser
+from app.services.dropbox_service import DropboxNotConfigured, DropboxService
+from app.infrastructure.repositories.integration_repository import (
+    IntegrationRepository,
+)
 
 router = APIRouter()
 
@@ -157,3 +168,116 @@ async def patch_oc_branding(
         )
     await db.commit()
     return await get_oc_branding(user, db, codigo)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# R152AAAA — Upload de logo via API (sube a Dropbox + actualiza path)
+# ─────────────────────────────────────────────────────────────────────
+
+
+_LOGO_PATH_TPL = "/Cehta Capital/01-Empresas/{codigo}/00-Branding/logo{ext}"
+
+
+class LogoUploadResult(BaseModel):
+    codigo: str
+    logo_dropbox_path: str
+    size_bytes: int
+
+
+@router.post(
+    "/admin/empresas/{codigo}/logo/upload",
+    response_model=LogoUploadResult,
+)
+async def upload_logo(
+    user: CurrentUser,
+    db: DBSession,
+    codigo: str,
+    file: Annotated[UploadFile, File(...)],
+) -> LogoUploadResult:
+    """Sube un archivo de imagen a Dropbox bajo la convención estándar:
+
+        /Cehta Capital/01-Empresas/{CODIGO}/00-Branding/logo.{ext}
+
+    Acepta .png, .jpg, .jpeg, .gif, .webp. Si ya existe un logo en esa
+    ruta, lo sobreescribe (es lo que querés cuando re-subís).
+
+    Actualiza core.empresas.logo_dropbox_path con la nueva ruta.
+    Idempotente — si llamás dos veces con el mismo file, queda igual.
+    """
+    await _require_admin(user)
+
+    if not file.filename:
+        raise HTTPException(400, "Falta nombre de archivo")
+    name_lower = file.filename.lower()
+    ext = None
+    for candidate in (".png", ".jpg", ".jpeg", ".gif", ".webp"):
+        if name_lower.endswith(candidate):
+            ext = candidate
+            break
+    if not ext:
+        raise HTTPException(400, "Solo se aceptan png/jpg/jpeg/gif/webp")
+
+    # Verificar empresa
+    row = await db.execute(
+        text(
+            "SELECT 1 FROM core.empresas WHERE codigo = :c AND activo = TRUE"
+        ),
+        {"c": codigo},
+    )
+    if not row.first():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Empresa {codigo} no encontrada o inactiva",
+        )
+
+    integration = await IntegrationRepository(db).get_by_provider("dropbox")
+    if integration is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Dropbox no está conectado. Conectalo en /admin/dropbox-connect.",
+        )
+
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(400, "Archivo vacío")
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(400, f"Logo muy grande ({len(contents)} bytes). Máximo 5MB.")
+
+    target_path = _LOGO_PATH_TPL.format(codigo=codigo, ext=ext)
+
+    try:
+        svc = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
+        # Crear carpeta padre + subir
+        parent = "/".join(target_path.split("/")[:-1])
+        await asyncio.to_thread(svc.ensure_folder_path, parent)
+        await asyncio.to_thread(
+            svc.upload_file, target_path, contents, overwrite=True
+        )
+    except DropboxNotConfigured as exc:
+        raise HTTPException(503, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            502,
+            f"Error subiendo a Dropbox: {exc}. Verificá que la app tenga "
+            f"permisos files.content.write.",
+        ) from exc
+
+    # Actualizar logo_dropbox_path en DB
+    await db.execute(
+        text(
+            """UPDATE core.empresas
+               SET logo_dropbox_path = :p, updated_at = NOW()
+               WHERE codigo = :c"""
+        ),
+        {"p": target_path, "c": codigo},
+    )
+    await db.commit()
+
+    return LogoUploadResult(
+        codigo=codigo,
+        logo_dropbox_path=target_path,
+        size_bytes=len(contents),
+    )
