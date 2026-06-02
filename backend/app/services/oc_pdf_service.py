@@ -171,28 +171,64 @@ async def _fetch_oc_bundle_data(
         return None
     oc = dict(oc_row)
 
-    empresa_row = (
-        await db.execute(
-            text(
-                """
-                SELECT codigo, razon_social, rut, giro, direccion, ciudad,
-                       telefono, logo_dropbox_path
-                FROM core.empresas
-                WHERE codigo = :c
-                """
-            ),
-            {"c": oc["empresa_codigo"]},
+    # R152www — intentamos primero la query enriquecida (con campos nuevos).
+    # Si la migración no fue aplicada todavía, hace fallback a la query base
+    # SIN tumbar el PDF.
+    empresa_row = None
+    try:
+        empresa_row = (
+            await db.execute(
+                text(
+                    """
+                    SELECT codigo, razon_social, rut, giro, direccion, ciudad,
+                           telefono, logo_dropbox_path,
+                           gerente_general_nombre, gerente_general_cargo,
+                           gerente_general_email,
+                           oc_firma_colectiva,
+                           COALESCE(firmantes_extra, '[]'::jsonb) AS firmantes_extra,
+                           oc_color_primario
+                    FROM core.empresas
+                    WHERE codigo = :c
+                    """
+                ),
+                {"c": oc["empresa_codigo"]},
+            )
+        ).mappings().first()
+    except Exception as exc:
+        log.info(
+            "oc_pdf.empresa_enhanced_select_failed_fallback",
+            extra={"err": str(exc), "empresa": oc["empresa_codigo"]},
         )
-    ).mappings().first()
-    empresa = dict(empresa_row) if empresa_row else {
-        "codigo": oc["empresa_codigo"],
-        "razon_social": oc["empresa_codigo"],
-        "rut": None,
-        "direccion": None,
-        "ciudad": None,
-        "telefono": None,
-        "logo_dropbox_path": None,
-    }
+        # Fallback a query base
+        empresa_row = (
+            await db.execute(
+                text(
+                    """
+                    SELECT codigo, razon_social, rut, giro, direccion, ciudad,
+                           telefono, logo_dropbox_path
+                    FROM core.empresas
+                    WHERE codigo = :c
+                    """
+                ),
+                {"c": oc["empresa_codigo"]},
+            )
+        ).mappings().first()
+
+    empresa = dict(empresa_row) if empresa_row else {}
+    # Garantizar defaults para campos nuevos (por si la migración no corrió)
+    empresa.setdefault("codigo", oc["empresa_codigo"])
+    empresa.setdefault("razon_social", oc["empresa_codigo"])
+    empresa.setdefault("rut", None)
+    empresa.setdefault("direccion", None)
+    empresa.setdefault("ciudad", None)
+    empresa.setdefault("telefono", None)
+    empresa.setdefault("logo_dropbox_path", None)
+    empresa.setdefault("gerente_general_nombre", None)
+    empresa.setdefault("gerente_general_cargo", "Gerente General")
+    empresa.setdefault("gerente_general_email", None)
+    empresa.setdefault("oc_firma_colectiva", False)
+    empresa.setdefault("firmantes_extra", [])
+    empresa.setdefault("oc_color_primario", "#236C4F")
 
     proveedor: dict[str, Any] | None = None
     if oc.get("proveedor_id"):
@@ -655,26 +691,137 @@ def _build_cover_pdf(
         f"la fecha de emisión.",
         s_footer_note,
     ))
-    story.append(Spacer(1, 18 * mm))
-    sig_tbl = Table(
-        [
-            [Paragraph("________________________________", s_sig_center)],
-            [Paragraph("<b>Firma autorizada</b>", s_sig_center)],
-            [Paragraph(
-                _esc(empresa.get("razon_social") or ""), s_sig_center
-            )],
-        ],
-        colWidths=[PAGE_W - MARGIN_L - MARGIN_R],
-    )
-    sig_tbl.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-        ("TOPPADDING", (0, 0), (-1, -1), 1),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
-    ]))
-    story.append(KeepTogether(sig_tbl))
+    story.append(Spacer(1, 14 * mm))
+
+    # R152www — bloque de firma branded por empresa.
+    #   - Empresas normales: 1 firma (GG, nombre + cargo + razón social).
+    #   - Empresas con oc_firma_colectiva=TRUE (RHO): N firmas apiladas en
+    #     una grilla 2 columnas, una por cada integrante en firmantes_extra.
+    sig_story = _build_signature_block(empresa, s_sig_center)
+    story.append(KeepTogether(sig_story))
 
     doc.build(story)
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# R152www — Signature block (single GG vs collective RHO)
+# ---------------------------------------------------------------------------
+
+
+def _build_signature_block(
+    empresa: dict[str, Any], s_sig_center: ParagraphStyle
+) -> Table:
+    """Construye el bloque de firma del cover.
+
+    - Default (oc_firma_colectiva=False): 1 firma con nombre+cargo del GG.
+    - Colectiva (RHO): grilla con TODAS las firmas de firmantes_extra.
+    """
+    razon_social = _esc(empresa.get("razon_social") or "")
+    es_colectiva = bool(empresa.get("oc_firma_colectiva"))
+
+    if not es_colectiva:
+        # Firma única — GG
+        nombre = _esc(empresa.get("gerente_general_nombre") or "")
+        cargo = _esc(empresa.get("gerente_general_cargo") or "Gerente General")
+        # Si no hay nombre cargado, mostrar placeholder con leyenda
+        nombre_o_placeholder = (
+            f"<b>{nombre}</b>" if nombre else "<i>(Cargar GG en /admin/empresas)</i>"
+        )
+        return Table(
+            [
+                [Paragraph("________________________________", s_sig_center)],
+                [Paragraph(nombre_o_placeholder, s_sig_center)],
+                [Paragraph(cargo, s_sig_center)],
+                [Paragraph(razon_social, s_sig_center)],
+            ],
+            colWidths=[PAGE_W - MARGIN_L - MARGIN_R],
+            style=TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]),
+        )
+
+    # Firma colectiva — RHO. Renderiza grilla de N firmas en 2 columnas.
+    firmantes_raw = empresa.get("firmantes_extra") or []
+    # firmantes_extra puede venir como list (de psycopg) o str JSON
+    if isinstance(firmantes_raw, str):
+        import json as _json
+        try:
+            firmantes_raw = _json.loads(firmantes_raw)
+        except Exception:
+            firmantes_raw = []
+
+    if not firmantes_raw:
+        # Empresa marcada colectiva pero sin firmantes — placeholder genérico
+        return Table(
+            [
+                [Paragraph("________________________________", s_sig_center)],
+                [Paragraph(
+                    "<i>(Configurar firmantes en /admin/empresas)</i>",
+                    s_sig_center,
+                )],
+                [Paragraph(razon_social, s_sig_center)],
+            ],
+            colWidths=[PAGE_W - MARGIN_L - MARGIN_R],
+            style=TableStyle([
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]),
+        )
+
+    # Construir grilla 2-col con N firmantes. Si impar, último ocupa una sola.
+    content_w = PAGE_W - MARGIN_L - MARGIN_R
+    col_w = (content_w - 6 * mm) / 2
+
+    def _firma_cell(f: dict) -> list:
+        nombre = _esc(f.get("nombre") or "")
+        cargo = _esc(f.get("cargo") or "")
+        return [
+            Paragraph("__________________________", s_sig_center),
+            Paragraph(
+                f"<b>{nombre}</b>" if nombre else "<i>(nombre pendiente)</i>",
+                s_sig_center,
+            ),
+            Paragraph(cargo if cargo else "&nbsp;", s_sig_center),
+        ]
+
+    # Renderizamos cada firma como sub-Table apilada y luego las
+    # agrupamos en filas de 2 cells (col izquierda + col derecha).
+    sub_tables = [
+        Table([[p] for p in _firma_cell(f)], colWidths=[col_w],
+              style=TableStyle([
+                  ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                  ("TOPPADDING", (0, 0), (-1, -1), 1),
+                  ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+              ]))
+        for f in firmantes_raw
+    ]
+
+    rows = []
+    for i in range(0, len(sub_tables), 2):
+        row = [sub_tables[i], sub_tables[i + 1] if i + 1 < len(sub_tables) else ""]
+        rows.append(row)
+    # Footer común con razón social
+    razon_p = Paragraph(
+        f"<b>{razon_social}</b> · Firma colectiva", s_sig_center
+    )
+
+    grid = Table(
+        rows + [["", ""], [razon_p, ""]],
+        colWidths=[col_w, col_w],
+        style=TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+            # razón social spans 2 cols
+            ("SPAN", (0, -1), (1, -1)),
+            ("ALIGN", (0, -1), (-1, -1), "CENTER"),
+        ]),
+    )
+    return grid
 
 
 def _build_proveedor_box(

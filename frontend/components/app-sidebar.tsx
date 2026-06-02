@@ -49,6 +49,7 @@ import {
   RefreshCw,
   FileCheck,
   FileSpreadsheet,
+  Image as ImageIcon,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -539,6 +540,13 @@ const GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
+      // R152www — Branding/firmantes OC por empresa.
+      {
+        href: "/admin/oc-branding" as Route,
+        label: "Branding OC",
+        icon: ImageIcon,
+        isNew: true,
+      },
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users, isNew: true },
       // R152dd — Dashboard NPS feedback.

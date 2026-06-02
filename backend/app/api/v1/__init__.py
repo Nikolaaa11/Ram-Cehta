@@ -80,6 +80,7 @@ from app.api.v1 import stream as stream_router
 from app.api.v1 import change_management  # Round 152t/u/v
 from app.api.v1 import corfo_rendiciones  # Round 152w
 from app.api.v1 import rrhh  # R152vvv
+from app.api.v1 import empresa_oc_branding  # R152www
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -90,6 +91,8 @@ api_router.include_router(change_management.router)
 api_router.include_router(corfo_rendiciones.router)
 # R152vvv — Módulo RRHH (Benja + Victoria + admin)
 api_router.include_router(rrhh.router, prefix="/rrhh", tags=["rrhh"])
+# R152www — Branding/firmantes OC por empresa
+api_router.include_router(empresa_oc_branding.router, tags=["empresa-oc-branding"])
 api_router.include_router(validate.router, prefix="/validate", tags=["validate"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(proveedores.router, prefix="/proveedores", tags=["proveedores"])
