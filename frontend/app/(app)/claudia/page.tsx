@@ -407,7 +407,10 @@ export default function ClaudiaHomePage() {
         </div>
       </section>
 
-      {/* Subsidio info card — solo si /ejecucion responde */}
+      {/* Subsidio info card — solo si /ejecucion responde.
+          R152ttt — null-safe en todos los campos. Antes crasheaba con
+          'cannot read properties of undefined (reading toFixed)' cuando
+          el endpoint devolvía la fila pero algún campo era null. */}
       {subsidio.data && (
         <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 text-sm">
           <p className="font-semibold text-amber-900">
@@ -417,25 +420,25 @@ export default function ClaudiaHomePage() {
             <div>
               <p className="text-[10px] uppercase text-amber-700">Monto total</p>
               <p className="font-display text-xl font-semibold text-amber-900">
-                ${(subsidio.data.monto_total / 1_000_000).toLocaleString("es-CL")}MM
+                ${(((subsidio.data.monto_total ?? 0) as number) / 1_000_000).toLocaleString("es-CL")}MM
               </p>
             </div>
             <div>
               <p className="text-[10px] uppercase text-amber-700">Ejecutado</p>
               <p className="font-display text-xl font-semibold text-amber-900">
-                ${(subsidio.data.ejecutado_total / 1_000_000).toLocaleString("es-CL")}MM
+                ${(((subsidio.data.ejecutado_total ?? 0) as number) / 1_000_000).toLocaleString("es-CL")}MM
               </p>
             </div>
             <div>
               <p className="text-[10px] uppercase text-amber-700">Disponible</p>
               <p className="font-display text-xl font-semibold text-amber-900">
-                ${(subsidio.data.disponible_total / 1_000_000).toLocaleString("es-CL")}MM
+                ${(((subsidio.data.disponible_total ?? 0) as number) / 1_000_000).toLocaleString("es-CL")}MM
               </p>
             </div>
             <div>
               <p className="text-[10px] uppercase text-amber-700">% Ejecución</p>
               <p className="font-display text-xl font-semibold text-amber-900">
-                {subsidio.data.pct_ejecucion.toFixed(1)}%
+                {(subsidio.data.pct_ejecucion ?? 0).toFixed(1)}%
               </p>
             </div>
           </div>

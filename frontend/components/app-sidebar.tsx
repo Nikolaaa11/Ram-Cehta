@@ -225,7 +225,9 @@ const GROUPS: NavGroup[] = [
       // R152ss — Voucher CORFO, Rendiciones CORFO y Subsidio CORFO
       // movidos al nuevo grupo "ClaudIA" (acceso restringido).
       { href: "/proveedores", label: "Proveedores", icon: Users },
-      { href: "/solicitudes-pago", label: "Solicitudes Pago", icon: Wallet },
+      // R152ttt — "Solicitudes Pago no sirve" (MEJORAS IA.docx #1)
+      // Item oculto. La URL sigue funcionando para no romper bookmarks viejos,
+      // pero ya no aparece en el menú lateral.
       { href: "/movimientos", label: "Movimientos", icon: BarChart3 },
       // R152rr — F29/F22 movidos al grupo "SII" dedicado.
       // V5: Vouchers (comprobantes contables) — corazón del módulo contable.
@@ -237,14 +239,9 @@ const GROUPS: NavGroup[] = [
         tourId: "vouchers",
       },
       { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
-      // Round 152 — Dashboard Institucional CEHTA Capital (ILPA v2.0 + IRIS+)
-      {
-        href: "/dashboard/directorio" as Route,
-        label: "Dashboard Institucional",
-        icon: Sparkles,
-        title:
-          "Vista nivel Blackstone/KKR para directorio + LPs. ILPA v2.0 + IRIS+ v5.3.",
-      },
+      // R152ttt — "Quitar Dashboard Institucional" (MEJORAS IA.docx #3)
+      // Item oculto del menú. La página /dashboard/directorio sigue accesible
+      // por URL directa para que las features que linkean no se rompan.
     ],
   },
   {

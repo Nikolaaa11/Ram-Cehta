@@ -45,10 +45,10 @@ const TABS: TabDef[] = [
   { suffix: "/flujo-mensual", label: "Flujo Mensual", icon: TrendingUp },
   { suffix: "/transacciones", label: "Transacciones", icon: Receipt },
   { suffix: "/categorias", label: "Categorías", icon: Layers },
-  { suffix: "/valuation", label: "Valuación", icon: LineChart },
-  { suffix: "/kpis", label: "KPIs Op.", icon: Activity },
-  { suffix: "/impact", label: "Impact ESG", icon: Leaf },
-  { suffix: "/compliance", label: "Compliance", icon: ShieldCheck },
+  // R152ttt — "Sacar esas opciones" (MEJORAS IA.docx #5, imagen 1):
+  // Valuación, KPIs Op., Impact ESG, Compliance. Items ocultos en la tab bar
+  // por pedido del operador. Las páginas /valuation, /kpis, /impact y /compliance
+  // siguen accesibles por URL directa si fuesen necesarias.
   { suffix: "/tributario", label: "Tributario", icon: Landmark },
   { suffix: "/trabajadores", label: "Trabajadores", icon: Users },
   { suffix: "/legal", label: "Legal", icon: Scale },
