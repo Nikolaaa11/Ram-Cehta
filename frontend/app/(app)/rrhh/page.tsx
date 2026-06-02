@@ -15,7 +15,8 @@
  *   4. Tabla de empleados activos con sueldo base y área
  */
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
@@ -38,6 +39,16 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
+
+// R152FFFF — Lazy load chart (recharts ya está en bundle global pero
+// igual lo hacemos cliente-side para no aumentar el SSR de /rrhh).
+const EvolucionCostoChart = dynamic(
+  () =>
+    import("@/components/rrhh/EvolucionCostoChart").then(
+      (m) => m.EvolucionCostoChart,
+    ),
+  { ssr: false, loading: () => <Skeleton className="h-64 w-full rounded-2xl" /> },
+);
 
 interface Empleado {
   rut: string;
@@ -117,6 +128,22 @@ export default function RRHHPage() {
     enabled: !!session && access.data?.allowed,
     staleTime: 60_000,
   });
+
+  // R152FFFF — Serie temporal para gráfico evolución mensual.
+  // Agrupa libros por periodo, suma costo_total cross-empresa.
+  const evolucionData = useMemo(() => {
+    const m = new Map<string, { periodo: string; total: number; byEmpresa: Record<string, number> }>();
+    (libros.data ?? []).forEach((l) => {
+      const acc = m.get(l.periodo) ?? { periodo: l.periodo, total: 0, byEmpresa: {} };
+      const v = Number(l.total_costo_empresa);
+      acc.total += v;
+      acc.byEmpresa[l.empresa_codigo] = (acc.byEmpresa[l.empresa_codigo] ?? 0) + v;
+      m.set(l.periodo, acc);
+    });
+    return Array.from(m.values()).sort((a, b) =>
+      a.periodo.localeCompare(b.periodo),
+    );
+  }, [libros.data]);
 
   // 3. Empleados (filtrable por empresa)
   const empleados = useQuery<Empleado[]>({
@@ -257,6 +284,9 @@ export default function RRHHPage() {
           }
         />
       </div>
+
+      {/* R152FFFF — Gráfico evolución mensual costo total */}
+      <EvolucionCostoChart data={evolucionData} />
 
       {/* Upload */}
       <section className="rounded-3xl border border-hairline bg-white p-6 shadow-card">
