@@ -19,7 +19,6 @@ import {
   LineChart,
   CalendarDays,
   Target,
-  Search,
   Scale,
   UserCog,
   Database,
@@ -35,9 +34,7 @@ import {
   Mail,
   Activity,
   Upload,
-  Webhook,
   Inbox,
-  Key,
   PenTool,
   CircleDollarSign,
   DollarSign,
@@ -124,8 +121,8 @@ type NavGroup = {
     | "recursos"
     | "contabilidad"
     | "rrhh"
-    | "admin"
-    | "avanzado";
+    | "admin";
+    // R152GGGG — Grupo "avanzado" eliminado
   label: string;
   items: NavItem[];
   /** Round 152h — si true, el grupo se puede colapsar con click. */
@@ -213,11 +210,9 @@ const GROUPS: NavGroup[] = [
         label: "Cartas Gantt",
         icon: GanttChartSquare,
       },
-      {
-        href: "/compliance" as Route,
-        label: "Compliance",
-        icon: ShieldCheck,
-      },
+      // R152GGGG — "Compliance" eliminado del sidebar. La URL /compliance
+      // sigue accesible si alguna feature linkea ahí. No se usaba en la
+      // operación día a día.
     ],
   },
   {
@@ -560,31 +555,12 @@ const GROUPS: NavGroup[] = [
       // ya no contamina el menú principal.
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users, isNew: true },
-      // R152dd — Dashboard NPS feedback.
-      {
-        href: "/admin/feedback" as Route,
-        label: "Feedback NPS",
-        icon: MessageSquare,
-        title: "Respuestas de feedback de usuarios por flujo (crear, firmar, pagar, CORFO).",
-        isNew: true,
-      },
-      // R152ss — Subsidio CORFO movido al grupo "ClaudIA".
-      // Round 92 — catalogo de proyectos para configurar % + cuentas sin SQL
-      {
-        href: "/admin/proyectos" as Route,
-        label: "Proyectos contables",
-        icon: FileText,
-        title:
-          "Listado de proyectos del Bloque E. Click en uno para editar reparto % + cuentas contables destino.",
-      },
-      // Round 93 — vista global "todo el estado del sistema"
-      {
-        href: "/admin/system-status" as Route,
-        label: "Estado del sistema",
-        icon: Activity,
-        title:
-          "Health check: subsidios + proyectos + bandeja personal + items pendientes en una sola vista.",
-      },
+      // R152GGGG — Removidos del sidebar:
+      //   - "Feedback NPS" /admin/feedback (URL sigue accesible)
+      //   - "Proyectos contables" /admin/proyectos (duplicado del que vive en
+      //     grupo Contabilidad → /admin/proyectos-contables)
+      //   - "Estado del sistema" /admin/system-status (duplicado con
+      //     "Status del sistema" /admin/sistema-status que es más nuevo y completo)
       // Round 128 — checklist en vivo de pre-marcha-blanca
       {
         href: "/admin/marcha-blanca" as Route,
@@ -632,12 +608,7 @@ const GROUPS: NavGroup[] = [
         label: "Auditoría de cambios",
         icon: ScrollText,
       },
-      // R152tt — http-trail movido a "Avanzado" (es muy técnico, dev-only).
-      {
-        href: "/admin/data-quality" as Route,
-        label: "Data Quality",
-        icon: ShieldCheck,
-      },
+      // R152GGGG — "Data Quality" /admin/data-quality removido del sidebar.
       {
         href: "/admin/integraciones" as Route,
         label: "Integraciones",
@@ -661,11 +632,7 @@ const GROUPS: NavGroup[] = [
           "Status del índice vectorial por empresa + botón para re-indexar masivamente todas las empresas del fondo.",
         isNew: true,
       },
-      {
-        href: "/admin/digest" as Route,
-        label: "Digest CEO",
-        icon: Mail,
-      },
+      // R152GGGG — "Digest CEO" /admin/digest removido del sidebar.
       {
         href: "/admin/mailbox" as Route,
         label: "Inbox · contactocehta",
@@ -690,75 +657,25 @@ const GROUPS: NavGroup[] = [
       },
     ],
   },
-  // Round 152h — Módulos que existen pero no se usan a diario (vacíos o
-  // pendientes de activación). Agrupados y colapsados por default para no
-  // saturar el menú principal. Se reactivan cuando tengan uso real.
-  {
-    id: "avanzado",
-    label: "Avanzado / Futuro",
-    collapsible: true,
-    items: [
-      // R152CCCC — /ordenes-compra movida al grupo Operaciones.
-      // Quedó comentado solo para que el git blame del cambio sea claro.
-      { href: "/fondos" as Route, label: "Búsqueda de Fondos", icon: Search },
-      {
-        href: "/suscripciones" as Route,
-        label: "Suscripciones FIP",
-        icon: TrendingUp,
-      },
-      { href: "/admin/lps" as Route, label: "Inversionistas (LPs)", icon: Users },
-      {
-        href: "/admin/informes-lp" as Route,
-        label: "Informes a Inversionistas",
-        icon: Sparkles,
-      },
-      {
-        href: "/asistente" as Route,
-        label: "AI Asistente",
-        icon: Sparkles,
-        tourId: "asistente",
-      },
-      // R152tt — Items dev-only movidos desde Admin a Avanzado.
-      // Las URLs siguen siendo válidas — solo cambia el agrupamiento del sidebar
-      // para reducir bloat del menú Admin (era 25 items, ahora 18).
-      {
-        href: "/admin/http-trail" as Route,
-        label: "Audit trail HTTP",
-        icon: ScrollText,
-        title: "Log detallado de cada request HTTP entrante. Dev-only.",
-      },
-      {
-        href: "/admin/status" as Route,
-        label: "Status básico",
-        icon: Activity,
-        title: "Status rápido del sistema. Para vista completa usá Estado del sistema en Admin.",
-      },
-      {
-        href: "/admin/health" as Route,
-        label: "Health detallado",
-        icon: Activity,
-        title: "Health check exhaustivo de todas las integraciones. Tarda más en cargar.",
-      },
-      {
-        href: "/admin/webhooks" as Route,
-        label: "Webhooks",
-        icon: Webhook,
-        title: "Configurar webhooks salientes a sistemas externos.",
-      },
-      {
-        href: "/admin/api-tokens" as Route,
-        label: "API tokens",
-        icon: Key,
-        title: "Generar/revocar tokens API para integraciones externas.",
-      },
-      {
-        href: "/admin/api-docs" as Route,
-        label: "API docs",
-        icon: Book,
-        title: "Documentación OpenAPI del backend (Swagger UI).",
-      },
-    ],
-  },
+  // R152GGGG — Grupo "Avanzado / Futuro" ELIMINADO.
+  //
+  // 11 items removidos del sidebar (las URLs siguen accesibles por enlace
+  // directo, no se borró ninguna página para no romper bookmarks viejos):
+  //
+  //   Inertes operativamente:
+  //   - /fondos              "Búsqueda de Fondos" (no es VC externo)
+  //   - /suscripciones       "Suscripciones FIP" (no manejan LPs hoy)
+  //   - /admin/lps           "Inversionistas (LPs)"
+  //   - /admin/informes-lp   "Informes a Inversionistas"
+  //   - /asistente           "AI Asistente" (chat global; ClaudIA + Cmd+K cubren)
+  //
+  //   Dev-only / duplicados de "Status del sistema" (R152ooo):
+  //   - /admin/http-trail    "Audit trail HTTP"
+  //   - /admin/status        "Status básico"
+  //   - /admin/health        "Health detallado"
+  //   - /admin/webhooks      "Webhooks" (sin sistemas externos consumiendo)
+  //   - /admin/api-tokens    "API tokens" (sin clientes externos)
+  //   - /admin/api-docs      "API docs" (URL Swagger, accesible directo)
 ];
 
 // Sub-items que aparecen al expandir cada empresa.
