@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
+import { OcCuotasSection } from "@/components/ordenes-compra/OcCuotasSection";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { FileLink } from "@/components/shared/FileLink";
@@ -266,6 +267,11 @@ export default async function OcDetallePage({
           </div>
         </Surface>
       )}
+
+      {/* R152yyy — Sección Cuotas + generar vouchers DRAFT. Cliente. */}
+      <Surface>
+        <OcCuotasSection ocId={ocId} totalOc={Number(oc.total ?? 0)} />
+      </Surface>
     </div>
   );
 }
