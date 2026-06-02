@@ -844,12 +844,12 @@ export default function NuevoVoucherPage() {
                   La suma de cargos tiene que ser igual a la de abonos — la partida doble se valida en vivo.
                 </p>
                 <ul className="list-disc pl-5 space-y-1">
-                  <li><strong>Cuenta contable</strong> (obligatorio): qué cuenta del plan se afecta. Si la lista está vacía configurala en <a href="/admin/plan-cuentas" className="underline">/admin/plan-cuentas</a>.</li>
-                  <li><strong>Área</strong> (opcional): centro de costo o área interna. Setup en <a href="/admin/areas" className="underline">/admin/areas</a>.</li>
-                  <li><strong>Proyecto contable</strong> (opcional, va arriba en el header): para asignar gasto a CORFO / Privado / Interno. Setup en <a href="/admin/proyectos-contables" className="underline">/admin/proyectos-contables</a>.</li>
+                  <li><strong>Cuenta contable</strong> (obligatorio): qué cuenta del plan se afecta. Si la lista está vacía configurala en <Link href="/admin/plan-cuentas" className="underline">/admin/plan-cuentas</Link>.</li>
+                  <li><strong>Área</strong> (opcional): centro de costo o área interna. Setup en <Link href="/admin/areas" className="underline">/admin/areas</Link>.</li>
+                  <li><strong>Proyecto contable</strong> (opcional, va arriba en el header): para asignar gasto a CORFO / Privado / Interno. Setup en <Link href="/admin/proyectos-contables" className="underline">/admin/proyectos-contables</Link>.</li>
                 </ul>
                 <p>
-                  ¿Más dudas? <a href="/vouchers/ejemplos" className="underline">Ver ejemplos completos de vouchers</a> o la <a href="/ayuda" className="underline">Centro de Ayuda</a>.
+                  ¿Más dudas? <Link href={"/vouchers/ejemplos" as Route} className="underline">Ver ejemplos completos de vouchers</Link> o la <Link href="/ayuda" className="underline">Centro de Ayuda</Link>.
                 </p>
               </div>
             </details>
