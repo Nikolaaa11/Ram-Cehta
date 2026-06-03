@@ -50,31 +50,31 @@ async def auto_create_oc_from_inbox(
       {"ok": False, "error": "mensaje"}             si falló
     """
     # 1. Leer inbox_message + adjuntos
-    row = (
-        await db.execute(
-            text(
-                """SELECT inbox_id, subject, from_email, from_name, body_text,
-                          category, created_entity_id,
-                          COALESCE(attachments_meta, '[]'::jsonb) AS attachments
-                   FROM core.inbox_messages
-                   WHERE inbox_id = :id"""
-            ),
-            {"id": inbox_id},
-        )
-    ).first()
+    # R152MMMM · usar named access (.mappings()) en lugar de índices.
+    result = await db.execute(
+        text(
+            """SELECT inbox_id, subject, from_email, from_name, body_text,
+                      category, created_entity_id,
+                      COALESCE(attachments_meta, '[]'::jsonb) AS attachments
+               FROM core.inbox_messages
+               WHERE inbox_id = :id"""
+        ),
+        {"id": inbox_id},
+    )
+    row = result.mappings().first()
 
     if not row:
         return {"ok": False, "error": f"inbox_id {inbox_id} no encontrado"}
-    if row[6] is not None:
+    if row["created_entity_id"] is not None:
         return {"ok": False, "error": "ya existe entidad creada para este email"}
-    if row[5] not in ("oc", "orden_compra"):
-        return {"ok": False, "error": f"category={row[5]!r} no es 'oc'"}
+    if row["category"] not in ("oc", "orden_compra"):
+        return {"ok": False, "error": f"category={row['category']!r} no es 'oc'"}
 
-    subject = row[1] or ""
-    from_email = row[2] or ""
-    from_name = row[3] or ""
-    body_text = row[4] or ""
-    attachments_meta_raw = row[7]
+    subject = row["subject"] or ""
+    from_email = row["from_email"] or ""
+    from_name = row["from_name"] or ""
+    body_text = row["body_text"] or ""
+    attachments_meta_raw = row["attachments"]
     # JSONB puede llegar como str o como list según el driver
     import json as _json
     if isinstance(attachments_meta_raw, str):

@@ -39,55 +39,57 @@ async def send_oc_to_signers(
       {"ok": False, "error": "...", "skipped": True/False}
     """
     # 1. Datos de OC + empresa
-    row = (
-        await db.execute(
-            text(
-                """SELECT oc.oc_id, oc.numero_oc, oc.empresa_codigo,
-                          oc.proveedor_id, oc.total, oc.moneda,
-                          p.razon_social AS proveedor_nombre,
-                          e.razon_social AS empresa_razon_social,
-                          e.gerente_general_email,
-                          e.gerente_general_nombre,
-                          e.oc_firma_colectiva,
-                          COALESCE(e.firmantes_extra, '[]'::jsonb) AS firmantes_extra,
-                          COALESCE(e.emails_oc_cc, ARRAY[]::TEXT[]) AS emails_cc,
-                          e.auto_send_oc_emails,
-                          oc.oc_sent_at
-                   FROM core.ordenes_compra oc
-                   JOIN core.empresas e ON e.codigo = oc.empresa_codigo
-                   LEFT JOIN core.proveedores p ON p.proveedor_id = oc.proveedor_id
-                   WHERE oc.oc_id = :id"""
-            ),
-            {"id": oc_id},
-        )
-    ).first()
+    # R152MMMM · usar .mappings() + acceso por nombre — antes accedíamos por
+    # índice posicional (row[14], row[15]) lo cual rompía silenciosamente si
+    # alguien agregaba/movía columnas del SELECT. Defensive coding.
+    result = await db.execute(
+        text(
+            """SELECT oc.numero_oc AS numero_oc,
+                      oc.empresa_codigo AS empresa_codigo,
+                      p.razon_social AS proveedor_nombre,
+                      e.razon_social AS empresa_razon_social,
+                      e.gerente_general_email AS gg_email,
+                      e.gerente_general_nombre AS gg_nombre,
+                      e.oc_firma_colectiva AS firma_colectiva,
+                      COALESCE(e.firmantes_extra, '[]'::jsonb) AS firmantes_extra,
+                      COALESCE(e.emails_oc_cc, ARRAY[]::TEXT[]) AS emails_cc,
+                      e.auto_send_oc_emails AS auto_send,
+                      oc.oc_sent_at AS oc_sent_at
+               FROM core.ordenes_compra oc
+               JOIN core.empresas e ON e.codigo = oc.empresa_codigo
+               LEFT JOIN core.proveedores p ON p.proveedor_id = oc.proveedor_id
+               WHERE oc.oc_id = :id"""
+        ),
+        {"id": oc_id},
+    )
+    row = result.mappings().first()
 
     if not row:
         return {"ok": False, "error": f"OC {oc_id} no encontrada"}
 
-    if not row[14]:  # auto_send_oc_emails = FALSE
+    if not row["auto_send"]:
         return {
             "ok": False,
             "skipped": True,
             "error": "auto_send_oc_emails=FALSE para esta empresa",
         }
 
-    if row[15] is not None:  # oc_sent_at ya tiene valor
+    if row["oc_sent_at"] is not None:
         return {
             "ok": False,
             "skipped": True,
             "error": "OC ya fue enviada previamente",
         }
 
-    numero_oc = row[1]
-    empresa_codigo = row[2]
-    proveedor_nombre = row[6] or "Proveedor"
-    empresa_razon_social = row[7] or empresa_codigo
-    gg_email = row[8]
-    gg_nombre = row[9] or ""
-    firma_colectiva = bool(row[10])
-    firmantes_raw = row[11] or []
-    emails_cc = list(row[13] or [])
+    numero_oc = row["numero_oc"]
+    empresa_codigo = row["empresa_codigo"]
+    proveedor_nombre = row["proveedor_nombre"] or "Proveedor"
+    empresa_razon_social = row["empresa_razon_social"] or empresa_codigo
+    gg_email = row["gg_email"]
+    gg_nombre = row["gg_nombre"] or ""
+    firma_colectiva = bool(row["firma_colectiva"])
+    firmantes_raw = row["firmantes_extra"] or []
+    emails_cc = list(row["emails_cc"] or [])
 
     # 2. Armar TO + CC
     to_list: list[str] = []

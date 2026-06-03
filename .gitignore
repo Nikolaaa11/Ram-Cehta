@@ -14,6 +14,9 @@ backend/scripts/apply_sql_to_brasil.py
 backend/scripts/dump_schema.py
 backend/scripts/migrate_auth_users.py
 backend/scripts/backup_supabase.py
+# R152MMMM — scripts _apply_* ad-hoc con DATABASE_URL hardcoded para
+# aplicar migraciones desde dev (uso local solo, NUNCA committear).
+backend/scripts/_apply_*.py
 
 # Database backups (contienen PII y credenciales auditadas — NUNCA committear)
 backup_cehta_*.sql
