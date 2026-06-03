@@ -337,7 +337,13 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
         for num in message_ids:
             seen += 1
             try:
-                _, msg_data = conn.fetch(num, "(RFC822)")
+                # R152NNNN · usar BODY.PEEK[] en lugar de RFC822.
+                # RFC822 hace que Gmail/IMAP marque el mensaje como \Seen
+                # AUTOMÁTICAMENTE al leerlo — entonces si el INSERT falla
+                # después, el mail queda "leído" en Gmail pero NO procesado
+                # en la DB, perdido para siempre. PEEK lee sin tocar flags.
+                # Marcamos como Seen explícitamente DESPUÉS del commit OK.
+                _, msg_data = conn.fetch(num, "(BODY.PEEK[])")
                 if not msg_data or not msg_data[0]:
                     errors += 1
                     continue
