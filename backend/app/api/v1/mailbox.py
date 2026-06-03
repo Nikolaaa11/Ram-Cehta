@@ -14,7 +14,7 @@ Soft-fail: si IMAP no está configurado, /poll devuelve 503 sin romper el resto.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -618,6 +618,30 @@ async def bulk_archive(
         archived=archived,
         skipped=len(body.inbox_ids) - archived,
     )
+
+
+# R152HHHH — Endpoint manual para disparar la auto-creación de OC.
+# Útil si el classify automático falló o el operador edita la categoría.
+@router.post("/admin/mailbox/{inbox_id}/auto-create-oc")
+async def auto_create_oc_manual(
+    inbox_id: int,
+    user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    """Re-dispara la auto-creación de OC para un email ya clasificado.
+
+    Útil cuando:
+      - El classify automático corrió antes de aplicar la migración
+        R152HHHH (no creó la OC porque la columna no existía).
+      - El operador cambió manualmente la categoría a 'oc'.
+      - El intento anterior falló (auto_create_error != NULL) y querés
+        reintentar después de corregir datos.
+
+    Retorna el resultado del servicio: ok + oc_id + numero_oc, o
+    ok=False + error si falla.
+    """
+    from app.services.auto_create_oc_from_inbox import auto_create_oc_from_inbox
+    return await auto_create_oc_from_inbox(db, inbox_id)
 
 
 @router.post(

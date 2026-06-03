@@ -602,6 +602,25 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                             "inbox.sse_classify_skipped", error=str(exc)
                         )
 
+                    # R152HHHH — Auto-creación de OC desde email.
+                    # Si Claude clasifica como "oc" (orden de compra),
+                    # disparar el servicio que extrae proveedor+items+monto
+                    # y crea la entidad core.ordenes_compra automáticamente.
+                    # Soft-fail: si la auto-creación falla, queda registrado
+                    # en auto_create_error pero el classify general sigue OK.
+                    if category in ("oc", "orden_compra"):
+                        try:
+                            from app.services.auto_create_oc_from_inbox import (
+                                auto_create_oc_from_inbox,
+                            )
+                            await auto_create_oc_from_inbox(db, inbox_id)
+                        except Exception as exc:
+                            log.warning(
+                                "inbox.auto_create_oc_failed",
+                                inbox_id=inbox_id,
+                                error=str(exc),
+                            )
+
                     # V5++ ola O: Slack ping para emails del SII (alta prioridad)
                     if category == "notif_sii":
                         try:
