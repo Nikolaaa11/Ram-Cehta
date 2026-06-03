@@ -14,8 +14,11 @@ import {
   MessageSquare,
   Package,
   Plus,
+  Settings,
   Sparkles,
 } from "lucide-react";
+// R152RRRR — Configuración branding+emails OC migrada desde /admin/oc-branding.
+import { OcConfigPanel } from "@/components/ordenes-compra/OcConfigPanel";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { Surface } from "@/components/ui/surface";
@@ -139,6 +142,10 @@ export default function OrdenesCompraPage() {
   // Refresh no pierde el filtro, links shareables, browser back funciona
   // como saved view.
   const searchParams = useSearchParams();
+  // R152RRRR — tab state: "list" (default) | "config". URL: ?tab=config.
+  const [tab, setTab] = useState<"list" | "config">(() =>
+    searchParams.get("tab") === "config" ? "config" : "list",
+  );
   const [page, setPage] = useState(() =>
     Math.max(1, parseInt(searchParams.get("page") ?? "1", 10)),
   );
@@ -153,13 +160,14 @@ export default function OrdenesCompraPage() {
   // Sync state → URL (replaceState, no rerender, no history pollution).
   useEffect(() => {
     const params = new URLSearchParams();
+    if (tab === "config") params.set("tab", "config");
     if (page > 1) params.set("page", String(page));
     if (empresa) params.set("empresa", empresa);
     if (estado) params.set("estado", estado);
     const qs = params.toString();
     const url = qs ? `/ordenes-compra?${qs}` : "/ordenes-compra";
     window.history.replaceState(null, "", url);
-  }, [page, empresa, estado]);
+  }, [tab, page, empresa, estado]);
 
   // Round 10 — quick filter chips + clear helper.
   const hasActiveFilters = !!empresa || !!estado;
@@ -229,6 +237,69 @@ export default function OrdenesCompraPage() {
     ],
     [],
   );
+
+  // R152RRRR — Tab bar arriba del módulo. Comparte el título "Órdenes de
+  // Compra" entre tabs porque siguen siendo el mismo módulo.
+  const renderTabBar = () => (
+    <div className="border-b border-hairline">
+      <div className="flex items-center gap-1" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "list"}
+          onClick={() => setTab("list")}
+          className={
+            "inline-flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors " +
+            (tab === "list"
+              ? "border-cehta-green text-cehta-green"
+              : "border-transparent text-ink-500 hover:text-ink-900")
+          }
+        >
+          <ListIcon className="h-4 w-4" strokeWidth={1.75} />
+          Órdenes
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "config"}
+          onClick={() => setTab("config")}
+          className={
+            "inline-flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors " +
+            (tab === "config"
+              ? "border-cehta-green text-cehta-green"
+              : "border-transparent text-ink-500 hover:text-ink-900")
+          }
+          title="Branding del PDF + emails de destinatarios para auto-envío al firmante."
+        >
+          <Settings className="h-4 w-4" strokeWidth={1.75} />
+          Configuración
+        </button>
+      </div>
+    </div>
+  );
+
+  if (tab === "config") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-3xl font-semibold tracking-tight text-ink-900">
+                Órdenes de Compra
+              </h1>
+              <ScopeIndicator />
+            </div>
+            <p className="mt-1 text-sm text-ink-500">
+              Configuración del módulo: branding del PDF, emails GG y CC para
+              auto-envío al crear OC desde correo.
+            </p>
+          </div>
+        </div>
+        {renderTabBar()}
+        <OcConfigPanel />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -300,6 +371,9 @@ export default function OrdenesCompraPage() {
           </Link>
         </div>
       </div>
+
+      {/* R152RRRR — Tab bar (Órdenes | Configuración) */}
+      {renderTabBar()}
 
       {/* Round 10 — Quick filter chips (mismo pattern que /vouchers R9).
           Presets de uso diario aplicables en 1 click. */}

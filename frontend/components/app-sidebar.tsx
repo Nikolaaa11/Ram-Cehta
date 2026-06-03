@@ -546,18 +546,10 @@ const GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       { href: "/admin/usuarios" as Route, label: "Usuarios", icon: UserCog },
-      // R152JJJJ — Re-agregado "Branding OC" porque ahora también es donde
-      // se configuran emails GG + CC para el auto-envío del PDF al firmante.
-      // El branding visual (logo + firmas) viene auto en el PDF, pero los
-      // emails de destinatarios son configuración explícita por empresa.
-      {
-        href: "/admin/oc-branding" as Route,
-        label: "Branding + emails OC",
-        icon: ImageIcon,
-        title:
-          "Logo, color, GG, firmantes RHO + emails TO/CC para auto-envío " +
-          "cuando se crea una OC desde email.",
-      },
+      // R152RRRR — Quitado "Branding + emails OC". Toda la configuración
+      // (branding + emails + firmantes RHO) ahora está consolidada dentro
+      // del módulo Operaciones → Órdenes de Compra → tab "Configuración".
+      // La URL /admin/oc-branding sigue redirigiendo allí para compatibilidad.
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users, isNew: true },
       // R152GGGG — Removidos del sidebar:
