@@ -84,6 +84,11 @@ class MailboxItem(BaseModel):
     status: str
     classified_at: datetime | None
     replied_at: datetime | None
+    # R152HHHH/IIII — Auto-creación de entidad desde email
+    created_entity_type: str | None = None
+    created_entity_id: int | None = None
+    created_entity_numero: str | None = None   # ej: numero_oc para mostrar
+    auto_create_error: str | None = None
 
 
 class MailboxDetail(MailboxItem):
@@ -250,13 +255,24 @@ async def list_mailbox(
     rows = (
         await db.execute(
             text(f"""
-                SELECT inbox_id, message_id, from_email, from_name, subject,
-                       received_at, has_attachments, category, ai_confidence,
-                       ai_summary, ai_suggested_action, status,
-                       classified_at, replied_at
-                FROM core.inbox_messages
-                {where_sql}
-                ORDER BY received_at DESC
+                SELECT im.inbox_id, im.message_id, im.from_email, im.from_name,
+                       im.subject, im.received_at, im.has_attachments, im.category,
+                       im.ai_confidence, im.ai_summary, im.ai_suggested_action,
+                       im.status, im.classified_at, im.replied_at,
+                       im.created_entity_type, im.created_entity_id,
+                       im.auto_create_error,
+                       CASE
+                         WHEN im.created_entity_type = 'orden_compra'
+                              THEN (SELECT oc.numero_oc FROM core.ordenes_compra oc
+                                    WHERE oc.oc_id = im.created_entity_id)
+                         WHEN im.created_entity_type = 'voucher'
+                              THEN (SELECT v.codigo FROM core.vouchers v
+                                    WHERE v.voucher_id = im.created_entity_id)
+                         ELSE NULL
+                       END AS entity_numero
+                FROM core.inbox_messages im
+                {where_sql.replace('status', 'im.status').replace('category', 'im.category')}
+                ORDER BY im.received_at DESC
                 LIMIT :lim
             """),
             params,
@@ -270,6 +286,8 @@ async def list_mailbox(
             category=r[7], ai_confidence=float(r[8]) if r[8] is not None else None,
             ai_summary=r[9], ai_suggested_action=r[10], status=r[11],
             classified_at=r[12], replied_at=r[13],
+            created_entity_type=r[14], created_entity_id=r[15],
+            auto_create_error=r[16], created_entity_numero=r[17],
         )
         for r in rows
     ]
@@ -287,14 +305,25 @@ async def get_mailbox_item(
     row = (
         await db.execute(
             text("""
-                SELECT inbox_id, message_id, from_email, from_name, subject,
-                       received_at, has_attachments, category, ai_confidence,
-                       ai_summary, ai_suggested_action, status,
-                       classified_at, replied_at,
-                       body_text, body_html, attachments_meta,
-                       draft_response_html, linked_voucher_id, linked_oc_id
-                FROM core.inbox_messages
-                WHERE inbox_id = :id
+                SELECT im.inbox_id, im.message_id, im.from_email, im.from_name,
+                       im.subject, im.received_at, im.has_attachments, im.category,
+                       im.ai_confidence, im.ai_summary, im.ai_suggested_action,
+                       im.status, im.classified_at, im.replied_at,
+                       im.body_text, im.body_html, im.attachments_meta,
+                       im.draft_response_html, im.linked_voucher_id, im.linked_oc_id,
+                       im.created_entity_type, im.created_entity_id,
+                       im.auto_create_error,
+                       CASE
+                         WHEN im.created_entity_type = 'orden_compra'
+                              THEN (SELECT oc.numero_oc FROM core.ordenes_compra oc
+                                    WHERE oc.oc_id = im.created_entity_id)
+                         WHEN im.created_entity_type = 'voucher'
+                              THEN (SELECT v.codigo FROM core.vouchers v
+                                    WHERE v.voucher_id = im.created_entity_id)
+                         ELSE NULL
+                       END AS entity_numero
+                FROM core.inbox_messages im
+                WHERE im.inbox_id = :id
             """),
             {"id": inbox_id},
         )
@@ -319,6 +348,8 @@ async def get_mailbox_item(
         attachments_meta=attachments,
         draft_response_html=row[17],
         linked_voucher_id=row[18], linked_oc_id=row[19],
+        created_entity_type=row[20], created_entity_id=row[21],
+        auto_create_error=row[22], created_entity_numero=row[23],
     )
 
 

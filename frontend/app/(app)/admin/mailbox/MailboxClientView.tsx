@@ -56,6 +56,11 @@ interface MailboxItem {
   status: string;
   classified_at: string | null;
   replied_at: string | null;
+  // R152HHHH/IIII — Auto-creación de entidad desde email
+  created_entity_type?: string | null;
+  created_entity_id?: number | null;
+  created_entity_numero?: string | null;
+  auto_create_error?: string | null;
 }
 
 interface MailboxDetail extends MailboxItem {
@@ -682,6 +687,35 @@ export function MailboxClientView({ initialItems }: Props) {
                       {it.category && (
                         <span className="rounded-full bg-ink-50 px-2 py-0.5 text-[10px] font-medium text-ink-600">
                           {CATEGORY_LABELS[it.category] ?? it.category}
+                        </span>
+                      )}
+                      {/* R152IIII — Badge "→ OC #X" cuando se auto-creó */}
+                      {it.created_entity_type === "orden_compra" && it.created_entity_id && (
+                        <a
+                          href={`/ordenes-compra/${it.created_entity_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 rounded-full bg-cehta-green/15 px-2 py-0.5 text-[10px] font-semibold text-cehta-green hover:bg-cehta-green/25"
+                          title={`OC auto-creada: ${it.created_entity_numero ?? "#" + it.created_entity_id}`}
+                        >
+                          → OC {it.created_entity_numero ?? `#${it.created_entity_id}`}
+                        </a>
+                      )}
+                      {it.created_entity_type === "voucher" && it.created_entity_id && (
+                        <a
+                          href={`/vouchers/${it.created_entity_id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1 rounded-full bg-cehta-green/15 px-2 py-0.5 text-[10px] font-semibold text-cehta-green hover:bg-cehta-green/25"
+                          title={`Voucher auto-creado: ${it.created_entity_numero ?? "#" + it.created_entity_id}`}
+                        >
+                          → V {it.created_entity_numero ?? `#${it.created_entity_id}`}
+                        </a>
+                      )}
+                      {it.auto_create_error && !it.created_entity_id && (
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700"
+                          title={it.auto_create_error}
+                        >
+                          ✗ auto-create falló
                         </span>
                       )}
                       <p className="text-[10px] text-ink-400 tabular-nums">

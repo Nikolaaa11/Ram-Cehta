@@ -140,12 +140,34 @@ async def auto_create_oc_from_inbox(
         numero_oc=numero_oc,
         empresa=empresa_codigo,
     )
+
+    # R152IIII — Auto-envío del PDF al GG con CC a encargados.
+    # Soft-fail: si falla, queda registrado en oc_send_error pero la OC ya
+    # está creada y linkeada. El operador puede re-mandar manual.
+    send_result: dict[str, Any] | None = None
+    try:
+        from app.services.send_oc_to_signers_service import send_oc_to_signers
+        send_result = await send_oc_to_signers(db, oc_id)
+        log.info(
+            "auto_create_oc.email_sent",
+            oc_id=oc_id,
+            sent=bool(send_result and send_result.get("ok")),
+        )
+    except Exception as exc:
+        log.warning(
+            "auto_create_oc.email_failed",
+            oc_id=oc_id,
+            error=str(exc),
+        )
+
     return {
         "ok": True,
         "oc_id": oc_id,
         "numero_oc": numero_oc,
         "empresa_codigo": empresa_codigo,
         "proveedor_id": proveedor_id,
+        "email_sent": bool(send_result and send_result.get("ok")),
+        "email_to": (send_result or {}).get("to") if send_result else None,
     }
 
 

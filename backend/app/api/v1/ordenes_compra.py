@@ -992,3 +992,34 @@ async def import_ocs_csv(
         ) from exc
 
     return OcImportCsvResponse(**report.to_dict())
+
+
+# ─────────────────────────────────────────────────────────────────────
+# R152IIII — Endpoint manual: enviar OC al GG + CC
+# ─────────────────────────────────────────────────────────────────────
+
+
+@router.post("/{oc_id}/send-to-signers")
+async def send_oc_to_signers_endpoint(
+    user: CurrentUser, db: DBSession, oc_id: int, force: bool = False
+) -> dict:
+    """Envía (o reenvía con ?force=true) el PDF de la OC al GG firmante.
+
+    Auto-disparado al crear OC desde email. Endpoint manual útil para:
+      - Re-enviar si Resend falló la primera vez
+      - Enviar OCs creadas antes de aplicar la migración R152IIII
+      - Forzar re-envío después de cambiar email del GG
+    """
+    if force:
+        await db.execute(
+            text(
+                "UPDATE core.ordenes_compra "
+                "SET oc_sent_at = NULL, oc_send_error = NULL "
+                "WHERE oc_id = :id"
+            ),
+            {"id": oc_id},
+        )
+        await db.commit()
+
+    from app.services.send_oc_to_signers_service import send_oc_to_signers
+    return await send_oc_to_signers(db, oc_id)

@@ -74,12 +74,16 @@ class EmailService:
         subject: str,
         html: str,
         attachments: list[dict[str, Any]] | None = None,
+        cc: list[str] | None = None,
+        reply_to: str | None = None,
     ) -> dict[str, Any] | None:
         """Envía un email vía Resend. Soft-fail si no está configurado.
 
         ⚠️ BLOQUEANTE — Resend API es sync. NO usar desde un handler
         async sin envolver en `asyncio.to_thread`. Para uso async correcto
         llamar `send_async` abajo.
+
+        R152IIII — soporte para CC + reply_to (auto-envío OC a firmantes).
         """
         if not self.enabled:
             log.warning("email.disabled", to=to, subject=subject)
@@ -95,6 +99,10 @@ class EmailService:
         }
         if attachments:
             params["attachments"] = attachments
+        if cc:
+            params["cc"] = cc
+        if reply_to:
+            params["reply_to"] = reply_to
         try:
             return self._client.Emails.send(params)
         except Exception as exc:  # noqa: BLE001 — soft fail, log y seguir
@@ -108,12 +116,16 @@ class EmailService:
         subject: str,
         html: str,
         attachments: list[dict[str, Any]] | None = None,
+        cc: list[str] | None = None,
+        reply_to: str | None = None,
     ) -> dict[str, Any] | None:
         """Versión async-friendly de `send`. Envuelve la llamada bloqueante
         a Resend en `asyncio.to_thread` para no colgar el event loop.
 
         V5++ ola CJ — fix para audit perf reportando que `send` síncrono
         desde handlers async puede colgar workers bajo carga (44 users).
+
+        R152IIII — soporte CC + reply_to.
         """
         import asyncio
 
@@ -123,6 +135,8 @@ class EmailService:
             subject=subject,
             html=html,
             attachments=attachments,
+            cc=cc,
+            reply_to=reply_to,
         )
 
 
