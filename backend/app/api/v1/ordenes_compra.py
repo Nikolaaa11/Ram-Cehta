@@ -403,10 +403,20 @@ async def download_oc_pdf(
     `core.oc_attachments`, los adjuntos se mergean al final del PDF.
     Falla silenciosa: errores fetching del logo o de adjuntos no rompen
     la generación.
+
+    R152KKKK — logging estructurado para diagnosticar "Failed to fetch"
+    reportado por el operador. Cada step loggea para que en Fly logs
+    podamos ver dónde se cuelga.
     """
+    import time as _time
+
     from fastapi.responses import StreamingResponse
+    import structlog
 
     from app.services.oc_pdf_service import generate_oc_pdf_bundle
+
+    _pdf_log = structlog.get_logger(__name__)
+    t0 = _time.monotonic()
 
     repo = OrdenCompraRepository(db)
     oc = await repo.get(oc_id)
@@ -416,6 +426,13 @@ async def download_oc_pdf(
             detail="OC no encontrada",
         )
     await assert_empresa_access(user, db, oc.empresa_codigo)
+    _pdf_log.info(
+        "oc_pdf.start",
+        oc_id=oc_id,
+        empresa=oc.empresa_codigo,
+        include_attachments=include_attachments,
+        user_email=getattr(user, "email", None),
+    )
 
     try:
         pdf_bytes = await generate_oc_pdf_bundle(
@@ -426,21 +443,38 @@ async def download_oc_pdf(
             generated_by_email=getattr(user, "email", None),
         )
     except ValueError as exc:
+        _pdf_log.warning("oc_pdf.value_error", oc_id=oc_id, error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
         ) from exc
     except Exception as exc:  # noqa: BLE001
+        _pdf_log.error(
+            "oc_pdf.generation_failed",
+            oc_id=oc_id,
+            error=str(exc),
+            error_type=type(exc).__name__,
+            duration_s=round(_time.monotonic() - t0, 2),
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error generando PDF de la OC: {exc}",
         ) from exc
 
+    _pdf_log.info(
+        "oc_pdf.success",
+        oc_id=oc_id,
+        pdf_bytes=len(pdf_bytes),
+        duration_s=round(_time.monotonic() - t0, 2),
+    )
+
     filename = f"oc-{oc.numero_oc}.pdf"
 
     # Round 17 — audit log de descarga PDF (forense). Soft-fail.
+    # R152KKKK — Bug fix: `request` no estaba en scope. Lo omito (audit_log
+    # acepta request=None, solo pierde el IP/user-agent en el registro).
     try:
         await audit_log(
-            db, request, user,
+            db, None, user,
             action="download_pdf",
             entity_type="orden_compra",
             entity_id=str(oc_id),

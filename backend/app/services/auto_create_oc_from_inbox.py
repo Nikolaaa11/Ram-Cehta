@@ -49,12 +49,13 @@ async def auto_create_oc_from_inbox(
       {"ok": True, "oc_id": int, "numero_oc": str}  si exitoso
       {"ok": False, "error": "mensaje"}             si falló
     """
-    # 1. Leer inbox_message
+    # 1. Leer inbox_message + adjuntos
     row = (
         await db.execute(
             text(
                 """SELECT inbox_id, subject, from_email, from_name, body_text,
-                          category, created_entity_id
+                          category, created_entity_id,
+                          COALESCE(attachments_meta, '[]'::jsonb) AS attachments
                    FROM core.inbox_messages
                    WHERE inbox_id = :id"""
             ),
@@ -73,6 +74,16 @@ async def auto_create_oc_from_inbox(
     from_email = row[2] or ""
     from_name = row[3] or ""
     body_text = row[4] or ""
+    attachments_meta_raw = row[7]
+    # JSONB puede llegar como str o como list según el driver
+    import json as _json
+    if isinstance(attachments_meta_raw, str):
+        try:
+            attachments_meta = _json.loads(attachments_meta_raw)
+        except Exception:
+            attachments_meta = []
+    else:
+        attachments_meta = attachments_meta_raw or []
 
     # 2. Extraer datos con Claude
     try:
@@ -131,6 +142,52 @@ async def auto_create_oc_from_inbox(
         ),
         {"oc_id": oc_id, "id": inbox_id},
     )
+
+    # R152KKKK — 6.5. Copiar adjuntos del email a la OC.
+    # oc_pdf_service.generate_oc_pdf_bundle los va a anexar al final del
+    # PDF cuando include_attachments=TRUE. Idempotente (UNIQUE oc+path).
+    attachments_copied = 0
+    if isinstance(attachments_meta, list):
+        for att in attachments_meta:
+            if not isinstance(att, dict):
+                continue
+            dropbox_path = att.get("dropbox_path") or att.get("path")
+            file_name = (
+                att.get("filename") or att.get("file_name")
+                or att.get("name") or "adjunto.bin"
+            )
+            mime_type = att.get("content_type") or att.get("mime_type")
+            size_bytes = att.get("size_bytes") or att.get("size")
+            if not dropbox_path:
+                continue
+            try:
+                await db.execute(
+                    text(
+                        """INSERT INTO core.oc_attachments
+                               (oc_id, file_name, dropbox_path, mime_type,
+                                size_bytes, source, inbox_message_id)
+                           VALUES (:oc, :name, :path, :mime, :size,
+                                   'inbox_email', :inbox)
+                           ON CONFLICT (oc_id, dropbox_path) DO NOTHING"""
+                    ),
+                    {
+                        "oc": oc_id,
+                        "name": str(file_name)[:255],
+                        "path": str(dropbox_path)[:500],
+                        "mime": str(mime_type)[:120] if mime_type else None,
+                        "size": int(size_bytes) if size_bytes else None,
+                        "inbox": inbox_id,
+                    },
+                )
+                attachments_copied += 1
+            except Exception as exc:
+                log.warning(
+                    "auto_create_oc.copy_attachment_failed",
+                    oc_id=oc_id,
+                    path=dropbox_path,
+                    error=str(exc),
+                )
+
     await db.commit()
 
     log.info(
@@ -139,6 +196,7 @@ async def auto_create_oc_from_inbox(
         oc_id=oc_id,
         numero_oc=numero_oc,
         empresa=empresa_codigo,
+        attachments_copied=attachments_copied,
     )
 
     # R152IIII — Auto-envío del PDF al GG con CC a encargados.
@@ -166,6 +224,7 @@ async def auto_create_oc_from_inbox(
         "numero_oc": numero_oc,
         "empresa_codigo": empresa_codigo,
         "proveedor_id": proveedor_id,
+        "attachments_copied": attachments_copied,
         "email_sent": bool(send_result and send_result.get("ok")),
         "email_to": (send_result or {}).get("to") if send_result else None,
     }
