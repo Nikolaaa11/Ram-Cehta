@@ -117,21 +117,42 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
             return;
           }
           const toastId = toast.loading(`Generando PDF de OC ${numeroOc}...`);
+          // R152LLLL — AbortController con timeout 90s (browser default 30s
+          // era insuficiente para PDFs con muchos adjuntos + cold Fly start).
+          // Cache logo en backend reduce el tiempo típico a <3s.
+          const controller = new AbortController();
+          const timeoutId = window.setTimeout(
+            () => controller.abort(),
+            90_000,
+          );
           try {
             const base =
               process.env.NEXT_PUBLIC_API_URL ??
               "https://cehta-backend.fly.dev/api/v1";
-            // Nuevo endpoint real PDF con branding empresa + adjuntos
-            // anexados (oc_pdf_service.py). Antes generaba HTML para que
-            // el user usara Cmd+P; ahora devuelve PDF directo descargable.
+            // Endpoint real PDF con branding empresa + adjuntos.
             const resp = await fetch(
               `${base}/ordenes-compra/${ocId}/pdf?include_attachments=true`,
               {
                 headers: { Authorization: `Bearer ${session.access_token}` },
+                signal: controller.signal,
+                cache: "no-store",
               },
             );
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            if (!resp.ok) {
+              // R152LLLL — Leer detail del body para mostrar al user qué pasó
+              let detail = "";
+              try {
+                const body = await resp.json();
+                detail = body?.detail || "";
+              } catch {
+                detail = resp.statusText;
+              }
+              throw new Error(`HTTP ${resp.status}${detail ? ": " + detail : ""}`);
+            }
             const blob = await resp.blob();
+            if (blob.size === 0) {
+              throw new Error("El servidor devolvió un PDF vacío");
+            }
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
@@ -140,14 +161,35 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
-            toast.success(`OC ${numeroOc} descargada`, { id: toastId });
-          } catch (err) {
-            toast.error(
-              err instanceof Error
-                ? `No pude generar el PDF: ${err.message}`
-                : "Error desconocido",
+            toast.success(
+              `OC ${numeroOc} descargada (${Math.round(blob.size / 1024)} KB)`,
               { id: toastId },
             );
+          } catch (err) {
+            // R152LLLL — mensajes accionables según el tipo de error
+            let msg: string;
+            if (err instanceof Error && err.name === "AbortError") {
+              msg =
+                "El PDF tardó más de 90s en generarse. " +
+                "Reintentá en unos segundos (la primera vez es más lenta " +
+                "porque el servidor está cold).";
+            } else if (
+              err instanceof TypeError &&
+              err.message.toLowerCase().includes("fetch")
+            ) {
+              msg =
+                "No se pudo conectar con el servidor. " +
+                "(1) Verificá tu conexión; " +
+                "(2) recargá con Ctrl+Shift+R; " +
+                "(3) si persiste, esperá 30s y reintentá.";
+            } else {
+              msg = err instanceof Error
+                ? `No pude generar el PDF: ${err.message}`
+                : "Error desconocido generando PDF";
+            }
+            toast.error(msg, { id: toastId, duration: 10_000 });
+          } finally {
+            window.clearTimeout(timeoutId);
           }
         }}
         className={linkBtn}

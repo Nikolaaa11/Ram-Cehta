@@ -314,36 +314,76 @@ async def _get_dropbox_or_none(db: AsyncSession):
         return None
 
 
+# R152LLLL — Cache en memoria del logo bytes por (path, hash).
+# Antes: cada PDF disparaba un HTTP request a Vercel CDN (5-15s con cold
+# Fly machine + cold Vercel edge). Si timeout browser (~30s) o latencia
+# spike, el frontend recibe "Failed to fetch" generic. Cacheando los
+# logos en RAM evitamos el round-trip salvo en miss.
+# TTL 1h: si el operador sube un logo nuevo, el cache se renueva en 1h
+# (o cuando reinicie el container Fly). Hit ratio esperado: ~99%.
+# Memory cost: 10 empresas × ~30KB = 300KB. Negligible.
+import time as _time
+from typing import NamedTuple
+
+
+class _LogoCacheEntry(NamedTuple):
+    fetched_at: float
+    bytes_data: bytes | None  # None marca "intento previo falló, no reintentar"
+
+
+_LOGO_CACHE: dict[str, _LogoCacheEntry] = {}
+_LOGO_CACHE_TTL = 3600.0  # 1h
+_LOGO_CACHE_NEGATIVE_TTL = 60.0  # 1min para misses (reintenta sino tarda 1h)
+
+
 async def _try_fetch_logo(db: AsyncSession, empresa: dict[str, Any]) -> bytes | None:
-    """Intenta obtener el logo. Soporta dos fuentes:
-       1. URL http(s)://... — descarga directa (R152AAAA: logos servidos
-          desde frontend/public/logos/ via Vercel).
+    """Intenta obtener el logo con cache en memoria. Soporta dos fuentes:
+       1. URL http(s)://... — descarga directa con cache 1h (Vercel CDN).
        2. Path Dropbox /Cehta Capital/... — vía API Dropbox.
 
     Falla silenciosamente devolviendo None — el PDF se genera sin logo.
+
+    R152LLLL — cache en memoria por path para evitar HTTP round-trip
+    en cada PDF generation, que era la causa principal del "Failed to
+    fetch" reportado por el operador (Fly cold start + Vercel CDN miss
+    > 30s browser timeout).
     """
     path = empresa.get("logo_dropbox_path")
     if not path:
         path = _LOGO_FALLBACK_PATH_TPL.format(empresa=empresa.get("codigo") or "")
 
+    # Cache check
+    cached = _LOGO_CACHE.get(path)
+    now = _time.time()
+    if cached:
+        age = now - cached.fetched_at
+        ttl = _LOGO_CACHE_TTL if cached.bytes_data else _LOGO_CACHE_NEGATIVE_TTL
+        if age < ttl:
+            return cached.bytes_data
+
     # R152AAAA — soporte URL HTTP(s) (frontend static logos)
     if path.startswith("http://") or path.startswith("https://"):
         try:
             import httpx
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            # Timeout 5s — si Vercel CDN no responde rápido, fallback a None
+            # rápidamente para no colgar la generación del PDF.
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
                 r = await client.get(path)
                 if r.status_code == 200:
+                    _LOGO_CACHE[path] = _LogoCacheEntry(now, r.content)
                     return r.content
                 log.info(
                     "voucher_pdf.logo_http_non_200",
                     extra={"url": path, "status": r.status_code},
                 )
+                _LOGO_CACHE[path] = _LogoCacheEntry(now, None)
                 return None
         except Exception as exc:
             log.info(
                 "voucher_pdf.logo_http_failed",
                 extra={"url": path, "err": str(exc)},
             )
+            _LOGO_CACHE[path] = _LogoCacheEntry(now, None)
             return None
 
     # Path Dropbox tradicional
@@ -351,12 +391,15 @@ async def _try_fetch_logo(db: AsyncSession, empresa: dict[str, Any]) -> bytes | 
     if dbx is None:
         return None
     try:
-        return await asyncio.to_thread(dbx.download_file, path)
+        result = await asyncio.to_thread(dbx.download_file, path)
+        _LOGO_CACHE[path] = _LogoCacheEntry(now, result)
+        return result
     except Exception as exc:
         log.info(
             "voucher_pdf.logo_fetch_failed",
             extra={"path": path, "err": str(exc)},
         )
+        _LOGO_CACHE[path] = _LogoCacheEntry(now, None)
         return None
 
 
