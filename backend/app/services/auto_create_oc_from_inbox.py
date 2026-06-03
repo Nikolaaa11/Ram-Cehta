@@ -357,22 +357,29 @@ async def _crear_oc(
     email_subject: str,
     email_body: str,
 ) -> tuple[int, str]:
-    """Crea la OC + items. Retorna (oc_id, numero_oc)."""
-    # Generar correlativo: PROV-{EMP3}-{NNN}
+    """Crea la OC + items. Retorna (oc_id, numero_oc).
+
+    R152TTTT-fix2 — La tabla core.ordenes_compra NO tiene columnas
+    numero_seq ni anio (la sequence se mantenía en código viejo y nunca
+    se agregó al schema). Cambié el algoritmo a usar COUNT(*) filtrado
+    por empresa + año de fecha_emision para derivar el próximo correlativo.
+    Si hay race condition (2 auto-creates simultáneos), el segundo INSERT
+    falla por UNIQUE(numero_oc) y el try/except externo lo captura.
+    """
     emp_short = empresa_codigo[:3].upper().replace("_", "")
+    anio = date.today().year
     seq_row = (
         await db.execute(
             text(
-                """SELECT COALESCE(MAX(numero_seq), 0) + 1 AS next_seq
+                """SELECT COUNT(*) + 1 AS next_seq
                    FROM core.ordenes_compra
                    WHERE empresa_codigo = :c
-                     AND anio = EXTRACT(YEAR FROM CURRENT_DATE)::INT"""
+                     AND EXTRACT(YEAR FROM fecha_emision)::INT = :y"""
             ),
-            {"c": empresa_codigo},
+            {"c": empresa_codigo, "y": anio},
         )
     ).first()
     next_seq = int(seq_row[0]) if seq_row else 1
-    anio = date.today().year
     numero_oc = f"OC{str(next_seq).zfill(4)}-{emp_short}{str(anio)[2:]}"
 
     # Montos
@@ -433,14 +440,14 @@ async def _crear_oc(
                         fecha_emision, validez_dias, moneda,
                         neto, iva, total,
                         forma_pago, plazo_pago,
-                        observaciones, estado, numero_seq, anio,
+                        observaciones, estado,
                         created_at, updated_at)
                    VALUES
                        (:numero, :emp, :pid,
                         CURRENT_DATE, :validez, :moneda,
                         :neto, :iva, :total,
                         :forma, :plazo,
-                        :obs, 'emitida', :seq, :anio,
+                        :obs, 'emitida',
                         NOW(), NOW())
                    RETURNING oc_id"""
             ),
@@ -458,8 +465,6 @@ async def _crear_oc(
                 "obs": (
                     f"Auto-creada desde email · Asunto: {email_subject[:150]}"
                 ),
-                "seq": next_seq,
-                "anio": anio,
             },
         )
     ).first()
