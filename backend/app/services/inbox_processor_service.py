@@ -202,17 +202,28 @@ def inbox_dropbox_path(received_at: datetime, filename: str) -> str:
     return f"/Cehta Capital/00-Inbox/{year}/{month}/{safe_filename(filename)}"
 
 
-def build_classifier_prompt(subject: str, from_email: str, body_text: str) -> str:
-    """Prompt para Claude — clasifica + resume + draft response."""
+def build_classifier_prompt(
+    subject: str,
+    from_email: str,
+    body_text: str,
+    has_attachments: bool = False,
+) -> str:
+    """Prompt para Claude — clasifica + resume + draft response.
+
+    R152TTTT — Agregada categoría 'orden_compra' (cotizaciones de proveedor)
+    con reglas explícitas para detectarla, porque sin esta categoría el
+    sistema nunca disparaba la auto-creación de OCs desde el inbox.
+    """
     body_preview = (body_text or "")[:3000]  # cap a 3k chars
-    return f"""Sos un asistente de Cehta Capital (FIP chileno). Te paso un email
-recibido en contactocehta@gmail.com. Devolvé JSON con estas keys:
+    adj_hint = "SÍ" if has_attachments else "NO"
+    return f"""Sos el asistente de Cehta Capital (FIP chileno). Te paso un email
+recibido en contactocehta@gmail.com. Devolvé JSON estricto con estas keys:
 
 {{
-  "category": "factura_proveedor" | "boleta_honorarios" | "pago_confirmado"
-            | "consulta_lp" | "consulta_cliente" | "spam"
-            | "notif_banco" | "notif_sii" | "otro",
-  "confidence": 0.00–1.00,
+  "category": "orden_compra" | "factura_proveedor" | "boleta_honorarios"
+            | "pago_confirmado" | "consulta_lp" | "consulta_cliente"
+            | "spam" | "notif_banco" | "notif_sii" | "otro",
+  "confidence": 0.00-1.00,
   "summary": "1-2 oraciones — qué pide/informa el remitente, en chileno claro",
   "suggested_action": "string corto — qué debería hacer Nicolás",
   "draft_response_html": "<p>Hola...</p> respuesta cordial en HTML simple,
@@ -220,17 +231,61 @@ recibido en contactocehta@gmail.com. Devolvé JSON con estas keys:
                          Firma con 'Equipo Cehta Capital'."
 }}
 
-Reglas:
-- Si es spam evidente (publicidad, phishing), confidence alta y
-  draft_response_html = "" (sin draft, se archiva).
-- Si pide información comercial sensible (montos del fondo, listado LPs),
-  draft cordial diciendo que un partner se va a contactar — NO inventes
-  números.
-- Idioma del draft: el mismo del email original (ES por default).
+GUÍA DE CATEGORÍAS (en orden de prioridad para Cehta):
+
+** orden_compra ** — Cotización/propuesta de un PROVEEDOR para que Cehta le
+   compre algo. Señales fuertes (con UNA basta):
+     - Asunto o cuerpo dice: "cotización", "cotizacion", "propuesta económica",
+       "propuesta técnica", "oferta", "presupuesto", "OC", "orden de compra",
+       "para su revisión".
+     - Cuerpo lista items con precio unitario, cantidad, neto, IVA, total.
+     - Adjunta PDF/Excel con esos datos (has_attachments={adj_hint}).
+     - Remitente es una empresa ofreciendo servicios/productos (consultoras,
+       proveedores de ingeniería, materiales, mantenimiento, software, etc).
+   Aplicar SI es una propuesta entrante PARA que Cehta o una empresa del fondo
+   (AFIS, EVOQUE, CSL, RHO, REVTECH, TRONGKAI, DTE, CENERGY, FIP_CEHTA)
+   contrate ese servicio/producto.
+   En duda entre "orden_compra" y "factura_proveedor": si el documento es
+   PREVIO al servicio (cotización) usar orden_compra. Si es POSTERIOR
+   (factura emitida con DTE), usar factura_proveedor.
+
+** factura_proveedor ** — Factura electrónica chilena ya emitida (con folio
+   SII, fecha de emisión, IVA 19% explícito) que el proveedor envía a
+   Cehta para que la pague.
+
+** boleta_honorarios ** — Boleta de honorarios (BHE) emitida por una persona
+   natural para una empresa Cehta.
+
+** pago_confirmado ** — El proveedor avisa que recibió el pago / agradece.
+
+** notif_banco ** — Notificación automática de un banco (transferencia
+   confirmada, cartola, alerta de saldo).
+
+** notif_sii ** — Notificación automática del SII (DTE recibido, F29, etc).
+
+** consulta_lp ** — Pregunta de un Limited Partner / inversor del fondo.
+
+** consulta_cliente ** — Pregunta de una empresa del portafolio sobre el
+   servicio operativo que Cehta les presta.
+
+** spam ** — Newsletter, publicidad, phishing, notificación de plataforma
+   (Slack, Resend, Supabase, Google security alerts, etc).
+
+** otro ** — Nada de lo anterior aplica con confianza razonable.
+
+REGLAS:
+- Si es spam evidente: confidence alta y draft_response_html = "" (no draft).
+- Si parece orden_compra pero no estás seguro, usá confidence ~0.7 — el
+  operador valida antes de crear la OC.
+- Si pide información comercial sensible (montos del fondo, listado de LPs):
+  draft cordial diciendo que un partner se va a contactar; NO inventes números.
+- Idioma del draft: el mismo del email original (default ES chileno).
+- JSON puro, sin markdown code blocks ni texto extra antes/después.
 
 EMAIL:
 From: {from_email}
 Subject: {subject}
+Tiene adjunto: {adj_hint}
 
 Body:
 {body_preview}
@@ -526,7 +581,8 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
         await db.execute(
             text("""
                 SELECT inbox_id, subject, from_email,
-                       COALESCE(body_text, '') AS body_text
+                       COALESCE(body_text, '') AS body_text,
+                       has_attachments
                 FROM core.inbox_messages
                 WHERE status = 'received'
                 ORDER BY received_at ASC
@@ -552,11 +608,14 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
 
     async def classify_one(row: tuple) -> str:
         """Devuelve 'classified', 'error' o 'skipped'."""
-        inbox_id, subject, from_email, body_text = row
+        inbox_id, subject, from_email, body_text, has_attachments = row
         async with sem:
             try:
                 prompt = build_classifier_prompt(
-                    subject or "", from_email, body_text or ""
+                    subject or "",
+                    from_email,
+                    body_text or "",
+                    has_attachments=bool(has_attachments),
                 )
                 resp = await client.messages.create(
                     model=settings.inbox_classify_model,

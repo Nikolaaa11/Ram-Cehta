@@ -232,7 +232,7 @@ async def trigger_poll(
 async def trigger_run_now(
     user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
     db: DBSession,
-    classify_limit: int = 20,
+    classify_limit: int = 200,
 ) -> MailboxRunNowResponse:
     """R152PPPP — Corre 1 ciclo completo (poll + classify) en el mismo
     request worker. Equivalente a disparar el cron `inbox_cron` manual.
