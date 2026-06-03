@@ -114,12 +114,40 @@ async def send_oc_to_signers(
     to_set = {e.lower() for e in to_list}
     cc_clean = [e for e in emails_cc if _valid_email(e) and e.lower() not in to_set]
 
+    # R152UUUU — Test redirect global.
+    # Si OC_EMAIL_TEST_REDIRECT_TO está set (CSV de emails), reescribe TO/CC
+    # completos. Sirve para fase de prueba sin tocar la config real de las
+    # empresas. Primer email = TO, demás = CC. Setear/quitar con:
+    #   fly secrets set OC_EMAIL_TEST_REDIRECT_TO="benja@...,victoria@..."
+    #   fly secrets unset OC_EMAIL_TEST_REDIRECT_TO
+    try:
+        from app.core.config import settings as _settings
+        redirect_raw = getattr(_settings, "oc_email_test_redirect_to", None)
+    except Exception:
+        redirect_raw = None
+    if redirect_raw:
+        redirect_emails = [
+            e.strip() for e in str(redirect_raw).split(",")
+            if e.strip() and _valid_email(e.strip())
+        ]
+        if redirect_emails:
+            log.info(
+                "send_oc.test_redirect_active",
+                oc_id=oc_id,
+                original_to=to_list,
+                original_cc=cc_clean,
+                redirect_to=redirect_emails,
+            )
+            to_list = [redirect_emails[0]]
+            cc_clean = redirect_emails[1:]
+            to_set = {redirect_emails[0].lower()}
+
     if not to_list:
         msg = (
             f"Sin destinatarios válidos. Empresa {empresa_codigo}: "
             f"gg_email={gg_email!r}, colectiva={firma_colectiva}, "
             f"firmantes={len(firmantes_raw) if isinstance(firmantes_raw, list) else 0}. "
-            f"Configurá los emails en /admin/oc-branding."
+            f"Configurá los emails en Operaciones → Órdenes de Compra."
         )
         await _save_error(db, oc_id, msg)
         return {"ok": False, "error": msg}

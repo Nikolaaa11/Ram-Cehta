@@ -113,6 +113,15 @@ class Settings(BaseSettings):
     #   fly secrets set OC_PDF_RENDERER=v2 -a cehta-backend
     oc_pdf_renderer: str = "v1"
 
+    # R152UUUU — Redirect global de emails de OC para fase de prueba.
+    # Si está set (CSV de emails), TODOS los TO/CC se sobreescriben con
+    # estos valores. Primer email queda como TO, demás como CC. Sin tocar
+    # la config real de cada empresa. Setear:
+    #   fly secrets set OC_EMAIL_TEST_REDIRECT_TO="a@x.cl,b@y.cl"
+    # Quitar (volver a modo prod):
+    #   fly secrets unset OC_EMAIL_TEST_REDIRECT_TO
+    oc_email_test_redirect_to: str | None = None
+
     # V5++ ola O: Slack notifications opcional. Si está seteado, eventos
     # críticos (voucher.approved con monto >X, notif_sii del SII, F29
     # vencido) se envían también a un canal Slack via incoming webhook.
