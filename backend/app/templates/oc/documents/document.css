@@ -1,0 +1,540 @@
+/* ════════════════════════════════════════════════════════════
+   CEHTA Pagos · Documentos institucionales (OC + Solicitud)
+   Diseño A4 print-first · tipografía Inter · branding por entidad
+   ════════════════════════════════════════════════════════════ */
+
+@page {
+  size: A4;
+  margin: 18mm 16mm 22mm 16mm;
+
+  @top-right {
+    content: string(doc-folio);
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 8pt;
+    color: #94A3B8;
+    padding-bottom: 4mm;
+  }
+  @bottom-left {
+    content: string(doc-empresa);
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 8pt;
+    color: #94A3B8;
+    padding-top: 3mm;
+  }
+  @bottom-center {
+    content: "Página " counter(page) " de " counter(pages);
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 8pt;
+    color: #94A3B8;
+    padding-top: 3mm;
+  }
+  @bottom-right {
+    content: "Verificable en cehta-pagos.duckdns.org/verify";
+    font-family: Inter, "Segoe UI", system-ui, sans-serif;
+    font-size: 7pt;
+    color: #CBD5E1;
+    padding-top: 3mm;
+  }
+}
+
+/* ─────── Reset & base ─────── */
+
+* { box-sizing: border-box; }
+
+html, body {
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 10pt;
+  line-height: 1.5;
+  color: #0F172A;
+  font-feature-settings: "tnum", "ss01", "cv11";
+  margin: 0;
+  padding: 0;
+  background: #FFFFFF;
+}
+
+h1, h2, h3, h4 {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  color: #0F172A;
+}
+
+.num,
+.tabla .num-col,
+.totales td,
+.kv dd.mono,
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.mono {
+  font-family: "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
+  font-size: 9pt;
+  letter-spacing: -0.01em;
+}
+
+/* ─────── Header institucional ─────── */
+
+.header {
+  string-set: doc-folio var(--tipo-doc) " " var(--folio) "  ·  " var(--empresa-nombre);
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10mm;
+  padding-bottom: 6mm;
+  margin-bottom: 6mm;
+  border-bottom: 0;
+}
+
+/* Barra de color de la empresa arriba */
+.header::before {
+  content: "";
+  position: absolute;
+  top: -18mm;
+  left: -16mm;
+  right: -16mm;
+  height: 4mm;
+  background: var(--color-primario, #0A1628);
+}
+
+/* Linea fina debajo del header */
+.header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.4mm;
+  background: linear-gradient(to right, var(--color-primario, #0A1628) 0%, var(--color-primario, #0A1628) 30%, #E2E8F0 30%, #E2E8F0 100%);
+}
+
+.entidad {
+  display: flex;
+  gap: 5mm;
+  align-items: flex-start;
+}
+
+.logo {
+  width: 24mm;
+  height: 24mm;
+  object-fit: contain;
+  background: #FFFFFF;
+  border: 1px solid #F1F5F9;
+  border-radius: 2mm;
+  padding: 1.5mm;
+  flex-shrink: 0;
+}
+
+.logo-placeholder {
+  width: 24mm;
+  height: 24mm;
+  background: var(--color-primario, #0A1628);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2mm;
+  font-weight: 700;
+  font-size: 14pt;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.entidad-data {
+  font-size: 8.5pt;
+  line-height: 1.45;
+  padding-top: 1mm;
+}
+
+.entidad-data .razon {
+  font-weight: 600;
+  font-size: 10.5pt;
+  color: #0F172A;
+  margin: 0 0 1mm 0;
+  letter-spacing: -0.01em;
+}
+
+.entidad-data p {
+  margin: 0;
+  color: #64748B;
+}
+
+.entidad-data .rut::before {
+  content: "RUT ";
+  color: #94A3B8;
+}
+
+/* Bloque derecho — tipo doc + folio + estado */
+.doc-info {
+  text-align: right;
+  padding-top: 1mm;
+  min-width: 55mm;
+}
+
+.doc-info .tipo {
+  display: inline-block;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--color-primario, #0A1628);
+  font-weight: 700;
+  margin-bottom: 2mm;
+  padding: 0.8mm 3mm;
+  border: 1px solid currentColor;
+  border-radius: 1mm;
+}
+
+.doc-info .folio {
+  font-size: 22pt;
+  font-weight: 700;
+  color: #0F172A;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin: 1mm 0;
+}
+
+.doc-info .fecha {
+  color: #64748B;
+  font-size: 8.5pt;
+  margin-top: 1.5mm;
+}
+
+.doc-info .estado {
+  display: inline-block;
+  margin-top: 3mm;
+  padding: 1mm 3mm;
+  border-radius: 10mm;
+  font-size: 7.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.estado-borrador  { background: #F1F5F9; color: #475569; }
+.estado-emitida   { background: #EFF6FF; color: #1E40AF; }
+.estado-aceptada  { background: #EFF6FF; color: #1E40AF; }
+.estado-facturada { background: #FEF3C7; color: #92400E; }
+.estado-pagada    { background: #D1FAE5; color: #065F46; }
+.estado-cerrada   { background: #0F172A; color: #FFFFFF; }
+.estado-anulada   { background: #FEE2E2; color: #991B1B; }
+
+.estado-recibida   { background: #F1F5F9; color: #475569; }
+.estado-validada   { background: #EFF6FF; color: #1E40AF; }
+.estado-en_cola    { background: #FEF3C7; color: #92400E; }
+.estado-ejecutada  { background: #D1FAE5; color: #065F46; }
+.estado-conciliada { background: #A7F3D0; color: #064E3B; }
+.estado-rechazada  { background: #FEE2E2; color: #991B1B; }
+
+/* ─────── Secciones ─────── */
+
+section { margin-bottom: 5mm; page-break-inside: avoid; }
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5mm;
+}
+
+.box {
+  border: 1px solid #E2E8F0;
+  border-radius: 2mm;
+  padding: 4mm 4.5mm;
+  background: #FFFFFF;
+  position: relative;
+}
+
+.box::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4mm;
+  height: 100%;
+  background: var(--color-primario, #0A1628);
+  opacity: 0.08;
+  border-radius: 2mm 0 0 2mm;
+}
+
+.box-titulo {
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-primario, #0A1628);
+  font-weight: 700;
+  margin-bottom: 2.5mm;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 32mm 1fr;
+  gap: 1.2mm 4mm;
+  font-size: 9pt;
+  margin: 0;
+}
+
+.kv dt {
+  color: #64748B;
+  font-weight: 400;
+  font-size: 8.5pt;
+}
+
+.kv dd {
+  margin: 0;
+  color: #0F172A;
+  font-weight: 500;
+}
+
+/* ─────── Tabla de items ─────── */
+
+.tabla {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 9pt;
+  margin-top: 2mm;
+  border-radius: 2mm;
+  overflow: hidden;
+  border: 1px solid #E2E8F0;
+}
+
+.tabla thead {
+  background: var(--color-primario, #0A1628);
+  color: #FFFFFF;
+}
+
+.tabla thead th {
+  text-align: left;
+  padding: 2.8mm 3mm;
+  font-weight: 600;
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.tabla thead th.num-col { text-align: right; }
+
+.tabla tbody td {
+  padding: 3mm;
+  border-bottom: 1px solid #F1F5F9;
+  vertical-align: top;
+  background: #FFFFFF;
+}
+
+.tabla tbody tr:nth-child(even) td { background: #FAFBFC; }
+.tabla tbody tr:last-child td { border-bottom: none; }
+
+.tabla .num-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tabla .articulo {
+  font-weight: 600;
+  color: #0F172A;
+  font-size: 9pt;
+}
+
+.tabla .desc {
+  color: #475569;
+  font-size: 8.5pt;
+  margin-top: 0.5mm;
+}
+
+.tabla .plazo {
+  font-size: 7.5pt;
+  color: #94A3B8;
+  margin-top: 1mm;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* ─────── Observaciones ─────── */
+
+.observaciones {
+  margin-top: 5mm;
+  padding: 4mm 5mm;
+  background: #F8FAFC;
+  border-radius: 2mm;
+  border-left: 1mm solid var(--color-primario, #0A1628);
+  font-size: 9pt;
+  line-height: 1.55;
+  color: #334155;
+}
+
+.observaciones .label {
+  font-size: 7.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--color-primario, #0A1628);
+  font-weight: 700;
+  margin-bottom: 1.5mm;
+}
+
+/* ─────── Totales ─────── */
+
+.totales {
+  margin-top: 6mm;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.totales table {
+  width: 80mm;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 9.5pt;
+  border-radius: 2mm;
+  overflow: hidden;
+  border: 1px solid #E2E8F0;
+}
+
+.totales td {
+  padding: 2.5mm 4mm;
+  font-variant-numeric: tabular-nums;
+  background: #FFFFFF;
+}
+
+.totales tr td:first-child { color: #64748B; }
+.totales tr td:last-child  { text-align: right; font-weight: 500; color: #0F172A; }
+
+.totales tr.subtotal td { border-bottom: 1px solid #F1F5F9; }
+
+.totales tr.total td {
+  background: var(--color-primario, #0A1628);
+  color: #FFFFFF !important;
+  font-weight: 700;
+  font-size: 11.5pt;
+  padding-top: 3.5mm;
+  padding-bottom: 3.5mm;
+}
+
+.totales tr.total td:first-child {
+  color: rgba(255,255,255,0.85) !important;
+  font-size: 8.5pt;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+}
+
+/* ─────── Firma ─────── */
+
+.firma {
+  margin-top: 18mm;
+  page-break-inside: avoid;
+  text-align: center;
+}
+
+.firma .linea {
+  border-top: 0.5pt solid #0F172A;
+  width: 72mm;
+  margin: 0 auto 2.5mm auto;
+  padding-top: 0;
+}
+
+.firma .nombre {
+  font-weight: 600;
+  font-size: 10pt;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.firma .cargo {
+  font-size: 8.5pt;
+  color: #64748B;
+  margin: 0.5mm 0 0 0;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ─────── Footer de verificación ─────── */
+
+.verificacion {
+  string-set: doc-empresa var(--empresa-nombre);
+  margin-top: 12mm;
+  padding: 4mm 5mm;
+  display: grid;
+  grid-template-columns: 22mm 1fr;
+  gap: 5mm;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 2mm;
+  page-break-inside: avoid;
+}
+
+.verificacion .qr {
+  width: 22mm;
+  height: 22mm;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 1mm;
+  padding: 1mm;
+}
+
+.verificacion .meta {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1mm;
+}
+
+.verificacion .meta .label {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 7pt;
+  color: var(--color-primario, #0A1628);
+  font-weight: 700;
+}
+
+.verificacion .meta .titulo-verif {
+  font-size: 9.5pt;
+  font-weight: 600;
+  color: #0F172A;
+}
+
+.verificacion .meta .url {
+  font-size: 8pt;
+  color: #475569;
+  font-family: "JetBrains Mono", "Consolas", monospace;
+}
+
+.verificacion .meta .hash {
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 7pt;
+  word-break: break-all;
+  color: #94A3B8;
+  margin-top: 0.5mm;
+}
+
+/* ─────── Marca de agua "MUESTRA" / "BORRADOR" ─────── */
+
+body[data-watermark]::before {
+  content: attr(data-watermark);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-25deg);
+  font-size: 100pt;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.04);
+  letter-spacing: 0.05em;
+  pointer-events: none;
+  z-index: 0;
+  white-space: nowrap;
+}
+
+/* ─────── Print adjustments ─────── */
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  section { page-break-inside: avoid; }
+  .tabla { page-break-inside: auto; }
+  .tabla tr { page-break-inside: avoid; }
+}

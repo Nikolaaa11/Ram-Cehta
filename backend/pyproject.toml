@@ -37,6 +37,12 @@ dependencies = [
     # con logo empresa + líneas + totales + approvals. Pure Python, sin deps
     # de sistema. ~3 MB. Usado por app/services/voucher_pdf_service.py.
     "reportlab>=4.0,<5.0",
+    # R152QQQQ — WeasyPrint para OC PDF v2 desde templates HTML+CSS.
+    # Reemplaza el render reportlab de OC con plantillas pixel-perfect que
+    # mirror el branding usado en oc-pagos-platform (otra plataforma del
+    # mismo equipo). Requiere libpango/libcairo de sistema — instalados en
+    # backend/Dockerfile.
+    "weasyprint>=63,<64",
     "python-docx>=1.1,<2.0",
     # PPTX para extraer texto e imagenes de presentaciones (V5++ ola CE —
     # /vouchers/extract-from-upload). Liviano (~200KB), pure python.

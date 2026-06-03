@@ -434,14 +434,32 @@ async def download_oc_pdf(
         user_email=getattr(user, "email", None),
     )
 
+    # R152QQQQ — dispatch v1 reportlab vs v2 HTML+CSS+WeasyPrint.
+    # Feature flag via settings.oc_pdf_renderer ("v1" default | "v2").
     try:
-        pdf_bytes = await generate_oc_pdf_bundle(
-            oc_id=oc_id,
-            db=db,
-            include_attachments=include_attachments,
-            # Round 14 — footer notarial registra user que descargo.
-            generated_by_email=getattr(user, "email", None),
-        )
+        from app.core.config import settings as _settings
+        renderer = (getattr(_settings, "oc_pdf_renderer", "v1") or "v1").lower()
+    except Exception:
+        renderer = "v1"
+
+    try:
+        if renderer == "v2":
+            from app.services.oc_pdf_v2_service import generate_oc_pdf_v2_bundle
+            _pdf_log.info("oc_pdf.using_v2", oc_id=oc_id)
+            pdf_bytes = await generate_oc_pdf_v2_bundle(
+                oc_id=oc_id,
+                db=db,
+                include_attachments=include_attachments,
+                generated_by_email=getattr(user, "email", None),
+            )
+        else:
+            pdf_bytes = await generate_oc_pdf_bundle(
+                oc_id=oc_id,
+                db=db,
+                include_attachments=include_attachments,
+                # Round 14 — footer notarial registra user que descargo.
+                generated_by_email=getattr(user, "email", None),
+            )
     except ValueError as exc:
         _pdf_log.warning("oc_pdf.value_error", oc_id=oc_id, error=str(exc))
         raise HTTPException(

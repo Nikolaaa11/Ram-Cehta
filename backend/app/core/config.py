@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     inbox_classify_model: str = "claude-sonnet-4-5-20250929"
     inbox_max_messages_per_run: int = 50
 
+    # R152QQQQ — Feature flag para el generador de PDF de OC.
+    #   "v1" → reportlab (legacy, programmatic). Default.
+    #   "v2" → HTML+CSS Jinja2 + WeasyPrint (templates de oc-pagos-platform).
+    # Cambiar via env var OC_PDF_RENDERER en Fly secrets:
+    #   fly secrets set OC_PDF_RENDERER=v2 -a cehta-backend
+    oc_pdf_renderer: str = "v1"
+
     # V5++ ola O: Slack notifications opcional. Si está seteado, eventos
     # críticos (voucher.approved con monto >X, notif_sii del SII, F29
     # vencido) se envían también a un canal Slack via incoming webhook.

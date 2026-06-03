@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ titulo }}</title>
+  <style>
+    :root {
+      --color-primario: {{ color_primario }};
+      --folio: "{{ folio }}";
+      --tipo-doc: "{{ tipo_doc }}";
+      --empresa-nombre: "{{ empresa.nombre_corto or empresa.razon_social }}";
+    }
+    {{ css | safe }}
+  </style>
+</head>
+<body{% if watermark %} data-watermark="{{ watermark }}"{% endif %}>
+
+  <header class="header">
+    <div class="entidad">
+      {% if logo_data_uri %}
+        <img class="logo" src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">
+      {% else %}
+        <div class="logo-placeholder">{{ empresa.nombre_corto|default('·', true)|truncate(4, true, '') }}</div>
+      {% endif %}
+      <div class="entidad-data">
+        <p class="razon">{{ empresa.razon_social }}</p>
+        <p class="rut">{{ empresa.rut }}</p>
+        {% if empresa.giro %}<p>{{ empresa.giro }}</p>{% endif %}
+        {% if empresa.direccion %}<p>{{ empresa.direccion }}</p>{% endif %}
+        {% if empresa.telefono %}<p>Fono {{ empresa.telefono }}</p>{% endif %}
+        {% if empresa.email %}<p>{{ empresa.email }}</p>{% endif %}
+      </div>
+    </div>
+    <div class="doc-info">
+      <div class="tipo">{{ tipo_doc }}</div>
+      <div class="folio">N° {{ folio }}</div>
+      <div class="fecha">{{ fecha_emision_larga }}</div>
+      {% if estado %}<div class="estado estado-{{ estado }}">{{ estado }}</div>{% endif %}
+    </div>
+  </header>
+
+  {% block contenido %}{% endblock %}
+
+  <div class="verificacion">
+    <img class="qr" src="{{ qr_data_uri }}" alt="QR verificación">
+    <div class="meta">
+      <div class="label">Verificación de autenticidad</div>
+      <div class="titulo-verif">Escanea el QR o ingresa al link</div>
+      <div class="url">{{ verify_url }}</div>
+      <div class="hash">SHA-256 · {{ hash_verificacion }}</div>
+    </div>
+  </div>
+
+</body>
+</html>

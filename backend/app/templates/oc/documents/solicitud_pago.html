@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block contenido %}
+
+<section class="grid-2">
+  <div class="box">
+    <div class="box-titulo">Beneficiario del pago</div>
+    <dl class="kv">
+      <dt>Razón social</dt><dd>{{ proveedor.razon_social }}</dd>
+      <dt>RUT</dt><dd class="mono">{{ proveedor.rut }}</dd>
+      {% if proveedor.giro %}<dt>Giro</dt><dd>{{ proveedor.giro }}</dd>{% endif %}
+      {% if proveedor.contacto_nombre %}<dt>Contacto</dt><dd>{{ proveedor.contacto_nombre }}</dd>{% endif %}
+      {% if proveedor.contacto_email %}<dt>Email</dt><dd>{{ proveedor.contacto_email }}</dd>{% endif %}
+    </dl>
+  </div>
+
+  <div class="box">
+    <div class="box-titulo">Cuenta bancaria destino</div>
+    {% if cuenta %}
+    <dl class="kv">
+      <dt>Banco</dt><dd>{{ cuenta.banco }}</dd>
+      <dt>Tipo cuenta</dt><dd>{{ tipo_cuenta_label }}</dd>
+      <dt>N° cuenta</dt><dd class="mono">{{ cuenta.numero_cuenta }}</dd>
+      <dt>Titular</dt><dd>{{ cuenta.titular_nombre }}</dd>
+      <dt>RUT titular</dt><dd class="mono">{{ cuenta.titular_rut }}</dd>
+      {% if cuenta.email_notificacion %}<dt>Email notif.</dt><dd>{{ cuenta.email_notificacion }}</dd>{% endif %}
+    </dl>
+    {% else %}
+    <p style="color:#DC2626; font-weight:600; font-size:9.5pt">
+      ⚠ No hay cuenta bancaria asignada a esta solicitud.
+    </p>
+    {% endif %}
+  </div>
+</section>
+
+<section>
+  <h3>Detalle de la solicitud</h3>
+  <div class="box">
+    <dl class="kv">
+      <dt>Concepto</dt><dd style="font-weight:500">{{ sol.concepto }}</dd>
+      {% if sol.factura_numero %}<dt>N° Factura</dt><dd class="mono">{{ sol.factura_numero }}</dd>{% endif %}
+      {% if oc %}<dt>OC asociada</dt><dd class="mono">{{ oc.numero }}</dd>{% endif %}
+      {% if sol.proyecto %}<dt>Proyecto</dt><dd>{{ sol.proyecto }}</dd>{% endif %}
+      {% if sol.centro_costo %}<dt>Centro de costo</dt><dd>{{ sol.centro_costo }}</dd>{% endif %}
+      {% if sol.tipo_financiamiento %}<dt>Financiamiento</dt><dd>{{ sol.tipo_financiamiento }}</dd>{% endif %}
+      <dt>Fecha solicitud</dt><dd>{{ fecha_solicitud_larga }}</dd>
+      {% if sol.fecha_pago_esperada %}<dt>Pago esperado</dt><dd>{{ fecha_pago_esperada_larga }}</dd>{% endif %}
+      {% if sol.fecha_ejecucion %}<dt>Ejecutado el</dt><dd>{{ fecha_ejecucion_larga }}</dd>{% endif %}
+      {% if sol.referencia_bancaria %}<dt>Ref. bancaria</dt><dd class="mono">{{ sol.referencia_bancaria }}</dd>{% endif %}
+    </dl>
+  </div>
+</section>
+
+<section class="totales">
+  <table>
+    <tr class="total"><td>MONTO A PAGAR</td><td class="num-col">{{ formatear_moneda(sol.monto, sol.moneda.value) }}</td></tr>
+  </table>
+</section>
+
+{% if sol.notas %}
+<section>
+  <div class="observaciones">
+    <div class="label">Notas</div>
+    <div style="white-space:pre-wrap">{{ sol.notas }}</div>
+  </div>
+</section>
+{% endif %}
+
+<section class="firma">
+  <div class="linea"></div>
+  <p class="nombre">{{ empresa.representante_legal or "_________________________" }}</p>
+  <p class="cargo">Representante Legal · {{ empresa.razon_social }}</p>
+</section>
+
+{% endblock %}

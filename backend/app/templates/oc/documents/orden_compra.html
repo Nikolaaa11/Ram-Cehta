@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block contenido %}
+
+<section class="grid-2">
+  <div class="box">
+    <div class="box-titulo">Proveedor</div>
+    <dl class="kv">
+      <dt>Razón social</dt><dd>{{ proveedor.razon_social }}</dd>
+      <dt>RUT</dt><dd class="mono">{{ proveedor.rut }}</dd>
+      {% if proveedor.giro %}<dt>Giro</dt><dd>{{ proveedor.giro }}</dd>{% endif %}
+      {% if proveedor.direccion %}<dt>Dirección</dt><dd>{{ proveedor.direccion }}{% if proveedor.ciudad %}, {{ proveedor.ciudad }}{% endif %}</dd>{% endif %}
+      {% if proveedor.contacto_nombre %}<dt>Contacto</dt><dd>{{ proveedor.contacto_nombre }}</dd>{% endif %}
+      {% if proveedor.contacto_email %}<dt>Email</dt><dd>{{ proveedor.contacto_email }}</dd>{% endif %}
+      {% if proveedor.contacto_telefono %}<dt>Teléfono</dt><dd>{{ proveedor.contacto_telefono }}</dd>{% endif %}
+    </dl>
+  </div>
+
+  <div class="box">
+    <div class="box-titulo">Pago y entrega</div>
+    <dl class="kv">
+      {% if cuenta %}
+        <dt>Banco</dt><dd>{{ cuenta.banco }}</dd>
+        <dt>Cuenta</dt><dd>{{ tipo_cuenta_label }} <span class="mono">{{ cuenta.numero_cuenta }}</span></dd>
+        <dt>Titular</dt><dd>{{ cuenta.titular_nombre }}<br><span class="mono" style="font-size:8pt;color:#94A3B8">{{ cuenta.titular_rut }}</span></dd>
+      {% endif %}
+      {% if oc.forma_pago %}<dt>Forma de pago</dt><dd>{{ oc.forma_pago }}</dd>{% endif %}
+      {% if oc.plazo_entrega %}<dt>Plazo entrega</dt><dd>{{ oc.plazo_entrega }}</dd>{% endif %}
+      {% if oc.lugar_entrega %}<dt>Lugar entrega</dt><dd>{{ oc.lugar_entrega }}</dd>{% endif %}
+      {% if oc.garantia %}<dt>Garantía</dt><dd>{{ oc.garantia }}</dd>{% endif %}
+      {% if oc.emails_documentacion %}<dt>Documentación a</dt><dd style="font-size:8.5pt">{{ oc.emails_documentacion }}</dd>{% endif %}
+    </dl>
+  </div>
+</section>
+
+{% if oc.gestiones_proveedor %}
+<section>
+  <div class="observaciones">
+    <div class="label">Detalle de gestiones</div>
+    {{ oc.gestiones_proveedor }}
+  </div>
+</section>
+{% endif %}
+
+<section>
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th style="width:6%">N°</th>
+        <th style="width:24%">Artículo</th>
+        <th style="width:40%">Descripción</th>
+        <th class="num-col" style="width:8%">Cant.</th>
+        <th class="num-col" style="width:11%">P. unitario</th>
+        <th class="num-col" style="width:11%">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in oc.items %}
+      <tr>
+        <td class="num-col">{{ item.numero }}</td>
+        <td class="articulo">{{ item.articulo }}</td>
+        <td>
+          <div class="desc">{{ item.descripcion }}</div>
+          {% if item.plazo %}<div class="plazo">{{ item.plazo }}</div>{% endif %}
+        </td>
+        <td class="num-col">{{ item.cantidad }}</td>
+        <td class="num-col">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
+        <td class="num-col">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{% if oc.observaciones %}
+<section>
+  <div class="observaciones">
+    <div class="label">Observaciones</div>
+    {{ oc.observaciones }}
+  </div>
+</section>
+{% endif %}
+
+<section class="totales">
+  <table>
+    <tr class="subtotal"><td>Total Neto</td><td class="num-col">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
+    <tr class="subtotal"><td>IVA 19%</td><td class="num-col">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
+    <tr class="total"><td>Total</td><td class="num-col">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
+  </table>
+</section>
+
+<section class="firma">
+  <div class="linea"></div>
+  <p class="nombre">{{ empresa.representante_legal or "—" }}</p>
+  <p class="cargo">Representante Legal · {{ empresa.razon_social }}</p>
+</section>
+
+{% endblock %}
