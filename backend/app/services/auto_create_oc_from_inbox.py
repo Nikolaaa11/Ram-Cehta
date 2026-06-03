@@ -86,6 +86,10 @@ async def auto_create_oc_from_inbox(
         attachments_meta = attachments_meta_raw or []
 
     # 2. Extraer datos con Claude
+    # R152TTTT — Fix: DocumentExtraction expone `.fields`, no `.data`.
+    # Esto venía fallando silencioso desde R152HHHH y dejaba todos los
+    # auto-create con "AI extraction falló: 'DocumentExtraction' object
+    # has no attribute 'data'".
     try:
         from app.services.document_analyzer_service import analyze_document
 
@@ -94,7 +98,7 @@ async def auto_create_oc_from_inbox(
             text=full_text[:25_000],
             tipo="orden_compra",
         )
-        data = extraction.data or {}
+        data = extraction.fields or {}
     except Exception as exc:
         await _save_error(db, inbox_id, f"AI extraction falló: {exc}")
         return {"ok": False, "error": f"AI extract: {exc}"}
