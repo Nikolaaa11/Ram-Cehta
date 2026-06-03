@@ -419,8 +419,8 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
                         VALUES (
                             :message_id, :in_reply_to, :thread_id,
                             :from_email, :from_name,
-                            CAST(:to_emails AS TEXT[]),
-                            CAST(:cc_emails AS TEXT[]),
+                            :to_emails,
+                            :cc_emails,
                             :subject, :received_at,
                             :body_text, :body_html,
                             :has_attachments, CAST(:attachments_meta AS jsonb),
@@ -434,8 +434,14 @@ async def poll_inbox(db: AsyncSession) -> dict[str, int]:
                         "thread_id": thread_id,
                         "from_email": from_email,
                         "from_name": from_name,
-                        "to_emails": "{" + ",".join(to_emails) + "}",
-                        "cc_emails": "{" + ",".join(cc_emails) + "}",
+                        # R152NNNN · asyncpg requiere list[str] nativa para
+                        # TEXT[] (no acepta el literal Postgres '{a,b}' como
+                        # str — eso solo funcionaba con psycopg2). El CAST
+                        # AS TEXT[] del SQL anterior no salvaba este caso
+                        # porque asyncpg valida el tipo del arg ANTES de
+                        # mandar el query al server.
+                        "to_emails": list(to_emails),
+                        "cc_emails": list(cc_emails),
                         "subject": subject,
                         "received_at": received_at,
                         "body_text": body_text,

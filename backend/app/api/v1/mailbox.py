@@ -639,7 +639,10 @@ async def bulk_archive(
               AND status NOT IN ('replied', 'archived')
         """),
         {
-            "ids": "{" + ",".join(str(i) for i in body.inbox_ids) + "}",
+            # R152NNNN · asyncpg requiere list[int] nativa para BIGINT[].
+            # El literal Postgres '{1,2,3}' como str solo funciona con
+            # psycopg2 — asyncpg lo rechaza con DataError.
+            "ids": list(body.inbox_ids),
             "reason": body.reason,
         },
     )
