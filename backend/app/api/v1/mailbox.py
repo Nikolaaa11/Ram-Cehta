@@ -56,6 +56,15 @@ class MailboxClassifyResponse(BaseModel):
     skipped: int
 
 
+class MailboxRunNowResponse(BaseModel):
+    """R152PPPP — Respuesta del endpoint 'correr ahora' (poll + classify
+    en un solo llamado desde la UI)."""
+
+    poll: MailboxPollResponse
+    classify: MailboxClassifyResponse
+    duration_ms: int
+
+
 class MailboxStatusResponse(BaseModel):
     """Status para mostrar en /admin/integraciones."""
 
@@ -214,6 +223,55 @@ async def trigger_poll(
             detail=str(exc),
         ) from exc
     return MailboxPollResponse(**result)
+
+
+@router.post(
+    "/admin/mailbox/run-now",
+    response_model=MailboxRunNowResponse,
+)
+async def trigger_run_now(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("integration:write"))],
+    db: DBSession,
+    classify_limit: int = 20,
+) -> MailboxRunNowResponse:
+    """R152PPPP — Corre 1 ciclo completo (poll + classify) en el mismo
+    request worker. Equivalente a disparar el cron `inbox_cron` manual.
+
+    Útil para:
+      - Probar el flujo end-to-end sin esperar al schedule horario.
+      - Recovery después de marcar mails como No Leídos en Gmail.
+      - Debug en producción cuando el cron no levanta.
+
+    Timeout: el request puede tardar hasta ~30s (IMAP + Claude clasificación
+    de N mails). El frontend debe usar AbortController con margen.
+    """
+    import time as _time
+    t0 = _time.monotonic()
+    try:
+        poll_result = await poll_inbox(db)
+    except InboxNotConfigured as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    classify_result = await classify_pending(db, limit=classify_limit)
+    duration_ms = int((_time.monotonic() - t0) * 1000)
+
+    log.info(
+        "mailbox.run_now",
+        seen=poll_result.get("seen", 0),
+        inserted=poll_result.get("inserted", 0),
+        classified=classify_result.get("classified", 0),
+        duration_ms=duration_ms,
+        user=user.email,
+    )
+
+    return MailboxRunNowResponse(
+        poll=MailboxPollResponse(**poll_result),
+        classify=MailboxClassifyResponse(**classify_result),
+        duration_ms=duration_ms,
+    )
 
 
 @router.post(

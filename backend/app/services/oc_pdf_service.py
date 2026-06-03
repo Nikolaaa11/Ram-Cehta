@@ -274,7 +274,7 @@ async def _fetch_oc_bundle_data(
                            mime_type, size_bytes
                     FROM core.oc_attachments
                     WHERE oc_id = :id
-                    ORDER BY uploaded_at
+                    ORDER BY created_at
                     """
                 ),
                 {"id": oc_id},

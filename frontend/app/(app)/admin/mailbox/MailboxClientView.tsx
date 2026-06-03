@@ -249,6 +249,38 @@ export function MailboxClientView({ initialItems }: Props) {
     },
   });
 
+  // R152PPPP — "Correr ahora" = poll + classify atomic. Equivalente a
+  // disparar el cron `inbox_cron` desde Fly sin esperar al schedule horario.
+  const runNowMut = useMutation({
+    mutationFn: () =>
+      apiClient.post<{
+        poll: { seen: number; inserted: number; errors: number };
+        classify: { classified: number; errors: number };
+        duration_ms: number;
+      }>("/admin/mailbox/run-now", {}, session),
+    onSuccess: (data) => {
+      const { poll, classify, duration_ms } = data;
+      const segundos = (duration_ms / 1000).toFixed(1);
+      if (poll.inserted === 0 && classify.classified === 0) {
+        toast.info(
+          `Sin mails nuevos · ${poll.seen} vistos en Gmail · ${segundos}s`,
+          { duration: 6000 },
+        );
+      } else {
+        toast.success(
+          `Cron ejecutado en ${segundos}s · ${poll.inserted} nuevos · ${classify.classified} clasificados`,
+          { duration: 8000 },
+        );
+      }
+      qc.invalidateQueries({ queryKey: ["mailbox"] });
+    },
+    onError: (e: unknown) => {
+      const detail =
+        e instanceof ApiError ? e.detail : (e as Error).message;
+      toast.error(`No se pudo correr el cron: ${detail}`, { duration: 10_000 });
+    },
+  });
+
   const classifyMut = useMutation({
     mutationFn: () => apiClient.post("/admin/mailbox/classify", {}, session),
     onSuccess: (data: unknown) => {
@@ -457,36 +489,55 @@ export function MailboxClientView({ initialItems }: Props) {
             Inbox · contactocehta@gmail.com
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            IMAP poll cada 15min (cron Fly). Claude clasifica y genera draft de
-            respuesta — Nicolás revisa y aprueba antes de enviar.
+            Cron horario en Fly (poll IMAP + clasificación Claude). Para
+            disparar uno YA, usá <strong>“Correr cron ahora”</strong>.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* R152PPPP — Botón principal: ejecuta poll + classify en un único
+              llamado server-side. Reemplaza la necesidad de levantar Fly
+              machine cron manualmente. */}
+          <button
+            type="button"
+            onClick={() => runNowMut.mutate()}
+            disabled={runNowMut.isPending}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            title="Equivalente a disparar el cron inbox_cron en Fly. Hace IMAP poll + Claude clasifica todos los pendientes."
+          >
+            {runNowMut.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" strokeWidth={1.75} />
+            )}
+            Correr cron ahora
+          </button>
           <button
             type="button"
             onClick={() => pollMut.mutate()}
             disabled={pollMut.isPending}
             className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green disabled:opacity-50"
+            title="Solo IMAP poll (no clasifica). Para debug avanzado."
           >
             {pollMut.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <RefreshCw className="h-3.5 w-3.5" strokeWidth={1.75} />
             )}
-            Refrescar IMAP
+            Solo IMAP poll
           </button>
           <button
             type="button"
             onClick={() => classifyMut.mutate()}
             disabled={classifyMut.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-cehta-green px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-hairline bg-white px-3 py-1.5 text-xs font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green disabled:opacity-50"
+            title="Solo Claude clasifica pending (no hace IMAP poll). Para debug avanzado."
           >
             {classifyMut.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Sparkles className="h-3.5 w-3.5" strokeWidth={1.75} />
             )}
-            Clasificar pendientes
+            Solo clasificar
           </button>
         </div>
       </div>
