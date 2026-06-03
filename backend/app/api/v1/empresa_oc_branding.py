@@ -54,6 +54,9 @@ class OcBrandingRead(BaseModel):
     oc_firma_colectiva: bool
     firmantes_extra: list[Firmante]
     cantidad_firmantes: int
+    # R152IIII — Emails para envío auto
+    emails_oc_cc: list[str] = Field(default_factory=list)
+    auto_send_oc_emails: bool = True
 
 
 class OcBrandingUpdate(BaseModel):
@@ -64,6 +67,9 @@ class OcBrandingUpdate(BaseModel):
     gerente_general_email: str | None = Field(default=None, max_length=200)
     oc_firma_colectiva: bool | None = None
     firmantes_extra: list[Firmante] | None = None
+    # R152IIII — emails CC + auto-send toggle
+    emails_oc_cc: list[str] | None = None
+    auto_send_oc_emails: bool | None = None
 
 
 async def _require_admin(user: AuthenticatedUser) -> None:
@@ -91,7 +97,9 @@ async def get_oc_branding(
                        gerente_general_nombre, gerente_general_cargo,
                        gerente_general_email,
                        oc_firma_colectiva,
-                       COALESCE(firmantes_extra, '[]'::jsonb) AS firmantes_extra
+                       COALESCE(firmantes_extra, '[]'::jsonb) AS firmantes_extra,
+                       COALESCE(emails_oc_cc, ARRAY[]::TEXT[]) AS emails_oc_cc,
+                       COALESCE(auto_send_oc_emails, TRUE) AS auto_send_oc_emails
                 FROM core.empresas
                 WHERE codigo = :c AND activo = TRUE
                 """
@@ -150,6 +158,17 @@ async def patch_oc_branding(
             color = v if v.startswith("#") else f"#{v}"
             set_clauses.append("oc_color_primario = :oc_color_primario")
             params["oc_color_primario"] = color
+        elif k == "emails_oc_cc":
+            # R152IIII — TEXT[] cast. Filtrar vacíos + dedupe.
+            cleaned = list(
+                dict.fromkeys(  # preserva orden + dedupe
+                    (e or "").strip()
+                    for e in (v or [])
+                    if (e or "").strip()
+                )
+            )
+            set_clauses.append("emails_oc_cc = CAST(:emails_oc_cc AS TEXT[])")
+            params["emails_oc_cc"] = cleaned
         else:
             set_clauses.append(f"{k} = :{k}")
             params[k] = v

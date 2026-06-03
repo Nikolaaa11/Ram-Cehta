@@ -45,6 +45,9 @@ interface Branding {
   oc_firma_colectiva: boolean;
   firmantes_extra: Firmante[];
   cantidad_firmantes: number;
+  // R152IIII
+  emails_oc_cc: string[];
+  auto_send_oc_emails: boolean;
 }
 
 const EMPRESAS = [
@@ -76,6 +79,9 @@ export default function OcBrandingPage() {
   const [ggEmail, setGgEmail] = useState("");
   const [firmaColectiva, setFirmaColectiva] = useState(false);
   const [firmantes, setFirmantes] = useState<Firmante[]>([]);
+  // R152IIII — Emails CC + auto-send
+  const [emailsCc, setEmailsCc] = useState<string[]>([]);
+  const [autoSend, setAutoSend] = useState(true);
 
   // Sync form cuando cambia empresa o llegan datos
   useEffect(() => {
@@ -87,6 +93,8 @@ export default function OcBrandingPage() {
     setGgEmail(branding.data.gerente_general_email ?? "");
     setFirmaColectiva(branding.data.oc_firma_colectiva);
     setFirmantes(branding.data.firmantes_extra ?? []);
+    setEmailsCc(branding.data.emails_oc_cc ?? []);
+    setAutoSend(branding.data.auto_send_oc_emails ?? true);
   }, [branding.data]);
 
   const saveMut = useMutation({
@@ -101,6 +109,9 @@ export default function OcBrandingPage() {
           gerente_general_email: ggEmail || null,
           oc_firma_colectiva: firmaColectiva,
           firmantes_extra: firmantes,
+          // R152IIII
+          emails_oc_cc: emailsCc,
+          auto_send_oc_emails: autoSend,
         },
         session,
       ),
@@ -347,6 +358,109 @@ export default function OcBrandingPage() {
             )}
           </section>
 
+          {/* R152JJJJ — Destinatarios emails OC */}
+          <section className="rounded-2xl border border-hairline bg-white p-6 shadow-card space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-ink-900 flex items-center gap-2">
+                  <UserCheck className="h-5 w-5 text-cehta-green" strokeWidth={1.5} />
+                  Destinatarios emails OC
+                </h2>
+                <p className="text-xs text-ink-500 mt-1">
+                  Cuando se crea una OC para esta empresa (auto desde email o manual),
+                  el sistema manda el PDF al <strong>TO</strong> y <strong>CC</strong>.
+                </p>
+              </div>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoSend}
+                  onChange={(e) => setAutoSend(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="relative w-11 h-6 bg-ink-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-ink-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cehta-green"></div>
+                <span className="ml-2 text-xs text-ink-600">Auto-enviar</span>
+              </label>
+            </div>
+
+            {/* TO — info readonly + warning */}
+            <div className="rounded-xl bg-ink-50/40 p-3 ring-1 ring-hairline">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 mb-1">
+                TO · Destinatario principal (firmante)
+              </div>
+              {firmaColectiva ? (
+                <div>
+                  <div className="text-sm text-ink-900">
+                    {firmantes.filter((f) => (f.email ?? "").trim()).length} email
+                    {firmantes.filter((f) => (f.email ?? "").trim()).length === 1
+                      ? ""
+                      : "s"}{" "}
+                    desde firmantes (firma colectiva RHO)
+                  </div>
+                  <div className="mt-1 text-xs text-ink-500 truncate">
+                    {firmantes
+                      .filter((f) => (f.email ?? "").trim())
+                      .map((f) => f.email)
+                      .join(", ") || "⚠ Ningún firmante tiene email — cargá arriba"}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-ink-900 font-mono">
+                  {ggEmail || (
+                    <span className="text-red-600 font-sans">
+                      ⚠ Falta email del GG — cargalo arriba en "Gerente General"
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* CC — editor chips */}
+            <div>
+              <label className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500 mb-2">
+                CC · Encargados / asistentes
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {emailsCc.map((email, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-cehta-green/10 px-3 py-1 text-xs text-ink-900 ring-1 ring-cehta-green/30"
+                  >
+                    <span className="font-mono">{email}</span>
+                    <button
+                      onClick={() =>
+                        setEmailsCc(emailsCc.filter((_, idx) => idx !== i))
+                      }
+                      className="text-ink-500 hover:text-red-600"
+                      aria-label={`Eliminar ${email}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <CcEmailInput
+                  onAdd={(email) => {
+                    if (!emailsCc.includes(email)) {
+                      setEmailsCc([...emailsCc, email]);
+                    }
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-ink-500">
+                Enter para agregar. Ej: asistente del GG, contador externo,
+                Nicolás para tracking.
+              </p>
+            </div>
+
+            {!autoSend && (
+              <div className="rounded-xl bg-amber-50 ring-1 ring-amber-200 p-3 text-xs text-amber-800">
+                ⚠ Auto-envío desactivado: las OCs auto-creadas para esta empresa
+                quedan SIN enviar. El operador tiene que mandarlas manualmente
+                desde el detalle de cada OC.
+              </div>
+            )}
+          </section>
+
           {/* Save */}
           <div className="sticky bottom-4 flex justify-end">
             <button
@@ -378,5 +492,42 @@ function Field({
       </label>
       {children}
     </div>
+  );
+}
+
+// R152JJJJ — Input chip-style para agregar emails CC al toque
+function CcEmailInput({ onAdd }: { onAdd: (email: string) => void }) {
+  const [val, setVal] = useState("");
+  const valid = /^[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}$/.test(val.trim());
+
+  const submit = () => {
+    if (valid) {
+      onAdd(val.trim());
+      setVal("");
+    }
+  };
+
+  return (
+    <input
+      type="email"
+      value={val}
+      onChange={(e) => setVal(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === ",") {
+          e.preventDefault();
+          submit();
+        }
+      }}
+      onBlur={() => {
+        if (valid) submit();
+      }}
+      placeholder="agregar email + Enter"
+      className={`rounded-full bg-white px-3 py-1 text-xs font-mono ring-1 ring-hairline focus:outline-none focus:ring-2 ${
+        val && !valid
+          ? "ring-red-300 text-red-700"
+          : "focus:ring-cehta-green text-ink-700"
+      }`}
+      style={{ minWidth: 200 }}
+    />
   );
 }
