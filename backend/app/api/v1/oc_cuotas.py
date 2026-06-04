@@ -428,7 +428,12 @@ async def generar_vouchers(
     # next_seq es el PRIMER correlativo del rango reservado.
     next_seq = final_seq - n_cuotas + 1
 
-    creados: list[str] = []
+    # R152FFFFF — Bulk INSERT con UNNEST para eliminar el N+1.
+    # Antes: 11 INSERT + 11 UPDATE = 22 round-trips.
+    # Ahora: 1 INSERT con CTE de N vouchers + 1 UPDATE bulk = 2 round-trips.
+    # Speed-up típico: 10x para batches de 11 cuotas.
+    rows_to_insert: list[dict] = []
+    cuota_to_codigo: dict[int, str] = {}
     for c in pendientes:
         glosa = (
             f"OC #{oc['numero_oc']} · Cuota {c['numero_cuota']}/{total_cuotas} · "
@@ -436,56 +441,86 @@ async def generar_vouchers(
         )
         codigo = f"{emp_code}-{year}-COM-{str(next_seq).zfill(5)}"
         next_seq += 1
-        # Crear voucher cabecera DRAFT
-        v_row = (
-            await db.execute(
-                text(
-                    """
-                    INSERT INTO core.vouchers (
-                        codigo, empresa_codigo, tipo,
-                        fecha_documento, fecha_contable,
-                        glosa, contraparte_rut, contraparte_nombre,
-                        contraparte_tipo, moneda, status,
-                        forma_pago, created_by
-                    ) VALUES (
-                        :codigo, :emp, 'EGRESO',
-                        :fecha, :fecha,
-                        :glosa, :rut, :nombre,
-                        'PROVEEDOR', :moneda, 'DRAFT',
-                        :forma, CAST(:uid AS UUID)
-                    )
-                    RETURNING voucher_id, codigo
-                    """
-                ),
-                {
-                    "codigo": codigo,
-                    "emp": emp_code,
-                    "fecha": c["fecha_vencimiento"],
-                    "glosa": glosa[:500],
-                    "rut": proveedor_rut,
-                    "nombre": proveedor_nombre,
-                    "moneda": oc.get("moneda") or "CLP",
-                    "forma": "TRANSFERENCIA",
-                    "uid": user_uid,
-                },
-            )
-        ).first()
-        voucher_id = int(v_row[0])
-        codigo = str(v_row[1])
-        creados.append(codigo)
+        cuota_to_codigo[c["cuota_id"]] = codigo
+        rows_to_insert.append({
+            "codigo": codigo,
+            "fecha": c["fecha_vencimiento"],
+            "glosa": glosa[:500],
+            "cuota_id": c["cuota_id"],
+        })
 
-        # Linkear la cuota al voucher + marcar generada
+    # 1 sola query INSERT con UNNEST de arrays.
+    inserted_rows = (
         await db.execute(
             text(
-                """UPDATE core.oc_cuotas
-                   SET voucher_id = :vid,
-                       estado = 'VOUCHER_GENERADO',
-                       updated_at = NOW()
-                   WHERE cuota_id = :cid"""
+                """INSERT INTO core.vouchers (
+                       codigo, empresa_codigo, tipo,
+                       fecha_documento, fecha_contable,
+                       glosa, contraparte_rut, contraparte_nombre,
+                       contraparte_tipo, moneda, status,
+                       forma_pago, created_by
+                   )
+                   SELECT
+                       u.codigo,
+                       :emp,
+                       'EGRESO',
+                       u.fecha::date,
+                       u.fecha::date,
+                       u.glosa,
+                       :rut,
+                       :nombre,
+                       'PROVEEDOR',
+                       :moneda,
+                       'DRAFT',
+                       :forma,
+                       CAST(:uid AS UUID)
+                   FROM UNNEST(
+                       CAST(:codigos AS TEXT[]),
+                       CAST(:fechas AS DATE[]),
+                       CAST(:glosas AS TEXT[]),
+                       CAST(:cuotas AS BIGINT[])
+                   ) AS u(codigo, fecha, glosa, cuota_id)
+                   RETURNING voucher_id, codigo"""
             ),
-            {"vid": voucher_id, "cid": c["cuota_id"]},
+            {
+                "emp": emp_code,
+                "rut": proveedor_rut,
+                "nombre": proveedor_nombre,
+                "moneda": oc.get("moneda") or "CLP",
+                "forma": "TRANSFERENCIA",
+                "uid": user_uid,
+                "codigos": [r["codigo"] for r in rows_to_insert],
+                "fechas": [r["fecha"] for r in rows_to_insert],
+                "glosas": [r["glosa"] for r in rows_to_insert],
+                "cuotas": [r["cuota_id"] for r in rows_to_insert],
+            },
         )
+    ).fetchall()
+    creados = [str(r[1]) for r in inserted_rows]
+    # Mapeo codigo → voucher_id para el UPDATE bulk de cuotas.
+    codigo_to_voucher_id = {str(r[1]): int(r[0]) for r in inserted_rows}
 
+    # 1 sola query UPDATE bulk usando UNNEST.
+    await db.execute(
+        text(
+            """UPDATE core.oc_cuotas c
+               SET voucher_id = u.voucher_id,
+                   estado = 'VOUCHER_GENERADO',
+                   updated_at = NOW()
+               FROM UNNEST(
+                   CAST(:cuota_ids AS BIGINT[]),
+                   CAST(:voucher_ids AS BIGINT[])
+               ) AS u(cuota_id, voucher_id)
+               WHERE c.cuota_id = u.cuota_id"""
+        ),
+        {
+            "cuota_ids": list(cuota_to_codigo.keys()),
+            "voucher_ids": [
+                codigo_to_voucher_id[cuota_to_codigo[cid]]
+                for cid in cuota_to_codigo.keys()
+            ],
+        },
+    )
     await db.commit()
     return GenerarVouchersResult(
         cuotas_procesadas=len(pendientes),
