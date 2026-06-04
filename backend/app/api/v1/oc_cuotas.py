@@ -13,7 +13,7 @@ Flujo típico:
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -342,10 +342,27 @@ async def generar_vouchers(
     # asyncpg.exceptions.DataError: invalid UUID '' length 0.
     sub_raw = getattr(user, "sub", None)
     user_uid: str | None = str(sub_raw) if sub_raw else None
-    # Validación adicional — un UUID válido tiene 32–36 chars (con o sin
-    # guiones). Si no, pasamos None para no romper el CAST.
     if user_uid is not None and not (32 <= len(user_uid) <= 36):
         user_uid = None
+
+    # R152ZZZZ · La columna vouchers.codigo es NOT NULL sin default —
+    # antes el INSERT lo omitía y rompía con NotNullViolationError. Patrón
+    # canónico observado en datos reales:
+    #   {EMPRESA}-{YEAR}-COM-{NNNNN}   ej: RHO-2026-COM-00012
+    # Calculamos el próximo secuencial usando COUNT por empresa+año+COM.
+    emp_code = str(oc["empresa_codigo"])
+    year = datetime.now().year
+    seq_row = (
+        await db.execute(
+            text(
+                """SELECT COUNT(*) FROM core.vouchers
+                   WHERE empresa_codigo = :e
+                     AND codigo LIKE :pat"""
+            ),
+            {"e": emp_code, "pat": f"{emp_code}-{year}-COM-%"},
+        )
+    ).first()
+    next_seq = int(seq_row[0]) + 1 if seq_row else 1
 
     creados: list[str] = []
     for c in pendientes:
@@ -353,18 +370,20 @@ async def generar_vouchers(
             f"OC #{oc['numero_oc']} · Cuota {c['numero_cuota']}/{total_cuotas} · "
             f"{c['descripcion'] or 'sin descripción'}"
         )
+        codigo = f"{emp_code}-{year}-COM-{str(next_seq).zfill(5)}"
+        next_seq += 1
         # Crear voucher cabecera DRAFT
         v_row = (
             await db.execute(
                 text(
                     """
                     INSERT INTO core.vouchers (
-                        empresa_codigo, tipo, fecha_contable,
+                        codigo, empresa_codigo, tipo, fecha_contable,
                         glosa, contraparte_rut, contraparte_nombre,
                         contraparte_tipo, moneda, status,
                         forma_pago, created_by
                     ) VALUES (
-                        :emp, 'EGRESO', :fecha,
+                        :codigo, :emp, 'EGRESO', :fecha,
                         :glosa, :rut, :nombre,
                         'PROVEEDOR', :moneda, 'DRAFT',
                         :forma, CAST(:uid AS UUID)
@@ -373,7 +392,8 @@ async def generar_vouchers(
                     """
                 ),
                 {
-                    "emp": oc["empresa_codigo"],
+                    "codigo": codigo,
+                    "emp": emp_code,
                     "fecha": c["fecha_vencimiento"],
                     "glosa": glosa[:500],
                     "rut": proveedor_rut,
