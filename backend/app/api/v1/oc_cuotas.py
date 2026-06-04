@@ -378,12 +378,14 @@ async def generar_vouchers(
                 text(
                     """
                     INSERT INTO core.vouchers (
-                        codigo, empresa_codigo, tipo, fecha_contable,
+                        codigo, empresa_codigo, tipo,
+                        fecha_documento, fecha_contable,
                         glosa, contraparte_rut, contraparte_nombre,
                         contraparte_tipo, moneda, status,
                         forma_pago, created_by
                     ) VALUES (
-                        :codigo, :emp, 'EGRESO', :fecha,
+                        :codigo, :emp, 'EGRESO',
+                        :fecha, :fecha,
                         :glosa, :rut, :nombre,
                         'PROVEEDOR', :moneda, 'DRAFT',
                         :forma, CAST(:uid AS UUID)
