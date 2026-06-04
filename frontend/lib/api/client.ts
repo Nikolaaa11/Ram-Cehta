@@ -26,26 +26,72 @@ async function coreFetch<T>(
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
   }
-  // R152sss — Capturar TypeError "Failed to fetch" del browser fetch API
-  // (causado por: red interrumpida, extensión bloqueando, CORS, mixed content,
-  // SSL handshake fallido, etc.) y convertirlo en un ApiError con detalle
-  // accionable. Antes burbujeaba como "TypeError: Failed to fetch" sin
-  // explicación para el usuario.
-  let res: Response;
-  try {
-    res = await fetch(url, { ...options, headers, cache: "no-store" });
-  } catch (e) {
-    const raw = e instanceof Error ? e.message : String(e);
-    if (raw.includes("Failed to fetch") || raw.includes("NetworkError")) {
-      throw new ApiError(
-        0,
-        "No se pudo conectar con el servidor. Verifica tu conexión a internet. " +
-        "Si persiste: (1) recarga la página con Ctrl+Shift+R; (2) prueba en " +
-        "ventana incógnito (descarta extensiones bloqueando); (3) si usas VPN/" +
-        "proxy corporativo, podría estar bloqueando el backend cehta-backend.fly.dev.",
-      );
+  // R152sss + R152WWWW — Capturar TypeError "Failed to fetch" del browser
+  // fetch API y convertir en ApiError accionable. R152WWWW agrega:
+  //   - AbortController con timeout explícito (45s primer intento, 60s segundo)
+  //     para cubrir el cold start de las machines de Fly (auto-suspend de 5min
+  //     hace que el primer request post-idle tarde 5-15s en wake-up).
+  //   - Retry automático 1 vez ante Failed to fetch / aborted: la causa más
+  //     común es cold start; el segundo intento siempre responde rápido.
+  //   - Pre-warm vía /health en el primer retry para forzar wake-up.
+  let res!: Response;
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const controller = new AbortController();
+    const timeoutMs = attempt === 0 ? 45_000 : 60_000;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      res = await fetch(url, {
+        ...options,
+        headers,
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      lastErr = null;
+      break;
+    } catch (e) {
+      lastErr = e;
+      const raw = e instanceof Error ? e.message : String(e);
+      const isNetwork =
+        raw.includes("Failed to fetch") ||
+        raw.includes("NetworkError") ||
+        raw.includes("aborted") ||
+        (e instanceof DOMException && e.name === "AbortError");
+      if (isNetwork && attempt === 0) {
+        // Cold start probable. Pre-warm con /health y reintentar.
+        try {
+          const base = API_BASE.replace(/\/api\/v1\/?$/, "");
+          await fetch(`${base}/health`, {
+            method: "GET",
+            cache: "no-store",
+            keepalive: true,
+          });
+        } catch {
+          // Best-effort warm-up; el retry ya va a esperar el real.
+        }
+        await new Promise((r) => setTimeout(r, 1200));
+        continue;
+      }
+      // Falló también el retry o no es error de red — escalamos.
+      if (isNetwork) {
+        throw new ApiError(
+          0,
+          "No se pudo conectar con el servidor tras 2 intentos. " +
+            "Causa probable: (1) la red está caída; (2) hay un Service Worker " +
+            "viejo cacheado — abrí DevTools (F12) → Application → Service " +
+            "Workers → Unregister, después Ctrl+Shift+R; (3) si usás VPN/" +
+            "proxy corporativo, podría estar bloqueando cehta-backend.fly.dev.",
+        );
+      }
+      throw new ApiError(0, `Error de red: ${raw}`);
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw new ApiError(0, `Error de red: ${raw}`);
+  }
+  if (lastErr) {
+    // Defensive — no debería pasar, pero TS no sabe que el for siempre
+    // resuelve a res o throw.
+    throw new ApiError(0, "Estado de red inconsistente");
   }
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
