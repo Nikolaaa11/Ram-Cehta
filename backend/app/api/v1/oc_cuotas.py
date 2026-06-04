@@ -337,6 +337,16 @@ async def generar_vouchers(
             proveedor_nombre = prov[1]
 
     total_cuotas = len(pendientes)
+    # R152YYYY · Defensive: si user.sub viene vacío o no existe, pasar None
+    # (created_by es UUID NULL-able). Antes pasaba '' que rompía con
+    # asyncpg.exceptions.DataError: invalid UUID '' length 0.
+    sub_raw = getattr(user, "sub", None)
+    user_uid: str | None = str(sub_raw) if sub_raw else None
+    # Validación adicional — un UUID válido tiene 32–36 chars (con o sin
+    # guiones). Si no, pasamos None para no romper el CAST.
+    if user_uid is not None and not (32 <= len(user_uid) <= 36):
+        user_uid = None
+
     creados: list[str] = []
     for c in pendientes:
         glosa = (
@@ -370,7 +380,7 @@ async def generar_vouchers(
                     "nombre": proveedor_nombre,
                     "moneda": oc.get("moneda") or "CLP",
                     "forma": "TRANSFERENCIA",
-                    "uid": str(getattr(user, "sub", "") or ""),
+                    "uid": user_uid,
                 },
             )
         ).first()
