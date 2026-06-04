@@ -122,6 +122,14 @@ class Settings(BaseSettings):
     #   fly secrets unset OC_EMAIL_TEST_REDIRECT_TO
     oc_email_test_redirect_to: str | None = None
 
+    # R152EEEEE — Secret de webhook de Resend para verificar firma Svix.
+    # Obtener desde Resend dashboard → Webhooks → Signing Secret.
+    # Formato: "whsec_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx" (base64 encoded).
+    # Configurar:
+    #   fly secrets set RESEND_WEBHOOK_SECRET="whsec_xxx" -a cehta-backend
+    # Sin esto, POST /api/v1/webhooks/resend devuelve 503.
+    resend_webhook_secret: str | None = None
+
     # V5++ ola O: Slack notifications opcional. Si está seteado, eventos
     # críticos (voucher.approved con monto >X, notif_sii del SII, F29
     # vencido) se envían también a un canal Slack via incoming webhook.

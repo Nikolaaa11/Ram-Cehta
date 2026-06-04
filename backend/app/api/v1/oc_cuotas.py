@@ -340,27 +340,20 @@ async def generar_vouchers(
             vouchers_codigos=codigos_existentes,
         )
 
-    # R152AAAAA · P0 — Advisory lock por (empresa, tipo=COM, año) para
-    # serializar la generación del correlativo. Sin esto, dos requests
-    # concurrentes leían el mismo COUNT(*) y armaban códigos iguales,
-    # rompiendo con UNIQUE violation en vouchers.codigo (confirmado en
-    # production: vouchers_codigo_key).
+    # R152DDDDD · Reemplazo del advisory_lock + COUNT(*) por la tabla
+    # centralizada core.correlativos. UPSERT atomico con RETURNING garantiza
+    # serialización a nivel row sin necesidad de lock externo.
     #
-    # pg_advisory_xact_lock se libera automáticamente al final de la
-    # transacción. Si dos requests llegan en simultáneo, el segundo espera
-    # al primero (~500ms). Cero impacto sin contención.
+    # Beneficios sobre advisory_lock:
+    #   - Una sola query en lugar de 2 (lock + count).
+    #   - Estado persistente — el correlativo no se reinicia si la tabla
+    #     vouchers se purga.
+    #   - Visibilidad: SELECT * FROM core.correlativos para auditar.
+    #   - Sin riesgo de fugas de locks por crash mid-transaction.
     year = datetime.now().year
-    # Hash estable de (emp_code + "COM") como key1, año como key2.
-    # 0x7FFFFFFF para mantener positivo el int de 4 bytes que espera pg.
-    lock_key1 = abs(hash(f"{emp_code}|COM")) & 0x7FFFFFFF
-    lock_key2 = year
-    await db.execute(
-        text("SELECT pg_advisory_xact_lock(:k1, :k2)"),
-        {"k1": lock_key1, "k2": lock_key2},
-    )
 
-    # Recargar cuotas pendientes DENTRO del lock — por si otro request las
-    # consumió mientras esperábamos el lock.
+    # Recargar cuotas pendientes — no necesitamos lock porque el correlativo
+    # ya está aislado en la tabla correlativos.
     cuotas_rows = (
         await db.execute(
             text(
@@ -411,19 +404,29 @@ async def generar_vouchers(
     if user_uid is not None and not (32 <= len(user_uid) <= 36):
         user_uid = None
 
-    # R152ZZZZ · Correlativo {EMPRESA}-{YEAR}-COM-{NNNNN}.
-    # El COUNT(*) ahora es seguro porque estamos dentro del advisory lock.
+    # R152DDDDD · Reserva atomica de N correlativos en una sola query.
+    # El UPSERT incrementa last_seq por la cantidad de cuotas pendientes y
+    # nos devuelve el VALOR FINAL. Restando N-1 obtenemos el primer
+    # correlativo a usar. Esto es atomico — dos requests simultáneos no
+    # pueden reservar el mismo rango.
+    n_cuotas = len(pendientes)
     seq_row = (
         await db.execute(
             text(
-                """SELECT COUNT(*) FROM core.vouchers
-                   WHERE empresa_codigo = :e
-                     AND codigo LIKE :pat"""
+                """INSERT INTO core.correlativos
+                       (empresa_codigo, year, tipo, last_seq)
+                   VALUES (:e, :y, 'COM', :n)
+                   ON CONFLICT (empresa_codigo, year, tipo)
+                       DO UPDATE SET last_seq = correlativos.last_seq + :n,
+                                     updated_at = NOW()
+                   RETURNING last_seq"""
             ),
-            {"e": emp_code, "pat": f"{emp_code}-{year}-COM-%"},
+            {"e": emp_code, "y": year, "n": n_cuotas},
         )
     ).first()
-    next_seq = int(seq_row[0]) + 1 if seq_row else 1
+    final_seq = int(seq_row[0])
+    # next_seq es el PRIMER correlativo del rango reservado.
+    next_seq = final_seq - n_cuotas + 1
 
     creados: list[str] = []
     for c in pendientes:

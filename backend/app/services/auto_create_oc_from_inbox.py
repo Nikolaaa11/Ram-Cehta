@@ -471,34 +471,25 @@ async def _crear_oc(
 ) -> tuple[int, str]:
     """Crea la OC + items. Retorna (oc_id, numero_oc).
 
-    R152TTTT-fix2 — La tabla core.ordenes_compra NO tiene columnas
-    numero_seq ni anio (la sequence se mantenía en código viejo y nunca
-    se agregó al schema). Algoritmo: COUNT(*) filtrado por empresa + año.
-
-    R152AAAAA — Agregado pg_advisory_xact_lock por (empresa_codigo, año)
-    para eliminar la race condition del correlativo. Sin esto, dos
-    auto-creates simultáneos calculaban el mismo next_seq y el segundo
-    INSERT chocaba con UNIQUE (empresa_codigo, numero_oc).
+    R152DDDDD — Reserva del correlativo via UPSERT en core.correlativos.
+    Reemplaza el advisory_lock + COUNT(*) anterior con una sola query
+    atomica que devuelve el next_seq garantizado único.
     """
     emp_short = empresa_codigo[:3].upper().replace("_", "")
     anio = date.today().year
 
-    # Advisory lock por (empresa, año) — se libera con la transacción.
-    lock_key1 = abs(hash(f"OC|{empresa_codigo}")) & 0x7FFFFFFF
-    await db.execute(
-        text("SELECT pg_advisory_xact_lock(:k1, :k2)"),
-        {"k1": lock_key1, "k2": anio},
-    )
-
     seq_row = (
         await db.execute(
             text(
-                """SELECT COUNT(*) + 1 AS next_seq
-                   FROM core.ordenes_compra
-                   WHERE empresa_codigo = :c
-                     AND EXTRACT(YEAR FROM fecha_emision)::INT = :y"""
+                """INSERT INTO core.correlativos
+                       (empresa_codigo, year, tipo, last_seq)
+                   VALUES (:e, :y, 'OC', 1)
+                   ON CONFLICT (empresa_codigo, year, tipo)
+                       DO UPDATE SET last_seq = correlativos.last_seq + 1,
+                                     updated_at = NOW()
+                   RETURNING last_seq"""
             ),
-            {"c": empresa_codigo, "y": anio},
+            {"e": empresa_codigo, "y": anio},
         )
     ).first()
     next_seq = int(seq_row[0]) if seq_row else 1

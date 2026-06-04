@@ -72,6 +72,7 @@ from app.api.v1 import (
     vouchers_nubox_form,
     vouchers_transferencia,
     webhooks,
+    webhooks_resend,
 )
 from app.api.v1 import (
     status as status_router,
@@ -168,6 +169,8 @@ api_router.include_router(bulk_import.router, prefix="/bulk-import", tags=["bulk
 api_router.include_router(status_router.router, prefix="/admin", tags=["admin-status"])
 api_router.include_router(currency.router, prefix="/currency", tags=["currency"])
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
+# R152EEEEE — Resend webhook receiver (tracking de aperturas/clicks de OC).
+api_router.include_router(webhooks_resend.router, tags=["webhooks"])
 api_router.include_router(stream_router.router, prefix="/stream", tags=["stream"])
 api_router.include_router(api_tokens.router, prefix="/api-tokens", tags=["api-tokens"])
 # V4 fase 4: portfolio consolidado USD cross-empresa (LP reporting).

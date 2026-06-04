@@ -43,6 +43,11 @@ dependencies = [
     # mismo equipo). Requiere libpango/libcairo de sistema — instalados en
     # backend/Dockerfile.
     "weasyprint>=63,<64",
+    # R152CCCCC — Jinja2 movido a deps principales. Antes estaba en
+    # optional-dependencies[pdf] pero el Dockerfile no instala extras,
+    # por eso oc_pdf_v2_service.py crasheaba con ModuleNotFoundError en
+    # producción. WeasyPrint usa Jinja2 para los templates HTML.
+    "jinja2>=3.1,<4.0",
     "python-docx>=1.1,<2.0",
     # PPTX para extraer texto e imagenes de presentaciones (V5++ ola CE —
     # /vouchers/extract-from-upload). Liviano (~200KB), pure python.
