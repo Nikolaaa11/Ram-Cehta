@@ -227,7 +227,7 @@ export default function AdminDigestPage() {
                 onBlur={() => {
                   if (recipientInput.trim()) addRecipient(recipientInput);
                 }}
-                placeholder="ceo@cehta.cl, agregá más con Enter…"
+                placeholder="ceo@cehta.cl, agrega más con Enter…"
                 className="block w-full rounded-xl bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline transition-shadow placeholder:text-ink-300 focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
               <p className="text-[11px] text-ink-500">

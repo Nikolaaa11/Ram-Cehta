@@ -75,7 +75,7 @@ export function AiDataQAWidget() {
             Pregunta a Claudia Data
           </p>
           <h3 className="mt-0.5 font-display text-lg font-semibold text-ink-900">
-            ¿Qué querés saber del fondo?
+            ¿Qué quieres saber del fondo?
           </h3>
           <p className="mt-1 text-xs text-ink-500">
             Pregunta natural sobre vouchers, F29, F22, OCs, inbox.

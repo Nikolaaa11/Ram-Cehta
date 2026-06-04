@@ -198,7 +198,7 @@ export function VoucherCommentsCard({ voucherId }: { voucherId: number }) {
               handleSubmitNew();
             }
           }}
-          placeholder="Agregá un comentario… (Cmd/Ctrl+Enter para enviar)"
+          placeholder="Agrega un comentario… (Cmd/Ctrl+Enter para enviar)"
           rows={2}
           maxLength={2000}
           disabled={createMutation.isPending}

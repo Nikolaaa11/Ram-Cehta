@@ -206,7 +206,7 @@ export function useEventStream(): UseEventStreamResult {
             qc.invalidateQueries({ queryKey: ["etl"] });
             const d = data as { error_message?: string } | null;
             toast.error("ETL falló", {
-              description: d?.error_message ?? "Revisá /admin/etl",
+              description: d?.error_message ?? "Revisa /admin/etl",
             });
             break;
           }

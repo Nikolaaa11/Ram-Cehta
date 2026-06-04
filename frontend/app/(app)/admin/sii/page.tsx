@@ -554,9 +554,9 @@ export default function SiiAdminPage() {
             ⬆️ Fallback: subir CSV bajado del portal sii.cl
           </h3>
           <p className="text-xs text-amber-800 mb-3 max-w-2xl">
-            Si el botón &quot;Sync&quot; arriba falla porque el SII cambió su portal, podés
+            Si el botón &quot;Sync&quot; arriba falla porque el SII cambió su portal, puedes
             bajar el CSV manualmente (sii.cl → Servicios online → Registro Compras y
-            Ventas → Descargar) y subirlo acá. Mismo destino,
+            Ventas → Descargar) y subirlo aquí. Mismo destino,
             <code className="font-mono mx-1 px-1 bg-amber-100 rounded">core.sii_documentos</code>.
           </p>
           <div className="flex flex-wrap items-center gap-3">

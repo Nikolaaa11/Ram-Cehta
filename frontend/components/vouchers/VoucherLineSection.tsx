@@ -11,7 +11,7 @@
  * Cada voucher tiene 2 listas de líneas (DEBE Contable + HABER Financiera).
  * Este componente renderiza UNA de las dos. Recibe `tipo_documento` para
  * calcular `Total Bruto = Total Neto × 1.19` cuando el tipo doc aplica IVA
- * (lista en backend, NO hardcoded acá — disciplina 1).
+ * (lista en backend, NO hardcoded aquí — disciplina 1).
  *
  * Columnas:
  *   # · Comentario · Plan de Cuenta · Total Neto · Total Bruto · 🗑
@@ -40,7 +40,7 @@ interface Props {
   /**
    * Spec maestro AJUSTE 6/12: factor IVA (default 1.19) leído de
    * `meta.iva_porcentaje` del backend. Pasalo como `1 + meta.iva_porcentaje`.
-   * NO hardcodear acá.
+   * NO hardcodear aquí.
    */
   ivaFactor?: number;
   /** Moneda — afecta como se formatea el bruto. Default CLP. */
@@ -74,7 +74,7 @@ export function VoucherLineSection({
 
   // V5++ ola CH (fase 2): IVA solo aplica si moneda CLP. En USD/UF/EUR
   // los documentos no llevan IVA (excepción facturas afectas en CLP+).
-  // Acá tomamos la convención simple: aplicar IVA solo si CLP + tipo afecto.
+  // Aquí tomamos la convención simple: aplicar IVA solo si CLP + tipo afecto.
   const aplicaIvaEfectivo = aplicaIva && moneda === "CLP";
 
   const formatMonto = (valor: number): string => {

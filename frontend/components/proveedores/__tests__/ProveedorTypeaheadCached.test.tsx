@@ -4,7 +4,7 @@
  * Cubre la renderización inicial del componente. Tests más profundos
  * (interacción con keyboard, selección, etc.) requerirían mockear
  * el endpoint /proveedores/cache via msw + QueryClientProvider wrapper.
- * Acá nos enfocamos en que el componente:
+ * Aquí nos enfocamos en que el componente:
  *   1. Renderiza sin crashear con props mínimas
  *   2. Muestra el placeholder correcto cuando no hay cache
  *   3. Tiene los atributos a11y (aria-autocomplete, aria-expanded)

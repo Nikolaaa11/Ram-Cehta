@@ -248,7 +248,7 @@ export default function ImportOcsPage() {
             <>
               <Upload className="size-8 text-ink-400 mx-auto mb-2" />
               <p className="text-sm text-ink-700 font-medium">
-                Arrastrá el .csv acá o click para seleccionar
+                Arrastra el .csv aquí o click para seleccionar
               </p>
               <p className="text-xs text-ink-500 mt-1">Hasta 10 MB · Excel chileno (separador ;)</p>
             </>

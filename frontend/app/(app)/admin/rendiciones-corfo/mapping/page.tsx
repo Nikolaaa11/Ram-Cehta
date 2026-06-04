@@ -238,7 +238,7 @@ export default function MappingBulkPage() {
             Mapeo cuenta_local → CORFO
           </h1>
           <p className="mt-1 text-sm text-ink-500">
-            Configurá UNA vez el mapeo de cada cuenta contable de tu plan al
+            Configura UNA vez el mapeo de cada cuenta contable de tu plan al
             catálogo oficial CORFO. Después las rendiciones salen pre-llenadas.
           </p>
         </div>
@@ -506,12 +506,12 @@ export default function MappingBulkPage() {
         <ul className="mt-2 ml-5 list-disc space-y-1 leading-relaxed">
           <li>
             <strong>Auto-sugerencia</strong>: click en <kbd>Wand2 Auto-sugerir mapeo</kbd> (arriba) o el botón "Sugerir" de cada fila.
-            El sistema analiza el nombre de la cuenta local y propone Cuenta + Ítem CORFO basado en keywords (honorarios → SUBCONTRATOS, arriendo → ARRIENDO, etc.). Siempre podés sobrescribir.
+            El sistema analiza el nombre de la cuenta local y propone Cuenta + Ítem CORFO basado en keywords (honorarios → SUBCONTRATOS, arriendo → ARRIENDO, etc.). Siempre puedes sobrescribir.
           </li>
           <li>Las cuentas más usadas aparecen primero. Empezá por las 5 más
             frecuentes — eso ya cubre el 80% de las facturas.</li>
           <li><strong>El mapeo es por empresa</strong>: REVTECH y TRONGKAI tienen mapeos independientes.</li>
-          <li>Los cambios solo persisten cuando hacés clic en <strong>Guardar N cambios</strong>.</li>
+          <li>Los cambios solo persisten cuando haces clic en <strong>Guardar N cambios</strong>.</li>
         </ul>
       </div>
     </div>

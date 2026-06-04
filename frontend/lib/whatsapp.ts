@@ -56,7 +56,7 @@ export const waMessages = {
     asunto: string;
   }) => {
     const saludo = params.contacto ? `Hola ${params.contacto}` : "Hola";
-    return `${saludo}, te escribimos de Cehta Capital sobre ${params.asunto}. ¿Tenés un minuto para revisar?`;
+    return `${saludo}, te escribimos de Cehta Capital sobre ${params.asunto}. ¿Tienes un minuto para revisar?`;
   },
 
   confirmarTransferencia: (params: {
@@ -77,7 +77,7 @@ export const waMessages = {
     vencimiento: string;
   }) => {
     const saludo = params.contacto ? `Hola ${params.contacto}` : "Hola";
-    return `${saludo}, te recordamos que la factura ${params.numero} vence el ${params.vencimiento}. ¿Podés confirmar el pago?`;
+    return `${saludo}, te recordamos que la factura ${params.numero} vence el ${params.vencimiento}. ¿Puedes confirmar el pago?`;
   },
 
   compartirInformeLP: (params: {
@@ -86,6 +86,6 @@ export const waMessages = {
     url: string;
   }) => {
     const saludo = params.nombre ? `Hola ${params.nombre}` : "Hola";
-    return `${saludo}, te compartimos el informe del fondo del ${params.periodo}. Podés verlo acá: ${params.url}`;
+    return `${saludo}, te compartimos el informe del fondo del ${params.periodo}. Puedes verlo aquí: ${params.url}`;
   },
 };

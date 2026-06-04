@@ -304,7 +304,7 @@ export default function ProyectoAdminPage({
             </p>
             <p className="text-xs text-ink-500 mt-0.5">
               {bloquear
-                ? "Operadores NO pueden ajustar los % al crear un voucher. Usan el reparto exacto definido acá."
+                ? "Operadores NO pueden ajustar los % al crear un voucher. Usan el reparto exacto definido aquí."
                 : "Operadores pueden ajustar los % por voucher (default 50/20/30 sugerido, editable)."}
             </p>
           </div>

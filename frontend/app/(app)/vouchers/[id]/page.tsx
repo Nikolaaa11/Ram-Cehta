@@ -278,7 +278,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
           </h1>
           <p className="mt-2 text-sm text-ink-600">
             {status === 403
-              ? "Este voucher pertenece a una empresa a la que no tenés acceso. Si creés que es un error, contactá a Nicolás."
+              ? "Este voucher pertenece a una empresa a la que no tienes acceso. Si crees que es un error, contacta a Nicolás."
               : status === 404
                 ? `El voucher con id ${voucherId} no existe. Quizás fue eliminado.`
                 : apiErr?.detail || "Reintenta en unos segundos."}
@@ -549,7 +549,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
                     codigo: string;
                   }>(`/vouchers/${voucher.voucher_id}/duplicate`, {}, session);
                   toast.success(
-                    `Copia ${result.codigo} creada en DRAFT — editá y enviá a aprobación`,
+                    `Copia ${result.codigo} creada en DRAFT — edita y envía a aprobación`,
                     { id: t },
                   );
                   router.push(`/vouchers/${result.voucher_id}` as Route);
@@ -901,7 +901,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
             </p>
             {missingTaxDoc && (
               <p className="font-semibold text-amber-900">
-                ⚠ Antes de enviarlo necesitás subir al menos 1 factura/boleta
+                ⚠ Antes de enviarlo necesitas subir al menos 1 factura/boleta
                 en la sección <em>&quot;Adjuntos&quot;</em> de más abajo
                 (requisito contable para vouchers de{" "}
                 {TIPO_LABEL[voucher.tipo]}).

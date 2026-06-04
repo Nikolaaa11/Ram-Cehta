@@ -215,7 +215,7 @@ export default function AreasPage() {
           <EmptyState
             icon={LayoutGrid}
             title="Sin áreas"
-            description="No hay áreas configuradas todavía. Importá el plan de cuentas para crear las áreas estándar."
+            description="No hay áreas configuradas todavía. Importa el plan de cuentas para crear las áreas estándar."
           />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-hairline bg-white">
@@ -307,12 +307,12 @@ export default function AreasPage() {
 
         {/* Hint */}
         <p className="text-[11px] italic text-ink-500">
-          Tip: las áreas se importan automáticamente cuando subís el{" "}
+          Tip: las áreas se importan automáticamente cuando subes el{" "}
           <code className="rounded bg-ink-100 px-1 py-0.5 text-[10px]">
             Plan_de_cuentas_v2.xlsx
           </code>{" "}
           (hoja Areas con flags Aplica_X por empresa). Los cambios manuales
-          se respetan: el importer hace UPSERT, no sobreescribe lo que vos
+          se respetan: el importer hace UPSERT, no sobreescribe lo que tú
           ya hayas tocado.
         </p>
       </div>

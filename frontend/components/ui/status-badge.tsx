@@ -30,7 +30,7 @@ export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> 
     | "PROCESSED"
     | "CANCELLED"
     | "EXPORTED";
-  /** Tono manual (si no usás status). */
+  /** Tono manual (si no usas status). */
   tone?: Tone;
   /** Label custom. */
   label?: string;

@@ -247,7 +247,7 @@ export default function PoliciesFondoPage() {
             body="Sube el reglamento interno, el manual UAF, el código de ética y demás políticas internas con su versión y fecha de aprobación. CMF puede pedírtelas en cualquier auditoría."
             ctaLabel="Crear primera política"
             onCta={() => setShowCreate(true)}
-            hint="Cuando haya políticas próximas a vencer su revisión, aparecen acá arriba como hint."
+            hint="Cuando haya políticas próximas a vencer su revisión, aparecen aquí arriba como hint."
           />
         )
       ) : (

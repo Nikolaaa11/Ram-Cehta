@@ -267,7 +267,7 @@ export default function AprenderPage() {
             <li className="flex items-start gap-2">
               <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-amber-500" />
               <span>
-                Si no estás seguro de una respuesta, revisá el contenido antes de
+                Si no estás seguro de una respuesta, revisa el contenido antes de
                 marcar — los badges premian la calidad, no la velocidad.
               </span>
             </li>

@@ -175,7 +175,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
             <p className="text-[11px] text-cehta-green">
               <strong className="font-semibold">Tip:</strong> apenas hagas
               click en <span className="font-mono">Enviar a aprobación</span>,
-              acá aparecen los aprobadores requeridos (Líder + Director) y
+              aquí aparecen los aprobadores requeridos (Líder + Director) y
               pueden firmar uno por uno.
             </p>
           </div>
@@ -268,7 +268,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
       {data.required_roles.length === 0 && voucherStatus === "PENDING" && (
         <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-800">
           <strong className="font-semibold">No hay regla configurada</strong>{" "}
-          para este voucher. Configurá las reglas en{" "}
+          para este voucher. Configura las reglas en{" "}
           <a
             href="/admin/approval-rules"
             className="underline hover:text-amber-900"
@@ -482,7 +482,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
             <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">
               {data.current_user_already_signed ? (
                 <p>
-                  <strong className="font-semibold">No podés firmar este paso:</strong>{" "}
+                  <strong className="font-semibold">No puedes firmar este paso:</strong>{" "}
                   ya firmaste otro paso de este voucher. Por regla anti-doble-firma,
                   un mismo usuario no puede firmar 2 pasos del mismo flujo. Necesitamos
                   otro {ROLE_LABEL[data.next_pending_role]} para continuar.
@@ -508,7 +508,7 @@ export function VoucherApprovalsCard({ voucherId, voucherStatus }: Props) {
                 data.next_pending_signers_emails.length === 0 && (
                   <p className="mt-1 italic">
                     ⚠ No hay usuarios con rol {ROLE_LABEL[data.next_pending_role]}
-                    {" "}disponibles (todos ya firmaron otros pasos). Contactá al
+                    {" "}disponibles (todos ya firmaron otros pasos). Contacta al
                     admin para agregar otro firmante.
                   </p>
                 )}

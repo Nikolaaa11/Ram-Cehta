@@ -203,7 +203,7 @@ export default function CartolasRunsPage() {
                   </p>
                   <p className="mt-1 text-xs text-ink-500">
                     Útil cuando hay duplicados o datos erróneos. Después
-                    podés re-sincronizar las cartolas con &quot;Sync cartolas&quot;.
+                    puedes re-sincronizar las cartolas con &quot;Sync cartolas&quot;.
                   </p>
                 </>
               }
@@ -339,7 +339,7 @@ export default function CartolasRunsPage() {
                 strokeWidth={1.25}
               />
               <p className="text-sm text-ink-500">
-                Sin runs todavía. Elige una empresa arriba y tocá &ldquo;Sync
+                Sin runs todavía. Elige una empresa arriba y haz clic en &ldquo;Sync
                 cartolas&rdquo; para procesar los PDFs en Dropbox.
               </p>
             </div>
@@ -481,7 +481,7 @@ export default function CartolasRunsPage() {
             </code>
           </p>
           <p className="mt-2 text-xs text-ink-500">
-            Después tocá <strong>Sync cartolas · {empresaFilter}</strong>{" "}
+            Después haz clic en <strong>Sync cartolas · {empresaFilter}</strong>{" "}
             arriba.
           </p>
         </div>

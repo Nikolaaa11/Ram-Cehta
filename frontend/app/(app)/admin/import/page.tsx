@@ -187,7 +187,7 @@ function ImportPanel({ entityType }: ImportPanelProps) {
         <Surface.Header>
           <Surface.Title>Paso 1 · Sube el CSV</Surface.Title>
           <Surface.Subtitle>
-            Drag-drop o clic. Descarga la plantilla si no sabés qué columnas
+            Drag-drop o clic. Descarga la plantilla si no sabes qué columnas
             poner.
           </Surface.Subtitle>
         </Surface.Header>
@@ -223,7 +223,7 @@ function ImportPanel({ entityType }: ImportPanelProps) {
           >
             <Upload className="h-8 w-8 text-ink-500" strokeWidth={1.5} />
             <p className="text-sm font-medium text-ink-900">
-              {file ? file.name : "Arrastrá el CSV o hacé clic"}
+              {file ? file.name : "Arrastra el CSV o haz clic"}
             </p>
             <p className="text-xs text-ink-500">CSV · máx 5 MB</p>
             <input

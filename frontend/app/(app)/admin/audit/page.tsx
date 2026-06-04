@@ -38,7 +38,7 @@ export default function AdminAuditPage() {
         </h1>
         <p className="mt-1 text-sm text-ink-500">
           Trazabilidad completa: cada cambio queda registrado con quién, qué,
-          cuándo y el diff antes/después. Las corridas de ETL se listan acá
+          cuándo y el diff antes/después. Las corridas de ETL se listan aquí
           también.
         </p>
       </div>

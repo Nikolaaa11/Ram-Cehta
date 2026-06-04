@@ -3,7 +3,7 @@
  *
  * Mapea cada ruta de la plataforma a un instructivo corto y práctico.
  * El HelpButton flotante lee el pathname actual y muestra el match más
- * específico. 100% aditivo: agregar/editar ayuda acá NO toca ninguna página.
+ * específico. 100% aditivo: agregar/editar ayuda aquí NO toca ninguna página.
  *
  * Para agregar ayuda a un módulo nuevo: añadí una entrada al array HELP_ENTRIES
  * con su `match` (prefijo de ruta), título, qué es, pasos y tips.
@@ -41,12 +41,12 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     match: "/vouchers/importar",
     title: "Importar voucher desde archivo (IA)",
-    what: "Subí una factura (foto, PDF, DOCX, XLSX) y la IA extrae los datos y precarga el formulario. Revisás y confirmás.",
+    what: "Sube una factura (foto, PDF, DOCX, XLSX) y la IA extrae los datos y precarga el formulario. Revisás y confirmás.",
     steps: [
       "Elegí la empresa receptora.",
-      "Arrastrá el archivo o pegá una imagen del portapapeles.",
-      "Esperá 5–20 seg mientras la IA lo lee (aplica OCR si es escaneo).",
-      "Revisá los campos precargados y confirmá para crear el voucher.",
+      "Arrastra el archivo o pegá una imagen del portapapeles.",
+      "Espera 5–20 seg mientras la IA lo lee (aplica OCR si es escaneo).",
+      "Revisa los campos precargados y confirmá para crear el voucher.",
     ],
     tips: ["Para cargar MUCHOS vouchers de golpe, usá el template Excel y la página /vouchers/import."],
     guide: { label: "Guía de Vouchers", href: "/ayuda/vouchers.html#crear" },
@@ -56,10 +56,10 @@ export const HELP_ENTRIES: HelpEntry[] = [
     title: "Carga masiva de vouchers (CSV)",
     what: "Sube muchos vouchers de una sola vez desde un CSV. Ideal para cargar el histórico contable.",
     steps: [
-      "Descargá el template Excel (botón en /vouchers/importar).",
+      "Descarga el template Excel (botón en /vouchers/importar).",
       "Una fila = una línea contable; mismo voucher_ref agrupa líneas.",
       "Exportá a CSV UTF-8 con separador ;",
-      "Subí el CSV y clic en 'Validar (dry-run)' — revisa sin escribir.",
+      "Sube el CSV y clic en 'Validar (dry-run)' — revisa sin escribir.",
       "Si está OK, clic en 'Importar' — crea todo en DRAFT.",
     ],
     tips: ["Cada línea: debe XOR haber. La suma de débitos = créditos por voucher_ref."],
@@ -70,10 +70,10 @@ export const HELP_ENTRIES: HelpEntry[] = [
     title: "Crear voucher manual",
     what: "Formulario para crear un comprobante contable línea por línea, con validación de cuadre en tiempo real.",
     steps: [
-      "Completá la cabecera: empresa, tipo, fecha, glosa, proveedor.",
-      "Agregá las líneas con su cuenta + monto en debe o haber.",
-      "Verificá que la suma del debe = suma del haber (cuadrado).",
-      "Guardá en DRAFT o enviá a aprobación.",
+      "Completa la cabecera: empresa, tipo, fecha, glosa, proveedor.",
+      "Agrega las líneas con su cuenta + monto en debe o haber.",
+      "Verifica que la suma del debe = suma del haber (cuadrado).",
+      "Guarda en DRAFT o envía a aprobación.",
     ],
     guide: { label: "Guía de Vouchers", href: "/ayuda/vouchers.html#crear" },
   },
@@ -94,10 +94,10 @@ export const HELP_ENTRIES: HelpEntry[] = [
     title: "Confirmar pagos · Planilla",
     what: "Vouchers aprobados (APPROVED) listos para transferir. Genera la planilla Excel para cargar al banco.",
     steps: [
-      "Marcá los vouchers APPROVED que querés pagar.",
+      "Marcá los vouchers APPROVED que quieres pagar.",
       "Clic en 'Excel transferencia' → descarga la planilla del banco.",
       "Cargá la planilla en el portal del banco y transferí.",
-      "Volvé y clic en 'Marcar Pagados' (podés adjuntar comprobante).",
+      "Volvé y clic en 'Marcar Pagados' (puedes adjuntar comprobante).",
     ],
     tips: ["El comprobante de pago es opcional pero recomendado para auditoría."],
     guide: { label: "Guía de Vouchers", href: "/ayuda/vouchers.html#pagar" },
@@ -107,7 +107,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     title: "Aprobaciones",
     what: "Cola de vouchers esperando tu firma. Cada pago necesita 2 firmas antes de ejecutarse.",
     steps: [
-      "Revisá el voucher: empresa, monto, glosa, líneas.",
+      "Revisa el voucher: empresa, monto, glosa, líneas.",
       "Firmá si está correcto, o rechazá (vuelve a DRAFT para corregir).",
       "Con 2 firmas, el voucher pasa a APPROVED y se puede pagar.",
     ],
@@ -117,7 +117,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
   {
     match: "/mis-pendientes",
     title: "Mis pendientes",
-    what: "Tu bandeja personal: vouchers que requieren tu acción (creados por vos o asignados a vos).",
+    what: "Tu bandeja personal: vouchers que requieren tu acción (creados por tú o asignados a tú).",
   },
   {
     match: "/action-center",
@@ -147,7 +147,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     what: "Conexión con el SII. Las 9 empresas tienen credenciales cifradas y validadas (login OK 9/9). La descarga automática del RCV está rota temporalmente porque el SII cambió su endpoint en 2025 — mientras tanto, usar el flujo manual.",
     steps: [
       "Probar login → verifica que la clave SII funcione (esto SÍ anda).",
-      "Para traer compras/ventas: ir al SII web, descargar el CSV del RCV, y subirlo en 'Importar CSV RCV' acá.",
+      "Para traer compras/ventas: ir al SII web, descargar el CSV del RCV, y subirlo en 'Importar CSV RCV' aquí.",
       "Conciliar → matchea documentos SII con vouchers locales.",
       "F29 estimado → calcula el formulario a partir del RCV importado.",
     ],
@@ -162,7 +162,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
     title: "Nubox API REST oficial",
     what: "Integración API REST con Nubox (Factura electrónica + Administración). CONECTADO en UAT (certificación) para las 10 empresas — devuelve 216 docs de prueba. Falta el par de credenciales de PRODUCCIÓN para emitir DTEs reales.",
     steps: [
-      "✅ UAT (certificación) activo — podés probar emisión y sincronización sin afectar SII real.",
+      "✅ UAT (certificación) activo — puedes probar emisión y sincronización sin afectar SII real.",
       "Para activar PRODUCCIÓN: pedir a Nubox el partner_token + api_key del ambiente 'environment-pyme'.",
       "Cargar el par PROD via /admin/nubox-api/credentials/{empresa}.",
       "Cambiar environment='production' y base_url='https://api.pyme.nubox.com/nbxpymapi-environment-pyme'.",
@@ -193,7 +193,7 @@ export const HELP_ENTRIES: HelpEntry[] = [
       "Filtrar por empresa + rango de fechas.",
       "Clic en 'Generar batch' → CSV se descarga, los vouchers quedan marcados como EXPORTED.",
       "El contador sube el CSV en Nubox web.",
-      "Volver acá y confirmar con los folios Nubox → vouchers pasan a SYNCED.",
+      "Volver aquí y confirmar con los folios Nubox → vouchers pasan a SYNCED.",
     ],
   },
 

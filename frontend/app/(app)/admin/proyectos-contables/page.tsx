@@ -312,8 +312,8 @@ export default function ProyectosContablesPage() {
             <AdminEmptyState
               icon={<CircleDollarSign strokeWidth={1.5} />}
               eyebrow="Proyectos contables · vacío"
-              title="Importá los proyectos del Excel"
-              body="Anda a /admin/etl y subí el Plan_de_cuentas_v2.xlsx — la hoja Proyectos trae los 31 proyectos pre-codificados (CORFO, privados, internos). También podés crear uno manualmente acá si querés probar el flow."
+              title="Importa los proyectos del Excel"
+              body="Anda a /admin/etl y sube el Plan_de_cuentas_v2.xlsx — la hoja Proyectos trae los 31 proyectos pre-codificados (CORFO, privados, internos). También puedes crear uno manualmente aquí si quieres probar el flow."
               ctaLabel="Crear primer proyecto"
               onCta={() => setShowCreate(true)}
             />

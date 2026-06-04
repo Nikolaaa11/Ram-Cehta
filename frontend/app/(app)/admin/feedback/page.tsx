@@ -189,7 +189,7 @@ export default function FeedbackDashboardPage() {
         <ChartCard
           title="Sin feedback todavía"
           empty
-          emptyMessage="Cuando los usuarios respondan los prompts de feedback, los resultados aparecerán acá."
+          emptyMessage="Cuando los usuarios respondan los prompts de feedback, los resultados aparecerán aquí."
         >
           <div />
         </ChartCard>

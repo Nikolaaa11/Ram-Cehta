@@ -36,13 +36,13 @@ function extractDetail(error: Error | null | undefined): string | null {
   if (!error) return null;
   if (error instanceof ApiError) {
     if (error.status === 403) {
-      return "No tenés permisos para ver esta sección. Contactá al admin.";
+      return "No tienes permisos para ver esta sección. Contacta al admin.";
     }
     if (error.status === 404) {
       return "La información solicitada ya no existe o no se encontró.";
     }
     if (error.status === 503) {
-      return "Servicio no configurado. Contactá al admin.";
+      return "Servicio no configurado. Contacta al admin.";
     }
     if (error.status >= 500) {
       return `Error del servidor (HTTP ${error.status}). Prueba más tarde.`;

@@ -196,7 +196,7 @@ export default function VoucherCorfoPage() {
 
   // Round 146 — overrides manuales de cuenta por fuente. Si el operador
   // cambia la cuenta default del reparto en el combo box, guardamos el
-  // override acá indexado por fuente. Si está vacío, usamos el default
+  // override aquí indexado por fuente. Si está vacío, usamos el default
   // del reparto. Cuando cambia el proyecto, reseteamos.
   const [cuentaOverrides, setCuentaOverrides] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -305,7 +305,7 @@ export default function VoucherCorfoPage() {
       throw new Error(
         `El proyecto ${proyectoCodigo} no tiene las cuentas del reparto ` +
           `configuradas (faltan ${cuentasFaltantes}). Anda a ` +
-          `/admin/proyectos-contables/${proyectoCodigo} y completá ` +
+          `/admin/proyectos-contables/${proyectoCodigo} y completa ` +
           `"cuenta_aporte_corfo", "cuenta_aporte_ptec_cehta", ` +
           `"cuenta_aporte_empresa_directa" y "cuenta_iva_corporativo" ` +
           `antes de crear vouchers.`,
@@ -371,7 +371,7 @@ export default function VoucherCorfoPage() {
             : "Error desconocido enviando a aprobación";
         throw new Error(
           `Voucher ${created.codigo} creado como DRAFT, pero no pudo ` +
-            `enviarse a aprobación: ${detail}. Abrí el voucher e intentá ` +
+            `enviarse a aprobación: ${detail}. Abre el voucher e intentá ` +
             `"Enviar a aprobación" desde el detalle.`,
         );
       }
@@ -620,8 +620,8 @@ export default function VoucherCorfoPage() {
 
         {/* Round 129 — Link de carga de documentos (path Dropbox del
             archivo soporte). Aparece después de la glosa, antes del cierre
-            del Surface. Si el operador ya subió el doc a Dropbox, pega el
-            path acá. Si no, puede dejarlo vacío y subir el archivo después
+            del Surface. Si el operador ya subió el doc a Dropbox, trabajo el
+            path aquí. Si no, puede dejarlo vacío y subir el archivo después
             desde el detalle del voucher. */}
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-ink-500 mb-1">
@@ -633,10 +633,10 @@ export default function VoucherCorfoPage() {
             onChange={(e) => setDocumentoDropboxPath(e.target.value)}
             placeholder="/Cehta Capital/Adjuntos-Vouchers/.../factura.pdf"
             className="form-input"
-            title="Path completo en Dropbox del documento soporte. Si está vacío, podés adjuntarlo después desde /vouchers/{id}."
+            title="Path completo en Dropbox del documento soporte. Si está vacío, puedes adjuntarlo después desde /vouchers/{id}."
           />
           <p className="mt-1 text-[10px] text-ink-400">
-            Si el documento ya está en Dropbox, pegá el path. Sino, podés
+            Si el documento ya está en Dropbox, pegá el path. Sino, puedes
             adjuntar el archivo después de crear el voucher.
           </p>
         </div>
@@ -684,7 +684,7 @@ export default function VoucherCorfoPage() {
         {/* Round 129 (Observaciones 20/05/2026): la bifurcación F.A. fue
             eliminada. Si llegaste a este form (/vouchers/corfo) es porque
             VAS A asignar al financiamiento subsidiado por definición.
-            Si querés un voucher 100% Empresa directa, usá /vouchers/nubox.
+            Si quieres un voucher 100% Empresa directa, usá /vouchers/nubox.
 
             Detrás de la UI, `asignaFinanciamiento` queda forzado a `true`
             siempre — la lógica de validación del editor de % y del
@@ -843,14 +843,14 @@ export default function VoucherCorfoPage() {
                   cuenta{cuentasFaltantes === 1 ? "" : "s"} sin configurar
                 </p>
                 <p className="text-[11px] text-negative/85 leading-relaxed">
-                  Antes de crear el voucher, andá a{" "}
+                  Antes de crear el voucher, ve a{" "}
                   <Link
                     href={`/admin/proyectos-contables/${proyectoCodigo}` as Route}
                     className="underline font-semibold"
                   >
                     /admin/proyectos-contables/{proyectoCodigo}
                   </Link>{" "}
-                  y completá la sección &quot;Reparto default → Cuentas contables&quot;.
+                  y completa la sección &quot;Reparto default → Cuentas contables&quot;.
                   Sin estas, el backend rechazará el POST con{" "}
                   <code className="font-mono">&quot;Cuenta &apos;?&apos; no existe&quot;</code>.
                 </p>
@@ -869,7 +869,7 @@ export default function VoucherCorfoPage() {
             disabled={!canSubmit}
             onClick={() => createMut.mutate("DRAFT")}
             className="inline-flex items-center gap-1.5 rounded-xl border border-cehta-green/30 bg-white px-5 py-2 text-sm font-semibold text-cehta-green hover:bg-cehta-green/5 disabled:opacity-60"
-            title="Guardar el voucher como borrador. Después podés editarlo o enviarlo a aprobación desde el detalle."
+            title="Guardar el voucher como borrador. Después puedes editarlo o enviarlo a aprobación desde el detalle."
           >
             <FileText className="h-4 w-4" strokeWidth={1.75} />
             {createMut.isPending && createMut.variables === "DRAFT"

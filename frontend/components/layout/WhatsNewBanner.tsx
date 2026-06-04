@@ -90,7 +90,7 @@ export function WhatsNewBanner() {
           </span>
         </div>
         <h3 className="mt-1 font-display text-lg font-semibold text-ink-900">
-          R152 está acá — 3 herramientas nuevas
+          R152 está aquí — 3 herramientas nuevas
         </h3>
         <p className="mt-0.5 text-xs text-ink-500">
           Probalas cuando tengas un minuto. Si algo no se entiende, usá el botón

@@ -38,7 +38,7 @@ type DeliveryRow = WebhookDeliveryRead;
  * Lista de event types disponibles + estado de wiring real.
  *
  * `wired=true` → el handler del backend dispara este event en mutaciones
- * reales. Si está `false`, podés crear la suscripción pero nunca llegan
+ * reales. Si está `false`, puedes crear la suscripción pero nunca llegan
  * eventos (excepto via "test" manual).
  *
  * Wiring verificado en commits 23c0019, 10ed75e, 24635b4.
@@ -132,7 +132,7 @@ export default function WebhooksPage() {
 
   const submit = async () => {
     if (!form.name || !form.target_url || form.events.size === 0) {
-      toast.error("Completá nombre, URL y al menos 1 evento");
+      toast.error("Completa nombre, URL y al menos 1 evento");
       return;
     }
     try {
@@ -164,7 +164,7 @@ export default function WebhooksPage() {
     try {
       await testMut.mutateAsync(id);
       toast.success(
-        "Evento test disparado — revisá deliveries en unos segundos",
+        "Evento test disparado — revisa deliveries en unos segundos",
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Falló el test");
@@ -213,7 +213,7 @@ export default function WebhooksPage() {
       {createdSecret && (
         <Surface className="border border-positive/30 bg-positive/5 ring-1 ring-positive/20">
           <Surface.Title className="text-positive">
-            Webhook creado · guardá el secret AHORA
+            Webhook creado · guarda el secret AHORA
           </Surface.Title>
           <Surface.Subtitle>
             El secret no se vuelve a mostrar. Copialo y pegalo en tu sistema
@@ -377,7 +377,7 @@ export default function WebhooksPage() {
         <EmptyState
           icon={Webhook}
           title="Sin webhooks configurados"
-          description="Configurá webhooks para integrarte con sistemas externos."
+          description="Configura webhooks para integrarte con sistemas externos."
         />
       ) : (
         <div className="space-y-3">

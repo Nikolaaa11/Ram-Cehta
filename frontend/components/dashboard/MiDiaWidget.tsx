@@ -11,7 +11,7 @@
  *
  * Filosofía: el dashboard ejecutivo muestra estado del Fondo. Este
  * widget muestra estado de TUS pendientes. Al inicio del día, mirás
- * acá y sabés qué priorizar.
+ * aquí y sabes qué priorizar.
  */
 import {
   AlertTriangle,
@@ -118,7 +118,7 @@ export function MiDiaWidget() {
               <Surface.Title>{saludoSegunHora()}</Surface.Title>
               <Surface.Subtitle>
                 {totalAcciones === 0
-                  ? "Todo al día — no tenés nada urgente que hacer ahora."
+                  ? "Todo al día — no tienes nada urgente que hacer ahora."
                   : `Tienes ${totalAcciones} cosa${totalAcciones !== 1 ? "s" : ""} que requieren atención.`}
               </Surface.Subtitle>
             </div>

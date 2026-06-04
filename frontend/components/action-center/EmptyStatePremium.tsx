@@ -32,7 +32,7 @@ export function EmptyStatePremium() {
           Caja regulatoria al día
         </h2>
         <p className="max-w-md text-sm text-ink-500">
-          No tenés nada urgente por los próximos 90 días.
+          No tienes nada urgente por los próximos 90 días.
         </p>
       </div>
     </div>

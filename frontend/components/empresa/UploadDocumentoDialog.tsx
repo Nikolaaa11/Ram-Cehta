@@ -105,7 +105,7 @@ export function UploadDocumentoDialog({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Seleccioná un archivo");
+      if (!file) throw new Error("Selecciona un archivo");
       const formData = new FormData();
       formData.append("tipo", tipo);
       formData.append("file", file);
@@ -203,7 +203,7 @@ export function UploadDocumentoDialog({
                 <>
                   <Upload className="h-8 w-8 text-ink-300" strokeWidth={1.5} />
                   <p className="mt-2 text-sm font-medium text-ink-700">
-                    Click o arrastrá un archivo
+                    Click o arrastra un archivo
                   </p>
                   <p className="text-xs text-ink-500">PDF, DOCX, JPG, PNG</p>
                 </>

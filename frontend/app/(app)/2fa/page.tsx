@@ -81,7 +81,7 @@ export default function TwoFactorPage() {
 
   const handleDisable = async () => {
     if (disableCode.length < 6) {
-      toast.error("Ingresá un código válido (6 dígitos o backup XXXX-XXXX)");
+      toast.error("Ingresa un código válido (6 dígitos o backup XXXX-XXXX)");
       return;
     }
     try {

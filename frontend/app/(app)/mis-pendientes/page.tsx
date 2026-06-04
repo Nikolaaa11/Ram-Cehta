@@ -208,28 +208,28 @@ export default function MisPendientesPage() {
           icon={<FileEdit className="size-5 text-amber-500" />}
           label="Borradores propios"
           value={draftsCount}
-          subtitle="Vouchers que vos creaste y debés completar"
+          subtitle="Vouchers que tú creaste y debes completar"
           tone="warn"
         />
         <Card
           icon={<PenTool className="size-5 text-blue-500" />}
           label="Esperan tu firma"
           value={pendingCount}
-          subtitle="Vouchers PENDING en empresas que aprobás"
+          subtitle="Vouchers PENDING en empresas que apruebas"
           tone="info"
         />
         <Card
           icon={<Download className="size-5 text-cehta-green" />}
           label="Listos para pagar"
           value={approvedReadyCount}
-          subtitle="APPROVED — descargá la planilla en Confirmar pagos"
+          subtitle="APPROVED — descarga la planilla en Confirmar pagos"
           tone="success"
         />
         <Card
           icon={<Building2 className="size-5 text-ink-700" />}
           label="Tus empresas"
           value={empresas.length}
-          subtitle="Empresas donde podés trabajar"
+          subtitle="Empresas donde puedes trabajar"
         />
       </div>
 
@@ -326,7 +326,7 @@ export default function MisPendientesPage() {
           <EmptyState
             icon={CheckCircle2}
             title="Sin pendientes"
-            description="¡Estás al día! No tenés tareas pendientes ni pagos por confirmar."
+            description="¡Estás al día! No tienes tareas pendientes ni pagos por confirmar."
             tone="positive"
           />
         )}
@@ -341,7 +341,7 @@ export default function MisPendientesPage() {
         </div>
         {empresas.length === 0 ? (
           <p className="text-sm text-ink-500">
-            No tenés empresas asignadas. Contactá al admin.
+            No tienes empresas asignadas. Contacta al admin.
           </p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

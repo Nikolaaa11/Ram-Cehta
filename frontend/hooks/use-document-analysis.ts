@@ -83,7 +83,7 @@ export function useDocumentAnalysis() {
   const analyze = useCallback(
     async (file: File, tipo: AnalysisTipo): Promise<AnalysisResult | null> => {
       if (!file) {
-        setError("Seleccioná un archivo primero.");
+        setError("Selecciona un archivo primero.");
         return null;
       }
       setAnalyzing(true);

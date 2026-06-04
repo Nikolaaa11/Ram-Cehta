@@ -208,7 +208,7 @@ export function UsersTable() {
         <EmptyState
           icon={UserPlus}
           title="Sin usuarios"
-          description="No hay usuarios registrados. Agregá el primero con el botón “Invitar usuario”."
+          description="No hay usuarios registrados. Agrega el primero con el botón “Invitar usuario”."
         />
       )}
 
@@ -243,7 +243,7 @@ export function UsersTable() {
                         {u.email ?? "—"}
                         {isSelf && (
                           <span className="ml-2 text-xs text-ink-500">
-                            (vos)
+                            (tú)
                           </span>
                         )}
                       </td>
@@ -344,7 +344,7 @@ export function UsersTable() {
               Revocar acceso
             </DialogTitle>
             <DialogDescription>
-              ¿Seguro que querés revocar el acceso de{" "}
+              ¿Seguro que quieres revocar el acceso de{" "}
               <strong className="text-ink-900">
                 {confirmDelete?.email ?? "este usuario"}
               </strong>

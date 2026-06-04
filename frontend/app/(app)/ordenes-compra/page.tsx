@@ -289,7 +289,7 @@ export default function OrdenesCompraPage() {
             </div>
             <p className="mt-1 text-sm text-ink-500">
               {tab === "mailbox"
-                ? "Mails con OCs llegados al correo institucional. Auto-crear desde acá o correr el cron."
+                ? "Mails con OCs llegados al correo institucional. Auto-crear desde aquí o correr el cron."
                 : "OCs firmadas: enviar al GG por mail y generar los vouchers correspondientes."}
             </p>
           </div>

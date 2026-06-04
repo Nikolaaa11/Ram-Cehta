@@ -3,7 +3,7 @@
 /**
  * /vouchers/desde-mensaje — V5++ ola CF
  *
- * El usuario pega un texto crudo (email, WhatsApp, nota, lo que sea) y la
+ * El usuario trabajo un texto crudo (email, WhatsApp, nota, lo que sea) y la
  * IA arma un voucher DRAFT pre-llenado con los datos extraidos. Después
  * revisa en el form Nubox-style y confirma.
  *

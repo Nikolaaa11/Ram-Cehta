@@ -46,7 +46,7 @@ export const toCLP = (value: number | string | null | undefined): string => {
  *   1234567890000  → "$1,2T"   (T = billones)
  *
  * Para montos < 1.000 muestra el número completo. Mantenemos signo (negativo).
- * Si querés precisión exacta (UI tooltip, exports), seguí usando toCLP.
+ * Si quieres precisión exacta (UI tooltip, exports), seguí usando toCLP.
  */
 export function toCLPCompact(
   value: number | string | null | undefined,

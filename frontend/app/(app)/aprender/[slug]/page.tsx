@@ -137,7 +137,7 @@ export default function ModuloPage({
         <section className="mt-8 rounded-2xl border border-hairline bg-white p-6 shadow-card">
           <h2 className="text-xl font-semibold text-ink-900">Quiz</h2>
           <p className="mt-1 text-xs text-ink-500">
-            Aprobás con 70% o más. Tu mejor score se guarda.
+            Apruebas con 70% o más. Tu mejor score se guarda.
           </p>
           <div className="mt-6 space-y-6">
             {mod.quiz.map((q, qIdx) => (

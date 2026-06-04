@@ -212,7 +212,7 @@ export default function FondosPage() {
           </p>
           <p className="mt-1 text-sm text-ink-500">
             {canCreate
-              ? "Agregá el primer fondo con + Nuevo fondo o importá desde Dropbox."
+              ? "Agrega el primer fondo con + Nuevo fondo o importa desde Dropbox."
               : "Pedile a un admin que cargue el pipeline de fondos."}
           </p>
         </Surface>

@@ -88,7 +88,7 @@ export function ScopeViolationsTable() {
               </h3>
               <p className="mt-0.5 text-sm text-ink-500 max-w-xl">
                 Cada vez que un usuario sin acceso intenta ver datos de
-                otra empresa, queda registrado acá. Si ves muchas
+                otra empresa, queda registrado aquí. Si ves muchas
                 tentativas del mismo user en poco tiempo, podría ser
                 config incorrecta o malicia.
               </p>

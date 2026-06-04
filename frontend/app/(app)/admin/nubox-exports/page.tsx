@@ -7,7 +7,7 @@
  *   1. Generar batch (empresa + rango de fechas) → CSV con todos los
  *      vouchers APPROVED no exportados
  *   2. Descargar CSV → cargar en Nubox manualmente
- *   3. Volver acá → "Confirmar folios" ingresando los folios devueltos
+ *   3. Volver aquí → "Confirmar folios" ingresando los folios devueltos
  *      por Nubox para cada voucher
  *   4. Si algo sale mal → "Cancelar" libera los vouchers para re-export
  */
@@ -179,7 +179,7 @@ export default function NuboxExportsPage() {
             </h1>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-600">
               Acumulá vouchers APPROVED en un batch CSV con formato Nubox,
-              cargalo manualmente en el sistema contable, y volvé acá a
+              cárgalo manualmente en el sistema contable, y volvé aquí a
               ingresar los folios devueltos. La trazabilidad queda completa.
             </p>
           </div>
@@ -497,7 +497,7 @@ function GenerateBatchDialog({
       toast.success(
         `Batch #${res.batch_id} generado · ${res.voucher_count} vouchers`,
         {
-          description: `Total ${fmtCLP(Number(res.total_debit))}. Descarga el CSV y cargalo en Nubox.`,
+          description: `Total ${fmtCLP(Number(res.total_debit))}. Descarga el CSV y cárgalo en Nubox.`,
           duration: 8000,
         },
       );
@@ -710,8 +710,8 @@ function ConfirmFoliosDialog({
               <div className="rounded-xl border border-info/20 bg-info/5 p-3 text-[11px] text-ink-700">
                 <p className="font-semibold">Tip:</p>
                 <p className="mt-0.5">
-                  Si solo querés marcar el batch como confirmado sin asignar
-                  folios individuales, dejá los inputs vacíos y enviá. Los
+                  Si solo quieres marcar el batch como confirmado sin asignar
+                  folios individuales, dejá los inputs vacíos y envía. Los
                   folios se pueden agregar después por voucher.
                 </p>
               </div>

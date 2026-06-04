@@ -193,7 +193,7 @@ export default function ClaudiaHomePage() {
           </h1>
           <p className="mt-2 max-w-2xl text-base text-ink-600">
             Este es tu workspace para coordinar la ejecución del subsidio CORFO
-            entre <strong>REVTECH</strong> y <strong>TRONGKAI</strong>. Acá
+            entre <strong>REVTECH</strong> y <strong>TRONGKAI</strong>. Aquí
             tienes las acciones del día, el estado del mes, y la guía del flujo
             completo.
           </p>

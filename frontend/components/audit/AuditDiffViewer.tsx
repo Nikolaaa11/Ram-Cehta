@@ -22,7 +22,7 @@ interface AuditDiffViewerProps {
 }
 
 // Diccionario de field names → labels amigables.
-// Si una key no está acá, se usa el snake_case original.
+// Si una key no está aquí, se usa el snake_case original.
 const FIELD_LABELS: Record<string, string> = {
   estado: "Estado",
   fecha_entrega_real: "Fecha entrega real",

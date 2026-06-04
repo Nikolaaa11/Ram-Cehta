@@ -445,11 +445,11 @@ export default function ProveedoresPage() {
                   Detectamos proveedores que parecen ser el mismo.
                 </p>
                 <p className="mt-1 text-ink-500">
-                  Agrupamos por razón social normalizada. En cada fila tenés
+                  Agrupamos por razón social normalizada. En cada fila tienes
                   un botón <b>&ldquo;Fusionar en →&rdquo;</b> que mueve todos los vouchers
                   y OCs de ese duplicado al &ldquo;ganador&rdquo; que elijas, y soft-deleta
                   el duplicado. Esto es <b>reversible</b> via /admin/audit
-                  (action=merge) pero es una operación delicada — verificá
+                  (action=merge) pero es una operación delicada — verifica
                   bien antes.
                 </p>
               </div>

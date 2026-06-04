@@ -42,7 +42,7 @@ export function ESGImpactSection({ informe }: Props) {
       (informe.live_data?.lp as { nombre?: string } | null | undefined)
         ?.nombre
     ) ??
-    "Vos";
+    "Tú";
 
   return (
     <section className="relative overflow-hidden bg-gradient-to-br from-positive/5 via-white to-cehta-green/5 px-6 py-20 sm:py-24">

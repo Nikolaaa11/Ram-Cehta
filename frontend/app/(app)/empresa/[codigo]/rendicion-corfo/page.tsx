@@ -368,7 +368,7 @@ export default function EmpresaRendicionCorfoPage({ params }: Props) {
           <ChecklistItem
             done={false}
             label="Comprobante físico + glosa CORFO específica"
-            desc="Las celdas amarillas del Excel son lo que tenés que completar a mano: receptor de la boleta, glosa CORFO, comprobante adjunto al portal."
+            desc="Las celdas amarillas del Excel son lo que tienes que completar a mano: receptor de la boleta, glosa CORFO, comprobante adjunto al portal."
             warn
           />
         </ul>

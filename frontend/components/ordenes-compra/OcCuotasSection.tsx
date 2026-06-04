@@ -256,7 +256,7 @@ export function OcCuotasSection({
         <div className="rounded-2xl border-2 border-dashed border-hairline bg-ink-50/30 p-8 text-center">
           <Calendar className="mx-auto h-10 w-10 text-ink-300" strokeWidth={1.5} />
           <p className="mt-3 text-sm text-ink-500">
-            Esta OC no está dividida en cuotas. Hacé split equitativo arriba para
+            Esta OC no está dividida en cuotas. Haz split equitativo arriba para
             generar el desglose.
           </p>
         </div>

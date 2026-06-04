@@ -294,7 +294,7 @@ export default function AiInsightsPage() {
           <p className="mt-1 text-sm text-ink-500">
             {includeDismissed
               ? "No hay insights cerrados todavía."
-              : "Sin anomalías detectadas. El cron corre cada noche y aparecerán acá si hay algo."}
+              : "Sin anomalías detectadas. El cron corre cada noche y aparecerán aquí si hay algo."}
           </p>
           {!includeDismissed && (
             <button

@@ -89,7 +89,7 @@ export default function ApiTokensPage() {
   };
 
   const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`¿Eliminar permanentemente el token "${name}"? Si solo querés deshabilitarlo, mejor revocá.`)) return;
+    if (!window.confirm(`¿Eliminar permanentemente el token "${name}"? Si solo quieres deshabilitarlo, mejor revocá.`)) return;
     await deleteMut.mutateAsync(id);
     toast.success("Token eliminado");
   };

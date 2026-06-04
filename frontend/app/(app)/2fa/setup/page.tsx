@@ -95,7 +95,7 @@ export default function TwoFactorSetupPage() {
   const handleVerificar = async () => {
     const code = digits.join("");
     if (code.length !== 6) {
-      toast.error("Ingresá los 6 dígitos");
+      toast.error("Ingresa los 6 dígitos");
       return;
     }
     try {
@@ -103,7 +103,7 @@ export default function TwoFactorSetupPage() {
       setStep(4);
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : "Código inválido — probá de nuevo",
+        err instanceof Error ? err.message : "Código inválido — prueba de nuevo",
       );
       setDigits(["", "", "", "", "", ""]);
       inputsRef.current[0]?.focus();
@@ -183,7 +183,7 @@ export default function TwoFactorSetupPage() {
               Configurar autenticación en 2 pasos
             </h1>
             <p className="mt-2 max-w-md text-sm text-ink-500">
-              Sumá una capa extra de seguridad: además de tu contraseña, vas a
+              Suma una capa extra de seguridad: además de tu contraseña, vas a
               ingresar un código de 6 dígitos generado por una app
               autenticadora.
             </p>
@@ -237,7 +237,7 @@ export default function TwoFactorSetupPage() {
           <Surface.Header>
             <Surface.Title>Escaneá el código QR</Surface.Title>
             <Surface.Subtitle>
-              Abrí tu app autenticadora y escaneá esta imagen.
+              Abre tu app autenticadora y escaneá esta imagen.
             </Surface.Subtitle>
           </Surface.Header>
           <div className="mt-4 flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -254,7 +254,7 @@ export default function TwoFactorSetupPage() {
             <div className="flex-1 space-y-3">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wider text-ink-500">
-                  Si no podés escanear, ingresá manualmente
+                  Si no puedes escanear, ingresa manualmente
                 </p>
                 <div className="mt-1.5 flex items-center gap-2 rounded-xl border border-hairline bg-white p-2.5">
                   <code className="flex-1 break-all font-mono text-xs text-ink-900">
@@ -301,7 +301,7 @@ export default function TwoFactorSetupPage() {
       {step === 3 && (
         <Surface>
           <Surface.Header>
-            <Surface.Title>Ingresá el código de 6 dígitos</Surface.Title>
+            <Surface.Title>Ingresa el código de 6 dígitos</Surface.Title>
             <Surface.Subtitle>
               Mira tu app autenticadora y tipeá el número que aparece para
               Cehta Capital.

@@ -161,7 +161,7 @@ export function ResetDataButton({
           <div className="mt-4 rounded-xl bg-amber-50/60 ring-1 ring-amber-200/60 p-3 text-xs text-amber-800">
             <p className="font-semibold mb-1">⚠️ Esta acción NO se puede deshacer.</p>
             <p>
-              Quedará registro en la bitácora (quién borró, cuándo, qué). Si tenés
+              Quedará registro en la bitácora (quién borró, cuándo, qué). Si tienes
               dudas, mejor cancelá y consultá.
             </p>
           </div>

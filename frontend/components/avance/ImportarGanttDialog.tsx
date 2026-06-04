@@ -263,7 +263,7 @@ export function ImportarGanttDialog({
 
               <div className="relative my-3 flex items-center gap-2 text-[10px] uppercase tracking-wider text-ink-400">
                 <div className="h-px flex-1 bg-hairline" />
-                <span>o subí un archivo manualmente</span>
+                <span>o sube un archivo manualmente</span>
                 <div className="h-px flex-1 bg-hairline" />
               </div>
 
@@ -405,10 +405,10 @@ function UploadStep({
             strokeWidth={1.5}
           />
           <p className="text-base font-medium text-ink-900">
-            Arrastrá el Excel acá
+            Arrastra el Excel aquí
           </p>
           <p className="mt-1 text-xs text-ink-500">
-            o hacé click para seleccionarlo · .xlsx / .xlsm · máx 5 MB
+            o haz click para seleccionarlo · .xlsx / .xlsm · máx 5 MB
           </p>
           <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white hover:bg-cehta-green-700">
             <Upload className="h-4 w-4" strokeWidth={2} />

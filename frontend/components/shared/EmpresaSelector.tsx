@@ -16,10 +16,10 @@
  *   const [empresa, setEmpresa] = useState<string>("");
  *   <EmpresaSelector value={empresa} onChange={setEmpresa} />
  *
- * Si querés desactivar la opción "Todas":
+ * Si quieres desactivar la opción "Todas":
  *   <EmpresaSelector value={empresa} onChange={setEmpresa} required />
  *
- * Si querés esconder el selector cuando solo hay 1 empresa accesible:
+ * Si quieres esconder el selector cuando solo hay 1 empresa accesible:
  *   <EmpresaSelector value={empresa} onChange={setEmpresa} hideIfSingle />
  */
 import * as React from "react";

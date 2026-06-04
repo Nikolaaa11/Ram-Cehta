@@ -159,7 +159,7 @@ export function OcEditForm({ initialData }: Props) {
         </h1>
         <p className="mt-1 text-sm text-ink-500">
           Sólo se pueden editar campos no-críticos. Los ítems, montos, número
-          y estado no son modificables desde acá.
+          y estado no son modificables desde aquí.
         </p>
       </header>
 

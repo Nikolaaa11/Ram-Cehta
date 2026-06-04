@@ -29,7 +29,7 @@ export function CajaAlDiaState() {
         </h2>
         <p className="mt-2 max-w-md text-sm text-ink-500">
           Volvé cuando haya vouchers nuevos aprobados. Los pagos APPROVED
-          aparecen acá automáticamente para que los confirmes en lote.
+          aparecen aquí automáticamente para que los confirmes en lote.
         </p>
       </div>
     </div>

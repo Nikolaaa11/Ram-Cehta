@@ -75,7 +75,7 @@ export function BulkActionBar({
         toast.error(`Falló: ${result.failed[0]?.detail ?? "razón desconocida"}`);
       } else {
         toast.warning(
-          `${ok} actualizad${ok === 1 ? "a" : "as"}, ${failed} fallaron — revisá la auditoría`,
+          `${ok} actualizad${ok === 1 ? "a" : "as"}, ${failed} fallaron — revisa la auditoría`,
         );
       }
       // Invalidar todas las queries afectadas

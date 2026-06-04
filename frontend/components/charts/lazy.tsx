@@ -7,7 +7,7 @@
  * Sparkline arrastra todo el bundle de recharts al first-load.
  *
  * Esta capa lo separa: las páginas que tienen MUCHOS charts (dashboards,
- * pero NO above-the-fold de páginas de transacción) importan desde acá
+ * pero NO above-the-fold de páginas de transacción) importan desde aquí
  * y reciben las versiones con next/dynamic + ssr:false + skeleton.
  *
  * Resultado: el shell de la página llega 80kB más liviano, los charts

@@ -47,7 +47,7 @@ export function TwoFactorBanner() {
           />
         </span>
         <p className="flex-1 text-sm text-ink-900">
-          <span className="font-semibold">Como admin, debés activar 2FA.</span>{" "}
+          <span className="font-semibold">Como admin, debes activar 2FA.</span>{" "}
           <span className="text-ink-700">
             Algunas acciones críticas (crear usuarios, webhooks, enviar digest)
             requieren autenticación de dos factores.

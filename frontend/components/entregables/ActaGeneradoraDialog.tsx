@@ -357,7 +357,7 @@ export function ActaGeneradoraDialog({
 
             <div className="rounded-xl border border-warning/20 bg-warning/5 p-3 text-[11px] text-ink-700">
               ⚠ Este es un <strong>borrador AI</strong>. Antes de imprimir o
-              llevar al Comité, revisá: nombres de asistentes, sentencias
+              llevar al Comité, revisa: nombres de asistentes, sentencias
               numéricas vs auditoría externa, formato legal exigido por el
               Reglamento Interno protocolizado.
             </div>

@@ -157,7 +157,7 @@ export function ShareCard({ token, onClose }: Props) {
                   onChange={(e) => setMensaje(e.target.value)}
                   rows={3}
                   maxLength={500}
-                  placeholder="Pablo, mirá esto. PE chileno con tracción real en BESS y minería ESG."
+                  placeholder="Pablo, mira esto. PE chileno con tracción real en BESS y minería ESG."
                   className="w-full rounded-xl border-0 bg-ink-50 px-4 py-3 text-sm ring-1 ring-hairline transition-all focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                 />
                 <p className="mt-1 text-right text-[10px] text-ink-400">

@@ -142,7 +142,7 @@ type NavGroup = {
 };
 
 // R152ss — Whitelist de emails con acceso al grupo ClaudIA.
-// Editar acá si hay que sumar más coordinadores. Los admins siempre tienen
+// Editar aquí si hay que sumar más coordinadores. Los admins siempre tienen
 // acceso (ver predicado en el grupo).
 const CLAUDIA_GROUP_EMAILS = new Set([
   "claudia@trongkai.com",
@@ -307,7 +307,7 @@ const GROUPS: NavGroup[] = [
   },
   // R152ss — Grupo ClaudIA · Coordinación CORFO 2024-265638 (REVTECH+TRONGKAI).
   // Acceso restringido por whitelist + dominios + admin. Claudia coordina
-  // todo lo del subsidio CORFO desde acá: creación de vouchers, reparto por
+  // todo lo del subsidio CORFO desde aquí: creación de vouchers, reparto por
   // fuente de financiamiento (CORFO/P-tec/Empresa), rendiciones oficiales,
   // y dashboard de ejecución del fondo $3.000MM.
   {
@@ -646,7 +646,7 @@ const GROUPS: NavGroup[] = [
       {
         // V4 fase 2: 2FA TOTP. Visible bajo "Admin" (mismo grupo que el
         // resto de configuración sensible). El target page acepta a
-        // cualquier rol — la entrada está acá porque admins son quienes
+        // cualquier rol — la entrada está aquí porque admins son quienes
         // están bloqueados en endpoints high-impact si no activan 2FA.
         href: "/2fa" as Route,
         label: "Configuración 2FA",

@@ -269,7 +269,7 @@ export function RendicionDescargaSection({ empresa, variant = "compact" }: Props
           </p>
         )}
 
-        {/* Checklist de qué hacemos por vos */}
+        {/* Checklist de qué hacemos por tú */}
         {variant === "full" && (
           <div className="mt-5 rounded-2xl border border-hairline bg-white p-4">
             <div className="mb-2 flex items-center gap-2">

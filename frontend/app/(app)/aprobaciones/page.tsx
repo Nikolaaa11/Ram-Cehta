@@ -195,7 +195,7 @@ export default function AprobacionesPage() {
 
   // Para bulk approve necesitamos que TODOS los seleccionados tengan el
   // mismo rol pendiente (porque el endpoint firma con un solo rol). Si
-  // mezclás GG + DIRECTOR no podés bulk — el botón se deshabilita.
+  // mezclás GG + DIRECTOR no puedes bulk — el botón se deshabilita.
   const selectedRoles = useMemo(() => {
     const roles = new Set(selectedItems.map((i) => i.mi_rol_para_firmar));
     return Array.from(roles);
@@ -296,7 +296,7 @@ export default function AprobacionesPage() {
               Esperando tu firma
             </h1>
             <p className="mt-2 text-sm md:text-base text-ink-500 max-w-2xl">
-              Solo aparecen los vouchers donde sos el próximo aprobador. La
+              Solo aparecen los vouchers donde eres el próximo aprobador. La
               cola se ordena por antigüedad — los más viejos primero.
             </p>
           </div>
@@ -382,10 +382,10 @@ export default function AprobacionesPage() {
           </p>
           <p className="mt-1 text-sm text-ink-500">
             {approvedReady > 0
-              ? `Tienes ${approvedReady} voucher${approvedReady > 1 ? "s" : ""} APPROVED listo${approvedReady > 1 ? "s" : ""} para transferir — bajá la planilla y cargala al banco.`
+              ? `Tienes ${approvedReady} voucher${approvedReady > 1 ? "s" : ""} APPROVED listo${approvedReady > 1 ? "s" : ""} para transferir — bajá la planilla y cárgala al banco.`
               : draftsMine > 0
-                ? `No esperás firmas. Te quedan ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación.`
-                : "No tenés vouchers esperando tu firma. Buen trabajo."}
+                ? `No esperas firmas. Te quedan ${draftsMine} borrador${draftsMine > 1 ? "es" : ""} sin enviar a aprobación.`
+                : "No tienes vouchers esperando tu firma. Buen trabajo."}
           </p>
           <div className="mt-4 flex items-center justify-center gap-3 flex-wrap">
             {approvedReady > 0 ? (

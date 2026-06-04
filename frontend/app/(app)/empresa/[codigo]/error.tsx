@@ -50,7 +50,7 @@ export default function EmpresaErrorBoundary({
                 Reintentar
               </button>
               <p className="text-xs text-ink-500">
-                Si persiste, verificá que el backend esté actualizado:{" "}
+                Si persiste, verifica que el backend esté actualizado:{" "}
                 <code className="rounded bg-ink-100/60 px-1 py-0.5">
                   flyctl deploy
                 </code>

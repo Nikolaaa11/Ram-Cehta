@@ -212,7 +212,7 @@ export function ProyectoCard({
               <span>Hitos ({proyecto.hitos.length})</span>
               {canEdit && proyecto.hitos.length > 1 && (
                 <span className="text-[10px] font-normal normal-case tracking-normal text-ink-400">
-                  Arrastrá para reordenar
+                  Arrastra para reordenar
                 </span>
               )}
             </h4>

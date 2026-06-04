@@ -162,7 +162,7 @@ export default function SolicitudesPagoPage() {
         <EmptyState
           icon={Wallet}
           title="Sin solicitudes de pago"
-          description="Cuando alguien solicite un pago, va a aparecer acá."
+          description="Cuando alguien solicite un pago, va a aparecer aquí."
         />
       )}
 

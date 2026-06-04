@@ -274,7 +274,7 @@ export function F22ClientView({ initialEmpresas, initialF22Page }: Props) {
                       <strong>{empresaFilter}</strong>.
                     </p>
                     <p className="mt-1 text-xs text-ink-500">
-                      Después podés re-sincronizar desde Dropbox con
+                      Después puedes re-sincronizar desde Dropbox con
                       &quot;Sync Dropbox · {empresaFilter}&quot; para traer la versión actualizada.
                     </p>
                   </>
@@ -550,7 +550,7 @@ export function F22ClientView({ initialEmpresas, initialF22Page }: Props) {
           <div className="flex flex-col items-center gap-3 p-12 text-center">
             <Calendar className="h-10 w-10 text-ink-300" strokeWidth={1.25} />
             <p className="text-sm text-ink-500">
-              Sin F22 registrados. Tocá &ldquo;Sync Dropbox&rdquo; para
+              Sin F22 registrados. Haz clic en &ldquo;Sync Dropbox&rdquo; para
               importar de la cuenta Cehta o &ldquo;Nuevo F22&rdquo; para crear
               manualmente.
             </p>

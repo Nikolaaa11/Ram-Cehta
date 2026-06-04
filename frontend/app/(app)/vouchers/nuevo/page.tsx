@@ -372,7 +372,7 @@ export default function NuevoVoucherPage() {
       return;
     }
     if (lines.length === 0) {
-      toast.error("Agregá al menos una línea");
+      toast.error("Agrega al menos una línea");
       return;
     }
 
@@ -391,7 +391,7 @@ export default function NuevoVoucherPage() {
         return;
       }
       if (d === 0 && c === 0) {
-        toast.error(`Línea ${i + 1}: ingresá un monto en debe o haber`);
+        toast.error(`Línea ${i + 1}: ingresa un monto en debe o haber`);
         return;
       }
     }
@@ -406,7 +406,7 @@ export default function NuevoVoucherPage() {
     }
 
     if (tipoMeta.needsTaxDoc && !docTributarioFolio.trim()) {
-      toast.error(`${tipoMeta.label}: ingresá el folio del documento tributario`);
+      toast.error(`${tipoMeta.label}: ingresa el folio del documento tributario`);
       return;
     }
 
@@ -507,7 +507,7 @@ export default function NuevoVoucherPage() {
           </h1>
           <p className="mt-2 text-sm text-ink-500">
             Encabezado + N líneas con imputación triple. La partida doble se
-            valida en vivo — no podés enviar a aprobación con descuadre.
+            valida en vivo — no puedes enviar a aprobación con descuadre.
           </p>
           {fromEmailId && (
             <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-cehta-green/30 bg-cehta-green/5 px-3 py-2 text-xs text-cehta-green">
@@ -666,7 +666,7 @@ export default function NuevoVoucherPage() {
                     value={documentoDropboxPath}
                     onChange={(e) => setDocumentoDropboxPath(e.target.value)}
                     placeholder="/Cehta Capital/Adjuntos-Vouchers/.../factura.pdf"
-                    title="Path completo en Dropbox del documento soporte. Si está vacío, podés adjuntar archivo desde el detalle del voucher."
+                    title="Path completo en Dropbox del documento soporte. Si está vacío, puedes adjuntar archivo desde el detalle del voucher."
                     className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                   />
                 </Field>

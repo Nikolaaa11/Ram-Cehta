@@ -89,10 +89,10 @@ export function WelcomeBanner() {
           </div>
           <div className="flex-1 pt-0.5">
             <h3 className="text-base font-semibold text-red-900">
-              No tenés empresas asignadas
+              No tienes empresas asignadas
             </h3>
             <p className="mt-1 text-sm text-red-700">
-              No podés crear vouchers ni ver datos. Pedile al admin que te asigne
+              No puedes crear vouchers ni ver datos. Pedile al admin que te asigne
               roles en al menos una empresa desde{" "}
               <code className="rounded bg-red-100 px-1.5 py-0.5 text-xs font-mono">
                 /admin/users
@@ -196,7 +196,7 @@ export function WelcomeBanner() {
             </button>
           </div>
           <p className="mt-1 text-sm text-ink-700">
-            No tenés pendientes. Tus empresas:{" "}
+            No tienes pendientes. Tus empresas:{" "}
             <span className="font-medium">
               {empresas.slice(0, 6).map((e) => e.codigo).join(" · ")}
               {empresas.length > 6 && ` +${empresas.length - 6}`}

@@ -44,7 +44,7 @@ export function PinEmpresaButton({ empresaCodigo, className = "" }: Props) {
         pinned
           ? "Quitar de favoritos"
           : isFull
-          ? `Ya tenés ${MAX_PINNED} pineadas — agregarla saca la más vieja`
+          ? `Ya tienes ${MAX_PINNED} pineadas — agregarla saca la más vieja`
           : "Pinear en favoritos"
       }
       className={`inline-flex h-9 w-9 items-center justify-center rounded-xl border border-hairline bg-white text-ink-600 transition-all duration-150 ease-apple hover:bg-ink-50 disabled:opacity-50 ${

@@ -31,7 +31,7 @@ export interface SystemStatus {
 }
 
 /**
- * Hook que pega `GET /admin/status` con auto-refresh cada 30s.
+ * Hook que trabajo `GET /admin/status` con auto-refresh cada 30s.
  *
  * Diseñado para que el dashboard se mantenga "vivo" mientras el admin lo
  * mira: cada 30s revisa Postgres + métricas; los checks pasivos por

@@ -233,7 +233,7 @@ export default function F29Page() {
                       registrados para <strong>{empresa}</strong>.
                     </p>
                     <p className="mt-1 text-xs text-ink-500">
-                      Después podés re-sincronizar desde Dropbox tocando
+                      Después puedes re-sincronizar desde Dropbox tocando
                       &quot;Sync&quot; para traer la versión actualizada.
                     </p>
                   </>

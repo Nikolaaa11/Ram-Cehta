@@ -346,7 +346,7 @@ export default function EstadosFinancierosPage() {
             icon={<FileBarChart strokeWidth={1.5} />}
             eyebrow="Estados financieros · Portafolio"
             title="Sincronizá tus EEFF desde Dropbox"
-            body="Balance, Estado de Resultados, Flujo de Caja y notas por empresa portfolio + período. El ETL hourly los importa solo desde /04-Financiero/Estados Financieros/, también podés subirlos manualmente."
+            body="Balance, Estado de Resultados, Flujo de Caja y notas por empresa portfolio + período. El ETL hourly los importa solo desde /04-Financiero/Estados Financieros/, también puedes subirlos manualmente."
             ctaLabel="Cargar primer EEFF"
             onCta={() => setShowCreate(true)}
             hint="El próximo run del ETL hourly va a sincronizar los archivos que ya tengas en Dropbox."

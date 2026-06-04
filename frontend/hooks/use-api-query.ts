@@ -45,7 +45,7 @@ export function useApiQuery<T>(
     enabled: !loading && (enabled ?? true),
     // R152ccc — los defaults DE TODA LA APP ya están en components/providers.tsx
     // (staleTime 2min, gcTime 10min, refetchOnWindowFocus false, retry 1).
-    // Acá NO hacemos override de staleTime — heredamos del QueryClient global.
+    // Aquí NO hacemos override de staleTime — heredamos del QueryClient global.
     // Si la page necesita comportamiento distinto, pasalo en opts.
     ...opts,
   });

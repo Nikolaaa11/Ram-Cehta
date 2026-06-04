@@ -251,7 +251,7 @@ export default function DesdeMensajeOcPage() {
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault();
     if (!numeroOc.trim()) {
-      toast.error("Ingresá el número de OC");
+      toast.error("Ingresa el número de OC");
       return;
     }
     if (totalNeto <= 0) {
@@ -312,7 +312,7 @@ export default function DesdeMensajeOcPage() {
           </h1>
           <p className="text-sm text-ink-500 mt-1">
             Pegá el texto de un email, WhatsApp, nota o transcripción. La IA
-            extrae proveedor, items y totales — vos confirmas en el form.
+            extrae proveedor, items y totales — tú confirmas en el form.
           </p>
         </div>
       </div>

@@ -155,7 +155,7 @@ export function TimelineGantt({ empresas }: Props) {
           Sin proyectos con fechas para mostrar
         </p>
         <p className="mt-1 text-sm text-ink-500">
-          Importá Gantts con `fecha_inicio` y `fecha_fin_estimada` definidas.
+          Importa Gantts con `fecha_inicio` y `fecha_fin_estimada` definidas.
         </p>
       </Surface>
     );

@@ -63,7 +63,7 @@ export default function NotFound() {
           Página no encontrada
         </h1>
         <p className="mt-2 max-w-md mx-auto text-sm text-ink-500">
-          La ruta que buscás no existe o fue movida. Te llevamos de vuelta al dashboard.
+          La ruta que buscas no existe o fue movida. Te llevamos de vuelta al dashboard.
         </p>
 
         <div className="mt-8 flex items-center justify-center gap-3">

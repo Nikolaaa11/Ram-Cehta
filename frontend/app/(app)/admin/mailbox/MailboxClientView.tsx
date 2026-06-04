@@ -165,7 +165,7 @@ export function MailboxClientView({ initialItems }: Props) {
       } catch {
         // sessionStorage falla en modo privado — el navigate sigue igual.
       }
-      toast.success("Email cargado. Elige empresa y dale a 'Analizar con IA'.");
+      toast.success("Email cargado. Elige empresa y presiona a 'Analizar con IA'.");
       // Round 7 — SPA navigation (antes hard reload).
       router.push("/vouchers/desde-mensaje?from=mailbox" as Route);
     } catch (err) {
@@ -324,7 +324,7 @@ export function MailboxClientView({ initialItems }: Props) {
     onSuccess: (data) => {
       if (data.candidates === 0) {
         toast.info(
-          "No hay emails de factura clasificados pendientes. Refrescá IMAP o esperá al próximo cron.",
+          "No hay emails de factura clasificados pendientes. Refrescá IMAP o espera al próximo cron.",
         );
       } else {
         const msg =
@@ -673,7 +673,7 @@ export function MailboxClientView({ initialItems }: Props) {
                 strokeWidth={1.25}
               />
               <p className="text-sm text-ink-500">
-                Sin mails procesados. Tocá &ldquo;Refrescar IMAP&rdquo; para
+                Sin mails procesados. Haz clic en &ldquo;Refrescar IMAP&rdquo; para
                 bajar lo nuevo.
               </p>
             </div>

@@ -136,7 +136,7 @@ export default function ImportarVoucherPage() {
   const [queueIndex, setQueueIndex] = useState(0);
 
   // V5++ ola CF — Paste desde clipboard. Cuando el user copia una imagen
-  // (WhatsApp Web, screenshot, etc.) y pega en esta pagina con Ctrl+V,
+  // (WhatsApp Web, screenshot, etc.) y trabajo en esta pagina con Ctrl+V,
   // la procesamos como un upload. Util para no tener que descargar a archivo
   // antes de subir.
   useEffect(() => {
@@ -569,7 +569,7 @@ export default function ImportarVoucherPage() {
               strokeWidth={1.3}
             />
             <p className="mt-4 text-lg font-medium text-ink-900">
-              Arrastrá tu archivo aquí o hacé click para elegir
+              Arrastra tu archivo aquí o haz click para elegir
             </p>
             <p className="mt-2 text-sm text-ink-500">
               PDF, imagen (JPG/PNG/HEIC/WebP/TIFF/GIF), Office (DOCX/PPTX/XLSX),

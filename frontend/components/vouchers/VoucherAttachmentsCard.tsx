@@ -248,7 +248,7 @@ export function VoucherAttachmentsCard({
             <strong className="font-semibold">
               {completo
                 ? "Documentación de importación completa"
-                : "Importación — necesitás 3 documentos para legalizar el Invoice:"}
+                : "Importación — necesitas 3 documentos para legalizar el Invoice:"}
             </strong>
             <ul className="mt-1.5 space-y-0.5">
               <li>{check(tieneInvoice)} <strong>Invoice</strong> — factura del proveedor extranjero</li>
@@ -257,7 +257,7 @@ export function VoucherAttachmentsCard({
             </ul>
             {!completo && (
               <p className="mt-1.5 opacity-80">
-                También podés sumar packing list, B/L, póliza de seguro y SWIFT
+                También puedes sumar packing list, B/L, póliza de seguro y SWIFT
                 como respaldos opcionales.
               </p>
             )}

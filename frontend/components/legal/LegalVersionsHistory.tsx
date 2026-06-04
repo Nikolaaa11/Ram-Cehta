@@ -123,7 +123,7 @@ export function LegalVersionsHistory({ documentoId, trigger }: Props) {
           {isForbidden && (
             <Surface className="bg-warning/5 ring-warning/20">
               <p className="text-sm font-medium text-warning">
-                No tenés permisos para ver el historial de este documento.
+                No tienes permisos para ver el historial de este documento.
               </p>
             </Surface>
           )}

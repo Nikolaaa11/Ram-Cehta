@@ -311,7 +311,7 @@ export default function AgingReportPage() {
         <EmptyState
           icon={Calendar}
           title="Sin cuentas por pagar"
-          description={`A la fecha ${fechaCorte} no hay vouchers APPROVED tipo COMPRA/EGRESO en esta empresa. Si esperás ver datos, verificá que haya vouchers firmados.`}
+          description={`A la fecha ${fechaCorte} no hay vouchers APPROVED tipo COMPRA/EGRESO en esta empresa. Si esperas ver datos, verifica que haya vouchers firmados.`}
         />
       )}
 

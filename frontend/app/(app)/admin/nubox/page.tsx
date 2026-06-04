@@ -8,7 +8,7 @@
  *
  * Flujo manual recomendado (siempre funciona):
  *   1. Bajar el xlsx desde Nubox web (Remuneraciones → Reportes → Libro)
- *   2. Subirlo acá → se parsea y persiste en core.nubox_remuneraciones
+ *   2. Subirlo aquí → se parsea y persiste en core.nubox_remuneraciones
  *   3. Ver resumen + tabla con todos los trabajadores
  *
  * Auto-sync (best-effort, puede fallar si Nubox cambió):
@@ -403,7 +403,7 @@ export default function NuboxAdminPage() {
           </h3>
           <p className="text-xs text-ink-700 mb-3 max-w-2xl">
             En Nubox web: <strong>Remuneraciones → Reportes → Libro de
-            Remuneraciones</strong> → seleccionar período → <strong>Descargar Excel</strong>. Luego subilo acá.
+            Remuneraciones</strong> → seleccionar período → <strong>Descargar Excel</strong>. Luego subilo aquí.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <input

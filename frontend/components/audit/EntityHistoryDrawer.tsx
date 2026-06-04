@@ -190,7 +190,7 @@ export function EntityHistoryDrawer({
             <div className="min-w-0">
               {selected === null ? (
                 <div className="rounded-2xl bg-white/90 p-6 text-center text-sm text-ink-500 ring-1 ring-hairline shadow-card">
-                  Seleccioná una entrada para ver el diff.
+                  Selecciona una entrada para ver el diff.
                 </div>
               ) : detail ? (
                 <AuditDiffViewer

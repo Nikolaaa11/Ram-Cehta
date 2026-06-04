@@ -64,7 +64,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="notifications-bell"]',
     title: "Bell de notificaciones",
     body:
-      "Acá te llegan alertas en tiempo real: nuevas OCs, F29 procesadas, mentions y más.",
+      "Aquí te llegan alertas en tiempo real: nuevas OCs, F29 procesadas, mentions y más.",
     position: "bottom",
   },
   {
@@ -89,7 +89,7 @@ const STEPS: TourStep[] = [
     target: '[data-tour="mailbox"]',
     title: "Inbox · contactocehta@gmail.com",
     body:
-      "Cada email entrante se clasifica con AI y genera un draft de respuesta. Vos revisas y aprobás antes de enviar. Atajos teclado: `gi` para abrir.",
+      "Cada email entrante se clasifica con AI y genera un draft de respuesta. Tú revisas y apruebas antes de enviar. Atajos teclado: `gi` para abrir.",
     position: "right",
   },
   {
@@ -101,13 +101,13 @@ const STEPS: TourStep[] = [
     position: "right",
   },
   // Round 76 — paso del tour para "Confirmar pagos · Planilla". Cierra
-  // el loop mental: voucher creado → aprobado → confirmar el pago acá.
+  // el loop mental: voucher creado → aprobado → confirmar el pago aquí.
   {
     id: "confirmar-pagos",
     target: '[data-tour="confirmar-pagos"]',
     title: "Confirmar pagos · Planilla",
     body:
-      "Una vez que un voucher tiene las 2 firmas (GG + DIRECTOR) queda APPROVED y aparece acá. Seleccioná los que vas a pagar hoy, descargá la planilla Excel y cargala al banco (BCI, Santander, BancoEstado, etc.). Tras confirmar las transferencias, marcalos como EXECUTED.",
+      "Una vez que un voucher tiene las 2 firmas (GG + DIRECTOR) queda APPROVED y aparece aquí. Selecciona los que vas a pagar hoy, descarga la planilla Excel y cárgala al banco (BCI, Santander, BancoEstado, etc.). Tras confirmar las transferencias, márcalos como EXECUTED.",
     position: "right",
   },
   {

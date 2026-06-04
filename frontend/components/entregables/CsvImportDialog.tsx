@@ -265,7 +265,7 @@ export function CsvImportDialog({ open, onOpenChange }: Props) {
               ) : (
                 <>
                   <p className="text-sm font-semibold text-ink-900">
-                    Arrastrá tu .csv acá o click para seleccionar
+                    Arrastra tu .csv aquí o click para seleccionar
                   </p>
                   <p className="mt-0.5 text-[11px] text-ink-500">
                     Máximo 5 MB · UTF-8

@@ -209,7 +209,7 @@ export default function TransferenciasPage() {
       return;
     }
     if (selectedIds.size === 0) {
-      toast.error("Seleccioná al menos un voucher");
+      toast.error("Selecciona al menos un voucher");
       return;
     }
     setDownloading(true);
@@ -295,7 +295,7 @@ export default function TransferenciasPage() {
       return;
     }
     if (selectedIds.size === 0) {
-      toast.error("Seleccioná al menos un voucher");
+      toast.error("Selecciona al menos un voucher");
       return;
     }
     // Round 150 — comprobante de pago opcional. Si hay archivo, se sube
@@ -456,7 +456,7 @@ export default function TransferenciasPage() {
           </h1>
           <p className="text-sm md:text-base text-ink-500 mt-2 max-w-2xl">
             Vouchers <strong>APPROVED</strong> (firmados GG + Director) listos
-            para pago. Revisa datos, seleccioná los del día y descargá el
+            para pago. Revisa datos, selecciona los del día y descarga el
             Excel para cargar al banco.
           </p>
         </div>
@@ -493,8 +493,8 @@ export default function TransferenciasPage() {
             }
             description={
               pendingMyApproval > 0
-                ? "Acá aparecen los vouchers APPROVED listos para transferir. Primero firmalos en Aprobaciones — cuando un voucher tenga las 2 firmas (GG + DIRECTOR), pasa a APPROVED y aparece acá."
-                : "El flujo es: crear voucher → adjuntar factura → enviar a aprobación → firmar GG y DIRECTOR → aparece acá para transferir. Empezá enviando tus borradores a aprobación."
+                ? "Aquí aparecen los vouchers APPROVED listos para transferir. Primero firmalos en Aprobaciones — cuando un voucher tenga las 2 firmas (GG + DIRECTOR), pasa a APPROVED y aparece aquí."
+                : "El flujo es: crear voucher → adjuntar factura → enviar a aprobación → firmar GG y DIRECTOR → aparece aquí para transferir. Empezá enviando tus borradores a aprobación."
             }
             primaryAction={
               pendingMyApproval > 0
@@ -725,11 +725,11 @@ export default function TransferenciasPage() {
                       }}
                     />
                     <span className="mt-1 block text-[10px] text-ink-500">
-                      Si tenés el comprobante del banco (PDF, JPG o PNG),
+                      Si tienes el comprobante del banco (PDF, JPG o PNG),
                       adjuntalo. Se va a guardar en los{" "}
                       {selectedSummary.count} voucher
                       {selectedSummary.count === 1 ? "" : "s"} como respaldo.
-                      Si no, podés subirlo después desde el detalle.
+                      Si no, puedes subirlo después desde el detalle.
                     </span>
                   </div>
                 </div>
@@ -924,8 +924,8 @@ export default function TransferenciasPage() {
 
           {/* Hint footer */}
           <p className="text-xs text-ink-500">
-            💡 <strong>Workflow:</strong> seleccioná los vouchers a pagar →
-            descargá el Excel → cargá al banco (BCI / Santander /
+            💡 <strong>Workflow:</strong> selecciona los vouchers a pagar →
+            descarga el Excel → cargá al banco (BCI / Santander /
             BancoEstado) → confirmás las transferencias. Después marcá cada
             voucher como EXECUTED desde su pantalla de detalle.
           </p>

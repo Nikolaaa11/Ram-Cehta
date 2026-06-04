@@ -190,7 +190,7 @@ export function NotificationsBell() {
                 ¡Todo al día!
               </p>
               <p className="text-xs text-ink-500 mt-0.5">
-                No tenés notificaciones pendientes.
+                No tienes notificaciones pendientes.
               </p>
             </div>
           ) : (

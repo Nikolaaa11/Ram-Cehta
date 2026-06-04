@@ -161,7 +161,7 @@ export default function TrabajadoresPage({
               ? canCreate
                 ? "Haz click en + Nuevo trabajador para empezar."
                 : "Pedile a un admin que agregue al primer trabajador."
-              : "Cuando alguien deje la empresa, aparecerá acá."}
+              : "Cuando alguien deje la empresa, aparecerá aquí."}
           </p>
         </Surface>
       )}

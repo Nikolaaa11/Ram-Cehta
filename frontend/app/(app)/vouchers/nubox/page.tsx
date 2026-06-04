@@ -635,7 +635,7 @@ export default function NuboxFormPage() {
         setAiBanner({
           type: "success",
           msg:
-            `Datos extraídos de ${file.name}. Revisa los campos y completá ` +
+            `Datos extraídos de ${file.name}. Revisa los campos y completa ` +
             `cuenta contable + financiera antes de guardar.` +
             (data.warnings?.length
               ? ` Avisos: ${data.warnings.join(" · ")}`
@@ -644,8 +644,8 @@ export default function NuboxFormPage() {
         });
         toast.success(
           confPct
-            ? `Extraído con ${confPct}% de confianza — revisá y guardá`
-            : "Datos extraídos — revisá y guardá",
+            ? `Extraído con ${confPct}% de confianza — revisa y guarda`
+            : "Datos extraídos — revisa y guarda",
         );
       } catch (err) {
         const msg =
@@ -669,7 +669,7 @@ export default function NuboxFormPage() {
   //  - Solo si la línea financiera tiene total vacío o "0".
   //  - El total contable que se copia es el NETO (la línea financiera
   //    se llena en bruto cuando aplica IVA — eso lo maneja el cálculo
-  //    `toBruto`, acá solo replicamos lo que el user tipeó).
+  //    `toBruto`, aquí solo replicamos lo que el user tipeó).
   const contableTotalRaw = contable[0]?.total ?? "";
   const contableComentRaw = contable[0]?.comentario ?? "";
   useEffect(() => {
@@ -816,7 +816,7 @@ export default function NuboxFormPage() {
       el?.focus();
       el?.select();
     }, 0);
-    // Toast persistente con link al voucher recién creado por si lo querés revisar.
+    // Toast persistente con link al voucher recién creado por si lo quieres revisar.
     toast.success(
       `Voucher ${lastCodigo} creado · listo para cargar el siguiente`,
       { duration: 5000 },
@@ -1038,7 +1038,7 @@ export default function NuboxFormPage() {
       }
 
       // Round 32 — branch: si createAnother, reseteamos el form y nos
-      // quedamos acá. Si no, navegamos al detalle del voucher recién creado.
+      // quedamos aquí. Si no, navegamos al detalle del voucher recién creado.
       const submitMsg = submitToApproval
         ? submitOk
           ? " · enviado a aprobación (PENDING)"
@@ -1204,7 +1204,7 @@ export default function NuboxFormPage() {
                 ¿Tienes la factura en PDF/imagen?
               </span>
               <span className="text-ink-500">
-                Arrastrala acá o
+                Arrastrala aquí o
               </span>
             </div>
             <Button
@@ -1382,7 +1382,7 @@ export default function NuboxFormPage() {
                 el RUT se llena solo y queda bloqueado. */}
             <div className="md:col-span-2">
               {/* Round 31 — proveedor OPCIONAL. Sin asterisco. */}
-              <Label hint="Opcional. Si no tenés el dato a mano o es un gasto genérico (caja chica, servicios sin RUT), dejalo vacío.">
+              <Label hint="Opcional. Si no tienes el dato a mano o es un gasto genérico (caja chica, servicios sin RUT), dejalo vacío.">
                 Proveedor
               </Label>
               {/* Round 62 — usa componente shared (eliminó la copia inline). */}
@@ -1406,7 +1406,7 @@ export default function NuboxFormPage() {
                   "Buscando proveedor…"}
                 {proveedorLookup.status === "invalid" && (
                   <span className="text-red-600">
-                    RUT inválido — revisá el dígito verificador.
+                    RUT inválido — revisa el dígito verificador.
                   </span>
                 )}
                 {proveedorLookup.status === "existing" && (
@@ -1490,7 +1490,7 @@ export default function NuboxFormPage() {
               </p>
             </div>
             <div>
-              <Label hint="Fecha en que vence el plazo de pago según el documento. Si el proveedor dice 'pago a 30 días', sumá 30 días a la fecha del documento. Útil para alertas de vencimiento.">
+              <Label hint="Fecha en que vence el plazo de pago según el documento. Si el proveedor dice 'pago a 30 días', suma 30 días a la fecha del documento. Útil para alertas de vencimiento.">
                 Fecha vencimiento (opcional)
               </Label>
               <input
@@ -1626,7 +1626,7 @@ export default function NuboxFormPage() {
                   el IVA no es elegible al subsidio).
                 </p>
                 <p className="mt-1.5 text-[11px] text-ink-500">
-                  Tip: usá <code>/vouchers/corfo</code> si querés un form con
+                  Tip: usá <code>/vouchers/corfo</code> si quieres un form con
                   reparto automático por % en vez de manual por línea.
                 </p>
               </div>
@@ -1793,12 +1793,12 @@ export default function NuboxFormPage() {
           </p>
 
           {/* Round 129 (Observaciones 20/05/2026): el campo "Documento — link
-              Dropbox" se movió desde el header hacia acá, justo debajo del
+              Dropbox" se movió desde el header hacia aquí, justo debajo del
               file picker. Tiene más sentido visual porque ambos son "adjuntar
               soporte documental". El input acepta un path Dropbox ya existente
               cuando el operador ya subió el archivo antes desde Dropbox web. */}
           <div className="mt-5 border-t border-hairline pt-4">
-            <Label hint="Si el documento ya está en Dropbox (porque lo subiste antes), pegá el path acá. Alternativa al file picker de arriba. Opcional.">
+            <Label hint="Si el documento ya está en Dropbox (porque lo subiste antes), pegá el path aquí. Alternativa al file picker de arriba. Opcional.">
               Documento — link Dropbox (opcional)
             </Label>
             <input
@@ -1906,7 +1906,7 @@ export default function NuboxFormPage() {
                 variant="outline"
                 disabled={!cuadrado || submitting}
                 className="px-5"
-                title="Guardar el voucher como BORRADOR. Después podés enviarlo a aprobación desde el detalle. (Ctrl/Cmd+S)"
+                title="Guardar el voucher como BORRADOR. Después puedes enviarlo a aprobación desde el detalle. (Ctrl/Cmd+S)"
               >
                 <Save className="size-4 mr-2" />
                 {submitting ? "Creando…" : "Guardar borrador"}

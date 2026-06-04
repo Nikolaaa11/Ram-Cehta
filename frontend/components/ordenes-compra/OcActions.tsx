@@ -179,9 +179,9 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
             ) {
               msg =
                 "No se pudo conectar con el servidor. " +
-                "(1) Verificá tu conexión; " +
+                "(1) Verifica tu conexión; " +
                 "(2) recargá con Ctrl+Shift+R; " +
-                "(3) si persiste, esperá 30s y reintentá.";
+                "(3) si persiste, espera 30s y reintentá.";
             } else {
               msg = err instanceof Error
                 ? `No pude generar el PDF: ${err.message}`

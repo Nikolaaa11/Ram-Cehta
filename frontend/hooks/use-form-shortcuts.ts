@@ -10,7 +10,7 @@
  * Recibe un mapa { "mod+s": handler, "mod+enter": handler, "esc": handler }:
  *  - "mod" = Cmd en Mac, Ctrl en Win/Linux.
  *  - Las teclas se separan con "+".
- *  - Handler recibe el KeyboardEvent — llama preventDefault() si querés
+ *  - Handler recibe el KeyboardEvent — llama preventDefault() si quieres
  *    bloquear el default del browser (ej: bloquear el "guardar pagina"
  *    de Ctrl+S).
  *

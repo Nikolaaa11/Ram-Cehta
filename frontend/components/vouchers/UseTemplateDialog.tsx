@@ -9,7 +9,7 @@
  *   - fecha_documento + fecha_contable (obligatorio)
  *   - glosa_override opcional (con interpolación {mes} {anio} {fecha})
  *   - multiplier opcional (multiplica todos los debit/credit, útil cuando
- *     la plantilla es "1 unidad" y querés escalarla)
+ *     la plantilla es "1 unidad" y quieres escalarla)
  *   - doc_tributario_folio (si la plantilla tenía doc_tributario_tipo)
  *
  * Backend devuelve el voucher_id del DRAFT creado y el usuario es

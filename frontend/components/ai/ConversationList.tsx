@@ -52,7 +52,7 @@ export function ConversationList({
       <div className="flex-1 overflow-y-auto px-2 py-2">
         {conversations.length === 0 ? (
           <p className="px-2 py-3 text-xs text-ink-500">
-            Todavía no tenés conversaciones acá.
+            Todavía no tienes conversaciones aquí.
           </p>
         ) : (
           <ul className="flex flex-col gap-0.5">

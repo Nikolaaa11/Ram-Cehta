@@ -151,7 +151,7 @@ export function OcFirmadasPanel() {
             No hay OCs firmadas/emitidas todavía
           </p>
           <p className="mt-1 text-xs text-ink-500">
-            Las OCs aparecen acá cuando pasan a estado{" "}
+            Las OCs aparecen aquí cuando pasan a estado{" "}
             <span className="font-mono text-xs">emitida</span>.
           </p>
         </div>

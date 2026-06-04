@@ -153,7 +153,7 @@ export function VoucherReconcileCard({ voucher }: Props) {
         <div className="mt-3 space-y-3">
           <p className="text-xs text-ink-600">
             Este voucher fue ejecutado pero no tiene movimiento bancario
-            asignado. Buscá candidatos por monto y fecha (±3 días).
+            asignado. Busca candidatos por monto y fecha (±3 días).
           </p>
 
           {!showCandidates ? (

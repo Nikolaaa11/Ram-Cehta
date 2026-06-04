@@ -67,7 +67,7 @@ export function OcMailboxPanel() {
 
   // Lista emails (todos) y filtramos client-side por categoría OC.
   // El endpoint backend acepta solo 1 valor de `category`, así que pedimos
-  // todos los recientes y filtramos por ambas variantes acá.
+  // todos los recientes y filtramos por ambas variantes aquí.
   const list = useQuery<MailboxItem[]>({
     queryKey: ["mailbox", "oc"],
     queryFn: () =>
@@ -142,7 +142,7 @@ export function OcMailboxPanel() {
             </h3>
             <p className="mt-0.5 text-xs text-ink-500">
               Los mails que llegan a esta casilla se clasifican con IA. Los que
-              son OC aparecen acá listos para auto-crear.
+              son OC aparecen aquí listos para auto-crear.
             </p>
           </div>
         </div>
@@ -171,7 +171,7 @@ export function OcMailboxPanel() {
         </div>
       ) : list.isError ? (
         <div className="rounded-2xl border border-negative/20 bg-negative/5 p-4 text-sm text-negative">
-          Error cargando la bandeja. Reintenta o avisame.
+          Error cargando la bandeja. Reintenta o avísame.
         </div>
       ) : items.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-hairline bg-white p-10 text-center">

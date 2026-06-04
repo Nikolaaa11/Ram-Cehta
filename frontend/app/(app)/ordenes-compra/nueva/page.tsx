@@ -222,7 +222,7 @@ export default function NuevaOcPage() {
     setError(null);
 
     if (!empresaCodigo || !numeroOc || items.length === 0) {
-      setError("Completá los campos obligatorios y al menos un ítem.");
+      setError("Completa los campos obligatorios y al menos un ítem.");
       return;
     }
     if (proveedorRut.trim() && proveedorLookup.status === "invalid") {
@@ -234,7 +234,7 @@ export default function NuevaOcPage() {
       proveedorLookup.status === "new" &&
       !proveedorNombre.trim()
     ) {
-      setError("Ingresá la razón social del proveedor para crearlo.");
+      setError("Ingresa la razón social del proveedor para crearlo.");
       return;
     }
     if (items.some((it) => !it.descripcion || !it.precio_unitario)) {
@@ -411,7 +411,7 @@ export default function NuevaOcPage() {
                   )}
                   {proveedorLookup.status === "invalid" && (
                     <span className="text-negative">
-                      RUT inválido — revisá el dígito verificador.
+                      RUT inválido — revisa el dígito verificador.
                     </span>
                   )}
                   {proveedorLookup.status === "existing" && (
@@ -447,7 +447,7 @@ export default function NuevaOcPage() {
                   }}
                   onClear={() => {
                     setProveedorNombre("");
-                    // No tocamos proveedorRut acá — el operador puede
+                    // No tocamos proveedorRut aquí — el operador puede
                     // estar editando solo el nombre y mantener el RUT.
                   }}
                   // R152xxx — MEJORAS IA #4b: si el proveedor no existe,
@@ -467,7 +467,7 @@ export default function NuevaOcPage() {
                       setProveedorNombre(created.razon_social);
                       if (created.rut) setProveedorRut(created.rut);
                       toast.success(
-                        `Proveedor "${created.razon_social}" creado. Completá los datos en /admin/proveedores cuando puedas.`,
+                        `Proveedor "${created.razon_social}" creado. Completa los datos en /admin/proveedores cuando puedas.`,
                         { duration: 8000 },
                       );
                       // Invalidar cache para que en próximos typeaheads aparezca.

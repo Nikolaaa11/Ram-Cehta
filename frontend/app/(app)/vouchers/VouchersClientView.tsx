@@ -242,7 +242,7 @@ export function VouchersClientView({
     () => searchParams.get("hasta") ?? "",
   );
   const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
-  // R152hh — chip "Sobre UF 100". Declarado acá arriba para que el
+  // R152hh — chip "Sobre UF 100". Declarado aquí arriba para que el
   // useEffect de URL sync (debajo) lo pueda leer sin error TS de
   // "used before declaration".
   const [uf100Active, setUf100Active] = useState<boolean>(
@@ -935,7 +935,7 @@ export function VouchersClientView({
           <Link
             href={"/aprobaciones" as Route}
             className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-600 ring-1 ring-hairline transition-colors hover:bg-cehta-green/5 hover:text-cehta-green hover:ring-cehta-green/30"
-            title="Ir a /aprobaciones — bandeja de vouchers donde sos firmante elegible"
+            title="Ir a /aprobaciones — bandeja de vouchers donde eres firmante elegible"
           >
             <FileSignature className="h-3 w-3" strokeWidth={2} />
             Pendiente mi firma
@@ -1637,7 +1637,7 @@ export function VouchersClientView({
                   const ok = okHeader ? `${okHeader} OK` : "ZIP descargado";
                   const fail =
                     failHeader && Number(failHeader) > 0
-                      ? ` · ${failHeader} con error (revisá los .txt dentro del ZIP)`
+                      ? ` · ${failHeader} con error (revisa los .txt dentro del ZIP)`
                       : "";
                   toast.success(`${ok}${fail}`, { id: t });
                 } catch (err) {
@@ -1794,7 +1794,7 @@ export function VouchersClientView({
               cada voucher.
             </p>
             <div className="mt-3 rounded-lg bg-negative/5 px-3 py-2 text-xs text-negative ring-1 ring-negative/20">
-              ⚠ <strong>No se puede deshacer.</strong> Si querés anular un
+              ⚠ <strong>No se puede deshacer.</strong> Si quieres anular un
               voucher ya enviado (PENDING+), usá la acción &quot;Anular&quot;
               en su detalle (queda en historial).
             </div>

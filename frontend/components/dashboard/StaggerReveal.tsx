@@ -3,7 +3,7 @@
 /**
  * StaggerReveal — wrapper de framer-motion para entrada en cascada.
  *
- * Pasa `index` cuando renderizás una lista de items y querés que aparezcan
+ * Pasa `index` cuando renderizas una lista de items y quieres que aparezcan
  * uno después de otro con un offset (`delay * index`). Sin slide horizontal,
  * solo `y: 8 → 0` y fade — Apple-like restraint.
  *

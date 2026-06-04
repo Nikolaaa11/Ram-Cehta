@@ -192,9 +192,9 @@ export default function AyudaPage() {
 
       {/* Nota footer */}
       <div className="mt-10 rounded-2xl bg-cehta-green/5 px-6 py-5 text-sm text-ink-700">
-        <p className="font-medium text-cehta-green">¿No encontrás lo que buscás?</p>
+        <p className="font-medium text-cehta-green">¿No encuentras lo que buscas?</p>
         <p className="mt-1 text-ink-600">
-          En cualquier página, hacé clic en el botón de ayuda{" "}
+          En cualquier página, haz clic en el botón de ayuda{" "}
           <span className="inline-flex size-5 items-center justify-center rounded-full bg-cehta-green align-middle text-white">
             <HelpCircle className="size-3" />
           </span>{" "}

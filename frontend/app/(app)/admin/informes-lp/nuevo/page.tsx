@@ -48,7 +48,7 @@ export default function NuevoInformePage() {
     mutationFn: () =>
       apiClient.post<InformeLpRead>("/informes-lp/generate", form, session),
     onSuccess: (data) => {
-      toast.success("Informe generado — revisá narrativa AI antes de publicar");
+      toast.success("Informe generado — revisa narrativa AI antes de publicar");
       router.push(`/admin/informes-lp` as never);
     },
     onError: (err) => {
@@ -85,7 +85,7 @@ export default function NuevoInformePage() {
           </Surface.Title>
           <Surface.Subtitle>
             La AI va a usar datos vivos del portafolio para personalizarlo.
-            Después podés editar la narrativa antes de publicar.
+            Después puedes editar la narrativa antes de publicar.
           </Surface.Subtitle>
         </Surface.Header>
 

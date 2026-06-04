@@ -200,7 +200,7 @@ function SeedDialog({
         <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 text-[11px] text-amber-800">
           <strong className="font-semibold">Pre-requisitos:</strong> el plan de
           cuentas y al menos un proyecto deben estar cargados para esta
-          empresa. Si no los tenés, importá el Excel primero.
+          empresa. Si no los tienes, importa el Excel primero.
         </div>
 
         <div>

@@ -6,7 +6,7 @@
  * Card con insights derivadas del estado actual de entregables. Usa
  * lógica template-based (no LLM) para generar bullets accionables como:
  *   - "Tu peor compliance está en DTE (grade D)"
- *   - "Esta semana tenés 3 críticos: 2 CMF + 1 SII"
+ *   - "Esta semana tienes 3 críticos: 2 CMF + 1 SII"
  *   - "Faltan 3 días para el cierre F29 mensual"
  *
  * El día que tengamos AI tools (V5), esto se reemplaza con un endpoint
@@ -89,7 +89,7 @@ export function SmartInsights() {
         Icon: AlertTriangle,
         text: (
           <>
-            Esta semana tenés{" "}
+            Esta semana tienes{" "}
             <strong>{urgentesHoyOCritico} críticos</strong>{" "}
             {hoy.length > 0 && `(${hoy.length} vencen hoy)`}. Resolver antes
             del fin de semana.

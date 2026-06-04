@@ -74,7 +74,7 @@ export function KanbanColumn({ estado, items, canDragItem }: Props) {
         {items.length === 0 ? (
           <div className="flex h-32 items-center justify-center px-4 text-center">
             <p className="text-xs text-ink-500">
-              Arrastrá OCs acá para moverlas a {ESTADO_LABEL[estado]}.
+              Arrastra OCs aquí para moverlas a {ESTADO_LABEL[estado]}.
             </p>
           </div>
         ) : (

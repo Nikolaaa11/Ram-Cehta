@@ -217,7 +217,7 @@ export function RecentActivityFeed({
           </span>
           <p className="text-sm font-medium text-ink-700">Sin actividad reciente</p>
           <p className="text-xs text-ink-500 mt-0.5">
-            Cuando alguien cree, edite o borre algo, va a aparecer acá.
+            Cuando alguien cree, edite o borre algo, va a aparecer aquí.
           </p>
         </div>
       ) : (

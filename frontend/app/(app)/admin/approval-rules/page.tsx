@@ -186,7 +186,7 @@ export default function ApprovalRulesPage() {
             icon={<Gavel strokeWidth={1.5} />}
             eyebrow="Reglas · Sin configurar"
             title="Definí la matriz de firmas"
-            body="Sin reglas, los vouchers PENDING no pueden aprobarse. La migración 0036 seedea 3 reglas default por empresa al deployarse — si llegaste acá vacío es porque las eliminaste."
+            body="Sin reglas, los vouchers PENDING no pueden aprobarse. La migración 0036 seedea 3 reglas default por empresa al deployarse — si llegaste aquí vacío es porque las eliminaste."
             ctaLabel="Crear primera regla"
             onCta={() => setShowCreate(true)}
           />

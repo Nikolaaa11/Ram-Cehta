@@ -368,7 +368,7 @@ function CreateAssignmentDialog({
     e.preventDefault();
     if (!session) return;
     if (!userId.trim()) {
-      toast.error("Ingresá el UUID del usuario");
+      toast.error("Ingresa el UUID del usuario");
       return;
     }
     setLoading(true);

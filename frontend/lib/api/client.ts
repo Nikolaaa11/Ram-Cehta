@@ -78,8 +78,8 @@ async function coreFetch<T>(
           0,
           "No se pudo conectar con el servidor tras 2 intentos. " +
             "Causa probable: (1) la red está caída; (2) hay un Service Worker " +
-            "viejo cacheado — abrí DevTools (F12) → Application → Service " +
-            "Workers → Unregister, después Ctrl+Shift+R; (3) si usás VPN/" +
+            "viejo cacheado — abre DevTools (F12) → Application → Service " +
+            "Workers → Unregister, después Ctrl+Shift+R; (3) si usas VPN/" +
             "proxy corporativo, podría estar bloqueando cehta-backend.fly.dev.",
         );
       }

@@ -272,7 +272,7 @@ export default function RendicionesCorfoPage() {
           </h3>
           <p className="mt-0.5 text-xs text-ink-500">
             Solo vouchers en estado APPROVED/EXECUTED/SYNCED/RECONCILED. Si no
-            aparece lo que esperás, verificá que esté firmado y aprobado.
+            aparece lo que esperas, verifica que esté firmado y aprobado.
           </p>
         </header>
         <div className="overflow-x-auto">
@@ -340,7 +340,7 @@ export default function RendicionesCorfoPage() {
         <ol className="mt-2 ml-5 list-decimal space-y-1 leading-relaxed">
           <li>Elige empresa + período. El sistema lee los vouchers COMPRA aprobados de ese mes.</li>
           <li>Click en "Rendición de Gastos" → descarga el Excel con 21 columnas, dropdowns CORFO oficiales y los datos pre-llenados desde tus vouchers (folio, RUT proveedor, montos, fecha).</li>
-          <li>Las columnas en <span className="rounded bg-amber-200 px-1.5 py-0.5">amarillo</span> son las que tenés que completar a mano: Cuenta CORFO + Ítem (si no hay mapeo aún), Forma de Pago, Fecha de Pago, Glosa.</li>
+          <li>Las columnas en <span className="rounded bg-amber-200 px-1.5 py-0.5">amarillo</span> son las que tienes que completar a mano: Cuenta CORFO + Ítem (si no hay mapeo aún), Forma de Pago, Fecha de Pago, Glosa.</li>
           <li>Si configurás el mapeo cuenta_local → CORFO_cuenta una vez, queda persistido y las próximas rendiciones se pre-llenan completas.</li>
           <li>Sube el Excel resultante al portal CORFO como rendición oficial.</li>
         </ol>

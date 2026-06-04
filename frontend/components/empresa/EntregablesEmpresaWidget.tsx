@@ -9,7 +9,7 @@
  *   - `extra->>empresa_codigo == codigo` (nuevo)
  *
  * Pensado para que cuando navegues a CSL/RHO/DTE veas en una mirada qué
- * documentos del Reglamento te tocan a vos esta semana / próximos días.
+ * documentos del Reglamento te tocan a tú esta semana / próximos días.
  */
 import { useState } from "react";
 import {

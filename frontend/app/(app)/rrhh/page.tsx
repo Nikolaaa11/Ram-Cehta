@@ -5,7 +5,7 @@
  *
  * Acceso restringido a Benjamín Toro, Victoria y admins (allowlist en
  * core.rrhh_allowlist). El backend devuelve 403 si no estás en la lista;
- * acá hacemos GET /rrhh/access para mostrar empty state lindo en vez de
+ * aquí hacemos GET /rrhh/access para mostrar empty state lindo en vez de
  * 403 toast feo.
  *
  * Funcionalidad:
@@ -226,7 +226,7 @@ export default function RRHHPage() {
             "Este módulo está restringido al equipo de RRHH (Benjamín, Victoria y administradores)."}
         </p>
         <p className="mt-2 text-xs text-ink-400">
-          Si necesitás acceso, pedile a un admin que te agregue a la
+          Si necesitas acceso, pedile a un admin que te agregue a la
           allowlist (<code>core.rrhh_allowlist</code>).
         </p>
       </div>
@@ -404,7 +404,7 @@ export default function RRHHPage() {
           <div className="rounded-2xl border-2 border-dashed border-hairline bg-ink-50/30 p-8 text-center">
             <Calendar className="mx-auto h-10 w-10 text-ink-300" strokeWidth={1.5} />
             <p className="mt-3 text-sm text-ink-500">
-              Aún no hay libros cargados. Subí tu primer Excel arriba.
+              Aún no hay libros cargados. Sube tu primer Excel arriba.
             </p>
           </div>
         )}

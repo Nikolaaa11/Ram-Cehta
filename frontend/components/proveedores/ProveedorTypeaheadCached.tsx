@@ -202,8 +202,8 @@ export function ProveedorTypeaheadCached({
               </div>
               <div className="text-[11px] text-ink-500">
                 {rutValue
-                  ? `Se creará con RUT ${rutValue}. Podés completar el resto luego.`
-                  : "Se creará con datos mínimos (sólo nombre). Completá RUT y banco luego desde /admin/proveedores."}
+                  ? `Se creará con RUT ${rutValue}. Puedes completar el resto luego.`
+                  : "Se creará con datos mínimos (sólo nombre). Completa RUT y banco luego desde /admin/proveedores."}
               </div>
             </div>
           </li>

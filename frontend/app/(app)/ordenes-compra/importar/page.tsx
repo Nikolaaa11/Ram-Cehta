@@ -201,7 +201,7 @@ export default function ImportarOcPage() {
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault();
     if (!numeroOc.trim()) {
-      toast.error("Ingresá el número de OC");
+      toast.error("Ingresa el número de OC");
       return;
     }
     if (totalNeto <= 0) {
@@ -308,7 +308,7 @@ export default function ImportarOcPage() {
               strokeWidth={1.3}
             />
             <p className="mt-4 text-lg font-medium">
-              Arrastrá la cotización o hacé click
+              Arrastra la cotización o haz click
             </p>
             <p className="mt-2 text-sm text-ink-500">
               PDF, imagen, DOCX, PPTX, XLSX, EML, HTML — hasta 15MB
