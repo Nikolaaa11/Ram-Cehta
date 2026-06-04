@@ -103,9 +103,36 @@ async def auto_create_oc_from_inbox(
         await _save_error(db, inbox_id, f"AI extraction falló: {exc}")
         return {"ok": False, "error": f"AI extract: {exc}"}
 
-    # 3. Detectar empresa receptora
+    # 3. Detectar empresa receptora.
+    # R152VVVV — el subject IMAP suele venir MIME-Q encoded
+    # (=?iso-8859-1?Q?Solicitud_OC-Rho?=) — si no lo decodeamos, el
+    # detector de empresa NO encuentra "RHO" en el texto y cae al default
+    # FIP_CEHTA. Decodeo defensivo antes de pasar al detector.
+    from email.header import decode_header
+    decoded_subject = subject or ""
+    try:
+        parts = decode_header(decoded_subject)
+        decoded_subject = " ".join(
+            (p.decode(enc or "utf-8", errors="replace") if isinstance(p, bytes) else p)
+            for p, enc in parts
+        )
+    except Exception as exc:
+        log.warning(
+            "auto_create_oc.subject_decode_failed",
+            inbox_id=inbox_id,
+            err=str(exc),
+        )
+
+    # Receptor explícito desde el AI extractor (preferido).
+    receptor_rut = (data.get("receptor_rut") or "").strip()
+    receptor_nombre = (data.get("receptor_nombre") or "").strip()
+    receptor_hint = data.get("empresa_codigo")
+    detector_text = " ".join(
+        x for x in [decoded_subject, body_text, receptor_rut, receptor_nombre]
+        if x
+    )
     empresa_codigo = await _detect_empresa_receptora(
-        db, subject + " " + body_text, data.get("empresa_codigo")
+        db, detector_text, receptor_hint
     )
 
     # 4. Upsert proveedor
