@@ -301,6 +301,66 @@ async def generar_vouchers(
       - lines: vacío — el operador imputa al editar el voucher
     """
     oc = await _get_oc_or_404(db, oc_id)
+    emp_code = str(oc["empresa_codigo"])
+
+    # R152AAAAA · P0 — validación de estado.
+    # OCs cerradas (anuladas/pagadas/rechazadas) no deben generar vouchers
+    # nuevos. Antes el endpoint pasaba por arriba y creaba vouchers DRAFT
+    # sobre OCs ya cerradas, contablemente inconsistente.
+    estado_oc = (oc.get("estado") or "").lower()
+    if estado_oc in ("anulada", "rechazada", "pagada", "cerrada"):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"La OC #{oc.get('numero_oc')} está en estado '{estado_oc}'. "
+                "No se pueden generar vouchers sobre OCs cerradas."
+            ),
+        )
+
+    # R152AAAAA · P0 — idempotency: si ya hay vouchers generados para esta OC,
+    # retornar los existentes sin re-generar. Evita double-submit
+    # generando 22 vouchers cuando el operador hace doble click.
+    existing_rows = (
+        await db.execute(
+            text(
+                """SELECT v.codigo
+                   FROM core.oc_cuotas c
+                   JOIN core.vouchers v ON v.voucher_id = c.voucher_id
+                   WHERE c.oc_id = :id
+                   ORDER BY c.numero_cuota"""
+            ),
+            {"id": oc_id},
+        )
+    ).fetchall()
+    if existing_rows:
+        codigos_existentes = [r[0] for r in existing_rows]
+        return GenerarVouchersResult(
+            cuotas_procesadas=0,
+            vouchers_creados=0,
+            vouchers_codigos=codigos_existentes,
+        )
+
+    # R152AAAAA · P0 — Advisory lock por (empresa, tipo=COM, año) para
+    # serializar la generación del correlativo. Sin esto, dos requests
+    # concurrentes leían el mismo COUNT(*) y armaban códigos iguales,
+    # rompiendo con UNIQUE violation en vouchers.codigo (confirmado en
+    # production: vouchers_codigo_key).
+    #
+    # pg_advisory_xact_lock se libera automáticamente al final de la
+    # transacción. Si dos requests llegan en simultáneo, el segundo espera
+    # al primero (~500ms). Cero impacto sin contención.
+    year = datetime.now().year
+    # Hash estable de (emp_code + "COM") como key1, año como key2.
+    # 0x7FFFFFFF para mantener positivo el int de 4 bytes que espera pg.
+    lock_key1 = abs(hash(f"{emp_code}|COM")) & 0x7FFFFFFF
+    lock_key2 = year
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(:k1, :k2)"),
+        {"k1": lock_key1, "k2": lock_key2},
+    )
+
+    # Recargar cuotas pendientes DENTRO del lock — por si otro request las
+    # consumió mientras esperábamos el lock.
     cuotas_rows = (
         await db.execute(
             text(
@@ -336,22 +396,23 @@ async def generar_vouchers(
             proveedor_rut = prov[0]
             proveedor_nombre = prov[1]
 
-    total_cuotas = len(pendientes)
-    # R152YYYY · Defensive: si user.sub viene vacío o no existe, pasar None
-    # (created_by es UUID NULL-able). Antes pasaba '' que rompía con
-    # asyncpg.exceptions.DataError: invalid UUID '' length 0.
+    # R152AAAAA · P2 — Total real de cuotas para la glosa.
+    # Antes se usaba len(pendientes), que daba "1/3" cuando realmente hay
+    # 11 cuotas pero 8 ya estaban generadas. La glosa confundía al operador.
+    total_cuotas_reales = await db.scalar(
+        text("SELECT COUNT(*) FROM core.oc_cuotas WHERE oc_id = :id"),
+        {"id": oc_id},
+    )
+    total_cuotas = int(total_cuotas_reales or len(pendientes))
+
+    # R152YYYY · Defensive: si user.sub viene vacío o no existe, pasar None.
     sub_raw = getattr(user, "sub", None)
     user_uid: str | None = str(sub_raw) if sub_raw else None
     if user_uid is not None and not (32 <= len(user_uid) <= 36):
         user_uid = None
 
-    # R152ZZZZ · La columna vouchers.codigo es NOT NULL sin default —
-    # antes el INSERT lo omitía y rompía con NotNullViolationError. Patrón
-    # canónico observado en datos reales:
-    #   {EMPRESA}-{YEAR}-COM-{NNNNN}   ej: RHO-2026-COM-00012
-    # Calculamos el próximo secuencial usando COUNT por empresa+año+COM.
-    emp_code = str(oc["empresa_codigo"])
-    year = datetime.now().year
+    # R152ZZZZ · Correlativo {EMPRESA}-{YEAR}-COM-{NNNNN}.
+    # El COUNT(*) ahora es seguro porque estamos dentro del advisory lock.
     seq_row = (
         await db.execute(
             text(

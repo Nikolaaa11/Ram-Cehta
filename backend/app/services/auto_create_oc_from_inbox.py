@@ -124,15 +124,23 @@ async def auto_create_oc_from_inbox(
         )
 
     # Receptor explícito desde el AI extractor (preferido).
-    receptor_rut = (data.get("receptor_rut") or "").strip()
-    receptor_nombre = (data.get("receptor_nombre") or "").strip()
-    receptor_hint = data.get("empresa_codigo")
+    # R152AAAAA · P1 — Antes pasábamos receptor_hint = data.get("empresa_codigo")
+    # pero el schema de Claude para tipo='orden_compra' NUNCA devuelve
+    # "empresa_codigo" — solo receptor_rut y receptor_nombre. La primera
+    # estrategia del detector (matching por hint exacto) nunca disparaba.
+    # Ahora el detector recibe receptor_rut + receptor_nombre como
+    # parámetros estructurados con prioridad alta.
+    receptor_rut = (data.get("receptor_rut") or "").strip() or None
+    receptor_nombre = (data.get("receptor_nombre") or "").strip() or None
     detector_text = " ".join(
-        x for x in [decoded_subject, body_text, receptor_rut, receptor_nombre]
+        x for x in [decoded_subject, body_text]
         if x
     )
     empresa_codigo = await _detect_empresa_receptora(
-        db, detector_text, receptor_hint
+        db,
+        detector_text=detector_text,
+        receptor_rut=receptor_rut,
+        receptor_nombre=receptor_nombre,
     )
 
     # 4. Upsert proveedor
@@ -284,50 +292,127 @@ async def _save_error(db: AsyncSession, inbox_id: int, msg: str) -> None:
 
 
 async def _detect_empresa_receptora(
-    db: AsyncSession, full_text: str, hint: str | None
+    db: AsyncSession,
+    detector_text: str,
+    receptor_rut: str | None = None,
+    receptor_nombre: str | None = None,
 ) -> str:
-    """Intenta detectar a qué empresa va dirigida la OC.
+    """Detecta la empresa del portafolio a la que va dirigida la OC.
 
-    Estrategia (en orden):
-      1. Hint del extractor IA
-      2. RUT en el cuerpo → match en core.empresas
-      3. Substring del código en subject o cuerpo
-      4. Default FIP_CEHTA
+    R152AAAAA · P1 — Reescrito con prioridades correctas y contexto OC.
+
+    Estrategia ordenada por confiabilidad:
+      1. RUT exacto del receptor (señal IA → 100% confianza)
+      2. Razón social del receptor (señal IA → ~95% confianza)
+      3. RUT que aparece en cualquier parte del texto matcheando empresa
+      4. Substring del código de empresa SOLO con palabras-clave de
+         contexto OC (PARA, EMITE, COMPRADOR, OC, ORDEN). Sin contexto, el
+         match es prohibido para evitar falsos positivos con códigos
+         cortos como CSL/DTE/RHO que aparecen en texto random.
+      5. Default FIP_CEHTA con warning log
+
+    Las estrategias 1 y 2 son las nuevas (R152AAAAA). Antes solo había
+    "hint" que nunca disparaba porque el schema de analyze_document no
+    devuelve `empresa_codigo` para tipo='orden_compra'.
     """
-    if hint:
-        exists = await db.scalar(
-            text("SELECT codigo FROM core.empresas WHERE codigo = :c AND activo = TRUE"),
-            {"c": hint.upper().strip()},
-        )
-        if exists:
-            return str(exists)
+    # 1. RUT exacto del receptor extraído por IA
+    if receptor_rut:
+        normalized = re.sub(r"[^\dKk]", "", receptor_rut).upper()
+        if normalized:
+            row = await db.scalar(
+                text(
+                    """SELECT codigo FROM core.empresas
+                       WHERE REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = :r
+                         AND activo = TRUE
+                       LIMIT 1"""
+                ),
+                {"r": normalized},
+            )
+            if row:
+                log.info(
+                    "detect_empresa.match_receptor_rut",
+                    rut=receptor_rut,
+                    empresa=str(row),
+                )
+                return str(row)
 
-    # RUT en cuerpo
-    for m in _RUT_REGEX.finditer(full_text):
-        candidate = m.group(1).upper().replace(".", "")
-        exists = await db.scalar(
+    # 2. Razón social del receptor (LIKE %nombre%, mínimo 8 chars para evitar
+    # matches espurios con palabras cortas)
+    if receptor_nombre and len(receptor_nombre) >= 8:
+        # Tomamos los primeros 50 chars del nombre — suficiente para
+        # identificar y limita el ataque de patrón maligno.
+        nombre_token = receptor_nombre[:50].strip()
+        row = await db.scalar(
             text(
                 """SELECT codigo FROM core.empresas
-                   WHERE REPLACE(REPLACE(rut, '.', ''), ' ', '') = :rut
-                   AND activo = TRUE LIMIT 1"""
+                   WHERE LOWER(razon_social) LIKE LOWER(:n)
+                     AND activo = TRUE
+                   ORDER BY length(razon_social) ASC
+                   LIMIT 1"""
             ),
-            {"rut": candidate},
+            {"n": f"%{nombre_token}%"},
         )
-        if exists:
-            return str(exists)
+        if row:
+            log.info(
+                "detect_empresa.match_receptor_nombre",
+                nombre=nombre_token,
+                empresa=str(row),
+            )
+            return str(row)
 
-    # Substring código en subject + cuerpo
-    upper_text = full_text.upper()
+    # 3. RUT en el texto general (puede ser receptor o proveedor — chequeamos
+    # contra empresas del portafolio para descartar proveedores)
+    seen_ruts: set[str] = set()
+    for m in _RUT_REGEX.finditer(detector_text):
+        candidate = m.group(1).upper().replace(".", "")
+        if candidate in seen_ruts:
+            continue
+        seen_ruts.add(candidate)
+        row = await db.scalar(
+            text(
+                """SELECT codigo FROM core.empresas
+                   WHERE REPLACE(REPLACE(UPPER(rut), '.', ''), '-', '') = :r
+                     AND activo = TRUE
+                   LIMIT 1"""
+            ),
+            {"r": candidate.replace("-", "")},
+        )
+        if row:
+            log.info(
+                "detect_empresa.match_text_rut",
+                rut=candidate,
+                empresa=str(row),
+            )
+            return str(row)
+
+    # 4. Substring de código + contexto OC. SOLO matcheamos si el código de
+    # empresa aparece cerca de palabras-clave del dominio para evitar
+    # falsos positivos.
+    upper_text = detector_text.upper()
     rows = await db.execute(
         text("SELECT codigo FROM core.empresas WHERE activo = TRUE"),
     )
     codigos = [r[0] for r in rows]
+    # Palabras-clave que indican contexto de OC dirigida a una empresa.
+    keywords = r"(?:PARA|EMITE|EMITIR|COMPRADOR|DESTINATARIO|OC|ORDEN\s+DE\s+COMPRA|SOLICITA|REQUIERE)"
     for c in codigos:
-        # Buscar el código con bordes razonables (no matchear letras random)
-        if re.search(rf"\b{re.escape(c)}\b", upper_text):
+        # Buscar el código rodeado por una keyword + word-boundary.
+        # Permite hasta 50 chars de distancia entre la keyword y el código.
+        pattern = rf"{keywords}\b[^\n]{{0,50}}\b{re.escape(c)}\b"
+        if re.search(pattern, upper_text):
+            log.info(
+                "detect_empresa.match_substring_with_context",
+                empresa=c,
+            )
             return c
 
-    # Default
+    # 5. Fallback con log explícito para que el operador investigue.
+    log.warning(
+        "detect_empresa.fallback_default_FIP_CEHTA",
+        text_preview=detector_text[:300],
+        receptor_rut=receptor_rut,
+        receptor_nombre=receptor_nombre,
+    )
     return "FIP_CEHTA"
 
 
@@ -388,13 +473,23 @@ async def _crear_oc(
 
     R152TTTT-fix2 — La tabla core.ordenes_compra NO tiene columnas
     numero_seq ni anio (la sequence se mantenía en código viejo y nunca
-    se agregó al schema). Cambié el algoritmo a usar COUNT(*) filtrado
-    por empresa + año de fecha_emision para derivar el próximo correlativo.
-    Si hay race condition (2 auto-creates simultáneos), el segundo INSERT
-    falla por UNIQUE(numero_oc) y el try/except externo lo captura.
+    se agregó al schema). Algoritmo: COUNT(*) filtrado por empresa + año.
+
+    R152AAAAA — Agregado pg_advisory_xact_lock por (empresa_codigo, año)
+    para eliminar la race condition del correlativo. Sin esto, dos
+    auto-creates simultáneos calculaban el mismo next_seq y el segundo
+    INSERT chocaba con UNIQUE (empresa_codigo, numero_oc).
     """
     emp_short = empresa_codigo[:3].upper().replace("_", "")
     anio = date.today().year
+
+    # Advisory lock por (empresa, año) — se libera con la transacción.
+    lock_key1 = abs(hash(f"OC|{empresa_codigo}")) & 0x7FFFFFFF
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(:k1, :k2)"),
+        {"k1": lock_key1, "k2": anio},
+    )
+
     seq_row = (
         await db.execute(
             text(

@@ -674,19 +674,34 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                         )
 
                     # R152HHHH — Auto-creación de OC desde email.
-                    # Si Claude clasifica como "oc" (orden de compra),
-                    # disparar el servicio que extrae proveedor+items+monto
-                    # y crea la entidad core.ordenes_compra automáticamente.
-                    # Soft-fail: si la auto-creación falla, queda registrado
-                    # en auto_create_error pero el classify general sigue OK.
+                    # R152AAAAA · P1 — La auto-creación corre con una sesión
+                    # SEPARADA del classifier. Razones:
+                    #   1. El classifier mantiene db_lock durante esta
+                    #      ejecución. auto_create_oc llama a Claude extract
+                    #      (8-15s) y send_oc_to_signers (render PDF + Resend
+                    #      HTTP, ~3-5s). Con la sesión compartida y el lock,
+                    #      todos los demás classify_one esperan. Con sesión
+                    #      separada, el classifier libera el lock al
+                    #      terminar el UPDATE de la categoría.
+                    #   2. Si auto_create falla a mitad, su transacción se
+                    #      cierra/rollback sin contaminar la del classifier
+                    #      (antes: InFailedSQLTransactionError cascadeaba a
+                    #      los siguientes mails clasificados).
+                    #   3. auto_create internamente hace commit antes de
+                    #      send_oc; con sesión propia ese commit no expone
+                    #      datos parciales del classifier al resto de la app.
                     if category in ("oc", "orden_compra"):
                         try:
+                            from app.core.database import SessionLocal as _SL
                             from app.services.auto_create_oc_from_inbox import (
                                 auto_create_oc_from_inbox,
                             )
-                            await auto_create_oc_from_inbox(db, inbox_id)
+                            async with _SL() as auto_db:
+                                await auto_create_oc_from_inbox(
+                                    auto_db, inbox_id
+                                )
                         except Exception as exc:
-                            log.warning(
+                            log.exception(
                                 "inbox.auto_create_oc_failed",
                                 inbox_id=inbox_id,
                                 error=str(exc),
