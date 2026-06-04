@@ -121,6 +121,8 @@ app.add_middleware(
         "Content-Type",
         "X-Requested-With",
         "Accept",
+        # R152BBBBB — Idempotency middleware lee este header.
+        "Idempotency-Key",
     ],
     max_age=600,
 )
@@ -141,6 +143,19 @@ app.add_middleware(GZipMiddleware, minimum_size=300, compresslevel=4)
 # nunca bloquea ni rompe response al cliente.
 from app.core.audit_middleware import HttpMutationAuditMiddleware
 app.add_middleware(HttpMutationAuditMiddleware)
+
+# R152BBBBB — Idempotency-Key middleware. Cachea respuestas de mutaciones
+# (POST/PATCH/PUT/DELETE) por header Idempotency-Key durante 5 minutos.
+# Cierra el ciclo de protección contra double-submit que empezó en
+# R152AAAAA (apiClient genera UUID v4 por mutación).
+#
+# Orden importa: este middleware corre ANTES del audit middleware en el
+# stack de Starlette (los middlewares se aplican en orden inverso al
+# add_middleware). El audit captura tanto cache-hits como cache-misses;
+# eso es lo que queremos — el trail debe registrar TODOS los requests
+# llegados, incluso los que respondió la cache.
+from app.core.idempotency_middleware import IdempotencyMiddleware
+app.add_middleware(IdempotencyMiddleware)
 
 app.include_router(api_router)
 
