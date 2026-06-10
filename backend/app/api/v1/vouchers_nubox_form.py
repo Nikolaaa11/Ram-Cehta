@@ -35,7 +35,7 @@ Endpoints:
 from __future__ import annotations
 
 from datetime import date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -272,6 +272,23 @@ class NuboxFormCreate(BaseModel):
     # en que se planea / se efectúa el pago). Si viene null, queda null
     # y el operador la actualiza al ejecutar la transferencia.
     fecha_pago: date | None = None
+    # R152KKKKKK/LLLLLL — Impuesto específico/adicional del documento.
+    # Va ADEMÁS del IVA: Total documento = Neto + IVA(19%) + imp. específico.
+    # Dos modos (mutuamente excluyentes; si vienen ambos, gana el %):
+    #   - impuesto_especifico: monto fijo en $ (combustibles IEPD,
+    #     códigos SII 28 diésel / 35 gasolinas — se copia de la factura)
+    #   - impuesto_especifico_pct: % SOBRE EL NETO (ILA bebidas
+    #     alcohólicas 20.5/31.5%, analcohólicas 10/18%, suntuarios 15%,
+    #     etc.) — el backend calcula el monto server-side.
+    # Default 0/None = no aplica.
+    impuesto_especifico: Decimal = Field(
+        default=Decimal("0"), ge=0,
+        description="Impuesto específico en $ (combustibles, etc.)",
+    )
+    impuesto_especifico_pct: Decimal | None = Field(
+        default=None, gt=0, le=100,
+        description="Impuesto específico como % del neto (ILA, suntuarios)",
+    )
     documento_dropbox_path: str | None = None
 
     # Header opcional (se pueden omitir, default empty)
@@ -829,6 +846,15 @@ async def create_voucher_nubox_form(
     total_financiera = sum(l.total for l in body.informacion_financiera)
     # Ya validado en Pydantic que son iguales
 
+    # R152LLLLLL — Impuesto específico: si vino como % del neto, el monto
+    # se calcula ACÁ server-side (no se confía en el cálculo del cliente).
+    # ROUND_HALF_UP a peso entero (práctica comercial chilena).
+    imp_especifico_monto = body.impuesto_especifico
+    if body.impuesto_especifico_pct:
+        imp_especifico_monto = (
+            Decimal(total_contable) * body.impuesto_especifico_pct / Decimal("100")
+        ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
     # DB check constraint vouchers_glosa_check exige length(glosa) >= 5.
     # Si user manda glosa < 5 chars (o vacia), usamos la auto-generada que
     # siempre es mas larga. Evita 500 IntegrityError opaco al usuario.
@@ -882,6 +908,12 @@ async def create_voucher_nubox_form(
         # Round 129 — fecha_pago del form → fecha_ejecucion del voucher
         # (fecha planeada / efectiva del pago). Si está null queda null.
         fecha_ejecucion=body.fecha_pago,
+        # R152KKKKKK/LLLLLL — impuesto específico (NULL si no aplica).
+        # Si vino como %, imp_especifico_monto ya trae el calculado.
+        impuesto_especifico=(
+            imp_especifico_monto if imp_especifico_monto > 0 else None
+        ),
+        impuesto_especifico_pct=body.impuesto_especifico_pct,
         documento_dropbox_path=body.documento_dropbox_path,
         source=body.source or "nubox_form",
         created_by=str(user.sub),

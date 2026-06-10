@@ -87,6 +87,14 @@ class Voucher(Base):
     fecha_vencimiento: Mapped[date | None] = mapped_column(Date)
     documento_dropbox_path: Mapped[str | None] = mapped_column(Text)
 
+    # R152KKKKKK/LLLLLL — Impuesto específico/adicional del documento.
+    # Total real = neto + IVA + impuesto_especifico. NULL = no aplica.
+    # Si se ingresó como % del neto (ILA, suntuarios), _pct guarda la tasa
+    # para trazabilidad y impuesto_especifico el monto calculado.
+    # Ver migration round152KKKKKK.
+    impuesto_especifico: Mapped[Decimal | None] = mapped_column(Numeric(18, 2))
+    impuesto_especifico_pct: Mapped[Decimal | None] = mapped_column(Numeric(6, 3))
+
     # V5++ ola CE — Origen del voucher (manual/nubox_form/ai_import/csv/etc).
     # NULL = legacy. Ver migration 0055_voucher_source.
     source: Mapped[str | None] = mapped_column(Text)

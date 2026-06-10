@@ -480,6 +480,14 @@ export default function NuboxFormPage() {
       .finally(() => setLoading(false));
   }, [session]);
 
+  // R152KKKKKK/LLLLLL — Impuesto específico/adicional. Va ADEMÁS del IVA.
+  // Dos modos: monto fijo en $ (combustibles IEPD) o % sobre el neto
+  // (ILA bebidas alcohólicas/analcohólicas, suntuarios, etc.).
+  const [impuestoEspecifico, setImpuestoEspecifico] = useState("");
+  const [impuestoEspecificoModo, setImpuestoEspecificoModo] = useState<
+    "monto" | "pct"
+  >("monto");
+
   const selectedEmpresa = useMemo(
     () => meta?.empresas.find((e) => e.codigo === empresaCodigo),
     [meta, empresaCodigo],
@@ -494,7 +502,6 @@ export default function NuboxFormPage() {
   const ivaFactor = 1 + (meta?.iva_porcentaje ?? 0.19);
   const toBruto = (neto: number) =>
     aplicaIvaTotales ? neto * ivaFactor : neto;
-
   const totalContableNeto = useMemo(
     () => contable.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [contable],
@@ -503,24 +510,36 @@ export default function NuboxFormPage() {
     () => financiera.reduce((sum, l) => sum + (parseFloat(l.total) || 0), 0),
     [financiera],
   );
+
+  // R152KKKKKK/LLLLLL — impuesto específico: monto fijo, o % calculado
+  // sobre el NETO contable (se recalcula en vivo si cambian las líneas).
+  // Se suma UNA vez al total del documento (no por línea) y a AMBOS lados
+  // (contable y financiera) para que la cuadratura siga simétrica.
+  const impEspecifico = useMemo(() => {
+    const v = parseFloat(impuestoEspecifico) || 0;
+    if (v <= 0) return 0;
+    return impuestoEspecificoModo === "pct"
+      ? Math.round(totalContableNeto * (v / 100))
+      : v;
+  }, [impuestoEspecifico, impuestoEspecificoModo, totalContableNeto]);
   const totalContableBruto = useMemo(
     () =>
       contable.reduce(
         (sum, l) => sum + toBruto(parseFloat(l.total) || 0),
         0,
-      ),
+      ) + impEspecifico,
     // toBruto depende de aplicaIvaTotales, que viene de tipoDocumento/meta
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [contable, aplicaIvaTotales],
+    [contable, aplicaIvaTotales, impEspecifico],
   );
   const totalFinancieraBruto = useMemo(
     () =>
       financiera.reduce(
         (sum, l) => sum + toBruto(parseFloat(l.total) || 0),
         0,
-      ),
+      ) + impEspecifico,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [financiera, aplicaIvaTotales],
+    [financiera, aplicaIvaTotales, impEspecifico],
   );
 
   // V5++ ola CJ — comparar floats con tolerancia (0.01) para evitar
@@ -925,6 +944,14 @@ export default function NuboxFormPage() {
         // Round 140 — fecha_pago se mapea a voucher.fecha_ejecucion en
         // el backend. Si está vacía, queda null (sin fecha planeada).
         fecha_pago: fechaPago || null,
+        // R152KKKKKK/LLLLLL — impuesto específico. Si es modo %, mandamos
+        // la tasa y el backend recalcula el monto server-side (no se
+        // confía en el cálculo del cliente).
+        impuesto_especifico: impEspecifico || 0,
+        impuesto_especifico_pct:
+          impuestoEspecificoModo === "pct"
+            ? parseFloat(impuestoEspecifico) || null
+            : null,
         documento_dropbox_path: documentoDropboxPath || null,
         glosa: glosa || null,
         informacion_contable: contable.map((l) => ({
@@ -1530,6 +1557,49 @@ export default function NuboxFormPage() {
               </p>
             </div>
 
+            {/* R152KKKKKK/LLLLLL — Impuesto específico/adicional.
+                Facturas con impuesto ADEMÁS del IVA: combustibles (IEPD,
+                monto fijo), bebidas alcohólicas/analcohólicas (ILA, % del
+                neto), suntuarios (15% del neto), etc. Sin este campo el
+                Total Bruto nunca cuadraba con el total de esas facturas. */}
+            <div>
+              <Label hint="Solo para facturas que traen un impuesto específico/adicional además del IVA. Monto $: combustibles (IEPD diésel/gasolina) — copia el monto impreso en la factura. % del neto: bebidas alcohólicas (ILA 20,5% / 31,5%), analcohólicas (10% / 18%), suntuarios (15%) — se calcula automático sobre el neto. Si la factura no lo tiene, déjalo vacío.">
+                Impuesto específico (opcional)
+              </Label>
+              <div className="flex gap-2">
+                <select
+                  value={impuestoEspecificoModo}
+                  onChange={(e) =>
+                    setImpuestoEspecificoModo(
+                      e.target.value as "monto" | "pct",
+                    )
+                  }
+                  className="form-input w-32 shrink-0"
+                  aria-label="Modo del impuesto específico"
+                >
+                  <option value="monto">$ monto</option>
+                  <option value="pct">% del neto</option>
+                </select>
+                <input
+                  type="number"
+                  min={0}
+                  step={impuestoEspecificoModo === "pct" ? 0.1 : 1}
+                  max={impuestoEspecificoModo === "pct" ? 100 : undefined}
+                  placeholder={impuestoEspecificoModo === "pct" ? "ej: 20.5" : "0"}
+                  value={impuestoEspecifico}
+                  onChange={(e) => setImpuestoEspecifico(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-ink-500">
+                {impuestoEspecificoModo === "pct"
+                  ? impEspecifico > 0
+                    ? `${impuestoEspecifico}% sobre el neto = $${impEspecifico.toLocaleString("es-CL")}. Se suma al Total Bruto además del IVA.`
+                    : "Tasa % sobre el neto (ILA bebidas, suntuarios). Se calcula automático."
+                  : "Monto en $ impreso en la factura (combustibles IEPD). Se suma al Total Bruto además del IVA."}
+              </p>
+            </div>
+
             {/* Round 129 — Proyecto contable a nivel voucher.
                 Antes estaba en cada línea (col en LineSection). Ahora es
                 global por voucher y va debajo de fecha vencimiento. */}
@@ -1861,6 +1931,16 @@ export default function NuboxFormPage() {
               </div>
             </div>
           </div>
+
+          {impEspecifico > 0 && (
+            <p className="mb-3 text-[11px] text-ink-500">
+              Los totales Bruto incluyen impuesto específico de{" "}
+              <strong>
+                ${impEspecifico.toLocaleString("es-CL")}
+              </strong>{" "}
+              (además del IVA). Bruto = Neto × {ivaFactor} + imp. específico.
+            </p>
+          )}
 
           <div className="flex items-center justify-between">
             <div
