@@ -56,6 +56,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useDebounce } from "@/hooks/use-debounce";
 import { toast } from "@/components/ui/toast";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import { exportCsv, csvFilename } from "@/lib/csv-export";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
@@ -404,7 +405,7 @@ export function VouchersClientView({
 
   const runBulkApprove = async (ids: number[]) => {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     setBulkRunning(true);

@@ -58,8 +58,8 @@ def _load_db_url() -> str:
     return url
 
 
-def _quote_value(v) -> str:
-    """Convierte un valor Python a SQL literal seguro para INSERT."""
+def _quote_scalar(v) -> str:
+    """Serializa un valor escalar (no array, no jsonb)."""
     if v is None:
         return "NULL"
     if isinstance(v, bool):
@@ -70,16 +70,43 @@ def _quote_value(v) -> str:
         return f"'{v.isoformat()}'"
     if isinstance(v, UUID):
         return f"'{v}'::uuid"
-    if isinstance(v, (dict, list)):
-        # JSONB
-        s = json.dumps(v, default=str).replace("'", "''")
-        return f"'{s}'::jsonb"
     if isinstance(v, bytes):
-        # BYTEA
         return f"'\\x{v.hex()}'::bytea"
-    # Default: cadena. Escapar comillas simples.
     s = str(v).replace("\\", "\\\\").replace("'", "''")
     return f"'{s}'"
+
+
+def _quote_value(v, pg_type: str) -> str:
+    """Convierte un valor Python a SQL literal seguro para INSERT.
+
+    pg_type: nombre del tipo Postgres (e.g. 'text[]', 'jsonb', 'integer').
+    """
+    if v is None:
+        return "NULL"
+
+    # Tipos array (e.g. text[], integer[])
+    if pg_type.endswith("[]"):
+        if not isinstance(v, list):
+            # Defensive fallback
+            return _quote_scalar(v)
+        if not v:
+            return f"'{{}}'::{pg_type}"
+        # Format as ARRAY['a','b',NULL,'c']::text[]
+        elements = []
+        for el in v:
+            if el is None:
+                elements.append("NULL")
+            else:
+                elements.append(_quote_scalar(el))
+        return f"ARRAY[{','.join(elements)}]::{pg_type}"
+
+    # JSONB / JSON
+    if pg_type in ("jsonb", "json"):
+        s = json.dumps(v, default=str).replace("'", "''")
+        return f"'{s}'::{pg_type}"
+
+    # Escalares
+    return _quote_scalar(v)
 
 
 async def main() -> None:
@@ -90,7 +117,7 @@ async def main() -> None:
     manifest_file = BACKUP_DIR / f"backup_cehta_{ts}_manifest.txt"
 
     print(f"Conectando a Supabase…")
-    conn = await asyncpg.connect(db_url, timeout=30)
+    conn = await asyncpg.connect(db_url, timeout=30, statement_cache_size=0)
 
     db_version = await conn.fetchval("SELECT version()")
     print(f"  {db_version.split(',')[0]}")
@@ -162,13 +189,36 @@ async def main() -> None:
                 cols = list(rows[0].keys())
                 col_list = ", ".join(f'"{c}"' for c in cols)
 
-                # Batch INSERTs en grupos de 100 para que el archivo sea más manejable
+                # Obtener tipo PG por columna para serializacion correcta
+                type_rows = await conn.fetch(
+                    """
+                    SELECT column_name,
+                           CASE
+                               WHEN data_type = 'ARRAY' THEN
+                                   regexp_replace(udt_name, '^_(.+)$', '\\1') || '[]'
+                               WHEN data_type = 'USER-DEFINED' THEN udt_name
+                               WHEN data_type = 'character varying' THEN 'text'
+                               WHEN data_type = 'timestamp with time zone' THEN 'timestamptz'
+                               WHEN data_type = 'timestamp without time zone' THEN 'timestamp'
+                               WHEN data_type = 'double precision' THEN 'double precision'
+                               ELSE data_type
+                           END AS pg_type
+                    FROM information_schema.columns
+                    WHERE table_schema = $1 AND table_name = $2
+                    ORDER BY ordinal_position
+                    """,
+                    schema,
+                    table_name,
+                )
+                col_types = {r["column_name"]: r["pg_type"] for r in type_rows}
+
+                # Batch INSERTs en grupos de 100
                 for i in range(0, row_count, 100):
                     batch = rows[i : i + 100]
                     f.write(f"INSERT INTO {qualified} ({col_list}) VALUES\n")
                     value_lines = []
                     for row in batch:
-                        vals = [_quote_value(row[c]) for c in cols]
+                        vals = [_quote_value(row[c], col_types.get(c, "text")) for c in cols]
                         value_lines.append(f"  ({', '.join(vals)})")
                     f.write(",\n".join(value_lines))
                     f.write(";\n")

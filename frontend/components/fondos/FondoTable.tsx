@@ -59,6 +59,8 @@ interface Props {
 export function FondoTable({ items, onRowClick }: Props) {
   return (
     <Surface padding="none">
+      {/* R152JJJJJJ — scroll horizontal en mobile (390px) en vez de desbordar */}
+      <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-hairline text-sm">
         <thead className="bg-ink-100/40 text-xs uppercase tracking-wide text-ink-500">
           <tr>
@@ -127,6 +129,7 @@ export function FondoTable({ items, onRowClick }: Props) {
           })}
         </tbody>
       </table>
+      </div>
     </Surface>
   );
 }

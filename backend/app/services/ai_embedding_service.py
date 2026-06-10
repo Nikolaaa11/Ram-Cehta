@@ -38,7 +38,7 @@ def _client() -> "AsyncOpenAI":
     # sin la dependencia instalada (p.ej. CI mínimo).
     from openai import AsyncOpenAI
 
-    return AsyncOpenAI(api_key=settings.openai_api_key)
+    return AsyncOpenAI(api_key=settings.openai_api_key, timeout=30.0, max_retries=3)  # R152FFFFFF
 
 
 async def embed_text(text: str) -> list[float]:

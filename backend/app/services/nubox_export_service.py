@@ -150,24 +150,29 @@ def generate_csv(rows: list[dict[str, Any]]) -> str:
     writer = csv.writer(buf, delimiter=_NUBOX_CSV_DELIMITER, quoting=csv.QUOTE_MINIMAL)
     writer.writerow(_NUBOX_CSV_HEADER)
 
+    # R152FFFFFF — Eliminado `.replace(delimiter, ",")` en cada campo.
+    # csv.writer con QUOTE_MINIMAL YA escapa el delimitador con comillas
+    # dobles. El replace destruía datos reales: una glosa "Pago 50%; saldo"
+    # se exportaba como "Pago 50%, saldo" — texto alterado en el asiento
+    # que va al sistema contable oficial.
     for r in rows:
         writer.writerow([
             r["fecha_contable"].isoformat() if r["fecha_contable"] else "",
             r["voucher_codigo"],
             _TIPO_NUBOX_MAP.get(r["voucher_tipo"], r["voucher_tipo"]),
-            (r["glosa"] or "")[:200].replace(_NUBOX_CSV_DELIMITER, ","),
+            (r["glosa"] or "")[:200],
             r["line_number"],
             r["cuenta_nubox"],
-            (r["cuenta_nombre"] or "").replace(_NUBOX_CSV_DELIMITER, ","),
+            r["cuenta_nombre"] or "",
             f"{Decimal(r['debit']):.0f}",
             f"{Decimal(r['credit']):.0f}",
             r["area_codigo"] or "",
             r["proyecto_codigo"] or "",
             r["contraparte_rut"] or "",
-            (r["contraparte_nombre"] or "").replace(_NUBOX_CSV_DELIMITER, ","),
+            r["contraparte_nombre"] or "",
             r["doc_tributario_tipo"] or "",
             r["doc_tributario_folio"] or "",
-            (r["linea_descripcion"] or "").replace(_NUBOX_CSV_DELIMITER, ","),
+            r["linea_descripcion"] or "",
         ])
 
     return buf.getvalue()

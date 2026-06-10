@@ -330,18 +330,46 @@ async def export_entity_xlsx(
     empresa_codigo: Annotated[str | None, Query(alias="empresa_codigo")] = None,
     estado: str | None = None,
 ) -> StreamingResponse:
-    """Exporta una lista a Excel, respetando filtros opcionales.
+    """Exporta una lista a Excel, respetando filtros opcionales + scope.
 
     `entity_type` debe ser una clave de `_ENTITY_QUERIES`. 404 si no existe.
-    Cualquier usuario autenticado puede exportar — los datos sensibles ya
-    están protegidos a nivel CRUD por scopes; un usuario que no puede ver
-    OCs tampoco las ve en el listado y no encontrará nada útil que exportar.
+
+    R152FFFFFF — SECURITY: el SQL filtra por el `empresa_codigo` del query
+    param, NO por el scope del user. Sin el check de abajo, un user de la
+    empresa A podía exportar data de la empresa B (sueldos, RUTs de
+    trabajadores, OCs, movimientos). Ahora validamos scope.
     """
     if entity_type not in _ENTITY_QUERIES:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"entity_type '{entity_type}' no soportado para exportación",
         )
+
+    # R152FFFFFF — Validar scope multi-tenant.
+    from app.services.empresa_scope_service import get_allowed_empresa_codes
+
+    allowed = await get_allowed_empresa_codes(user, db)
+    if allowed is not None:  # None = admin global, sin restricción
+        if empresa_codigo:
+            # Pidió una empresa específica → debe estar en su scope.
+            if empresa_codigo not in allowed:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Sin acceso a empresa '{empresa_codigo}'.",
+                )
+        else:
+            # Sin filtro de empresa → forzar a su empresa si solo tiene 1,
+            # o rechazar si tiene varias (evita export cross-empresa).
+            if len(allowed) == 1:
+                empresa_codigo = next(iter(allowed))
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Especificá una empresa (parámetro empresa_codigo) "
+                        "para exportar. No se permite exportar todas a la vez."
+                    ),
+                )
 
     cfg = _ENTITY_QUERIES[entity_type]
     rows = (

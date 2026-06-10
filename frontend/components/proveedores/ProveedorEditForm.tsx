@@ -17,10 +17,8 @@ import { Surface } from "@/components/ui/surface";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import type { ProveedorRead, ProveedorUpdate } from "@/lib/api/schema";
-
-function isValidRut(rut: string): boolean {
-  return /^\d{7,8}-?[\dKk]$/.test(rut.replace(/\./g, ""));
-}
+// R152FFFFFF — validación real del DV (módulo 11), no solo formato.
+import { isValidRut } from "@/lib/rut";
 
 type FieldKey = keyof ProveedorUpdate;
 type FieldErrors = Partial<Record<FieldKey | "general", string>>;

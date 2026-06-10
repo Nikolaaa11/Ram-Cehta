@@ -187,9 +187,17 @@ async def _get_active_credentials(
         partner_token = decrypt_credential(row[0])
         api_key = decrypt_credential(row[1])
     except CredentialDecryptError as exc:
+        # R152HHHHHH — mensaje genérico al frontend; detalle solo al log.
+        log.error(
+            "nubox_api.credential_decrypt_failed",
+            extra={"empresa": empresa_codigo, "err": str(exc)[:200]},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"No se pudo descifrar credenciales: {exc}",
+            detail=(
+                "No se pudieron descifrar las credenciales Nubox. Verificá "
+                "CREDENTIALS_FERNET_KEY en el servidor."
+            ),
         ) from exc
     return partner_token, api_key, row[2], row[3]
 

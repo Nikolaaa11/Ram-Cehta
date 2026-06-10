@@ -148,13 +148,22 @@ export default function DesdeMensajePage() {
 
   useEffect(() => {
     if (!session) return;
+    // R152WWWWW — Guard: solo cargamos meta una vez. Si la session se
+    // renueva (token refresh), no queremos sobrescribir la empresa que
+    // el usuario eligió manualmente. Sin esto, cada token-refresh
+    // reiniciaba `empresaCodigo` a `m.empresas[0]` perdiendo la elección.
+    if (meta) return;
     apiClient
       .get<FormMetadata>("/vouchers/form-metadata", session)
       .then((m) => {
         setMeta(m);
-        if (m.empresas[0]) setEmpresaCodigo(m.empresas[0].codigo);
+        // Solo defaulteamos si aún no hay empresa elegida (caso primera carga).
+        if (m.empresas[0] && !empresaCodigo) setEmpresaCodigo(m.empresas[0].codigo);
       })
       .catch(() => toast.error("No pude cargar las empresas."));
+    // ESLint: omitimos `meta` y `empresaCodigo` para evitar refetch loops.
+    // El guard `if (meta) return` cubre el escenario de re-ejecución.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   // V5++ ola CF — Prefill desde sessionStorage cuando venimos de /admin/mailbox

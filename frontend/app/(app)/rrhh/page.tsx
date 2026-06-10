@@ -356,8 +356,11 @@ export default function RRHHPage() {
         {libros.isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : libros.data && libros.data.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
-            <table className="w-full text-sm">
+          /* R152GGGGGG — overflow-x-auto + min-w para que en mobile la
+             tabla scrollee horizontalmente en lugar de recortar columnas
+             (antes overflow-hidden ocultaba "Costo total"). */
+          <div className="overflow-x-auto rounded-2xl border border-hairline bg-white shadow-card">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-ink-50/60 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
                   <th className="px-4 py-3">Periodo</th>
@@ -446,8 +449,9 @@ export default function RRHHPage() {
         {empleados.isLoading ? (
           <Skeleton className="h-32 w-full" />
         ) : empleados.data && empleados.data.length > 0 ? (
-          <div className="overflow-hidden rounded-2xl border border-hairline bg-white shadow-card">
-            <table className="w-full text-sm">
+          // R152GGGGGG — scroll horizontal en mobile (antes recortaba columnas)
+          <div className="overflow-x-auto rounded-2xl border border-hairline bg-white shadow-card">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-ink-50/60 text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                 <tr>
                   <th className="px-4 py-3">RUT</th>

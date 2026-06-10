@@ -88,6 +88,24 @@ async def current_admin_with_2fa(
     if user.app_role != "admin":
         return user
 
+    # R152XXXXX — SECURITY: rechazar API tokens en endpoints high-impact.
+    # Los tokens cak_xxx no pasan por el flow MFA del browser; permitirles
+    # acceder a endpoints 2FA-gated es equivalente a credenciales
+    # permanentes sin segundo factor. Si un dev necesita un cron que
+    # haga acciones admin, debe hacerlas vía API token con scope reducido
+    # (no admin) y mover el endpoint a un patrón scope-based.
+    if user.raw_claims.get("api_token") is True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "detail": (
+                    "API tokens no pueden acceder a endpoints que requieren "
+                    "2FA. Usa sesión browser con TOTP verificado."
+                ),
+                "code": "2fa_api_token_blocked",
+            },
+        )
+
     # Future-proof: si Supabase agrega un claim "amr_2fa" en el JWT después
     # de un challenge MFA, lo respetamos sin tocar la tabla local.
     if user.raw_claims.get("amr_2fa") is True:

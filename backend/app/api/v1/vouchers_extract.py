@@ -467,6 +467,10 @@ async def extract_from_text(
 
     Cap: 60.000 chars (suficiente para emails largos + thread, evita pasar
     novelas enteras al LLM por costo).
+
+    R152UUUUU — Pool starvation fix: la conexión DB se libera ANTES del
+    call a Claude (5-15s). Sin esto, 20 reqs concurrentes saturaban el
+    pool de 4 conexiones del session pooler.
     """
     if not body.text or len(body.text.strip()) < 30:
         raise HTTPException(
@@ -479,7 +483,11 @@ async def extract_from_text(
     MAX_TEXT = 60_000
     text_input = body.text.strip()[:MAX_TEXT]
 
+    # R152UUUUU — auth check con session existente (operación rápida)
     await assert_empresa_access(user, db, body.empresa_codigo)
+    # Liberar la conexión ANTES del Claude API call (5-15s) para no
+    # bloquear el pool. La dependency cleanup hará close idempotente OK.
+    await db.close()
 
     try:
         extraction = await analyze_document(
@@ -496,7 +504,10 @@ async def extract_from_text(
         ) from exc
 
     suggestion = _build_suggestion(extraction.fields, body.empresa_codigo)
-    suggestion = await _maybe_match_empresa(suggestion, db, scope)
+    # R152UUUUU — Nueva session corta solo para el match-empresa query.
+    from app.core.database import SessionLocal
+    async with SessionLocal() as db_match:
+        suggestion = await _maybe_match_empresa(suggestion, db_match, scope)
 
     return ExtractFromUploadResponse(
         suggestion=suggestion,
@@ -548,6 +559,7 @@ async def extract_from_upload(
             ),
         )
 
+    # R152UUUUU — auth check rápido con sesión existente
     await assert_empresa_access(user, db, empresa_codigo)
 
     content = await file.read()
@@ -563,6 +575,11 @@ async def extract_from_upload(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Archivo vacio"
         )
+
+    # R152UUUUU — Liberar conexión DB ANTES del OCR (puede tardar 30s+)
+    # y Claude Vision (5-15s). El IO externo no necesita DB, no tiene
+    # sentido bloquear una conexión del pool durante todo eso.
+    await db.close()
 
     # 2) Extraer texto del archivo (PDF/imagen/docx/pptx via dispatcher)
     extract_result = await extract_text(
@@ -624,7 +641,13 @@ async def extract_from_upload(
 
     # 4) Construir sugerencia precargada para el form
     suggestion = _build_suggestion(extraction.fields, empresa_codigo)
-    suggestion = await _maybe_match_empresa(suggestion, db, scope)
+
+    # R152UUUUU — Re-abrir session corta solo para el match-empresa query.
+    # NO mantenemos la conexión durante el Dropbox upload (tarda segundos
+    # en transferir y bloquearía el pool).
+    from app.core.database import SessionLocal
+    async with SessionLocal() as db_match:
+        suggestion = await _maybe_match_empresa(suggestion, db_match, scope)
 
     # 5) Si el user pidio archivar, subimos a Dropbox y devolvemos el path
     #    en la response. El FE lo persiste como documento_dropbox_path al
@@ -632,9 +655,13 @@ async def extract_from_upload(
     dropbox_path: str | None = None
     dropbox_warning: str | None = None
     if save_to_dropbox:
-        dropbox_path, dropbox_warning = await _try_upload_to_dropbox(
-            db, content, filename, empresa_codigo
-        )
+        # R152UUUUU — Session nueva para Dropbox upload. La `db` original
+        # fue cerrada después del auth check para no bloquear el pool
+        # durante OCR + Claude + dropbox.
+        async with SessionLocal() as db_upload:
+            dropbox_path, dropbox_warning = await _try_upload_to_dropbox(
+                db_upload, content, filename, empresa_codigo
+            )
 
     return ExtractFromUploadResponse(
         suggestion=suggestion,

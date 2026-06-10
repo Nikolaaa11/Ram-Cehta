@@ -25,7 +25,18 @@ import {
   Printer,
   Sparkles,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+// R152VVVVV — react-markdown lazy-loaded. Ahorra ~50KB del initial chunk
+// de /entregables porque el dialog solo se abre on-demand cuando el user
+// genera un acta. SSR off porque no hace falta para un modal.
+import dynamic from "next/dynamic";
+const ReactMarkdown = dynamic(() => import("react-markdown"), {
+  ssr: false,
+  loading: () => (
+    <div className="text-sm text-muted-foreground italic">
+      Cargando vista previa...
+    </div>
+  ),
+});
 import { toast } from "sonner";
 import {
   Dialog,

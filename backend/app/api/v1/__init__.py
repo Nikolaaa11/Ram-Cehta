@@ -84,6 +84,9 @@ from app.api.v1 import rrhh  # R152vvv
 from app.api.v1 import empresa_oc_branding  # R152www
 from app.api.v1 import oc_cuotas  # R152yyy
 from app.api.v1 import flujos_caja_proyecto  # R152zzz
+from app.api.v1 import perf_stats  # R152NNNNN — observabilidad de caches + DB pool
+from app.api.v1 import feature_usage  # R152PPPPP — telemetría de uso por endpoint
+from app.api.v1 import email_outbox  # R152ZZZZZ — outbox + retry de emails
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -100,6 +103,12 @@ api_router.include_router(empresa_oc_branding.router, tags=["empresa-oc-branding
 api_router.include_router(oc_cuotas.router, tags=["oc-cuotas"])
 # R152zzz — Flujos de caja proyectado por proyecto contable
 api_router.include_router(flujos_caja_proyecto.router, tags=["flujos-caja-proyecto"])
+# R152NNNNN — Performance stats: hit-rate de caches + estado del pool
+api_router.include_router(perf_stats.router, tags=["admin-perf"])
+# R152PPPPP — Feature usage analytics (qué endpoints se usan de verdad)
+api_router.include_router(feature_usage.router, tags=["admin-feature-usage"])
+# R152ZZZZZ — Email outbox: retry de emails fallidos + stats
+api_router.include_router(email_outbox.router, tags=["admin-email-outbox"])
 api_router.include_router(validate.router, prefix="/validate", tags=["validate"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(proveedores.router, prefix="/proveedores", tags=["proveedores"])

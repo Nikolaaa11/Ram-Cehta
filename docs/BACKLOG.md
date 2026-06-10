@@ -32,6 +32,12 @@ Formato:
 
 ## 🟡 Operativo (próximo mes)
 
+### De auditoría R152JJJJJJ (2026-06-10, ver docs/AUDITORIA_2026_06_10.md)
+- [M] (1h) **[TECH] approval_rules.py GETs sin require_scope** (líneas 91, 119, 264): config de aprobaciones y matriz user×empresa visibles a cualquier autenticado. Decidir scope de lectura.
+- [L] (30min) **[TECH] ordenes_compra_extract.py:198** — neto inverso (÷1.19) sin validar doc exento. Flujo de sugerencia IA, bajo riesgo.
+- [L] (1h) **[TECH] edit-button size sm h-7 (28px)** < 44px touch target móvil. Subir a h-9 revisando layouts de tablas.
+- [L] (15min) **[TECH] nubox_export_service.py:314** — UPDATE a SYNCED sin validar estado anterior (flujo solo-admin).
+
 - [H] (2h) **[TECH] Endpoint `/admin/credentials/encrypt-helper`** para que el operador pueda cifrar passwords sin necesitar Python local. Útil para cargar credenciales Nubox manualmente sin CLI.
 - [H] (3h) **[TECH] UI `/admin/incidents`** para ver `core.system_incidents` con filtros, acknowledge, resolve. Sin UI los incidentes quedan invisibles.
 - [H] (4h) **[TECH] Slack/email notification** cuando se abre incident CRITICAL. Hoy se loguea en DB pero nadie se entera.

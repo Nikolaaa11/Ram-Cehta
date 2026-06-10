@@ -14,6 +14,7 @@ Recursos:
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from datetime import datetime
 from decimal import Decimal
@@ -341,8 +342,21 @@ async def upload_libro(
             detail=f"Empresa {empresa_codigo} no existe o está inactiva",
         )
 
-    # Guardar tmp + parsear
+    # R152EEEEEE — Cap defensivo de tamaño. Sin esto, un user con
+    # permisos RRHH puede subir N×10GB hasta llenar el FS de la VM Fly
+    # (512MB). Excel real de libro remuneraciones rara vez pasa 5MB.
     contents = await file.read()
+    MAX_LIBRO_BYTES = 20 * 1024 * 1024  # 20MB
+    if len(contents) > MAX_LIBRO_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=(
+                f"Archivo demasiado grande ({len(contents) / 1024 / 1024:.1f}MB). "
+                f"Máximo: 20MB."
+            ),
+        )
+    # Guardar tmp + parsear. delete=True con context manager para evitar
+    # tmp leak si parse_libro_remuneraciones falla.
     with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
         tmp.write(contents)
         tmp_path = Path(tmp.name)
@@ -639,7 +653,20 @@ async def create_empleado(
         await db.commit()
     except Exception as exc:
         await db.rollback()
-        raise HTTPException(409, f"No se pudo crear empleado: {exc}") from exc
+        # R152JJJJJJ — no filtrar detalles del constraint DB al frontend.
+        # El caso típico es RUT duplicado → mensaje claro; el resto genérico.
+        logging.getLogger(__name__).warning(
+            "rrhh.crear_empleado_failed", extra={"err": str(exc)[:200]}
+        )
+        if "unique" in str(exc).lower() or "duplicate" in str(exc).lower():
+            raise HTTPException(
+                409, "Ya existe un empleado con ese RUT en esa empresa."
+            ) from exc
+        raise HTTPException(
+            409,
+            "No se pudo crear el empleado. Revisá que los datos sean válidos "
+            "(RUT, fechas y empresa).",
+        ) from exc
 
     row = (
         await db.execute(

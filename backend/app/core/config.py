@@ -43,7 +43,6 @@ class Settings(BaseSettings):
     )
 
     database_url: PostgresDsn
-    alembic_database_url: str | None = None
 
     supabase_url: str
     supabase_anon_key: str
@@ -59,6 +58,10 @@ class Settings(BaseSettings):
     # Modelo activo a 2026-05. Claude 3.5 Sonnet (oct 2024) está deprecated.
     # Sonnet 4.5 es el sweet spot calidad/velocidad/costo para actas + chat.
     # Se puede override via env AI_CHAT_MODEL.
+    #
+    # R152OOOOO revertido — decisión explícita de Nicolás 2026-06-04:
+    # mantener Sonnet 4.5 en TODOS los servicios. La calidad/confianza
+    # de outputs IA es prioridad sobre ahorro de costos para un FIP.
     ai_chat_model: str = "claude-sonnet-4-5-20250929"
     ai_embedding_model: str = "text-embedding-3-small"
     ai_max_context_chunks: int = 10
@@ -150,6 +153,12 @@ class Settings(BaseSettings):
     #   - https://calendar.app.google/abc123
     booking_url: str | None = None
     booking_owner_name: str = "Guido Rietta"
+
+    # R152GGGGGG — Tolerancia de monto (CLP) para conciliación bancaria.
+    # Default 0 = match exacto. Subir si las comisiones bancarias generan
+    # mismatch (ej. transferencia de $100 que llega como $99.50 por
+    # comisión). Ejemplo: fly secrets set CONCILIACION_TOLERANCIA_CLP=500
+    conciliacion_tolerancia_clp: int = 0
 
     @field_validator("cors_origins", mode="before")
     @classmethod

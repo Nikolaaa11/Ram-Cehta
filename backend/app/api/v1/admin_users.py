@@ -18,7 +18,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 
+from sqlalchemy import text
+
 from app.api.deps import DBSession, current_admin_with_2fa, require_scope
+from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.user_role_repository import UserRoleRepository
 from app.schemas.admin_user import (
@@ -26,6 +29,48 @@ from app.schemas.admin_user import (
     UserRoleRead,
     UserRoleUpdateRequest,
 )
+
+log = get_logger(__name__)
+
+
+async def _revoke_user_api_tokens(db, user_id: str, reason: str) -> int:
+    """R152AAAAAA — Revoca todos los API tokens activos creados por un user.
+
+    Llamar cuando el role del user cambia (downgrade) o se elimina su
+    user_role. Sin esto, un ex-admin con un token `cak_xxx` puede seguir
+    haciendo llamadas mientras la persona ya no es admin.
+
+    Soft-fail: si la tabla `app.api_tokens` no existe (migración pendiente),
+    loggea warning y sigue. Devuelve cantidad de tokens revocados.
+    """
+    try:
+        result = await db.execute(
+            text(
+                """UPDATE app.api_tokens
+                   SET revoked_at = NOW()
+                   WHERE created_by = :uid AND revoked_at IS NULL
+                   RETURNING id"""
+            ),
+            {"uid": user_id},
+        )
+        revoked = result.fetchall()
+        count = len(revoked)
+        if count > 0:
+            log.info(
+                "api_tokens.revoked_on_role_change",
+                user_id=user_id,
+                count=count,
+                reason=reason,
+            )
+        return count
+    except Exception as exc:
+        log.warning(
+            "api_tokens.revoke_failed",
+            user_id=user_id,
+            reason=reason,
+            error=str(exc),
+        )
+        return 0
 
 router = APIRouter()
 
@@ -86,6 +131,19 @@ async def update_role(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Usuario {user_id} no tiene rol asignado",
         )
+
+    # R152AAAAAA — Si el role cambia (especialmente downgrade desde admin),
+    # revocar todos los API tokens activos creados por este user. Sin esto,
+    # un ex-admin con cak_xxx token podía seguir operando como admin
+    # incluso después del downgrade.
+    role_changed = existing.app_role != body.app_role
+    if role_changed:
+        await _revoke_user_api_tokens(
+            db,
+            user_id,
+            reason=f"role_change:{existing.app_role}->{body.app_role}",
+        )
+
     result = await repo.upsert(user_id, body.app_role, assigned_by=user.sub)
     await db.commit()
     return result
@@ -109,6 +167,11 @@ async def remove_user(
             detail="No podés removerte a vos mismo (otro admin debe hacerlo)",
         )
     repo = UserRoleRepository(db)
+    # R152AAAAAA — Revocar tokens ANTES del delete del user_role. Si el
+    # delete falla, queremos que los tokens igual queden revocados
+    # (el role downgrade implícito de DELETE = downgrade a viewer default).
+    await _revoke_user_api_tokens(db, user_id, reason="user_deleted")
+
     deleted = await repo.delete(user_id)
     if not deleted:
         raise HTTPException(

@@ -128,7 +128,14 @@ async def create_subscription(
     return WebhookSubscriptionWithSecret(**base.model_dump(), secret=secret)
 
 
-@router.patch("/{sub_id}", response_model=WebhookSubscriptionRead)
+@router.patch(
+    "/{sub_id}",
+    response_model=WebhookSubscriptionRead,
+    # R152EEEEEE — PATCH puede cambiar `target_url` redirigiendo eventos
+    # (OC, voucher data) a una URL controlada por attacker. Antes solo
+    # requería scope, ahora requiere 2FA igual que POST/DELETE.
+    dependencies=[Depends(current_admin_with_2fa)],
+)
 async def update_subscription(
     user: Annotated[AuthenticatedUser, Depends(require_scope(_SCOPE))],
     db: DBSession,

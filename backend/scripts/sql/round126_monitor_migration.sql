@@ -82,10 +82,21 @@ CREATE TABLE IF NOT EXISTS core.auto_sync_runs (
     empresa_results     JSONB,
     status              TEXT NOT NULL DEFAULT 'STARTED',
     error_message       TEXT,
-    CONSTRAINT chk_auto_sync_status CHECK (status IN ('STARTED', 'OK', 'PARTIAL', 'FAILED'))
+    -- R152HHHHHH — 'RATE_LIMITED': el SII detectó "consultas recurrentes"
+    -- y el cron abortó el resto del run para evitar ban de IP.
+    CONSTRAINT chk_auto_sync_status CHECK (status IN ('STARTED', 'OK', 'PARTIAL', 'FAILED', 'RATE_LIMITED'))
 );
 CREATE INDEX IF NOT EXISTS idx_auto_sync_started
     ON core.auto_sync_runs(started_at DESC);
+
+-- R152HHHHHH — Idempotente: si la tabla ya existía con el constraint viejo
+-- (sin 'RATE_LIMITED'), lo reemplazamos. Seguro de correr múltiples veces.
+DO $$
+BEGIN
+    ALTER TABLE core.auto_sync_runs DROP CONSTRAINT IF EXISTS chk_auto_sync_status;
+    ALTER TABLE core.auto_sync_runs ADD CONSTRAINT chk_auto_sync_status
+        CHECK (status IN ('STARTED', 'OK', 'PARTIAL', 'FAILED', 'RATE_LIMITED'));
+END $$;
 
 SELECT 'core.system_health_checks' AS tabla,
     EXISTS (SELECT 1 FROM information_schema.tables

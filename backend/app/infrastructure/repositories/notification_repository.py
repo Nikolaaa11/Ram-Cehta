@@ -85,6 +85,40 @@ class NotificationRepository:
         result = await self._session.execute(stmt)
         return int(getattr(result, "rowcount", 0) or 0)
 
+    async def resolve_stale(
+        self, *, tipo: str, vigentes_entity_ids: set[str]
+    ) -> int:
+        """R152GGGGGG — Auto-resuelve alertas zombie.
+
+        Marca como leídas (read_at=now) las notificaciones de un `tipo` cuyo
+        `entity_id` YA NO está en el set de entidades vigentes. Ejemplo: una
+        alerta "F29 due" cuyo F29 ya pasó a 'pagado' deja de estar vigente —
+        se marca leída para que desaparezca de la inbox/bell del user.
+
+        Llamar desde cada generador tras computar las filas vigentes.
+        Devuelve cantidad de notifs resueltas.
+        """
+        now = datetime.now(UTC)
+        conditions = [
+            Notification.tipo == tipo,
+            Notification.read_at.is_(None),
+        ]
+        # Solo las que tienen entity_id y NO están vigentes.
+        if vigentes_entity_ids:
+            conditions.append(
+                Notification.entity_id.notin_(list(vigentes_entity_ids))
+            )
+        # Si vigentes está vacío → todas las del tipo son stale.
+        conditions.append(Notification.entity_id.is_not(None))
+
+        stmt = (
+            update(Notification)
+            .where(and_(*conditions))
+            .values(read_at=now)
+        )
+        result = await self._session.execute(stmt)
+        return int(getattr(result, "rowcount", 0) or 0)
+
     async def create(
         self,
         *,

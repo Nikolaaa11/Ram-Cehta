@@ -14,7 +14,7 @@ payload, listo para POST /v1/sales/issuance.
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -141,7 +141,15 @@ def voucher_to_nubox_payload(
     is_afecto = dte_legal_code in {"33", "39", "56", "61"}
     if is_afecto:
         # Agregar tax IVA al primer item (Nubox lo aplica como suma global)
-        iva_amount = round(total_neto * 0.19)
+        # R152JJJJJJ — Decimal + ROUND_HALF_UP en vez de round() float.
+        # round() hace banker's rounding (28.5 → 28); el SII y la práctica
+        # comercial chilena esperan half-up (28.5 → 29). Con float además
+        # 0.19 no es exacto en binario.
+        iva_amount = int(
+            (Decimal(total_neto) * Decimal("0.19")).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
+        )
         total_iva = iva_amount
         if details:
             details[0]["taxes"].append({

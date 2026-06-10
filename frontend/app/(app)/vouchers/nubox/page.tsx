@@ -173,22 +173,23 @@ export default function NuboxFormPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Round 6 — limites razonables de fecha para evitar typos catastroficos
-  // (ej. 1900-01-01 o 2099-12-31 por dedo gordo). 5 anos atras cubre el
-  // ciclo contable, 7d adelante cubre documentos emitidos con fecha futura
-  // proxima (raro pero legitimo). Si el user necesita salirse de estos
-  // limites, lo hace cambiando la fecha en otro flujo.
-  const today = new Date().toISOString().slice(0, 10);
-  const minDate = (() => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() - 5);
-    return d.toISOString().slice(0, 10);
-  })();
-  const maxDate = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
-  })();
+  // R152WWWWW — Memoizado: estos 3 valores se calculaban en cada render
+  // (form Nubox re-renderea muy seguido por cambios en lineas). Ahora
+  // se calculan una sola vez por mount. Pequeño pero el form tiene 20+
+  // re-renders por interacción.
+  const { today, minDate, maxDate } = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    const min = new Date(now);
+    min.setFullYear(min.getFullYear() - 5);
+    const max = new Date(now);
+    max.setDate(max.getDate() + 7);
+    return {
+      today: todayStr,
+      minDate: min.toISOString().slice(0, 10),
+      maxDate: max.toISOString().slice(0, 10),
+    };
+  }, []);
 
   // Round 33 — config persistente entre sesiones (separada del draft, que
   // se borra al crear). Guarda empresa+tipo_doc+forma_pago para que al
@@ -200,7 +201,9 @@ export default function NuboxFormPage() {
     tipo_documento?: string;
     forma_pago?: string;
   };
-  const lastConfig: LastConfig = (() => {
+  // R152WWWWW — useState lazy initializer: el read de localStorage
+  // ocurre 1 sola vez al montar, no en cada render.
+  const [lastConfig] = useState<LastConfig>(() => {
     if (typeof window === "undefined") return {};
     try {
       const raw = window.localStorage.getItem(LAST_CONFIG_KEY);
@@ -208,7 +211,7 @@ export default function NuboxFormPage() {
     } catch {
       return {};
     }
-  })();
+  });
   const saveLastConfig = (cfg: LastConfig) => {
     try {
       window.localStorage.setItem(LAST_CONFIG_KEY, JSON.stringify(cfg));

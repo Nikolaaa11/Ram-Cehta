@@ -406,41 +406,47 @@ async def global_search(
         ]
 
     # ── Inbox (emails procesados) ─────────────────────────────────────────────
+    # R152GGGGGG — SEGURIDAD: el inbox (contactocehta@gmail.com) es la casilla
+    # compartida de la organización y NO tiene empresa_codigo por mensaje.
+    # Exponerla en search a cualquier user filtraba contraparte + asunto +
+    # ai_summary de TODOS los correos cross-tenant. Solo admins ven inbox
+    # en la búsqueda global.
     # Solo permitir si tabla existe (entornos sin migration 0039 lo skipean).
-    try:
-        rows = (
-            await db.execute(
-                text(
-                    """
-                    SELECT inbox_id, from_email, from_name, subject,
-                           category, status, received_at
-                    FROM core.inbox_messages
-                    WHERE from_email ILIKE :p
-                       OR from_name ILIKE :p
-                       OR subject ILIKE :p
-                       OR ai_summary ILIKE :p
-                    ORDER BY received_at DESC
-                    LIMIT :lim
-                    """
-                ),
-                {"p": pattern, "lim": _PER_ENTITY_LIMIT},
-            )
-        ).fetchall()
-        if rows:
-            by_entity["inbox"] = [
-                _hit(
-                    "inbox",
-                    entity_id=str(r[0]),
-                    title=r[3] or "(sin asunto)",
-                    subtitle=f"{r[2] or r[1]} · {r[4] or 'sin clasificar'}",
-                    badge=r[5],
-                    link=f"/admin/mailbox?focus={r[0]}",
+    if getattr(user, "is_admin", False):
+        try:
+            rows = (
+                await db.execute(
+                    text(
+                        """
+                        SELECT inbox_id, from_email, from_name, subject,
+                               category, status, received_at
+                        FROM core.inbox_messages
+                        WHERE from_email ILIKE :p
+                           OR from_name ILIKE :p
+                           OR subject ILIKE :p
+                           OR ai_summary ILIKE :p
+                        ORDER BY received_at DESC
+                        LIMIT :lim
+                        """
+                    ),
+                    {"p": pattern, "lim": _PER_ENTITY_LIMIT},
                 )
-                for r in rows
-            ]
-    except Exception:  # noqa: BLE001
-        # core.inbox_messages no existe (migration pendiente) — skipear silenciosamente
-        pass
+            ).fetchall()
+            if rows:
+                by_entity["inbox"] = [
+                    _hit(
+                        "inbox",
+                        entity_id=str(r[0]),
+                        title=r[3] or "(sin asunto)",
+                        subtitle=f"{r[2] or r[1]} · {r[4] or 'sin clasificar'}",
+                        badge=r[5],
+                        link=f"/admin/mailbox?focus={r[0]}",
+                    )
+                    for r in rows
+                ]
+        except Exception:  # noqa: BLE001
+            # core.inbox_messages no existe (migration pendiente) — skip
+            pass
 
     # ── R152EEEE: Empleados RRHH ──────────────────────────────────────────────
     # Solo si la tabla existe (R152vvv aplicado). Sin scope: el frontend filtra

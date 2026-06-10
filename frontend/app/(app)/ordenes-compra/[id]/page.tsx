@@ -11,6 +11,7 @@ import { FileLink } from "@/components/shared/FileLink";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
+import { ocStatusLabel } from "@/lib/voucher-status";
 import type { OcRead } from "@/lib/api/schema";
 
 type BadgeVariant = "success" | "danger" | "warning" | "neutral" | "info";
@@ -27,10 +28,14 @@ const ESTADO_VARIANT: Record<string, BadgeVariant> = {
 };
 
 function EstadoBadge({ estado }: { estado: string }) {
+  // R152CCCCCC — Localizar via ocStatusLabel. Antes mostraba el estado
+  // crudo capitalizado, lo que con valores backend en uppercase inglés
+  // (DRAFT/PENDING/APPROVED) confundía al user. Ahora siempre vemos:
+  // "Borrador" / "Pendiente firma" / "Pagada" / etc.
   const variant = ESTADO_VARIANT[estado.toLowerCase()] ?? "neutral";
   return (
-    <Badge variant={variant} className="capitalize">
-      {estado}
+    <Badge variant={variant}>
+      {ocStatusLabel(estado)}
     </Badge>
   );
 }

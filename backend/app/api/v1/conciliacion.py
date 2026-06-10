@@ -33,6 +33,28 @@ from app.services.conciliacion_service import (
 router = APIRouter()
 
 
+async def _assert_voucher_empresa_access(
+    user: AuthenticatedUser, db: Any, voucher_id: int
+) -> None:
+    """R152FFFFFF — Valida que el user tenga acceso a la empresa del voucher.
+
+    Carga empresa_codigo del voucher y delega a assert_empresa_access.
+    Si el voucher no existe → 404.
+    """
+    from sqlalchemy import text
+
+    emp = await db.scalar(
+        text("SELECT empresa_codigo FROM core.vouchers WHERE voucher_id = :id"),
+        {"id": voucher_id},
+    )
+    if emp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Voucher {voucher_id} no encontrado",
+        )
+    await assert_empresa_access(user, db, emp)
+
+
 class ConciliacionSummary(BaseModel):
     no_conciliados: int
     conciliados: int
@@ -205,6 +227,11 @@ async def get_match_candidates(
     window_days: int = Query(default=3, ge=0, le=30),
 ) -> list[MatchCandidate]:
     """Lista candidatos de movimiento para conciliar manualmente este voucher."""
+    # R152FFFFFF — Scope check: sin esto, cualquier user autenticado podía
+    # enumerar candidatos (montos, bancos, proveedores) de vouchers de otra
+    # empresa pasando el voucher_id. Cargamos la empresa del voucher y
+    # validamos acceso del user.
+    await _assert_voucher_empresa_access(user, db, voucher_id)
     rows = await find_match_candidates(
         db, voucher_id=voucher_id, window_days=window_days
     )
@@ -222,6 +249,8 @@ async def reconcile_voucher(
     voucher_id: int,
     body: ReconcileRequest,
 ) -> ReconcileResponse:
+    # R152FFFFFF — Scope check del user sobre la empresa del voucher.
+    await _assert_voucher_empresa_access(user, db, voucher_id)
     try:
         result = await link_voucher_to_movimiento(
             db,

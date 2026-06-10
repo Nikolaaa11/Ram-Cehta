@@ -103,9 +103,14 @@ _FECHA_RE = re.compile(r"(\d{1,2})[/-](\d{1,2})[/-](\d{4})")
 # Fecha corta (asumimos año actual): 31/12 → 31/12/{anio_inferido}
 _FECHA_CORTA_RE = re.compile(r"(\d{1,2})[/-](\d{1,2})\b")
 
-# Monto chileno: $1.234.567 (con puntos), 1234567 (sin separador), o 1.234.567
-# Cap a 9 dígitos para no matchear años o IDs.
-_MONTO_RE = re.compile(r"-?\$?\s?(\d{1,3}(?:\.\d{3}){1,3}|\d{4,9})\b")
+# R152FFFFFF — Monto chileno con soporte de centavos.
+# Formatos: $1.234.567,89 | 1.234.567 | 1234567 | 99,50 | 450.000,00
+# Captura parte entera (grupo 1) + decimales opcionales (grupo 2).
+# El regex anterior truncaba ",89" y convertía "99,50" en 0 — perdía
+# todo monto con decimales (UF, USD, comisiones bancarias).
+_MONTO_RE = re.compile(
+    r"-?\$?\s?(\d{1,3}(?:\.\d{3})*|\d+)(?:,(\d{1,2}))?\b"
+)
 
 
 def _parse_fecha_full(text: str) -> date | None:
@@ -121,13 +126,22 @@ def _parse_fecha_full(text: str) -> date | None:
 
 
 def _parse_monto(text: str) -> Decimal:
-    """Parsea un monto CLP del texto. Si tiene `-` adelante, lo respeta."""
+    """Parsea un monto CLP/UF/USD del texto, incluyendo centavos.
+
+    R152FFFFFF — Soporta formato chileno completo:
+      "1.234.567,89" → Decimal("1234567.89")
+      "99,50"        → Decimal("99.50")  (antes daba 0 → fila descartada)
+      "1.234.567"    → Decimal("1234567")
+    """
     cleaned = text.strip()
     is_negative = cleaned.startswith("-") or cleaned.endswith("-")
     m = _MONTO_RE.search(cleaned)
     if not m:
         return Decimal("0")
-    num_str = m.group(1).replace(".", "")
+    # Grupo 1 = parte entera (con puntos de miles), grupo 2 = decimales.
+    entero = m.group(1).replace(".", "")
+    decimales = m.group(2)
+    num_str = f"{entero}.{decimales}" if decimales else entero
     try:
         v = Decimal(num_str)
         return -v if is_negative else v

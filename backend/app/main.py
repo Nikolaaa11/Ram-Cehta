@@ -84,6 +84,13 @@ async def lifespan(app: FastAPI) -> Any:
         bg_tasks.add(task)
         task.add_done_callback(bg_tasks.discard)
     yield
+    # R152RRRRR — Flush final del buffer de telemetría antes de cerrar.
+    # Sin esto perdemos hasta 100 rows por deploy.
+    try:
+        from app.core.usage_tracking_middleware import flush_on_shutdown
+        await flush_on_shutdown()
+    except Exception as exc:
+        log.warning("usage_tracking.shutdown_flush_failed", error=str(exc))
     log.info("shutting_down")
 
 
@@ -156,6 +163,12 @@ app.add_middleware(HttpMutationAuditMiddleware)
 # llegados, incluso los que respondió la cache.
 from app.core.idempotency_middleware import IdempotencyMiddleware
 app.add_middleware(IdempotencyMiddleware)
+
+# R152PPPPP — Telemetría de uso por endpoint (feature_usage table).
+# Buffer in-memory + flush async cada 10s. NUNCA bloquea ni rompe requests.
+# Útil para decidir qué features apagar con datos reales (no asumiendo).
+from app.core.usage_tracking_middleware import UsageTrackingMiddleware
+app.add_middleware(UsageTrackingMiddleware)
 
 app.include_router(api_router)
 

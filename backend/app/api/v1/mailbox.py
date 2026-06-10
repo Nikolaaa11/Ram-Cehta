@@ -258,13 +258,17 @@ async def trigger_run_now(
     classify_result = await classify_pending(db, limit=classify_limit)
     duration_ms = int((_time.monotonic() - t0) * 1000)
 
+    # R152WWWWW — Compliance Ley 19.628 / GDPR: NO loggear email del user
+    # en plaintext en logs (Fly + Sentry no son sistemas autorizados de
+    # tratamiento). Usamos user.sub (UUID) que es identifier interno
+    # NO regulado y permite correlación.
     log.info(
         "mailbox.run_now",
         seen=poll_result.get("seen", 0),
         inserted=poll_result.get("inserted", 0),
         classified=classify_result.get("classified", 0),
         duration_ms=duration_ms,
-        user=user.email,
+        user_id=str(user.sub),
     )
 
     return MailboxRunNowResponse(

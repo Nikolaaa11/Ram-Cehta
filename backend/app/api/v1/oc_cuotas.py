@@ -144,6 +144,13 @@ async def split_equitativo(
             detail="La OC no tiene total > 0 — no se puede dividir en cuotas",
         )
 
+    # R152DDDDDD — Advisory lock por oc_id antes de DELETE+INSERT.
+    # Sin esto, 2 admins editando cuotas concurrentemente perdían cambios.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+        {"k": f"oc_cuotas_edit_{oc_id}"},
+    )
+
     # Borrar pendientes
     await db.execute(
         text(
@@ -157,6 +164,18 @@ async def split_equitativo(
     base = (total / body.cantidad).quantize(Decimal("1"))
     montos = [base] * (body.cantidad - 1)
     montos.append(total - sum(montos))
+    # R152JJJJJJ — guard: con totales chicos y muchas cuotas, la última
+    # podía quedar en 0 o negativa (ej: total=10, cantidad=12 → base=1,
+    # última=-1). La suma siempre da exacto, pero una cuota <= 0 es inválida.
+    if montos[-1] <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Demasiadas cuotas ({body.cantidad}) para el monto total "
+                f"{total}: la última cuota quedaría en {montos[-1]}. Reducí "
+                "la cantidad de cuotas."
+            ),
+        )
 
     for i, monto in enumerate(montos, start=1):
         venc = body.primer_vencimiento + timedelta(
@@ -270,10 +289,25 @@ async def delete_cuota(
                 "Marcala como ANULADA o anulá el voucher primero."
             ),
         )
-    await db.execute(
-        text("DELETE FROM core.oc_cuotas WHERE cuota_id = :cid"),
+    # R152DDDDDD — Guard atómico: DELETE condicional. Sin esto, si entre
+    # el SELECT de arriba y el DELETE otro request genera el voucher,
+    # estaríamos borrando una cuota con voucher generado → orphan voucher.
+    result = await db.execute(
+        text(
+            "DELETE FROM core.oc_cuotas "
+            "WHERE cuota_id = :cid AND voucher_id IS NULL"
+        ),
         {"cid": cuota_id},
     )
+    if result.rowcount == 0:
+        # Otro request acaba de generar el voucher. Abort.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "La cuota cambió mientras se eliminaba (probablemente "
+                "se generó su voucher). Refrescá y reintentá."
+            ),
+        )
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -316,6 +350,16 @@ async def generar_vouchers(
                 "No se pueden generar vouchers sobre OCs cerradas."
             ),
         )
+
+    # R152DDDDDD · Race condition fix: advisory lock por oc_id antes del check
+    # de idempotency. Sin esto, 2 requests del operador (doble-click) pasaban
+    # los dos por el SELECT, encontraban 0 vouchers, y generaban N vouchers
+    # cada uno → duplicación silenciosa. El lock serializa la generación
+    # por OC; es transaction-scoped, así que se libera en commit/rollback.
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+        {"k": f"oc_voucher_gen_{oc_id}"},
+    )
 
     # R152AAAAA · P0 — idempotency: si ya hay vouchers generados para esta OC,
     # retornar los existentes sin re-generar. Evita double-submit

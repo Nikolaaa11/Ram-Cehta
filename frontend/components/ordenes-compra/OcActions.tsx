@@ -12,6 +12,7 @@ import { CheckCircle, Copy, Edit, FileDown, Trash2, XCircle } from "lucide-react
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { DuplicateOcDialog } from "@/components/ordenes-compra/DuplicateOcDialog";
@@ -113,7 +114,7 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
         type="button"
         onClick={async () => {
           if (!session) {
-            toast.error("Sesión expirada");
+            handleSessionExpired();
             return;
           }
           const toastId = toast.loading(`Generando PDF de OC ${numeroOc}...`);

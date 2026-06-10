@@ -46,6 +46,33 @@ class DropboxService:
             app_key=client_id,
             app_secret=client_secret,
         )
+        # R152YYYYY — guardamos el token inicial para detectar refresh.
+        # El SDK de dropbox-python auto-refresha al expirar el access_token,
+        # pero NO emite callback ni persiste el nuevo en nuestra DB.
+        # `get_current_access_token()` permite al caller chequear si cambió
+        # post-operación y hacer UPDATE en core.integrations.
+        self._initial_access_token = access_token
+
+    def get_current_access_token(self) -> str | None:
+        """R152YYYYY — Devuelve el access_token activo del SDK.
+
+        Después de operaciones que pueden disparar refresh (cualquier API call
+        si el token estaba expirado), el caller debe comparar con su valor
+        persistido y hacer UPDATE en core.integrations si cambió.
+
+        Uso recomendado:
+            dbx = DropboxService(access_token=row.access_token, refresh_token=row.refresh_token)
+            await dbx.do_something()
+            new_token = dbx.get_current_access_token()
+            if new_token and new_token != row.access_token:
+                await IntegrationRepository(db).update_token("dropbox", new_token)
+        """
+        return getattr(self.dbx, "_oauth2_access_token", None)
+
+    def access_token_changed(self) -> bool:
+        """True si el SDK refrescó el access_token desde el init."""
+        current = self.get_current_access_token()
+        return bool(current and current != self._initial_access_token)
 
     def get_account(self) -> dict[str, Any]:
         acc = self.dbx.users_get_current_account()

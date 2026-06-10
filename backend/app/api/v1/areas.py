@@ -23,7 +23,11 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
-from app.services.empresa_scope_service import assert_empresa_access
+from app.services.empresa_scope_service import (
+    EmpresaScope,
+    _resolve_scope,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -149,8 +153,17 @@ async def areas_empresas_matrix(
         )
     ).mappings().all()
 
+    # R152JJJJJJ — scope multi-tenant: un usuario no-admin solo ve las
+    # empresas de su scope dentro de la matriz (antes veía la organización
+    # completa de las 9 empresas).
+    from app.services.empresa_scope_service import get_allowed_empresa_codes
+
+    allowed = await get_allowed_empresa_codes(user, db)
+
     matrix: dict[str, list[str]] = {}
     for r in rows:
+        if allowed is not None and r["empresa_codigo"] not in allowed:
+            continue
         matrix.setdefault(r["area_codigo"], []).append(r["empresa_codigo"])
     return AreaEmpresaMatrix(matrix=matrix)
 
@@ -246,7 +259,10 @@ async def update_area(
     "/areas/{codigo}/empresas", response_model=list[AreaEmpresaRead]
 )
 async def list_area_empresas(
-    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep, codigo: str
+    codigo: str,
+    user: CurrentUser,
+    db: DBSession,
+    scope: "EmpresaScope" = Depends(_resolve_scope),
 ) -> list[AreaEmpresaRead]:
     """QA fix 14/05/2026 — antes devolvia el mapping area→empresa para
     TODAS las empresas (incluidas las fuera del scope del user). Ahora

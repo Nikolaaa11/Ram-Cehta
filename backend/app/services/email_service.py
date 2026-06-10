@@ -36,15 +36,33 @@ def render_template(template_name: str, context: dict[str, Any]) -> str:
     Mantenemos render mínimo (sin Jinja2 ni dependencias adicionales) — los
     templates son emails simples y la lógica vive en el caller.
     Sustitución case-sensitive sobre `{{ key }}` literal con padding flex.
+
+    R152XXXXX — XSS hardening: TODOS los valores se escapan con html.escape
+    antes de la sustitución. Sin esto, una `razon_social` con `<script>`
+    venida de un email entrante (auto_create_oc_from_inbox) terminaba como
+    HTML interpretable en el email enviado al GG/firmantes.
+
+    Si un caller necesita pasar HTML pre-renderizado (ej. tablas), debe
+    sufijar la key con "_html" — ese se interpola sin escape.
     """
+    import html as _html
+
     path = _TEMPLATES_DIR / template_name
     html = path.read_text(encoding="utf-8")
     for key, value in context.items():
+        if value is None:
+            safe = ""
+        elif key.endswith("_html"):
+            # Caller explicit opt-out de escape (raro, solo para HTML
+            # confiable generado server-side, no user input).
+            safe = str(value)
+        else:
+            safe = _html.escape(str(value), quote=True)
         # Permite {{ key }}, {{key}}, {{  key  }} — toleramos espacios.
         html = (
-            html.replace(f"{{{{ {key} }}}}", str(value))
-            .replace(f"{{{{{key}}}}}", str(value))
-            .replace(f"{{{{  {key}  }}}}", str(value))
+            html.replace(f"{{{{ {key} }}}}", safe)
+            .replace(f"{{{{{key}}}}}", safe)
+            .replace(f"{{{{  {key}  }}}}", safe)
         )
     return html
 

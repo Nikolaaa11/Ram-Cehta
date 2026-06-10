@@ -69,7 +69,7 @@ def _anthropic_client() -> Any:
         raise AiToolsNotConfiguredError("ANTHROPIC_API_KEY no configurado")
     from anthropic import AsyncAnthropic
 
-    return AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=90.0, max_retries=3)  # R152FFFFFF
 
 
 # ---------------------------------------------------------------------------

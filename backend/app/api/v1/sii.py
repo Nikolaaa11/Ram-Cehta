@@ -214,9 +214,20 @@ async def _get_credencial_sii(
     try:
         plain = decrypt_credential(row[1])
     except CredentialDecryptError as exc:
+        # R152HHHHHH — no exponer el detalle cripto al frontend (puede
+        # filtrar si la key rotó, si el ciphertext está corrupto, etc.).
+        # El detalle real va al log server-side; al cliente, mensaje genérico.
+        log.error(
+            "sii.credential_decrypt_failed",
+            extra={"empresa": empresa_codigo, "err": str(exc)[:200]},
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"No se pudo descifrar la credencial: {exc}",
+            detail=(
+                "No se pudo descifrar la credencial SII. Verificá que "
+                "CREDENTIALS_FERNET_KEY esté configurada correctamente en el "
+                "servidor y que el seed de credenciales se haya ejecutado."
+            ),
         ) from exc
     return row[0], plain
 
@@ -405,49 +416,76 @@ async def sync_rcv(
         finally:
             await cli.close()
 
-        # Upsert documentos
-        for doc_list in (compras, ventas):
-            for d in doc_list:
-                await db.execute(
-                    text(
-                        """
-                        INSERT INTO core.sii_documentos
-                          (empresa_codigo, flujo, tipo_dte, folio, periodo,
-                           rut_contraparte, razon_social_contraparte,
-                           fecha_emision, fecha_recepcion,
-                           monto_exento, monto_neto, monto_iva, monto_total,
-                           estado_sii, run_id, raw_data)
-                        VALUES
-                          (:c, :flujo, :tipo, :folio, :p,
-                           :rut, :rsoc, :fem, :frec,
-                           :mexe, :mneto, :miva, :mtot,
-                           :est, :rid, CAST(:raw AS jsonb))
-                        ON CONFLICT (empresa_codigo, flujo, tipo_dte, folio, rut_contraparte)
-                        DO UPDATE SET
-                          razon_social_contraparte = COALESCE(EXCLUDED.razon_social_contraparte,
-                                                               core.sii_documentos.razon_social_contraparte),
-                          fecha_emision = COALESCE(EXCLUDED.fecha_emision, core.sii_documentos.fecha_emision),
-                          monto_exento = EXCLUDED.monto_exento,
-                          monto_neto = EXCLUDED.monto_neto,
-                          monto_iva = EXCLUDED.monto_iva,
-                          monto_total = EXCLUDED.monto_total,
-                          estado_sii = EXCLUDED.estado_sii,
-                          run_id = EXCLUDED.run_id,
-                          raw_data = EXCLUDED.raw_data,
-                          updated_at = NOW()
-                        """
-                    ),
-                    {
-                        "c": empresa_codigo, "flujo": d.flujo,
-                        "tipo": d.tipo_dte, "folio": d.folio, "p": d.periodo,
-                        "rut": d.rut_contraparte, "rsoc": d.razon_social_contraparte,
-                        "fem": d.fecha_emision, "frec": d.fecha_recepcion,
-                        "mexe": d.monto_exento, "mneto": d.monto_neto,
-                        "miva": d.monto_iva, "mtot": d.monto_total,
-                        "est": d.estado_sii, "rid": run_id,
-                        "raw": json.dumps(d.raw, default=str),
-                    },
-                )
+        # R152AAAAAA — Bulk UPSERT con UNNEST. Antes hacía N round-trips
+        # (uno por documento), un mes activo de RCV son cientos de docs =
+        # cientos de roundtrips a Supabase São Paulo. Ahora 1 query bulk.
+        all_docs = list(compras) + list(ventas)
+        if all_docs:
+            await db.execute(
+                text(
+                    """
+                    INSERT INTO core.sii_documentos
+                      (empresa_codigo, flujo, tipo_dte, folio, periodo,
+                       rut_contraparte, razon_social_contraparte,
+                       fecha_emision, fecha_recepcion,
+                       monto_exento, monto_neto, monto_iva, monto_total,
+                       estado_sii, run_id, raw_data)
+                    SELECT
+                      :c, u.flujo, u.tipo, u.folio, u.periodo,
+                      u.rut, u.rsoc, u.fem, u.frec,
+                      u.mexe, u.mneto, u.miva, u.mtot,
+                      u.est, :rid, u.raw::jsonb
+                    FROM UNNEST(
+                      CAST(:flujos AS TEXT[]),
+                      CAST(:tipos AS TEXT[]),
+                      CAST(:folios AS TEXT[]),
+                      CAST(:periodos AS TEXT[]),
+                      CAST(:ruts AS TEXT[]),
+                      CAST(:rsocs AS TEXT[]),
+                      CAST(:fems AS DATE[]),
+                      CAST(:frecs AS DATE[]),
+                      CAST(:mexes AS BIGINT[]),
+                      CAST(:mnetos AS BIGINT[]),
+                      CAST(:mivas AS BIGINT[]),
+                      CAST(:mtots AS BIGINT[]),
+                      CAST(:ests AS TEXT[]),
+                      CAST(:raws AS TEXT[])
+                    ) AS u(flujo, tipo, folio, periodo, rut, rsoc, fem, frec,
+                            mexe, mneto, miva, mtot, est, raw)
+                    ON CONFLICT (empresa_codigo, flujo, tipo_dte, folio, rut_contraparte)
+                    DO UPDATE SET
+                      razon_social_contraparte = COALESCE(EXCLUDED.razon_social_contraparte,
+                                                           core.sii_documentos.razon_social_contraparte),
+                      fecha_emision = COALESCE(EXCLUDED.fecha_emision, core.sii_documentos.fecha_emision),
+                      monto_exento = EXCLUDED.monto_exento,
+                      monto_neto = EXCLUDED.monto_neto,
+                      monto_iva = EXCLUDED.monto_iva,
+                      monto_total = EXCLUDED.monto_total,
+                      estado_sii = EXCLUDED.estado_sii,
+                      run_id = EXCLUDED.run_id,
+                      raw_data = EXCLUDED.raw_data,
+                      updated_at = NOW()
+                    """
+                ),
+                {
+                    "c": empresa_codigo,
+                    "rid": run_id,
+                    "flujos": [d.flujo for d in all_docs],
+                    "tipos": [d.tipo_dte for d in all_docs],
+                    "folios": [d.folio for d in all_docs],
+                    "periodos": [d.periodo for d in all_docs],
+                    "ruts": [d.rut_contraparte for d in all_docs],
+                    "rsocs": [d.razon_social_contraparte for d in all_docs],
+                    "fems": [d.fecha_emision for d in all_docs],
+                    "frecs": [d.fecha_recepcion for d in all_docs],
+                    "mexes": [d.monto_exento for d in all_docs],
+                    "mnetos": [d.monto_neto for d in all_docs],
+                    "mivas": [d.monto_iva for d in all_docs],
+                    "mtots": [d.monto_total for d in all_docs],
+                    "ests": [d.estado_sii for d in all_docs],
+                    "raws": [json.dumps(d.raw, default=str) for d in all_docs],
+                },
+            )
 
         compras_count = len(compras)
         ventas_count = len(ventas)

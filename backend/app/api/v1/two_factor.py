@@ -13,9 +13,15 @@ admins están "encouraged" via banner en el frontend; el enforcement
 en `app.api.deps`).
 
 NUNCA loggear `secret` ni `backup_codes` en claro.
+
+R152ZZZZZ — Rate-limiting in-memory para endpoints que toman códigos TOTP
+(6 dígitos, espacio 10^6). Sin throttle, un atacante con sesión válida
+puede brute-force el código en ~1M intentos. Cap a 5 intentos por
+ventana de 5 minutos por user_id.
 """
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, status
@@ -32,6 +38,40 @@ from app.schemas.two_factor import (
 from app.services import totp_service
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# R152ZZZZZ — Rate limit in-memory para endpoints TOTP
+# ---------------------------------------------------------------------------
+_TOTP_RATE_WINDOW_SEC = 300  # 5 minutos
+_TOTP_RATE_MAX_ATTEMPTS = 5
+
+# {(user_sub, endpoint_key): [timestamp1, timestamp2, ...]}
+_totp_attempts: dict[tuple[str, str], list[float]] = {}
+
+
+def _check_totp_rate_limit(user_sub: str, endpoint_key: str) -> None:
+    """Raise 429 si el user pasó 5 intentos en 5 minutos para este endpoint.
+
+    Throttle por (user, endpoint) para que un attacker no pueda agotar el
+    quota de un endpoint legítimo (ej. brute-force /disable consume el
+    quota de /verify del mismo user, pero no de otro endpoint).
+    """
+    now = time.monotonic()
+    key = (user_sub, endpoint_key)
+    timestamps = _totp_attempts.get(key, [])
+    # Limpiar ventana vencida
+    timestamps = [t for t in timestamps if now - t < _TOTP_RATE_WINDOW_SEC]
+    if len(timestamps) >= _TOTP_RATE_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"Demasiados intentos. Esperá {_TOTP_RATE_WINDOW_SEC // 60} "
+                f"minutos antes de reintentar."
+            ),
+        )
+    timestamps.append(now)
+    _totp_attempts[key] = timestamps
 
 
 async def _get_row(db, user_id: str) -> dict | None:
@@ -132,6 +172,8 @@ async def verify_2fa(
     user: CurrentUser, db: DBSession, body: VerifyRequest
 ) -> StatusResponse:
     """Confirma posesión del autenticador. Si OK, `enabled=true`."""
+    # R152ZZZZZ — Throttle brute-force del código TOTP de 6 dígitos.
+    _check_totp_rate_limit(str(user.sub), "verify")
     row = await _get_row(db, user.sub)
     if row is None:
         raise HTTPException(
@@ -196,6 +238,9 @@ async def disable_2fa(
     user: CurrentUser, db: DBSession, body: DisableRequest
 ) -> StatusResponse:
     """Desactiva 2FA — borra la fila. Requiere code válido como gate."""
+    # R152ZZZZZ — Throttle. Sin esto un atacante podría brute-force el TOTP
+    # del usuario para apagar su 2FA.
+    _check_totp_rate_limit(str(user.sub), "disable")
     row = await _get_row(db, user.sub)
     if row is None or not row["enabled"]:
         raise HTTPException(
@@ -238,6 +283,9 @@ async def regenerate_backup_codes(
 
     Los códigos anteriores quedan completamente invalidados.
     """
+    # R152ZZZZZ — Throttle anti-abuse. Regenerar backup codes es operación
+    # de alto impacto (invalida backup codes anteriores).
+    _check_totp_rate_limit(str(user.sub), "regenerate")
     row = await _get_row(db, user.sub)
     if row is None or not row["enabled"]:
         raise HTTPException(

@@ -20,7 +20,7 @@
  * donde el user es el next pending approver. Excluye duplicados, vouchers
  * sin regla, y los que el user ya firmo (anti-doble-firma).
  */
-import { useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +47,7 @@ import { useSidebarState } from "@/hooks/use-sidebar-state";
 import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 import { toast } from "@/components/ui/toast";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import { Surface } from "@/components/ui/surface";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { Button } from "@/components/ui/button";
@@ -576,19 +577,25 @@ export default function AprobacionesPage() {
   );
 }
 
-function VoucherApprovalCard({
-  item,
-  selected,
-  onToggleSelect,
-  onSign,
-  onReject,
-}: {
-  item: MisPendientesItem;
-  selected: boolean;
-  onToggleSelect: () => void;
-  onSign: () => void;
-  onReject: () => void;
-}) {
+// R152VVVVV — memo + comparador custom. Hot path: gerentes abren esta
+// página 10x/día con 5-30 vouchers PENDING. Sin memo, cualquier toggle
+// (Set update) re-renderea TODAS las cards. Con memo, solo re-renderea
+// la card cuyo `selected` o `item` cambió.
+// Comparador custom: comparamos sólo lo que importa visualmente.
+const VoucherApprovalCard = memo(
+  function VoucherApprovalCard({
+    item,
+    selected,
+    onToggleSelect,
+    onSign,
+    onReject,
+  }: {
+    item: MisPendientesItem;
+    selected: boolean;
+    onToggleSelect: () => void;
+    onSign: () => void;
+    onReject: () => void;
+  }) {
   return (
     <Surface
       className={`p-4 ${selected ? "ring-2 ring-cehta-green/40 bg-cehta-green/[0.02]" : ""}`}
@@ -725,7 +732,17 @@ function VoucherApprovalCard({
       </div>
     </Surface>
   );
-}
+  },
+  // R152VVVVV — Comparador custom. Solo comparamos item + selected porque
+  // los handlers (onSign/onReject/onToggleSelect) son arrows inline en
+  // el padre — su lógica NUNCA cambia (solo setean state), por lo que
+  // ignorar sus refs no provoca bugs. Esto permite que React.memo
+  // realmente skipee re-renders cuando el item y selected son iguales.
+  // Sin esta heurística el memo era inútil porque arrows inline en el
+  // padre siempre cambian de ref cada render.
+  (prev, next) =>
+    prev.selected === next.selected && prev.item === next.item,
+);
 
 // V5++ ola CJ — Boton clickeable que abre el adjunto en una nueva tab.
 // Pega a /vouchers/{vid}/attachments/{aid}/url, recibe URL temporal de
@@ -748,7 +765,9 @@ function AdjuntoLinkButton({
       disabled={loading}
       onClick={async () => {
         if (!session) {
-          toast.error("Sesión expirada — recargá la página");
+          // R152CCCCCC — handleSessionExpired hace toast + sign-out + redirect.
+          // Antes: solo toast (el user veía el mensaje pero seguía sin sesión).
+          handleSessionExpired();
           return;
         }
         setLoading(true);

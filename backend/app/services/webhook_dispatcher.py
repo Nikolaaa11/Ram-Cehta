@@ -229,10 +229,29 @@ async def publish_event(
     if not rows:
         return 0
 
-    # Despachamos en paralelo en background — no esperamos
+    # R152YYYYY — NO reutilizar `db` (la sesión HTTP del request).
+    # Cuando el handler termine, FastAPI cierra la sesión y los tasks de
+    # delivery quedan con conexión muerta → INSERTs de _persist_delivery
+    # silenciosamente fallan. Cada task abre su propia sesión corta.
+    from app.core.database import SessionLocal
+
+    async def _deliver_with_own_session(
+        sub: dict[str, Any], evt: str, p: dict[str, Any]
+    ) -> None:
+        async with SessionLocal() as own_db:
+            try:
+                await _deliver_one(own_db, sub, evt, p)
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "webhook_dispatch.deliver_failed",
+                    subscription_id=sub.get("subscription_id"),
+                    event=evt,
+                    error=str(exc),
+                )
+
+    # Despachamos en paralelo en background — no esperamos.
     for row in rows:
         sub_dict = dict(row)
-        # Disparamos sin await; los errores quedan en el log + tabla.
-        asyncio.create_task(_deliver_one(db, sub_dict, event_type, payload))
+        asyncio.create_task(_deliver_with_own_session(sub_dict, event_type, payload))
 
     return len(rows)

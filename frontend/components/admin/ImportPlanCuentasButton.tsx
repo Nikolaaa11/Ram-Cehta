@@ -19,6 +19,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import { cn } from "@/lib/utils";
 
 const API_BASE =
@@ -47,7 +48,7 @@ export function ImportPlanCuentasButton() {
 
   const handleFile = async (file: File) => {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     setUploading(true);

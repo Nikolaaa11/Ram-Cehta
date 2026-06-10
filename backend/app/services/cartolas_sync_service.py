@@ -31,6 +31,7 @@ from app.services.cartolas_parser_service import (
     file_hash,
     parse_cartola_pdf,
 )
+from app.infrastructure.repositories.integration_repository import IntegrationRepository
 from app.services.dropbox_service import DropboxNotConfigured, DropboxService
 
 log = structlog.get_logger(__name__)
@@ -68,8 +69,18 @@ async def sync_cartolas_for_empresa(
         "errors": [],
     }
 
+    # R152XXXXX — DropboxService requiere access_token. Antes hacía
+    # `DropboxService()` sin args → TypeError 100% en runtime. Patrón
+    # correcto: cargar tokens desde core.integrations (mismo que avance.py:84).
     try:
-        dbx = DropboxService()
+        integration = await IntegrationRepository(db).get_by_provider("dropbox")
+        if integration is None:
+            stats["errors"].append("Dropbox no configurado (sin integración activa)")
+            return stats
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
     except DropboxNotConfigured as exc:
         stats["errors"].append(f"Dropbox no configurado: {exc}")
         return stats

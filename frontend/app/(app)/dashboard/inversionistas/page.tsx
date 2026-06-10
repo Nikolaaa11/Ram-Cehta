@@ -148,15 +148,11 @@ export default function InversionistasPage() {
               {new Date().toLocaleDateString("es-CL", { year: "numeric", month: "long" })}
             </p>
           </div>
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-cehta-green/30 bg-cehta-green/5 px-4 py-2 text-sm font-semibold text-cehta-green hover:bg-cehta-green/10"
-            disabled
-            title="Próximamente — export ILPA v2.0 Excel + PDF watermarked"
-          >
-            <Download className="size-4" />
-            Descargar PCAP (ILPA v2.0)
-          </button>
+          {/* R152BBBBBB — Export ILPA v2.0 todavía no implementado.
+              Antes había un botón "Próximamente" disabled que confundía.
+              Lo ocultamos completamente hasta que el feature esté listo.
+              Cuando vuelva, mostrar como `<button disabled>Descargar PCAP</button>`
+              con label "Beta" en lugar del tooltip críptico. */}
         </div>
       </div>
 

@@ -375,13 +375,15 @@ class CurrencyService:
 def _is_reasonable_date(d: date_type) -> bool:
     """Filtro defensivo: ni 1900, ni 2100. La UF existe desde 1967 y
     APIs externas no devuelven nada anterior a ~2010."""
-    today = date_type.today()
-    earliest = date_type(2000, 1, 1)
-    # Permitimos hasta 7 días en el futuro (fines de semana, feriados).
-    latest = date_type(today.year + 1, today.month, today.day) if False else today
-    # Pequeño margen futuro para timezone slop:
     from datetime import timedelta
 
+    today = date_type.today()
+    earliest = date_type(2000, 1, 1)
+    # R152SSSSS — Eliminada línea muerta `... if False else today` que
+    # quedó de un experimento. La reasignación inmediata a `today + 7d`
+    # hacía que la primera asignación fuera inútil.
+    # Permitimos hasta 7 días en el futuro (fines de semana, feriados,
+    # timezone slop entre APIs externas).
     latest = today + timedelta(days=7)
     return earliest <= d <= latest
 

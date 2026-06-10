@@ -74,12 +74,38 @@ async def send_oc_to_signers(
             "error": "auto_send_oc_emails=FALSE para esta empresa",
         }
 
+    # R152YYYYY — Reservation atómica: UPDATE WHERE oc_sent_at IS NULL.
+    # El check anterior chequeaba oc_sent_at fuera de transacción, dos
+    # requests simultáneos pasaban ambos → 2 PDFs + 2 emails al GG.
+    # Ahora reservamos el slot con UPDATE; si rowcount=0, otra request
+    # ganó la carrera y nosotros abortamos sin enviar nada.
     if row["oc_sent_at"] is not None:
         return {
             "ok": False,
             "skipped": True,
             "error": "OC ya fue enviada previamente",
         }
+
+    reserve = await db.execute(
+        text(
+            """UPDATE core.ordenes_compra
+               SET oc_sent_at = NOW()
+               WHERE oc_id = :id AND oc_sent_at IS NULL
+               RETURNING oc_id"""
+        ),
+        {"id": oc_id},
+    )
+    if reserve.first() is None:
+        # Otra request ya reservó el slot — abort sin enviar.
+        await db.commit()
+        return {
+            "ok": False,
+            "skipped": True,
+            "error": "OC ya está siendo enviada por otra request",
+        }
+    await db.commit()
+    # IMPORTANTE: a partir de acá, si algo falla, hay que limpiar oc_sent_at
+    # vía _save_error para permitir retry. Se hace abajo en cada error path.
 
     numero_oc = row["numero_oc"]
     empresa_codigo = row["empresa_codigo"]
@@ -200,8 +226,37 @@ async def send_oc_to_signers(
 
     if not result or not result.get("id"):
         msg = "Resend no devolvió message_id (envío posiblemente falló)"
+        # R152AAAAAA — Encolar en outbox para retry automático. Sin esto,
+        # un fallo transitorio de Resend (network glitch, rate-limit) dejaba
+        # la OC en estado "no enviada" hasta que un humano lo notara y
+        # reintentara manual. El cron retry_failed_emails la procesa cada
+        # 2 minutos con backoff exponencial (5, 10, 20, 40 min).
+        try:
+            from app.services.email_outbox_service import enqueue_email
+            await enqueue_email(
+                db,
+                to=to_list,
+                cc=cc_clean,
+                subject=subject,
+                html=html,
+                # NO incluimos el PDF en attachments_meta porque ya está
+                # en Dropbox; el retry lo regenera (signal de R152LLLL cache).
+                idempotency_key=f"oc-send-{oc_id}",
+                triggered_by_entity=f"oc:{oc_id}",
+            )
+            log.info("send_oc.queued_for_retry", oc_id=oc_id)
+            msg = (
+                "Resend falló — el email quedó encolado para retry automático "
+                "en 5-40 minutos (ver /admin/email-outbox/stats)."
+            )
+        except Exception as queue_exc:
+            log.warning(
+                "send_oc.queue_for_retry_failed",
+                oc_id=oc_id,
+                error=str(queue_exc),
+            )
         await _save_error(db, oc_id, msg)
-        return {"ok": False, "error": msg}
+        return {"ok": False, "error": msg, "queued_for_retry": True}
 
     message_id = result["id"]
 
@@ -258,11 +313,20 @@ def _valid_email(s: str) -> bool:
 
 
 async def _save_error(db: AsyncSession, oc_id: int, msg: str) -> None:
+    """R152YYYYY — Persistir error + LIBERAR reserva oc_sent_at.
+
+    Si reservamos el slot con UPDATE oc_sent_at=NOW() pero después falla
+    (PDF, Resend, etc.), DEBEMOS limpiar oc_sent_at para permitir retry.
+    Sin esto, una falla transitoria de Resend deja la OC en estado
+    "enviada" sin email real → invisible para retry manual.
+    """
     try:
         await db.execute(
             text(
                 """UPDATE core.ordenes_compra
-                   SET oc_send_error = :err, updated_at = NOW()
+                   SET oc_send_error = :err,
+                       oc_sent_at = NULL,
+                       updated_at = NOW()
                    WHERE oc_id = :id"""
             ),
             {"err": msg[:500], "id": oc_id},

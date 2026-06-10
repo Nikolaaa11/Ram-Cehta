@@ -597,7 +597,7 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
 
     from anthropic import AsyncAnthropic
 
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=90.0, max_retries=3)  # R152FFFFFF
 
     # Semáforo: evita rate limit de Anthropic si llegan 50+ emails de golpe.
     # _CLAUDE_MAX_CONCURRENT=5 deja headroom para chat AI + secretaria + analyzer.

@@ -138,7 +138,7 @@ async def extract_text_with_claude_vision(
     except ImportError as exc:
         raise ClaudeVisionNotAvailable("anthropic SDK no instalado") from exc
 
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=120.0, max_retries=3)  # R152FFFFFF
 
     prompt = (
         _OCR_PROMPT_CARTOLA if document_type == "cartola" else _OCR_PROMPT_FACTURA

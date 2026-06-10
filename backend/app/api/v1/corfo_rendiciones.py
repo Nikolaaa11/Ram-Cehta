@@ -162,8 +162,10 @@ async def preview_rendicion(
         FROM core.vouchers v
         WHERE v.empresa_codigo = :emp
           AND v.tipo = 'COMPRA'
-          AND EXTRACT(YEAR FROM v.fecha_contable) = :y
-          AND EXTRACT(MONTH FROM v.fecha_contable) = :m
+          -- R152EEEEEE — Rango fecha en lugar de EXTRACT() para usar
+          -- ix_vouchers_fecha_contable. EXTRACT() mataba el índice.
+          AND v.fecha_contable >= make_date(:y, :m, 1)
+          AND v.fecha_contable <  (make_date(:y, :m, 1) + INTERVAL '1 month')
           AND v.status IN ('APPROVED','EXECUTED','SYNCED','RECONCILED')
         ORDER BY v.fecha_contable, v.voucher_id
     """
@@ -177,11 +179,14 @@ async def preview_rendicion(
     mapping = {r[0]: (r[1], r[2]) for r in mapping_db}
 
     rows: list[PreviewRow] = []
-    total_neto = total_iva = 0.0
+    # R152JJJJJJ — acumular en Decimal (no float): los NUMERIC de Postgres
+    # llegan como Decimal vía asyncpg; el cast a float perdía precisión en
+    # montos con decimales (UF/USD) y violaba la regla "Decimal everywhere".
+    total_neto = total_iva = Decimal("0")
     sin_mapeo = 0
     for r in rows_db:
-        neto = float(r[6] or 0)
-        iva = float(r[7] or 0)
+        neto = Decimal(str(r[6] or 0))
+        iva = Decimal(str(r[7] or 0))
         total = neto + iva
         cc = r[8] or ""
         ccname = r[9]

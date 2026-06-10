@@ -251,7 +251,7 @@ async def answer_question(
 
     from anthropic import AsyncAnthropic
 
-    client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = AsyncAnthropic(api_key=settings.anthropic_api_key, timeout=90.0, max_retries=3)  # R152FFFFFF
 
     prompt = f"""Snapshot del fondo (JSON):
 ```json

@@ -247,15 +247,8 @@ def _to_str(value: Any) -> str | None:
     return s if s else None
 
 
-def _normalize_estado_texto(raw: str | None) -> str:
-    """[DEPRECATED] Mapeo genérico de estado para HITOS.
-
-    Devuelve uno de: pendiente / en_progreso / completado / cancelado.
-    Solo válido para Hitos (`EstadoHito`). Para proyectos usar
-    `_normalize_estado_proyecto()` que mapea a `planificado` en vez de
-    `pendiente` (los enums de DB son distintos).
-    """
-    return _normalize_estado_hito(raw)
+# R152WWWWW — _normalize_estado_texto deprecated eliminado.
+# Los 2 callers fueron actualizados a _normalize_estado_hito directo.
 
 
 def _normalize_estado_hito(raw: str | None) -> str:
@@ -695,7 +688,7 @@ def parse_classic(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
         observaciones = _to_str(row[9])
         real = _to_float(row[1])
         proyectado = _to_float(row[2])
-        estado_norm = _normalize_estado_texto(estado_raw)
+        estado_norm = _normalize_estado_hito(estado_raw)
         progreso = 100 if estado_norm == "completado" else 0
 
         # Heurística: si la actividad es texto MAYÚSCULA larga sin encargado ni
@@ -814,7 +807,7 @@ def parse_ee(wb: Workbook, empresa_codigo: str) -> ParsedGantt:
         fecha_inicio = _to_date(row[8])
         fecha_termino = _to_date(row[9])
         observaciones = _to_str(row[11])
-        estado_norm = _normalize_estado_texto(estado_raw)
+        estado_norm = _normalize_estado_hito(estado_raw)
         progreso = 100 if estado_norm == "completado" else 0
 
         # Para EE, el "nombre" del hito = sub-actividad; si no hay, fallback a actividad principal

@@ -29,6 +29,7 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import EmpresaScope, _resolve_scope
 
 router = APIRouter()
 
@@ -296,17 +297,31 @@ async def get_jcurve(
 async def get_portfolio(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScope = Depends(_resolve_scope),
     fund_codigo: str = "FIP_CEHTA_ESG",
 ) -> PortfolioResponse:
-    """G09 Treemap + tabla — 6 portfolio companies con MOIC + FV.
+    """G09 Treemap + tabla — portfolio companies con MOIC + FV.
 
-    Si el current user es LP, filtra a `is_public_disclosure = TRUE`.
+    Filtrado multi-tenant (R152TTTTT):
+        - admin / scope.is_global: ve todas las empresas portfolio
+        - usuario con scope limitado: ve solo empresas en su user_company_roles
+        - LP (vía `_is_lp_user`): ve solo empresas con is_public_disclosure
     """
     lp_info = await _is_lp_user(db, str(user.sub))
 
-    public_filter = ""
+    # R152TTTTT — Filtro multi-tenant. Si scope no es global, el usuario
+    # solo puede ver empresas a las que su rol le da acceso. Esto cierra
+    # el leak donde un usuario con acceso solo a CENERGY veía valuations
+    # confidenciales de RHO, AFIS, etc.
+    extra_clauses = []
+    sql_params: dict = {"c": fund_codigo}
     if lp_info:
-        public_filter = "AND pcm.is_public_disclosure = TRUE"
+        extra_clauses.append("AND pcm.is_public_disclosure = TRUE")
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        sql_params["scope_codes"] = allowed
+        extra_clauses.append("AND pcm.empresa_codigo = ANY(CAST(:scope_codes AS text[]))")
+    extra_sql = " ".join(extra_clauses)
 
     sql = f"""
         WITH latest_val AS (
@@ -334,11 +349,11 @@ async def get_portfolio(
         JOIN core.funds f ON f.fund_id = pcm.fund_id
         LEFT JOIN latest_val v ON v.empresa_codigo = pcm.empresa_codigo
         WHERE f.codigo = :c AND pcm.is_portfolio = TRUE
-          {public_filter}
+          {extra_sql}
         ORDER BY v.unrealized_fv_usd DESC NULLS LAST
     """
 
-    rows = (await db.execute(text(sql), {"c": fund_codigo})).fetchall()
+    rows = (await db.execute(text(sql), sql_params)).fetchall()
 
     companies = [
         PortfolioCompanyRow(
@@ -441,15 +456,27 @@ class ImpactDimensionsResponse(BaseModel):
 async def get_impact_dimensions(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScope = Depends(_resolve_scope),
 ) -> ImpactDimensionsResponse:
     """G14 Radar — Impact Frontiers 5-dimensions per portfolio company.
 
     Returns most-recent record per company. Si la empresa no tiene fila,
     no aparece (frontend usa 0 como default visual).
+
+    R152TTTTT — Multi-tenant fix: filtra por scope.allowed_codes si el
+    user no es global. Sin esto, un user con scope limitado veía scores
+    de TODAS las empresas portfolio.
     """
+    scope_clause = ""
+    sql_params: dict = {}
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        sql_params["scope_codes"] = allowed
+        scope_clause = "AND cid.empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
+
     rows = (await db.execute(
         text(
-            """
+            f"""
             SELECT DISTINCT ON (cid.empresa_codigo)
                 cid.empresa_codigo,
                 pcm.ticker,
@@ -461,9 +488,11 @@ async def get_impact_dimensions(
             FROM core.company_impact_dimensions cid
             JOIN core.portfolio_companies_meta pcm ON pcm.empresa_codigo = cid.empresa_codigo
             WHERE pcm.is_portfolio = TRUE
+              {scope_clause}
             ORDER BY cid.empresa_codigo, cid.as_of_date DESC
             """
         ),
+        sql_params,
     )).fetchall()
 
     return ImpactDimensionsResponse(
@@ -502,11 +531,23 @@ class SdgAlignmentResponse(BaseModel):
 async def get_impact_sdg(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScope = Depends(_resolve_scope),
 ) -> SdgAlignmentResponse:
-    """G15 SDG Grid — UN 17 SDGs alignment per portfolio company."""
+    """G15 SDG Grid — UN 17 SDGs alignment per portfolio company.
+
+    R152TTTTT — Multi-tenant fix: filtra por scope.allowed_codes si el
+    user no es global.
+    """
+    scope_clause = ""
+    sql_params: dict = {}
+    if not scope.is_global:
+        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
+        sql_params["scope_codes"] = allowed
+        scope_clause = "AND csa.empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
+
     rows = (await db.execute(
         text(
-            """
+            f"""
             SELECT
                 csa.empresa_codigo,
                 pcm.ticker,
@@ -515,9 +556,11 @@ async def get_impact_sdg(
             FROM core.company_sdg_alignment csa
             JOIN core.portfolio_companies_meta pcm ON pcm.empresa_codigo = csa.empresa_codigo
             WHERE pcm.is_portfolio = TRUE
+              {scope_clause}
             ORDER BY csa.empresa_codigo, csa.sdg_number
             """
         ),
+        sql_params,
     )).fetchall()
 
     return SdgAlignmentResponse(

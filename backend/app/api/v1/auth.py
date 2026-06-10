@@ -8,7 +8,12 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import text
 
-from app.api.deps import CurrentUser, DBSession, require_scope
+from app.api.deps import (
+    CurrentUser,
+    DBSession,
+    current_admin_with_2fa,
+    require_scope,
+)
 from app.core.rbac import scopes_for
 from app.core.security import AuthenticatedUser
 
@@ -66,13 +71,37 @@ async def list_users(
 async def set_user_role(
     user_id: str,
     body: SetRoleRequest,
-    user: Annotated[AuthenticatedUser, Depends(require_scope("user:write"))],
+    user: Annotated[AuthenticatedUser, Depends(current_admin_with_2fa)],
     db: DBSession,
 ) -> Response:
+    """R152YYYYY — SECURITY HARDENING:
+
+    Antes este endpoint usaba `require_scope("user:write")` que NO gateaba
+    por 2FA, abriendo un bypass al gate `current_admin_with_2fa` que SÍ
+    aplica admin_users.py PATCH /users/{id}/role. Era equivalente a un
+    backdoor lateral.
+
+    Además ahora bloquea self-demotion (un admin no puede tirar su propio
+    role abajo — debe pedirle a otro admin para evitar lockout accidental
+    + para que quede registro de "quién degradó a quién").
+    """
     if body.app_role not in ("admin", "finance", "viewer"):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Rol inválido. Valores permitidos: admin, finance, viewer",
+        )
+
+    # R152YYYYY — Anti self-demotion. Si el user se cambia a si mismo,
+    # exigir que sea para mantenerse en 'admin' (no-op idempotente OK).
+    # Esto evita que un admin con sesión hijacked se auto-degrade sin
+    # forma de revertir.
+    if user_id == str(user.sub) and body.app_role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Un admin no puede degradarse a sí mismo. "
+                "Pedile a otro admin que haga el cambio."
+            ),
         )
 
     await db.execute(

@@ -56,19 +56,37 @@ class UploadResult(BaseModel):
     celdas_actualizadas: int
 
 
-async def _check_proyecto_exists(db, proyecto_codigo: str) -> None:
-    row = await db.scalar(
+async def _check_proyecto_exists(db, proyecto_codigo: str, user=None) -> None:
+    """Valida que el proyecto existe Y que el user tiene acceso a su empresa.
+
+    R152JJJJJJ — ANTES solo validaba existencia: cualquier usuario
+    autenticado que conociera el código del proyecto podía LEER y ESCRIBIR
+    flujos de caja proyectados de cualquier empresa (leak multi-tenant en
+    data financiera sensible). AHORA validamos contra el scope del user.
+    """
+    empresa = await db.scalar(
         text(
-            "SELECT 1 FROM core.proyectos_contables "
+            "SELECT empresa_codigo FROM core.proyectos_contables "
             "WHERE codigo = :c AND estado = 'ACTIVE'"
         ),
         {"c": proyecto_codigo},
     )
-    if not row:
+    if not empresa:
         raise HTTPException(
             status_code=404,
             detail=f"Proyecto contable {proyecto_codigo} no existe o no está activo",
         )
+    if user is not None:
+        from app.services.empresa_scope_service import get_allowed_empresa_codes
+
+        allowed = await get_allowed_empresa_codes(user, db)
+        if allowed is not None and empresa not in allowed:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"No tenés acceso a la empresa {empresa} de este proyecto."
+                ),
+            )
 
 
 @router.get(
@@ -80,7 +98,7 @@ async def list_flujo(
 ) -> list[FlujoCell]:
     """Devuelve todas las celdas del flujo de caja del proyecto,
     con monto_real calculado desde vouchers EXECUTED."""
-    await _check_proyecto_exists(db, proyecto_codigo)
+    await _check_proyecto_exists(db, proyecto_codigo, user=user)
     rows = await db.execute(
         text(
             """SELECT id, proyecto_codigo, periodo, categoria, tipo,
@@ -105,7 +123,7 @@ async def upsert_cell(
     body: CellUpsert,
 ) -> FlujoCell:
     """Upsert idempotente de una celda. UNIQUE(proyecto, periodo, categoria)."""
-    await _check_proyecto_exists(db, proyecto_codigo)
+    await _check_proyecto_exists(db, proyecto_codigo, user=user)
     row = (
         await db.execute(
             text(
@@ -146,6 +164,8 @@ async def upsert_cell(
 async def delete_cell(
     user: CurrentUser, db: DBSession, proyecto_codigo: str, cell_id: int
 ) -> Response:
+    # R152JJJJJJ — el DELETE tampoco validaba acceso a la empresa del proyecto.
+    await _check_proyecto_exists(db, proyecto_codigo, user=user)
     await db.execute(
         text(
             """DELETE FROM core.flujos_caja_proyecto
@@ -176,7 +196,7 @@ async def upload_excel(
     Periodo válido: 'YYYY-MM'.
     Idempotente: si la celda ya existe, se sobrescribe.
     """
-    await _check_proyecto_exists(db, proyecto_codigo)
+    await _check_proyecto_exists(db, proyecto_codigo, user=user)
     if not file.filename or not file.filename.lower().endswith((".xlsx", ".xls")):
         raise HTTPException(400, "Sólo archivos .xlsx/.xls")
     import openpyxl

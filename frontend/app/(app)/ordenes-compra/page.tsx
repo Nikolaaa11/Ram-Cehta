@@ -31,6 +31,7 @@ import { ScopeIndicator } from "@/components/shared/ScopeIndicator";
 import { Badge } from "@/components/ui/badge";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { toCLP, toDate } from "@/lib/format";
+import { ocStatusLabel } from "@/lib/voucher-status";
 import { ExportExcelButton } from "@/components/shared/ExportExcelButton";
 import { BulkActionBar } from "@/components/shared/BulkActionBar";
 import { SavedViewsMenu } from "@/components/shared/SavedViewsMenu";
@@ -52,12 +53,10 @@ const ESTADO_VARIANT: Record<string, BadgeVariant> = {
 };
 
 function EstadoBadge({ estado }: { estado: string }) {
+  // R152CCCCCC — Localizar con ocStatusLabel para soportar formato
+  // backend uppercase inglés (DRAFT/PENDING/APPROVED).
   const variant = ESTADO_VARIANT[estado.toLowerCase()] ?? "neutral";
-  return (
-    <Badge variant={variant} className="capitalize">
-      {estado}
-    </Badge>
-  );
+  return <Badge variant={variant}>{ocStatusLabel(estado)}</Badge>;
 }
 
 const ESTADOS = [

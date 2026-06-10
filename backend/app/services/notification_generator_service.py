@@ -30,6 +30,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.core.timezone import today_chile  # R152FFFFFF
 from app.infrastructure.repositories.notification_repository import (
     NotificationRepository,
 )
@@ -126,7 +127,7 @@ class NotificationGeneratorService:
 
     async def generate_f29_due_alerts(self) -> int:
         """F29 que vencen en los próximos 7 días y no están pagados."""
-        today = date.today()
+        today = today_chile()  # R152FFFFFF
         horizon = today + timedelta(days=7)
         user_ids = await self._operational_user_ids()
         if not user_ids:
@@ -150,6 +151,12 @@ class NotificationGeneratorService:
                 {"today": today, "horizon": horizon},
             )
         ).mappings().all()
+
+        # R152GGGGGG — Resolver alertas zombie: F29 que ya se pagaron (o
+        # salieron de la ventana de 7 días) dejan de estar vigentes → marcar
+        # leídas las notifs viejas para que no queden colgadas en la inbox.
+        vigentes = {str(r["f29_id"]) for r in rows}
+        await self._repo.resolve_stale(tipo="f29_due", vigentes_entity_ids=vigentes)
 
         total = 0
         for r in rows:
@@ -196,7 +203,7 @@ class NotificationGeneratorService:
 
     async def generate_contrato_due_alerts(self) -> int:
         """Contratos de trabajadores con vigencia hasta en próximos 30 días."""
-        today = date.today()
+        today = today_chile()  # R152FFFFFF
         horizon = today + timedelta(days=30)
         user_ids = await self._operational_user_ids()
         if not user_ids:
@@ -220,6 +227,12 @@ class NotificationGeneratorService:
                 {"today": today, "horizon": horizon},
             )
         ).mappings().all()
+
+        # R152GGGGGG — Resolver alertas zombie de contratos renovados/salidos.
+        vigentes = {str(r["documento_id"]) for r in rows}
+        await self._repo.resolve_stale(
+            tipo="contrato_due", vigentes_entity_ids=vigentes
+        )
 
         total = 0
         for r in rows:
@@ -270,7 +283,7 @@ class NotificationGeneratorService:
 
     async def generate_oc_pending_alerts(self) -> int:
         """OCs en estado 'emitida' por más de 7 días — pendientes de pago."""
-        threshold = date.today() - timedelta(days=7)
+        threshold = today_chile() - timedelta(days=7)  # R152FFFFFF
         user_ids = await self._operational_user_ids()
         if not user_ids:
             return 0
@@ -294,9 +307,16 @@ class NotificationGeneratorService:
             )
         ).mappings().all()
 
+        # R152GGGGGG — Resolver alertas zombie de OCs ya pagadas/anuladas
+        # (salieron del filtro estado='emitida').
+        vigentes = {str(r["oc_id"]) for r in rows}
+        await self._repo.resolve_stale(
+            tipo="oc_pending", vigentes_entity_ids=vigentes
+        )
+
         total = 0
         for r in rows:
-            dias = (date.today() - r["fecha_emision"]).days
+            dias = (today_chile() - r["fecha_emision"]).days  # R152FFFFFF
             severity = "warning" if dias < 30 else "critical"
             title = (
                 f"OC {r['numero_oc']} ({r['empresa_codigo']}) pendiente "

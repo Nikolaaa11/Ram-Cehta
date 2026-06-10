@@ -282,7 +282,14 @@ async def _fetch_oc_bundle_data(
         ).mappings().all()
         attachments = [dict(r) for r in rows]
     except Exception as exc:
-        log.info("oc_pdf.attachments_unavailable", extra={"err": str(exc)})
+        # R152SSSSS — Soft-fail aceptable: los adjuntos físicos se envían
+        # como anexos separados al email. El PDF sin la sección "Anexos"
+        # no es engañoso (a diferencia de las firmas en voucher_pdf).
+        # Pero subimos de info a warning para que sea visible en Sentry.
+        log.warning(
+            "oc_pdf.attachments_unavailable",
+            extra={"oc_id": oc_id, "err": str(exc)},
+        )
         with contextlib.suppress(Exception):
             await db.rollback()
 

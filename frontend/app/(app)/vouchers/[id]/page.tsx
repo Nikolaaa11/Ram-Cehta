@@ -41,6 +41,8 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { useModalA11y } from "@/lib/use-modal-a11y";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
+import { handleSessionExpired } from "@/lib/api/session-handling";
+import { voucherStatusLabel } from "@/lib/voucher-status";
 import dynamic from "next/dynamic";
 // R152yy — above-the-fold (críticos) eager:
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
@@ -318,8 +320,14 @@ export default function VoucherDetailPage({ params }: PageProps) {
   }
 
   const meta = STATUS_META[voucher.status];
+  // R152DDDDDD — Comparar con tolerancia + isFinite. Antes con null/undefined
+  // daba NaN === NaN (false), haciendo aparecer vouchers cuadrados como
+  // descuadrados en el badge. Tolerancia 0.01 porque montos CLP son enteros
+  // pero hay casos USD/UF que llegan como floats.
+  const _td = Number(voucher.total_debit ?? 0);
+  const _tc = Number(voucher.total_credit ?? 0);
   const isBalanced =
-    Number(voucher.total_debit) === Number(voucher.total_credit);
+    Number.isFinite(_td) && Number.isFinite(_tc) && Math.abs(_td - _tc) < 0.01;
 
   // Round 144 — gating de adjunto eliminado por decisión operativa.
   // Estas variables quedan en `false` permanente para no romper las
@@ -1001,7 +1009,9 @@ export default function VoucherDetailPage({ params }: PageProps) {
               </p>
               <p className="text-ink-600">
                 Estado:{" "}
-                <span className="font-semibold">{voucher.status}</span>
+                <span className="font-semibold">
+                  {voucherStatusLabel(voucher.status)}
+                </span>
               </p>
             </div>
             <div className="text-right">
@@ -1271,7 +1281,7 @@ function DropboxOrigenCard({
 
   async function handleOpen() {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     setLoading(true);

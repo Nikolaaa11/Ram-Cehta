@@ -130,27 +130,90 @@ class NuboxClient:
         except httpx.RequestError as exc:
             raise NuboxAuthError(f"POST login falló: {exc}") from exc
 
-        text = post_resp.text or ""
+        text = (post_resp.text or "")[:80_000]
+        text_low = text.lower()
 
-        # 3. Detectar errores comunes
-        if "clave" in text.lower() and ("incorrecta" in text.lower() or "invalid" in text.lower()):
+        # 3. Detectar errores conocidos PRIMERO (varias redacciones).
+        _ERROR_SIGNALS = (
+            "clave incorrecta",
+            "clave es incorrecta",
+            "credenciales incorrectas",
+            "usuario o clave",
+            "datos incorrectos",
+            "rut o clave",
+        )
+        if any(sig in text_low for sig in _ERROR_SIGNALS) or (
+            "clave" in text_low and ("incorrecta" in text_low or "invalid" in text_low)
+        ):
             raise NuboxAuthError("Credenciales Nubox incorrectas")
-        if "captcha" in text.lower():
+        if "captcha" in text_low:
             raise NuboxAuthError(
                 "Nubox pidió CAPTCHA. Loguear manualmente una vez para destrabar."
             )
-        if "Login" in text and "Ingresar" in text and "Cerrar" not in text:
-            # Sigue mostrando el form de login → falló silenciosamente
+
+        # R152HHHHHH — 2FA / verificación en dos pasos.
+        _2FA_SIGNALS = (
+            "código de verificación",
+            "codigo de verificacion",
+            "segundo factor",
+            "doble factor",
+            "verificación en dos pasos",
+            "verificacion en dos pasos",
+            "autenticación de dos",
+        )
+        if any(sig in text_low for sig in _2FA_SIGNALS):
             raise NuboxAuthError(
-                "Login no avanzó. El portal puede haber cambiado el flow de auth. "
-                "Usá el fallback de upload de Excel."
+                "Nubox pidió verificación en dos pasos (2FA). El login "
+                "automático no la soporta. Usá el fallback de upload de Excel."
             )
 
-        if not self._http.cookies:
-            raise NuboxAuthError("Login no devolvió cookies de sesión")
+        # 4. R152HHHHHH — Verificación POSITIVA, no solo ausencia de error.
+        #    ANTES: cualquier cookie + ausencia del form de login contaba
+        #    como éxito → un cambio de copy del portal pasaba un login
+        #    fallido como bueno y la descarga bajaba HTML basura.
+        #    AHORA exigimos al menos una señal positiva real:
+        #      (a) la URL final ya NO es la página de login, o
+        #      (b) el HTML muestra un marcador de sesión iniciada, o
+        #      (c) hay una cookie con pinta de sesión (auth/session/.aspxauth).
+        final_url = str(post_resp.url).lower()
+        left_login_page = "/sitio/login" not in final_url
+        _SUCCESS_MARKERS = (
+            "cerrar sesión",
+            "cerrar sesion",
+            "mi cuenta",
+            "remuneraciones",
+            "seleccione empresa",
+            "menú principal",
+            "menu principal",
+        )
+        has_success_marker = any(m in text_low for m in _SUCCESS_MARKERS)
+        cookie_names = {c.lower() for c in self._http.cookies.keys()}
+        has_session_cookie = any(
+            tok in n
+            for n in cookie_names
+            for tok in ("auth", "session", "sesion", ".aspxauth", "nubox")
+        )
+        still_on_login_form = (
+            "ingresar" in text_low
+            and "clave" in text_low
+            and not has_success_marker
+        )
+
+        if still_on_login_form and not left_login_page:
+            raise NuboxAuthError(
+                "Login no avanzó (sigue en la pantalla de ingreso). El portal "
+                "puede haber cambiado el flow de auth. Usá el fallback de Excel."
+            )
+        if not (left_login_page or has_success_marker or has_session_cookie):
+            raise NuboxAuthError(
+                "Login Nubox sin señal de sesión iniciada. Verificá credenciales "
+                "o usá el fallback de upload de Excel."
+            )
 
         self._logged_in = True
-        log.info("nubox_login_ok", extra={"rut": self._rut})
+        # R152SSSSS — Compliance Ley 19.628: no loggear RUT completo.
+        rut_suffix = str(self._rut)[-3:] if self._rut else "???"
+        log.info("nubox_login_ok", extra={"rut_suffix": rut_suffix})
 
     @staticmethod
     def _extract_hidden_fields(html: str) -> dict[str, str]:
@@ -160,17 +223,27 @@ class NuboxClient:
         campos hidden son obligatorios en el POST.
         """
         out: dict[str, str] = {}
-        # Patrón genérico para <input type="hidden" name="X" value="Y" />
-        pattern = re.compile(
-            r'<input\s+[^>]*type=["\']hidden["\'][^>]*name=["\']([^"\']+)["\'][^>]*value=["\']([^"\']*)["\']',
-            re.IGNORECASE,
-        )
-        for m in pattern.finditer(html):
-            name = m.group(1)
-            value = m.group(2)
+        # R152HHHHHH — Parse tolerante al orden de atributos.
+        #   ANTES: un único regex exigía `type="hidden" ... name=... value=...`
+        #   EN ESE ORDEN. ASP.NET MVC suele emitir `name=... value=...` sin
+        #   `type="hidden"` explícito en el token CSRF, y a veces invierte
+        #   name/value → el regex no matcheaba y el POST iba sin token → 403.
+        #   AHORA: iteramos cada tag <input>, y dentro extraemos name y value
+        #   por separado (orden indiferente).
+        attr_name = re.compile(r'\bname=["\']([^"\']+)["\']', re.IGNORECASE)
+        attr_value = re.compile(r'\bvalue=["\']([^"\']*)["\']', re.IGNORECASE)
+        input_tag = re.compile(r"<input\b[^>]*>", re.IGNORECASE)
+        for tag in input_tag.finditer(html):
+            chunk = tag.group(0)
+            nm = attr_name.search(chunk)
+            if not nm:
+                continue
+            name = nm.group(1)
             # Solo tokens conocidos para evitar inyectar basura
-            if name.startswith("__") or "Token" in name or "Csrf" in name:
-                out[name] = value
+            if not (name.startswith("__") or "Token" in name or "Csrf" in name):
+                continue
+            vm = attr_value.search(chunk)
+            out[name] = vm.group(1) if vm else ""
         return out
 
     async def descargar_libro_remuneraciones(
@@ -190,6 +263,7 @@ class NuboxClient:
             raise NuboxClientError("Cliente no logueado")
 
         periodo_clean = periodo.replace("-", "")
+        session_expired = False
         for path in NUBOX_LIBRO_REPORT_PATHS:
             url = f"{NUBOX_REMUNERACIONES_BASE}{path}"
             try:
@@ -198,16 +272,41 @@ class NuboxClient:
                     params={"periodo": periodo_clean, "formato": "xlsx"},
                     headers={"Accept": "application/octet-stream"},
                 )
-                if resp.status_code == 200 and resp.headers.get("content-type", "").startswith((
-                    "application/vnd.openxmlformats",
-                    "application/octet-stream",
-                )):
-                    return resp.content
             except httpx.RequestError as exc:
                 log.warning("nubox_report_path_failed",
                             extra={"path": path, "error": str(exc)})
                 continue
 
+            ctype = resp.headers.get("content-type", "")
+            if resp.status_code == 200 and ctype.startswith((
+                "application/vnd.openxmlformats",
+                "application/octet-stream",
+            )):
+                return resp.content
+
+            # R152HHHHHH — distinguir "ruta equivocada" de "sesión caída".
+            #   Si nos devuelven HTML (login) con 200/302, la sesión expiró:
+            #   no tiene sentido seguir probando rutas, mejor avisar claro.
+            if "text/html" in ctype.lower():
+                body_low = (resp.text or "")[:5_000].lower()
+                if any(m in body_low for m in ("iniciar sesión", "login", "ingresar", "clave")):
+                    session_expired = True
+                    log.warning(
+                        "nubox_report_session_expired",
+                        extra={"path": path, "status": resp.status_code},
+                    )
+                    break
+            log.warning(
+                "nubox_report_unexpected_response",
+                extra={"path": path, "status": resp.status_code, "ctype": ctype},
+            )
+
+        if session_expired:
+            raise NuboxAuthError(
+                "La sesión Nubox expiró durante la descarga. Reintentá el "
+                "login, o bajá el Libro manualmente y subilo via "
+                "/admin/nubox/import-excel."
+            )
         raise NuboxClientError(
             "No se pudo descargar el Libro de Remuneraciones automáticamente. "
             "Bajalo manualmente desde Nubox y subilo via /admin/nubox/import-excel."

@@ -47,6 +47,7 @@ import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 import { toast } from "@/components/ui/toast";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import { Currency } from "@/components/shared/Currency";
 import type {
   Area,
@@ -360,7 +361,7 @@ export default function NuevoVoucherPage() {
   ) => {
     e?.preventDefault();
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     if (!empresaCodigo) {
@@ -414,6 +415,23 @@ export default function NuevoVoucherPage() {
     // El operador puede mandar a firma sin adjunto y subirlo después
     // desde el detalle del voucher.
 
+    // R152BBBBBB — Validar montos numéricos antes de enviar. Antes
+    // `Number(l.debit) || 0` convertía silenciosamente "abc", "1,5", o
+    // cualquier input inválido en 0 — el user creía haber cargado $1.500.000
+    // pero el voucher se grababa con $0 en esa línea. Ahora fail-loud.
+    const invalidLineIdx = lines.findIndex(
+      (l) =>
+        (l.debit !== "" && Number.isNaN(Number(l.debit))) ||
+        (l.credit !== "" && Number.isNaN(Number(l.credit))),
+    );
+    if (invalidLineIdx !== -1) {
+      toast.error(
+        `Línea ${invalidLineIdx + 1}: monto inválido. ` +
+          `Usá solo números sin separador de miles. Ejemplo: 1500000 (no "1.500.000" ni "1,5M")`,
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -444,8 +462,9 @@ export default function NuevoVoucherPage() {
           // custom (legacy), prevalece; sino se aplica el global.
           proyecto_codigo: l.proyecto_codigo || proyectoCodigoGlobal || null,
           area_codigo: l.area_codigo || null,
-          debit: Number(l.debit) || 0,
-          credit: Number(l.credit) || 0,
+          // R152BBBBBB — input ya validado arriba, casteo seguro
+          debit: l.debit === "" ? 0 : Number(l.debit),
+          credit: l.credit === "" ? 0 : Number(l.credit),
           descripcion: l.descripcion.trim() || null,
           balance_treatment: "NA",
         })),

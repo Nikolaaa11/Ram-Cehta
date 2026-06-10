@@ -1,0 +1,70 @@
+name: smoke-backend-prod
+
+# R152QQQQQ — Smoke tests post-deploy contra producción.
+#
+# Triggers:
+#   - workflow_dispatch: corre manual desde GitHub Actions UI
+#   - schedule: 1 vez por día a las 14:00 UTC (11:00 Chile) — early warning
+#
+# NO se dispara automático en deploy porque Fly no emite webhooks de deploy.
+# Si querés disparo post-deploy automático, agregar al script de deploy:
+#   gh workflow run smoke-backend-prod
+#
+# Secrets requeridos:
+#   - SMOKE_ADMIN_JWT: JWT de un admin de prod (rotar cada 60 días)
+#
+# Si falla, abrir issue automático con label `prod-incident`.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Once a day at 14:00 UTC (11:00 Chile)
+    - cron: "0 14 * * *"
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SMOKE_BASE_URL: "https://cehta-backend.fly.dev"
+      SMOKE_ADMIN_JWT: ${{ secrets.SMOKE_ADMIN_JWT }}
+      SMOKE_TIMEOUT_SECONDS: "15"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Skip if SMOKE_ADMIN_JWT not configured
+        id: gate
+        run: |
+          if [ -z "${SMOKE_ADMIN_JWT}" ]; then
+            echo "::warning::SMOKE_ADMIN_JWT no configurado — solo tests no-auth"
+          fi
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        run: |
+          pip install pytest requests
+
+      - name: Run smoke tests
+        run: |
+          python -m pytest tests/e2e/ -v --tb=short
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const today = new Date().toISOString().slice(0, 10);
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Smoke tests fallaron — ${today}`,
+              body: `Run: ${context.payload.repository.html_url}/actions/runs/${context.runId}\n\nUno o más smoke tests fallaron contra prod.\nRevisar el log antes de continuar.`,
+              labels: ["prod-incident"],
+            });

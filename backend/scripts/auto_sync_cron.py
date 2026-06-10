@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -40,6 +41,18 @@ from app.services.credentials_service import (
     CredentialDecryptError,
     decrypt_credential,
 )
+
+# R152HHHHHH — Throttle entre empresas para no gatillar el rate-limit del
+# SII ("consultas recurrentes" → ban de IP 24h+). El portal es muy sensible
+# a ráfagas. Default conservador: 8s entre empresas. Configurable por env.
+try:
+    _INTER_EMPRESA_DELAY = float(os.environ.get("SII_SYNC_INTER_EMPRESA_DELAY", "8"))
+except (TypeError, ValueError):
+    _INTER_EMPRESA_DELAY = 8.0
+
+# Marcadores que indican que el SII nos está rate-limiteando. Si aparecen,
+# ABORTAMOS el resto del run — seguir pegándole solo profundiza el ban.
+_RATE_LIMIT_MARKERS = ("consultas recurrentes", "rate-limit", "rate limit", "429")
 
 
 def _periodo_mes_anterior() -> str:
@@ -289,8 +302,9 @@ async def main() -> int:
         nubox_failed = 0
         conciliations_run = 0
 
-        # SII sync por empresa
-        for empresa in sii_empresas:
+        # SII sync por empresa — con throttle anti-ban + abort en rate-limit.
+        rate_limited = False
+        for idx, empresa in enumerate(sii_empresas):
             r = await sync_sii_empresa(db, empresa, periodo)
             empresa_results.append({"system": "sii", **r})
             if r["ok"]:
@@ -302,6 +316,22 @@ async def main() -> int:
                     conciliations_run += 1
             else:
                 sii_failed += 1
+                # R152HHHHHH — Si el SII nos rate-limiteó, cortar el run.
+                # Seguir con las empresas restantes solo profundiza el ban.
+                err_low = str(r.get("error") or "").lower()
+                if any(m in err_low for m in _RATE_LIMIT_MARKERS):
+                    rate_limited = True
+                    empresa_results.append({
+                        "system": "sii",
+                        "aborted": True,
+                        "reason": "SII rate-limit detectado — run abortado para evitar ban de IP",
+                        "remaining_empresas": len(sii_empresas) - idx - 1,
+                    })
+                    break
+
+            # Throttle entre empresas (no después de la última).
+            if idx < len(sii_empresas) - 1:
+                await asyncio.sleep(_INTER_EMPRESA_DELAY)
 
         # Nubox API sync (placeholder — futuro round agrega cliente real)
         # Por ahora solo registramos las empresas que ya están configuradas
@@ -318,6 +348,9 @@ async def main() -> int:
             final_status = "PARTIAL"
         if sii_ok == 0 and nubox_ok == 0 and (len(sii_empresas) + len(nubox_empresas)) > 0:
             final_status = "FAILED"
+        if rate_limited:
+            # Estado explícito: el operador debe esperar antes de reintentar.
+            final_status = "RATE_LIMITED"
 
         await db.execute(
             text(
@@ -355,6 +388,8 @@ async def main() -> int:
         "sii_ok": sii_ok, "sii_failed": sii_failed,
         "nubox_empresas": len(nubox_empresas),
         "conciliations_run": conciliations_run,
+        "rate_limited": rate_limited,
+        "final_status": final_status,
     }, default=str))
     return 0
 

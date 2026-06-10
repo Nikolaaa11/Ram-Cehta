@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import type { ExportEntityType } from "@/lib/api/schema";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
@@ -39,7 +40,7 @@ export function ExportExcelButton({
 
   const handleClick = async () => {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     setLoading(true);

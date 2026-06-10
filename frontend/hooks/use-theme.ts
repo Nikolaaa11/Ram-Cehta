@@ -21,8 +21,14 @@ const STORAGE_KEY = "cehta-theme";
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "dark") return "dark";
+  // R152DDDDDD — Safari en private mode lanza SecurityError al leer
+  // localStorage. Sin try/catch, toda la app crasheaba al montar.
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === "dark") return "dark";
+  } catch {
+    // Private mode / cookies bloqueadas → defaultear a light.
+  }
   return "light";
 }
 
@@ -47,7 +53,12 @@ export function useTheme() {
   }, []);
 
   const setTheme = (next: Theme) => {
-    localStorage.setItem(STORAGE_KEY, next);
+    // R152DDDDDD — try/catch defensivo: quota exceeded / private mode.
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      // Persistencia falla pero el cambio visual sigue funcionando.
+    }
     setThemeState(next);
     applyTheme(next);
   };

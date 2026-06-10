@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
@@ -80,14 +81,35 @@ async def _require_admin(user: AuthenticatedUser) -> None:
         )
 
 
+async def _require_admin_with_empresa_scope(
+    user: AuthenticatedUser, db: Any, codigo: str
+) -> None:
+    """R152YYYYY — Doble gate: is_admin + scope sobre la empresa.
+
+    Sin este check, un admin de FIP_CEHTA podía cambiar los firmantes
+    (GG, emails CC) de RHO o cualquier otra empresa portfolio — escalada
+    de privilegios cross-empresa. Un GG comprometido cambiaba su propio
+    email a uno controlado y aprobaba sus propias OCs.
+
+    is_admin solo certifica "puede operar branding". El scope certifica
+    "puede operar la empresa específica".
+    """
+    from app.services.empresa_scope_service import assert_empresa_access
+    await _require_admin(user)
+    await assert_empresa_access(user, db, codigo)
+
+
 @router.get(
     "/admin/empresas/{codigo}/oc-branding", response_model=OcBrandingRead
 )
 async def get_oc_branding(
     user: CurrentUser, db: DBSession, codigo: str
 ) -> OcBrandingRead:
-    """Devuelve la config de branding/firmantes para una empresa."""
-    await _require_admin(user)
+    """Devuelve la config de branding/firmantes para una empresa.
+
+    R152YYYYY — Doble gate: admin + scope sobre la empresa.
+    """
+    await _require_admin_with_empresa_scope(user, db, codigo)
     row = (
         await db.execute(
             text(
@@ -135,8 +157,11 @@ async def patch_oc_branding(
     codigo: str,
     body: OcBrandingUpdate,
 ) -> OcBrandingRead:
-    """Actualiza branding/firmantes. Solo campos provistos cambian."""
-    await _require_admin(user)
+    """Actualiza branding/firmantes. Solo campos provistos cambian.
+
+    R152YYYYY — Doble gate: admin + scope sobre la empresa.
+    """
+    await _require_admin_with_empresa_scope(user, db, codigo)
 
     fields: dict[str, Any] = body.model_dump(exclude_none=True)
     if not fields:
@@ -222,8 +247,10 @@ async def upload_logo(
 
     Actualiza core.empresas.logo_dropbox_path con la nueva ruta.
     Idempotente — si llamás dos veces con el mismo file, queda igual.
+
+    R152YYYYY — Doble gate: admin + scope sobre la empresa.
     """
-    await _require_admin(user)
+    await _require_admin_with_empresa_scope(user, db, codigo)
 
     if not file.filename:
         raise HTTPException(400, "Falta nombre de archivo")
@@ -278,10 +305,14 @@ async def upload_logo(
     except DropboxNotConfigured as exc:
         raise HTTPException(503, str(exc)) from exc
     except Exception as exc:
+        # R152JJJJJJ — detalle Dropbox solo al log, genérico al cliente.
+        logging.getLogger(__name__).warning(
+            "oc_branding.upload_failed", extra={"err": str(exc)[:200]}
+        )
         raise HTTPException(
             502,
-            f"Error subiendo a Dropbox: {exc}. Verificá que la app tenga "
-            f"permisos files.content.write.",
+            "Error subiendo el archivo a Dropbox. Verificá en "
+            "/admin/integraciones que Dropbox esté conectado y reintentá.",
         ) from exc
 
     # Actualizar logo_dropbox_path en DB

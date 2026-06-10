@@ -262,8 +262,14 @@ class BulkImportService:
                 )
                 continue
 
+            # R152GGGGGG — SAVEPOINT por fila. Sin esto, si la fila 500 de
+            # 1000 fallaba con un error a nivel transacción (IntegrityError,
+            # deadlock), la sesión async quedaba abortada (PendingRollbackError)
+            # y TODAS las filas siguientes fallaban + el commit final
+            # explotaba. begin_nested() hace rollback solo de esta fila.
             try:
-                await self._insert(entity_type, model)
+                async with self._db.begin_nested():
+                    await self._insert(entity_type, model)
                 created += 1
                 if key is not None:
                     seen_keys.add(key)

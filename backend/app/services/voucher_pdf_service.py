@@ -237,6 +237,9 @@ async def _fetch_voucher_bundle_data(
 
     # Approvals (table may not exist in older deploys — soft-fail)
     approvals: list[dict[str, Any]] = []
+    # R152SSSSS — Compliance fix: si la query de approvals falla, NO podemos
+    # emitir un PDF "sin firmas" porque ese PDF se manda al SII/auditor como
+    # evidencia. Fail loud con 503 para que el caller reintente, NO emit lie.
     try:
         rows = (
             await db.execute(
@@ -254,8 +257,17 @@ async def _fetch_voucher_bundle_data(
         ).mappings().all()
         approvals = [dict(r) for r in rows]
     except Exception as exc:
-        log.warning("voucher_pdf.approvals_unavailable", extra={"err": str(exc)})
+        log.error(
+            "voucher_pdf.approvals_query_failed",
+            extra={"voucher_id": voucher_id, "err": str(exc)},
+        )
         await db.rollback()
+        # Re-raise para que el endpoint devuelva 503 — el caller debe
+        # reintentar. Mejor un PDF no generado que un PDF mentiroso.
+        raise RuntimeError(
+            "No se pudo cargar el historial de firmas del voucher. "
+            "PDF no emitido para evitar evidencia incompleta."
+        ) from exc
 
     # Attachments
     att_rows = (

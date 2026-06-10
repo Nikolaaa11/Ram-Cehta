@@ -42,7 +42,12 @@ _db_url = str(settings.database_url)
 _is_transaction_pooler = ":6543" in _db_url
 
 if _is_transaction_pooler:
-    # Modo seguro pero lento — necesario para PgBouncer txn mode.
+    # Modo seguro para PgBouncer txn mode + escalable horizontalmente.
+    # R152NNNNN: añadidos server_settings para reducir handshake overhead
+    # en cada conexión nueva (cada request abre+cierra una con NullPool).
+    #   - timezone fijo: evita query a pg_timezone_names (~110ms)
+    #   - jit=off: queries cortas no se benefician del JIT y agregaba latencia
+    #   - application_name: visible en pg_stat_activity para debugging
     engine = create_async_engine(
         _db_url,
         echo=False,
@@ -50,6 +55,11 @@ if _is_transaction_pooler:
         connect_args={
             "statement_cache_size": 0,
             "prepared_statement_cache_size": 0,
+            "server_settings": {
+                "timezone": "UTC",
+                "application_name": "ram-cehta-api",
+                "jit": "off",
+            },
         },
     )
 else:

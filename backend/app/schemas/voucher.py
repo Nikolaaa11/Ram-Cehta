@@ -158,7 +158,10 @@ class VoucherCreate(BaseModel):
     threshold_aplicado: bool = False
     reversal_of: int | None = None
 
-    lines: list[VoucherLineCreate] = Field(min_length=1)
+    # R152EEEEEE — Cap defensivo: voucher típico tiene 2-10 líneas, máximo
+    # razonable son 50-100 para cierres complejos. Sin esto un POST con
+    # 10.000 líneas bloqueaba el pool DB con N×3 round-trips de validación.
+    lines: list[VoucherLineCreate] = Field(min_length=1, max_length=200)
 
     @model_validator(mode="after")
     def _validate_lines(self) -> "VoucherCreate":

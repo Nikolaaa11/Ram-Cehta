@@ -51,6 +51,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { PullToRefreshIndicator } from "@/components/shared/PullToRefreshIndicator";
 import { FeedbackPrompt } from "@/components/feedback/FeedbackPrompt";
 import { toast } from "@/components/ui/toast";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import { toCLP, toDate } from "@/lib/format";
 // R152ii — componentes premium de la pestaña.
 import { TransferenciasKpiHeader } from "@/components/transferencias/TransferenciasKpiHeader";
@@ -205,7 +206,7 @@ export default function TransferenciasPage() {
 
   const handleDownload = async () => {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     if (selectedIds.size === 0) {
@@ -291,7 +292,7 @@ export default function TransferenciasPage() {
   // como attachment tipo TRANSFERENCIA a cada voucher del batch.
   const handleBulkExecute = async () => {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     if (selectedIds.size === 0) {

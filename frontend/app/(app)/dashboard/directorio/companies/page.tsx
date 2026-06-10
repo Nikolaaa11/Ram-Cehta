@@ -386,8 +386,8 @@ function TearSheet({ company }: { company: PortfolioCompany }) {
       </div>
 
       <div className="mt-6 pt-4 border-t border-hairline text-xs text-ink-500">
-        Para ver KPIs operativos (G19) e impacto detallado, consulta el módulo de
-        Companies portfolio. Tear-sheet completa próximamente.
+        Para ver KPIs operativos e impacto detallado, andá al módulo de
+        Companies del portfolio (sidebar → Empresas).
       </div>
     </section>
   );

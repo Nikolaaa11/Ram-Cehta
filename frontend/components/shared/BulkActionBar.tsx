@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient } from "@/lib/api/client";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 import type { BulkUpdateResult } from "@/lib/api/schema";
 
 interface EstadoOption {
@@ -55,7 +56,7 @@ export function BulkActionBar({
 
   const handleAction = async (estado: string) => {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     setPendingEstado(estado);

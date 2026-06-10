@@ -59,7 +59,7 @@ async def find_match_candidates(
         await db.execute(
             text(
                 "SELECT empresa_codigo, total_debit, fecha_ejecucion, "
-                "       fecha_contable, contraparte_nombre "
+                "       fecha_contable, contraparte_nombre, moneda "
                 "FROM core.vouchers WHERE voucher_id = :v"
             ),
             {"v": voucher_id},
@@ -71,6 +71,13 @@ async def find_match_candidates(
     # Si no hay fecha_ejecucion (caso TRASPASO), usamos fecha_contable
     fecha_ref = voucher["fecha_ejecucion"] or voucher["fecha_contable"]
     monto = voucher["total_debit"]
+    voucher_moneda = voucher["moneda"] or "CLP"
+
+    # R152GGGGGG — Tolerancia de monto para absorber comisiones bancarias
+    # y redondeos. Default exacto (0). Configurable via env CONCILIACION_
+    # TOLERANCIA_CLP para que Nicolás lo suba si las comisiones generan
+    # mismatch (ej. transferencia $100 que llega como $99.50).
+    tolerancia = Decimal(str(getattr(settings, "conciliacion_tolerancia_clp", 0)))
 
     rows = (
         await db.execute(
@@ -88,14 +95,18 @@ async def find_match_candidates(
                 FROM core.movimientos m
                 LEFT JOIN core.proveedores p ON p.proveedor_id = m.proveedor_id
                 WHERE m.empresa_codigo = :empresa
-                  AND ABS(m.monto) = :monto
+                  -- R152GGGGGG — Match por moneda: evita conciliar un
+                  -- movimiento USD contra un voucher CLP del mismo importe.
+                  AND m.moneda = :moneda
+                  AND ABS(ABS(m.monto) - :monto) <= :tol
                   AND m.fecha BETWEEN (CAST(:fecha AS DATE) - INTERVAL ':win days')::DATE
                                   AND (CAST(:fecha AS DATE) + INTERVAL ':win days')::DATE
                   AND NOT EXISTS (
                       SELECT 1 FROM core.vouchers v2
                       WHERE v2.movimiento_id = m.movimiento_id
                   )
-                ORDER BY ABS(m.fecha - CAST(:fecha AS DATE)) ASC,
+                ORDER BY ABS(ABS(m.monto) - :monto) ASC,
+                         ABS(m.fecha - CAST(:fecha AS DATE)) ASC,
                          m.fecha DESC
                 LIMIT 20
                 """.replace(":win", str(window_days))
@@ -103,6 +114,8 @@ async def find_match_candidates(
             {
                 "empresa": voucher["empresa_codigo"],
                 "monto": monto,
+                "moneda": voucher_moneda,
+                "tol": tolerancia,
                 "fecha": fecha_ref,
             },
         )
@@ -145,12 +158,30 @@ async def auto_reconcile(
         params["fh"] = fecha_hasta
     where_sql = " AND ".join(where_parts)
 
+    # R152WWWWW — LIMIT defensivo. El loop hace 2 queries por voucher
+    # (find_match_candidates + link). Sin cap, 500 vouchers = 1000+
+    # roundtrips, satura el pool. Cap a 200 corresponde a ~10s de ejecución
+    # bajo carga normal — si hay más, el siguiente run los toma.
+    # TODO refactor a bulk query: SELECT v.id, m.id FROM vouchers v JOIN
+    # movimientos m ON match-criteria con HAVING COUNT(m)=1.
+    AUTO_MATCH_VOUCHER_CAP = 200
     vouchers = (
         await db.execute(
-            text(f"SELECT voucher_id FROM core.vouchers v WHERE {where_sql}"),
+            text(
+                f"SELECT voucher_id FROM core.vouchers v WHERE {where_sql} "
+                f"ORDER BY v.fecha_contable ASC LIMIT {AUTO_MATCH_VOUCHER_CAP}"
+            ),
             params,
         )
     ).scalars().all()
+
+    if len(vouchers) == AUTO_MATCH_VOUCHER_CAP:
+        import structlog
+        structlog.get_logger(__name__).warning(
+            "conciliacion.auto_match.cap_hit",
+            cap=AUTO_MATCH_VOUCHER_CAP,
+            hint="Re-ejecutar para procesar los siguientes",
+        )
 
     counters = {
         "vouchers_evaluados": len(vouchers),
@@ -212,7 +243,7 @@ async def link_voucher_to_movimiento(
         await db.execute(
             text(
                 "SELECT voucher_id, codigo, empresa_codigo, status, "
-                "       movimiento_id "
+                "       movimiento_id, moneda "
                 "FROM core.vouchers WHERE voucher_id = :v"
             ),
             {"v": voucher_id},
@@ -233,7 +264,7 @@ async def link_voucher_to_movimiento(
     movimiento = (
         await db.execute(
             text(
-                "SELECT movimiento_id, empresa_codigo, monto, fecha "
+                "SELECT movimiento_id, empresa_codigo, monto, fecha, moneda "
                 "FROM core.movimientos WHERE movimiento_id = :m"
             ),
             {"m": movimiento_id},
@@ -245,6 +276,15 @@ async def link_voucher_to_movimiento(
         raise ValueError(
             f"Movimiento es de empresa {movimiento['empresa_codigo']} "
             f"pero voucher es de {voucher['empresa_codigo']}"
+        )
+    # R152GGGGGG — Validar moneda: no conciliar un movimiento USD contra
+    # un voucher CLP. Aplica tanto al match automático como al manual.
+    mov_moneda = movimiento["moneda"] or "CLP"
+    vou_moneda = voucher["moneda"] or "CLP"
+    if mov_moneda != vou_moneda:
+        raise ValueError(
+            f"Moneda no coincide: movimiento en {mov_moneda} vs "
+            f"voucher en {vou_moneda}. No se puede conciliar."
         )
 
     used_by = await db.scalar(

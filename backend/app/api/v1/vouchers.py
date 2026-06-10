@@ -305,123 +305,9 @@ class PaginatedVouchersResponse(BaseModel):
 # que solo lo guarda y lo devuelve como param.
 
 
-class CursorVouchersResponse(BaseModel):
-    items: list[VoucherListItem]
-    next_cursor: str | None = None
-    has_more: bool
-
-
-def _encode_cursor(fecha: date, voucher_id: int) -> str:
-    """fecha_iso,voucher_id → base64 url-safe."""
-    import base64
-
-    raw = f"{fecha.isoformat()},{voucher_id}"
-    return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
-
-
-def _decode_cursor(cursor: str) -> tuple[date, int] | None:
-    """base64 → (fecha, voucher_id). None si invalido."""
-    import base64
-
-    try:
-        # Re-pad
-        padded = cursor + "=" * (-len(cursor) % 4)
-        raw = base64.urlsafe_b64decode(padded.encode()).decode()
-        fecha_str, vid_str = raw.split(",")
-        return date.fromisoformat(fecha_str), int(vid_str)
-    except (ValueError, TypeError):
-        return None
-
-
-@router.get("/vouchers/cursor", response_model=CursorVouchersResponse)
-async def list_vouchers_cursor(
-    user: CurrentUser,
-    db: DBSession,
-    scope: EmpresaScopeDep,
-    size: int = Query(default=50, ge=1, le=200),
-    cursor: str | None = Query(default=None),
-    empresa_codigo: str | None = Query(default=None),
-    tipo: VoucherTipo | None = Query(default=None),
-    voucher_status: VoucherStatus | None = Query(default=None, alias="status"),
-    fecha_desde: date | None = Query(default=None),
-    fecha_hasta: date | None = Query(default=None),
-    contraparte_rut: str | None = Query(default=None),
-) -> CursorVouchersResponse:
-    """Etapa D — paginacion cursor sobre (fecha_contable DESC, voucher_id DESC).
-
-    Para listados infinite-scroll en la lista de vouchers. Si necesitas
-    saber el total, usa /vouchers/paginated (mas caro). Para navegar
-    paginas, este es ~10x mas rapido en deep pages.
-
-    Usage:
-      GET /vouchers/cursor?size=50 → primera pagina, response incluye next_cursor
-      GET /vouchers/cursor?cursor={next_cursor} → segunda pagina, etc.
-    """
-    wheres = []
-    scoped_codes = scope.filter_codes(empresa_codigo)
-    if scoped_codes is not None:
-        wheres.append(Voucher.empresa_codigo.in_(scoped_codes))
-    if tipo:
-        wheres.append(Voucher.tipo == tipo)
-    if voucher_status:
-        wheres.append(Voucher.status == voucher_status)
-    if fecha_desde:
-        wheres.append(Voucher.fecha_contable >= fecha_desde)
-    if fecha_hasta:
-        wheres.append(Voucher.fecha_contable <= fecha_hasta)
-    if contraparte_rut:
-        wheres.append(Voucher.contraparte_rut == contraparte_rut)
-
-    # Cursor: (fecha_contable, voucher_id) < (cursor_fecha, cursor_id)
-    # en DESC order. Usa el indice compuesto ix_vouchers_empresa_status_fecha
-    # cuando hay filtros por empresa/status.
-    if cursor:
-        decoded = _decode_cursor(cursor)
-        if decoded is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cursor invalido. Pediste una pagina inexistente.",
-            )
-        cursor_fecha, cursor_id = decoded
-        # Tuple comparison: (fecha, id) < (cursor_fecha, cursor_id)
-        # equivale a: fecha < cursor_fecha OR (fecha = cursor_fecha AND id < cursor_id)
-        from sqlalchemy import and_, or_
-
-        wheres.append(
-            or_(
-                Voucher.fecha_contable < cursor_fecha,
-                and_(
-                    Voucher.fecha_contable == cursor_fecha,
-                    Voucher.voucher_id < cursor_id,
-                ),
-            )
-        )
-
-    stmt = select(Voucher)
-    for w in wheres:
-        stmt = stmt.where(w)
-    # Pedimos size + 1 para saber si hay mas paginas sin un count separado
-    stmt = stmt.order_by(
-        Voucher.fecha_contable.desc(),
-        Voucher.voucher_id.desc(),
-    ).limit(size + 1)
-
-    result = await db.execute(stmt)
-    rows = list(result.scalars().all())
-    has_more = len(rows) > size
-    items_models = rows[:size]
-    items = [VoucherListItem.model_validate(v) for v in items_models]
-
-    next_cursor = None
-    if has_more and items_models:
-        last = items_models[-1]
-        next_cursor = _encode_cursor(last.fecha_contable, last.voucher_id)
-
-    return CursorVouchersResponse(
-        items=items,
-        next_cursor=next_cursor,
-        has_more=has_more,
-    )
+# R152BBBBBB — Endpoint /vouchers/cursor + CursorVouchersResponse + helpers
+# _encode_cursor/_decode_cursor eliminados. No los usaba el frontend.
+# Si se necesita infinite-scroll en el futuro, restaurar desde git history.
 
 
 @router.get("/vouchers/paginated", response_model=PaginatedVouchersResponse)
@@ -879,10 +765,18 @@ async def list_mis_pendientes(
                   ORDER BY va2.uploaded_at ASC LIMIT 1) AS primer_adjunto_id
             FROM core.vouchers v
             LEFT JOIN core.empresas e ON e.codigo = v.empresa_codigo
-            LEFT JOIN auth.users u ON u.id::TEXT = v.created_by::TEXT
+            -- R152SSSSS — Cast a TEXT mata el índice PK uuid de auth.users.
+            -- Comparar UUID = UUID directamente para usar el índice.
+            LEFT JOIN auth.users u ON u.id = v.created_by
             WHERE v.status = 'PENDING'
               AND v.empresa_codigo = ANY(CAST(:empresas AS text[]))
             ORDER BY v.created_at ASC
+            -- R152SSSSS — LIMIT defensivo: si la cola PENDING crece sin
+            -- bound (GG ausente, firmante de vacaciones, etc.), el endpoint
+            -- tarda >30s y rompe. 200 cubre operativa normal con margen.
+            -- Si llega seguido a 200, es señal de problema operativo
+            -- (gerente sin firmar, no de UI).
+            LIMIT 200
             """
         ),
         {"empresas": list(user_roles_by_empresa.keys())},
@@ -1658,8 +1552,18 @@ async def create_voucher(
                 "lines_count": len(body.lines),
             },
         )
-    except Exception:
-        pass
+    except Exception as audit_exc:
+        # R152WWWWW — Compliance: el audit_log de CREATE NO debe perderse
+        # silente. Si falla, el voucher ya fue creado pero perdemos el
+        # trail. Log explícito a Sentry para que un humano lo arregle.
+        import structlog
+        structlog.get_logger(__name__).error(
+            "voucher.create.audit_log_failed",
+            voucher_id=voucher.voucher_id,
+            voucher_codigo=voucher.codigo,
+            err=str(audit_exc),
+            severity="compliance_critical",
+        )
 
     # Re-fetch con líneas cargadas
     # NOTE: get_voucher requires scope dep — bypass with None as we already validated
@@ -1922,8 +1826,16 @@ async def submit_voucher(
                 ),
             },
         )
-    except Exception:
-        pass
+    except Exception as audit_exc:
+        # R152WWWWW — Compliance: audit de "submit-for-approval" visible
+        import structlog
+        structlog.get_logger(__name__).error(
+            "voucher.submit.audit_log_failed",
+            voucher_id=v.voucher_id,
+            voucher_codigo=v.codigo,
+            err=str(audit_exc),
+            severity="compliance_critical",
+        )
 
     msg = (
         f"Voucher {v.codigo} aprobado automáticamente (sin firma manual requerida)"
@@ -2733,6 +2645,19 @@ async def approve_voucher(
       - Round 145: firmas PARALELAS — cualquier orden vale (antes era estricto)
       - Cuando todos los roles requeridos están firmados, voucher → APPROVED
     """
+    # R152EEEEEE — Row lock pesimista. Sin esto, doble-click del aprobador
+    # disparaba 2 firmas duplicadas (ambos requests leían approved_roles
+    # sin el rol, ambos INSERT, ambos publish_event → webhook duplicado).
+    # Mismo patrón que bulk_approve (R152SSSSS).
+    lock_row = (await db.execute(
+        text("SELECT voucher_id FROM core.vouchers WHERE voucher_id = :vid FOR UPDATE"),
+        {"vid": voucher_id},
+    )).fetchone()
+    if lock_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+
     voucher = await db.get(Voucher, voucher_id)
     if voucher is None:
         raise HTTPException(
@@ -2899,8 +2824,18 @@ async def approve_voucher(
                 "comments": body.comments,
             },
         )
-    except Exception:
-        pass
+    except Exception as audit_exc:
+        # R152WWWWW — Audit de firma individual (paso del flow). Crítico:
+        # cada firma es prueba legal de aprobación del voucher.
+        import structlog
+        structlog.get_logger(__name__).error(
+            "voucher.approve.audit_log_failed",
+            voucher_id=voucher.voucher_id,
+            voucher_codigo=voucher.codigo,
+            role_signed=body.role,
+            err=str(audit_exc),
+            severity="compliance_critical",
+        )
 
     # V5++ ola N: webhook saliente voucher.approved → sistemas externos.
     # Soft-fail: si nadie está suscripto, no hace nada. Ejecuta async
@@ -2970,6 +2905,19 @@ async def reject_voucher(
     aprobador del paso actual). Esto permite que un Director frene un
     voucher dudoso aunque no le toque firmar el siguiente paso.
     """
+    # R152JJJJJJ — Row lock pesimista (mismo patrón que approve_voucher).
+    # Sin esto, 2 rechazos simultáneos (o reject vs approve concurrente)
+    # leían ambos status=PENDING y registraban doble approval + doble
+    # audit + doble webhook.
+    lock_row = (await db.execute(
+        text("SELECT voucher_id FROM core.vouchers WHERE voucher_id = :vid FOR UPDATE"),
+        {"vid": voucher_id},
+    )).fetchone()
+    if lock_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+
     voucher = await db.get(Voucher, voucher_id)
     if voucher is None:
         raise HTTPException(
@@ -3945,7 +3893,12 @@ async def bulk_approve_vouchers(
     # Pre-cargar user_id real una sola vez
     user_sub = str(user.sub)
 
-    for vid in body.voucher_ids:
+    # R152SSSSS — Ordenar voucher_ids previene deadlocks cuando dos requests
+    # paralelos tratan los mismos vouchers en orden distinto. Locks adquiridos
+    # siempre en mismo orden → no hay ciclo.
+    sorted_vids = sorted(body.voucher_ids)
+
+    for vid in sorted_vids:
         try:
             # Round 141 hotfix — Lock pesimista del voucher para evitar race
             # conditions en bulk-approve. Sin esto, dos requests simultáneos
@@ -4118,6 +4071,23 @@ async def bulk_approve_vouchers(
                 except Exception:
                     pass  # Soft-fail
         except Exception as exc:  # noqa: BLE001
+            # R152SSSSS — Sin rollback acá, la session queda envenenada
+            # (PendingRollbackError) y TODOS los vouchers restantes fallan
+            # con "Error inesperado". Rollback + continue salva el batch.
+            import structlog
+            structlog.get_logger(__name__).exception(
+                "bulk_approve.voucher_failed",
+                voucher_id=vid,
+                err=str(exc),
+            )
+            try:
+                await db.rollback()
+            except Exception as rb_exc:
+                structlog.get_logger(__name__).warning(
+                    "bulk_approve.rollback_failed",
+                    voucher_id=vid,
+                    err=str(rb_exc),
+                )
             items.append(BulkApproveItemResult(
                 voucher_id=vid, success=False,
                 error=f"Error inesperado: {exc}",

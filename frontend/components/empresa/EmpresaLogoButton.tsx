@@ -15,6 +15,7 @@ import { Image as ImageIcon, Loader2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { handleSessionExpired } from "@/lib/api/session-handling";
 
 interface Props {
   empresaCodigo: string;
@@ -29,7 +30,7 @@ export function EmpresaLogoButton({ empresaCodigo, hasLogo, onUploaded }: Props)
 
   async function handleFile(file: File) {
     if (!session) {
-      toast.error("Sesión expirada");
+      handleSessionExpired();
       return;
     }
     const allowed = ["png", "jpg", "jpeg", "svg", "webp"];

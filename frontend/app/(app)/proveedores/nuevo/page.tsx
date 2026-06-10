@@ -9,11 +9,10 @@ import { Surface } from "@/components/ui/surface";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import type { ProveedorCreate } from "@/lib/api/schema";
-
-// Chilean RUT: 7+ digits optionally followed by a verification digit (0-9 or K/k)
-function isValidRut(rut: string): boolean {
-  return /^\d{7,8}-?[\dKk]$/.test(rut.replace(/\./g, ""));
-}
+// R152FFFFFF — usar la validación real (módulo 11 del DV) en lugar de la
+// copia local que solo chequeaba formato. "12345678-9" pasaba aunque el
+// DV correcto fuera 5.
+import { isValidRut } from "@/lib/rut";
 
 type FieldErrors = Partial<Record<keyof ProveedorCreate | "general", string>>;
 

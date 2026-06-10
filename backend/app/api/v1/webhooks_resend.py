@@ -147,17 +147,34 @@ async def resend_webhook(request: Request, db: DBSession) -> dict:
     )
     # Resend manda timestamp ISO 8601 en `created_at`.
     occurred_raw = payload.get("created_at") or data.get("created_at")
+    # R152XXXXX — Manejar tanto string ISO como int unix timestamp.
+    # Resend a veces manda timestamp como número (delivered events),
+    # antes el `.replace("Z", ...)` crasheaba pero era silenced por
+    # el except, perdiendo el timestamp real.
     try:
-        occurred_at = (
-            datetime.fromisoformat(occurred_raw.replace("Z", "+00:00"))
-            if occurred_raw
-            else datetime.now(timezone.utc)
-        )
+        if isinstance(occurred_raw, (int, float)):
+            occurred_at = datetime.fromtimestamp(float(occurred_raw), timezone.utc)
+        elif isinstance(occurred_raw, str):
+            occurred_at = datetime.fromisoformat(occurred_raw.replace("Z", "+00:00"))
+        else:
+            occurred_at = datetime.now(timezone.utc)
     except Exception:
         occurred_at = datetime.now(timezone.utc)
 
-    # Provider event ID (Svix lo manda en header). Idempotency key.
-    provider_event_id = headers.get("svix-id") or f"{event_type}|{message_id}|{occurred_at.isoformat()}"
+    # R152XXXXX — Provider event ID con fallback más fuerte.
+    # Antes: si no había svix-id, se usaba (event_type, message_id, isoformat)
+    # — el ISO solo tiene resolución segundo, dos eventos del mismo type+msg
+    # llegando en el mismo segundo colisionaban en UNIQUE constraint.
+    # Ahora: hash SHA256 del body completo cuando falta svix-id.
+    if headers.get("svix-id"):
+        provider_event_id = headers["svix-id"]
+    else:
+        import hashlib
+        import json as _json
+        body_hash = hashlib.sha256(
+            _json.dumps(payload, sort_keys=True, default=str).encode()
+        ).hexdigest()[:32]
+        provider_event_id = f"{event_type}|{message_id}|{body_hash}"
 
     if not message_id:
         log.warning(

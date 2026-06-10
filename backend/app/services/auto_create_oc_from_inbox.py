@@ -49,15 +49,19 @@ async def auto_create_oc_from_inbox(
       {"ok": True, "oc_id": int, "numero_oc": str}  si exitoso
       {"ok": False, "error": "mensaje"}             si falló
     """
-    # 1. Leer inbox_message + adjuntos
-    # R152MMMM · usar named access (.mappings()) en lugar de índices.
+    # 1. Leer inbox_message + adjuntos CON FOR UPDATE para evitar carrera.
+    # R152YYYYY — Idempotencia atómica. Antes el SELECT no tenía lock,
+    # y dos workers del poller corriendo simultáneamente podían entrar
+    # ambos al if (created_entity_id IS NULL) y crear 2 OCs duplicadas
+    # con correlativos distintos. FOR UPDATE serializa accesos a esta row.
     result = await db.execute(
         text(
             """SELECT inbox_id, subject, from_email, from_name, body_text,
                       category, created_entity_id,
                       COALESCE(attachments_meta, '[]'::jsonb) AS attachments
                FROM core.inbox_messages
-               WHERE inbox_id = :id"""
+               WHERE inbox_id = :id
+               FOR UPDATE"""
         ),
         {"id": inbox_id},
     )
@@ -66,7 +70,13 @@ async def auto_create_oc_from_inbox(
     if not row:
         return {"ok": False, "error": f"inbox_id {inbox_id} no encontrado"}
     if row["created_entity_id"] is not None:
-        return {"ok": False, "error": "ya existe entidad creada para este email"}
+        # Otra request ya creó la OC desde este email. Liberamos el lock.
+        return {
+            "ok": True,
+            "skipped": True,
+            "oc_id": row["created_entity_id"],
+            "error": "ya existe entidad creada para este email",
+        }
     if row["category"] not in ("oc", "orden_compra"):
         return {"ok": False, "error": f"category={row['category']!r} no es 'oc'"}
 

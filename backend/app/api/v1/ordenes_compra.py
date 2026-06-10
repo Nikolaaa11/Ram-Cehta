@@ -17,6 +17,7 @@ from fastapi import (
     status,
 )
 from pydantic import BaseModel, Field
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
@@ -138,6 +139,18 @@ async def create_oc(
 ) -> OrdenCompraRead:
     # V5++ ola AD: validar acceso a empresa
     await assert_empresa_access(user, db, body.empresa_codigo)
+
+    # R152EEEEEE — Guard explícito: una OC SIN proveedor identificable
+    # quedaba con proveedor_id=NULL → orphan FK, rompía reportes,
+    # auditoría legal sin contraparte. Exigir id O rut+nombre.
+    if body.proveedor_id is None and not body.proveedor_rut:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Falta el proveedor. Proporcioná proveedor_id (existente) "
+                "o proveedor_rut + proveedor_nombre para crearlo."
+            ),
+        )
 
     # V5++ ola CE: auto-resolver/crear proveedor si vino RUT+nombre en lugar
     # de proveedor_id. Mismo patron que el form Nubox de vouchers.
@@ -766,6 +779,20 @@ async def update_estado(
     body: EstadoUpdateRequest,
 ) -> OrdenCompraRead:
     repo = OrdenCompraRepository(db)
+
+    # R152YYYYY — Row lock pesimista para evitar race conditions.
+    # Sin esto, 2 PATCH simultáneos pasaban ambos el check de estado y
+    # ambos hacían update — la 2da transición podía ser ilegal (ej.
+    # PENDING→APPROVED→EXECUTED sin firmar). SELECT FOR UPDATE serializa.
+    locked = (
+        await db.execute(
+            text("SELECT oc_id FROM core.ordenes_compra WHERE oc_id = :id FOR UPDATE"),
+            {"id": oc_id},
+        )
+    ).first()
+    if locked is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
+
     oc = await repo.get(oc_id)
     if not oc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada")
@@ -780,6 +807,13 @@ async def update_estado(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"No tienes permiso para cambiar estado a '{body.estado}'",
         )
+
+    # R152YYYYY — Validar que el estado destino sea consistente con el
+    # estado actual lockeado (ya validado por allowed_actions pero
+    # defensivo si _authz cambia en el futuro).
+    if oc.estado == body.estado:
+        # Idempotente: ya está en ese estado, no hacemos nada.
+        return _to_read(user, oc)
 
     estado_before = oc.estado
     updated = await repo.update_estado(oc, body.estado)
@@ -857,6 +891,18 @@ async def bulk_update_estado(
     required_action = _ESTADO_ACTION.get(body.estado)
 
     for oc_id in body.ids:
+        # R152JJJJJJ — Row lock por OC (mismo patrón que el PATCH single).
+        # Sin esto, un bulk concurrente con otro update sobre la misma OC
+        # pasaba ambos el check de estado y aplicaba transiciones ilegales.
+        locked = (
+            await db.execute(
+                text("SELECT oc_id FROM core.ordenes_compra WHERE oc_id = :id FOR UPDATE"),
+                {"id": oc_id},
+            )
+        ).first()
+        if locked is None:
+            failed.append(BulkItemError(id=oc_id, detail="not found"))
+            continue
         oc = await repo.get(oc_id)
         if not oc:
             failed.append(BulkItemError(id=oc_id, detail="not found"))
@@ -870,6 +916,28 @@ async def bulk_update_estado(
                 BulkItemError(id=oc_id, detail=f"sin permiso para {body.estado}")
             )
             continue
+
+        # R152EEEEEE — Anti-anulación de OCs con vouchers APROBADOS/EJECUTADOS.
+        # Sin este check, `bulk_update_estado` permitía anular una OC cuyas
+        # cuotas ya se transformaron en vouchers ejecutados (plata salida),
+        # dejando el voucher huérfano de su OC. El single PATCH ya lo bloquea
+        # via `_authz`, pero el bulk path se saltaba.
+        if body.estado == "anulada":
+            vouchers_bloq = (await db.execute(
+                text(
+                    """SELECT COUNT(*) FROM core.oc_cuotas c
+                       JOIN core.vouchers v ON v.voucher_id = c.voucher_id
+                       WHERE c.oc_id = :id AND v.status IN ('APPROVED','EXECUTED','SYNCED','RECONCILED')"""
+                ),
+                {"id": oc_id},
+            )).scalar() or 0
+            if vouchers_bloq > 0:
+                failed.append(BulkItemError(
+                    id=oc_id,
+                    detail=f"tiene {vouchers_bloq} voucher(s) APROBADO/EJECUTADO — anular vouchers primero",
+                ))
+                continue
+
         await repo.update_estado(oc, body.estado)
         succeeded += 1
 

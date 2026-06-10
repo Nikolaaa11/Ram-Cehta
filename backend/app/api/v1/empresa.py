@@ -317,13 +317,26 @@ async def sync_all_dropbox(
 
     # Importar perezosamente para evitar circular dependencies
     try:
+        from app.infrastructure.repositories.integration_repository import (
+            IntegrationRepository,
+        )
         from app.services.dropbox_service import (
             DropboxNotConfigured,
             DropboxService,
         )
         from app.services.dropbox_sync_service import DropboxSyncService
 
-        dbx = DropboxService()
+        # R152XXXXX — DropboxService requiere access_token. Antes
+        # `DropboxService()` sin args tiraba TypeError. Cargar tokens
+        # desde core.integrations.
+        integration = await IntegrationRepository(db).get_by_provider("dropbox")
+        if integration is None:
+            response.errors.append("Dropbox no configurado (sin integración activa)")
+            return response
+        dbx = DropboxService(
+            access_token=integration.access_token,
+            refresh_token=integration.refresh_token,
+        )
         svc = DropboxSyncService(db, dbx)
     except DropboxNotConfigured as exc:
         response.errors.append(f"Dropbox no configurado: {exc}")
@@ -1145,8 +1158,11 @@ async def get_empresa_logo_url(
     except DropboxNotConfigured as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
+        # R152JJJJJJ — detalle Dropbox solo al log, genérico al cliente.
+        _log_empresa_logo.warning("logo_url_failed", err=str(exc)[:200])
         raise HTTPException(
-            status_code=502, detail=f"No se pudo generar URL: {exc}"
+            status_code=502,
+            detail="No se pudo generar la URL del logo. Reintentá en unos minutos.",
         ) from exc
 
     return LogoUrlResponse(url=url, expires_in_hours=4)

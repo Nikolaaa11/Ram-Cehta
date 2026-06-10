@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import html as html_lib
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 
@@ -32,22 +32,30 @@ def _esc(s: Any) -> str:
 
 
 def _fmt_clp(v: Decimal | float | int | None) -> str:
-    """Formatea CLP con punto miles + signo $."""
+    """Formatea CLP con punto miles + signo $.
+
+    R152FFFFFF — Redondeo COMERCIAL (ROUND_HALF_UP) en lugar de banker's
+    rounding de Python `round()`. El SII y la práctica contable chilena
+    esperan que 0.5 redondee hacia arriba. Además convertimos vía Decimal
+    para no introducir error de coma flotante en montos grandes.
+    """
     if v is None:
         return "—"
     try:
-        n = int(round(float(v)))
-    except (ValueError, TypeError):
+        n = int(Decimal(str(v)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    except (ValueError, TypeError, ArithmeticError):
         return "—"
     return f"${n:,}".replace(",", ".")
 
 
 def _fmt_date(d: date | str | None) -> str:
+    """R152FFFFFF — Formato chileno dd/mm/yyyy para reportes formales
+    (antes ISO yyyy-mm-dd, que no es el formato contable chileno)."""
     if d is None:
         return "—"
     if isinstance(d, str):
         return d
-    return d.isoformat()
+    return d.strftime("%d/%m/%Y")
 
 
 # ============================================================================
