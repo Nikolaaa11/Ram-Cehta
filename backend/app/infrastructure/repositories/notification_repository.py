@@ -30,17 +30,25 @@ class NotificationRepository:
         if only_unread:
             conditions.append(Notification.read_at.is_(None))
 
-        count_q = select(func.count()).select_from(Notification).where(and_(*conditions))
-        total = (await self._session.scalar(count_q)) or 0
-
+        # R152OOOOOO — COUNT(*) OVER() en la misma query: antes eran 2
+        # round-trips (count + página). El inbox se consulta en cada
+        # navegación, así que el ahorro (~40-60ms) se siente.
         q = (
-            select(Notification)
+            select(Notification, func.count().over().label("_total"))
             .where(and_(*conditions))
             .order_by(Notification.created_at.desc())
             .limit(size)
             .offset((page - 1) * size)
         )
-        items = list((await self._session.scalars(q)).all())
+        rows = (await self._session.execute(q)).all()
+        total = rows[0]._total if rows else 0
+        items = [r.Notification for r in rows]
+        if not rows and page > 1:
+            # Página fuera de rango (raro): fallback al count clásico.
+            count_q = (
+                select(func.count()).select_from(Notification).where(and_(*conditions))
+            )
+            total = (await self._session.scalar(count_q)) or 0
         return items, int(total)
 
     async def unread_count(self, user_id: str) -> int:

@@ -351,15 +351,11 @@ async def list_vouchers_paginated(
     if contraparte_rut:
         wheres.append(Voucher.contraparte_rut == contraparte_rut)
 
-    # Count total
-    count_stmt = select(sql_func.count()).select_from(Voucher)
-    for w in wheres:
-        count_stmt = count_stmt.where(w)
-    total = await db.scalar(count_stmt) or 0
-
-    # Página
+    # R152OOOOOO — COUNT(*) OVER() en la misma query: antes eran 2
+    # round-trips (count + página) a Supabase São Paulo (~40-60ms c/u).
+    # La window function devuelve el total en cada fila de la página.
     offset = (page - 1) * size
-    page_stmt = select(Voucher)
+    page_stmt = select(Voucher, sql_func.count().over().label("_total"))
     for w in wheres:
         page_stmt = page_stmt.where(w)
     page_stmt = (
@@ -369,8 +365,18 @@ async def list_vouchers_paginated(
         .limit(size)
     )
 
-    result = await db.execute(page_stmt)
-    items = [VoucherListItem.model_validate(v) for v in result.scalars().all()]
+    rows = (await db.execute(page_stmt)).all()
+    total = rows[0]._total if rows else 0
+    items = [VoucherListItem.model_validate(r.Voucher) for r in rows]
+
+    if not rows and page > 1:
+        # Página fuera de rango: el OVER() no devuelve filas, así que el
+        # total real requiere el count clásico (caso raro — solo si el
+        # usuario navega más allá de la última página).
+        count_stmt = select(sql_func.count()).select_from(Voucher)
+        for w in wheres:
+            count_stmt = count_stmt.where(w)
+        total = await db.scalar(count_stmt) or 0
 
     return PaginatedVouchersResponse(
         items=items,

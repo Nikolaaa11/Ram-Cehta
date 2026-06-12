@@ -13,6 +13,7 @@ Endpoints (todos bajo /api/v1/dashboard, requieren auth, lectura para todos los 
 """
 from __future__ import annotations
 
+import contextlib
 import logging
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
@@ -370,100 +371,79 @@ async def get_kpis(
         scope_params["scope_codes"] = allowed
         scope_filter_emp = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
 
-    # Saldos consolidados — solo de empresas en scope
-    saldos_row = (
+    # R152OOOOOO — Las 6 queries de KPIs consolidadas en 1 round-trip
+    # (mismo patrón que GET /dashboard R152NNNNNN). Cada subquery mantiene
+    # su SQL EXACTO de antes; solo se envuelven en un SELECT único.
+    # Antes: 6 awaits secuenciales × ~40-60ms a São Paulo = ~250-350ms.
+    kpis_row = (
         await db.execute(
             text(f"""
                 SELECT
-                    COALESCE(SUM(saldo_contable), 0) AS s_contable,
-                    COALESCE(SUM(saldo_cehta), 0)    AS s_cehta,
-                    COALESCE(SUM(saldo_corfo), 0)    AS s_corfo
-                FROM core.v_saldos_actuales
-                WHERE 1=1 {scope_filter_emp}
+                    (SELECT json_build_array(
+                        COALESCE(SUM(saldo_contable), 0),
+                        COALESCE(SUM(saldo_cehta), 0),
+                        COALESCE(SUM(saldo_corfo), 0))
+                     FROM core.v_saldos_actuales
+                     WHERE 1=1 {scope_filter_emp}) AS saldos,
+                    (SELECT json_build_array(
+                        COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_now), 0),
+                        COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_prev), 0),
+                        COALESCE(SUM(abono)  FILTER (WHERE periodo = :p_now), 0),
+                        COALESCE(SUM(abono)  FILTER (WHERE periodo = :p_prev), 0))
+                     FROM core.movimientos
+                     WHERE real_proyectado = 'Real'
+                       AND periodo IN (:p_now, :p_prev)
+                       {scope_filter_emp}) AS flujo,
+                    (SELECT COALESCE(SUM(iva_a_pagar), 0)
+                     FROM core.v_iva_consolidado
+                     WHERE periodo = :p
+                       {scope_filter_emp}) AS iva,
+                    (SELECT json_build_array(
+                        COUNT(*) FILTER (WHERE estado = 'emitida'),
+                        COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0))
+                     FROM core.ordenes_compra
+                     WHERE 1=1 {scope_filter_emp}) AS oc,
+                    (SELECT json_build_array(
+                        COUNT(*) FILTER (WHERE dias_para_vencer BETWEEN 0 AND 30),
+                        COUNT(*) FILTER (WHERE dias_para_vencer < 0 AND estado = 'pendiente'))
+                     FROM core.v_f29_alertas
+                     WHERE 1=1 {scope_filter_emp}) AS f29,
+                    (SELECT json_build_array(finished_at::text, status)
+                     FROM audit.etl_runs
+                     WHERE status = 'success'
+                     ORDER BY finished_at DESC NULLS LAST
+                     LIMIT 1) AS etl
             """),
             scope_params,
         )
     ).fetchone()
 
-    # Egresos / abonos del mes actual y anterior — solo de empresas en scope
-    flujo_row = (
-        await db.execute(
-            text(f"""
-                SELECT
-                    COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_now), 0) AS egreso_now,
-                    COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_prev), 0) AS egreso_prev,
-                    COALESCE(SUM(abono)  FILTER (WHERE periodo = :p_now), 0) AS abono_now,
-                    COALESCE(SUM(abono)  FILTER (WHERE periodo = :p_prev), 0) AS abono_prev
-                FROM core.movimientos
-                WHERE real_proyectado = 'Real'
-                  AND periodo IN (:p_now, :p_prev)
-                  {scope_filter_emp}
-            """),
-            scope_params,
-        )
-    ).fetchone()
+    import json as _json
 
-    egreso_now = Decimal(flujo_row[0] or 0)
-    egreso_prev = Decimal(flujo_row[1] or 0)
-    abono_now = Decimal(flujo_row[2] or 0)
-    abono_prev = Decimal(flujo_row[3] or 0)
+    def _arr(val: object) -> list:
+        if val is None:
+            return []
+        return _json.loads(val) if isinstance(val, str) else list(val)
 
-    # IVA a pagar consolidado del mes — solo scope
-    iva_row = (
-        await db.execute(
-            text(f"""
-                SELECT COALESCE(SUM(iva_a_pagar), 0)
-                FROM core.v_iva_consolidado
-                WHERE periodo = :p
-                  {scope_filter_emp}
-            """),
-            scope_params,
-        )
-    ).fetchone()
-    iva_a_pagar = Decimal(iva_row[0] or 0) if iva_row else ZERO
+    saldos_row = _arr(kpis_row[0]) or [0, 0, 0]
+    flujo_vals = _arr(kpis_row[1]) or [0, 0, 0, 0]
+    iva_val = kpis_row[2]
+    oc_row = _arr(kpis_row[3]) or [0, 0]
+    f29_row = _arr(kpis_row[4]) or [0, 0]
+    etl_arr = _arr(kpis_row[5])
 
-    # OC emitidas pendientes — solo scope
-    oc_row = (
-        await db.execute(
-            text(f"""
-                SELECT
-                    COUNT(*) FILTER (WHERE estado = 'emitida') AS n_emitidas,
-                    COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_emitidas
-                FROM core.ordenes_compra
-                WHERE 1=1 {scope_filter_emp}
-            """),
-            scope_params,
-        )
-    ).fetchone()
+    egreso_now = Decimal(str(flujo_vals[0] or 0))
+    egreso_prev = Decimal(str(flujo_vals[1] or 0))
+    abono_now = Decimal(str(flujo_vals[2] or 0))
+    abono_prev = Decimal(str(flujo_vals[3] or 0))
+    iva_a_pagar = Decimal(str(iva_val or 0))
 
-    # F29 alertas — solo scope
-    f29_row = (
-        await db.execute(
-            text(f"""
-                SELECT
-                    COUNT(*) FILTER (WHERE dias_para_vencer BETWEEN 0 AND 30)
-                        AS proximas_30d,
-                    COUNT(*) FILTER (WHERE dias_para_vencer < 0 AND estado = 'pendiente')
-                        AS vencidas
-                FROM core.v_f29_alertas
-                WHERE 1=1 {scope_filter_emp}
-            """),
-            scope_params,
-        )
-    ).fetchone()
-
-    # ETL run más reciente
-    etl_row = (
-        await db.execute(
-            text("""
-                SELECT finished_at, status
-                FROM audit.etl_runs
-                WHERE status = 'success'
-                ORDER BY finished_at DESC NULLS LAST
-                LIMIT 1
-            """)
-        )
-    ).fetchone()
+    # ETL: reconstruir el shape (finished_at datetime, status) del fetchone
+    etl_row = None
+    if etl_arr and etl_arr[0]:
+        from datetime import datetime as _dt
+        with contextlib.suppress(Exception):
+            etl_row = (_dt.fromisoformat(etl_arr[0]), etl_arr[1])
     if etl_row and etl_row[0] is not None:
         ultimo_etl_run = etl_row[0]
         # Stale si el último run exitoso es más viejo que 24h
@@ -477,9 +457,9 @@ async def get_kpis(
         etl_status = "never"
 
     return DashboardKPIs(
-        saldo_total_consolidado=Decimal(saldos_row[0] or 0) if saldos_row else ZERO,
-        saldo_total_cehta=Decimal(saldos_row[1] or 0) if saldos_row else ZERO,
-        saldo_total_corfo=Decimal(saldos_row[2] or 0) if saldos_row else ZERO,
+        saldo_total_consolidado=Decimal(str(saldos_row[0] or 0)) if saldos_row else ZERO,
+        saldo_total_cehta=Decimal(str(saldos_row[1] or 0)) if saldos_row else ZERO,
+        saldo_total_corfo=Decimal(str(saldos_row[2] or 0)) if saldos_row else ZERO,
         egreso_mes_actual=egreso_now,
         egreso_mes_anterior=egreso_prev,
         egreso_delta_pct=calc_delta_pct(egreso_now, egreso_prev),
@@ -489,7 +469,7 @@ async def get_kpis(
         flujo_neto_mes=abono_now - egreso_now,
         iva_a_pagar_mes=iva_a_pagar,
         oc_emitidas_pendientes=int(oc_row[0]) if oc_row else 0,
-        monto_oc_pendiente=Decimal(oc_row[1] or 0) if oc_row else ZERO,
+        monto_oc_pendiente=Decimal(str(oc_row[1] or 0)) if oc_row else ZERO,
         f29_proximas_30d=int(f29_row[0]) if f29_row else 0,
         f29_vencidas=int(f29_row[1]) if f29_row else 0,
         ultimo_etl_run=ultimo_etl_run,

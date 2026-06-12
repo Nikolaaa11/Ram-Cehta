@@ -258,9 +258,17 @@ export default function TransferenciasPage() {
       const totalRows = res.headers.get("X-Total-Rows");
       const missing = res.headers.get("X-Missing-Voucher-Ids");
 
+      // R152OOOOOO — además del resumen, decirle al usuario QUÉ sigue:
+      // el flujo banco → confirmación → marcar EXECUTED estaba implícito.
       toast.success(
         `Excel descargado · ${totalRows} vouchers · $${parseInt(totalClp ?? "0", 10).toLocaleString("es-CL")} CLP`,
-        { duration: 8000 },
+        {
+          duration: 12000,
+          description:
+            "Pasos siguientes: 1) Sube el archivo al portal de tu banco · " +
+            "2) Confirma las transferencias en el banco · 3) Vuelve aquí, " +
+            "selecciona los pagados y usa \"Marcar EXECUTED\" con el comprobante.",
+        },
       );
       if (missing) {
         toast.info(

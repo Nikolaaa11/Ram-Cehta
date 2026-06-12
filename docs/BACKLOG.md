@@ -33,14 +33,14 @@ Formato:
 ## 🟡 Operativo (próximo mes)
 
 ### De auditoría perf+UX R152NNNNNN (2026-06-12, 3 agentes)
-- [M] (20min) **[TECH] /vouchers/paginated**: COUNT(*) + SELECT en 2 queries → window function COUNT(*) OVER() (1 round-trip, -50ms).
-- [M] (15min) **[TECH] dashboard/kpis**: 3 queries → 1 consolidada (mismo patrón que GET /dashboard R152NNNNNN, -80ms).
-- [M] (12min) **[TECH] cashflow**: sort + saldo acumulado en Python → SQL window SUM() OVER().
-- [M] (12min) **[TECH] VouchersClientView**: 10+ useState de filtros sin memoization → agrupar en objeto + useCallback (menos re-renders en móvil).
-- [M] (20min) **[UX] /transferencias**: tras descargar Excel, mostrar pasos siguientes (subir al banco → confirmar → marcar Ejecutado).
+- [done R152OOOOOO] /vouchers/paginated → COUNT(*) OVER() (1 round-trip)
+- [done R152OOOOOO] dashboard/kpis → 6 queries consolidadas en 1 (probada vs Supabase: 262ms total)
+- [done R152OOOOOO] /transferencias → toast con pasos siguientes post-descarga
+- [done R152OOOOOO] notifications inbox → COUNT(*) OVER() (1 round-trip)
+- [descartado] cashflow "sort en SQL": ya era 1 sola query; ordenar 36 filas en Python cuesta ~0ms — sin beneficio real.
+- [M] (12min) **[TECH] VouchersClientView**: 10+ useState de filtros sin memoization → agrupar en objeto + useCallback (menos re-renders en móvil). Refactor con riesgo de regresión — hacer con QA manual.
 - [L] (15min) **[UX] unificar terminología** "Contraparte" (vouchers) vs "Proveedor" (OCs) + tooltip.
 - [L] (12min) **[UX] /vouchers/nuevo**: tooltip de folio (obligatorio solo al enviar, no en borrador).
-- [L] (10min) **[TECH] notifications**: COUNT + SELECT → window function.
 
 ### De auditoría R152JJJJJJ (2026-06-10, ver docs/AUDITORIA_2026_06_10.md)
 - [M] (1h) **[TECH] approval_rules.py GETs sin require_scope** (líneas 91, 119, 264): config de aprobaciones y matriz user×empresa visibles a cualquier autenticado. Decidir scope de lectura.
