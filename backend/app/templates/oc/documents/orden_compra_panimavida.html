@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ titulo }}</title>
+  <style>
+    /* R152MMMMMM — Formato "Panimávida": réplica del PDF canónico
+       OC0013-PAN001-FUMIAGRO usado por el equipo RHO. Carta formal:
+       header simple, bloques PROVEEDOR/MANDANTE, itemizado, notas de
+       arbitraje CAM Santiago y página de firmas. */
+    @page {
+      size: letter;
+      margin: 22mm 20mm 18mm 20mm;
+      @bottom-center {
+        content: "{{ empresa.direccion or '' }}{% if empresa.direccion and empresa.ciudad %}, {% endif %}{{ empresa.ciudad or '' }}   |   {{ empresa.razon_social }}";
+        font-size: 8pt;
+        color: #475569;
+      }
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+      font-size: 10pt;
+      color: #0F172A;
+      line-height: 1.45;
+    }
+    .doc-meta {
+      text-align: right;
+      font-size: 9.5pt;
+      margin-bottom: 6mm;
+    }
+    .doc-meta p { margin: 0; }
+    .doc-meta .num { font-weight: 700; }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 5mm;
+    }
+    .logo { max-height: 18mm; max-width: 55mm; object-fit: contain; }
+    h1.titulo {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      margin: 4mm 0 7mm 0;
+      color: var(--color-primario, #1E40AF);
+    }
+    .partes {
+      display: flex;
+      gap: 8mm;
+      margin-bottom: 7mm;
+    }
+    .parte {
+      flex: 1;
+      border: 0.6pt solid #CBD5E1;
+      border-radius: 2mm;
+      padding: 4mm 5mm;
+    }
+    .parte h2 {
+      font-size: 9.5pt;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: var(--color-primario, #1E40AF);
+      margin-bottom: 2.5mm;
+      border-bottom: 0.6pt solid #E2E8F0;
+      padding-bottom: 1.5mm;
+    }
+    .parte table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    .parte td { vertical-align: top; padding: 0.6mm 0; }
+    .parte td.k { width: 32mm; color: #475569; }
+    .parte td.k::after { content: " :"; }
+    .seccion-titulo {
+      font-size: 10.5pt;
+      font-weight: 700;
+      margin-bottom: 2mm;
+    }
+    .intro { font-size: 9.5pt; margin-bottom: 3mm; }
+    table.items {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9pt;
+      margin-bottom: 4mm;
+    }
+    table.items th {
+      background: var(--color-primario, #1E40AF);
+      color: #FFFFFF;
+      font-weight: 700;
+      padding: 2mm 2.5mm;
+      text-align: left;
+    }
+    table.items td {
+      border-bottom: 0.5pt solid #E2E8F0;
+      padding: 2mm 2.5mm;
+      vertical-align: top;
+    }
+    table.items .num { text-align: right; white-space: nowrap; }
+    table.items .ctr { text-align: center; white-space: nowrap; }
+    table.totales {
+      width: 62mm;
+      margin-left: auto;
+      border-collapse: collapse;
+      font-size: 9.5pt;
+      margin-bottom: 6mm;
+    }
+    table.totales td { padding: 1.2mm 2.5mm; }
+    table.totales td.k { font-weight: 700; text-align: right; }
+    table.totales td.v { text-align: right; white-space: nowrap; }
+    table.totales tr.total td {
+      border-top: 1pt solid var(--color-primario, #1E40AF);
+      font-weight: 800;
+      font-size: 10.5pt;
+    }
+    .notas { font-size: 8.5pt; color: #334155; }
+    .notas h3 { font-size: 9.5pt; margin-bottom: 1.5mm; color: #0F172A; }
+    .notas ul { margin-left: 5mm; }
+    .notas li { margin-bottom: 1.5mm; text-align: justify; }
+    .firmas-page { page-break-before: always; }
+    .firmas-page h2 {
+      font-size: 11pt;
+      font-weight: 700;
+      margin-bottom: 14mm;
+    }
+    .firmas-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16mm 10mm;
+    }
+    .firma {
+      width: 30%;
+      min-width: 52mm;
+      text-align: center;
+      font-size: 9pt;
+    }
+    .firma .linea {
+      border-top: 0.8pt solid #0F172A;
+      margin-bottom: 1.5mm;
+      padding-top: 1.5mm;
+    }
+    .firma .nombre { font-weight: 700; }
+    .firma .cargo { color: #475569; }
+    .firma .emp { color: #475569; text-transform: uppercase; font-size: 8pt; }
+    body[data-watermark]::before {
+      content: attr(data-watermark);
+      position: fixed;
+      top: 45%; left: 8%;
+      font-size: 64pt;
+      font-weight: 900;
+      color: rgba(220, 38, 38, 0.12);
+      transform: rotate(-28deg);
+      z-index: 0;
+    }
+  </style>
+</head>
+<body{% if watermark %} data-watermark="{{ watermark }}"{% endif %} style="--color-primario: {{ color_primario }};">
+
+  <div class="header-row">
+    <div>
+      {% if logo_data_uri %}
+        <img class="logo" src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">
+      {% endif %}
+    </div>
+    <div class="doc-meta">
+      <p class="num">Nro. Orden: {{ folio }}</p>
+      <p>Fecha: {{ oc.fecha_emision.strftime("%d-%m-%Y") if oc.fecha_emision else "—" }}</p>
+      <p>Moneda: {{ oc.moneda.value }}</p>
+    </div>
+  </div>
+
+  <h1 class="titulo">ORDEN DE COMPRA</h1>
+
+  <div class="partes">
+    <div class="parte">
+      <h2>PROVEEDOR</h2>
+      <table>
+        <tr><td class="k">Señores</td><td>{{ proveedor.razon_social }}</td></tr>
+        {% if proveedor.direccion %}<tr><td class="k">Dirección</td><td>{{ proveedor.direccion }}</td></tr>{% endif %}
+        {% if proveedor.ciudad %}<tr><td class="k">Ciudad</td><td>{{ proveedor.ciudad }}</td></tr>{% endif %}
+        <tr><td class="k">RUT</td><td>{{ proveedor.rut }}</td></tr>
+        {% if proveedor.giro %}<tr><td class="k">Giro</td><td>{{ proveedor.giro }}</td></tr>{% endif %}
+        {% if oc.forma_pago %}<tr><td class="k">Cond. de Pago</td><td>{{ oc.forma_pago }}</td></tr>{% endif %}
+        {% if oc.plazo_pago %}<tr><td class="k">Plazo</td><td>{{ oc.plazo_pago }}</td></tr>{% endif %}
+        {% if proveedor.contacto_nombre %}<tr><td class="k">Atte. Señor(a)</td><td>{{ proveedor.contacto_nombre }}</td></tr>{% endif %}
+      </table>
+    </div>
+    <div class="parte">
+      <h2>MANDANTE</h2>
+      <table>
+        <tr><td class="k">Señores</td><td>{{ empresa.razon_social }}</td></tr>
+        {% if empresa.direccion %}<tr><td class="k">Dirección</td><td>{{ empresa.direccion }}</td></tr>{% endif %}
+        {% if empresa.ciudad %}<tr><td class="k">Ciudad</td><td>{{ empresa.ciudad }}</td></tr>{% endif %}
+        <tr><td class="k">RUT</td><td>{{ empresa.rut }}</td></tr>
+        {% if empresa.giro %}<tr><td class="k">Giro</td><td>{{ empresa.giro }}</td></tr>{% endif %}
+        {% if empresa.telefono %}<tr><td class="k">Fono</td><td>{{ empresa.telefono }}</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+
+  <p class="seccion-titulo">Itemizado</p>
+  {% if oc.observaciones %}
+    <p class="intro">{{ oc.observaciones }}</p>
+  {% endif %}
+
+  <table class="items">
+    <thead>
+      <tr>
+        <th class="ctr" style="width: 8mm;">Ítem</th>
+        <th>Descripción</th>
+        <th class="ctr" style="width: 12mm;">Un.</th>
+        <th class="ctr" style="width: 12mm;">Cant.</th>
+        <th class="num" style="width: 24mm;">Precio Unit.</th>
+        <th class="num" style="width: 26mm;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in oc.items %}
+      <tr>
+        <td class="ctr">{{ item.numero }}</td>
+        <td>{{ item.descripcion }}</td>
+        <td class="ctr">{{ item.unidad or "—" }}</td>
+        <td class="ctr">{{ item.cantidad|int if item.cantidad == item.cantidad|int else item.cantidad }}</td>
+        <td class="num">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
+        <td class="num">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <table class="totales">
+    <tr><td class="k">NETO</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
+    <tr><td class="k">IVA 19%</td><td class="v">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
+    <tr class="total"><td class="k">TOTAL</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
+  </table>
+
+  <div class="notas">
+    <h3>Notas:</h3>
+    <ul>
+      <li>Devolver esta orden de compra firmada indicando nombre y cargo como señal de aceptación de esta.</li>
+      <li>Cualquier dificultad o controversia que se produzca entre los contratantes respecto de la aplicación, interpretación, duración, validez, ejecución de este contrato o cualquier otro motivo será sometida a arbitraje, conforme al reglamento procesal de arbitraje del Centro de Arbitraje y Mediación de Santiago, vigente al momento de solicitarlo.</li>
+      <li>Las partes confieren poder especial irrevocable a la Cámara de Comercio de Santiago A.G., para que, a petición escrita de cualquiera de ellas, designe a un árbitro arbitrador de entre los integrantes del cuerpo arbitral del Centro de Arbitraje y Mediación de Santiago.</li>
+      <li>En contra de las resoluciones del arbitrador no procederá recurso alguno, renunciando las partes expresamente a ellos. El árbitro queda especialmente facultado para resolver todo asunto relacionado con su competencia y/o jurisdicción.</li>
+    </ul>
+  </div>
+
+  <div class="firmas-page">
+    <h2>Firmas:</h2>
+    <div class="firmas-grid">
+      <div class="firma">
+        <div class="linea">&nbsp;</div>
+        <p class="nombre">{{ proveedor.contacto_nombre or proveedor.razon_social }}</p>
+        <p class="cargo">Representante Legal</p>
+        <p class="emp">{{ proveedor.razon_social }}</p>
+      </div>
+      {% for f in firmantes %}
+      <div class="firma">
+        <div class="linea">&nbsp;</div>
+        <p class="nombre">{{ f.nombre }}</p>
+        <p class="cargo">{{ f.cargo }}</p>
+        <p class="emp">{{ empresa.razon_social }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</body>
+</html>

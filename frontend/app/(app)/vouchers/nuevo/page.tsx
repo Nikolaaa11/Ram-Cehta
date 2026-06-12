@@ -369,7 +369,11 @@ export default function NuevoVoucherPage() {
       return;
     }
     if (glosa.trim().length < 5) {
-      toast.error("La glosa debe tener al menos 5 caracteres");
+      toast.error(
+        "La glosa (descripción del movimiento) debe tener al menos 5 " +
+        "caracteres. Describe brevemente qué es: ej. 'Pago servicios " +
+        "enero' o 'Factura F-12345 combustible'.",
+      );
       return;
     }
     if (lines.length === 0) {

@@ -186,7 +186,7 @@ export default function ConciliacionPage() {
             <Kpi
               label="Movs huérfanos"
               value={String(summary.movimientos_huerfanos)}
-              hint="Banco sin voucher"
+              hint="Plata que se movió en el banco sin comprobante asociado aún"
               tone={summary.movimientos_huerfanos > 0 ? "warning" : "ink"}
             />
             <Kpi

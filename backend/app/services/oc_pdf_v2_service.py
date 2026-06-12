@@ -246,7 +246,8 @@ async def _load_context(
                     """SELECT codigo, razon_social, rut, giro, direccion, ciudad,
                               telefono, logo_dropbox_path,
                               gerente_general_nombre, gerente_general_cargo,
-                              oc_color_primario
+                              oc_color_primario,
+                              oc_template, oc_firmantes
                        FROM core.empresas WHERE codigo = :c"""
                 ),
                 {"c": oc_row["empresa_codigo"]},
@@ -273,6 +274,10 @@ async def _load_context(
     empresa.setdefault("gerente_general_cargo", "Gerente General")
     empresa.setdefault("oc_color_primario", None)
     empresa.setdefault("logo_dropbox_path", None)
+    # R152MMMMMM — template por empresa ('default' | 'panimavida') y
+    # firmantes JSONB [{nombre, cargo}, ...] para la página de firmas.
+    empresa.setdefault("oc_template", None)
+    empresa.setdefault("oc_firmantes", None)
 
     # Proveedor
     proveedor: dict[str, Any] = {}
@@ -294,17 +299,34 @@ async def _load_context(
             proveedor["contacto_email"] = proveedor.pop("email", None)
             proveedor["contacto_telefono"] = proveedor.pop("telefono", None)
 
-    # Items
-    items_rows = (
-        await db.execute(
-            text(
-                """SELECT item, descripcion, precio_unitario, cantidad, total_linea
-                   FROM core.ordenes_compra_detalle
-                   WHERE oc_id = :id ORDER BY item"""
-            ),
-            {"id": oc_id},
-        )
-    ).mappings().all()
+    # Items — R152MMMMMM: `unidad` (Mes/Aplic./Un./etc.) best-effort, la
+    # columna llega con la migración round152MMMMMM. Fallback sin ella.
+    try:
+        items_rows = (
+            await db.execute(
+                text(
+                    """SELECT item, descripcion, precio_unitario, cantidad,
+                              total_linea, unidad
+                       FROM core.ordenes_compra_detalle
+                       WHERE oc_id = :id ORDER BY item"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().all()
+    except Exception:
+        with contextlib.suppress(Exception):
+            await db.rollback()
+        items_rows = (
+            await db.execute(
+                text(
+                    """SELECT item, descripcion, precio_unitario, cantidad,
+                              total_linea
+                       FROM core.ordenes_compra_detalle
+                       WHERE oc_id = :id ORDER BY item"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().all()
     items = []
     for r in items_rows:
         d = dict(r)
@@ -320,6 +342,7 @@ async def _load_context(
                      Decimal(str(d.get("cantidad") or 0)))
                 ),
                 "plazo": None,
+                "unidad": d.get("unidad"),
             })()
         )
 
@@ -376,10 +399,29 @@ async def _load_context(
         "rut": empresa.get("rut") or "",
         "giro": empresa.get("giro"),
         "direccion": empresa.get("direccion"),
+        "ciudad": empresa.get("ciudad"),
         "telefono": empresa.get("telefono"),
         "email": None,
         "representante_legal": empresa.get("gerente_general_nombre"),
     })()
+
+    # R152MMMMMM — firmantes para la página de firmas del template
+    # panimavida. JSONB [{nombre, cargo}] en core.empresas.oc_firmantes.
+    # Fallback: el GG de la empresa si no hay lista configurada.
+    firmantes_raw = empresa.get("oc_firmantes")
+    if isinstance(firmantes_raw, str):
+        import json as _json
+        with contextlib.suppress(Exception):
+            firmantes_raw = _json.loads(firmantes_raw)
+    firmantes = [
+        f for f in (firmantes_raw or [])
+        if isinstance(f, dict) and f.get("nombre")
+    ]
+    if not firmantes and empresa.get("gerente_general_nombre"):
+        firmantes = [{
+            "nombre": empresa["gerente_general_nombre"],
+            "cargo": empresa.get("gerente_general_cargo") or "Gerente General",
+        }]
 
     # Modelo Proveedor para template
     prov_ctx = type("Prov", (), {
@@ -414,6 +456,9 @@ async def _load_context(
         "hash_verificacion": f"oc-{oc_id}-{generated_by_email or 'anon'}"[:60],
         "watermark": "MUESTRA" if oc_ctx.estado.value == "borrador" else None,
         "css": css_content,
+        # R152MMMMMM — firmantes + template elegido por la empresa.
+        "firmantes": firmantes,
+        "_oc_template": (empresa.get("oc_template") or "default").lower(),
         # Pasamos también attachments para mergear después.
         "_oc_id": oc_id,
         "_empresa_codigo": emp_codigo,
@@ -472,7 +517,15 @@ async def generate_oc_pdf_v2_bundle(
     if ctx is None:
         raise ValueError(f"OC {oc_id} no encontrada")
 
-    template = _env.get_template("orden_compra.html")
+    # R152MMMMMM — template por empresa: 'panimavida' (formato carta
+    # formal con MANDANTE/PROVEEDOR + firmas, réplica del PDF canónico
+    # de RHO) o el default institucional.
+    template_name = (
+        "orden_compra_panimavida.html"
+        if ctx.get("_oc_template") == "panimavida"
+        else "orden_compra.html"
+    )
+    template = _env.get_template(template_name)
     html = template.render(**ctx)
 
     cover_bytes = await asyncio.to_thread(_render_html_to_pdf, html)

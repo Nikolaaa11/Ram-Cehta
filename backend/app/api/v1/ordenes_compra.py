@@ -455,6 +455,24 @@ async def download_oc_pdf(
     except Exception:
         renderer = "v1"
 
+    # R152MMMMMM — si la empresa tiene template custom (ej. RHO →
+    # 'panimavida'), forzamos v2 aunque el flag global siga en v1.
+    # Best-effort: si la columna no existe aún, sigue el flag global.
+    try:
+        emp_template = await db.scalar(
+            text("SELECT oc_template FROM core.empresas WHERE codigo = :c"),
+            {"c": oc.empresa_codigo},
+        )
+        if (emp_template or "").lower() == "panimavida":
+            renderer = "v2"
+            _pdf_log.info(
+                "oc_pdf.template_override", oc_id=oc_id, template=emp_template
+            )
+    except Exception:
+        import contextlib as _ctx
+        with _ctx.suppress(Exception):
+            await db.rollback()
+
     try:
         if renderer == "v2":
             from app.services.oc_pdf_v2_service import generate_oc_pdf_v2_bundle

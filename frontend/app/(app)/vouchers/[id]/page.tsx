@@ -205,7 +205,9 @@ export default function VoucherDetailPage({ params }: PageProps) {
         session,
       ),
     enabled: !!session,
-    staleTime: 30 * 60_000,
+    // R152NNNNNN — catálogo prácticamente estático (cambia solo con
+    // deploy): 24h evita un fetch extra en cada visita al detalle.
+    staleTime: 24 * 60 * 60_000,
   });
 
   // Round 72 — gating del boton "Enviar a aprobacion" cuando falta adjunto.
@@ -627,7 +629,7 @@ export default function VoucherDetailPage({ params }: PageProps) {
                   disabled={!isBalanced || missingTaxDoc || submitMut.isPending}
                   title={
                     !isBalanced
-                      ? "Las líneas no cuadran"
+                      ? "El voucher está descuadrado: la suma del Debe debe ser igual a la suma del Haber. Edita los montos de las líneas para que coincidan."
                       : missingTaxDoc
                         ? `Voucher de ${TIPO_LABEL[voucher.tipo]} requiere al menos 1 factura/boleta adjunta antes de enviar. Subila en la sección "Adjuntos" más abajo.`
                         : "Enviar"

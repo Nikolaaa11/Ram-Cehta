@@ -220,116 +220,122 @@ async def get_dashboard(
         scope_clause_e = "AND e.codigo = ANY(CAST(:scope_codes AS text[]))"
         scope_clause_oc = "WHERE empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
 
-    saldos_rows = (
+    # R152NNNNNN — Las 4 queries del dashboard consolidadas en 1 round-trip
+    # via CTEs + json_agg. Antes eran 4 await secuenciales: con Supabase en
+    # São Paulo cada round-trip cuesta ~40-60ms → este es el endpoint que
+    # ve TODO usuario al entrar, ahora carga ~150ms más rápido.
+    # (asyncio.gather no sirve acá: una AsyncSession no soporta queries
+    # concurrentes; la consolidación SQL es la solución correcta.)
+    combined_row = (
         await db.execute(
             text(f"""
-                SELECT
-                    e.codigo,
-                    e.razon_social,
-                    m.saldo_cehta,
-                    m.saldo_corfo,
-                    m.saldo_contable,
-                    m.periodo
-                FROM core.empresas e
-                LEFT JOIN LATERAL (
-                    SELECT saldo_cehta, saldo_corfo, saldo_contable, periodo
+                WITH saldos AS (
+                    SELECT
+                        e.codigo,
+                        e.razon_social,
+                        m.saldo_cehta,
+                        m.saldo_corfo,
+                        m.saldo_contable,
+                        m.periodo
+                    FROM core.empresas e
+                    LEFT JOIN LATERAL (
+                        SELECT saldo_cehta, saldo_corfo, saldo_contable, periodo
+                        FROM core.movimientos
+                        WHERE empresa_codigo = e.codigo
+                          AND saldo_cehta IS NOT NULL
+                        ORDER BY fecha DESC
+                        LIMIT 1
+                    ) m ON true
+                    WHERE e.activo = true
+                    {scope_clause_e}
+                    ORDER BY e.codigo
+                ),
+                movs AS (
+                    SELECT movimiento_id, fecha::text AS fecha, empresa_codigo,
+                           descripcion, abono, egreso, concepto_general, proyecto
                     FROM core.movimientos
-                    WHERE empresa_codigo = e.codigo
-                      AND saldo_cehta IS NOT NULL
-                    ORDER BY fecha DESC
-                    LIMIT 1
-                ) m ON true
-                WHERE e.activo = true
-                {scope_clause_e}
-                ORDER BY e.codigo
-            """),
-            scope_params,
-        )
-    ).fetchall()
-
-    mov_rows = (
-        await db.execute(
-            text(f"""
-                SELECT movimiento_id, fecha::text, empresa_codigo,
-                       descripcion, abono, egreso, concepto_general, proyecto
-                FROM core.movimientos
-                WHERE 1=1 {scope_clause_empresa}
-                ORDER BY fecha DESC, movimiento_id DESC
-                LIMIT 15
-            """),
-            scope_params,
-        )
-    ).fetchall()
-
-    oc_row = (
-        await db.execute(
-            text(f"""
+                    WHERE 1=1 {scope_clause_empresa}
+                    ORDER BY fecha DESC, movimiento_id DESC
+                    LIMIT 15
+                ),
+                oc AS (
+                    SELECT
+                        COUNT(*) FILTER (WHERE estado = 'emitida') AS total_emitidas,
+                        COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_emitidas,
+                        COUNT(*) FILTER (WHERE estado = 'pagada') AS total_pagadas,
+                        COALESCE(SUM(total) FILTER (WHERE estado = 'pagada'), 0) AS monto_pagadas,
+                        COUNT(*) FILTER (WHERE estado = 'anulada') AS total_anuladas
+                    FROM core.ordenes_compra
+                    {scope_clause_oc}
+                ),
+                f29 AS (
+                    SELECT empresa_codigo, periodo_tributario,
+                           fecha_vencimiento::text AS fecha_vencimiento,
+                           monto_a_pagar, estado
+                    FROM core.f29_obligaciones
+                    WHERE estado IN ('pendiente', 'vencido')
+                      {scope_clause_empresa}
+                    ORDER BY fecha_vencimiento
+                )
                 SELECT
-                    COUNT(*) FILTER (WHERE estado = 'emitida') AS total_emitidas,
-                    COALESCE(SUM(total) FILTER (WHERE estado = 'emitida'), 0) AS monto_emitidas,
-                    COUNT(*) FILTER (WHERE estado = 'pagada') AS total_pagadas,
-                    COALESCE(SUM(total) FILTER (WHERE estado = 'pagada'), 0) AS monto_pagadas,
-                    COUNT(*) FILTER (WHERE estado = 'anulada') AS total_anuladas
-                FROM core.ordenes_compra
-                {scope_clause_oc}
+                    (SELECT COALESCE(json_agg(s.* ORDER BY s.codigo), '[]'::json) FROM saldos s) AS saldos,
+                    (SELECT COALESCE(json_agg(mv.* ORDER BY mv.fecha DESC, mv.movimiento_id DESC), '[]'::json) FROM movs mv) AS movs,
+                    (SELECT row_to_json(o.*) FROM oc o) AS oc,
+                    (SELECT COALESCE(json_agg(f.* ORDER BY f.fecha_vencimiento), '[]'::json) FROM f29 f) AS f29
             """),
             scope_params,
         )
     ).fetchone()
 
-    f29_rows = (
-        await db.execute(
-            text(f"""
-                SELECT empresa_codigo, periodo_tributario,
-                       fecha_vencimiento::text, monto_a_pagar, estado
-                FROM core.f29_obligaciones
-                WHERE estado IN ('pendiente', 'vencido')
-                  {scope_clause_empresa}
-                ORDER BY fecha_vencimiento
-            """),
-            scope_params,
-        )
-    ).fetchall()
+    import json as _json
+
+    def _as_obj(val: object) -> object:
+        return _json.loads(val) if isinstance(val, str) else val
+
+    saldos_rows = _as_obj(combined_row[0]) or []
+    mov_rows = _as_obj(combined_row[1]) or []
+    oc_json = _as_obj(combined_row[2]) or {}
+    f29_rows = _as_obj(combined_row[3]) or []
 
     return DashboardResponse(
         saldos_por_empresa=[
             SaldoEmpresa(
-                empresa_codigo=r[0],
-                razon_social=r[1],
-                saldo_cehta=r[2],
-                saldo_corfo=r[3],
-                saldo_contable=r[4],
-                periodo=r[5],
+                empresa_codigo=r["codigo"],
+                razon_social=r["razon_social"],
+                saldo_cehta=r["saldo_cehta"],
+                saldo_corfo=r["saldo_corfo"],
+                saldo_contable=r["saldo_contable"],
+                periodo=r["periodo"],
             )
             for r in saldos_rows
         ],
         movimientos_recientes=[
             MovimientoReciente(
-                movimiento_id=r[0],
-                fecha=r[1],
-                empresa_codigo=r[2],
-                descripcion=r[3],
-                abono=r[4] or 0,
-                egreso=r[5] or 0,
-                concepto_general=r[6],
-                proyecto=r[7],
+                movimiento_id=r["movimiento_id"],
+                fecha=r["fecha"],
+                empresa_codigo=r["empresa_codigo"],
+                descripcion=r["descripcion"],
+                abono=r["abono"] or 0,
+                egreso=r["egreso"] or 0,
+                concepto_general=r["concepto_general"],
+                proyecto=r["proyecto"],
             )
             for r in mov_rows
         ],
         oc_resumen=OCResumen(
-            total_emitidas=oc_row[0] if oc_row else 0,
-            monto_total_emitidas=oc_row[1] if oc_row else 0,
-            total_pagadas=oc_row[2] if oc_row else 0,
-            monto_total_pagadas=oc_row[3] if oc_row else 0,
-            total_anuladas=oc_row[4] if oc_row else 0,
+            total_emitidas=oc_json.get("total_emitidas") or 0,
+            monto_total_emitidas=oc_json.get("monto_emitidas") or 0,
+            total_pagadas=oc_json.get("total_pagadas") or 0,
+            monto_total_pagadas=oc_json.get("monto_pagadas") or 0,
+            total_anuladas=oc_json.get("total_anuladas") or 0,
         ),
         f29_pendientes=[
             F29Resumen(
-                empresa_codigo=r[0],
-                periodo_tributario=r[1],
-                fecha_vencimiento=r[2],
-                monto_a_pagar=r[3],
-                estado=r[4],
+                empresa_codigo=r["empresa_codigo"],
+                periodo_tributario=r["periodo_tributario"],
+                fecha_vencimiento=r["fecha_vencimiento"],
+                monto_a_pagar=r["monto_a_pagar"],
+                estado=r["estado"],
             )
             for r in f29_rows
         ],
