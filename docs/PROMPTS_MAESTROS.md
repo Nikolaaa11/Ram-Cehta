@@ -205,9 +205,19 @@ schtasks /create /tn "RamCehta-DebugDiario" /sc daily /st 08:00 /tr "powershell 
 | `performance-scan` | Medir y optimizar velocidad | Quincenal |
 | `qa-produccion` | Smoke test E2E producción (read-only) | Post-deploy + diaria en marcha blanca |
 | `ux-gerentes` | UX desde los ojos de cada perfil | Mensual |
-| `audit-financiero` | Auditoría contable 7 secciones | Pre-cierre mensual |
+| `test-contable-financiero` | Prueba el MOTOR de plata (IVA, partida doble, cuotas, impuesto específico, estados) con casos sintéticos | Tras cambios de montos + pre-marcha blanca |
+| `audit-financiero` | Auditoría de DATOS reales (vouchers trabados, gaps SII, caja ociosa) | Pre-cierre mensual |
 | `cierre-mensual` | Wizard de cierre | Días 1-10 del mes |
 | `incident-response` | Triage de bugs en producción | Cuando algo se rompe |
+
+**Para el test total contable/financiero** copiá el súper mega prompt de
+`docs/SUPER_PROMPT_TEST_CONTABLE.md` (5 fases: motor + datos reales + flujos +
+auditoría multi-agente + E2E supervisado).
+
+**Para caza-bugs autónomo en bucle** (encontrar → verificar → arreglar →
+validar → repetir hasta limpiar) copiá el súper prompt de
+`docs/SUPER_PROMPT_CAZA_BUGS.md`. Tiene versión bucle, versión 1-ronda, y
+versión `/loop` para dejarlo corriendo solo.
 
 ---
 
