@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de Usuario · Ram-Cehta</title>
+<style>
+  :root{
+    --green:#138A5E; --green-700:#0F6E4B; --green-50:#E7F5EE;
+    --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B; --ink-300:#CBD5E1;
+    --hair:#E5E9F0; --bg:#F7F9FB; --card:#FFFFFF; --amber:#B45309; --amber-50:#FEF3E2;
+    --blue:#1E40AF; --blue-50:#EAF0FF; --radius:16px;
+    --shadow:0 1px 3px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--ink-900);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--green-700);text-decoration:none}
+  /* layout */
+  .wrap{display:grid;grid-template-columns:288px 1fr;min-height:100vh}
+  /* sidebar */
+  aside{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--card);
+    border-right:1px solid var(--hair);padding:20px 14px}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 14px}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--green),var(--green-700));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px}
+  .brand b{font-size:15px;font-weight:700}.brand small{display:block;color:var(--ink-500);font-size:11px;font-weight:500}
+  .search{width:100%;padding:9px 12px;border:1px solid var(--hair);border-radius:10px;font-size:13px;
+    margin-bottom:12px;background:var(--bg)}
+  .search:focus{outline:none;border-color:var(--green);background:#fff}
+  nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-500);
+    font-weight:700;margin:14px 8px 5px}
+  nav a{display:block;padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--ink-700);font-weight:500}
+  nav a:hover{background:var(--green-50);color:var(--green-700)}
+  nav a.on{background:var(--green-50);color:var(--green-700);font-weight:600}
+  /* main */
+  main{padding:0 0 80px}
+  .hero{background:linear-gradient(135deg,#0F6E4B,#138A5E);color:#fff;padding:48px 56px 40px}
+  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .hero p{opacity:.92;max-width:720px;margin-top:10px;font-size:15px}
+  .hero .chips{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap}
+  .hero .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+    padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .content{padding:34px 56px;max-width:1040px}
+  section{background:var(--card);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:28px 30px;margin-bottom:22px;box-shadow:var(--shadow);scroll-margin-top:20px}
+  section h2{font-size:21px;font-weight:750;display:flex;align-items:center;gap:11px;letter-spacing:-.01em}
+  section h2 .ic{width:38px;height:38px;border-radius:10px;background:var(--green-50);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  section .lead{color:var(--ink-700);margin:8px 0 18px;font-size:14.5px}
+  .who{display:inline-block;background:var(--blue-50);color:var(--blue);font-size:11.5px;font-weight:700;
+    padding:3px 9px;border-radius:6px;margin-bottom:14px}
+  h4{font-size:13.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-500);
+    margin:20px 0 9px;display:flex;align-items:center;gap:7px}
+  .steps{counter-reset:s;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:7px 0 7px 38px;font-size:14px;border-bottom:1px dashed var(--hair)}
+  .steps li:last-child{border:none}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;
+    background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
+  th{text-align:left;background:var(--bg);color:var(--ink-500);font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.04em;padding:8px 10px;border-bottom:2px solid var(--hair)}
+  td{padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+  td b{color:var(--ink-900)} .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+    background:var(--bg);padding:1px 6px;border-radius:5px}
+  .datos{background:var(--amber-50);border:1px solid #F5D8A8;border-radius:12px;padding:16px 18px;margin-top:18px}
+  .datos h4{color:var(--amber);margin-top:0}
+  .datos .row{display:flex;gap:10px;padding:6px 0;font-size:13.5px;border-bottom:1px dashed #F0D5A8}
+  .datos .row:last-child{border:none}.datos .row b{min-width:130px;color:var(--amber)}
+  /* mockup */
+  .mock{border:1px solid var(--hair);border-radius:12px;overflow:hidden;margin:6px 0 4px;background:var(--bg)}
+  .mock .bar{display:flex;gap:6px;padding:9px 12px;background:#EEF2F6;border-bottom:1px solid var(--hair)}
+  .mock .bar span{width:10px;height:10px;border-radius:50%;background:#CBD5E1}
+  .mock .bar span:nth-child(1){background:#F87171}.mock .bar span:nth-child(2){background:#FBBF24}
+  .mock .bar span:nth-child(3){background:#34D399}
+  .mock .bd{padding:16px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .kpi{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:11px 13px}
+  .kpi .l{font-size:10px;text-transform:uppercase;color:var(--ink-500);font-weight:700;letter-spacing:.04em}
+  .kpi .v{font-size:18px;font-weight:800;margin-top:3px}
+  .kpi .v.g{color:var(--green-700)}.kpi .v.a{color:var(--amber)}.kpi .v.b{color:var(--blue)}
+  .rowt{display:grid;grid-template-columns:1fr 80px 90px 70px;gap:8px;padding:8px 10px;font-size:12px;
+    border-bottom:1px solid var(--hair);align-items:center}
+  .rowt.h{background:#fff;font-weight:700;color:var(--ink-500);font-size:10.5px;text-transform:uppercase}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;display:inline-block}
+  .b-draft{background:#F1F5F9;color:#64748B}.b-pend{background:#FEF3E2;color:#B45309}
+  .b-app{background:#E7F5EE;color:#0F6E4B}.b-exec{background:#EAF0FF;color:#1E40AF}
+  .tip{background:var(--green-50);border-left:3px solid var(--green);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .tip b{color:var(--green-700)}
+  .toc-note{font-size:12.5px;color:var(--ink-500);margin-top:6px}
+  footer{padding:30px 56px;color:var(--ink-500);font-size:12.5px;border-top:1px solid var(--hair);background:var(--card)}
+  .flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .flow .n{background:#fff;border:1px solid var(--hair);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
+  .flow .ar{color:var(--ink-300);font-weight:800}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}.hero,.content{padding:28px 22px}
+    .kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <div class="brand"><div class="logo">RC</div><div><b>Ram-Cehta</b><small>Guía de usuario</small></div></div>
+  <input class="search" id="q" placeholder="🔎 Buscar sección o función…">
+  <nav id="nav">
+    <div class="grp">Empezar</div>
+    <a href="#intro" class="on">Cómo leer esta guía</a>
+    <a href="#primeros-pasos">Primeros pasos (3 min)</a>
+    <a href="#flujos-completos">Flujos completos paso a paso</a>
+    <a href="#mapa">Mapa de la plataforma</a>
+    <a href="#roles">Roles y permisos</a>
+    <a href="#glosario">Glosario de términos</a>
+    <div class="grp">Operación diaria</div>
+    <a href="#dashboard">Dashboard</a>
+    <a href="#pendientes">Mis pendientes / notificaciones</a>
+    <a href="#vouchers">Vouchers (comprobantes)</a>
+    <a href="#oc">Órdenes de compra</a>
+    <a href="#aprobaciones">Aprobaciones / firmas</a>
+    <a href="#transferencias">Transferencias al banco</a>
+    <a href="#solicitudes">Solicitudes de pago</a>
+    <a href="#movimientos">Movimientos / cartolas</a>
+    <a href="#conciliacion">Conciliación</a>
+    <a href="#proveedores">Proveedores</a>
+    <a href="#mailbox">Bandeja de correo (OC)</a>
+    <div class="grp">Contabilidad y tributario</div>
+    <a href="#plan-cuentas">Plan de cuentas</a>
+    <a href="#f29">F29 / F22</a>
+    <a href="#calendario">Calendario tributario</a>
+    <a href="#reportes">Reportes y estados financieros</a>
+    <a href="#nubox">Export a Nubox</a>
+    <a href="#sii">SII (RCV)</a>
+    <a href="#corfo">Rendiciones CORFO</a>
+    <a href="#flujos">Flujos de caja por proyecto</a>
+    <div class="grp">Fondo e institucional</div>
+    <a href="#empresas">Empresas</a>
+    <a href="#proyectos">Proyectos y subsidios</a>
+    <a href="#gantt">Cartas Gantt</a>
+    <a href="#compliance">Compliance y legal</a>
+    <a href="#entregables">Entregables y avance</a>
+    <a href="#rrhh">RRHH</a>
+    <a href="#institucional">Dashboard institucional / CEO</a>
+    <div class="grp">Ayuda e IA</div>
+    <a href="#claudia">ClaudIA (asistente IA)</a>
+    <a href="#aprender">Centro de aprendizaje</a>
+    <div class="grp">Administración</div>
+    <a href="#usuarios">Usuarios y roles</a>
+    <a href="#integraciones">Integraciones / credenciales</a>
+    <div class="grp">Referencia</div>
+    <a href="#faq">Preguntas frecuentes</a>
+  </nav>
+</aside>
+
+<main>
+<div class="hero">
+  <h1>Guía de Usuario — Ram-Cehta</h1>
+  <p>Todo lo que el equipo necesita para operar la plataforma con dominio total: qué hace cada sección,
+     cómo usarla paso a paso, qué parámetros influyen, de dónde salen los datos y cómo reemplazarlos.</p>
+  <div class="chips">
+    <span class="chip">🏦 FIP CEHTA ESG</span><span class="chip">📊 9 empresas + holding</span>
+    <span class="chip">✍️ Vouchers con firma</span><span class="chip">🔗 SII · Nubox · Dropbox</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- INTRO -->
+<section id="intro">
+  <h2><span class="ic">📖</span> Cómo leer esta guía</h2>
+  <p class="lead">Cada sección de la plataforma está documentada con la misma estructura, para que encuentres
+     rápido lo que buscás. Usá el buscador de arriba a la izquierda para filtrar por palabra.</p>
+  <h4>🧩 Qué vas a encontrar en cada sección</h4>
+  <table>
+    <tr><th>Bloque</th><th>Qué te dice</th></tr>
+    <tr><td><b>¿Para qué sirve?</b></td><td>El objetivo de la sección en una frase + a qué rol le sirve.</td></tr>
+    <tr><td><b>Cómo se usa</b></td><td>Los pasos exactos, en orden, para completar la tarea típica.</td></tr>
+    <tr><td><b>Parámetros que influyen</b></td><td>Los campos/opciones que cambian el resultado, y qué hace cada uno.</td></tr>
+    <tr><td><b>De dónde salen los datos · cómo reemplazarlos</b></td><td>El origen de cada número y cómo corregirlo o cargarlo de nuevo (recuadro amarillo).</td></tr>
+  </table>
+  <div class="tip"><b>Tip:</b> los recuadros <span style="color:var(--amber)">amarillos</span> son los más importantes
+    para no equivocarse — siempre dicen de dónde viene la información y cómo cambiarla.</div>
+</section>
+
+<!-- MAPA -->
+<section id="mapa">
+  <h2><span class="ic">🗺️</span> Mapa de la plataforma</h2>
+  <p class="lead">La plataforma se organiza en grupos. El menú lateral izquierdo (dentro de la app) los muestra
+     colapsables. Este es el recorrido natural de una operación de principio a fin:</p>
+  <div class="flow">
+    <span class="n">📧 Llega factura/OC por correo</span><span class="ar">→</span>
+    <span class="n">📋 Orden de compra</span><span class="ar">→</span>
+    <span class="n">💳 Voucher</span><span class="ar">→</span>
+    <span class="n">✍️ Firmas</span><span class="ar">→</span>
+    <span class="n">🏦 Transferencia</span><span class="ar">→</span>
+    <span class="n">🔗 Conciliación</span><span class="ar">→</span>
+    <span class="n">📤 Nubox</span>
+  </div>
+  <h4>Grupos del menú</h4>
+  <table>
+    <tr><th>Grupo</th><th>Para qué</th></tr>
+    <tr><td><b>Operación</b></td><td>El día a día: vouchers, OCs, transferencias, conciliación, proveedores.</td></tr>
+    <tr><td><b>Contabilidad</b></td><td>Plan de cuentas, F29/F22, reportes, export a Nubox, CORFO.</td></tr>
+    <tr><td><b>RRHH</b></td><td>Empleados y libros de remuneraciones.</td></tr>
+    <tr><td><b>Fondo</b></td><td>Dashboard institucional, empresas, proyectos, cartas Gantt, compliance.</td></tr>
+    <tr><td><b>ClaudIA</b></td><td>Asistente de IA + centro de aprendizaje.</td></tr>
+    <tr><td><b>Administración</b></td><td>Usuarios, roles, integraciones (solo admins).</td></tr>
+  </table>
+</section>
+
+<!-- ROLES -->
+<section id="roles">
+  <h2><span class="ic">🔐</span> Roles y permisos</h2>
+  <p class="lead">Lo que ves y podés hacer depende de tu rol en cada empresa. Un usuario puede tener roles
+     distintos en empresas distintas.</p>
+  <h4>Roles principales</h4>
+  <table>
+    <tr><th>Rol</th><th>Qué puede hacer</th></tr>
+    <tr><td><b>Operador</b></td><td>Cargar vouchers y OCs, subir cartolas, perseguir firmas. No firma ni aprueba.</td></tr>
+    <tr><td><b>Contador</b></td><td>Concilia, exporta a Nubox, arma F29, revisa cuadres.</td></tr>
+    <tr><td><b>GG (Gerente General)</b></td><td>Firma vouchers y OCs de su empresa. Ve su caja.</td></tr>
+    <tr><td><b>Director</b></td><td>Firma de segundo nivel, ve el consolidado del fondo.</td></tr>
+    <tr><td><b>Admin</b></td><td>Configura usuarios, integraciones, credenciales. Ve todo.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Tabla <span class="mono">user_company_roles</span> — qué rol tiene cada usuario en cada empresa.</span></div>
+    <div class="row"><b>Cómo cambiar</b><span>Admin → <b>Usuarios y roles</b> (<span class="mono">/admin/user-company-roles</span>): agregar/quitar rol por usuario y empresa.</span></div>
+    <div class="row"><b>Multi-empresa</b><span>Si solo ves una empresa, es porque tu rol está acotado. El admin amplía el alcance.</span></div>
+  </div>
+</section>
+
+<!-- GLOSARIO -->
+<section id="glosario">
+  <h2><span class="ic">📚</span> Glosario de términos</h2>
+  <span class="who">Para todos — sobre todo si no sos contador</span>
+  <p class="lead">Las palabras que más vas a ver en la plataforma, explicadas en simple.</p>
+  <table>
+    <tr><th>Término</th><th>Qué significa</th></tr>
+    <tr><td><b>Voucher</b></td><td>El comprobante de un movimiento de plata (una compra, un pago). Tiene su monto, su respaldo y sus firmas.</td></tr>
+    <tr><td><b>Partida doble</b></td><td>Regla contable: por cada peso que sale (debe) tiene que haber un peso que entra o se registra (haber). Las dos columnas <b>siempre</b> suman igual.</td></tr>
+    <tr><td><b>Debe / Haber</b></td><td>Las dos caras de un asiento. "Debe" = dónde se aplica la plata; "Haber" = de dónde sale. Deben cuadrar.</td></tr>
+    <tr><td><b>Glosa</b></td><td>La descripción breve del movimiento (ej. "Pago combustible enero"). Mínimo 5 caracteres.</td></tr>
+    <tr><td><b>Neto / IVA / Bruto</b></td><td>Neto = valor sin impuesto. IVA = 19% sobre el neto. Bruto (total) = neto + IVA (+ impuesto específico si aplica).</td></tr>
+    <tr><td><b>Impuesto específico</b></td><td>Un impuesto extra además del IVA: combustibles (monto fijo) o bebidas alcohólicas/suntuarios (% del neto).</td></tr>
+    <tr><td><b>IVA débito / crédito</b></td><td>Débito = el IVA que cobrás en tus ventas. Crédito = el IVA que pagás en tus compras. El F29 resta uno del otro.</td></tr>
+    <tr><td><b>OC (Orden de compra)</b></td><td>El documento que formaliza una compra a un proveedor antes de la factura.</td></tr>
+    <tr><td><b>Conciliar</b></td><td>Confirmar que un pago registrado (voucher) realmente salió del banco (movimiento).</td></tr>
+    <tr><td><b>Movimiento huérfano</b></td><td>Plata que se movió en el banco sin un comprobante (voucher) que lo explique.</td></tr>
+    <tr><td><b>Cartola</b></td><td>El extracto del banco con todos los movimientos de una cuenta.</td></tr>
+    <tr><td><b>RCV</b></td><td>Registro de Compras y Ventas: el listado del SII con todas las facturas electrónicas de una empresa.</td></tr>
+    <tr><td><b>F29 / F22</b></td><td>F29 = declaración mensual de IVA. F22 = declaración anual de renta.</td></tr>
+    <tr><td><b>Correlativo / folio</b></td><td>El número único y consecutivo de cada voucher u OC, por empresa y año.</td></tr>
+    <tr><td><b>Estado (DRAFT, PENDIENTE…)</b></td><td>En qué etapa está un voucher: borrador → esperando firmas → aprobado → ejecutado → conciliado.</td></tr>
+    <tr><td><b>Imputar</b></td><td>Asignar un gasto/ingreso a una cuenta del plan y a un proyecto.</td></tr>
+    <tr><td><b>Marcha blanca</b></td><td>El período de arranque oficial: la plataforma empieza con datos limpios y el equipo carga las operaciones reales.</td></tr>
+  </table>
+</section>
+
+<!-- PRIMEROS PASOS -->
+<section id="primeros-pasos">
+  <h2><span class="ic">🚀</span> Primeros pasos (3 minutos)</h2>
+  <span class="who">Para todos — leé esto primero</span>
+  <p class="lead">Lo mínimo para arrancar sin perderte. Después, andá a la sección de tu tarea para el detalle.</p>
+  <ol class="steps">
+    <li><b>Entrá</b> a <span class="mono">https://cehta-capital.vercel.app/dashboard</span> con tu correo y la clave que te dio el administrador. La primera vez, activá tu <b>2FA</b> (segundo factor) si te lo pide.</li>
+    <li><b>Ubicate</b>: arriba a la izquierda está el menú con los grupos (Operación, Contabilidad, Fondo…). Arriba a la derecha, tu nombre y el <b>selector de empresa</b>.</li>
+    <li><b>Mirá tu inicio</b>: el <a href="#dashboard">Dashboard</a> te muestra el estado de la plata. Si sos GG, lo primero útil es <a href="#pendientes">Mis pendientes</a> (lo que tenés que firmar).</li>
+    <li><b>Buscá rápido</b>: apretá <span class="mono">Ctrl</span> + <span class="mono">K</span> en cualquier momento para buscar un voucher, OC, proveedor o empleado por nombre o número.</li>
+    <li><b>Si te trabás</b>: usá <a href="#claudia">ClaudIA</a> (el asistente) o el <a href="#aprender">Centro de aprendizaje</a>. Cada pantalla tiene tooltips (ícono ⓘ) que explican los campos.</li>
+  </ol>
+  <h4>¿Por dónde empiezo según mi rol?</h4>
+  <table>
+    <tr><th>Si sos…</th><th>Tu pantalla principal</th></tr>
+    <tr><td><b>Gerente General</b></td><td><a href="#pendientes">Mis pendientes</a> → firmar vouchers. Y el <a href="#dashboard">Dashboard</a> para ver tu caja.</td></tr>
+    <tr><td><b>Contador</b></td><td><a href="#conciliacion">Conciliación</a>, <a href="#f29">F29</a>, <a href="#nubox">Export Nubox</a>, <a href="#reportes">Reportes</a>.</td></tr>
+    <tr><td><b>Operador</b></td><td><a href="#vouchers">Vouchers</a>, <a href="#oc">Órdenes de compra</a>, <a href="#movimientos">Cartolas</a>.</td></tr>
+    <tr><td><b>Director</b></td><td><a href="#institucional">Dashboard institucional</a> y firmas de segundo nivel.</td></tr>
+  </table>
+</section>
+
+<!-- FLUJOS COMPLETOS -->
+<section id="flujos-completos">
+  <h2><span class="ic">🧭</span> Flujos completos paso a paso</h2>
+  <span class="who">Las 4 tareas más comunes, de principio a fin</span>
+  <p class="lead">Seguí estos recorridos completos para dominar la operación diaria. Cada uno enlaza a la sección con el detalle.</p>
+
+  <h4>① Cargar y pagar una factura (de cero a pagada)</h4>
+  <div class="flow">
+    <span class="n">Llega factura</span><span class="ar">→</span>
+    <span class="n">Crear voucher</span><span class="ar">→</span>
+    <span class="n">Enviar a firma</span><span class="ar">→</span>
+    <span class="n">GG firma ×2</span><span class="ar">→</span>
+    <span class="n">Transferir</span><span class="ar">→</span>
+    <span class="n">Conciliar</span>
+  </div>
+  <ol class="steps">
+    <li>Operador: <a href="#vouchers">Vouchers → Nuevo</a>. Cargá empresa, proveedor, tipo de documento, folio y las líneas (debe = haber). Adjuntá el PDF de la factura. <b>Enviar a aprobación</b>.</li>
+    <li>GG/Director: te llega el aviso → <a href="#aprobaciones">firmás</a>. Cuando hay 2 firmas, el voucher queda <span class="badge b-app">APROBADO</span>.</li>
+    <li>Operador/Contador: <a href="#transferencias">Transferencias</a> → seleccionás el voucher → <b>descargás el Excel</b> → lo subís al banco → confirmás → <b>Marcar EJECUTADO</b> con el comprobante.</li>
+    <li>Contador: cuando llega la cartola, <a href="#conciliacion">conciliás</a> el movimiento con el voucher. Listo: <span class="badge b-exec">CONCILIADO</span>.</li>
+  </ol>
+
+  <h4>② Emitir una orden de compra a un proveedor</h4>
+  <ol class="steps">
+    <li><a href="#oc">Órdenes de compra → Nueva</a>. Empresa que compra + proveedor + ítems + cuotas.</li>
+    <li>Guardás → se genera el <b>PDF</b> con el logo y firmas de la empresa. Lo enviás al proveedor.</li>
+    <li>Cuando llega la factura, las <b>cuotas se convierten en vouchers</b> y seguís el flujo ①.</li>
+  </ol>
+
+  <h4>③ Subir la cartola del banco</h4>
+  <ol class="steps">
+    <li><a href="#movimientos">Movimientos</a> (o Admin → Cartolas) → subís el archivo del banco.</li>
+    <li>El sistema parsea cada línea. Revisás que los saldos y centavos queden bien.</li>
+    <li>Los movimientos quedan listos para <a href="#conciliacion">conciliar</a> y actualizan el saldo del <a href="#dashboard">Dashboard</a>.</li>
+  </ol>
+
+  <h4>④ Cerrar el mes contable</h4>
+  <ol class="steps">
+    <li>Asegurate de tener <b>todos los vouchers del mes</b> cargados y todas las cartolas subidas.</li>
+    <li><a href="#conciliacion">Conciliá</a>: que no queden movimientos huérfanos ni vouchers sin respaldo.</li>
+    <li>Revisá el <a href="#f29">F29</a> estimado del período.</li>
+    <li><a href="#nubox">Exportá a Nubox</a> los asientos del mes para la contabilidad oficial.</li>
+    <li>Sacá los <a href="#reportes">reportes</a> (libro mayor, estado de resultados) para el GG/directorio.</li>
+  </ol>
+  <div class="tip"><b>Atajo:</b> el asistente ClaudIA puede guiarte en cualquiera de estos flujos si le preguntás "¿cómo cargo un voucher?" o "¿cómo cierro el mes?".</div>
+</section>
+
+<!-- DASHBOARD -->
+<section id="dashboard">
+  <h2><span class="ic">📊</span> Dashboard</h2>
+  <span class="who">Para todos</span>
+  <p class="lead">La pantalla de inicio: el estado de la plata de un vistazo — saldos por empresa, flujo del mes,
+     OCs pendientes, alertas tributarias y los últimos movimientos.</p>
+  <div class="mock"><div class="bar"><span></span><span></span><span></span></div><div class="bd">
+    <div class="kpis">
+      <div class="kpi"><div class="l">Saldo consolidado</div><div class="v g">$1.347M</div></div>
+      <div class="kpi"><div class="l">Flujo neto mes</div><div class="v">+$42M</div></div>
+      <div class="kpi"><div class="l">OC pendientes</div><div class="v a">8</div></div>
+      <div class="kpi"><div class="l">IVA a pagar</div><div class="v b">$3,1M</div></div>
+    </div></div></div>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Al entrar, mirá los <b>KPIs</b> de arriba: saldo total, flujo del mes, OCs por pagar e IVA estimado.</li>
+    <li>Bajá a <b>Saldos por empresa</b> para ver cuánta plata tiene cada una.</li>
+    <li>Revisá <b>Movimientos recientes</b> (los últimos 15) y las <b>alertas F29</b> (vencimientos próximos).</li>
+    <li>Si sos admin/director, el selector de empresa arriba filtra todo el dashboard a una sola empresa.</li>
+  </ol>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Empresa (selector)</b></td><td>Filtra todos los KPIs y tablas a esa empresa. Vacío = consolidado del fondo.</td></tr>
+    <tr><td><b>Período actual</b></td><td>El mes en curso define el "flujo del mes" y el "IVA a pagar".</td></tr>
+    <tr><td><b>Tu alcance (rol)</b></td><td>Solo ves las empresas donde tenés rol asignado.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Saldos</b><span>Del último <b>movimiento bancario</b> cargado por empresa (cartola). Si el saldo está raro, revisá <a href="#movimientos">Movimientos</a>.</span></div>
+    <div class="row"><b>Flujo del mes</b><span>Suma de abonos − egresos de los movimientos del mes. Se actualiza al subir cartolas.</span></div>
+    <div class="row"><b>OC pendientes</b><span>Órdenes en estado "emitida". Cambian al pagar/anular en <a href="#oc">Órdenes de compra</a>.</span></div>
+    <div class="row"><b>IVA a pagar</b><span>Estimado del F29 del período (débito − crédito). Ver <a href="#f29">F29</a>.</span></div>
+    <div class="row"><b>Reemplazar</b><span>El dashboard es un <b>reflejo</b>: no se edita acá. Para cambiar un número, corregí el dato en su sección de origen (movimientos, OCs, vouchers) y el dashboard se actualiza solo.</span></div>
+  </div>
+</section>
+
+<!-- PENDIENTES -->
+<section id="pendientes">
+  <h2><span class="ic">🔔</span> Mis pendientes / notificaciones</h2>
+  <span class="who">Para todos</span>
+  <p class="lead">Tu lista de "qué tengo que hacer ahora": vouchers por firmar, OCs por revisar, vencimientos próximos
+     y avisos del sistema. Es el primer lugar donde mirar cada día.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Abrí <b>Mis pendientes</b> (o el <b>Action Center</b>): ves todo lo que requiere tu acción, ordenado por urgencia.</li>
+    <li>La <b>campanita</b> 🔔 arriba a la derecha muestra el número de notificaciones sin leer.</li>
+    <li>Tocás un pendiente → te lleva directo a la pantalla para resolverlo (firmar, revisar, completar).</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Se generan solos: vouchers en estado PENDIENTE asignados a vos, F29/contratos por vencer, OCs sin firma, etc.</span></div>
+    <div class="row"><b>Se limpian solas</b><span>Cuando resolvés el pendiente (firmás, completás), la notificación se marca leída automáticamente.</span></div>
+  </div>
+</section>
+
+<!-- VOUCHERS -->
+<section id="vouchers">
+  <h2><span class="ic">💳</span> Vouchers (comprobantes contables)</h2>
+  <span class="who">Operador · Contador</span>
+  <p class="lead">El corazón contable de la plataforma. Un voucher es el comprobante de un movimiento de plata
+     (una compra, un pago, un ingreso) con su <b>partida doble</b> (debe = haber) y su flujo de firmas.</p>
+  <div class="mock"><div class="bar"><span></span><span></span><span></span></div><div class="bd">
+    <div class="rowt h"><span>Voucher</span><span>Empresa</span><span>Monto</span><span>Estado</span></div>
+    <div class="rowt"><span>CENERGY-2026-COM-00001</span><span>CENERGY</span><span>$922.250</span><span><span class="badge b-pend">PENDIENTE</span></span></div>
+    <div class="rowt"><span>RHO-2026-COM-00002</span><span>RHO</span><span>$1.190.000</span><span><span class="badge b-app">APROBADO</span></span></div>
+    <div class="rowt"><span>REVTECH-2026-COM-00003</span><span>REVTECH</span><span>$357.000</span><span><span class="badge b-exec">EJECUTADO</span></span></div>
+  </div></div>
+  <h4>Ciclo de vida de un voucher</h4>
+  <div class="flow">
+    <span class="n">📝 DRAFT (borrador)</span><span class="ar">→</span>
+    <span class="n">⏳ PENDIENTE (esperando firmas)</span><span class="ar">→</span>
+    <span class="n">✅ APROBADO (2 firmas)</span><span class="ar">→</span>
+    <span class="n">🏦 EJECUTADO (pagado)</span><span class="ar">→</span>
+    <span class="n">🔗 CONCILIADO</span>
+  </div>
+  <h4>Cómo se usa — crear un voucher</h4>
+  <ol class="steps">
+    <li>Andá a <b>Vouchers → Nuevo</b> (o <b>Nuevo Nubox</b> para el formato con información contable + financiera).</li>
+    <li>Elegí la <b>empresa</b> y el <b>tipo de documento</b> (factura electrónica, boleta, etc.).</li>
+    <li>Completá <b>proveedor</b> (opcional), <b>número de documento</b> (folio) y <b>fechas</b>.</li>
+    <li>Cargá las <b>líneas</b>: cada una con su cuenta del plan, comentario y monto. La <b>Información Contable</b> (debe) y la <b>Financiera</b> (haber) deben sumar igual.</li>
+    <li>Si la factura trae <b>impuesto específico</b> (combustibles, bebidas ILA, suntuarios), cargalo en su campo: monto fijo $ o % del neto.</li>
+    <li>Verificá que el <b>Total Bruto cuadre</b> (badge verde "Partida doble cuadrada"). Guardá como borrador o enviá a aprobación.</li>
+  </ol>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Tipo de documento</b></td><td>Define si aplica IVA 19%. Facturas afectas suman IVA; exentas no.</td></tr>
+    <tr><td><b>Impuesto específico</b></td><td>Se suma al total además del IVA. Modo "$ monto" (combustibles) o "% del neto" (ILA/suntuarios).</td></tr>
+    <tr><td><b>Fuente de financiamiento</b></td><td>(CORFO) marca cada línea: CORFO_SUBSIDIO, PTEC_CEHTA, EMPRESA_DIRECTA o IVA_CORPORATIVO. El IVA nunca va al subsidio CORFO.</td></tr>
+    <tr><td><b>Glosa</b></td><td>Descripción del movimiento (mínimo 5 caracteres). Va al asiento y al export Nubox.</td></tr>
+    <tr><td><b>Forma de pago</b></td><td>TRANSFERENCIA habilita exportar al Excel masivo desde Transferencias.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Manual</b><span>La mayoría se carga a mano en el formulario.</span></div>
+    <div class="row"><b>Desde correo</b><span>Si la factura llegó por mail, la IA puede pre-llenar el voucher (proveedor, monto, glosa). Revisá siempre antes de guardar.</span></div>
+    <div class="row"><b>Desde OC</b><span>Las cuotas de una orden de compra se convierten en vouchers automáticamente.</span></div>
+    <div class="row"><b>Plan de cuentas</b><span>Las cuentas de cada línea salen del <a href="#plan-cuentas">Plan de cuentas</a>. Si falta una cuenta, agregala ahí primero.</span></div>
+    <div class="row"><b>Corregir</b><span>Mientras está en <b>DRAFT</b> se edita libre. Una vez enviado a aprobación, hay que rechazarlo para editar. Si ya está EJECUTADO, se hace un <b>voucher de reverso</b> (no se borra — queda la trazabilidad).</span></div>
+  </div>
+  <div class="tip"><b>Regla de oro:</b> un voucher no se puede aprobar si el debe ≠ el haber. El sistema lo bloquea y te dice cuánto falta para cuadrar.</div>
+</section>
+
+<!-- OC -->
+<section id="oc">
+  <h2><span class="ic">📋</span> Órdenes de compra</h2>
+  <span class="who">Operador · Encargado de área</span>
+  <p class="lead">Formaliza una compra a un proveedor <b>antes</b> de que llegue la factura. Genera un PDF con
+     el logo y las firmas de la empresa, se envía al proveedor, y sus cuotas se vuelven vouchers.</p>
+  <div class="mock"><div class="bar"><span></span><span></span><span></span></div><div class="bd">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-weight:800;font-size:13px;color:var(--green-700)">ORDEN DE COMPRA · OC0001-RHO26</div>
+      <div style="font-size:11px;color:var(--ink-500)">RHO Generación SpA · 12-06-2026</div>
+    </div>
+    <div class="rowt h"><span>Ítem</span><span>Cant.</span><span>P. unit.</span><span>Total</span></div>
+    <div class="rowt"><span>Servicio mantención mensual</span><span>1</span><span>$520.000</span><span>$520.000</span></div>
+    <div class="rowt"><span>Insumos y materiales</span><span>3</span><span>$85.000</span><span>$255.000</span></div>
+    <div style="text-align:right;margin-top:8px;font-size:12px">Neto $775.000 · IVA $147.250 · <b style="color:var(--green-700)">Total $922.250</b></div>
+  </div></div>
+  <h4>Cómo se usa — crear una OC</h4>
+  <ol class="steps">
+    <li><b>Órdenes de compra → Nueva</b>. Elegí la empresa que compra.</li>
+    <li>Escribí el <b>proveedor</b>: si ya existe, autocompleta; si es nuevo, se crea al guardar.</li>
+    <li>Cargá los <b>ítems</b>: descripción, unidad, cantidad y precio unitario. El neto + IVA + total se calculan solos.</li>
+    <li>Definí <b>forma de pago</b> y <b>cuotas</b> (cantidad + fechas de vencimiento).</li>
+    <li>Guardá → se genera el <b>PDF</b>. Desde la lista podés descargarlo o enviarlo al proveedor / GG.</li>
+    <li>Cuando llega la factura, las cuotas se convierten en <b>vouchers</b> para pagar.</li>
+  </ol>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Empresa</b></td><td>Define el logo, color, datos y formato del PDF. <b>RHO</b> usa el formato "Panimávida" (carta formal + página de firmas); el resto el institucional.</td></tr>
+    <tr><td><b>Cuotas</b></td><td>Cantidad + fechas. La suma de cuotas siempre da el total exacto; la última absorbe el redondeo.</td></tr>
+    <tr><td><b>Estado</b></td><td>emitida → pagada / anulada. No se puede anular una OC cuyas cuotas ya son vouchers aprobados.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Logo y firmas</b><span>Del registro de la empresa. Para cambiar los firmantes de RHO o el logo: Admin → Empresas / branding OC.</span></div>
+    <div class="row"><b>Proveedor</b><span>Del catálogo de <a href="#proveedores">Proveedores</a>. Uno nuevo se crea automático al escribir un RUT que no existe.</span></div>
+    <div class="row"><b>Numeración (folio OC)</b><span>Correlativo automático por empresa y año. Tras la marcha blanca arranca de cero.</span></div>
+    <div class="row"><b>Reemplazar</b><span>Mientras la OC no esté pagada, se puede editar. El PDF se regenera cada vez que se descarga.</span></div>
+  </div>
+</section>
+
+<!-- APROBACIONES -->
+<section id="aprobaciones">
+  <h2><span class="ic">✍️</span> Aprobaciones / firmas</h2>
+  <span class="who">GG · Director</span>
+  <p class="lead">Donde los gerentes firman los vouchers. Un voucher necesita <b>2 firmas de roles distintos</b>
+     para quedar aprobado y poder pagarse.</p>
+  <h4>Cómo se usa — firmar</h4>
+  <ol class="steps">
+    <li>Te llega un <b>correo</b> "tenés un voucher por firmar" o lo ves en <b>Mis pendientes</b>.</li>
+    <li>Abrís el voucher: ves monto, proveedor, glosa y el <b>respaldo</b> (PDF de la factura).</li>
+    <li>Si está todo bien → <b>Firmar</b>. Si algo no cuadra → <b>Rechazar</b> con un motivo.</li>
+    <li>Cuando se juntan las 2 firmas requeridas, el voucher pasa a <b>APROBADO</b> y queda listo para transferir.</li>
+  </ol>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Reglas de aprobación</b></td><td>Qué roles deben firmar según monto/empresa. Las configura el admin.</td></tr>
+    <tr><td><b>Tu rol</b></td><td>Solo podés firmar si tenés un rol con firma en esa empresa.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Reglas</b><span>Tabla de reglas de aprobación. Cambiar en Admin → <b>Approval rules</b>.</span></div>
+    <div class="row"><b>Firmas</b><span>Cada firma queda registrada con fecha, IP y huella — es la trazabilidad legal. No se puede borrar.</span></div>
+  </div>
+</section>
+
+<!-- TRANSFERENCIAS -->
+<section id="transferencias">
+  <h2><span class="ic">🏦</span> Transferencias al banco</h2>
+  <span class="who">Operador · Contador</span>
+  <p class="lead">Toma los vouchers aprobados y genera un <b>Excel de transferencia masiva</b> para subir al portal
+     del banco. Después marcás los pagos como ejecutados con su comprobante.</p>
+  <div class="mock"><div class="bar"><span></span><span></span><span></span></div><div class="bd">
+    <div class="rowt h"><span>Proveedor</span><span>Banco</span><span>Monto</span><span>✓</span></div>
+    <div class="rowt"><span>FUMIAGRO LTDA</span><span>BCI</span><span>$922.250</span><span>☑</span></div>
+    <div class="rowt"><span>Proveedor SpA</span><span>Santander</span><span>$357.000</span><span>☑</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px">
+      <span style="font-size:12px">2 seleccionados · <b>$1.279.250</b></span>
+      <span style="background:var(--green);color:#fff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px">⬇ Descargar Excel banco</span>
+    </div>
+  </div></div>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Entrás a <b>Transferencias</b>: ves la lista de vouchers <b>APROBADOS</b> listos para pagar.</li>
+    <li>Seleccionás los del día y tocás <b>Descargar Excel transferencia masiva</b>.</li>
+    <li>Subís ese Excel al portal de tu banco (BCI, Santander, etc.) y confirmás las transferencias.</li>
+    <li>Volvés, seleccionás los pagados y usás <b>Marcar EJECUTADO</b> adjuntando el comprobante.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Vouchers en estado APROBADO con forma de pago TRANSFERENCIA. El Excel cuadra exacto con la suma de los seleccionados.</span></div>
+    <div class="row"><b>Datos bancarios</b><span>RUT, banco y cuenta salen del proveedor. Si falta el dato, completá la ficha del proveedor primero.</span></div>
+  </div>
+</section>
+
+<!-- SOLICITUDES -->
+<section id="solicitudes">
+  <h2><span class="ic">📨</span> Solicitudes de pago</h2>
+  <span class="who">Encargado de área · Operador</span>
+  <p class="lead">Cuando alguien de un área necesita que se pague algo, levanta una <b>solicitud de pago</b>. Pasa por
+     revisión y, si se aprueba, se transforma en un voucher para pagar.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>El encargado crea la solicitud: a quién se le paga, monto, motivo y respaldo (factura/cotización).</li>
+    <li>El contador/operador la revisa: si está bien, la convierte en <a href="#vouchers">voucher</a>; si no, la devuelve con un comentario.</li>
+    <li>El voucher sigue el flujo normal de firmas y transferencia.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Las cargan los usuarios de cada área. El respaldo se adjunta y queda en Dropbox.</span></div>
+    <div class="row"><b>Trazabilidad</b><span>Cada solicitud guarda quién la pidió, quién la aprobó y en qué voucher terminó.</span></div>
+  </div>
+</section>
+
+<!-- MOVIMIENTOS -->
+<section id="movimientos">
+  <h2><span class="ic">💲</span> Movimientos / cartolas</h2>
+  <span class="who">Operador · Contador</span>
+  <p class="lead">El registro de lo que entró y salió del banco. Se cargan subiendo las <b>cartolas bancarias</b>
+     y son la base de los saldos del dashboard y de la conciliación.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Andá a <b>Movimientos</b> (o Admin → Cartolas) y subí el archivo de la cartola del banco.</li>
+    <li>El sistema parsea cada línea: fecha, descripción, abono/egreso, saldo.</li>
+    <li>Revisá que los montos y centavos quedaron bien (formato chileno: 1.234.567,89).</li>
+    <li>Los movimientos quedan listos para <a href="#conciliacion">conciliar</a> contra los vouchers.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Cartolas que subís (Excel/CSV del banco). Cada banco tiene su formato; el parser los normaliza.</span></div>
+    <div class="row"><b>Saldo del dashboard</b><span>= el último movimiento con saldo de cada empresa. Si el saldo está mal, revisá la última cartola.</span></div>
+    <div class="row"><b>Reemplazar</b><span>Si una cartola se cargó mal, se puede re-subir. Tras la marcha blanca, los movimientos arrancan vacíos y se cargan desde la primera cartola real.</span></div>
+  </div>
+</section>
+
+<!-- CONCILIACION -->
+<section id="conciliacion">
+  <h2><span class="ic">🔗</span> Conciliación</h2>
+  <span class="who">Contador</span>
+  <p class="lead">Cruza los <b>movimientos del banco</b> con los <b>vouchers</b> para confirmar que cada pago
+     registrado realmente salió del banco — y detectar lo que falta.</p>
+  <div class="mock"><div class="bar"><span></span><span></span><span></span></div><div class="bd">
+    <div class="kpis">
+      <div class="kpi"><div class="l">Conciliados</div><div class="v g">142</div></div>
+      <div class="kpi"><div class="l">No conciliados</div><div class="v a">7</div></div>
+      <div class="kpi"><div class="l">Movs huérfanos</div><div class="v a">3</div></div>
+      <div class="kpi"><div class="l">Monto pendiente</div><div class="v b">$8,4M</div></div>
+    </div></div></div>
+  <h4>Conceptos clave</h4>
+  <table>
+    <tr><th>Término</th><th>Qué significa</th></tr>
+    <tr><td><b>Conciliado</b></td><td>El voucher EJECUTADO tiene su movimiento bancario asociado. Todo cuadra.</td></tr>
+    <tr><td><b>No conciliado</b></td><td>Voucher EJECUTADO sin movimiento que lo respalde todavía.</td></tr>
+    <tr><td><b>Movimiento huérfano</b></td><td>Plata que se movió en el banco sin comprobante (voucher) asociado aún.</td></tr>
+  </table>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Entrás a <b>Conciliación</b>: ves los KPIs (conciliados / no conciliados / huérfanos / monto pendiente).</li>
+    <li>El sistema sugiere matches por <b>monto + moneda + fecha</b> (con tolerancia).</li>
+    <li>Confirmás los matches correctos. Los huérfanos se resuelven creando el voucher que falta.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Cruce de <a href="#movimientos">movimientos</a> (banco) con <a href="#vouchers">vouchers</a> (contabilidad).</span></div>
+    <div class="row"><b>El match</b><span>Exige misma moneda + monto dentro de la tolerancia. Nunca cruza un CLP contra un USD.</span></div>
+  </div>
+</section>
+
+<!-- PROVEEDORES -->
+<section id="proveedores">
+  <h2><span class="ic">🏭</span> Proveedores</h2>
+  <span class="who">Operador · Contador</span>
+  <p class="lead">El catálogo de a quién le compramos. Cada proveedor tiene RUT, razón social, giro y datos
+     bancarios que se usan en OCs, vouchers y transferencias.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Buscá un proveedor por RUT o nombre. Si no existe, se crea al cargarlo en una OC/voucher.</li>
+    <li>Completá los <b>datos bancarios</b> (banco, cuenta) para que las transferencias funcionen.</li>
+    <li>Podés exportar el catálogo completo a Excel.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Catálogo global (compartido entre empresas). Se preserva en la marcha blanca — no se borra.</span></div>
+    <div class="row"><b>Reemplazar</b><span>Editá la ficha del proveedor directamente. Para carga masiva, importá un Excel.</span></div>
+  </div>
+</section>
+
+<!-- MAILBOX -->
+<section id="mailbox">
+  <h2><span class="ic">📧</span> Bandeja de correo (OC)</h2>
+  <span class="who">Operador</span>
+  <p class="lead">La IA lee el correo entrante, detecta cotizaciones/órdenes de compra y te las deja listas para
+     crear la OC con un clic.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Entrás a <b>Bandeja mail</b> (dentro de Órdenes de compra).</li>
+    <li>Tocás <b>Correr cron ahora</b> para traer los correos nuevos (o esperás al automático).</li>
+    <li>Por cada correo clasificado como OC, tocás <b>Auto-crear OC</b>: la IA extrae proveedor, ítems y montos.</li>
+    <li>Revisás y confirmás. Los adjuntos del correo se anexan al PDF de la OC.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Correo entrante (IMAP) + clasificación con IA (Claude). El RUT de la empresa receptora se detecta del asunto/cuerpo.</span></div>
+    <div class="row"><b>Si clasifica mal</b><span>Podés crear la OC a mano. La empresa destino se corrige en el formulario.</span></div>
+  </div>
+</section>
+
+<!-- PLAN DE CUENTAS -->
+<section id="plan-cuentas">
+  <h2><span class="ic">📒</span> Plan de cuentas</h2>
+  <span class="who">Contador · Admin</span>
+  <p class="lead">El catálogo de cuentas contables (activo, pasivo, ingreso, gasto) que se usan en las líneas de
+     cada voucher. Es la base de toda la contabilidad.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Cargado desde el plan de cuentas oficial. Se preserva en la marcha blanca (212 cuentas).</span></div>
+    <div class="row"><b>Reemplazar</b><span>Admin → Plan de cuentas: agregar/editar cuentas. Solo cuentas <b>imputables</b> aparecen en los vouchers.</span></div>
+  </div>
+</section>
+
+<!-- F29 -->
+<section id="f29">
+  <h2><span class="ic">🧾</span> F29 / F22</h2>
+  <span class="who">Contador</span>
+  <p class="lead">El F29 es la declaración mensual de IVA. La plataforma lo <b>estima</b> a partir de los vouchers
+     del período (IVA débito − IVA crédito). El F22 es la declaración anual de renta.</p>
+  <div class="mock"><div class="bar"><span></span><span></span><span></span></div><div class="bd">
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi"><div class="l">IVA débito (ventas)</div><div class="v">$5,2M</div></div>
+      <div class="kpi"><div class="l">IVA crédito (compras)</div><div class="v">$2,1M</div></div>
+      <div class="kpi"><div class="l">IVA a pagar</div><div class="v a">$3,1M</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--ink-500);margin-top:8px">Período 06-2026 · estimado a partir de los vouchers cargados</div>
+  </div></div>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Período tributario</b></td><td>El mes que se declara. Define qué vouchers entran en el cálculo.</td></tr>
+    <tr><td><b>IVA débito / crédito</b></td><td>Ventas generan débito; compras generan crédito. Si crédito &gt; débito, queda remanente (nunca pago negativo).</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Suma del IVA de los <a href="#vouchers">vouchers</a> del período + documentos SII si están sincronizados.</span></div>
+    <div class="row"><b>Es un estimado</b><span>El F29 oficial se declara en el SII. Acá ves el <b>preview</b> para anticiparte. Para cuadrarlo, asegurá que todos los vouchers del mes estén cargados.</span></div>
+  </div>
+</section>
+
+<!-- CALENDARIO -->
+<section id="calendario">
+  <h2><span class="ic">📅</span> Calendario tributario</h2>
+  <span class="who">Contador · Operador</span>
+  <p class="lead">Todas las obligaciones con sus fechas: F29 (mensual), F22 (anual), declaraciones juradas, y los
+     vencimientos de cada empresa, para que nada se pase de fecha.</p>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Empresa</b></td><td>Filtra los vencimientos a una empresa o muestra todas.</td></tr>
+    <tr><td><b>Tipo de obligación</b></td><td>F29 (día 12-20 del mes siguiente), F22 (abril), DJ 1879/1887 (marzo), etc.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Calendario tributario chileno + las obligaciones generadas por la actividad de cada empresa (F29 surge de tener vouchers en el período).</span></div>
+    <div class="row"><b>Alertas</b><span>Los vencimientos próximos aparecen en <a href="#pendientes">Mis pendientes</a> y en el <a href="#dashboard">Dashboard</a>.</span></div>
+  </div>
+</section>
+
+<!-- REPORTES -->
+<section id="reportes">
+  <h2><span class="ic">📈</span> Reportes y estados financieros</h2>
+  <span class="who">Contador · GG · Director</span>
+  <p class="lead">Libro mayor, balance, estado de resultados y reportes por empresa o consolidados del fondo.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Se construyen en vivo desde los vouchers y movimientos. No se editan: reflejan lo cargado.</span></div>
+    <div class="row"><b>Si un número está mal</b><span>Corregí el voucher de origen y el reporte se recalcula.</span></div>
+  </div>
+</section>
+
+<!-- NUBOX -->
+<section id="nubox">
+  <h2><span class="ic">📤</span> Export a Nubox</h2>
+  <span class="who">Contador</span>
+  <p class="lead">Genera el archivo (CSV o vía API) para mandar los asientos a <b>Nubox</b>, el sistema contable
+     oficial que lleva MCG Consultores.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Los vouchers del período, mapeados al formato Nubox. Las glosas con ; o , se preservan correctamente.</span></div>
+    <div class="row"><b>Mapeo de cuentas</b><span>Cada cuenta local se mapea a su equivalente Nubox. Si falta un mapeo, se configura antes de exportar.</span></div>
+  </div>
+</section>
+
+<!-- SII -->
+<section id="sii">
+  <h2><span class="ic">🏛️</span> SII (Registro de Compras y Ventas)</h2>
+  <span class="who">Contador · Admin</span>
+  <p class="lead">Baja del SII el <b>RCV</b> (todas las facturas de compra y venta electrónicas) para cruzarlo con
+     tus vouchers y detectar documentos que el SII tiene pero vos todavía no cargaste.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>El admin carga la credencial SII de cada empresa (cifrada) en <a href="#integraciones">Integraciones</a>.</li>
+    <li>En <b>SII</b>, elegís empresa y período → <b>Sincronizar RCV</b>. Baja compras y ventas.</li>
+    <li>Si la sincronización automática no funciona (el SII cambia su portal seguido), usás el <b>import CSV manual</b>: bajás el RCV del SII a mano y lo subís.</li>
+    <li>Los documentos bajados se comparan con tus vouchers: lo que falta aparece como "gap" para cargar.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>El portal del SII (con la credencial de la empresa). Estado: ⚙️ se activa cuando se cargan las credenciales de producción.</span></div>
+    <div class="row"><b>Alternativa</b><span>El camino más confiable hoy es <b>Nubox API</b> o el <b>import CSV manual</b> — el scraping del SII depende de que su portal no cambie.</span></div>
+  </div>
+</section>
+
+<!-- CORFO -->
+<section id="corfo">
+  <h2><span class="ic">🌱</span> Rendiciones CORFO</h2>
+  <span class="who">Contador · Operador (REVTECH/TRONGKAI)</span>
+  <p class="lead">Arma la rendición del subsidio CORFO (REVTECH + TRONGKAI) separando qué gasto va al pozo del
+     subsidio, qué es aporte empresarial (P-tec) y qué es 100% de la empresa.</p>
+  <h4>Parámetros que influyen — Bloque E</h4>
+  <table>
+    <tr><th>Fuente</th><th>Qué significa</th></tr>
+    <tr><td><b>CORFO_SUBSIDIO</b></td><td>Cargo al pozo del subsidio CORFO.</td></tr>
+    <tr><td><b>PTEC_CEHTA</b></td><td>Aporte pecuniario empresarial vía CEHTA Capital.</td></tr>
+    <tr><td><b>EMPRESA_DIRECTA</b></td><td>Gasto 100% de la empresa, fuera del subsidio.</td></tr>
+    <tr><td><b>IVA_CORPORATIVO</b></td><td>El IVA crédito fiscal — <b>siempre</b> corporativo, nunca al pozo CORFO.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Los vouchers con proyecto CORFO, según la fuente marcada en cada línea.</span></div>
+    <div class="row"><b>Mapeo cuenta → CORFO</b><span>Se configura el equivalente de cada cuenta local al ítem CORFO. La IA sugiere mapeos.</span></div>
+  </div>
+</section>
+
+<!-- FLUJOS -->
+<section id="flujos">
+  <h2><span class="ic">💹</span> Flujos de caja por proyecto</h2>
+  <span class="who">GG · Contador</span>
+  <p class="lead">Proyección de ingresos y egresos mes a mes para cada proyecto, comparando lo <b>proyectado</b>
+     contra lo <b>real</b>.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Proyectado</b><span>Lo cargás a mano (celda por celda) o subiendo un Excel con columnas periodo/categoría/monto.</span></div>
+    <div class="row"><b>Real</b><span>Se calcula solo desde los vouchers ejecutados del proyecto.</span></div>
+  </div>
+</section>
+
+<!-- EMPRESAS -->
+<section id="empresas">
+  <h2><span class="ic">🏢</span> Empresas</h2>
+  <span class="who">Admin · Director</span>
+  <p class="lead">La ficha de cada una de las 9 empresas + el holding: datos legales, logo, color de marca,
+     firmantes de OC, y pestañas con su detalle financiero.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Tabla de empresas (se preserva en la marcha blanca: 10 registros).</span></div>
+    <div class="row"><b>Reemplazar</b><span>Admin → Empresas: editar razón social, RUT, giro, logo, color y firmantes de OC.</span></div>
+  </div>
+</section>
+
+<!-- PROYECTOS -->
+<section id="proyectos">
+  <h2><span class="ic">📐</span> Proyectos y subsidios</h2>
+  <span class="who">GG · Contador · Director</span>
+  <p class="lead">Los proyectos contables (centros de costo) a los que se imputan vouchers y OCs, y los subsidios
+     activos como el CORFO de REVTECH + TRONGKAI.</p>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Tipo de financiamiento</b></td><td>Marca si el proyecto es CORFO, propio, etc. Define las reglas de rendición.</td></tr>
+    <tr><td><b>Vigencia</b></td><td>Fechas de inicio/fin del subsidio (CORFO: 2026-2027).</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Catálogo de proyectos (se preserva en la marcha blanca: 61). Cada voucher elige a qué proyecto se imputa.</span></div>
+    <div class="row"><b>Reemplazar</b><span>Admin → Proyectos / Subsidios: crear o editar. El subsidio CORFO ($3.000M, REVTECH 50% + TRONGKAI 50%) ya está cargado.</span></div>
+  </div>
+</section>
+
+<!-- GANTT -->
+<section id="gantt">
+  <h2><span class="ic">📊</span> Cartas Gantt</h2>
+  <span class="who">GG · Director</span>
+  <p class="lead">Las cartas de planificación de proyectos (cronogramas con hitos y avance). Muestran qué tarea va
+     en qué fecha y cómo viene el avance real contra lo planeado.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Se cargan/editan por proyecto. <b>No se tocaron en la marcha blanca</b> — quedaron intactas.</span></div>
+    <div class="row"><b>Reemplazar</b><span>Se editan directamente en la sección Cartas Gantt por proyecto.</span></div>
+  </div>
+</section>
+
+<!-- COMPLIANCE -->
+<section id="compliance">
+  <h2><span class="ic">⚖️</span> Compliance y legal</h2>
+  <span class="who">Director · Admin</span>
+  <p class="lead">El estado de cumplimiento del fondo: documentos legales, actas del directorio, políticas, y los
+     controles que aseguran que nada genere contingencia ante el SII, la CMF o auditores.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Documentos</b><span>Actas, políticas y legales se suben a Dropbox por empresa/fondo y se enlazan acá.</span></div>
+    <div class="row"><b>Controles</b><span>Se calculan desde la actividad (firmas completas, respaldos adjuntos, vouchers cuadrados).</span></div>
+  </div>
+</section>
+
+<!-- ENTREGABLES -->
+<section id="entregables">
+  <h2><span class="ic">✅</span> Entregables y avance</h2>
+  <span class="who">GG · Director · Coordinador</span>
+  <p class="lead">El seguimiento de los compromisos de cada proyecto: qué hay que entregar, cuándo, y cómo viene el
+     avance real — especialmente para los subsidios (CORFO) que exigen rendir hitos.</p>
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Parámetro</th><th>Efecto</th></tr>
+    <tr><td><b>Proyecto</b></td><td>Filtra los entregables e hitos de ese proyecto.</td></tr>
+    <tr><td><b>Estado del hito</b></td><td>Pendiente / en curso / entregado. Alimenta el % de avance.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Los hitos se definen por proyecto (manual o desde la carta Gantt). El avance se actualiza marcando cada entregable.</span></div>
+    <div class="row"><b>Reporte</b><span>El avance consolidado aparece en el <a href="#institucional">dashboard institucional</a> para el directorio.</span></div>
+  </div>
+</section>
+
+<!-- RRHH -->
+<section id="rrhh">
+  <h2><span class="ic">👥</span> RRHH</h2>
+  <span class="who">Contador · GG</span>
+  <p class="lead">Empleados por empresa y libros de remuneraciones mensuales, con el costo total por empleado
+     (líquido + aportes patronales).</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Empleados</b><span>Catálogo editable (se preserva en la marcha blanca: 4 empleados).</span></div>
+    <div class="row"><b>Libros</b><span>Se cargan subiendo el Libro de Remuneraciones (Excel) por período. También se puede exportar.</span></div>
+  </div>
+</section>
+
+<!-- INSTITUCIONAL -->
+<section id="institucional">
+  <h2><span class="ic">🏛️</span> Dashboard institucional / CEO</h2>
+  <span class="who">Director · CEO</span>
+  <p class="lead">La vista consolidada del fondo: capital, compañías del portafolio, impacto ESG, compliance y
+     reportes para el directorio e inversionistas.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Consolida los saldos, vouchers y movimientos de todas las empresas + datos del fondo.</span></div>
+    <div class="row"><b>Solo lectura</b><span>Es una vista de reporte. Para cambiar un número, se corrige en la empresa de origen.</span></div>
+  </div>
+</section>
+
+<!-- CLAUDIA -->
+<section id="claudia">
+  <h2><span class="ic">🤖</span> ClaudIA (asistente de IA)</h2>
+  <span class="who">Para todos</span>
+  <p class="lead">El asistente de inteligencia artificial: le preguntás en español sobre tus datos, te ayuda a
+     entender un número, buscar un documento o explicar cómo hacer algo.</p>
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Abrí <b>ClaudIA</b> y escribí tu pregunta en lenguaje natural ("¿cuánto gastó RHO este mes?").</li>
+    <li>Podés subir documentos para que los analice.</li>
+    <li>Respeta tu alcance: solo ve las empresas a las que tenés acceso.</li>
+  </ol>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Tus datos de la plataforma + documentos indexados. No inventa: responde sobre lo cargado.</span></div>
+  </div>
+</section>
+
+<!-- APRENDER -->
+<section id="aprender">
+  <h2><span class="ic">🎓</span> Centro de aprendizaje</h2>
+  <span class="who">Para todos</span>
+  <p class="lead">Módulos cortos con quiz para aprender a usar cada parte de la plataforma a tu ritmo.</p>
+  <div class="tip">Si recién empezás, hacé los módulos en orden. Esta guía y el centro de aprendizaje se complementan.</div>
+</section>
+
+<!-- USUARIOS -->
+<section id="usuarios">
+  <h2><span class="ic">👤</span> Usuarios y roles</h2>
+  <span class="who">Solo Admin</span>
+  <p class="lead">Crear usuarios, asignar roles por empresa y resetear claves.</p>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Usuarios (45, se preservan en la marcha blanca) + matriz de roles por empresa.</span></div>
+    <div class="row"><b>Reemplazar</b><span>Admin → Usuarios y roles: agregar usuario, cambiar rol, resetear clave (genera Excel con las nuevas).</span></div>
+  </div>
+</section>
+
+<!-- INTEGRACIONES -->
+<section id="integraciones">
+  <h2><span class="ic">🔌</span> Integraciones / credenciales</h2>
+  <span class="who">Solo Admin</span>
+  <p class="lead">Conexiones con sistemas externos: SII, Nubox, Dropbox, correo. Las credenciales se guardan
+     <b>cifradas</b> y nunca se muestran en texto.</p>
+  <table>
+    <tr><th>Integración</th><th>Para qué</th></tr>
+    <tr><td><b>Dropbox</b></td><td>Guarda PDFs, cartolas y adjuntos por empresa.</td></tr>
+    <tr><td><b>Correo (Resend/IMAP)</b></td><td>Envía OCs y notificaciones; recibe facturas/cotizaciones.</td></tr>
+    <tr><td><b>SII</b></td><td>Baja el Registro de Compras y Ventas (RCV). Requiere credencial cifrada.</td></tr>
+    <tr><td><b>Nubox</b></td><td>Manda los asientos al sistema contable oficial.</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Credenciales</b><span>Cifradas (Fernet). Admin → Integraciones: cargar/actualizar credenciales por empresa.</span></div>
+    <div class="row"><b>Estado</b><span>Cada integración muestra si la última validación fue OK. Si falla, se recarga la credencial.</span></div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <h2><span class="ic">❓</span> Preguntas frecuentes</h2>
+  <span class="who">Para todos — las dudas más comunes</span>
+  <p class="lead">Lo que más se pregunta el equipo, con la respuesta directa.</p>
+
+  <h4>"No me deja enviar el voucher a aprobación"</h4>
+  <p style="font-size:14px;margin-bottom:14px">Casi siempre es porque está <b>descuadrado</b> (el debe ≠ el haber). El botón te dice cuánto falta. Ajustá los montos de las líneas hasta que el badge quede verde. Otra causa: falta adjuntar la factura/boleta de respaldo.</p>
+
+  <h4>"El saldo del dashboard está mal"</h4>
+  <p style="font-size:14px;margin-bottom:14px">El saldo sale de la <b>última cartola</b> cargada de esa empresa. Si está raro, revisá en <a href="#movimientos">Movimientos</a> que la última cartola se haya subido completa y bien parseada.</p>
+
+  <h4>"Quiero corregir un voucher ya firmado"</h4>
+  <p style="font-size:14px;margin-bottom:14px">Si está PENDIENTE, hay que rechazarlo para editarlo. Si ya está EJECUTADO, no se borra: se hace un <b>voucher de reverso</b> para mantener la trazabilidad. Lo mismo aplica a las OCs pagadas.</p>
+
+  <h4>"¿Por qué solo veo una empresa?"</h4>
+  <p style="font-size:14px;margin-bottom:14px">Porque tu <a href="#roles">rol</a> está acotado a esa empresa. El admin puede ampliar tu alcance en Usuarios y roles.</p>
+
+  <h4>"La factura de combustible no me cuadra con el total"</h4>
+  <p style="font-size:14px;margin-bottom:14px">Esas facturas traen <b>impuesto específico</b> además del IVA. Cargalo en su campo (modo "$ monto") y el total bruto va a coincidir con la factura.</p>
+
+  <h4>"¿Dónde está la orden de compra de RHO con el formato nuevo?"</h4>
+  <p style="font-size:14px;margin-bottom:14px">RHO usa el formato "Panimávida" (carta formal + página de firmas) automáticamente. Descargá el PDF desde cualquier OC de RHO y sale con ese diseño y los firmantes configurados.</p>
+
+  <h4>"¿Cómo reseteo la clave de un usuario?"</h4>
+  <p style="font-size:14px;margin-bottom:14px">Solo el admin, en <a href="#usuarios">Usuarios y roles</a>. Genera un Excel con las claves nuevas para entregar.</p>
+
+  <div class="tip"><b>¿No está tu duda?</b> Preguntale a <a href="#claudia">ClaudIA</a> dentro de la plataforma — conoce tus datos y te responde al instante.</div>
+</section>
+
+<div class="toc-note">Esta guía se actualiza con la plataforma. Versión 4 · marcha blanca 2026 · 37 secciones · glosario · 4 flujos completos · 6 mockups visuales · preguntas frecuentes.</div>
+</div>
+
+<footer>
+  <b>Ram-Cehta · FIP CEHTA ESG</b> — Guía de usuario interactiva. Para dudas específicas, usá ClaudIA dentro de la
+  plataforma o el Centro de aprendizaje. Próximas versiones: capturas reales de cada pantalla y videos cortos.
+</footer>
+</main>
+</div>
+
+<script>
+  // Buscador: filtra secciones por texto
+  const q = document.getElementById('q');
+  const secs = [...document.querySelectorAll('section')];
+  q.addEventListener('input', () => {
+    const t = q.value.toLowerCase().trim();
+    secs.forEach(s => {
+      const hit = !t || s.textContent.toLowerCase().includes(t);
+      s.style.display = hit ? '' : 'none';
+    });
+  });
+  // Nav activo según scroll
+  const links = [...document.querySelectorAll('#nav a')];
+  const map = {};
+  links.forEach(a => { const id = a.getAttribute('href').slice(1); if (document.getElementById(id)) map[id] = a; });
+  const obs = new IntersectionObserver(es => {
+    es.forEach(e => { if (e.isIntersecting) {
+      links.forEach(l => l.classList.remove('on'));
+      const a = map[e.target.id]; if (a) a.classList.add('on');
+    }});
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  secs.forEach(s => s.id && obs.observe(s));
+</script>
+</body>
+</html>
