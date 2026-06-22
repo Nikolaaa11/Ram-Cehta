@@ -89,13 +89,35 @@
   .tip{background:var(--green-50);border-left:3px solid var(--green);padding:11px 14px;border-radius:0 8px 8px 0;
     font-size:13.5px;margin-top:14px;color:var(--ink-700)}
   .tip b{color:var(--green-700)}
+  /* Caja de ejemplo trabajado (con números reales) */
+  .ejemplo{background:linear-gradient(180deg,#F5F8FF,#EFF4FF);border:1px solid #D6E0F5;
+    border-radius:13px;padding:18px 20px;margin-top:18px}
+  .ejemplo .et{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;
+    font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+    padding:4px 10px;border-radius:7px;margin-bottom:12px}
+  .ejemplo p{font-size:13.5px;margin-bottom:8px}
+  .ej-calc{background:#fff;border:1px solid #DCE6F7;border-radius:9px;padding:12px 14px;margin-top:10px}
+  .ej-calc .ln{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed #E5ECF8}
+  .ej-calc .ln:last-child{border:none}
+  .ej-calc .ln b{color:var(--ink-900)}
+  .ej-calc .ln.tot{border-top:2px solid var(--blue);margin-top:3px;padding-top:8px;font-weight:800;font-size:14.5px}
+  .ej-calc .ln.tot span:last-child{color:var(--blue)}
+  .ej-calc .num{font-variant-numeric:tabular-nums;font-weight:600}
   .toc-note{font-size:12.5px;color:var(--ink-500);margin-top:6px}
   footer{padding:30px 56px;color:var(--ink-500);font-size:12.5px;border-top:1px solid var(--hair);background:var(--card)}
   .flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}
   .flow .n{background:#fff;border:1px solid var(--hair);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
   .flow .ar{color:var(--ink-300);font-weight:800}
+  /* Accesos rápidos (tarjetas al inicio) */
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .quick a{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 16px 15px;
+    box-shadow:var(--shadow);transition:all .18s ease;display:block}
+  .quick a:hover{transform:translateY(-3px);border-color:var(--green);box-shadow:0 10px 28px rgba(19,138,94,.12)}
+  .quick .qi{font-size:24px;margin-bottom:8px;display:block}
+  .quick .qt{font-weight:700;font-size:14px;color:var(--ink-900)}
+  .quick .qd{font-size:11.5px;color:var(--ink-500);margin-top:3px;line-height:1.4}
   @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}.hero,.content{padding:28px 22px}
-    .kpis{grid-template-columns:repeat(2,1fr)}}
+    .kpis{grid-template-columns:repeat(2,1fr)}.quick{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -163,6 +185,14 @@
 </div>
 
 <div class="content">
+
+<!-- ACCESOS RÁPIDOS -->
+<div class="quick">
+  <a href="#primeros-pasos"><span class="qi">🚀</span><div class="qt">Primeros pasos</div><div class="qd">Arrancá en 3 minutos según tu rol</div></a>
+  <a href="#flujos-completos"><span class="qi">🧭</span><div class="qt">Flujos completos</div><div class="qd">Las 4 tareas más comunes, de A a Z</div></a>
+  <a href="#vouchers"><span class="qi">💳</span><div class="qt">Vouchers</div><div class="qd">Cargar comprobantes con ejemplos</div></a>
+  <a href="#glosario"><span class="qi">📚</span><div class="qt">Glosario</div><div class="qd">¿Qué significa cada término?</div></a>
+</div>
 
 <!-- INTRO -->
 <section id="intro">
@@ -427,6 +457,20 @@
     <div class="row"><b>Plan de cuentas</b><span>Las cuentas de cada línea salen del <a href="#plan-cuentas">Plan de cuentas</a>. Si falta una cuenta, agregala ahí primero.</span></div>
     <div class="row"><b>Corregir</b><span>Mientras está en <b>DRAFT</b> se edita libre. Una vez enviado a aprobación, hay que rechazarlo para editar. Si ya está EJECUTADO, se hace un <b>voucher de reverso</b> (no se borra — queda la trazabilidad).</span></div>
   </div>
+  <div class="ejemplo">
+    <span class="et">📝 Ejemplo trabajado</span>
+    <p><b>Caso:</b> RHO compra diésel. La factura del proveedor dice: Neto $100.000, IVA 19% $19.000,
+       Impuesto específico (IEPD diésel) $25.000. Total a pagar <b>$144.000</b>.</p>
+    <p><b>Cómo lo cargás:</b></p>
+    <div class="ej-calc">
+      <div class="ln"><span>Línea contable — cuenta "Combustibles", monto neto</span><span class="num">$100.000</span></div>
+      <div class="ln"><span>Campo "Impuesto específico" → modo <b>$ monto</b></span><span class="num">$25.000</span></div>
+      <div class="ln"><span>IVA 19% (lo calcula el sistema)</span><span class="num">$19.000</span></div>
+      <div class="ln tot"><span>Total Bruto (debe coincidir con la factura)</span><span class="num">$144.000</span></div>
+    </div>
+    <p style="margin-top:10px">La <b>Información Financiera</b> (de dónde sale la plata: banco/tarjeta) carga el mismo total
+       <b>$144.000</b>. Así el <b>debe = haber</b> y el voucher cuadra ✓</p>
+  </div>
   <div class="tip"><b>Regla de oro:</b> un voucher no se puede aprobar si el debe ≠ el haber. El sistema lo bloquea y te dice cuánto falta para cuadrar.</div>
 </section>
 
@@ -468,6 +512,18 @@
     <div class="row"><b>Proveedor</b><span>Del catálogo de <a href="#proveedores">Proveedores</a>. Uno nuevo se crea automático al escribir un RUT que no existe.</span></div>
     <div class="row"><b>Numeración (folio OC)</b><span>Correlativo automático por empresa y año. Tras la marcha blanca arranca de cero.</span></div>
     <div class="row"><b>Reemplazar</b><span>Mientras la OC no esté pagada, se puede editar. El PDF se regenera cada vez que se descarga.</span></div>
+  </div>
+  <div class="ejemplo">
+    <span class="et">📝 Ejemplo trabajado</span>
+    <p><b>Caso:</b> una OC de RHO por <b>$922.250</b> total, a pagar en <b>3 cuotas mensuales</b>.</p>
+    <div class="ej-calc">
+      <div class="ln"><span>Cuota 1 — vence 30/06</span><span class="num">$307.417</span></div>
+      <div class="ln"><span>Cuota 2 — vence 30/07</span><span class="num">$307.417</span></div>
+      <div class="ln"><span>Cuota 3 — vence 30/08 (absorbe el redondeo)</span><span class="num">$307.416</span></div>
+      <div class="ln tot"><span>Suma de cuotas (= total exacto)</span><span class="num">$922.250</span></div>
+    </div>
+    <p style="margin-top:10px">El sistema reparte parejo y la <b>última cuota ajusta los centavos</b> para que la suma dé
+       exacto. Cuando llega cada factura, esa cuota se convierte en un <a href="#vouchers">voucher</a> para pagar.</p>
   </div>
 </section>
 
@@ -597,6 +653,19 @@
     <div class="row"><b>Origen</b><span>Cruce de <a href="#movimientos">movimientos</a> (banco) con <a href="#vouchers">vouchers</a> (contabilidad).</span></div>
     <div class="row"><b>El match</b><span>Exige misma moneda + monto dentro de la tolerancia. Nunca cruza un CLP contra un USD.</span></div>
   </div>
+  <div class="ejemplo">
+    <span class="et">📝 Ejemplo trabajado</span>
+    <p><b>Caso:</b> el voucher <span class="mono">RHO-2026-COM-00002</span> quedó EJECUTADO por $1.190.000.
+       Llega la cartola del banco con un egreso de $1.190.000 el mismo día.</p>
+    <div class="ej-calc">
+      <div class="ln"><span>Voucher EJECUTADO (lo que registraste)</span><span class="num">$1.190.000 CLP</span></div>
+      <div class="ln"><span>Movimiento del banco (lo que salió)</span><span class="num">$1.190.000 CLP</span></div>
+      <div class="ln tot"><span>Match → quedan CONCILIADOS ✓</span><span class="num">$0 diferencia</span></div>
+    </div>
+    <p style="margin-top:10px">El sistema te lo <b>sugiere automáticamente</b> (mismo monto, misma moneda, fecha cercana).
+       Solo confirmás. Si el banco mostrara un egreso <b>sin voucher</b>, sería un "huérfano" y tendrías que
+       cargar el voucher que falta.</p>
+  </div>
 </section>
 
 <!-- PROVEEDORES -->
@@ -675,6 +744,17 @@
     <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
     <div class="row"><b>Origen</b><span>Suma del IVA de los <a href="#vouchers">vouchers</a> del período + documentos SII si están sincronizados.</span></div>
     <div class="row"><b>Es un estimado</b><span>El F29 oficial se declara en el SII. Acá ves el <b>preview</b> para anticiparte. Para cuadrarlo, asegurá que todos los vouchers del mes estén cargados.</span></div>
+  </div>
+  <div class="ejemplo">
+    <span class="et">📝 Ejemplo trabajado</span>
+    <p><b>Caso:</b> en junio, CENERGY vendió por $30M (facturas de venta) y compró por ~$11M (facturas de compra).</p>
+    <div class="ej-calc">
+      <div class="ln"><span>IVA débito (19% de las ventas)</span><span class="num">$5.200.000</span></div>
+      <div class="ln"><span>IVA crédito (19% de las compras)</span><span class="num">− $2.100.000</span></div>
+      <div class="ln tot"><span>IVA a pagar en el F29</span><span class="num">$3.100.000</span></div>
+    </div>
+    <p style="margin-top:10px">Si las compras hubieran sido <b>mayores</b> que las ventas, el resultado sería <b>remanente</b>
+       (crédito a favor para el mes siguiente) — nunca un pago negativo.</p>
   </div>
 </section>
 
@@ -760,6 +840,19 @@
     <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
     <div class="row"><b>Origen</b><span>Los vouchers con proyecto CORFO, según la fuente marcada en cada línea.</span></div>
     <div class="row"><b>Mapeo cuenta → CORFO</b><span>Se configura el equivalente de cada cuenta local al ítem CORFO. La IA sugiere mapeos.</span></div>
+  </div>
+  <div class="ejemplo">
+    <span class="et">📝 Ejemplo trabajado</span>
+    <p><b>Caso:</b> REVTECH compra un equipo por $1.000.000 neto + IVA $190.000. El proyecto define que el
+       70% lo cubre el subsidio CORFO y el 30% es aporte de la empresa.</p>
+    <div class="ej-calc">
+      <div class="ln"><span>Línea 1 → fuente <b>CORFO_SUBSIDIO</b> (70%)</span><span class="num">$700.000</span></div>
+      <div class="ln"><span>Línea 2 → fuente <b>EMPRESA_DIRECTA</b> (30%)</span><span class="num">$300.000</span></div>
+      <div class="ln"><span>Línea 3 → IVA, fuente <b>IVA_CORPORATIVO</b> (¡nunca CORFO!)</span><span class="num">$190.000</span></div>
+      <div class="ln tot"><span>Total del voucher</span><span class="num">$1.190.000</span></div>
+    </div>
+    <p style="margin-top:10px"><b>La regla clave (invariante E8):</b> el IVA <u>jamás</u> se carga al pozo del subsidio
+       CORFO — siempre va a IVA_CORPORATIVO. Si lo cargaras mal, la rendición a CORFO quedaría observada.</p>
   </div>
 </section>
 
@@ -967,7 +1060,7 @@
   <div class="tip"><b>¿No está tu duda?</b> Preguntale a <a href="#claudia">ClaudIA</a> dentro de la plataforma — conoce tus datos y te responde al instante.</div>
 </section>
 
-<div class="toc-note">Esta guía se actualiza con la plataforma. Versión 4 · marcha blanca 2026 · 37 secciones · glosario · 4 flujos completos · 6 mockups visuales · preguntas frecuentes.</div>
+<div class="toc-note">Esta guía se actualiza con la plataforma. Versión 5 · marcha blanca 2026 · 37 secciones · accesos rápidos · 5 ejemplos trabajados con números reales · glosario · 4 flujos completos · 6 mockups · preguntas frecuentes.</div>
 </div>
 
 <footer>
@@ -981,8 +1074,11 @@
   // Buscador: filtra secciones por texto
   const q = document.getElementById('q');
   const secs = [...document.querySelectorAll('section')];
+  const quick = document.querySelector('.quick');
   q.addEventListener('input', () => {
     const t = q.value.toLowerCase().trim();
+    // Ocultar accesos rápidos al buscar (para que no estorben el filtrado)
+    if (quick) quick.style.display = t ? 'none' : '';
     secs.forEach(s => {
       const hit = !t || s.textContent.toLowerCase().includes(t);
       s.style.display = hit ? '' : 'none';
