@@ -108,6 +108,10 @@ type NavItem = {
     email?: string | null;
     app_role?: string;
   }) => boolean;
+  /** R152SSSSSS — Link externo/estático (ej. guía .html en /public).
+   * Se renderiza con <a target="_blank"> en vez de <Link> de Next, porque
+   * no es una ruta del App Router. */
+  external?: boolean;
 };
 
 type NavGroup = {
@@ -478,6 +482,15 @@ const GROUPS: NavGroup[] = [
     collapsible: true,
     defaultOpen: true,
     items: [
+      // R152SSSSSS — Guía de usuario interactiva (HTML estático en /public).
+      // external:true → abre en pestaña nueva con <a>, no con <Link>.
+      {
+        href: "/GUIA_USUARIO.html" as Route,
+        label: "Guía de usuario",
+        icon: Book,
+        external: true,
+        isNew: true,
+      },
       { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
       {
         href: "/aprender" as Route,
@@ -897,6 +910,35 @@ export function AppSidebar({ email }: AppSidebarProps) {
                           : hrefStr === "/action-center"
                             ? prefetchActionCenter
                             : undefined;
+                // R152SSSSSS — Items externos (guía .html en /public) se
+                // abren en pestaña nueva con <a>, no con <Link> de Next.
+                if (item.external) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={String(item.href)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={item.title}
+                      className={cn(
+                        "group relative flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-all duration-200 ease-apple",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green",
+                        "text-ink-700 hover:bg-cehta-green/[0.06] hover:text-cehta-green hover:translate-x-0.5",
+                      )}
+                    >
+                      <Icon className="h-4 w-4 transition-transform duration-200 ease-apple group-hover:scale-110" strokeWidth={1.5} />
+                      <span className="flex-1">{item.label}</span>
+                      {item.isNew && (
+                        <span
+                          aria-label="Nuevo"
+                          className="inline-flex items-center rounded-full bg-cehta-green/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-cehta-green ring-1 ring-cehta-green/30"
+                        >
+                          Nuevo
+                        </span>
+                      )}
+                    </a>
+                  );
+                }
                 return (
                   <Link
                     key={item.href}
