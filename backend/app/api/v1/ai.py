@@ -217,6 +217,16 @@ async def ai_executive_summary(
     return ExecutiveSummaryResponse.model_validate(result)
 
 
+# R152UUUUUU — registrado también como GET: el panel Claudia de
+# /cartas-gantt (SecretariaPanel via useApiQuery) hace GET y recibía 405
+# en cada carga — el panel quedaba permanentemente vacío. Es una lectura
+# cacheada (30 min) sin efectos secundarios, así que GET es correcto; se
+# conserva el POST para el botón "refrescar" y compatibilidad.
+@router.get(
+    "/secretaria-tareas",
+    response_model=SecretariaBriefResponse,
+    dependencies=[Depends(require_scope("ai:chat"))],
+)
 @router.post(
     "/secretaria-tareas",
     response_model=SecretariaBriefResponse,

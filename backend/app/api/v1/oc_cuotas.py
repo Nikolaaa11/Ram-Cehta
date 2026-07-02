@@ -14,7 +14,7 @@ Flujo típico:
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -23,6 +23,7 @@ from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
 from app.core.security import AuthenticatedUser
+from app.services.empresa_scope_service import assert_empresa_access
 
 router = APIRouter()
 
@@ -75,12 +76,16 @@ class GenerarVouchersResult(BaseModel):
 # ─────────────────────────────────────────────────────────────────────
 
 
-async def _get_oc_or_404(db, oc_id: int) -> dict[str, Any]:
+async def _get_oc_or_404(db, oc_id: int, user=None) -> dict[str, Any]:
+    # R152UUUUUU — se agrega `estado` al SELECT (el guard anti-OC-anulada
+    # leía oc.get("estado") que siempre era None = código muerto) y
+    # scoping multi-tenant: este router no validaba empresa, a diferencia
+    # de ordenes_compra.py, permitiendo operar cuotas de cualquier empresa.
     row = (
         await db.execute(
             text(
                 """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
-                          total, moneda, observaciones
+                          total, moneda, observaciones, estado
                    FROM core.ordenes_compra WHERE oc_id = :id"""
             ),
             {"id": oc_id},
@@ -91,6 +96,8 @@ async def _get_oc_or_404(db, oc_id: int) -> dict[str, Any]:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"OC #{oc_id} no encontrada",
         )
+    if user is not None:
+        await assert_empresa_access(user, db, row["empresa_codigo"])
     return dict(row)
 
 
@@ -104,7 +111,7 @@ async def list_cuotas(
     user: CurrentUser, db: DBSession, oc_id: int
 ) -> list[CuotaRead]:
     """Lista cuotas de una OC con estado del voucher asociado."""
-    await _get_oc_or_404(db, oc_id)
+    await _get_oc_or_404(db, oc_id, user)
     rows = await db.execute(
         text(
             """SELECT cuota_id, oc_id, numero_cuota, monto, fecha_vencimiento,
@@ -136,7 +143,7 @@ async def split_equitativo(
     Cuotas ya generadas como voucher (VOUCHER_GENERADO/PAGADA) NO se tocan
     para evitar romper vouchers en curso.
     """
-    oc = await _get_oc_or_404(db, oc_id)
+    oc = await _get_oc_or_404(db, oc_id, user)
     total = Decimal(str(oc["total"] or 0))
     if total <= 0:
         raise HTTPException(
@@ -161,7 +168,11 @@ async def split_equitativo(
     )
 
     # Calcular monto por cuota — última absorbe residuo del redondeo
-    base = (total / body.cantidad).quantize(Decimal("1"))
+    # R152UUUUUU — HALF_UP explícito (el default de quantize es
+    # HALF_EVEN/bankers, que viola el invariante MAESTRO).
+    base = (total / body.cantidad).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    )
     montos = [base] * (body.cantidad - 1)
     montos.append(total - sum(montos))
     # R152JJJJJJ — guard: con totales chicos y muchas cuotas, la última
@@ -215,17 +226,45 @@ async def replace_cuotas(
     body: CuotasReplaceBody,
 ) -> list[CuotaRead]:
     """Reemplaza cuotas custom. Las que ya tengan voucher quedan intactas."""
-    await _get_oc_or_404(db, oc_id)
+    oc = await _get_oc_or_404(db, oc_id, user)
 
     # Numeros de cuotas que ya tienen voucher — NO tocar
     existing = await db.execute(
         text(
-            """SELECT numero_cuota FROM core.oc_cuotas
+            """SELECT numero_cuota, monto FROM core.oc_cuotas
                WHERE oc_id = :id AND voucher_id IS NOT NULL"""
         ),
         {"id": oc_id},
     )
-    locked = {int(r[0]) for r in existing}
+    locked_rows = existing.fetchall()
+    locked = {int(r[0]) for r in locked_rows}
+
+    # R152UUUUUU — validación server-side Σ(cuotas) == total de la OC.
+    # Antes se aceptaba cualquier suma (cuotas por $2M en una OC de $3M →
+    # $1M sin cuota/voucher, invisible). Las cuotas con voucher (locked)
+    # conservan su monto actual, así que cuentan con el monto de la BD.
+    total_oc = Decimal(str(oc["total"] or 0))
+    suma_locked = sum((Decimal(str(r[1])) for r in locked_rows), start=Decimal("0"))
+    suma_nuevas = sum(
+        (c.monto for c in body.cuotas if c.numero_cuota not in locked),
+        start=Decimal("0"),
+    )
+    suma_final = suma_locked + suma_nuevas
+    if total_oc > 0 and suma_final != total_oc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"La suma de las cuotas ({suma_final}) no coincide con el "
+                f"total de la OC ({total_oc}). "
+                + (
+                    f"Ya hay {len(locked)} cuota(s) con voucher por "
+                    f"{suma_locked} que no se pueden modificar. "
+                    if locked
+                    else ""
+                )
+                + "Ajustá los montos para que cuadren."
+            ),
+        )
 
     # Borrar pendientes
     await db.execute(
@@ -334,7 +373,7 @@ async def generar_vouchers(
       - status: DRAFT
       - lines: vacío — el operador imputa al editar el voucher
     """
-    oc = await _get_oc_or_404(db, oc_id)
+    oc = await _get_oc_or_404(db, oc_id, user)
     emp_code = str(oc["empresa_codigo"])
 
     # R152AAAAA · P0 — validación de estado.
@@ -361,9 +400,15 @@ async def generar_vouchers(
         {"k": f"oc_voucher_gen_{oc_id}"},
     )
 
-    # R152AAAAA · P0 — idempotency: si ya hay vouchers generados para esta OC,
-    # retornar los existentes sin re-generar. Evita double-submit
-    # generando 22 vouchers cuando el operador hace doble click.
+    # R152AAAAA · P0 → R152UUUUUU — idempotencia SIN bloquear regeneración
+    # parcial. El early-return anterior ("si existe CUALQUIER voucher,
+    # retornar sin generar") dejaba huérfanas a las cuotas que volvían a
+    # PENDIENTE (voucher anulado → trigger R152BBBB las resetea) y a las
+    # cuotas agregadas después: nunca podían regenerar su voucher.
+    # El doble-click ya está cubierto por el advisory lock de arriba +
+    # el cambio de estado a VOUCHER_GENERADO (la 2ª llamada no encuentra
+    # cuotas PENDIENTE y devuelve 0 creados). Los códigos existentes se
+    # incluyen en la respuesta solo como información.
     existing_rows = (
         await db.execute(
             text(
@@ -376,13 +421,7 @@ async def generar_vouchers(
             {"id": oc_id},
         )
     ).fetchall()
-    if existing_rows:
-        codigos_existentes = [r[0] for r in existing_rows]
-        return GenerarVouchersResult(
-            cuotas_procesadas=0,
-            vouchers_creados=0,
-            vouchers_codigos=codigos_existentes,
-        )
+    codigos_existentes = [r[0] for r in existing_rows]
 
     # R152DDDDD · Reemplazo del advisory_lock + COUNT(*) por la tabla
     # centralizada core.correlativos. UPSERT atomico con RETURNING garantiza
@@ -412,8 +451,13 @@ async def generar_vouchers(
     ).mappings().all()
     pendientes = [dict(r) for r in cuotas_rows]
     if not pendientes:
+        # Nada que generar: se devuelven los códigos ya existentes para que
+        # el frontend pueda mostrarlos (comportamiento idéntico al early-
+        # return anterior cuando la OC ya estaba completamente generada).
         return GenerarVouchersResult(
-            cuotas_procesadas=0, vouchers_creados=0, vouchers_codigos=[]
+            cuotas_procesadas=0,
+            vouchers_creados=0,
+            vouchers_codigos=codigos_existentes,
         )
 
     # Datos del proveedor
@@ -569,7 +613,7 @@ async def generar_vouchers(
     return GenerarVouchersResult(
         cuotas_procesadas=len(pendientes),
         vouchers_creados=len(creados),
-        vouchers_codigos=creados,
+        vouchers_codigos=codigos_existentes + creados,
     )
 
 

@@ -577,11 +577,23 @@ async def reply_email(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Resend no está configurado (RESEND_API_KEY ausente).",
         )
-    svc.send(
+    # R152UUUUUU — send_async (no bloquear el event loop) + verificar el
+    # resultado: send() hace soft-fail devolviendo None si Resend falla, y
+    # antes se marcaba 'replied' incondicionalmente — la respuesta nunca
+    # salía pero el guard anti-doble-reply (400) impedía reintentar.
+    send_result = await svc.send_async(
         to=[from_email],
         subject=reply_subject,
         html=body.body_html,
     )
+    if send_result is None:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "No se pudo enviar la respuesta (Resend falló). El email "
+                "sigue pendiente — reintentá en unos minutos."
+            ),
+        )
 
     await db.execute(
         text("""

@@ -180,6 +180,23 @@ async def _is_lp_user(db, user_sub: str) -> dict | None:
     return {"lp_id": row[0], "legal_name": row[1], "lp_type": row[2]}
 
 
+async def _require_fund_level_access(user, db) -> None:
+    """R152TTTTT quedó incompleto: cubrió los endpoints por-empresa pero los
+    fund-level (metrics/jcurve/impact/compliance) quedaron abiertos a
+    cualquier usuario autenticado — NAV, TVPI, DPI, commitments y estado de
+    compliance son confidenciales GP/LP. Acceso: director/auditor
+    (admin/finance, mismo gate que /dashboard/lps) o un usuario linkeado a
+    un LP activo (reporting estándar a inversionistas)."""
+    if user.app_role in ("admin", "finance"):
+        return
+    if await _is_lp_user(db, str(user.sub)):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Solo directorio, finanzas o LPs pueden ver métricas del fondo",
+    )
+
+
 # ---------------------------------------------------------------------------
 # G01 — Fund Metrics (KPI Row)
 # ---------------------------------------------------------------------------
@@ -195,6 +212,7 @@ async def get_fund_metrics(
 
     Calcula TVPI, DPI, RVPI, MOIC en runtime sobre cashflows + valuations.
     """
+    await _require_fund_level_access(user, db)
     row = (await db.execute(
         text(
             """
@@ -263,6 +281,7 @@ async def get_jcurve(
     Capital calls = negativo, distributions = positivo.
     Para la vista del director (fund-level).
     """
+    await _require_fund_level_access(user, db)
     rows = (await db.execute(
         text(
             """
@@ -397,6 +416,7 @@ async def get_impact_aggregated(
     period: str = "2025-12-31",
 ) -> ImpactResponse:
     """G16 Impact KPI Cards — IRIS+ v5.3 agregado por metric_id."""
+    await _require_fund_level_access(user, db)
     rows = (await db.execute(
         text(
             """
@@ -588,6 +608,7 @@ async def get_compliance(
     fund_codigo: str = "FIP_CEHTA_ESG",
 ) -> ComplianceResponse:
     """Estado de compliance multi-framework (OPIM + CMF + CORFO + ICMA)."""
+    await _require_fund_level_access(user, db)
     rows = (await db.execute(
         text(
             """

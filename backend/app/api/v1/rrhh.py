@@ -688,7 +688,12 @@ async def update_empleado(
 ) -> EmpleadoRead:
     """Edita campos del empleado. Solo los provistos cambian."""
     await _check_rrhh_access(user, db)
-    fields = body.model_dump(exclude_none=True)
+    # R152UUUUUU - exclude_unset (no exclude_none): el modal de edicion
+    # manda `area: null` para LIMPIAR el campo, pero exclude_none lo
+    # descartaba: el usuario veia "Empleado actualizado" y el valor viejo
+    # reaparecia. Con exclude_unset, null explicito = borrar; campo no
+    # enviado = no tocar (mismo patron que el PATCH de OCs).
+    fields = body.model_dump(exclude_unset=True)
     if not fields:
         existing = (
             await db.execute(

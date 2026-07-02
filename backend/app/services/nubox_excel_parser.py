@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import re
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from openpyxl import load_workbook
@@ -105,7 +106,11 @@ def _to_int(v: Any) -> int:
     if isinstance(v, int):
         return v
     if isinstance(v, float):
-        return int(round(v))
+        # R152UUUUUU: round() de Python es HALF_EVEN (84.874,5 -> 84.874);
+        # el invariante MAESTRO pide HALF_UP para montos CLP.
+        return int(
+            Decimal(str(v)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+        )
     s = str(v).strip()
     # Quitar $ y otros símbolos
     s = re.sub(r"[$\s]", "", s)
@@ -127,9 +132,11 @@ def _to_int(v: Any) -> int:
     if not s or s == "-":
         return 0
     try:
-        val = int(float(s))
+        # R152UUUUUU: int(float()) truncaba los decimales
+        # ('84.874,60' -> 84.874 perdiendo 0,60); ahora HALF_UP.
+        val = int(Decimal(s).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
         return -val if negative else val
-    except ValueError:
+    except (ValueError, ArithmeticError):
         return 0
 
 

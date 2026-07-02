@@ -373,7 +373,7 @@ async def cancel_batch(
     batch = (
         await db.execute(
             text(
-                "SELECT status FROM core.nubox_export_batches WHERE batch_id = :b"
+                "SELECT status, empresa_codigo FROM core.nubox_export_batches WHERE batch_id = :b"
             ),
             {"b": batch_id},
         )
@@ -382,6 +382,10 @@ async def cancel_batch(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Batch no encontrado"
         )
+    # R152UUUUUU — scope check: confirm_batch (ola CG) lo tenía, cancel no —
+    # un usuario scopeado a otra empresa podía cancelar el batch por id y
+    # liberar sus vouchers (nubox_status=NULL) forzando re-exportación.
+    await assert_empresa_access(user, db, batch["empresa_codigo"])
     if batch["status"] not in ("GENERATED", "FAILED"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

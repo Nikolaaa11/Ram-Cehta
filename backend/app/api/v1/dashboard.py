@@ -20,7 +20,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -353,8 +353,14 @@ async def get_kpis(
     db: DBSession,
     scope: EmpresaScopeDep,
     response: Response,
+    empresa_codigo: str | None = None,
 ) -> DashboardKPIs:
     """V5++ ola CB+CC: KPIs solo de empresas en scope del user.
+
+    R152UUUUUU — acepta ?empresa_codigo=: el EmpresaFilter del dashboard
+    lo enviaba desde siempre pero el endpoint lo ignoraba en silencio —
+    los gráficos cambiaban al elegir una empresa y las tarjetas KPI
+    seguían mostrando cifras globales (engañoso).
 
     Cache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan
     ser frescos al segundo. El browser/CDN devuelve cached por 60s y
@@ -366,7 +372,18 @@ async def get_kpis(
 
     scope_params: dict = {"p_now": periodo, "p_prev": periodo_anterior, "p": periodo}
     scope_filter_emp = ""
-    if not scope.is_global:
+    if empresa_codigo:
+        # Filtro explícito del usuario, validado contra su scope.
+        if not scope.is_global and empresa_codigo not in (
+            scope.allowed_codes or frozenset()
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Sin acceso a la empresa {empresa_codigo}",
+            )
+        scope_params["scope_codes"] = [empresa_codigo]
+        scope_filter_emp = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
+    elif not scope.is_global:
         allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
         scope_params["scope_codes"] = allowed
         scope_filter_emp = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"

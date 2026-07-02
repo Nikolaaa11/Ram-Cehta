@@ -303,9 +303,11 @@ export default function VoucherCorfoPage() {
     if (!reparto) throw new Error("Proyecto sin configurar");
     if (cuentasFaltantes > 0) {
       throw new Error(
+        // R152UUUUUU: /admin/proyectos-contables/{codigo} no existe (404);
+        // la configuracion vive en la LISTA /admin/proyectos-contables.
         `El proyecto ${proyectoCodigo} no tiene las cuentas del reparto ` +
           `configuradas (faltan ${cuentasFaltantes}). Anda a ` +
-          `/admin/proyectos-contables/${proyectoCodigo} y completa ` +
+          `/admin/proyectos-contables, abre el proyecto y completa ` +
           `"cuenta_aporte_corfo", "cuenta_aporte_ptec_cehta", ` +
           `"cuenta_aporte_empresa_directa" y "cuenta_iva_corporativo" ` +
           `antes de crear vouchers.`,
@@ -845,11 +847,12 @@ export default function VoucherCorfoPage() {
                 <p className="text-[11px] text-negative/85 leading-relaxed">
                   Antes de crear el voucher, ve a{" "}
                   <Link
-                    href={`/admin/proyectos-contables/${proyectoCodigo}` as Route}
+                    href={"/admin/proyectos-contables" as Route}
                     className="underline font-semibold"
                   >
-                    /admin/proyectos-contables/{proyectoCodigo}
-                  </Link>{" "}
+                    Proyectos contables
+                  </Link>
+                  , abre el proyecto <b>{proyectoCodigo}</b>{" "}
                   y completa la sección &quot;Reparto default → Cuentas contables&quot;.
                   Sin estas, el backend rechazará el POST con{" "}
                   <code className="font-mono">&quot;Cuenta &apos;?&apos; no existe&quot;</code>.

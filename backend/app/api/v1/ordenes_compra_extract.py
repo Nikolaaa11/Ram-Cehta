@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import time
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Annotated, Any
 
 import structlog
@@ -195,7 +195,11 @@ def _build_oc_suggestion(
         # Fallback: usar total y descontar IVA si moneda=CLP (19%)
         total = _parse_amount(fields.get("total"))
         if total is not None and moneda == "CLP":
-            neto = (total / Decimal("1.19")).quantize(Decimal("0.01"))
+            # R152UUUUUU — peso entero HALF_UP (antes 0.01/HALF_EVEN:
+            # total 1.190.001 sugería neto 1.000.000,84 con centavos).
+            neto = (total / Decimal("1.19")).quantize(
+                Decimal("1"), rounding=ROUND_HALF_UP
+            )
         elif total is not None:
             neto = total
     neto_str = str(neto) if neto else "0"

@@ -287,6 +287,13 @@ async def auto_create_oc_from_inbox(
 async def _save_error(db: AsyncSession, inbox_id: int, msg: str) -> None:
     """Persiste el error en auto_create_error sin bloquear el flujo."""
     try:
+        # R152UUUUUU — rollback previo: si _crear_oc falló con error SQL la
+        # transacción quedó abortada y este UPDATE lanzaba
+        # PendingRollbackError (tragado por el except): el mensaje quedaba
+        # sin auto_create_error NI OC — invisible para el operador.
+        import contextlib
+        with contextlib.suppress(Exception):
+            await db.rollback()
         await db.execute(
             text(
                 """UPDATE core.inbox_messages
@@ -551,7 +558,14 @@ async def _crear_oc(
             "total_linea": total_neto,
         })
 
-    iva = (total_neto * IVA_TASA).quantize(Decimal("0.01"))
+    # R152UUUUUU — motor de IVA alineado con la vía manual (schemas/
+    # orden_compra.py + domain/value_objects/iva.py): IVA solo si la moneda
+    # es CLP, redondeado a PESO ENTERO con HALF_UP. Antes esta vía aplicaba
+    # 19% siempre (incluso USD/UF) y cuantizaba a 0.01 con HALF_EVEN
+    # (bankers): la misma OC daba totales distintos según la puerta de
+    # entrada (neto 55.450 → email 10.535,50 vs manual 10.536).
+    from app.domain.value_objects.iva import calcular_iva
+    iva = calcular_iva(total_neto) if moneda == "CLP" else Decimal("0")
     total = total_neto + iva
 
     # INSERT OC cabecera

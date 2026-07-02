@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { ChevronRight, FileText, History, Pencil, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { useMe } from "@/hooks/use-me";
@@ -45,12 +44,20 @@ export function TrabajadorRow({ trabajador, empresaCodigo, onChanged }: Props) {
     <>
       <tr className="transition-colors duration-150 hover:bg-ink-100/30">
         <td className="px-4 py-3 font-medium text-ink-900">
-          <Link
-            href={`/empresa/${empresaCodigo}/trabajadores/${trabajador.trabajador_id}` as never}
-            className="hover:text-cehta-green"
-          >
-            {trabajador.nombre_completo}
-          </Link>
+          {/* R152UUUUUU — la ruta /empresa/{codigo}/trabajadores/{id} nunca
+              existió (404 garantizado). El "detalle" real es el diálogo de
+              edición que ya vive en esta fila. */}
+          {canUpdate ? (
+            <button
+              type="button"
+              onClick={() => setEditOpen(true)}
+              className="text-left hover:text-cehta-green"
+            >
+              {trabajador.nombre_completo}
+            </button>
+          ) : (
+            <span>{trabajador.nombre_completo}</span>
+          )}
         </td>
         <td className="px-4 py-3 font-mono text-xs text-ink-700 tabular-nums">
           {trabajador.rut}
@@ -112,13 +119,16 @@ export function TrabajadorRow({ trabajador, empresaCodigo, onChanged }: Props) {
                 </button>
               }
             />
-            <Link
-              href={`/empresa/${empresaCodigo}/trabajadores/${trabajador.trabajador_id}` as never}
-              title="Ver detalle"
-              className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
-            </Link>
+            {canUpdate && (
+              <button
+                type="button"
+                onClick={() => setEditOpen(true)}
+                title="Ver / editar detalle"
+                className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-ink-100/60"
+              >
+                <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
+              </button>
+            )}
           </div>
         </td>
       </tr>

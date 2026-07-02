@@ -38,6 +38,7 @@ from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
 from app.services.credentials_service import (
     CredentialDecryptError,
+    CredentialsKeyMissing,
     decrypt_credential,
 )
 from app.services.sii_client import (
@@ -213,7 +214,7 @@ async def _get_credencial_sii(
         )
     try:
         plain = decrypt_credential(row[1])
-    except CredentialDecryptError as exc:
+    except (CredentialDecryptError, CredentialsKeyMissing) as exc:
         # R152HHHHHH — no exponer el detalle cripto al frontend (puede
         # filtrar si la key rotó, si el ciphertext está corrupto, etc.).
         # El detalle real va al log server-side; al cliente, mensaje genérico.

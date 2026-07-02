@@ -26,6 +26,7 @@ from app.api.deps import CurrentUser, DBSession
 from app.core.security import AuthenticatedUser
 from app.services.credentials_service import (
     CredentialDecryptError,
+    CredentialsKeyMissing,
     decrypt_credential,
 )
 from app.services.nubox_client import (
@@ -149,10 +150,22 @@ async def _get_credencial_nubox(
         )
     try:
         plain = decrypt_credential(row[1])
-    except CredentialDecryptError as exc:
+    except (CredentialDecryptError, CredentialsKeyMissing) as exc:
+        # R152UUUUUU — mensaje genérico al cliente (R152HHHHHH quedó
+        # incompleto en este router: str(exc) filtraba detalle cripto) y
+        # captura también CredentialsKeyMissing (Fernet key sin configurar
+        # → antes 500 crudo, ahora 503 con mensaje accionable).
+        log.error(
+            "nubox.credential_decrypt_failed",
+            extra={"err": str(exc)[:200]},
+        )
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"No se pudo descifrar: {exc}",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "No se pudieron leer las credenciales de Nubox. Verificá "
+                "que CREDENTIALS_FERNET_KEY esté configurada y las "
+                "credenciales re-guardadas."
+            ),
         ) from exc
     return row[0], plain
 

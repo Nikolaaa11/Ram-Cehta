@@ -42,6 +42,7 @@ from app.api.deps import CurrentUser, DBSession
 from app.core.security import AuthenticatedUser
 from app.services.credentials_service import (
     CredentialDecryptError,
+    CredentialsKeyMissing,
     decrypt_credential,
     encrypt_credential,
 )
@@ -186,7 +187,7 @@ async def _get_active_credentials(
     try:
         partner_token = decrypt_credential(row[0])
         api_key = decrypt_credential(row[1])
-    except CredentialDecryptError as exc:
+    except (CredentialDecryptError, CredentialsKeyMissing) as exc:
         # R152HHHHHH — mensaje genérico al frontend; detalle solo al log.
         log.error(
             "nubox_api.credential_decrypt_failed",
@@ -320,8 +321,22 @@ async def set_credentials(
         )
 
     base_url = _resolve_base_url(body.environment, body.base_url)
-    partner_enc = encrypt_credential(body.partner_token)
-    api_key_enc = encrypt_credential(body.api_key)
+    # R152UUUUUU — encrypt_credential lanza CredentialsKeyMissing si la
+    # CREDENTIALS_FERNET_KEY no está seteada (el estado actual de prod
+    # hasta que se corra `fly secrets set`): antes 500 crudo al intentar
+    # guardar credenciales, ahora 503 con instrucción clara.
+    try:
+        partner_enc = encrypt_credential(body.partner_token)
+        api_key_enc = encrypt_credential(body.api_key)
+    except CredentialsKeyMissing as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "El cifrado de credenciales no está configurado "
+                "(CREDENTIALS_FERNET_KEY ausente en el backend). "
+                "Configurala y reintentá."
+            ),
+        ) from exc
 
     await db.execute(
         text(

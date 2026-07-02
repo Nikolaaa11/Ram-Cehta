@@ -518,9 +518,13 @@ export default function NuboxFormPage() {
   const impEspecifico = useMemo(() => {
     const v = parseFloat(impuestoEspecifico) || 0;
     if (v <= 0) return 0;
-    return impuestoEspecificoModo === "pct"
-      ? Math.round(totalContableNeto * (v / 100))
-      : v;
+    // R152UUUUUU: aritmetica entera para replicar el HALF_UP del backend.
+    // Math.round(neto * (pct/100)) en float divergia en los .5 exactos
+    // (300 x 20,5% = 61,5 -> FE mostraba 61, BE guardaba 62). pct tiene
+    // hasta 3 decimales -> pct*1000 es entero y neto*pct1000 < 2^53.
+    if (impuestoEspecificoModo !== "pct") return v;
+    const pct1000 = Math.round(v * 1000);
+    return Math.floor((totalContableNeto * pct1000 + 50000) / 100000);
   }, [impuestoEspecifico, impuestoEspecificoModo, totalContableNeto]);
   const totalContableBruto = useMemo(
     () =>

@@ -597,7 +597,12 @@ async def check_duplicate_voucher(
                   AND contraparte_rut = :rut
                   AND doc_tributario_folio = :folio
                   AND doc_tributario_tipo = :tipo
-                  AND status NOT IN ('VOIDED', 'CANCELLED')
+                  -- R152UUUUUU: 'VOIDED'/'CANCELLED' no existen en
+                  -- VoucherStatus (los reales son VOID/REJECTED): el filtro
+                  -- nunca excluía nada y un voucher anulado por folio
+                  -- equivocado daba falso positivo de duplicado al
+                  -- reingresar el documento correcto.
+                  AND status NOT IN ('VOID', 'REJECTED')
                 ORDER BY voucher_id DESC
                 LIMIT 5
                 """

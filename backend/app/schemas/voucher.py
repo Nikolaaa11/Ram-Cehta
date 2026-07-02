@@ -166,6 +166,19 @@ class VoucherCreate(BaseModel):
     @model_validator(mode="after")
     def _validate_lines(self) -> "VoucherCreate":
         """Reglas de negocio que se cruzan con las líneas."""
+        # 0. R152UUUUUU — estado inicial restringido a DRAFT/PENDING.
+        # El tipo VoucherStatus acepta los 9 estados y create_voucher lo
+        # pasaba crudo: un POST con status=EXECUTED/APPROVED/SYNCED creaba
+        # un voucher "ya pagado" sin pasar por las 2 firmas (el trigger de
+        # partida doble es BEFORE UPDATE, no INSERT). Las transiciones
+        # posteriores tienen sus endpoints con firmas, locks y auditoría.
+        if self.status not in ("DRAFT", "PENDING"):
+            raise ValueError(
+                f"status inicial '{self.status}' no permitido: un voucher "
+                "nuevo solo puede nacer en DRAFT o PENDING. Los demás "
+                "estados se alcanzan con el flujo de firmas/ejecución."
+            )
+
         # 1. line_number único e iniciando en 1
         nums = [line.line_number for line in self.lines]
         if sorted(nums) != list(range(1, len(self.lines) + 1)):

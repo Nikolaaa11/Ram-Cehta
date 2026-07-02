@@ -439,10 +439,16 @@ async def download_oc_pdf(
             detail="OC no encontrada",
         )
     await assert_empresa_access(user, db, oc.empresa_codigo)
+    # R152UUUUUU — capturar los atributos ANTES del try/rollback de abajo:
+    # si el SELECT de oc_template falla y se hace rollback, el objeto ORM
+    # queda expirado y `oc.numero_oc` lanza MissingGreenlet (500) justo al
+    # armar el filename, después de haber generado el PDF completo.
+    oc_numero = oc.numero_oc
+    oc_empresa = oc.empresa_codigo
     _pdf_log.info(
         "oc_pdf.start",
         oc_id=oc_id,
-        empresa=oc.empresa_codigo,
+        empresa=oc_empresa,
         include_attachments=include_attachments,
         user_email=getattr(user, "email", None),
     )
@@ -516,7 +522,7 @@ async def download_oc_pdf(
         duration_s=round(_time.monotonic() - t0, 2),
     )
 
-    filename = f"oc-{oc.numero_oc}.pdf"
+    filename = f"oc-{oc_numero}.pdf"
 
     # Round 17 — audit log de descarga PDF (forense). Soft-fail.
     # R152KKKK — Bug fix: `request` no estaba en scope. Lo omito (audit_log
@@ -527,16 +533,16 @@ async def download_oc_pdf(
             action="download_pdf",
             entity_type="orden_compra",
             entity_id=str(oc_id),
-            entity_label=str(oc.numero_oc),
+            entity_label=str(oc_numero),
             summary=(
-                f"Descarga PDF de OC {oc.numero_oc} "
+                f"Descarga PDF de OC {oc_numero} "
                 f"({len(pdf_bytes)} bytes, attachments={include_attachments})"
             ),
             before=None,
             after={
                 "bytes": len(pdf_bytes),
                 "include_attachments": include_attachments,
-                "empresa_codigo": oc.empresa_codigo,
+                "empresa_codigo": oc_empresa,
             },
         )
     except Exception:
@@ -833,6 +839,30 @@ async def update_estado(
         # Idempotente: ya está en ese estado, no hacemos nada.
         return _to_read(user, oc)
 
+    # R152UUUUUU — Anti-anulación con vouchers vivos, igual que el bulk
+    # (R152EEEEEE). El comentario del bulk asumía que "_authz ya lo bloquea
+    # en el single PATCH", pero _authz solo mira rol+estado: este endpoint
+    # permitía anular una OC con vouchers APROBADOS/EJECUTADOS (plata
+    # comprometida o salida), dejándolos huérfanos de una OC anulada.
+    if body.estado == "anulada":
+        vouchers_bloq = (await db.execute(
+            text(
+                """SELECT COUNT(*) FROM core.oc_cuotas c
+                   JOIN core.vouchers v ON v.voucher_id = c.voucher_id
+                   WHERE c.oc_id = :id AND v.status IN ('APPROVED','EXECUTED','SYNCED','RECONCILED')"""
+            ),
+            {"id": oc_id},
+        )).scalar() or 0
+        if vouchers_bloq > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"La OC tiene {vouchers_bloq} voucher(s) aprobado(s)/"
+                    "ejecutado(s) asociados a sus cuotas. Anulá o revertí esos "
+                    "vouchers antes de anular la OC."
+                ),
+            )
+
     estado_before = oc.estado
     updated = await repo.update_estado(oc, body.estado)
     await db.commit()
@@ -924,6 +954,17 @@ async def bulk_update_estado(
         oc = await repo.get(oc_id)
         if not oc:
             failed.append(BulkItemError(id=oc_id, detail="not found"))
+            continue
+        # R152UUUUUU — scoping multi-tenant por OC: el single PATCH valida
+        # empresa (ola CJ) pero el bulk no lo hacía — un usuario scopeado a
+        # una empresa podía cambiar estados de OCs de cualquier otra
+        # enumerando IDs. Falla por-item para no abortar el batch completo.
+        try:
+            await assert_empresa_access(user, db, oc.empresa_codigo)
+        except HTTPException:
+            failed.append(
+                BulkItemError(id=oc_id, detail="sin acceso a la empresa de esta OC")
+            )
             continue
         if oc.estado == body.estado:
             failed.append(BulkItemError(id=oc_id, detail="ya en ese estado"))
@@ -1062,6 +1103,24 @@ async def import_ocs_csv(
     repo = OrdenCompraRepository(db)
     for oc_data in parsed_ocs:
         try:
+            # R152UUUUUU — scoping multi-tenant por fila: el CSV trae
+            # empresa_codigo libre y antes se insertaba sin validar contra
+            # las empresas permitidas del usuario (un operador de RHO podía
+            # importar OCs "para" CENERGY). Falla por-OC, sigue el batch.
+            try:
+                await assert_empresa_access(user, db, oc_data.empresa_codigo)
+            except HTTPException:
+                report.errors.append(
+                    OcCsvImportError(
+                        numero_oc=oc_data.numero_oc,
+                        row=0,
+                        field="empresa_codigo",
+                        message=(
+                            f"sin acceso a la empresa {oc_data.empresa_codigo}"
+                        ),
+                    )
+                )
+                continue
             if await repo.exists_numero_oc(
                 oc_data.empresa_codigo, oc_data.numero_oc
             ):
@@ -1148,6 +1207,18 @@ async def send_oc_to_signers_endpoint(
       - Enviar OCs creadas antes de aplicar la migración R152IIII
       - Forzar re-envío después de cambiar email del GG
     """
+    # R152UUUUUU — scoping multi-tenant: este endpoint reenviaba el PDF de
+    # CUALQUIER oc_id sin validar la empresa contra el scope del usuario.
+    emp = await db.scalar(
+        text("SELECT empresa_codigo FROM core.ordenes_compra WHERE oc_id = :id"),
+        {"id": oc_id},
+    )
+    if emp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
+        )
+    await assert_empresa_access(user, db, str(emp))
+
     if force:
         await db.execute(
             text(

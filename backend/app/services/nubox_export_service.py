@@ -87,7 +87,11 @@ async def select_pending_vouchers(
     """
     where_parts = [
         "v.empresa_codigo = :empresa",
-        "v.status = 'APPROVED'",
+        # R152UUUUUU — también EXECUTED: un voucher pagado antes del export
+        # nunca entraba a ningún batch y su asiento jamás llegaba a Nubox
+        # (contabilidad oficial) en silencio. El filtro nubox_status IS NULL
+        # ya evita re-exportar los que tienen folio.
+        "v.status IN ('APPROVED', 'EXECUTED')",
         "v.nubox_status IS NULL",
     ]
     params: dict[str, Any] = {"empresa": empresa_codigo}
@@ -311,7 +315,13 @@ async def confirm_batch_with_folios(
                 SET nubox_folio = :folio,
                     nubox_synced_at = now(),
                     nubox_status = 'SYNCED',
-                    status = 'SYNCED',
+                    -- R152UUUUUU: el estado de sync vive en nubox_status;
+                    -- `status` solo avanza APPROVED→SYNCED. Antes pisaba
+                    -- EXECUTED→SYNCED: un voucher pagado entre export y
+                    -- confirm desaparecía de conciliación (exige EXECUTED)
+                    -- y perdía su estado de pago sin traza.
+                    status = CASE WHEN status = 'APPROVED'
+                                  THEN 'SYNCED' ELSE status END,
                     updated_at = now()
                 WHERE codigo = :c AND voucher_id IN (
                     SELECT voucher_id FROM core.nubox_export_voucher

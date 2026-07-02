@@ -276,6 +276,10 @@ async def unreconcile_voucher(
     db: DBSession,
     voucher_id: int,
 ) -> dict[str, Any]:
+    # R152UUUUUU — scoping multi-tenant: match-candidates y reconcile ya
+    # validaban la empresa del voucher; unreconcile era el único hermano
+    # sin el check (des-conciliaba vouchers de cualquier empresa por id).
+    await _assert_voucher_empresa_access(user, db, voucher_id)
     try:
         result = await unlink_voucher_movimiento(db, voucher_id=voucher_id)
         await db.commit()

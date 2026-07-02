@@ -147,10 +147,13 @@ export default function LibroDetallePage({
             </div>
           </div>
           {/* R152DDDD — Botón export Excel formato Nubox/SII */}
-          <a
-            href={`/api/v1/rrhh/libros/${libroId}/export-excel`}
-            onClick={async (e) => {
-              e.preventDefault();
+          {/* R152UUUUUU: era <a href="/api/v1/..."> relativo al dominio del
+              frontend (no existe ahi) - click normal funcionaba por el
+              preventDefault, pero middle-click / abrir en pestana nueva /
+              copiar enlace daban 404. Como boton no hay URL enganosa. */}
+          <button
+            type="button"
+            onClick={async () => {
               if (!session?.access_token) return;
               try {
                 const res = await fetch(
@@ -181,7 +184,7 @@ export default function LibroDetallePage({
           >
             <Download className="h-4 w-4" strokeWidth={2} />
             Exportar Excel
-          </a>
+          </button>
         </div>
       </div>
 

@@ -39,6 +39,7 @@ from sqlalchemy import text
 from app.core.database import SessionLocal
 from app.services.credentials_service import (
     CredentialDecryptError,
+    CredentialsKeyMissing,
     decrypt_credential,
 )
 
@@ -124,7 +125,7 @@ async def sync_sii_empresa(
     empresa_codigo = empresa["empresa_codigo"]
     try:
         clave = decrypt_credential(empresa["pwd_enc"])
-    except CredentialDecryptError as exc:
+    except (CredentialDecryptError, CredentialsKeyMissing) as exc:
         return {
             "ok": False, "empresa": empresa_codigo,
             "error": f"decrypt: {exc}", "documents": 0,

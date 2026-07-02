@@ -15,7 +15,7 @@ Y funciones con DB (usan AsyncSession):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import text
@@ -146,7 +146,12 @@ def calculate_iva_split(
         return monto_bruto, Decimal("0")
 
     factor = Decimal("1") + tasa_iva
-    neto = (monto_bruto / factor).quantize(Decimal("0.01"))
+    # R152UUUUUU — peso entero + HALF_UP (invariante MAESTRO). Antes
+    # quantize(0.01) con HALF_EVEN dejaba centavos en CLP: bruto 101 →
+    # neto 84,87/iva 16,13 en vez de 85/16.
+    neto = (monto_bruto / factor).quantize(
+        Decimal("1"), rounding=ROUND_HALF_UP
+    )
     iva = monto_bruto - neto
     return neto, iva
 

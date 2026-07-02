@@ -1240,11 +1240,23 @@ async def duplicate_voucher(
     )
 
     # 4. Crear voucher clon en DRAFT
+    # R152UUUUUU — totales del header desde las líneas clonadas: antes
+    # quedaban en el server_default 0 y el matching de reglas de aprobación
+    # en /submit (que lee total_debit ANTES de que el trigger sincronice)
+    # podía auto-aprobar sin firmas un clon de $5M como si fuera $0.
+    clone_total_debit = sum(
+        (l.debit or Decimal("0") for l in original_lines), start=Decimal("0")
+    )
+    clone_total_credit = sum(
+        (l.credit or Decimal("0") for l in original_lines), start=Decimal("0")
+    )
     clone = Voucher(
         codigo=new_codigo,
         empresa_codigo=original.empresa_codigo,
         tipo=original.tipo,
         status="DRAFT",
+        total_debit=clone_total_debit,
+        total_credit=clone_total_credit,
         fecha_documento=today,
         fecha_contable=today,
         glosa=f"[COPIA de {original.codigo}] {original.glosa}",
@@ -1258,7 +1270,16 @@ async def duplicate_voucher(
         banco_cuenta_alias=original.banco_cuenta_alias,
         threshold_aplicado=False,
         source="duplicate",
-        created_by_user_id=str(user.sub),
+        # R152UUUUUU — el modelo se llama `created_by` (UUID as string);
+        # `created_by_user_id` no existe y hacía explotar TODA duplicación
+        # con TypeError (el botón "Duplicar" devolvía 500 siempre). Mismo
+        # patrón defensivo de user.sub que generar-vouchers (R152YYYY).
+        created_by=(
+            str(user.sub)
+            if getattr(user, "sub", None)
+            and 32 <= len(str(user.sub)) <= 36
+            else None
+        ),
     )
     db.add(clone)
     await db.flush()
@@ -1877,6 +1898,17 @@ async def void_voucher(
     body: VoidRequest,
 ) -> VoucherRead:
     """V5++ ola CJ — scope check + audit_log (compliance gap reportado)."""
+    # R152UUUUUU — Row lock: cierra la carrera void vs execute (podía quedar
+    # VOID un voucher recién pagado, o EXECUTED uno recién anulado, según
+    # el orden de commit).
+    lock_row = (await db.execute(
+        text("SELECT voucher_id FROM core.vouchers WHERE voucher_id = :vid FOR UPDATE"),
+        {"vid": voucher_id},
+    )).fetchone()
+    if lock_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
     v = await db.get(Voucher, voucher_id)
     if v is None:
         raise HTTPException(
@@ -3295,6 +3327,19 @@ async def execute_voucher(
       - movimiento_id opcional, si se pasa debe existir y ser de la misma
         empresa (conciliacion explicita).
     """
+    # R152UUUUUU — Row lock, mismo patrón que approve/reject. Sin esto,
+    # doble-click u operadores concurrentes leían ambos APPROVED y ambos
+    # commiteaban: doble audit "execute" y el segundo movimiento_id pisaba
+    # la conciliación del primero sin traza. También cierra la carrera
+    # execute vs void.
+    lock_row = (await db.execute(
+        text("SELECT voucher_id FROM core.vouchers WHERE voucher_id = :vid FOR UPDATE"),
+        {"vid": voucher_id},
+    )).fetchone()
+    if lock_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
     voucher = await db.get(Voucher, voucher_id)
     if voucher is None:
         raise HTTPException(
@@ -3302,12 +3347,15 @@ async def execute_voucher(
         )
     await assert_empresa_access(user, db, voucher.empresa_codigo)
 
-    if voucher.status != "APPROVED":
+    # R152UUUUUU — SYNCED también es pagable: un voucher exportado a Nubox
+    # antes del pago (APPROVED→SYNCED) quedaba en callejón sin salida
+    # (execute exigía APPROVED estricto y no había vuelta atrás).
+    if voucher.status not in ("APPROVED", "SYNCED"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"Solo vouchers APPROVED pueden marcarse como EXECUTED "
-                f"(este esta en {voucher.status})"
+                f"Solo vouchers APPROVED o SYNCED pueden marcarse como "
+                f"EXECUTED (este esta en {voucher.status})"
             ),
         )
 
@@ -3423,6 +3471,21 @@ async def bulk_execute_vouchers(
 
     for vid in body.voucher_ids:
         try:
+            # R152UUUUUU — Row lock por voucher (mismo patrón que
+            # bulk-approve): sin esto, dos bulk-execute concurrentes con IDs
+            # superpuestos duplicaban el "execute" del mismo voucher.
+            lock_row = (await db.execute(
+                text(
+                    "SELECT voucher_id FROM core.vouchers "
+                    "WHERE voucher_id = :vid FOR UPDATE"
+                ),
+                {"vid": vid},
+            )).fetchone()
+            if lock_row is None:
+                failures.append(
+                    {"voucher_id": vid, "reason": "Voucher no encontrado"}
+                )
+                continue
             voucher = await db.get(Voucher, vid)
             if voucher is None:
                 failures.append(
@@ -3442,13 +3505,15 @@ async def bulk_execute_vouchers(
                 )
                 continue
 
-            if voucher.status != "APPROVED":
+            # R152UUUUUU — SYNCED también pagable (ver execute single).
+            if voucher.status not in ("APPROVED", "SYNCED"):
                 failures.append(
                     {
                         "voucher_id": vid,
                         "codigo": voucher.codigo,
                         "reason": (
-                            f"Status actual {voucher.status} — solo APPROVED es elegible"
+                            f"Status actual {voucher.status} — solo "
+                            "APPROVED/SYNCED es elegible"
                         ),
                     }
                 )

@@ -449,7 +449,11 @@ async def export_transferencia_masiva(
                 detail="No tenes acceso a ninguna empresa activa.",
             )
 
-    allowed_statuses = ["APPROVED", "EXECUTED", "SYNCED"]
+    # R152UUUUUU — EXECUTED fuera de la planilla: un voucher ya pagado
+    # re-entraba al Excel sin advertencia si el operador re-seleccionaba
+    # IDs, y se cargaba de nuevo al banco (transferencia duplicada al
+    # proveedor). SYNCED se mantiene: exportado a Nubox pero aún sin pagar.
+    allowed_statuses = ["APPROVED", "SYNCED"]
     if body.incluir_pendientes_aprobacion:
         allowed_statuses.append("PENDING")
 
