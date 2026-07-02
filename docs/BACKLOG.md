@@ -15,6 +15,17 @@ Formato:
 
 ---
 
+## 🔎 Ronda frontend/UX (R152ZZZZZZ, 2026-07-02) — pendientes
+
+> Frontend verificado SÓLIDO (loading/error/empty states, double-submit,
+> tablas con overflow, MobileBottomNav touch≥48px, error boundaries).
+> Arreglados: NotificationsBell falso "todo al día" ante error de carga;
+> use-webhooks fetch sin sesión.
+
+- [M] (2h) **[TECH] 401 no centralizado en GETs de solo-lectura**: si la sesión expira estando quieto en una pantalla (dashboard, ai-insights, entregables, feed notif), los GET fallan con 401 y muestran ErrorState sin redirigir a login. Mitigado por redirect server-side en cada navegación. Fix correcto: `onError` global en QueryClient (providers.tsx) que detecte 401 y llame handleSessionExpired. Requiere cuidado para no romper flujos.
+- [L] (30m) **[TECH] nubox extract/adjuntos usan fetch() directo** (vouchers/nubox/page.tsx:583,1002): un 401 cae en catch genérico ("Error 401") sin flujo de sesión expirada. Migrar a apiClient o manejar 401 explícito.
+
+
 ## 🔎 Ronda 2 barrido (R152YYYYYY, 2026-07-02) — pendientes verificados
 
 > Ronda 2 (Gantt/tributario/IA/admin) ya ARREGLÓ y deployó: scope multi-tenant

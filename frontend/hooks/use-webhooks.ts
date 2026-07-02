@@ -63,7 +63,7 @@ export function useWebhookEventTypes() {
     queryKey: ["webhooks", "event-types"],
     queryFn: () =>
       apiClient.get<{ events: string[] }>("/webhooks/event-types", session),
-    enabled: !loading,
+    enabled: !loading && !!session,
     staleTime: 60 * 60 * 1000, // 1h — la lista es estática del código
   });
 }
@@ -74,7 +74,7 @@ export function useWebhookSubscriptions() {
     queryKey: ["webhooks"],
     queryFn: () =>
       apiClient.get<WebhookSubscriptionRead[]>("/webhooks", session),
-    enabled: !loading,
+    enabled: !loading && !!session,
   });
 }
 

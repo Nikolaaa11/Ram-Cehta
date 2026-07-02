@@ -64,7 +64,7 @@ function formatRelative(iso: string): string {
 export function NotificationsBell() {
   const [open, setOpen] = useState(false);
   const { data: unread } = useUnreadCount();
-  const { data: feed, isLoading } = useNotificationsFeed(false, 1, 10);
+  const { data: feed, isLoading, isError } = useNotificationsFeed(false, 1, 10);
   const markRead = useMarkRead();
   const markAll = useMarkAllRead();
 
@@ -176,6 +176,19 @@ export function NotificationsBell() {
                   className="h-14 animate-pulse rounded-xl bg-ink-100/40"
                 />
               ))}
+            </div>
+          ) : isError ? (
+            /* R152ZZZZZZ — antes un fallo de carga caía en el empty state
+               "¡Todo al día!" (falso negativo): el gerente creía que no
+               había alertas cuando en realidad la carga falló. Ahora se
+               distingue el error de la ausencia real de notificaciones. */
+            <div className="px-4 py-10 text-center">
+              <p className="text-sm font-medium text-negative">
+                No se pudieron cargar las notificaciones
+              </p>
+              <p className="text-xs text-ink-500 mt-0.5">
+                Revisá tu conexión o volvé a intentar en unos segundos.
+              </p>
             </div>
           ) : items.length === 0 ? (
             <div className="relative px-4 py-12 text-center overflow-hidden">
