@@ -631,7 +631,7 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                 summary = parsed.get("summary") or ""
 
                 async with db_lock:
-                    await db.execute(
+                    upd = await db.execute(
                         text("""
                             UPDATE core.inbox_messages
                             SET status = 'classified',
@@ -652,6 +652,22 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
                             "draft": parsed.get("draft_response_html"),
                         },
                     )
+                    # R152VVVVVV — idempotencia con crons duplicados: si
+                    # otro proceso ya clasificó este mail (rowcount 0 por el
+                    # guard status='received'), NO repetir efectos
+                    # secundarios (SSE, auto-OC, Slack, notificaciones).
+                    # Antes cada inbox_cron duplicado re-disparaba todo.
+                    if upd.rowcount == 0:
+                        return "skipped"
+                    # R152VVVVVV — commit INMEDIATO: rompe el deadlock
+                    # aplicativo. El UPDATE dejaba la fila lockeada hasta el
+                    # commit final de classify_pending, pero el auto-create
+                    # de OC (abajo) abre una sesión separada que hace
+                    # SELECT ... FOR UPDATE sobre la MISMA fila → esperaba
+                    # un commit que nunca llegaba y el cron quedaba colgado
+                    # para siempre (con los 5 schedules duplicados, los 5
+                    # procesos se apilaban colgados).
+                    await db.commit()
 
                     # Publicar evento SSE post-classify
                     try:
@@ -748,6 +764,7 @@ async def classify_pending(db: AsyncSession, limit: int = 20) -> dict[str, int]:
     )
     classified = sum(1 for r in results if r == "classified")
     errors = sum(1 for r in results if r == "error")
+    skipped += sum(1 for r in results if r == "skipped")
 
     await db.commit()
     return {"classified": classified, "errors": errors, "skipped": skipped}

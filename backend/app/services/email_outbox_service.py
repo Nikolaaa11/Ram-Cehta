@@ -171,7 +171,7 @@ async def _try_send_outbox_row(
         await db.execute(
             text(
                 """SELECT to_emails, cc_emails, reply_to, subject, html_body,
-                          attempts
+                          attempts, triggered_by_entity
                    FROM core.email_outbox
                    WHERE outbox_id = :id AND status IN ('pending', 'failed')
                    FOR UPDATE SKIP LOCKED"""
@@ -199,6 +199,40 @@ async def _try_send_outbox_row(
         await db.commit()
         return {"outbox_id": outbox_id, "status": "deferred"}
 
+    # R152VVVVVV — regenerar el adjunto si el email pertenece a una OC.
+    # El enqueue no guarda el PDF ("el retry lo regenera") pero el retry
+    # nunca lo regeneraba: el GG recibía "Adjuntamos la OC" SIN adjunto.
+    oc_id_ref: int | None = None
+    ent = str(row.get("triggered_by_entity") or "")
+    if ent.startswith("oc:"):
+        try:
+            oc_id_ref = int(ent.split(":", 1)[1])
+        except ValueError:
+            oc_id_ref = None
+    attachments = None
+    if oc_id_ref:
+        try:
+            import base64
+            from app.services.send_oc_to_signers_service import (
+                generate_oc_pdf_for_email,
+            )
+            pdf_bytes = await generate_oc_pdf_for_email(db, oc_id_ref)
+            numero = await db.scalar(
+                text("SELECT numero_oc FROM core.ordenes_compra WHERE oc_id = :id"),
+                {"id": oc_id_ref},
+            )
+            attachments = [{
+                "filename": f"OC-{numero or oc_id_ref}.pdf",
+                "content": base64.b64encode(pdf_bytes).decode("ascii"),
+            }]
+        except Exception as exc:  # noqa: BLE001 — mejor sin adjunto que dead
+            log.warning(
+                "email_outbox.pdf_regen_failed",
+                outbox_id=outbox_id,
+                oc_id=oc_id_ref,
+                error=str(exc)[:200],
+            )
+
     try:
         resp = await asyncio.to_thread(
             svc.send,
@@ -207,6 +241,7 @@ async def _try_send_outbox_row(
             reply_to=row["reply_to"],
             subject=row["subject"],
             html=row["html_body"],
+            attachments=attachments,
         )
         if resp and isinstance(resp, dict) and resp.get("id"):
             await db.execute(
@@ -221,6 +256,18 @@ async def _try_send_outbox_row(
                 ),
                 {"id": outbox_id, "rid": resp["id"]},
             )
+            # R152VVVVVV — cerrar el loop en la OC: sin esto un retry
+            # exitoso dejaba oc_sent_at NULL y un reenvío manual duplicaba
+            # el email al GG.
+            if oc_id_ref:
+                await db.execute(
+                    text(
+                        """UPDATE core.ordenes_compra
+                           SET oc_sent_at = NOW(), oc_send_error = NULL
+                           WHERE oc_id = :id AND oc_sent_at IS NULL"""
+                    ),
+                    {"id": oc_id_ref},
+                )
             await db.commit()
             return {"outbox_id": outbox_id, "status": "sent"}
         else:

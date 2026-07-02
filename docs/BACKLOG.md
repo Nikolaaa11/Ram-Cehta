@@ -16,13 +16,13 @@ Formato:
 ---
 
 ## 🔎 Hallazgos barrido R152UUUUUU (2026-07-02) — verificados, pendientes de fix
+> Tanda 2 (R152VVVVVV) ya resolvió: deadlock inbox_cron, dedupe de
+> clasificación (rowcount guard), outbox cableado al monitor horario,
+> adjuntos regenerados en retry + oc_sent_at, y PDF v2/panimavida en
+> el email al GG.
 
-- [H] (3h) **[TECH] Deadlock aplicativo en inbox_cron al clasificar OCs**: `inbox_processor_service.py` hace UPDATE (lock de fila sin commit) y luego abre una 2ª sesión que hace `SELECT FOR UPDATE` sobre la MISMA fila → el cron queda colgado para siempre y ningún mail se clasifica. Fix: commitear la clasificación ANTES del bloque auto-create, o usar la misma sesión. Agravado por los 5 schedules duplicados de inbox_cron.
 - [H] (2h) **[TECH] nubox_api_mapper arma mal la base del DTE**: suma `max(debit,credit)` de TODAS las líneas (ambos lados + línea IVA) como "neto" y recalcula 19% encima → DTE por 1.416.100 en vez de 1.190.000. Integración aún inerte, pero corregir antes de activar Nubox API. El test solo valida `len(details)>=1` — agregar asserts de montos.
-- [M] (1h) **[TECH] Outbox de emails sin retry automático**: `retry_failed_emails` no está cableado a ningún cron de fly.toml (solo endpoint manual). Además el retry envía sin adjuntos (attachments_meta se persiste pero nunca se lee) y no actualiza `oc_sent_at` → reenvío manual duplica el email al GG.
-- [M] (2h) **[TECH] Clasificación inbox no idempotente con crons duplicados**: sin `FOR UPDATE SKIP LOCKED` ni dedupe de notificaciones → un mismo email puede generar hasta 5 notificaciones × admin + 5× costo Claude. (Mitigación inmediata [OPS]: dejar 1 solo inbox_cron.)
 - [M] (2h) **[TECH] Vía correo/PDF crea vouchers DRAFT sin líneas** que no pueden avanzar (submit exige líneas y no hay endpoint para agregarlas después). Decidir: ¿crear con líneas sugeridas, o botón "completar en formulario Nubox" que precargue?
-- [M] (1h) **[TECH] Email al GG usa PDF v1 siempre**: `send_oc_to_signers_service` no pasa por el dispatcher v2/panimavida → los 5 firmantes de RHO reciben el PDF institucional, distinto al que se descarga de la UI.
 - [M] (1h) **[TECH] Endpoint REJECTED→DRAFT (reabrir)**: hoy un voucher rechazado es terminal (PATCH y submit exigen DRAFT). "Duplicar" quedó arreglado este round y sirve de recuperación, pero un botón "Reabrir como borrador" es el flujo natural.
 - [L] (1h) **[TECH] Filtro de período del dashboard (from/to) no lo consume ningún endpoint** — el PeriodoFilter no afecta nada en toda la página. Implementar o quitar el control.
 - [L] (30m) **[TECH] Scope per-empresa en mapeo CORFO** (`corfo_rendiciones.py`): gate solo por rol admin/finance, sin validar scope de REVTECH/TRONGKAI.

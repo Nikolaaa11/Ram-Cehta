@@ -360,6 +360,19 @@ async def main() -> int:
             anomalies = detect_anomalies(health, metrics)
             check_id = await persist_check(db, health, metrics, anomalies)
 
+            # R152VVVVVV — retry del outbox de emails: la función existía
+            # (R152ZZZZZ) pero no estaba cableada a ningún cron — los
+            # emails 'failed' quedaban estancados para siempre mientras la
+            # UI prometía "retry automático en 5-40 min". Piggyback en el
+            # monitor horario; soft-fail para no romper el health check.
+            try:
+                from app.services.email_outbox_service import (
+                    retry_failed_emails,
+                )
+                outbox_retry = await retry_failed_emails(db)
+            except Exception as exc:  # noqa: BLE001
+                outbox_retry = {"error": str(exc)[:200]}
+
         elapsed_ms = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         result = {
             "ok": True,
@@ -369,6 +382,7 @@ async def main() -> int:
             "backend_response_ms": health.get("response_ms"),
             "anomalies_count": len(anomalies),
             "anomaly_categories": [a["category"] for a in anomalies],
+            "email_outbox_retry": outbox_retry,
             "metrics": metrics,
         }
         print(json.dumps(result, default=str))

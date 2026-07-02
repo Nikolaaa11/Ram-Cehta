@@ -29,6 +29,47 @@ from app.services.email_service import EmailService
 log = structlog.get_logger(__name__)
 
 
+
+async def generate_oc_pdf_for_email(db, oc_id: int) -> bytes:
+    """R152VVVVVV — PDF de la OC con el MISMO dispatcher que la descarga
+    de la UI. Antes el email al GG usaba siempre el bundle v1
+    institucional: los firmantes de RHO recibían un documento distinto
+    (sin carta MANDANTE/PROVEEDOR ni página de firmas) al que se
+    descarga de la plataforma. También lo usa el retry del outbox para
+    regenerar el adjunto."""
+    from app.services.oc_pdf_service import generate_oc_pdf_bundle
+
+    renderer = "v1"
+    try:
+        from app.core.config import settings as _settings
+        renderer = (getattr(_settings, "oc_pdf_renderer", "v1") or "v1").lower()
+    except Exception:
+        renderer = "v1"
+    try:
+        emp_template = await db.scalar(
+            text(
+                "SELECT e.oc_template FROM core.empresas e "
+                "JOIN core.ordenes_compra o ON o.empresa_codigo = e.codigo "
+                "WHERE o.oc_id = :id"
+            ),
+            {"id": oc_id},
+        )
+        if (emp_template or "").lower() == "panimavida":
+            renderer = "v2"
+    except Exception:
+        import contextlib
+        with contextlib.suppress(Exception):
+            await db.rollback()
+    if renderer == "v2":
+        from app.services.oc_pdf_v2_service import generate_oc_pdf_v2_bundle
+        return await generate_oc_pdf_v2_bundle(
+            oc_id=oc_id, db=db, include_attachments=True
+        )
+    return await generate_oc_pdf_bundle(
+        oc_id=oc_id, db=db, include_attachments=True
+    )
+
+
 async def send_oc_to_signers(
     db: AsyncSession, oc_id: int
 ) -> dict[str, Any]:
@@ -178,15 +219,9 @@ async def send_oc_to_signers(
         await _save_error(db, oc_id, msg)
         return {"ok": False, "error": msg}
 
-    # 3. Generar PDF
+    # 3. Generar PDF — mismo dispatcher que la descarga UI (R152VVVVVV)
     try:
-        from app.services.oc_pdf_service import generate_oc_pdf_bundle
-
-        pdf_bytes = await generate_oc_pdf_bundle(
-            oc_id=oc_id,
-            db=db,
-            include_attachments=True,
-        )
+        pdf_bytes = await generate_oc_pdf_for_email(db, oc_id)
     except Exception as exc:
         msg = f"Error generando PDF: {exc}"
         await _save_error(db, oc_id, msg)
