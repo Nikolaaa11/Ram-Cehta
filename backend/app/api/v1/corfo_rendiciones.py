@@ -30,6 +30,7 @@ from pydantic import BaseModel
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
+from app.services.empresa_scope_service import assert_empresa_access
 
 router = APIRouter(prefix="/admin/corfo", tags=["corfo-rendiciones"])
 
@@ -129,6 +130,10 @@ async def preview_rendicion(
     """Preview de vouchers EXECUTED del período que irían a la rendición de Gastos."""
     await _require_admin(user)
     _require_corfo_empresa(empresa)
+    # R152WWWWWW — scope per-empresa: el gate admin/finance no validaba
+    # el scope, un finance de otra empresa podia leer/escribir el mapeo
+    # CORFO y generar la rendicion de REVTECH/TRONGKAI.
+    await assert_empresa_access(user, db, empresa)
 
     y, m = periodo.split("-")
     # Vouchers tipo COMPRA del periodo, con sus líneas + montos
@@ -251,6 +256,10 @@ async def mapping_full(
     """
     await _require_admin(user)
     _require_corfo_empresa(empresa)
+    # R152WWWWWW — scope per-empresa: el gate admin/finance no validaba
+    # el scope, un finance de otra empresa podia leer/escribir el mapeo
+    # CORFO y generar la rendicion de REVTECH/TRONGKAI.
+    await assert_empresa_access(user, db, empresa)
     rows = (await db.execute(text("""
         WITH usos AS (
             SELECT
@@ -292,6 +301,10 @@ async def mapping_full(
 async def get_mapping(empresa: str, user: CurrentUser, db: DBSession) -> list[MappingItem]:
     await _require_admin(user)
     _require_corfo_empresa(empresa)
+    # R152WWWWWW — scope per-empresa: el gate admin/finance no validaba
+    # el scope, un finance de otra empresa podia leer/escribir el mapeo
+    # CORFO y generar la rendicion de REVTECH/TRONGKAI.
+    await assert_empresa_access(user, db, empresa)
     rows = (await db.execute(
         text("""SELECT cuenta_codigo, corfo_cuenta, corfo_item, corfo_cargo
                 FROM core.corfo_cuenta_mapping WHERE empresa_codigo = :e
@@ -307,6 +320,10 @@ async def set_mapping(
 ) -> dict[str, int]:
     await _require_admin(user)
     _require_corfo_empresa(empresa)
+    # R152WWWWWW — scope per-empresa: el gate admin/finance no validaba
+    # el scope, un finance de otra empresa podia leer/escribir el mapeo
+    # CORFO y generar la rendicion de REVTECH/TRONGKAI.
+    await assert_empresa_access(user, db, empresa)
     n = 0
     for it in body.items:
         await db.execute(

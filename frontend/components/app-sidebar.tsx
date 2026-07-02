@@ -571,7 +571,8 @@ const GROUPS: NavGroup[] = [
       // R152RRRR — Quitado "Branding + emails OC". Toda la configuración
       // (branding + emails + firmantes RHO) ahora está consolidada dentro
       // del módulo Operaciones → Órdenes de Compra → tab "Configuración".
-      // La URL /admin/oc-branding sigue redirigiendo allí para compatibilidad.
+      // R152WWWWWW: la URL vieja /admin/oc-branding NO tiene redirect —
+      // un bookmark a esa ruta da 404. Nada en la app linkea ahí.
       // Round 152u — Mapa de Adopción (Mapeo de Actores · Gestión del Cambio).
       { href: "/admin/adopcion" as Route, label: "Mapa de Adopción", icon: Users, isNew: true },
       // R152GGGG — Removidos del sidebar:

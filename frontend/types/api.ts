@@ -60,11 +60,819 @@ export interface paths {
          * Perf Health
          * @description V5++ ola BJ: diagnóstico de configuración perf actual.
          *
-         *     Detecta cuellos de botella comunes y devuelve recomendaciones.
-         *     Ejemplo: si DATABASE_URL usa transaction pooler (port 6543), recomienda
-         *     cambiar a session pooler (5432) para 10x más velocidad.
+         *     Round 110 update: las recomendaciones se invirtieron. Con Supabase
+         *     Free Tier (15 client cap en session pooler), el riesgo de
+         *     EMAXCONNSESSION supera el costo de ~50ms del transaction pooler.
+         *     Recomendamos el switch a port 6543 hasta que se pague Supabase Pro.
+         *
+         *     También reporta valores REALES del engine (no hardcodeados) — antes
+         *     los valores quedaban desfasados cuando se cambiaba la config.
          */
         get: operations["perf_health_api_v1_health_perf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Feedback
+         * @description User envía un NPS de 1-3 después de una acción crítica.
+         */
+        post: operations["submit_feedback_api_v1_me_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Feedback Summary
+         * @description Resumen NPS por flujo. Solo admin.
+         */
+        get: operations["feedback_summary_api_v1_admin_feedback_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/adoption/map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Adoption Map
+         * @description Mapa de Adopción: clasificación Aliado/Espectador/Detractor de cada user.
+         *
+         *     Aplicación del Mapeo de Actores del Proceso de Cambio (Ray Gallegos, Clase 2 p41).
+         *     Solo admin.
+         */
+        get: operations["adoption_map_api_v1_admin_adoption_map_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/training/modules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Modules
+         * @description Lista módulos + progreso del user actual.
+         */
+        get: operations["list_modules_api_v1_training_modules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/training/modules/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Module
+         * @description Detalle de un módulo + content + quiz.
+         */
+        get: operations["get_module_api_v1_training_modules__slug__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/training/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit Quiz
+         * @description User envía sus respuestas. Backend valida y registra progreso si >=70%.
+         */
+        post: operations["submit_quiz_api_v1_training_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/corfo/catalogos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Catalogos */
+        get: operations["get_catalogos_api_v1_admin_corfo_catalogos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/corfo/rendicion/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Rendicion
+         * @description Preview de vouchers EXECUTED del período que irían a la rendición de Gastos.
+         */
+        get: operations["preview_rendicion_api_v1_admin_corfo_rendicion_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/corfo/mapping/{empresa}/full": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mapping Full
+         * @description Devuelve TODAS las cuentas contables usadas históricamente en
+         *     vouchers COMPRA de esta empresa, junto con el mapeo CORFO actual
+         *     si ya existe. Ordenado por uso descendente.
+         */
+        get: operations["mapping_full_api_v1_admin_corfo_mapping__empresa__full_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/corfo/mapping/{empresa}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Mapping */
+        get: operations["get_mapping_api_v1_admin_corfo_mapping__empresa__get"];
+        put?: never;
+        /** Set Mapping */
+        post: operations["set_mapping_api_v1_admin_corfo_mapping__empresa__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/corfo/rendicion/excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generar Excel
+         * @description Genera el Excel CORFO pre-llenado + con dropdowns oficiales.
+         */
+        post: operations["generar_excel_api_v1_admin_corfo_rendicion_excel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Access
+         * @description Endpoint público (autenticado) que devuelve si el user puede ver /rrhh.
+         */
+        get: operations["check_access_api_v1_rrhh_access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/empleados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Empleados */
+        get: operations["list_empleados_api_v1_rrhh_empleados_get"];
+        put?: never;
+        /**
+         * Create Empleado
+         * @description Crea un empleado manualmente (sin pasar por upload de libro).
+         */
+        post: operations["create_empleado_api_v1_rrhh_empleados_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/empleados/{rut}/costos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Costos Empleado */
+        get: operations["costos_empleado_api_v1_rrhh_empleados__rut__costos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/libros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Libros */
+        get: operations["list_libros_api_v1_rrhh_libros_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/libros/{libro_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Libro */
+        get: operations["get_libro_api_v1_rrhh_libros__libro_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/libros/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Libro
+         * @description Sube un Excel libro de remuneraciones. Reemplaza el del periodo si existe.
+         */
+        post: operations["upload_libro_api_v1_rrhh_libros_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/costo-empresa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Costo Empresa
+         * @description Costo agregado por empresa en un rango de periodos.
+         */
+        get: operations["costo_empresa_api_v1_rrhh_costo_empresa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rrhh/empleados/{rut}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Empleado
+         * @description Soft-delete: activo=FALSE + fecha_salida=hoy.
+         */
+        delete: operations["delete_empleado_api_v1_rrhh_empleados__rut__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Empleado
+         * @description Edita campos del empleado. Solo los provistos cambian.
+         */
+        patch: operations["update_empleado_api_v1_rrhh_empleados__rut__patch"];
+        trace?: never;
+    };
+    "/api/v1/rrhh/libros/{libro_id}/lineas/{linea_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Linea
+         * @description Edita campos de una línea + recalcula totales derivados.
+         *
+         *     Después de cambiar un campo base (ej: sueldo_base), recalcula:
+         *       - total_imponibles, total_no_imponibles, total_haberes
+         *       - total_descuentos_legales, total_descuentos, liquido_pagado
+         *       - total_aportes_patronales, costo_total_empresa
+         *     Y re-suma los totales del libro cabecera.
+         */
+        patch: operations["update_linea_api_v1_rrhh_libros__libro_id__lineas__linea_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/rrhh/libros/{libro_id}/export-excel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Libro Excel
+         * @description Genera el libro de remuneraciones en Excel formato Nubox/SII.
+         *
+         *     El layout matchea exactamente el del Excel original que el operador
+         *     puede subir, lo que facilita envío al contador externo o re-importar.
+         *
+         *     Estructura:
+         *       Filas 1-7: header con datos de la empresa
+         *       Fila 9: headers de tabla 1 (HABERES y DESCUENTOS)
+         *       Filas 10+: una por empleado
+         *       Fila X: TOTAL GENERAL
+         *       Fila X+2: header "Patronales" + "Calculo Imp Unico"
+         *       Fila X+3: headers tabla 2
+         *       Filas X+4+: una por empleado (aportes patronales)
+         */
+        get: operations["export_libro_excel_api_v1_rrhh_libros__libro_id__export_excel_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/empresas/{codigo}/oc-branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Oc Branding
+         * @description Devuelve la config de branding/firmantes para una empresa.
+         *
+         *     R152YYYYY — Doble gate: admin + scope sobre la empresa.
+         */
+        get: operations["get_oc_branding_api_v1_admin_empresas__codigo__oc_branding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Oc Branding
+         * @description Actualiza branding/firmantes. Solo campos provistos cambian.
+         *
+         *     R152YYYYY — Doble gate: admin + scope sobre la empresa.
+         */
+        patch: operations["patch_oc_branding_api_v1_admin_empresas__codigo__oc_branding_patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/empresas/{codigo}/logo/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Logo
+         * @description Sube un archivo de imagen a Dropbox bajo la convención estándar:
+         *
+         *         /Cehta Capital/01-Empresas/{CODIGO}/00-Branding/logo.{ext}
+         *
+         *     Acepta .png, .jpg, .jpeg, .gif, .webp. Si ya existe un logo en esa
+         *     ruta, lo sobreescribe (es lo que querés cuando re-subís).
+         *
+         *     Actualiza core.empresas.logo_dropbox_path con la nueva ruta.
+         *     Idempotente — si llamás dos veces con el mismo file, queda igual.
+         *
+         *     R152YYYYY — Doble gate: admin + scope sobre la empresa.
+         */
+        post: operations["upload_logo_api_v1_admin_empresas__codigo__logo_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/cuotas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Cuotas
+         * @description Lista cuotas de una OC con estado del voucher asociado.
+         */
+        get: operations["list_cuotas_api_v1_ordenes_compra__oc_id__cuotas_get"];
+        /**
+         * Replace Cuotas
+         * @description Reemplaza cuotas custom. Las que ya tengan voucher quedan intactas.
+         */
+        put: operations["replace_cuotas_api_v1_ordenes_compra__oc_id__cuotas_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/cuotas/split-equitativo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Split Equitativo
+         * @description Genera N cuotas iguales con vencimientos cada `dias_entre_cuotas`.
+         *
+         *     Reemplaza CUALQUIER cuota previa que estuviera en estado PENDIENTE.
+         *     Cuotas ya generadas como voucher (VOUCHER_GENERADO/PAGADA) NO se tocan
+         *     para evitar romper vouchers en curso.
+         */
+        post: operations["split_equitativo_api_v1_ordenes_compra__oc_id__cuotas_split_equitativo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/cuotas/{cuota_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Cuota */
+        delete: operations["delete_cuota_api_v1_ordenes_compra__oc_id__cuotas__cuota_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/cuotas/generar-vouchers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generar Vouchers
+         * @description Genera UN voucher DRAFT por cada cuota en estado PENDIENTE.
+         *
+         *     Cada voucher queda linkeado a la cuota vía oc_cuotas.voucher_id.
+         *     Después de esta llamada, el operador edita cada voucher (cuentas,
+         *     áreas, proyecto) y los manda a aprobación de forma independiente.
+         *
+         *     Convención del voucher generado:
+         *       - tipo: EGRESO
+         *       - empresa_codigo: heredada de la OC
+         *       - contraparte_rut/nombre: proveedor de la OC
+         *       - glosa: "OC #{numero_oc} · Cuota {n}/{total} · {descripcion}"
+         *       - fecha_contable: fecha_vencimiento de la cuota
+         *       - status: DRAFT
+         *       - lines: vacío — el operador imputa al editar el voucher
+         */
+        post: operations["generar_vouchers_api_v1_ordenes_compra__oc_id__cuotas_generar_vouchers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/cuotas/proximas-a-vencer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cuotas Proximas
+         * @description Lista cuotas con vencimiento ≤ N días, estado != PAGADA/ANULADA.
+         *
+         *     Default: próximas 30 días + vencidas. Ordenadas por fecha asc.
+         *     Pensado para widget "Próximos vencimientos" y badge sidebar.
+         */
+        get: operations["cuotas_proximas_api_v1_ordenes_compra_cuotas_proximas_a_vencer_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/cuotas/resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cuotas Resumen
+         * @description Resumen de cuotas pendientes (badge/sidebar).
+         */
+        get: operations["cuotas_resumen_api_v1_ordenes_compra_cuotas_resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/flujos-caja/proyecto/{proyecto_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Flujo
+         * @description Devuelve todas las celdas del flujo de caja del proyecto,
+         *     con monto_real calculado desde vouchers EXECUTED.
+         */
+        get: operations["list_flujo_api_v1_flujos_caja_proyecto__proyecto_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/flujos-caja/proyecto/{proyecto_codigo}/cell": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Upsert Cell
+         * @description Upsert idempotente de una celda. UNIQUE(proyecto, periodo, categoria).
+         */
+        put: operations["upsert_cell_api_v1_flujos_caja_proyecto__proyecto_codigo__cell_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/flujos-caja/proyecto/{proyecto_codigo}/cell/{cell_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Cell */
+        delete: operations["delete_cell_api_v1_flujos_caja_proyecto__proyecto_codigo__cell__cell_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/flujos-caja/proyecto/{proyecto_codigo}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Excel
+         * @description Sube Excel con columnas: periodo, categoria, monto, (tipo opcional, notas opcional).
+         *
+         *     Estructura esperada:
+         *       Fila 1: headers
+         *       Fila 2+: una fila por celda
+         *     Periodo válido: 'YYYY-MM'.
+         *     Idempotente: si la celda ya existe, se sobrescribe.
+         */
+        post: operations["upload_excel_api_v1_flujos_caja_proyecto__proyecto_codigo__upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/perf-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Métricas de caches + DB pool (admin) */
+        get: operations["perf_stats_api_v1_admin_perf_stats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feature-usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ranking de uso por endpoint (admin)
+         * @description Top 20 + Bottom 20 endpoints por hits en últimos N días.
+         *
+         *     Args:
+         *         days: ventana de análisis (1-365). Default 30.
+         */
+        get: operations["feature_usage_api_v1_admin_feature_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/email-outbox/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry emails failed en outbox (admin/cron)
+         * @description Procesa hasta `limit` emails en status='failed' que están listos.
+         *
+         *     Para automatizar:
+         *       fly machine update <id> --schedule "*\/2 * * * *" \
+         *                               --command "curl -X POST -H 'Authorization: ...' \
+         *                               https://cehta-backend.fly.dev/api/v1/admin/email-outbox/retry"
+         *
+         *     O un machine dedicado de cron con este endpoint en su loop.
+         */
+        post: operations["retry_outbox_api_v1_admin_email_outbox_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/email-outbox/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Counters del outbox por status (admin)
+         * @description Stats para dashboard de salud del envío de emails.
+         */
+        get: operations["outbox_stats_api_v1_admin_email_outbox_stats_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -133,7 +941,19 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Set User Role */
+        /**
+         * Set User Role
+         * @description R152YYYYY — SECURITY HARDENING:
+         *
+         *     Antes este endpoint usaba `require_scope("user:write")` que NO gateaba
+         *     por 2FA, abriendo un bypass al gate `current_admin_with_2fa` que SÍ
+         *     aplica admin_users.py PATCH /users/{id}/role. Era equivalente a un
+         *     backdoor lateral.
+         *
+         *     Además ahora bloquea self-demotion (un admin no puede tirar su propio
+         *     role abajo — debe pedirle a otro admin para evitar lockout accidental
+         *     + para que quede registro de "quién degradó a quién").
+         */
         post: operations["set_user_role_api_v1_auth_users__user_id__role_post"];
         delete?: never;
         options?: never;
@@ -154,6 +974,9 @@ export interface paths {
          *     `vouchers_count` y `ordenes_compra_count` a cada item (1 query extra
          *     agregada). Util para la pantalla /admin/proveedores donde queremos
          *     ver el uso real de cada proveedor.
+         *
+         *     Los counts se filtran por las empresas accesibles al user (multi-tenant)
+         *     para evitar leak de usage patterns cross-tenant.
          */
         get: operations["list_proveedores_api_v1_proveedores_get"];
         put?: never;
@@ -219,6 +1042,70 @@ export interface paths {
         get: operations["search_proveedores_api_v1_proveedores_search_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/cache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proveedores Cache
+         * @description Round 44 — devuelve TODOS los proveedores activos en formato mínimo.
+         *
+         *     Pensado para precarga client-side: el frontend hace UN único fetch al
+         *     cargar la app y guarda el resultado en TanStack Query / memoria. A
+         *     partir de ese momento, el typeahead filtra 100% client-side (filter
+         *     sobre el array en memoria) — búsqueda instantánea, 0 round-trips
+         *     adicionales.
+         *
+         *     Tamaño aprox: 20KB (~88 bytes/proveedor) para 228 proveedores.
+         *
+         *     Round 45 — Cache-Control: el browser cachea la respuesta 5 minutos,
+         *     así si el user recarga la página el JSON viene del disk cache local
+         *     sin pegarle al backend. `private` porque el response depende del
+         *     user (RLS deja pasar siempre pero es buena práctica).
+         *
+         *     Solo devuelve activos. Para gestión completa usar `GET /proveedores`
+         *     paginado con `with_counts=true`.
+         */
+        get: operations["proveedores_cache_api_v1_proveedores_cache_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/quick-create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Quick Create Proveedor
+         * @description R152xxx — Crea un proveedor con datos mínimos desde un typeahead.
+         *
+         *     Diferencia con POST /proveedores: este endpoint sólo requiere razón
+         *     social (RUT opcional). Si el RUT existe, devuelve el proveedor
+         *     existente en vez de 409 Conflict — para que el flujo del typeahead
+         *     no se rompa si el operador clickea Crear dos veces seguidas.
+         *
+         *     Pensado para integrarse al dropdown del componente
+         *     ProveedorTypeaheadCached con la opción "+ Crear nuevo: '{query}'".
+         */
+        post: operations["quick_create_proveedor_api_v1_proveedores_quick_create_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -315,6 +1202,10 @@ export interface paths {
         /**
          * Get Empresa
          * @description Detalle completo de una empresa (incluye campos fiscales/contacto).
+         *
+         *     Round 127: cache 5min stale-while-revalidate 60s. Los datos fiscales
+         *     de empresa cambian rara vez — el detalle se pide en cada navegación
+         *     al detalle de empresa.
          */
         get: operations["get_empresa_api_v1_catalogos_empresas__codigo__get"];
         put?: never;
@@ -403,6 +1294,11 @@ export interface paths {
         /**
          * Get Kpis
          * @description V5++ ola CB+CC: KPIs solo de empresas en scope del user.
+         *
+         *     R152UUUUUU — acepta ?empresa_codigo=: el EmpresaFilter del dashboard
+         *     lo enviaba desde siempre pero el endpoint lo ignoraba en silencio —
+         *     los gráficos cambiaban al elegir una empresa y las tarjetas KPI
+         *     seguían mostrando cifras globales (engañoso).
          *
          *     Cache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan
          *     ser frescos al segundo. El browser/CDN devuelve cached por 60s y
@@ -664,6 +1560,8 @@ export interface paths {
         /**
          * Delete Oc
          * @description Borra una OC. Solo permitido si estado in ('emitida', 'anulada').
+         *
+         *     V5++ ola CJ — scope check sobre empresa.
          */
         delete: operations["delete_oc_api_v1_ordenes_compra__oc_id__delete"];
         options?: never;
@@ -671,6 +1569,9 @@ export interface paths {
         /**
          * Update Oc
          * @description Edita campos no-críticos. Estado se cambia vía `/{oc_id}/estado`.
+         *
+         *     V5++ ola CJ — scope check sobre `oc.empresa_codigo` (era un gap
+         *     crítico: user con oc:update global podía editar OC de empresa ajena).
          */
         patch: operations["update_oc_api_v1_ordenes_compra__oc_id__patch"];
         trace?: never;
@@ -694,6 +1595,40 @@ export interface paths {
          *     Dropbox (4h). Sino, fallback a razón social en texto grande.
          */
         get: operations["get_oc_html_api_v1_ordenes_compra__oc_id__html_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Oc Pdf
+         * @description Genera un PDF branded de la OC con (opcional) adjuntos incrustados.
+         *
+         *     El cover trae header de la empresa emisora (logo + razón social + RUT),
+         *     título "ORDEN DE COMPRA", ficha del proveedor, info grid de fechas y
+         *     forma de pago, tabla de items con totales, observaciones (si las hay)
+         *     y placeholder de firma.
+         *
+         *     Si `include_attachments=True` (default) y existe la tabla
+         *     `core.oc_attachments`, los adjuntos se mergean al final del PDF.
+         *     Falla silenciosa: errores fetching del logo o de adjuntos no rompen
+         *     la generación.
+         *
+         *     R152KKKK — logging estructurado para diagnosticar "Failed to fetch"
+         *     reportado por el operador. Cada step loggea para que en Fly logs
+         *     podamos ver dónde se cuelga.
+         */
+        get: operations["download_oc_pdf_api_v1_ordenes_compra__oc_id__pdf_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -814,6 +1749,31 @@ export interface paths {
          *     `dry_run=true` valida y devuelve el reporte sin insertar nada.
          */
         post: operations["import_ocs_csv_api_v1_ordenes_compra_import_csv_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/send-to-signers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Oc To Signers Endpoint
+         * @description Envía (o reenvía con ?force=true) el PDF de la OC al GG firmante.
+         *
+         *     Auto-disparado al crear OC desde email. Endpoint manual útil para:
+         *       - Re-enviar si Resend falló la primera vez
+         *       - Enviar OCs creadas antes de aplicar la migración R152IIII
+         *       - Forzar re-envío después de cambiar email del GG
+         */
+        post: operations["send_oc_to_signers_endpoint_api_v1_ordenes_compra__oc_id__send_to_signers_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1136,6 +2096,11 @@ export interface paths {
         /**
          * Get Cartola Run
          * @description Detalle de un run específico.
+         *
+         *     QA fix 14/05/2026 — antes cualquier user autenticado podia leer
+         *     cartolas (banco, dropbox_path, montos) de cualquier empresa con un
+         *     run_id valido. Ahora chequea scope multi-tenant via
+         *     assert_empresa_access sobre la empresa_codigo del run.
          */
         get: operations["get_cartola_run_api_v1_cartolas_runs__run_id__get"];
         put?: never;
@@ -1198,6 +2163,10 @@ export interface paths {
         /**
          * Totals Per Empresa
          * @description Reporte agregado para inversionistas: totales por empresa emisora.
+         *
+         *     QA fix 14/05/2026 — antes devolvia totals de TODAS las empresas a
+         *     cualquier user con suscripcion:read. Ahora respeta scope: admin
+         *     global ve todas, user con scope a N empresas ve solo esas.
          */
         get: operations["totals_per_empresa_api_v1_suscripciones_totals_get"];
         put?: never;
@@ -1239,6 +2208,11 @@ export interface paths {
         /**
          * Contratos Summary
          * @description KPIs del fondo: Σ UF comprometidas, % meta, breakdown por estado/serie.
+         *
+         *     Round 5 fix: aplicar scope multi-tenant. Sin esto un user con acceso a
+         *     UN solo fondo veia los KPIs (META_UF, exceso, total comprometido) de
+         *     TODO el portfolio del sistema. Ahora cada query filtra por
+         *     fondo_codigo IN scope.allowed_codes; admin global ve todo.
          */
         get: operations["contratos_summary_api_v1_lp_contratos_summary_get"];
         put?: never;
@@ -1730,6 +2704,552 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/fondo-overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fondo Overview
+         * @description Devuelve toda la data del fondo en un solo response.
+         *
+         *     Pensado para alimentar el dashboard /admin/data con 1 sola request
+         *     en lugar de 4 separadas.
+         *
+         *     Defensive: si la migración 115 no se aplicó, devuelve empresas con
+         *     los campos básicos (sin web/SII data) + arrays vacíos en directorio/
+         *     inversionistas + flags `migracion_115_aplicada=false`.
+         */
+        get: operations["fondo_overview_api_v1_admin_fondo_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/marcha-blanca/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Marcha Blanca Checklist
+         * @description Estado en vivo de pre-marcha-blanca.
+         */
+        get: operations["marcha_blanca_checklist_api_v1_admin_marcha_blanca_checklist_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/empresas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Empresas Sii
+         * @description Lista todas las empresas con credenciales SII + estado del último sync.
+         */
+        get: operations["list_empresas_sii_api_v1_admin_sii_empresas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/test-login/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Credenciales Sii
+         * @description Prueba que la clave SII abra sesión OK. NO baja data.
+         */
+        post: operations["test_credenciales_sii_api_v1_admin_sii_test_login__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/sync-rcv/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Rcv
+         * @description Descarga RCV compras + ventas del período. Insert/Update en sii_documentos.
+         */
+        post: operations["sync_rcv_api_v1_admin_sii_sync_rcv__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/runs/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description Historial de runs SII de esta empresa.
+         */
+        get: operations["list_runs_api_v1_admin_sii_runs__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/documentos/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Documentos
+         * @description Lista documentos SII de esta empresa con filtros opcionales.
+         */
+        get: operations["list_documentos_api_v1_admin_sii_documentos__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/import-csv/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Csv Rcv
+         * @description Import manual de RCV desde CSV bajado del portal sii.cl.
+         *
+         *     El operador baja el CSV de sii.cl (RCV → Descargar) y lo sube via
+         *     multipart/form-data. Útil cuando la auto-sync (httpx) falla por
+         *     cambios del portal.
+         *
+         *     El parser tolera reordering de columnas, encodings cp1252/latin1/utf-8,
+         *     delimitador `;` o `,`, y filas vacías intercaladas.
+         */
+        post: operations["import_csv_rcv_api_v1_admin_sii_import_csv__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/conciliar/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Conciliar
+         * @description Matchea docs SII no conciliados contra vouchers locales.
+         *
+         *     Match exact (score=1.0): mismo tipo + folio + RUT contraparte + monto±1.
+         *     Match fuzzy (score=0.7): mismo tipo + folio, RUT/monto difieren <=5%.
+         *     No-match: queda voucher_id=NULL para que el operador revise.
+         */
+        post: operations["conciliar_api_v1_admin_sii_conciliar__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/f29-preview/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * F29 Preview
+         * @description Estima el F29 a pagar para un período a partir del RCV bajado.
+         *
+         *     F29 simplificado:
+         *         IVA a pagar = SUM(IVA débito ventas) - SUM(IVA crédito compras)
+         *         Las notas de crédito (tipo 61) en ventas SE RESTAN del débito.
+         *         Las notas de crédito recibidas (tipo 61) en compras SE RESTAN del crédito.
+         *
+         *     Esta vista NO reemplaza el F29 oficial — es un preview que el
+         *     operador usa para preparar la declaración o detectar gaps.
+         */
+        get: operations["f29_preview_api_v1_admin_sii_f29_preview__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/sii/crear-voucher-desde-dte/{sii_doc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crear Voucher Desde Dte
+         * @description Crea un voucher DRAFT precargado con los datos del documento SII.
+         *
+         *     El voucher queda con:
+         *       - Header completo: empresa, fechas, contraparte, doc_tributario, glosa, monto
+         *       - 2 lineas placeholder (cuenta_codigo='1-0-0-0' / '2-0-0-0') que el
+         *         operador debe editar antes de mandar a aprobacion. Esto evita el
+         *         chequeo de partida doble en DRAFT pero deja la estructura armada.
+         *       - source='sii_import' para distinguirlo en filtros
+         *       - sii_documentos.voucher_id queda apuntando al nuevo voucher
+         *         (conciliacion automatica)
+         */
+        post: operations["crear_voucher_desde_dte_api_v1_admin_sii_crear_voucher_desde_dte__sii_doc_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/empresas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Empresas Nubox
+         * @description Lista todas las empresas con su estado de integración Nubox.
+         */
+        get: operations["list_empresas_nubox_api_v1_admin_nubox_empresas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/test-login/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Credenciales Nubox
+         * @description Prueba que la clave Nubox abra sesión. NO baja data.
+         */
+        post: operations["test_credenciales_nubox_api_v1_admin_nubox_test_login__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/sync-remuneraciones/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Remuneraciones
+         * @description Best-effort: intenta auto-login + descarga del Libro de Remuneraciones.
+         *
+         *     Si el portal Nubox no responde al patrón esperado, retorna 502 con
+         *     sugerencia clara de usar /import-excel manual.
+         */
+        post: operations["sync_remuneraciones_api_v1_admin_nubox_sync_remuneraciones__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/import-excel/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Excel Remuneraciones
+         * @description Upload manual del Libro de Remuneraciones desde Nubox.
+         *
+         *     Plan B robusto cuando auto-sync no funciona. El operador baja el
+         *     Libro de Remuneraciones del mes desde el portal Nubox (web →
+         *     Remuneraciones → Reportes → Libro de Remuneraciones → Descargar
+         *     Excel) y lo sube acá.
+         */
+        post: operations["import_excel_remuneraciones_api_v1_admin_nubox_import_excel__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/remuneraciones/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Remuneraciones */
+        get: operations["list_remuneraciones_api_v1_admin_nubox_remuneraciones__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox/resumen/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumen Remuneraciones
+         * @description Resumen mensual: total a pagar en sueldos + aportes patronales.
+         *
+         *     Es lo que el operador necesita para preparar el voucher mensual de
+         *     sueldos sin abrir cada liquidación individual.
+         */
+        get: operations["resumen_remuneraciones_api_v1_admin_nubox_resumen__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/empresas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Empresas Nubox Api
+         * @description Lista empresas con status de credencial API Nubox.
+         */
+        get: operations["list_empresas_nubox_api_api_v1_admin_nubox_api_empresas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/credentials/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set Credentials
+         * @description Setea o actualiza las credenciales API Nubox de una empresa.
+         *
+         *     Cifra partner_token + api_key con Fernet y guarda en
+         *     core.nubox_api_credenciales (UPSERT por empresa+environment).
+         */
+        post: operations["set_credentials_api_v1_admin_nubox_api_credentials__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/test/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Credentials
+         * @description Prueba que las credenciales API Nubox respondan OK.
+         */
+        post: operations["test_credentials_api_v1_admin_nubox_api_test__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/emit-from-voucher/{voucher_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Emit From Voucher
+         * @description Emite un DTE oficial vía Nubox API desde un voucher local.
+         */
+        post: operations["emit_from_voucher_api_v1_admin_nubox_api_emit_from_voucher__voucher_id__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/sync-sales/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync Sales
+         * @description Descarga las ventas emitidas en el período vía Nubox API.
+         */
+        post: operations["sync_sales_api_v1_admin_nubox_api_sync_sales__empresa_codigo__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/sales/{empresa_codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Ventas
+         * @description Lista ventas Nubox almacenadas en core.nubox_ventas.
+         */
+        get: operations["list_ventas_api_v1_admin_nubox_api_sales__empresa_codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/sales/{empresa_codigo}/{nubox_document_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Pdf
+         * @description Proxy al PDF firmado de Nubox.
+         */
+        get: operations["get_pdf_api_v1_admin_nubox_api_sales__empresa_codigo___nubox_document_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/nubox-api/sales/{empresa_codigo}/{nubox_document_id}/xml": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Xml
+         * @description Proxy al XML con validez SII de Nubox.
+         */
+        get: operations["get_xml_api_v1_admin_nubox_api_sales__empresa_codigo___nubox_document_id__xml_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dropbox/connect": {
         parameters: {
             query?: never;
@@ -2129,7 +3649,20 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Ai Secretaria Tareas
+         * @description V4 fase 8.2 — Secretaria AI de Tareas ("Claudia").
+         *
+         *     Llama internamente al endpoint upcoming-tasks para obtener el feed
+         *     de prioridades, lo resume, y le pide a Claude que genere 5 bullets
+         *     accionables en tono cálido + chileno-rioplatense formal.
+         *
+         *     Cache: 30 minutos en memoria (key = hash de los IDs de hitos top).
+         *
+         *     Devuelve 503 si Anthropic no está configurado — frontend debe
+         *     ocultar el panel.
+         */
+        get: operations["ai_secretaria_tareas_api_v1_ai_secretaria_tareas_get"];
         put?: never;
         /**
          * Ai Secretaria Tareas
@@ -3381,10 +4914,12 @@ export interface paths {
          * List Empresas Flat
          * @description Lista plana de empresas para poblar selects.
          *
-         *     Devuelve TODAS las empresas por defecto (incluidas inactivas) para que
-         *     los selectores en /vouchers, /reportes, /admin, etc. muestren el set
-         *     completo del portafolio. Pasá `?solo_activas=true` si necesitás filtrar
-         *     a las que están operando hoy.
+         *     QA fix 14/05/2026 — antes devolvia TODAS las empresas del portafolio
+         *     a cualquier user autenticado (scope leak). Ahora respeta el scope
+         *     multi-tenant: un user con acceso a 2 empresas ve solo esas 2;
+         *     admin global ve todas.
+         *
+         *     Pasá `?solo_activas=true` si necesitás filtrar a las que están operando hoy.
          *
          *     Cache: 5min stale-while-revalidate. Las empresas cambian rara vez —
          *     esto reduce ~30 requests/sesión a 1.
@@ -3602,6 +5137,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/empresa/{empresa_codigo}/valuation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa Valuation
+         * @description Histórico de valuaciones (company_valuations) ordenado asc.
+         */
+        get: operations["get_empresa_valuation_api_v1_empresa__empresa_codigo__valuation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/kpis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa Kpis
+         * @description KPIs operativos mensuales (company_operational_kpis).
+         */
+        get: operations["get_empresa_kpis_api_v1_empresa__empresa_codigo__kpis_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa Impact
+         * @description Resumen Impact ESG por empresa: IRIS+ + SDG + Frontiers + B-Corp.
+         */
+        get: operations["get_empresa_impact_api_v1_empresa__empresa_codigo__impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa Compliance
+         * @description Compliance items asociados a la empresa (portfolio company).
+         */
+        get: operations["get_empresa_compliance_api_v1_empresa__empresa_codigo__compliance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresa/{empresa_codigo}/tributario": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Empresa Tributario
+         * @description Resumen tributario: F29 + F22 + DTEs SII recientes (30 días).
+         */
+        get: operations["get_empresa_tributario_api_v1_empresa__empresa_codigo__tributario_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/documents/analyze": {
         parameters: {
             query?: never;
@@ -3662,12 +5297,14 @@ export interface paths {
         };
         /**
          * Export Entity Xlsx
-         * @description Exporta una lista a Excel, respetando filtros opcionales.
+         * @description Exporta una lista a Excel, respetando filtros opcionales + scope.
          *
          *     `entity_type` debe ser una clave de `_ENTITY_QUERIES`. 404 si no existe.
-         *     Cualquier usuario autenticado puede exportar — los datos sensibles ya
-         *     están protegidos a nivel CRUD por scopes; un usuario que no puede ver
-         *     OCs tampoco las ve en el listado y no encontrará nada útil que exportar.
+         *
+         *     R152FFFFFF — SECURITY: el SQL filtra por el `empresa_codigo` del query
+         *     param, NO por el scope del user. Sin el check de abajo, un user de la
+         *     empresa A podía exportar data de la empresa B (sueldos, RUTs de
+         *     trabajadores, OCs, movimientos). Ahora validamos scope.
          */
         get: operations["export_entity_xlsx_api_v1_exports__entity_type__xlsx_get"];
         put?: never;
@@ -3995,12 +5632,19 @@ export interface paths {
          * Get Sidebar State
          * @description Estado agregado del sidebar en una sola request.
          *
-         *     Usa asyncio.gather para correr las 4 counts en paralelo dentro de la
-         *     misma transacción. Latencia: ~max(c1, c2, c3, c4) en lugar de
-         *     sum(c1+c2+c3+c4) que serían los 4 endpoints separados.
+         *     Usa asyncio.gather para correr las counts en paralelo dentro de la
+         *     misma transacción. Latencia: ~max(c1..cN) en lugar de
+         *     sum(c1..cN) que serían los N endpoints separados.
          *
          *     Soft-fail per-count: si una tabla no existe (entornos antiguos),
          *     el helper devuelve 0 sin romper el endpoint.
+         *
+         *     Round 127: Cache 30s con SSE-driven invalidation. El sidebar carga
+         *     7 conteos en paralelo cada vez que aparece — con 30s de cache,
+         *     múltiples cargas en rápida sucesión (typical navegación SPA)
+         *     comparten resultado. Cuando llega event SSE relevante
+         *     (notification.created, voucher.*), el frontend invalida la query
+         *     de TanStack y refetch — el cache stale no genera data vieja.
          */
         get: operations["get_sidebar_state_api_v1_me_sidebar_state_get"];
         put?: never;
@@ -4285,6 +5929,26 @@ export interface paths {
         get: operations["list_deliveries_api_v1_webhooks__sub_id__deliveries_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Webhook
+         * @description Recibe eventos de Resend y actualiza tracking de OCs.
+         */
+        post: operations["resend_webhook_api_v1_webhooks_resend_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4903,6 +6567,40 @@ export interface paths {
         patch: operations["update_informe_api_v1_informes_lp__informe_id__patch"];
         trace?: never;
     };
+    "/api/v1/informes-lp/{informe_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Informe Pdf
+         * @description Renderiza el informe LP como PDF profesional listo para mandar a
+         *     inversores institucionales.
+         *
+         *     Layout:
+         *       - Header band con razón social FIP CEHTA ESG + RUT.
+         *       - Cover: título, período, destinatario.
+         *       - Caja "Tus datos" del LP (nombre, email, empresa, % participación,
+         *         capital comprometido/aportado).
+         *       - Caja "Métricas del fondo" (NAV, IRR, MOIC, distribuciones LTD,
+         *         proyectos activos, avance global).
+         *       - Resumen ejecutivo (hero_titulo + hero_narrativa).
+         *       - Tabla de holdings (empresas destacadas).
+         *       - Impacto ESG (CO₂, MW, hogares, empleos).
+         *       - Próximos hitos + CTA.
+         *       - Footer "Confidencial · página X de N".
+         */
+        get: operations["download_informe_pdf_api_v1_informes_lp__informe_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/informes-lp/admin/dispatch-notifications": {
         parameters: {
             query?: never;
@@ -5494,6 +7192,10 @@ export interface paths {
          *
          *     Cap: 60.000 chars (suficiente para emails largos + thread, evita pasar
          *     novelas enteras al LLM por costo).
+         *
+         *     R152UUUUU — Pool starvation fix: la conexión DB se libera ANTES del
+         *     call a Claude (5-15s). Sin esto, 20 reqs concurrentes saturaban el
+         *     pool de 4 conexiones del session pooler.
          */
         post: operations["extract_from_text_api_v1_vouchers_extract_from_text_post"];
         delete?: never;
@@ -5527,6 +7229,159 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/transferencia-masiva": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Transferencia Masiva
+         * @description Genera Excel de transferencia masiva desde vouchers APPROVED.
+         *
+         *     Flujo:
+         *       1. Fetcha cada voucher_id solicitado en una query (WHERE id = ANY).
+         *       2. Valida que esten APPROVED (o PENDING si incluir_pendientes_aprobacion).
+         *       3. Joinea con core.proveedores via contraparte_rut para obtener
+         *          datos bancarios. Si no hay match (proveedor no en catalogo),
+         *          deja los campos bancarios en blanco — el operador los completa
+         *          manualmente antes de cargarlo al banco.
+         *       4. Filtra por scope multi-tenant. Si algun voucher no es accesible,
+         *          404 (no leak de existence; igual que el get/{id} de vouchers).
+         *       5. Genera XLSX y devuelve como descarga.
+         *       6. Audit log: deja huella de quien genero la planilla, con que
+         *          vouchers, y total — relevante para forensia financiera.
+         */
+        post: operations["export_transferencia_masiva_api_v1_vouchers_transferencia_masiva_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/transferencia-masiva/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Transferencia Masiva
+         * @description Lista los vouchers APPROVED listos para pagar.
+         *
+         *     Usado por el frontend para mostrar el set "elegible" antes de
+         *     seleccionar cuales incluir en el Excel. Devuelve count + monto total
+         *     + breakdown por empresa.
+         */
+        get: operations["preview_transferencia_masiva_api_v1_vouchers_transferencia_masiva_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/anomaly-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Check Voucher Anomalies
+         * @description Analiza un voucher existente contra heuristicas de anomalias.
+         *
+         *     Devuelve lista de warnings con severity (HIGH/MED/LOW) + score 0-100.
+         */
+        get: operations["check_voucher_anomalies_api_v1_vouchers__voucher_id__anomaly_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/anomaly-radar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Voucher Anomaly Radar
+         * @description Etapa H — radar de vouchers anomalos.
+         *
+         *     Recorre los ultimos N vouchers en los statuses pedidos, corre las
+         *     heuristicas, y devuelve los que superan min_score (default 30).
+         */
+        get: operations["voucher_anomaly_radar_api_v1_vouchers_anomaly_radar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Voucher Comments
+         * @description Lista comments del voucher en orden cronologico DESC (mas reciente primero).
+         */
+        get: operations["list_voucher_comments_api_v1_vouchers__voucher_id__comments_get"];
+        put?: never;
+        /**
+         * Create Voucher Comment
+         * @description Agrega comment al voucher. Cualquier user con scope a la empresa puede.
+         */
+        post: operations["create_voucher_comment_api_v1_vouchers__voucher_id__comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Voucher Comment
+         * @description Borra el comment. Solo el autor puede.
+         */
+        delete: operations["delete_voucher_comment_api_v1_vouchers__voucher_id__comments__comment_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Patch Voucher Comment
+         * @description Editar body (solo autor) o marcar resolved (cualquier con scope).
+         *
+         *     Si solo se manda resolved=true/false, no requiere ser el autor.
+         *     Si se manda body distinto, debe ser autor.
+         */
+        patch: operations["patch_voucher_comment_api_v1_vouchers__voucher_id__comments__comment_id__patch"];
         trace?: never;
     };
     "/api/v1/vouchers/templates": {
@@ -5674,6 +7529,10 @@ export interface paths {
          *
          *     V5++ ola CE: filtro `source` (ai_import, nubox_form, csv_bulk, etc.)
          *     para ver, por ejemplo, todos los vouchers cargados con IA.
+         *
+         *     Round 106: filtro `proyecto_codigo` — encuentra vouchers cuya alguna
+         *     linea tenga ese proyecto. Util para reportar gastos por proyecto/centro
+         *     de costo sin abrir cada voucher.
          */
         get: operations["list_vouchers_api_v1_vouchers_get"];
         put?: never;
@@ -5780,6 +7639,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vouchers/bulk-pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Voucher Pdf
+         * @description Genera un ZIP con los PDFs de varios vouchers (max 50 por request).
+         *
+         *     Comportamiento robusto: si un voucher individual falla (no existe, no hay
+         *     acceso, error de generación), agregamos `voucher-{id}-error.txt` al ZIP
+         *     con el motivo y seguimos con el resto. El ZIP siempre se devuelve aunque
+         *     todos hayan fallado — el cliente ve los errores y reintenta.
+         *
+         *     Generación secuencial deliberada: en paralelo saturaríamos la pool de DB
+         *     (cada voucher hace varias queries) y a Dropbox (descarga de adjuntos).
+         *     Si el bundle toma >5s loggeamos progreso vía structured logging para que
+         *     se vea en observability.
+         */
+        post: operations["bulk_voucher_pdf_api_v1_vouchers_bulk_pdf_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/mis-pendientes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Mis Pendientes
+         * @description Lista los vouchers PENDING donde el current user es el proximo aprobador.
+         *
+         *     Logica:
+         *       1. Empresas donde el user tiene algun rol activo (user_company_roles)
+         *       2. Vouchers PENDING en esas empresas
+         *       3. Para cada voucher: cargar approval state (rule + approvals)
+         *       4. Filtrar: solo los que `next_pending_role` esta en los roles del
+         *          user en esa empresa. Excluir vouchers donde el user ya firmo
+         *          (anti-doble-firma del flujo).
+         *       5. Devolver ordenado por dias_pendiente DESC (los mas urgentes primero)
+         *
+         *     Sin paginacion porque tipicamente el aprobador tiene <20 pendientes.
+         *     Si crece, agregar `?limit=N&offset=M` despues.
+         */
+        get: operations["list_mis_pendientes_api_v1_vouchers_mis_pendientes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vouchers/{voucher_id}": {
         parameters: {
             query?: never;
@@ -5797,6 +7718,8 @@ export interface paths {
          *
          *     Para vouchers enviados (PENDING+), usar POST /vouchers/{id}/void.
          *     Para vouchers cerrados, crear voucher de REVERSO.
+         *
+         *     V5++ ola CJ — scope check + audit_log (compliance gap).
          */
         delete: operations["delete_voucher_api_v1_vouchers__voucher_id__delete"];
         options?: never;
@@ -5828,6 +7751,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/vouchers/{voucher_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Voucher Pdf
+         * @description Genera un PDF branded del voucher con los adjuntos incrustados.
+         *
+         *     El PDF cover trae header de la empresa (logo + razón social + RUT + dir),
+         *     detalle del voucher (info grid, glosa, líneas, totales, aprobaciones).
+         *     Si include_attachments=True (default), descarga cada adjunto desde Dropbox
+         *     y los anexa al PDF final: PDFs nativos se merge-an, imágenes se renderizan
+         *     a A4, otros formatos producen una página placeholder.
+         *
+         *     Falla silenciosa: errores fetching del logo o de adjuntos no rompen el PDF.
+         */
+        get: operations["download_voucher_pdf_api_v1_vouchers__voucher_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate Voucher
+         * @description Skill: duplica un voucher existente como nuevo DRAFT.
+         *
+         *     El nuevo voucher conserva: empresa_codigo, tipo, contraparte_rut/nombre/tipo,
+         *     doc_tributario_tipo, banco, glosa, moneda, lineas (con cuenta+proyecto+
+         *     area+debit+credit+descripcion). No conserva: codigo (se genera nuevo),
+         *     status (siempre DRAFT), folio (vacio), fecha_documento/contable (hoy),
+         *     approvals, attachments, signature_hash, threshold_aplicado.
+         *
+         *     Validación: scope check sobre la empresa del original.
+         */
+        post: operations["duplicate_voucher_api_v1_vouchers__voucher_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/vouchers/{voucher_id}/submit": {
         parameters: {
             query?: never;
@@ -5844,9 +7823,36 @@ export interface paths {
          *     Validaciones:
          *       - Status actual debe ser DRAFT
          *       - Líneas cuadran (Σ debit == Σ credit) — el trigger DB lo valida
-         *       - Vouchers tipo COMPRA/VENTA tienen al menos 1 adjunto
+         *       - Round 144: el chequeo de adjunto obligatorio para COMPRA/VENTA fue
+         *         eliminado por decisión operativa. El operador puede mandar a firma
+         *         sin adjunto y subirlo después desde el detalle del voucher.
          */
         post: operations["submit_voucher_api_v1_vouchers__voucher_id__submit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen Voucher
+         * @description Reabre un voucher RECHAZADO como borrador para corregirlo.
+         *
+         *     R152VVVVVV — antes REJECTED era terminal: el PATCH exige DRAFT y no
+         *     había vuelta atrás, así que un rechazo por un error menor de glosa
+         *     obligaba a retipear todo el voucher desde cero. El motivo del rechazo
+         *     se conserva en rejection_reason y en las firmas históricas.
+         */
+        post: operations["reopen_voucher_api_v1_vouchers__voucher_id__reopen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5862,7 +7868,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Void Voucher */
+        /**
+         * Void Voucher
+         * @description V5++ ola CJ — scope check + audit_log (compliance gap reportado).
+         */
         post: operations["void_voucher_api_v1_vouchers__voucher_id__void_post"];
         delete?: never;
         options?: never;
@@ -5880,6 +7889,11 @@ export interface paths {
         /**
          * List Voucher Attachments
          * @description Lista adjuntos del voucher (sin URLs temporales — esas se piden por adjunto).
+         *
+         *     QA fix 14/05/2026 — antes solo verificaba existencia del voucher
+         *     pero NO chequeaba scope: un user con acceso a empresa A podia leer
+         *     adjuntos de empresa B si conocia el voucher_id. Ahora cargamos el
+         *     voucher y validamos scope antes de devolver attachments.
          */
         get: operations["list_voucher_attachments_api_v1_vouchers__voucher_id__attachments_get"];
         put?: never;
@@ -5967,38 +7981,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/vouchers/mis-pendientes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Mis Pendientes
-         * @description Lista los vouchers PENDING donde el current user es el proximo aprobador.
-         *
-         *     Logica:
-         *       1. Empresas donde el user tiene algun rol activo (user_company_roles)
-         *       2. Vouchers PENDING en esas empresas
-         *       3. Para cada voucher: cargar approval state (rule + approvals)
-         *       4. Filtrar: solo los que `next_pending_role` esta en los roles del
-         *          user en esa empresa. Excluir vouchers donde el user ya firmo
-         *          (anti-doble-firma del flujo).
-         *       5. Devolver ordenado por dias_pendiente DESC (los mas urgentes primero)
-         *
-         *     Sin paginacion porque tipicamente el aprobador tiene <20 pendientes.
-         *     Si crece, agregar `?limit=N&offset=M` despues.
-         */
-        get: operations["list_mis_pendientes_api_v1_vouchers_mis_pendientes_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/vouchers/{voucher_id}/approvals": {
         parameters: {
             query?: never;
@@ -6041,8 +8023,9 @@ export interface paths {
          *     Validaciones:
          *       - Voucher existe y está en PENDING
          *       - User tiene el rol declarado activo en la empresa del voucher
-         *       - El rol corresponde al próximo paso pendiente del flujo
-         *       - Una vez firmado el último paso, el voucher pasa a APPROVED
+         *       - El rol está en required_roles del flujo Y aún no fue firmado por nadie
+         *       - Round 145: firmas PARALELAS — cualquier orden vale (antes era estricto)
+         *       - Cuando todos los roles requeridos están firmados, voucher → APPROVED
          */
         post: operations["approve_voucher_api_v1_vouchers__voucher_id__approve_post"];
         delete?: never;
@@ -6069,6 +8052,141 @@ export interface paths {
          *     voucher dudoso aunque no le toque firmar el siguiente paso.
          */
         post: operations["reject_voucher_api_v1_vouchers__voucher_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voucher Timeline
+         * @description Devuelve la timeline cronologica del voucher.
+         *
+         *     Combina:
+         *       - audit.action_log filtrado por entity_type='voucher' + entity_id
+         *       - voucher.created_at como evento inicial (created)
+         *       - voucher_approvals (firmas individuales con role + comments)
+         *
+         *     Ordenado cronologicamente del mas antiguo al mas reciente. Pensado
+         *     para mostrar como timeline visual en el detail del voucher.
+         */
+        get: operations["get_voucher_timeline_api_v1_vouchers__voucher_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/neighbors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Voucher Neighbors
+         * @description Etapa B — devuelve prev_id y next_id para navegacion en detail page.
+         *
+         *     Considera solo vouchers a los que el user tiene scope. Order por
+         *     voucher_id DESC (consistente con la lista por default).
+         */
+        get: operations["get_voucher_neighbors_api_v1_vouchers__voucher_id__neighbors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Execute Voucher
+         * @description Marca un voucher APPROVED como EXECUTED (pago confirmado).
+         *
+         *     Validaciones:
+         *       - voucher debe existir y estar APPROVED.
+         *       - scope multi-tenant: user debe tener acceso a la empresa.
+         *       - fecha_ejecucion no puede ser futura (>1d permitido por timezone).
+         *       - movimiento_id opcional, si se pasa debe existir y ser de la misma
+         *         empresa (conciliacion explicita).
+         */
+        post: operations["execute_voucher_api_v1_vouchers__voucher_id__execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/bulk-execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Execute Vouchers
+         * @description Marca N vouchers APPROVED como EXECUTED en una sola llamada.
+         *
+         *     Procesa secuencialmente con commit por voucher para que un fallo
+         *     parcial no rollback todo. Devuelve resumen con succeeded/failed +
+         *     detalles para que el FE muestre que paso con cada uno.
+         *
+         *     Validaciones por voucher:
+         *       - existe + scope.
+         *       - status APPROVED (skip los que no).
+         *       - fecha_ejecucion no futura.
+         */
+        post: operations["bulk_execute_vouchers_api_v1_vouchers_bulk_execute_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/bulk-delete-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bulk Delete Drafts
+         * @description Etapa K — limpia DRAFT acumulados que el operador nunca envio a aprobacion.
+         *
+         *     Caso de uso: import IA crea 30 borradores, 15 son utiles y 15 son
+         *     duplicados/incorrectos. Borrarlos uno por uno = 15 clicks + 15 confirms.
+         *     Aca = 1 modal con N IDs.
+         *
+         *     Validaciones por voucher (errores van a failures, no rompen lote):
+         *       - existe + scope
+         *       - status DRAFT (otros van a failures con razon explicita)
+         */
+        post: operations["bulk_delete_drafts_api_v1_vouchers_bulk_delete_drafts_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6256,6 +8374,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proyectos-contables/{codigo}/reparto-default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reparto Default
+         * @description Devuelve los % default del proyecto + cuentas para que el frontend
+         *     pueda pre-poblar el reparto F.E / F.A.
+         *
+         *     No incluye logica de calculo del monto — eso lo hace el FE con los
+         *     montos del voucher. Aca solo la metadata del proyecto.
+         */
+        get: operations["get_reparto_default_api_v1_proyectos_contables__codigo__reparto_default_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proyectos-contables/{codigo}/ejecutado-por-fuente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ejecutado Por Fuente
+         * @description Total ejecutado del proyecto agrupado por fuente de financiamiento.
+         *
+         *     Cruza voucher_lines.proyecto_codigo + voucher_lines.fuente_financiamiento,
+         *     filtrando vouchers que ya estan APPROVED/EXECUTED/SYNCED/RECONCILED/CLOSED
+         *     (excluye DRAFT y PENDING, que no son ejecutados todavia).
+         *
+         *     Util para auditoria CORFO: ver cuanto CORFO se gasto vs cuanto P-tec
+         *     contribuyo CEHTA Capital vs cuanto puso la empresa directa.
+         */
+        get: operations["get_ejecutado_por_fuente_api_v1_proyectos_contables__codigo__ejecutado_por_fuente_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subsidios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Subsidios
+         * @description Lista de subsidios. Cualquier user autenticado puede leer
+         *     (no contiene PII, solo metadata del programa).
+         */
+        get: operations["list_subsidios_api_v1_subsidios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subsidios/{codigo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Subsidio */
+        get: operations["get_subsidio_api_v1_subsidios__codigo__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/subsidios/{codigo}/ejecucion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ejecucion Subsidio
+         * @description Desglose Round 83: "donde estan las platas del subsidio".
+         *
+         *     Agrupa los voucher_lines.fuente_financiamiento de los proyectos que
+         *     comparten el `subsidio_codigo` por empresa coejecutora. Devuelve:
+         *       - monto total del subsidio
+         *       - presupuesto total asignado (suma de presupuesto_total de
+         *         cada proyecto)
+         *       - ejecutado total + disponible
+         *       - por cada empresa coejecutora: sus proyectos, presupuesto,
+         *         ejecutado por fuente (CORFO/P-tec/Empresa), total y count.
+         *
+         *     Filtra solo vouchers en estados ejecutados (APPROVED+).
+         */
+        get: operations["get_ejecucion_subsidio_api_v1_subsidios__codigo__ejecucion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/areas": {
         parameters: {
             query?: never;
@@ -6326,7 +8564,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Area Empresas */
+        /**
+         * List Area Empresas
+         * @description QA fix 14/05/2026 — antes devolvia el mapping area→empresa para
+         *     TODAS las empresas (incluidas las fuera del scope del user). Ahora
+         *     filtra por empresa_codigo IN scope.allowed_codes.
+         */
         get: operations["list_area_empresas_api_v1_areas__codigo__empresas_get"];
         put?: never;
         post?: never;
@@ -6812,6 +9055,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reportes/contables/aging": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Aging Report
+         * @description Aging report — cuentas por pagar agrupadas por edad de vencimiento.
+         *
+         *     Etapa G — reporte standard de contabilidad para ver:
+         *       "Cuánto debo, a quién, y hace cuanto vencía."
+         *
+         *     Solo considera vouchers APPROVED tipo COMPRA o EGRESO (los que
+         *     representan deuda actual). Los EXECUTED ya se pagaron, los DRAFT/
+         *     PENDING no son deuda firme aun.
+         *
+         *     Params:
+         *       empresa: filtra por una empresa. Si omitido, agrega todas las
+         *         empresas del scope del user.
+         *       fecha_corte: fecha de referencia para calcular dias vencidos.
+         *         Default: hoy.
+         *       limit_proveedores: max filas en el desglose (top por monto).
+         */
+        get: operations["get_aging_report_api_v1_reportes_contables_aging_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reportes/contables/index": {
         parameters: {
             query?: never;
@@ -7247,6 +9524,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/mailbox/run-now": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trigger Run Now
+         * @description R152PPPP — Corre 1 ciclo completo (poll + classify) en el mismo
+         *     request worker. Equivalente a disparar el cron `inbox_cron` manual.
+         *
+         *     Útil para:
+         *       - Probar el flujo end-to-end sin esperar al schedule horario.
+         *       - Recovery después de marcar mails como No Leídos en Gmail.
+         *       - Debug en producción cuando el cron no levanta.
+         *
+         *     Timeout: el request puede tardar hasta ~30s (IMAP + Claude clasificación
+         *     de N mails). El frontend debe usar AbortController con margen.
+         */
+        post: operations["trigger_run_now_api_v1_admin_mailbox_run_now_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/mailbox/classify": {
         parameters: {
             query?: never;
@@ -7426,6 +9732,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/mailbox/{inbox_id}/auto-create-oc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto Create Oc Manual
+         * @description Re-dispara la auto-creación de OC para un email ya clasificado.
+         *
+         *     Útil cuando:
+         *       - El classify automático corrió antes de aplicar la migración
+         *         R152HHHH (no creó la OC porque la columna no existía).
+         *       - El operador cambió manualmente la categoría a 'oc'.
+         *       - El intento anterior falló (auto_create_error != NULL) y querés
+         *         reintentar después de corregir datos.
+         *
+         *     Retorna el resultado del servicio: ok + oc_id + numero_oc, o
+         *     ok=False + error si falla.
+         */
+        post: operations["auto_create_oc_manual_api_v1_admin_mailbox__inbox_id__auto_create_oc_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/mailbox/{inbox_id}/link-voucher": {
         parameters: {
             query?: never;
@@ -7473,10 +9809,252 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/mailbox/auto-create-drafts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Auto Create Drafts From Inbox
+         * @description Round 59 — bulk creación de vouchers DRAFT desde emails clasificados.
+         *
+         *     Cierra el ciclo de automatización inbox → voucher:
+         *       1. cron inbox_cron.py ya pollea IMAP + clasifica con Claude.
+         *       2. Este endpoint toma todos los clasificados como factura con
+         *          confidence alta y crea drafts sin intervención manual.
+         *       3. Operador entra a /vouchers y revisa los DRAFT, ajusta cuentas
+         *          contables, y aprueba.
+         *
+         *     Soft-fail por email: si uno falla (Claude error, datos faltantes),
+         *     se loggea en errors[] y seguimos con el siguiente.
+         *
+         *     Idempotencia: los emails con linked_voucher_id no nulo se saltan
+         *     (ya tienen voucher creado). Re-correr no duplica.
+         */
+        post: operations["auto_create_drafts_from_inbox_api_v1_admin_mailbox_auto_create_drafts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/fund/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Fund Metrics
+         * @description G01 KPI Row — 8 tiles fund-level.
+         *
+         *     Calcula TVPI, DPI, RVPI, MOIC en runtime sobre cashflows + valuations.
+         */
+        get: operations["get_fund_metrics_api_v1_dashboard_fund_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/fund/jcurve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Jcurve
+         * @description G02 J-Curve — cashflow neto acumulado por trimestre.
+         *
+         *     Capital calls = negativo, distributions = positivo.
+         *     Para la vista del director (fund-level).
+         */
+        get: operations["get_jcurve_api_v1_dashboard_fund_jcurve_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/portfolio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Portfolio
+         * @description G09 Treemap + tabla — portfolio companies con MOIC + FV.
+         *
+         *     Filtrado multi-tenant (R152TTTTT):
+         *         - admin / scope.is_global: ve todas las empresas portfolio
+         *         - usuario con scope limitado: ve solo empresas en su user_company_roles
+         *         - LP (vía `_is_lp_user`): ve solo empresas con is_public_disclosure
+         */
+        get: operations["get_portfolio_api_v1_dashboard_portfolio_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Impact Aggregated
+         * @description G16 Impact KPI Cards — IRIS+ v5.3 agregado por metric_id.
+         */
+        get: operations["get_impact_aggregated_api_v1_dashboard_impact_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/impact/dimensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Impact Dimensions
+         * @description G14 Radar — Impact Frontiers 5-dimensions per portfolio company.
+         *
+         *     Returns most-recent record per company. Si la empresa no tiene fila,
+         *     no aparece (frontend usa 0 como default visual).
+         *
+         *     R152TTTTT — Multi-tenant fix: filtra por scope.allowed_codes si el
+         *     user no es global. Sin esto, un user con scope limitado veía scores
+         *     de TODAS las empresas portfolio.
+         */
+        get: operations["get_impact_dimensions_api_v1_dashboard_impact_dimensions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/impact/sdg": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Impact Sdg
+         * @description G15 SDG Grid — UN 17 SDGs alignment per portfolio company.
+         *
+         *     R152TTTTT — Multi-tenant fix: filtra por scope.allowed_codes si el
+         *     user no es global.
+         */
+        get: operations["get_impact_sdg_api_v1_dashboard_impact_sdg_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/compliance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compliance
+         * @description Estado de compliance multi-framework (OPIM + CMF + CORFO + ICMA).
+         */
+        get: operations["get_compliance_api_v1_dashboard_compliance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/lps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Lps
+         * @description Lista de LPs del fondo. Solo director/auditor.
+         */
+        get: operations["list_lps_api_v1_dashboard_lps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboard/lps/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get My Pcap
+         * @description Mi Cuenta de Capital — Partner Capital Account Statement (ILPA v2.0).
+         *
+         *     Si el current user no esta linkeado a un LP, devuelve 404.
+         */
+        get: operations["get_my_pcap_api_v1_dashboard_lps_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccessResponse */
+        AccessResponse: {
+            /** Allowed */
+            allowed: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
         /** ActaDataSummary */
         ActaDataSummary: {
             /**
@@ -7560,6 +10138,27 @@ export interface components {
              */
             aprobado: boolean;
         };
+        /** AdoptionRow */
+        AdoptionRow: {
+            /** User Id */
+            user_id: string;
+            /** Email */
+            email: string;
+            /** App Role */
+            app_role: string;
+            /** Empresas */
+            empresas: string | null;
+            /** Last Login */
+            last_login: string | null;
+            /** Days Inactive */
+            days_inactive: number | null;
+            /** Actions 30D */
+            actions_30d: number;
+            /** Classification */
+            classification: string;
+            /** Impact Level */
+            impact_level: string;
+        };
         /**
          * AgentRunReport
          * @description Reporte de los agentes scheduled.
@@ -7582,6 +10181,56 @@ export interface components {
             total_creados: number;
             /** Errores */
             errores?: string[];
+        };
+        /** AgingBucketTotal */
+        AgingBucketTotal: {
+            /** Bucket */
+            bucket: string;
+            /** Count */
+            count: number;
+            /** Total Clp */
+            total_clp: string;
+        };
+        /** AgingProveedorRow */
+        AgingProveedorRow: {
+            /** Contraparte Rut */
+            contraparte_rut: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Proveedor Id */
+            proveedor_id: number | null;
+            /** Total */
+            total: string;
+            /** Al Dia */
+            al_dia: string;
+            /** D 1 30 */
+            d_1_30: string;
+            /** D 31 60 */
+            d_31_60: string;
+            /** D 61 90 */
+            d_61_90: string;
+            /** D 90 Plus */
+            d_90_plus: string;
+            /** Voucher Count */
+            voucher_count: number;
+        };
+        /** AgingReport */
+        AgingReport: {
+            /**
+             * Fecha Corte
+             * Format: date
+             */
+            fecha_corte: string;
+            /** Empresa Codigo */
+            empresa_codigo: string | null;
+            /** Totales Por Bucket */
+            totales_por_bucket: components["schemas"]["AgingBucketTotal"][];
+            /** Total General */
+            total_general: string;
+            /** Proveedores */
+            proveedores: components["schemas"]["AgingProveedorRow"][];
+            /** Total Proveedores */
+            total_proveedores: number;
         };
         /**
          * AiInsight
@@ -7659,6 +10308,67 @@ export interface components {
             detail: string;
             /** Href */
             href?: string | null;
+        };
+        /** AnomalyRadarItem */
+        AnomalyRadarItem: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Status */
+            status: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Fecha Documento */
+            fecha_documento: string | null;
+            /** Total */
+            total: string;
+            /** Score */
+            score: number;
+            /** Top Warnings */
+            top_warnings: string[];
+        };
+        /** AnomalyRadarResponse */
+        AnomalyRadarResponse: {
+            /** Items */
+            items: components["schemas"]["AnomalyRadarItem"][];
+            /** Count */
+            count: number;
+            /** Threshold Score */
+            threshold_score: number;
+        };
+        /** AnomalyReport */
+        AnomalyReport: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Score */
+            score: number;
+            /** Warnings */
+            warnings: components["schemas"]["AnomalyWarning"][];
+            /** Checked At */
+            checked_at: string;
+        };
+        /** AnomalyWarning */
+        AnomalyWarning: {
+            /** Code */
+            code: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "HIGH" | "MED" | "LOW";
+            /** Title */
+            title: string;
+            /** Detail */
+            detail: string;
+            /** Metric */
+            metric?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ApiTokenCreate */
         ApiTokenCreate: {
@@ -8034,6 +10744,57 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /**
+         * AutoCreateDraftsRequest
+         * @description POST /admin/mailbox/auto-create-drafts
+         *
+         *     Itera sobre los emails clasificados como factura (status='classified',
+         *     category='factura' u 'orden_compra', linked_voucher_id IS NULL) con
+         *     confidence >= min_confidence y crea un voucher COMPRA en DRAFT para
+         *     cada uno. Liga el inbox_messages.linked_voucher_id al voucher creado.
+         */
+        AutoCreateDraftsRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Min Confidence
+             * @default 0.75
+             */
+            min_confidence: number;
+            /**
+             * Max Emails
+             * @default 50
+             */
+            max_emails: number;
+        };
+        /**
+         * AutoCreateDraftsResponse
+         * @description Stats del bulk run.
+         */
+        AutoCreateDraftsResponse: {
+            /** Candidates */
+            candidates: number;
+            /** Created */
+            created: number;
+            /** Skipped Low Confidence */
+            skipped_low_confidence: number;
+            /** Skipped Empty */
+            skipped_empty: number;
+            /** Failed */
+            failed: number;
+            /**
+             * Created Voucher Ids
+             * @default []
+             */
+            created_voucher_ids: number[];
+            /**
+             * Errors
+             * @default []
+             */
+            errors: {
+                [key: string]: unknown;
+            }[];
+        };
         /** AutoRunReport */
         AutoRunReport: {
             /** Vouchers Evaluados */
@@ -8111,11 +10872,29 @@ export interface components {
              */
             save_to_dropbox: boolean;
         };
+        /** Body_import_csv_rcv_api_v1_admin_sii_import_csv__empresa_codigo__post */
+        Body_import_csv_rcv_api_v1_admin_sii_import_csv__empresa_codigo__post: {
+            /**
+             * File
+             * Format: binary
+             * @description CSV bajado del portal SII
+             */
+            file: string;
+        };
         /** Body_import_entregables_csv_api_v1_entregables_import_csv_post */
         Body_import_entregables_csv_api_v1_entregables_import_csv_post: {
             /**
              * File
              * Format: binary
+             */
+            file: string;
+        };
+        /** Body_import_excel_remuneraciones_api_v1_admin_nubox_import_excel__empresa_codigo__post */
+        Body_import_excel_remuneraciones_api_v1_admin_nubox_import_excel__empresa_codigo__post: {
+            /**
+             * File
+             * Format: binary
+             * @description xlsx del Libro de Remuneraciones bajado de Nubox
              */
             file: string;
         };
@@ -8210,6 +10989,14 @@ export interface components {
              */
             file: string;
         };
+        /** Body_upload_excel_api_v1_flujos_caja_proyecto__proyecto_codigo__upload_post */
+        Body_upload_excel_api_v1_flujos_caja_proyecto__proyecto_codigo__upload_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
         /** Body_upload_legal_api_v1_legal__documento_id__upload_post */
         Body_upload_legal_api_v1_legal__documento_id__upload_post: {
             /**
@@ -8219,6 +11006,22 @@ export interface components {
             file: string;
             /** Nombre Archivo */
             nombre_archivo?: string | null;
+        };
+        /** Body_upload_libro_api_v1_rrhh_libros_upload_post */
+        Body_upload_libro_api_v1_rrhh_libros_upload_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
+        };
+        /** Body_upload_logo_api_v1_admin_empresas__codigo__logo_upload_post */
+        Body_upload_logo_api_v1_admin_empresas__codigo__logo_upload_post: {
+            /**
+             * File
+             * Format: binary
+             */
+            file: string;
         };
         /** Body_upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post */
         Body_upload_voucher_attachment_api_v1_vouchers__voucher_id__attachments_post: {
@@ -8291,12 +11094,101 @@ export interface components {
             /** Skipped */
             skipped: number;
         };
+        /**
+         * BulkDeleteDraftsRequest
+         * @description POST /vouchers/bulk-delete-drafts — borrar N vouchers en estado DRAFT.
+         *
+         *     Solo procesa los que efectivamente esten en DRAFT (skip los que cambiaron
+         *     de estado entre la seleccion y la ejecucion). Otros estados van a
+         *     `failures`. No tocamos PENDING+ (esos requieren VOID).
+         */
+        BulkDeleteDraftsRequest: {
+            /** Voucher Ids */
+            voucher_ids: number[];
+        };
+        /** BulkDeleteDraftsResponse */
+        BulkDeleteDraftsResponse: {
+            /** Succeeded */
+            succeeded: number;
+            /** Failed */
+            failed: number;
+            /**
+             * Deleted Codes
+             * @default []
+             */
+            deleted_codes: string[];
+            /**
+             * Failures
+             * @default []
+             */
+            failures: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * BulkExecuteRequest
+         * @description Etapa A — POST /vouchers/bulk-execute.
+         *
+         *     Marca N vouchers APPROVED como EXECUTED en una sola llamada.
+         *     Pensado para uso post-transferencia masiva: el user descargo el
+         *     Excel desde /transferencias, subio al banco, y ahora confirma que
+         *     se ejecutaron todos.
+         */
+        BulkExecuteRequest: {
+            /** Voucher Ids */
+            voucher_ids: number[];
+            /**
+             * Fecha Ejecucion
+             * @description Fecha real de las transferencias (default: hoy).
+             */
+            fecha_ejecucion?: string | null;
+            /**
+             * Nota
+             * @description Nota comun a todos (ej. 'lote BCI 2026-05-14').
+             */
+            nota?: string | null;
+        };
+        /** BulkExecuteResponse */
+        BulkExecuteResponse: {
+            /** Succeeded */
+            succeeded: number;
+            /** Failed */
+            failed: number;
+            /**
+             * Executed Codes
+             * @default []
+             */
+            executed_codes: string[];
+            /**
+             * Failures
+             * @default []
+             */
+            failures: {
+                [key: string]: unknown;
+            }[];
+        };
         /** BulkItemError */
         BulkItemError: {
             /** Id */
             id: number;
             /** Detail */
             detail: string;
+        };
+        /**
+         * BulkPdfRequest
+         * @description Body de `POST /vouchers/bulk-pdf` — descarga ZIP con PDFs de varios vouchers.
+         *
+         *     Cap defensivo de 50 elementos para no saturar Dropbox / la pool DB durante
+         *     el cierre mensual. Si la operativa necesita más, se mueve a job async.
+         */
+        BulkPdfRequest: {
+            /** Voucher Ids */
+            voucher_ids: number[];
+            /**
+             * Include Attachments
+             * @default true
+             */
+            include_attachments: boolean;
         };
         /**
          * BulkReassignRequest
@@ -8664,6 +11556,21 @@ export interface components {
             /** Points */
             points: components["schemas"]["CashflowPoint"][];
         };
+        /** CatalogosResp */
+        CatalogosResp: {
+            /** Cuenta Gastos */
+            cuenta_gastos: string[];
+            /** Cuenta Rrhh */
+            cuenta_rrhh: string[];
+            /** Item Gastos */
+            item_gastos: string[];
+            /** Tipo Doc Gastos */
+            tipo_doc_gastos: string[];
+            /** Tipo Doc Rrhh */
+            tipo_doc_rrhh: string[];
+            /** Etapa */
+            etapa: string[];
+        };
         /** CatalogosResponse */
         CatalogosResponse: {
             /** Empresas */
@@ -8696,6 +11603,41 @@ export interface components {
             /** Sub Categorias */
             sub_categorias: components["schemas"]["SubCategoriaItem"][];
         };
+        /** CategorySummary */
+        CategorySummary: {
+            /** Code */
+            code: string;
+            /** Name */
+            name: string;
+            /** Total */
+            total: number;
+            /** Ok */
+            ok: number;
+            /** Warn */
+            warn: number;
+            /** Fail */
+            fail: number;
+            /** Skipped */
+            skipped: number;
+            /** Progress Pct */
+            progress_pct: number;
+        };
+        /** CellUpsert */
+        CellUpsert: {
+            /** Periodo */
+            periodo: string;
+            /** Categoria */
+            categoria: string;
+            /**
+             * Tipo
+             * @default EGRESO
+             */
+            tipo: string;
+            /** Monto Proyectado */
+            monto_proyectado: number | string;
+            /** Notas */
+            notas?: string | null;
+        };
         /** ChatRequest */
         ChatRequest: {
             /** Message */
@@ -8716,12 +11658,76 @@ export interface components {
             /** Rut Canonical */
             rut_canonical?: string | null;
         };
+        /** CheckResult */
+        CheckResult: {
+            /** Id */
+            id: string;
+            /** Category */
+            category: string;
+            /** Title */
+            title: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "BLOCKER" | "IMPORTANT" | "NICE_TO_HAVE";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "OK" | "WARN" | "FAIL" | "SKIPPED";
+            /** Detail */
+            detail: string;
+            /** Action Url */
+            action_url?: string | null;
+            /** Action Label */
+            action_label?: string | null;
+        };
         /** CleanupResponse */
         CleanupResponse: {
             /** Vouchers Eliminados */
             vouchers_eliminados: number;
             /** Lines Eliminadas */
             lines_eliminadas: number;
+        };
+        /** CommentCreateRequest */
+        CommentCreateRequest: {
+            /** Body */
+            body: string;
+        };
+        /** CommentPatchRequest */
+        CommentPatchRequest: {
+            /** Body */
+            body?: string | null;
+            /** Resolved */
+            resolved?: boolean | null;
+        };
+        /** CommentRead */
+        CommentRead: {
+            /** Comment Id */
+            comment_id: number;
+            /** Voucher Id */
+            voucher_id: number;
+            /** User Id */
+            user_id: string;
+            /** User Email */
+            user_email: string;
+            /** Body */
+            body: string;
+            /** Resolved */
+            resolved: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Can Edit */
+            can_edit: boolean;
         };
         /**
          * ComplianceGradeEmpresa
@@ -8765,6 +11771,18 @@ export interface components {
              */
             promedio_cumplimiento: number;
         };
+        /** ComplianceResp */
+        ComplianceResp: {
+            /** Items */
+            items: components["schemas"]["app__api__v1__empresa__ComplianceItem"][];
+        };
+        /** ComplianceResponse */
+        ComplianceResponse: {
+            /** Fund Codigo */
+            fund_codigo: string;
+            /** Items */
+            items: components["schemas"]["app__api__v1__dashboard_institucional__ComplianceItem"][];
+        };
         /**
          * ComposicionRow
          * @description Una fila de la tabla Composición Completa CC.
@@ -8800,6 +11818,21 @@ export interface components {
             movimientos_huerfanos: number;
             /** Monto Pendiente */
             monto_pendiente: string;
+        };
+        /** ConciliarResponse */
+        ConciliarResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string | null;
+            /** Total Processed */
+            total_processed: number;
+            /** Matched Exact */
+            matched_exact: number;
+            /** Matched Fuzzy */
+            matched_fuzzy: number;
+            /** Unmatched */
+            unmatched: number;
         };
         /**
          * ConfirmBatchRequest
@@ -8884,6 +11917,40 @@ export interface components {
             /** Date Used */
             date_used: string | null;
         };
+        /** CostoHistorico */
+        CostoHistorico: {
+            /** Rut */
+            rut: string;
+            /** Nombre */
+            nombre: string;
+            /** Periodo */
+            periodo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Area */
+            area: string | null;
+            /** Total Haberes */
+            total_haberes: string;
+            /** Liquido Pagado */
+            liquido_pagado: string;
+            /** Total Aportes Patronales */
+            total_aportes_patronales: string;
+            /** Costo Total Empresa */
+            costo_total_empresa: string;
+            /** Multiplicador Costo */
+            multiplicador_costo: string | null;
+        };
+        /** CrearVoucherDesdeDteResponse */
+        CrearVoucherDesdeDteResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Sii Doc Id */
+            sii_doc_id: number;
+            /** Message */
+            message: string;
+        };
         /**
          * CriticalCount
          * @description Conteo ligero de entregables en alerta crítica para el badge sidebar.
@@ -8955,6 +12022,118 @@ export interface components {
             tipo: string;
             /** Nivel */
             nivel: number;
+        };
+        /** CuentaUsoRow */
+        CuentaUsoRow: {
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Cuenta Nombre */
+            cuenta_nombre: string | null;
+            /** Uso Count */
+            uso_count: number;
+            /** Monto Acumulado */
+            monto_acumulado: number;
+            /** Corfo Cuenta */
+            corfo_cuenta: string | null;
+            /** Corfo Item */
+            corfo_item: string | null;
+            /** Corfo Cargo */
+            corfo_cargo: string | null;
+        };
+        /** CuotaCreate */
+        CuotaCreate: {
+            /** Numero Cuota */
+            numero_cuota: number;
+            /** Monto */
+            monto: number | string;
+            /**
+             * Fecha Vencimiento
+             * Format: date
+             */
+            fecha_vencimiento: string;
+            /** Descripcion */
+            descripcion?: string | null;
+        };
+        /** CuotaPendiente */
+        CuotaPendiente: {
+            /** Cuota Id */
+            cuota_id: number;
+            /** Oc Id */
+            oc_id: number;
+            /** Numero Oc */
+            numero_oc: string | null;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Proveedor Nombre */
+            proveedor_nombre: string | null;
+            /** Numero Cuota */
+            numero_cuota: number;
+            /** Monto */
+            monto: string;
+            /**
+             * Fecha Vencimiento
+             * Format: date
+             */
+            fecha_vencimiento: string;
+            /** Dias A Vencer */
+            dias_a_vencer: number;
+            /** Descripcion */
+            descripcion: string | null;
+            /** Estado */
+            estado: string;
+            /** Voucher Id */
+            voucher_id: number | null;
+            /** Voucher Codigo */
+            voucher_codigo: string | null;
+        };
+        /** CuotaRead */
+        CuotaRead: {
+            /** Cuota Id */
+            cuota_id: number;
+            /** Oc Id */
+            oc_id: number;
+            /** Numero Cuota */
+            numero_cuota: number;
+            /** Monto */
+            monto: string;
+            /**
+             * Fecha Vencimiento
+             * Format: date
+             */
+            fecha_vencimiento: string;
+            /** Descripcion */
+            descripcion: string | null;
+            /** Estado */
+            estado: string;
+            /** Voucher Id */
+            voucher_id: number | null;
+            /** Voucher Codigo */
+            voucher_codigo?: string | null;
+            /** Voucher Status */
+            voucher_status?: string | null;
+            /** Dias A Vencer */
+            dias_a_vencer?: number | null;
+        };
+        /** CuotasReplaceBody */
+        CuotasReplaceBody: {
+            /** Cuotas */
+            cuotas: components["schemas"]["CuotaCreate"][];
+        };
+        /**
+         * CuotasResumen
+         * @description Métricas agregadas para badge/sidebar.
+         */
+        CuotasResumen: {
+            /** Total Pendientes */
+            total_pendientes: number;
+            /** Vencidas */
+            vencidas: number;
+            /** Proximas 7 Dias */
+            proximas_7_dias: number;
+            /** Proximas 30 Dias */
+            proximas_30_dias: number;
+            /** Monto Total Pendiente */
+            monto_total_pendiente: string;
         };
         /**
          * CurrencyBreakdownItem
@@ -9147,6 +12326,46 @@ export interface components {
             /** Preview Url */
             preview_url?: string | null;
         };
+        /** DimensionsDetail */
+        DimensionsDetail: {
+            /** What Score */
+            what_score: number;
+            /** Who Score */
+            who_score: number;
+            /** How Much Score */
+            how_much_score: number;
+            /** Contribution Score */
+            contribution_score: number;
+            /** Risk Score */
+            risk_score: number;
+            /** Narrative */
+            narrative?: string | null;
+            /** As Of Date */
+            as_of_date: string;
+        };
+        /** DirectorioMiembroRead */
+        DirectorioMiembroRead: {
+            /** Miembro Id */
+            miembro_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Rut */
+            rut: string | null;
+            /** Direccion */
+            direccion: string | null;
+            /** Telefono */
+            telefono: string | null;
+            /** Banco */
+            banco: string | null;
+            /** Cuenta */
+            cuenta: string | null;
+            /** Codigo Banco */
+            codigo_banco: string | null;
+            /** Correo */
+            correo: string | null;
+            /** Activo */
+            activo: boolean;
+        };
         /**
          * DisableRequest
          * @description Mismo shape que VerifyRequest — el code es el final auth gate.
@@ -9325,6 +12544,134 @@ export interface components {
             /** Color */
             color: string;
         };
+        /** EjecucionPorEmpresa */
+        EjecucionPorEmpresa: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Empresa Razon Social */
+            empresa_razon_social: string | null;
+            /** Proyectos */
+            proyectos: string[];
+            /** Presupuesto Asignado */
+            presupuesto_asignado: string;
+            /** Ejecutado Corfo */
+            ejecutado_corfo: string;
+            /** Ejecutado Ptec */
+            ejecutado_ptec: string;
+            /** Ejecutado Empresa Directa */
+            ejecutado_empresa_directa: string;
+            /** Ejecutado Total */
+            ejecutado_total: string;
+            /** Cantidad Vouchers */
+            cantidad_vouchers: number;
+        };
+        /**
+         * EjecutadoPorFuente
+         * @description Reporteria Ajuste G5 — ejecutado total agrupado por fuente.
+         */
+        EjecutadoPorFuente: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Presupuesto Total */
+            presupuesto_total: string | null;
+            /** Por Fuente */
+            por_fuente: {
+                [key: string]: string;
+            };
+            /** Total Ejecutado */
+            total_ejecutado: string;
+            /** Cantidad Vouchers */
+            cantidad_vouchers: number;
+        };
+        /** EmitFromVoucherResponse */
+        EmitFromVoucherResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Nubox Document Id */
+            nubox_document_id: number | null;
+            /** Folio */
+            folio: string | null;
+            /** Estado */
+            estado: string;
+            /** Idempotence Id */
+            idempotence_id: string;
+            /**
+             * Errors
+             * @default []
+             */
+            errors: {
+                [key: string]: unknown;
+            }[];
+            /** Message */
+            message: string;
+        };
+        /** EmpleadoCreate */
+        EmpleadoCreate: {
+            /** Rut */
+            rut: string;
+            /** Nombre */
+            nombre: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Area */
+            area?: string | null;
+            /** Cargo */
+            cargo?: string | null;
+            /** Fecha Ingreso */
+            fecha_ingreso?: string | null;
+            /** Afp */
+            afp?: string | null;
+            /** Salud */
+            salud?: string | null;
+            /** Sueldo Base Actual */
+            sueldo_base_actual?: number | string | null;
+            /** Notas */
+            notas?: string | null;
+        };
+        /** EmpleadoRead */
+        EmpleadoRead: {
+            /** Rut */
+            rut: string;
+            /** Nombre */
+            nombre: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Area */
+            area: string | null;
+            /** Cargo */
+            cargo: string | null;
+            /** Fecha Ingreso */
+            fecha_ingreso: string | null;
+            /** Activo */
+            activo: boolean;
+            /** Sueldo Base Actual */
+            sueldo_base_actual: string | null;
+        };
+        /** EmpleadoUpdate */
+        EmpleadoUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Area */
+            area?: string | null;
+            /** Cargo */
+            cargo?: string | null;
+            /** Fecha Ingreso */
+            fecha_ingreso?: string | null;
+            /** Fecha Salida */
+            fecha_salida?: string | null;
+            /** Activo */
+            activo?: boolean | null;
+            /** Afp */
+            afp?: string | null;
+            /** Salud */
+            salud?: string | null;
+            /** Sueldo Base Actual */
+            sueldo_base_actual?: number | string | null;
+            /** Notas */
+            notas?: string | null;
+        };
         /**
          * EmpresaCEOKPIs
          * @description KPIs por empresa para el comparador del CEO Dashboard.
@@ -9378,6 +12725,39 @@ export interface components {
             en_progreso: number;
             /** Completados */
             completados: number;
+        };
+        /** EmpresaDataRead */
+        EmpresaDataRead: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string | null;
+            /** Rut */
+            rut: string | null;
+            /** Pagina Web */
+            pagina_web: string | null;
+            /** Giro */
+            giro: string | null;
+            /** Direccion */
+            direccion: string | null;
+            /** Direccion Sii */
+            direccion_sii: string | null;
+            /** Contabilidad Proveedor */
+            contabilidad_proveedor: string | null;
+            /** Representante Legal */
+            representante_legal: string | null;
+            /** Email Firmante */
+            email_firmante: string | null;
+            /** Activo */
+            activo: boolean;
+            /** Tiene Credencial Sii */
+            tiene_credencial_sii: boolean;
+            /** Tiene Credencial Previred */
+            tiene_credencial_previred: boolean;
+            /** Sii Ultima Validacion Ok */
+            sii_ultima_validacion_ok: boolean | null;
+            /** Sii Ultima Validacion At */
+            sii_ultima_validacion_at: string | null;
         };
         /**
          * EmpresaDigestRow
@@ -9440,6 +12820,48 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** EmpresaNuboxApiStatus */
+        EmpresaNuboxApiStatus: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string | null;
+            /** Rut */
+            rut: string | null;
+            /** Tiene Credencial Api */
+            tiene_credencial_api: boolean;
+            /** Environment */
+            environment: string | null;
+            /** Ultima Validacion At */
+            ultima_validacion_at: string | null;
+            /** Ultima Validacion Ok */
+            ultima_validacion_ok: boolean | null;
+            /** Ultima Validacion Msg */
+            ultima_validacion_msg: string | null;
+            /** Ventas Count */
+            ventas_count: number;
+        };
+        /** EmpresaNuboxStatus */
+        EmpresaNuboxStatus: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string | null;
+            /** Rut */
+            rut: string | null;
+            /** Tiene Credencial Nubox */
+            tiene_credencial_nubox: boolean;
+            /** Ultima Validacion At */
+            ultima_validacion_at: string | null;
+            /** Ultima Validacion Ok */
+            ultima_validacion_ok: boolean | null;
+            /** Ultimo Sync At */
+            ultimo_sync_at: string | null;
+            /** Ultimo Sync Status */
+            ultimo_sync_status: string | null;
+            /** Remuneraciones Count */
+            remuneraciones_count: number;
+        };
         /**
          * EmpresaPortfolioRow
          * @description Una fila de la tabla por empresa.
@@ -9490,6 +12912,27 @@ export interface components {
             oc_prefix: string | null;
             /** Activo */
             activo: boolean;
+        };
+        /** EmpresaSiiStatus */
+        EmpresaSiiStatus: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Razon Social */
+            razon_social: string | null;
+            /** Rut */
+            rut: string | null;
+            /** Tiene Credencial Sii */
+            tiene_credencial_sii: boolean;
+            /** Ultima Validacion At */
+            ultima_validacion_at: string | null;
+            /** Ultima Validacion Ok */
+            ultima_validacion_ok: boolean | null;
+            /** Ultimo Sync At */
+            ultimo_sync_at: string | null;
+            /** Ultimo Sync Status */
+            ultimo_sync_status: string | null;
+            /** Documentos Count */
+            documentos_count: number;
         };
         /**
          * EmpresaUpdate
@@ -10008,6 +13451,32 @@ export interface components {
             }[];
         };
         /**
+         * ExecuteRequest
+         * @description Etapa A — POST /vouchers/bulk-execute body por voucher.
+         *
+         *     Marca un voucher APPROVED como EXECUTED (pago confirmado).
+         *     `fecha_ejecucion` y `nota` son opcionales — default fecha de hoy.
+         *     `movimiento_id` es opcional: si lo pasas, vincula este voucher con
+         *     un movimiento bancario existente (conciliacion explicita).
+         */
+        ExecuteRequest: {
+            /**
+             * Fecha Ejecucion
+             * @description Fecha real de la transferencia (default: hoy).
+             */
+            fecha_ejecucion?: string | null;
+            /**
+             * Nota
+             * @description Nota interna opcional (ej. 'lote BCI 2026-05-14' o 'comprobante #12345'). Queda en audit log.
+             */
+            nota?: string | null;
+            /**
+             * Movimiento Id
+             * @description ID de core.movimientos a vincular (opcional).
+             */
+            movimiento_id?: number | null;
+        };
+        /**
          * ExecutiveSummaryResponse
          * @description Resumen narrativo del portfolio (1-2 líneas) para CEO Dashboard.
          */
@@ -10221,6 +13690,19 @@ export interface components {
              */
             updated_at: string;
         };
+        /** F22Row */
+        F22Row: {
+            /** Ano Tributario */
+            ano_tributario: number;
+            /** Estado */
+            estado: string;
+            /** Fecha Vencimiento */
+            fecha_vencimiento?: string | null;
+            /** Monto A Pagar */
+            monto_a_pagar?: number | null;
+            /** Monto A Devolver */
+            monto_a_devolver?: number | null;
+        };
         /**
          * F22Update
          * @description PATCH /f22/{id} — edición parcial.
@@ -10275,6 +13757,42 @@ export interface components {
             /** Comprobante Url */
             comprobante_url?: string | null;
         };
+        /**
+         * F29PreviewResponse
+         * @description Round 119 — F29 estimado a partir del RCV del SII.
+         */
+        F29PreviewResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Ventas Count */
+            ventas_count: number;
+            /** Compras Count */
+            compras_count: number;
+            /** Iva Debito Fiscal */
+            iva_debito_fiscal: number;
+            /** Iva Credito Fiscal */
+            iva_credito_fiscal: number;
+            /** Ventas Total */
+            ventas_total: number;
+            /** Compras Total */
+            compras_total: number;
+            /** Ventas Neto */
+            ventas_neto: number;
+            /** Compras Neto */
+            compras_neto: number;
+            /** F29 Estimado A Pagar */
+            f29_estimado_a_pagar: number;
+            /** Docs Conciliados */
+            docs_conciliados: number;
+            /** Docs Sin Voucher */
+            docs_sin_voucher: number;
+            /** Ventas Por Tipo */
+            ventas_por_tipo: components["schemas"]["TipoDteBreakdown"][];
+            /** Compras Por Tipo */
+            compras_por_tipo: components["schemas"]["TipoDteBreakdown"][];
+        };
         /** F29Read */
         F29Read: {
             /** F29 Id */
@@ -10320,6 +13838,21 @@ export interface components {
             /** Estado */
             estado: string;
         };
+        /** F29Row */
+        F29Row: {
+            /** Periodo */
+            periodo: string;
+            /** Estado */
+            estado: string;
+            /** Fecha Vencimiento */
+            fecha_vencimiento?: string | null;
+            /** Fecha Presentacion */
+            fecha_presentacion?: string | null;
+            /** Monto Iva Debito */
+            monto_iva_debito?: number | null;
+            /** Monto Iva Credito */
+            monto_iva_credito?: number | null;
+        };
         /**
          * F29Update
          * @description PATCH /f29/{id} — edición parcial.
@@ -10337,6 +13870,78 @@ export interface components {
             comprobante_url?: string | null;
             /** Monto A Pagar */
             monto_a_pagar?: number | string | null;
+        };
+        /** FeedbackCreate */
+        FeedbackCreate: {
+            /** Action Type */
+            action_type: string;
+            /** Score */
+            score: number;
+            /** Comment */
+            comment?: string | null;
+            /** Context */
+            context?: {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** FeedbackRead */
+        FeedbackRead: {
+            /** Feedback Id */
+            feedback_id: number;
+            /** Action Type */
+            action_type: string;
+            /** Score */
+            score: number;
+        };
+        /** FeedbackSummary */
+        FeedbackSummary: {
+            /** Action Type */
+            action_type: string;
+            /** Total */
+            total: number;
+            /** Avg Score */
+            avg_score: number;
+            /** Pct Positive */
+            pct_positive: number;
+            /** Pct Negative */
+            pct_negative: number;
+            /** Last Comments */
+            last_comments: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** Firmante */
+        Firmante: {
+            /** Nombre */
+            nombre: string;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Rut */
+            rut?: string | null;
+        };
+        /** FlujoCell */
+        FlujoCell: {
+            /** Id */
+            id: number;
+            /** Proyecto Codigo */
+            proyecto_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Categoria */
+            categoria: string;
+            /** Tipo */
+            tipo: string;
+            /** Monto Proyectado */
+            monto_proyectado: string;
+            /**
+             * Monto Real
+             * @default 0
+             */
+            monto_real: string;
+            /** Notas */
+            notas?: string | null;
         };
         /** FlujoMensualPoint */
         FlujoMensualPoint: {
@@ -10565,6 +14170,32 @@ export interface components {
             /** Fecha Proximo Contacto */
             fecha_proximo_contacto?: string | null;
         };
+        /**
+         * FondoOverview
+         * @description Single payload con todo. Una sola request para el dashboard.
+         */
+        FondoOverview: {
+            /** Empresas */
+            empresas: components["schemas"]["EmpresaDataRead"][];
+            /** Directorio */
+            directorio: components["schemas"]["DirectorioMiembroRead"][];
+            /** Inversionistas */
+            inversionistas: components["schemas"]["InversionistaRead"][];
+            /** Empresas Count */
+            empresas_count: number;
+            /** Empresas Con Sii */
+            empresas_con_sii: number;
+            /** Empresas Con Previred */
+            empresas_con_previred: number;
+            /** Directorio Count */
+            directorio_count: number;
+            /** Inversionistas Count */
+            inversionistas_count: number;
+            /** Migracion 115 Aplicada */
+            migracion_115_aplicada: boolean;
+            /** Columna Pagina Web Existe */
+            columna_pagina_web_existe: boolean;
+        };
         /** FondoRead */
         FondoRead: {
             /** Fondo Id */
@@ -10689,12 +14320,46 @@ export interface components {
              * @default []
              */
             tipos_documento_afectos_iva: string[];
+            /**
+             * Iva Porcentaje
+             * @default 0.19
+             */
+            iva_porcentaje: number;
             /** Cuentas Contables Sample */
             cuentas_contables_sample: {
                 [key: string]: unknown;
             }[];
             /** Empresas */
             empresas: components["schemas"]["EmpresaMetadata"][];
+        };
+        /** FundMetrics */
+        FundMetrics: {
+            /** Fund Codigo */
+            fund_codigo: string;
+            /** Fund Nombre */
+            fund_nombre: string;
+            /** Commitments Total Usd */
+            commitments_total_usd: string;
+            /** Called Total Usd */
+            called_total_usd: string;
+            /** Called Pct */
+            called_pct: string;
+            /** Distributed Total Usd */
+            distributed_total_usd: string;
+            /** Current Nav Usd */
+            current_nav_usd: string;
+            /** Unfunded Commitments Usd */
+            unfunded_commitments_usd: string;
+            /** Tvpi */
+            tvpi: string | null;
+            /** Dpi */
+            dpi: string | null;
+            /** Rvpi */
+            rvpi: string | null;
+            /** Net Irr */
+            net_irr: string | null;
+            /** Moic */
+            moic: string | null;
         };
         /**
          * GanttHitoPreview
@@ -10894,6 +14559,15 @@ export interface components {
             /** Message */
             message: string;
         };
+        /** GenExcelReq */
+        GenExcelReq: {
+            /** Empresa */
+            empresa: string;
+            /** Periodo */
+            periodo: string;
+            /** Tipo */
+            tipo: string;
+        };
         /**
          * GenerarSerieRequest
          * @description Genera N instancias de un template recurrente para un año dado.
@@ -10956,6 +14630,15 @@ export interface components {
             instancias_existentes: number;
             /** Fechas */
             fechas: string[];
+        };
+        /** GenerarVouchersResult */
+        GenerarVouchersResult: {
+            /** Cuotas Procesadas */
+            cuotas_procesadas: number;
+            /** Vouchers Creados */
+            vouchers_creados: number;
+            /** Vouchers Codigos */
+            vouchers_codigos: string[];
         };
         /** GenerateAlertsReport */
         GenerateAlertsReport: {
@@ -11167,24 +14850,72 @@ export interface components {
             /** Encargado */
             encargado?: string | null;
         };
-        /** ImportCsvResponse */
-        ImportCsvResponse: {
-            /** Total Rows */
-            total_rows: number;
-            /** Total Vouchers Intended */
-            total_vouchers_intended: number;
-            /** Vouchers Created Count */
-            vouchers_created_count: number;
-            /** Errors Count */
-            errors_count: number;
-            /** Vouchers Created */
-            vouchers_created?: {
-                [key: string]: unknown;
-            }[];
+        /** ImpactDimensionRow */
+        ImpactDimensionRow: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ticker */
+            ticker: string;
+            /** What Score */
+            what_score: number;
+            /** Who Score */
+            who_score: number;
+            /** How Much Score */
+            how_much_score: number;
+            /** Contribution Score */
+            contribution_score: number;
+            /** Risk Score */
+            risk_score: number;
+        };
+        /** ImpactDimensionsResponse */
+        ImpactDimensionsResponse: {
+            /** Rows */
+            rows: components["schemas"]["ImpactDimensionRow"][];
+        };
+        /** ImpactMetricCard */
+        ImpactMetricCard: {
+            /** Iris Metric Id */
+            iris_metric_id: string;
+            /** Metric Name */
+            metric_name: string;
+            /** Aggregate Value */
+            aggregate_value: string;
+            /** Unit */
+            unit: string;
+            /** Framework */
+            framework: string;
+            /** Companies Count */
+            companies_count: number;
+            /** Verified Count */
+            verified_count: number;
+        };
+        /** ImpactResponse */
+        ImpactResponse: {
+            /** Period */
+            period: string;
+            /** Cards */
+            cards: components["schemas"]["ImpactMetricCard"][];
+        };
+        /** ImpactSummaryResponse */
+        ImpactSummaryResponse: {
+            /** Iris Metrics */
+            iris_metrics: components["schemas"]["IrisMetric"][];
+            /** Sdg Alignment */
+            sdg_alignment: components["schemas"]["SdgItem"][];
+            dimensions: components["schemas"]["DimensionsDetail"] | null;
+            /** B Corp Score */
+            b_corp_score: number | null;
+        };
+        /** ImportExcelResponse */
+        ImportExcelResponse: {
+            /** Inserted */
+            inserted: number;
+            /** Updated */
+            updated: number;
             /** Errors */
-            errors?: {
-                [key: string]: unknown;
-            }[];
+            errors: string[];
+            /** Run Id */
+            run_id: number;
         };
         /** ImportFromDropboxResponse */
         ImportFromDropboxResponse: {
@@ -11563,6 +15294,46 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** InversionistaRead */
+        InversionistaRead: {
+            /** Inversionista Id */
+            inversionista_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Rut */
+            rut: string | null;
+            /** Direccion */
+            direccion: string | null;
+            /** Telefono */
+            telefono: string | null;
+            /** Banco */
+            banco: string | null;
+            /** Cuenta */
+            cuenta: string | null;
+            /** Codigo Banco */
+            codigo_banco: string | null;
+            /** Correo */
+            correo: string | null;
+            /** Tipo */
+            tipo: string;
+            /** Activo */
+            activo: boolean;
+        };
+        /** IrisMetric */
+        IrisMetric: {
+            /** Iris Metric Id */
+            iris_metric_id: string;
+            /** Metric Name */
+            metric_name: string;
+            /** Metric Value */
+            metric_value: number;
+            /** Unit */
+            unit?: string | null;
+            /** Framework */
+            framework: string;
+            /** Verified */
+            verified: boolean;
+        };
         /** IvaPoint */
         IvaPoint: {
             /** Periodo */
@@ -11578,6 +15349,41 @@ export interface components {
             iva_debito: string;
             /** Iva A Pagar */
             iva_a_pagar: string;
+        };
+        /** JCurvePoint */
+        JCurvePoint: {
+            /**
+             * Quarter
+             * Format: date
+             */
+            quarter: string;
+            /** Quarter Net */
+            quarter_net: string;
+            /** Cumulative Net */
+            cumulative_net: string;
+        };
+        /** JCurveResponse */
+        JCurveResponse: {
+            /** Fund Codigo */
+            fund_codigo: string;
+            /** Points */
+            points: components["schemas"]["JCurvePoint"][];
+        };
+        /** KpiPoint */
+        KpiPoint: {
+            /** Period */
+            period: string;
+            /** Metric Name */
+            metric_name: string;
+            /** Metric Value */
+            metric_value: number;
+            /** Unit */
+            unit?: string | null;
+        };
+        /** KpisResponse */
+        KpisResponse: {
+            /** Rows */
+            rows: components["schemas"]["KpiPoint"][];
         };
         /**
          * LatestRatesResponse
@@ -11797,6 +15603,36 @@ export interface components {
             /** Change Summary */
             change_summary?: string | null;
         };
+        /** LibroDetalle */
+        LibroDetalle: {
+            /** Id */
+            id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Total Haberes */
+            total_haberes: string;
+            /** Total Liquido */
+            total_liquido: string;
+            /** Total Descuentos Legales */
+            total_descuentos_legales: string;
+            /** Total Aportes Patronales */
+            total_aportes_patronales: string;
+            /** Total Costo Empresa */
+            total_costo_empresa: string;
+            /** Cantidad Empleados */
+            cantidad_empleados: number;
+            /** Archivo Origen */
+            archivo_origen: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+            /** Lineas */
+            lineas: components["schemas"]["LineaLibroRead"][];
+        };
         /** LibroDiarioRow */
         LibroDiarioRow: {
             /** Voucher Id */
@@ -11883,6 +15719,117 @@ export interface components {
             /** Movimientos */
             movimientos: components["schemas"]["LibroMayorMovimiento"][];
         };
+        /** LibroRead */
+        LibroRead: {
+            /** Id */
+            id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Total Haberes */
+            total_haberes: string;
+            /** Total Liquido */
+            total_liquido: string;
+            /** Total Descuentos Legales */
+            total_descuentos_legales: string;
+            /** Total Aportes Patronales */
+            total_aportes_patronales: string;
+            /** Total Costo Empresa */
+            total_costo_empresa: string;
+            /** Cantidad Empleados */
+            cantidad_empleados: number;
+            /** Archivo Origen */
+            archivo_origen: string | null;
+            /**
+             * Uploaded At
+             * Format: date-time
+             */
+            uploaded_at: string;
+        };
+        /** LineaLibroRead */
+        LineaLibroRead: {
+            /** Id */
+            id: number;
+            /** Empleado Rut */
+            empleado_rut: string;
+            /** Nombre */
+            nombre: string;
+            /** Area */
+            area: string | null;
+            /** Dias Trabajados */
+            dias_trabajados: string;
+            /** Total Haberes */
+            total_haberes: string;
+            /** Liquido Pagado */
+            liquido_pagado: string;
+            /** Total Descuentos Legales */
+            total_descuentos_legales: string;
+            /** Total Aportes Patronales */
+            total_aportes_patronales: string;
+            /** Costo Total Empresa */
+            costo_total_empresa: string;
+            /** Sueldo Base */
+            sueldo_base: string;
+            /** Horas Extras */
+            horas_extras: string;
+            /** Gratificacion Legal */
+            gratificacion_legal: string;
+            /** Asignacion Familiar */
+            asignacion_familiar: string;
+            /** Aporte Afp Empleador */
+            aporte_afp_empleador: string;
+            /** Sis */
+            sis: string;
+            /** Seguro Cesantia Empleador */
+            seguro_cesantia_empleador: string;
+            /** Seguro Social */
+            seguro_social: string;
+            /** Mutual */
+            mutual: string;
+            /** Base Tributable */
+            base_tributable: string;
+            /** Impuesto Unico */
+            impuesto_unico: string;
+        };
+        /**
+         * LineaUpdate
+         * @description Permite editar campos básicos de una línea del libro.
+         */
+        LineaUpdate: {
+            /** Sueldo Base */
+            sueldo_base?: number | string | null;
+            /** Horas Extras */
+            horas_extras?: number | string | null;
+            /** Gratificacion Legal */
+            gratificacion_legal?: number | string | null;
+            /** Otros Imponibles */
+            otros_imponibles?: number | string | null;
+            /** Asignacion Familiar */
+            asignacion_familiar?: number | string | null;
+            /** Otros No Imponibles */
+            otros_no_imponibles?: number | string | null;
+            /** Prevision */
+            prevision?: number | string | null;
+            /** Salud */
+            salud?: number | string | null;
+            /** Seguro Cesantia Trab */
+            seguro_cesantia_trab?: number | string | null;
+            /** Otros Descuentos Legales */
+            otros_descuentos_legales?: number | string | null;
+            /** Descuentos Varios */
+            descuentos_varios?: number | string | null;
+            /** Aporte Afp Empleador */
+            aporte_afp_empleador?: number | string | null;
+            /** Sis */
+            sis?: number | string | null;
+            /** Seguro Cesantia Empleador */
+            seguro_cesantia_empleador?: number | string | null;
+            /** Seguro Social */
+            seguro_social?: number | string | null;
+            /** Mutual */
+            mutual?: number | string | null;
+        };
         /** LinkOcRequest */
         LinkOcRequest: {
             /** Oc Id */
@@ -11897,6 +15844,15 @@ export interface components {
         LogoUploadResponse: {
             /** Empresa Codigo */
             empresa_codigo: string;
+            /** Logo Dropbox Path */
+            logo_dropbox_path: string;
+            /** Size Bytes */
+            size_bytes: number;
+        };
+        /** LogoUploadResult */
+        LogoUploadResult: {
+            /** Codigo */
+            codigo: string;
             /** Logo Dropbox Path */
             logo_dropbox_path: string;
             /** Size Bytes */
@@ -12278,6 +16234,23 @@ export interface components {
              */
             updated_at: string;
         };
+        /** LpRow */
+        LpRow: {
+            /** Lp Id */
+            lp_id: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Lp Type */
+            lp_type: string;
+            /** Commitment Usd */
+            commitment_usd: string;
+            /** Paid In Usd */
+            paid_in_usd: string;
+            /** Distributed Usd */
+            distributed_usd: string;
+            /** Ownership Pct */
+            ownership_pct: string | null;
+        };
         /** LpUpdate */
         LpUpdate: {
             /** Nombre */
@@ -12353,6 +16326,14 @@ export interface components {
             classified_at: string | null;
             /** Replied At */
             replied_at: string | null;
+            /** Created Entity Type */
+            created_entity_type?: string | null;
+            /** Created Entity Id */
+            created_entity_id?: number | null;
+            /** Created Entity Numero */
+            created_entity_numero?: string | null;
+            /** Auto Create Error */
+            auto_create_error?: string | null;
             /** Body Text */
             body_text: string | null;
             /** Body Html */
@@ -12401,6 +16382,14 @@ export interface components {
             classified_at: string | null;
             /** Replied At */
             replied_at: string | null;
+            /** Created Entity Type */
+            created_entity_type?: string | null;
+            /** Created Entity Id */
+            created_entity_id?: number | null;
+            /** Created Entity Numero */
+            created_entity_numero?: string | null;
+            /** Auto Create Error */
+            auto_create_error?: string | null;
         };
         /** MailboxPollResponse */
         MailboxPollResponse: {
@@ -12417,6 +16406,17 @@ export interface components {
              * @default 0
              */
             attachments_uploaded: number;
+        };
+        /**
+         * MailboxRunNowResponse
+         * @description R152PPPP — Respuesta del endpoint 'correr ahora' (poll + classify
+         *     en un solo llamado desde la UI).
+         */
+        MailboxRunNowResponse: {
+            poll: components["schemas"]["MailboxPollResponse"];
+            classify: components["schemas"]["MailboxClassifyResponse"];
+            /** Duration Ms */
+            duration_ms: number;
         };
         /**
          * MailboxStatusResponse
@@ -12456,6 +16456,57 @@ export interface components {
         MailboxToVoucherRequest: {
             /** Empresa Codigo */
             empresa_codigo: string;
+        };
+        /** MappingItem */
+        MappingItem: {
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Corfo Cuenta */
+            corfo_cuenta: string;
+            /** Corfo Item */
+            corfo_item?: string | null;
+            /** Corfo Cargo */
+            corfo_cargo?: string | null;
+        };
+        /** MappingPost */
+        MappingPost: {
+            /** Items */
+            items: components["schemas"]["MappingItem"][];
+        };
+        /** MarchaBlancaReport */
+        MarchaBlancaReport: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Overall Status
+             * @enum {string}
+             */
+            overall_status: "READY" | "ALMOST_READY" | "NOT_READY" | "NEEDS_ATTENTION";
+            /** Blockers Total */
+            blockers_total: number;
+            /** Blockers Ok */
+            blockers_ok: number;
+            /** Blockers Fail */
+            blockers_fail: number;
+            /** Important Total */
+            important_total: number;
+            /** Important Ok */
+            important_ok: number;
+            /** Important Fail */
+            important_fail: number;
+            /** Nice Total */
+            nice_total: number;
+            /** Nice Ok */
+            nice_ok: number;
+            /** Categories */
+            categories: components["schemas"]["CategorySummary"][];
+            /** Checks */
+            checks: components["schemas"]["CheckResult"][];
+            /** Next Action */
+            next_action: string;
         };
         /**
          * MarkInactiveRequest
@@ -12600,6 +16651,10 @@ export interface components {
             dias_pendiente: number;
             /** Primer Adjunto Dropbox Path */
             primer_adjunto_dropbox_path: string | null;
+            /** Primer Adjunto Id */
+            primer_adjunto_id: number | null;
+            /** Proyecto Dominante */
+            proyecto_dominante?: string | null;
         };
         /** MisPendientesResponse */
         MisPendientesResponse: {
@@ -12607,6 +16662,52 @@ export interface components {
             total: number;
             /** Items */
             items: components["schemas"]["MisPendientesItem"][];
+        };
+        /** ModuleDetail */
+        ModuleDetail: {
+            /** Module Id */
+            module_id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Difficulty */
+            difficulty: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Content Md */
+            content_md: string | null;
+            /** Quiz */
+            quiz: {
+                [key: string]: unknown;
+            }[] | null;
+            /** My Score */
+            my_score: number | null;
+            /** Completed */
+            completed: boolean;
+        };
+        /** ModuleListItem */
+        ModuleListItem: {
+            /** Module Id */
+            module_id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string | null;
+            /** Difficulty */
+            difficulty: string;
+            /** Duration Min */
+            duration_min: number;
+            /** Sort Order */
+            sort_order: number;
+            /** Completed */
+            completed: boolean;
+            /** My Score */
+            my_score: number | null;
         };
         /**
          * MonthlyPoint
@@ -12791,6 +16892,36 @@ export interface components {
             /** Proyecto */
             proyecto: string | null;
         };
+        /**
+         * MyPcapResponse
+         * @description ILPA Reporting Template v2.0 — Partner Capital Account Statement (PCAP).
+         */
+        MyPcapResponse: {
+            /** Lp Legal Name */
+            lp_legal_name: string;
+            /** Fund Codigo */
+            fund_codigo: string;
+            /** Commitment Usd */
+            commitment_usd: string;
+            /** Paid In To Date Usd */
+            paid_in_to_date_usd: string;
+            /** Paid In Pct */
+            paid_in_pct: string;
+            /** Distributed To Date Usd */
+            distributed_to_date_usd: string;
+            /** Current Nav Usd */
+            current_nav_usd: string;
+            /** Unfunded Commitment Usd */
+            unfunded_commitment_usd: string;
+            /** Tvpi */
+            tvpi: string | null;
+            /** Dpi */
+            dpi: string | null;
+            /** Rvpi */
+            rvpi: string | null;
+            /** Moic */
+            moic: string | null;
+        };
         /** NotificationRead */
         NotificationRead: {
             /** Id */
@@ -12883,16 +17014,16 @@ export interface components {
             /** Empresa Codigo */
             empresa_codigo: string;
             /** Proveedor Rut */
-            proveedor_rut: string;
+            proveedor_rut?: string | null;
             /** Proveedor Nombre */
-            proveedor_nombre: string;
+            proveedor_nombre?: string | null;
             /** Source */
             source?: string | null;
             /**
              * Tipo Documento
              * @enum {string}
              */
-            tipo_documento: "DECLARACION_INGRESO" | "FACTURA" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "BOLETA" | "HONORARIOS" | "NA";
+            tipo_documento: "DECLARACION_INGRESO" | "FACTURA" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION" | "BOLETA" | "HONORARIOS" | "NA";
             /** Numero Documento */
             numero_documento: string;
             /**
@@ -12907,6 +17038,19 @@ export interface components {
             fecha_documento: string;
             /** Fecha Vencimiento */
             fecha_vencimiento?: string | null;
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            /**
+             * Impuesto Especifico
+             * @description Impuesto específico en $ (combustibles, etc.)
+             * @default 0
+             */
+            impuesto_especifico: number | string;
+            /**
+             * Impuesto Especifico Pct
+             * @description Impuesto específico como % del neto (ILA, suntuarios)
+             */
+            impuesto_especifico_pct?: number | string | null;
             /** Documento Dropbox Path */
             documento_dropbox_path?: string | null;
             /** Glosa */
@@ -12934,6 +17078,12 @@ export interface components {
             proyecto_codigo?: string | null;
             /** Area Codigo */
             area_codigo?: string | null;
+            /**
+             * Fuente Financiamiento
+             * @default NA
+             * @enum {string}
+             */
+            fuente_financiamiento: "CORFO_SUBSIDIO" | "PTEC_CEHTA" | "EMPRESA_DIRECTA" | "IVA_CORPORATIVO" | "NA";
         };
         /** NuboxFormResponse */
         NuboxFormResponse: {
@@ -12954,11 +17104,14 @@ export interface components {
             /** Proxima Accion */
             proxima_accion: string;
             /** Proveedor Id */
-            proveedor_id: number;
-            /** Proveedor Creado Automatico */
+            proveedor_id?: number | null;
+            /**
+             * Proveedor Creado Automatico
+             * @default false
+             */
             proveedor_creado_automatico: boolean;
             /** Proveedor Rut Canonical */
-            proveedor_rut_canonical: string;
+            proveedor_rut_canonical?: string | null;
         };
         /** OCDetalleCreate */
         OCDetalleCreate: {
@@ -13046,6 +17199,57 @@ export interface components {
             moneda?: string | null;
             /** Link */
             link: string;
+        };
+        /** OcBrandingRead */
+        OcBrandingRead: {
+            /** Codigo */
+            codigo: string;
+            /** Razon Social */
+            razon_social: string;
+            /** Logo Dropbox Path */
+            logo_dropbox_path: string | null;
+            /** Oc Color Primario */
+            oc_color_primario: string | null;
+            /** Gerente General Nombre */
+            gerente_general_nombre: string | null;
+            /** Gerente General Cargo */
+            gerente_general_cargo: string | null;
+            /** Gerente General Email */
+            gerente_general_email: string | null;
+            /** Oc Firma Colectiva */
+            oc_firma_colectiva: boolean;
+            /** Firmantes Extra */
+            firmantes_extra: components["schemas"]["Firmante"][];
+            /** Cantidad Firmantes */
+            cantidad_firmantes: number;
+            /** Emails Oc Cc */
+            emails_oc_cc?: string[];
+            /**
+             * Auto Send Oc Emails
+             * @default true
+             */
+            auto_send_oc_emails: boolean;
+        };
+        /** OcBrandingUpdate */
+        OcBrandingUpdate: {
+            /** Logo Dropbox Path */
+            logo_dropbox_path?: string | null;
+            /** Oc Color Primario */
+            oc_color_primario?: string | null;
+            /** Gerente General Nombre */
+            gerente_general_nombre?: string | null;
+            /** Gerente General Cargo */
+            gerente_general_cargo?: string | null;
+            /** Gerente General Email */
+            gerente_general_email?: string | null;
+            /** Oc Firma Colectiva */
+            oc_firma_colectiva?: boolean | null;
+            /** Firmantes Extra */
+            firmantes_extra?: components["schemas"]["Firmante"][] | null;
+            /** Emails Oc Cc */
+            emails_oc_cc?: string[] | null;
+            /** Auto Send Oc Emails */
+            auto_send_oc_emails?: boolean | null;
         };
         /** OcExtractFromTextRequest */
         OcExtractFromTextRequest: {
@@ -13891,6 +18095,31 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** PortfolioCompanyRow */
+        PortfolioCompanyRow: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ticker */
+            ticker: string;
+            /** Razon Social */
+            razon_social: string | null;
+            /** Sector */
+            sector: string | null;
+            /** Stage */
+            stage: string | null;
+            /** Invested Amount Usd */
+            invested_amount_usd: string | null;
+            /** Fair Value Usd */
+            fair_value_usd: string | null;
+            /** Moic Net */
+            moic_net: string | null;
+            /** Irr Net */
+            irr_net: string | null;
+            /** Is Public Disclosure */
+            is_public_disclosure: boolean;
+            /** B Corp Score */
+            b_corp_score: string | null;
+        };
         /**
          * PortfolioConsolidated
          * @description Vista consolidada del portafolio cross-empresa.
@@ -13919,6 +18148,91 @@ export interface components {
             rates_used: components["schemas"]["RatesUsed"];
             /** Warnings */
             warnings?: string[];
+        };
+        /** PortfolioResponse */
+        PortfolioResponse: {
+            /** Total Portfolio Companies */
+            total_portfolio_companies: number;
+            /** Total Invested Usd */
+            total_invested_usd: string;
+            /** Total Fair Value Usd */
+            total_fair_value_usd: string;
+            /** Weighted Moic */
+            weighted_moic: string | null;
+            /** Companies */
+            companies: components["schemas"]["PortfolioCompanyRow"][];
+        };
+        /** PreviewResp */
+        PreviewResp: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Periodo Corfo */
+            periodo_corfo: string;
+            /** Rows */
+            rows: components["schemas"]["PreviewRow"][];
+            /** Total Neto */
+            total_neto: number;
+            /** Total Iva */
+            total_iva: number;
+            /** Total Total */
+            total_total: number;
+            /** Sin Mapeo */
+            sin_mapeo: number;
+        };
+        /** PreviewRow */
+        PreviewRow: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Fecha */
+            fecha: string;
+            /** Cuenta Codigo */
+            cuenta_codigo: string;
+            /** Cuenta Nombre */
+            cuenta_nombre: string | null;
+            /** Monto Neto */
+            monto_neto: number;
+            /** Monto Iva */
+            monto_iva: number;
+            /** Monto Total */
+            monto_total: number;
+            /** Proveedor Rut */
+            proveedor_rut: string | null;
+            /** Proveedor Nombre */
+            proveedor_nombre: string | null;
+            /** Folio */
+            folio: string | null;
+            /** Glosa */
+            glosa: string | null;
+            /** Corfo Cuenta */
+            corfo_cuenta: string | null;
+            /** Corfo Item */
+            corfo_item: string | null;
+        };
+        /**
+         * ProveedorCacheItem
+         * @description Item mínimo de catálogo proveedor — para precarga client-side.
+         *
+         *     Campos:
+         *       - proveedor_id: key React + identificador interno
+         *       - razon_social: búsqueda primaria + display
+         *       - rut: búsqueda secundaria + autocompletado del campo RUT
+         *       - direccion: opcional, para desambiguar nombres similares.
+         *         Round 47 — útil cuando hay 2 proveedores con nombre parecido y
+         *         el operador necesita ver la dirección para identificar el correcto.
+         *
+         *     Resto de campos (giro, banco, telefono, etc.) se piden en el detalle.
+         */
+        ProveedorCacheItem: {
+            /** Proveedor Id */
+            proveedor_id: number;
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut?: string | null;
+            /** Direccion */
+            direccion?: string | null;
         };
         /** ProveedorCreate */
         ProveedorCreate: {
@@ -14116,6 +18430,55 @@ export interface components {
              * @enum {string}
              */
             estado: "ACTIVE" | "CLOSED" | "SUSPENDED";
+            /**
+             * Subsidio Codigo
+             * @description FK opcional a core.subsidios. Multiples proyectos pueden compartir el mismo subsidio (un fondo CORFO financiando N iniciativas).
+             */
+            subsidio_codigo?: string | null;
+            /**
+             * Aporte Corfo Pct Default
+             * @description % default del gasto que carga al pozo del subsidio CORFO.
+             * @default 0
+             */
+            aporte_corfo_pct_default: number | string;
+            /**
+             * Aporte Ptec Pct Default
+             * @description % default del aporte empresarial pecuniario (P-tec) — via CEHTA Capital como holding. Es contrapartida del subsidio.
+             * @default 0
+             */
+            aporte_ptec_pct_default: number | string;
+            /**
+             * Aporte Empresa Directa Pct Default
+             * @description % default que paga 100% la entidad receptora sin pasar por el pozo del subsidio.
+             * @default 100
+             */
+            aporte_empresa_directa_pct_default: number | string;
+            /**
+             * Cuenta Aporte Corfo
+             * @description Cuenta contable destino del cargo CORFO.
+             */
+            cuenta_aporte_corfo?: string | null;
+            /**
+             * Cuenta Aporte Ptec Cehta
+             * @description Cuenta contable destino del aporte P-tec (CEHTA Capital).
+             */
+            cuenta_aporte_ptec_cehta?: string | null;
+            /**
+             * Cuenta Aporte Empresa Directa
+             * @description Cuenta contable destino del aporte directo de la empresa.
+             */
+            cuenta_aporte_empresa_directa?: string | null;
+            /**
+             * Cuenta Iva Corporativo
+             * @description Cuenta IVA credito fiscal — SIEMPRE de la entidad receptora, nunca CORFO (regla bloqueante CORFO).
+             */
+            cuenta_iva_corporativo?: string | null;
+            /**
+             * Bloquear Edicion Pct
+             * @description Si True, el operador NO puede editar los % default al crear un voucher de este proyecto. Util cuando el reparto esta auditado y debe respetarse rigido.
+             * @default false
+             */
+            bloquear_edicion_pct: boolean;
             /** Gantt Proyecto Id */
             gantt_proyecto_id?: number | null;
         };
@@ -14156,6 +18519,55 @@ export interface components {
              * @enum {string}
              */
             estado: "ACTIVE" | "CLOSED" | "SUSPENDED";
+            /**
+             * Subsidio Codigo
+             * @description FK opcional a core.subsidios. Multiples proyectos pueden compartir el mismo subsidio (un fondo CORFO financiando N iniciativas).
+             */
+            subsidio_codigo?: string | null;
+            /**
+             * Aporte Corfo Pct Default
+             * @description % default del gasto que carga al pozo del subsidio CORFO.
+             * @default 0
+             */
+            aporte_corfo_pct_default: string;
+            /**
+             * Aporte Ptec Pct Default
+             * @description % default del aporte empresarial pecuniario (P-tec) — via CEHTA Capital como holding. Es contrapartida del subsidio.
+             * @default 0
+             */
+            aporte_ptec_pct_default: string;
+            /**
+             * Aporte Empresa Directa Pct Default
+             * @description % default que paga 100% la entidad receptora sin pasar por el pozo del subsidio.
+             * @default 100
+             */
+            aporte_empresa_directa_pct_default: string;
+            /**
+             * Cuenta Aporte Corfo
+             * @description Cuenta contable destino del cargo CORFO.
+             */
+            cuenta_aporte_corfo?: string | null;
+            /**
+             * Cuenta Aporte Ptec Cehta
+             * @description Cuenta contable destino del aporte P-tec (CEHTA Capital).
+             */
+            cuenta_aporte_ptec_cehta?: string | null;
+            /**
+             * Cuenta Aporte Empresa Directa
+             * @description Cuenta contable destino del aporte directo de la empresa.
+             */
+            cuenta_aporte_empresa_directa?: string | null;
+            /**
+             * Cuenta Iva Corporativo
+             * @description Cuenta IVA credito fiscal — SIEMPRE de la entidad receptora, nunca CORFO (regla bloqueante CORFO).
+             */
+            cuenta_iva_corporativo?: string | null;
+            /**
+             * Bloquear Edicion Pct
+             * @description Si True, el operador NO puede editar los % default al crear un voucher de este proyecto. Util cuando el reparto esta auditado y debe respetarse rigido.
+             * @default false
+             */
+            bloquear_edicion_pct: boolean;
             /** Gantt Proyecto Id */
             gantt_proyecto_id: number | null;
             /** Presupuesto Ejecutado */
@@ -14185,6 +18597,24 @@ export interface components {
             estado?: ("ACTIVE" | "CLOSED" | "SUSPENDED") | null;
             /** Gantt Proyecto Id */
             gantt_proyecto_id?: number | null;
+            /** Subsidio Codigo */
+            subsidio_codigo?: string | null;
+            /** Aporte Corfo Pct Default */
+            aporte_corfo_pct_default?: number | string | null;
+            /** Aporte Ptec Pct Default */
+            aporte_ptec_pct_default?: number | string | null;
+            /** Aporte Empresa Directa Pct Default */
+            aporte_empresa_directa_pct_default?: number | string | null;
+            /** Cuenta Aporte Corfo */
+            cuenta_aporte_corfo?: string | null;
+            /** Cuenta Aporte Ptec Cehta */
+            cuenta_aporte_ptec_cehta?: string | null;
+            /** Cuenta Aporte Empresa Directa */
+            cuenta_aporte_empresa_directa?: string | null;
+            /** Cuenta Iva Corporativo */
+            cuenta_iva_corporativo?: string | null;
+            /** Bloquear Edicion Pct */
+            bloquear_edicion_pct?: boolean | null;
         };
         /** ProyectoCreate */
         ProyectoCreate: {
@@ -14373,6 +18803,45 @@ export interface components {
             dropbox_roadmap_path?: string | null;
         };
         /**
+         * QuickCreateBody
+         * @description R152xxx — Payload mínimo para crear proveedor desde un typeahead.
+         *
+         *     Solo `razon_social` es realmente obligatoria. El resto se completa
+         *     después editando el proveedor en /admin/proveedores. Para el flujo
+         *     típico de OC: el operador tipea el nombre, no encuentra match en el
+         *     catálogo, clickea "Crear" y aparece el RUT en otro input opcional.
+         */
+        QuickCreateBody: {
+            /** Razon Social */
+            razon_social: string;
+            /** Rut */
+            rut?: string | null;
+        };
+        /** QuizResult */
+        QuizResult: {
+            /** Score */
+            score: number;
+            /** Correct */
+            correct: number;
+            /** Total */
+            total: number;
+            /** Passed */
+            passed: boolean;
+            /** Completed */
+            completed: boolean;
+            /** Feedback */
+            feedback: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** QuizSubmit */
+        QuizSubmit: {
+            /** Slug */
+            slug: string;
+            /** Answers */
+            answers: number[];
+        };
+        /**
          * RatesUsed
          * @description Tasas usadas para los cálculos. Útil para el tooltip de los KPIs.
          */
@@ -14454,6 +18923,31 @@ export interface components {
              */
             created_at: string;
         };
+        /** RemuneracionRead */
+        RemuneracionRead: {
+            /** Remuneracion Id */
+            remuneracion_id: number;
+            /** Periodo */
+            periodo: string;
+            /** Trabajador Rut */
+            trabajador_rut: string;
+            /** Trabajador Nombre */
+            trabajador_nombre: string | null;
+            /** Sueldo Base */
+            sueldo_base: number;
+            /** Total Haberes */
+            total_haberes: number;
+            /** Afp Descuento */
+            afp_descuento: number;
+            /** Salud Descuento */
+            salud_descuento: number;
+            /** Total Descuentos */
+            total_descuentos: number;
+            /** Sueldo Liquido */
+            sueldo_liquido: number;
+            /** Voucher Id */
+            voucher_id: number | null;
+        };
         /** RendicionCorfoLinea */
         RendicionCorfoLinea: {
             /** Voucher Codigo */
@@ -14529,6 +19023,37 @@ export interface components {
             tipo_gasto: string;
             /** Monto */
             monto: string;
+        };
+        /**
+         * RepartoDefault
+         * @description Devuelve los % default y cuentas que el frontend usa para auto-poblar
+         *     el reparto de un voucher (F.E o F.A) que se imputa a este proyecto.
+         */
+        RepartoDefault: {
+            /** Codigo */
+            codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Subsidio Codigo */
+            subsidio_codigo: string | null;
+            /** Aporte Corfo Pct */
+            aporte_corfo_pct: string;
+            /** Aporte Ptec Pct */
+            aporte_ptec_pct: string;
+            /** Aporte Empresa Directa Pct */
+            aporte_empresa_directa_pct: string;
+            /** Cuenta Aporte Corfo */
+            cuenta_aporte_corfo: string | null;
+            /** Cuenta Aporte Ptec Cehta */
+            cuenta_aporte_ptec_cehta: string | null;
+            /** Cuenta Aporte Empresa Directa */
+            cuenta_aporte_empresa_directa: string | null;
+            /** Cuenta Iva Corporativo */
+            cuenta_iva_corporativo: string | null;
+            /** Bloquear Edicion Pct */
+            bloquear_edicion_pct: boolean;
+            /** Configuracion Completa */
+            configuracion_completa: boolean;
         };
         /** ReplyRequest */
         ReplyRequest: {
@@ -14647,6 +19172,29 @@ export interface components {
             presupuesto_corfo: string;
             /** Ejecucion Pcto */
             ejecucion_pcto: number;
+        };
+        /** ResumenRemuneraciones */
+        ResumenRemuneraciones: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Trabajadores Count */
+            trabajadores_count: number;
+            /** Total Haberes */
+            total_haberes: number;
+            /** Total Descuentos */
+            total_descuentos: number;
+            /** Total Liquido */
+            total_liquido: number;
+            /** Total Afp */
+            total_afp: number;
+            /** Total Salud */
+            total_salud: number;
+            /** Total Impuesto */
+            total_impuesto: number;
+            /** Total Aportes Patronales */
+            total_aportes_patronales: number;
         };
         /** RiesgoCreate */
         RiesgoCreate: {
@@ -14846,6 +19394,31 @@ export interface components {
             /** Is Pinned */
             is_pinned?: boolean | null;
         };
+        /** SdgAlignmentResponse */
+        SdgAlignmentResponse: {
+            /** Rows */
+            rows: components["schemas"]["SdgAlignmentRow"][];
+        };
+        /** SdgAlignmentRow */
+        SdgAlignmentRow: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ticker */
+            ticker: string;
+            /** Sdg Number */
+            sdg_number: number;
+            /** Alignment Score */
+            alignment_score: number;
+        };
+        /** SdgItem */
+        SdgItem: {
+            /** Sdg Number */
+            sdg_number: number;
+            /** Alignment Score */
+            alignment_score: number;
+            /** Evidence */
+            evidence?: string | null;
+        };
         /**
          * SearchHit
          * @description Un resultado individual; agnóstico de la entidad de origen.
@@ -14859,7 +19432,7 @@ export interface components {
              * Entity Type
              * @enum {string}
              */
-            entity_type: "empresa" | "orden_compra" | "proveedor" | "f29" | "f22" | "trabajador" | "legal_document" | "fondo" | "suscripcion" | "voucher" | "inbox";
+            entity_type: "empresa" | "orden_compra" | "proveedor" | "f29" | "f22" | "trabajador" | "legal_document" | "fondo" | "suscripcion" | "voucher" | "inbox" | "empleado" | "proyecto_contable" | "oc_cuota";
             /** Entity Id */
             entity_id: string;
             /** Title */
@@ -14945,6 +19518,29 @@ export interface components {
             /** Nota */
             nota: string;
         };
+        /** SetCredencialesRequest */
+        SetCredencialesRequest: {
+            /**
+             * Partner Token
+             * @description Bearer token del partner
+             */
+            partner_token: string;
+            /**
+             * Api Key
+             * @description X-Api-Key de la empresa
+             */
+            api_key: string;
+            /**
+             * Environment
+             * @default uat
+             */
+            environment: string;
+            /**
+             * Base Url
+             * @description URL base (opcional, default según environment)
+             */
+            base_url?: string | null;
+        };
         /** SetRoleRequest */
         SetRoleRequest: {
             /** App Role */
@@ -14970,6 +19566,95 @@ export interface components {
              * @default 0
              */
             voucher_pending_approvals: number;
+            /**
+             * Voucher Approved Ready To Pay
+             * @default 0
+             */
+            voucher_approved_ready_to_pay: number;
+        };
+        /** SiiDocRow */
+        SiiDocRow: {
+            /** Tipo Dte */
+            tipo_dte: string;
+            /** Folio */
+            folio: number;
+            /** Emisor Rut */
+            emisor_rut?: string | null;
+            /** Receptor Rut */
+            receptor_rut?: string | null;
+            /** Fecha Emision */
+            fecha_emision: string;
+            /** Monto Total */
+            monto_total: number;
+        };
+        /** SiiDocumentoRead */
+        SiiDocumentoRead: {
+            /** Sii Doc Id */
+            sii_doc_id: number;
+            /** Flujo */
+            flujo: string;
+            /** Tipo Dte */
+            tipo_dte: number;
+            /** Folio */
+            folio: string;
+            /** Periodo */
+            periodo: string;
+            /** Rut Contraparte */
+            rut_contraparte: string;
+            /** Razon Social Contraparte */
+            razon_social_contraparte: string | null;
+            /** Fecha Emision */
+            fecha_emision: string | null;
+            /** Monto Neto */
+            monto_neto: number;
+            /** Monto Iva */
+            monto_iva: number;
+            /** Monto Total */
+            monto_total: number;
+            /** Estado Sii */
+            estado_sii: string | null;
+            /** Voucher Id */
+            voucher_id: number | null;
+        };
+        /** SiiRunRead */
+        SiiRunRead: {
+            /** Run Id */
+            run_id: number;
+            /** Tipo */
+            tipo: string;
+            /** Periodo */
+            periodo: string | null;
+            /** Status */
+            status: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Documentos Count */
+            documentos_count: number;
+            /** Error Message */
+            error_message: string | null;
+        };
+        /** SplitEquitativoBody */
+        SplitEquitativoBody: {
+            /**
+             * Cantidad
+             * @description Cantidad de cuotas
+             */
+            cantidad: number;
+            /**
+             * Primer Vencimiento
+             * Format: date
+             */
+            primer_vencimiento: string;
+            /**
+             * Dias Entre Cuotas
+             * @default 30
+             */
+            dias_entre_cuotas: number;
         };
         /**
          * StatusResponse
@@ -15011,6 +19696,52 @@ export interface components {
             new_status: "DRAFT" | "PENDING" | "APPROVED" | "EXECUTED" | "SYNCED" | "RECONCILED" | "CLOSED" | "REJECTED" | "VOID";
             /** Message */
             message: string;
+        };
+        /**
+         * SubsidioEjecucion
+         * @description Resumen Round 83 — "donde estan las platas del subsidio".
+         */
+        SubsidioEjecucion: {
+            /** Subsidio Codigo */
+            subsidio_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Monto Total */
+            monto_total: string;
+            /** Presupuesto Total Asignado */
+            presupuesto_total_asignado: string;
+            /** Ejecutado Total */
+            ejecutado_total: string;
+            /** Disponible Total */
+            disponible_total: string;
+            /** Porcentaje Ejecutado */
+            porcentaje_ejecutado: number;
+            /** Coejecutores */
+            coejecutores: components["schemas"]["EjecucionPorEmpresa"][];
+        };
+        /** SubsidioRead */
+        SubsidioRead: {
+            /** Subsidio Codigo */
+            subsidio_codigo: string;
+            /** Programa */
+            programa: string;
+            /** Nombre */
+            nombre: string;
+            /** Monto Total */
+            monto_total: string;
+            /** Entidad Otorgante */
+            entidad_otorgante: string;
+            /**
+             * Estado
+             * @enum {string}
+             */
+            estado: "ACTIVO" | "CERRADO" | "SUSPENDIDO";
+            /** Fecha Inicio */
+            fecha_inicio: string | null;
+            /** Fecha Termino */
+            fecha_termino: string | null;
+            /** Notas */
+            notas: string | null;
         };
         /** SuscripcionCreate */
         SuscripcionCreate: {
@@ -15141,6 +19872,40 @@ export interface components {
              */
             errors: string[];
         };
+        /** SyncRcvResponse */
+        SyncRcvResponse: {
+            /** Run Id */
+            run_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Compras Count */
+            compras_count: number;
+            /** Ventas Count */
+            ventas_count: number;
+            /** Duracion Segundos */
+            duracion_segundos: number;
+            /** Status */
+            status: string;
+        };
+        /** SyncRemuneracionesResponse */
+        SyncRemuneracionesResponse: {
+            /** Run Id */
+            run_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Remuneraciones Count */
+            remuneraciones_count: number;
+            /** Duracion Segundos */
+            duracion_segundos: number;
+            /** Status */
+            status: string;
+            /** Method */
+            method: string;
+        };
         /**
          * SyncRoadmapResponse
          * @description Respuesta del sync con Dropbox Roadmap.xlsx.
@@ -15164,6 +19929,17 @@ export interface components {
             hitos_creados: number;
             /** Message */
             message: string;
+        };
+        /** SyncSalesResponse */
+        SyncSalesResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Sales Count */
+            sales_count: number;
+            /** Duracion Segundos */
+            duracion_segundos: number;
         };
         /**
          * SystemStatus
@@ -15252,6 +20028,43 @@ export interface components {
             multiplier?: number | string | null;
             /** Doc Tributario Folio */
             doc_tributario_folio?: string | null;
+        };
+        /** TestLoginResponse */
+        TestLoginResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message: string;
+            /** Error Type */
+            error_type?: string | null;
+        };
+        /** TestResponse */
+        TestResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Ok */
+            ok: boolean;
+            /** Message */
+            message: string;
+            /** Error Type */
+            error_type?: string | null;
+        };
+        /** TipoDteBreakdown */
+        TipoDteBreakdown: {
+            /** Tipo Dte */
+            tipo_dte: number;
+            /** Nombre */
+            nombre: string;
+            /** Count */
+            count: number;
+            /** Monto Neto */
+            monto_neto: number;
+            /** Monto Iva */
+            monto_iva: number;
+            /** Monto Total */
+            monto_total: number;
         };
         /** TopAdvocate */
         TopAdvocate: {
@@ -15486,6 +20299,44 @@ export interface components {
             /** Hipervinculo */
             hipervinculo: string | null;
         };
+        /**
+         * TransferenciaMasivaRequest
+         * @description Body del POST.
+         */
+        TransferenciaMasivaRequest: {
+            /**
+             * Voucher Ids
+             * @description IDs de vouchers APPROVED a incluir en la planilla de transferencia. Maximo 500 por export — si necesitas mas, partilo en lotes.
+             */
+            voucher_ids: number[];
+            /**
+             * Banco Formato
+             * @description Formato del Excel: GENERICO (11 cols universales) o SANTANDER (13 cols del template oficial Santander).
+             * @default GENERICO
+             * @enum {string}
+             */
+            banco_formato: "GENERICO" | "SANTANDER";
+            /**
+             * Cuenta Origen
+             * @description Cuenta origen para columna A en formato SANTANDER. Si formato=GENERICO se ignora.
+             */
+            cuenta_origen?: string | null;
+            /**
+             * Incluir Pendientes Aprobacion
+             * @description Si True, tambien acepta vouchers PENDING (para preview antes de firmar). Por default solo APPROVED.
+             * @default false
+             */
+            incluir_pendientes_aprobacion: boolean;
+        };
+        /** TributarioResp */
+        TributarioResp: {
+            /** F29 */
+            f29: components["schemas"]["F29Row"][];
+            /** F22 */
+            f22: components["schemas"]["F22Row"][];
+            /** Sii Docs Recent */
+            sii_docs_recent: components["schemas"]["SiiDocRow"][];
+        };
         /** UnreadCount */
         UnreadCount: {
             /** Unread */
@@ -15701,6 +20552,59 @@ export interface components {
             /** Valid */
             valid?: components["schemas"]["ValidRow"][];
         };
+        /** ValuationResponse */
+        ValuationResponse: {
+            /** Rows */
+            rows: components["schemas"]["ValuationRow"][];
+        };
+        /** ValuationRow */
+        ValuationRow: {
+            /** As Of Date */
+            as_of_date: string;
+            /** Invested Amount Usd */
+            invested_amount_usd?: number | null;
+            /** Realized Value Usd */
+            realized_value_usd?: number | null;
+            /** Unrealized Fv Usd */
+            unrealized_fv_usd?: number | null;
+            /** Moic Net */
+            moic_net?: number | null;
+            /** Irr Net */
+            irr_net?: number | null;
+        };
+        /** VentaNuboxRead */
+        VentaNuboxRead: {
+            /** Venta Id */
+            venta_id: number;
+            /** Nubox Document Id */
+            nubox_document_id: number;
+            /** Folio */
+            folio: string | null;
+            /** Tipo Dte */
+            tipo_dte: number;
+            /** Periodo */
+            periodo: string;
+            /** Fecha Emision */
+            fecha_emision: string | null;
+            /** Cliente Rut */
+            cliente_rut: string;
+            /** Cliente Razon Social */
+            cliente_razon_social: string | null;
+            /** Monto Neto */
+            monto_neto: number;
+            /** Monto Iva */
+            monto_iva: number;
+            /** Monto Total */
+            monto_total: number;
+            /** Estado Emision Id */
+            estado_emision_id: number | null;
+            /** Estado Emision Name */
+            estado_emision_name: string | null;
+            /** Sii Track Id */
+            sii_track_id: number | null;
+            /** Voucher Id */
+            voucher_id: number | null;
+        };
         /**
          * VerifyRequest
          * @description Request para `POST /me/2fa/verify` y `POST /me/2fa/disable`.
@@ -15781,6 +20685,16 @@ export interface components {
             can_current_user_sign: boolean;
             /** Current User Eligible Role */
             current_user_eligible_role: string | null;
+            /**
+             * Next Pending Signers Emails
+             * @default []
+             */
+            next_pending_signers_emails: string[];
+            /**
+             * Current User Already Signed
+             * @default false
+             */
+            current_user_already_signed: boolean;
         };
         /**
          * VoucherAttachmentLink
@@ -15862,6 +20776,10 @@ export interface components {
             fecha_contable: string;
             /** Fecha Ejecucion */
             fecha_ejecucion?: string | null;
+            /** Fecha Vencimiento */
+            fecha_vencimiento?: string | null;
+            /** Documento Dropbox Path */
+            documento_dropbox_path?: string | null;
             /** Glosa */
             glosa: string;
             /**
@@ -15879,7 +20797,7 @@ export interface components {
             /** Contraparte Tipo */
             contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
             /** Doc Tributario Tipo */
-            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA" | "DECLARACION_INGRESO" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION") | null;
             /** Doc Tributario Folio */
             doc_tributario_folio?: string | null;
             /** Doc Tributario Sii Track Id */
@@ -16077,6 +20995,8 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /** Proyecto Dominante */
+            proyecto_dominante?: string | null;
         };
         /** VoucherNoConciliado */
         VoucherNoConciliado: {
@@ -16157,7 +21077,7 @@ export interface components {
             /** Contraparte Tipo */
             contraparte_tipo: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
             /** Doc Tributario Tipo */
-            doc_tributario_tipo: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            doc_tributario_tipo: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA" | "DECLARACION_INGRESO" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION") | null;
             /** Doc Tributario Folio */
             doc_tributario_folio: string | null;
             /** Doc Tributario Sii Track Id */
@@ -16236,7 +21156,7 @@ export interface components {
             /** Contraparte Tipo */
             contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
             /** Doc Tributario Tipo */
-            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA" | "DECLARACION_INGRESO" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION") | null;
         };
         /**
          * VoucherTemplateListItem
@@ -16304,7 +21224,7 @@ export interface components {
             /** Contraparte Tipo */
             contraparte_tipo: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
             /** Doc Tributario Tipo */
-            doc_tributario_tipo: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            doc_tributario_tipo: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA" | "DECLARACION_INGRESO" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION") | null;
             /** Activo */
             activo: boolean;
             /** Use Count */
@@ -16342,7 +21262,7 @@ export interface components {
             /** Contraparte Tipo */
             contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
             /** Doc Tributario Tipo */
-            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA" | "DECLARACION_INGRESO" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION") | null;
         };
         /**
          * VoucherUpdate
@@ -16369,7 +21289,7 @@ export interface components {
             /** Contraparte Tipo */
             contraparte_tipo?: ("PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO") | null;
             /** Doc Tributario Tipo */
-            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA") | null;
+            doc_tributario_tipo?: ("FACTURA" | "BOLETA" | "NOTA_CREDITO" | "NOTA_DEBITO" | "HONORARIOS" | "NA" | "DECLARACION_INGRESO" | "FACTURA_COMPRA" | "FACTURA_COMPRA_ELECTRONICA" | "FACTURA_INICIO" | "FACTURA_ELECTRONICA" | "FACTURA_ELECTRONICA_EXENTA" | "FACTURA_EXENTA" | "LIQUIDACION_FACTURA" | "LIQUIDACION_FACTURA_ELECTRONICA" | "NOTA_CREDITO_ELECTRONICA" | "NOTA_DEBITO_ELECTRONICA" | "SOLICITUD_REGISTRO_FACTURA" | "INVOICE" | "FACTURA_IMPORTACION" | "FACTURA_EXPORTACION") | null;
             /** Doc Tributario Folio */
             doc_tributario_folio?: string | null;
             /** Banco */
@@ -16532,6 +21452,90 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** ComplianceItem */
+        app__api__v1__dashboard_institucional__ComplianceItem: {
+            /** Framework */
+            framework: string;
+            /** Principle Or Item */
+            principle_or_item: string;
+            /** Status */
+            status: string;
+            /** Last Review Date */
+            last_review_date: string | null;
+            /** Next Review Date */
+            next_review_date: string | null;
+            /** Notes */
+            notes: string | null;
+        };
+        /** ComplianceItem */
+        app__api__v1__empresa__ComplianceItem: {
+            /** Framework */
+            framework: string;
+            /** Principle Or Item */
+            principle_or_item: string;
+            /** Status */
+            status: string;
+            /** Last Review Date */
+            last_review_date?: string | null;
+            /** Next Review Date */
+            next_review_date?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** UploadResult */
+        app__api__v1__flujos_caja_proyecto__UploadResult: {
+            /** Proyecto Codigo */
+            proyecto_codigo: string;
+            /** Celdas Creadas */
+            celdas_creadas: number;
+            /** Celdas Actualizadas */
+            celdas_actualizadas: number;
+        };
+        /** UploadResult */
+        app__api__v1__rrhh__UploadResult: {
+            /** Libro Id */
+            libro_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /** Cantidad Empleados */
+            cantidad_empleados: number;
+            /** Total Costo Empresa */
+            total_costo_empresa: string;
+            /** Reemplazo */
+            reemplazo: boolean;
+        };
+        /** ImportCsvResponse */
+        app__api__v1__sii__ImportCsvResponse: {
+            /** Inserted */
+            inserted: number;
+            /** Updated */
+            updated: number;
+            /** Errors */
+            errors: string[];
+            /** Run Id */
+            run_id: number;
+        };
+        /** ImportCsvResponse */
+        app__api__v1__vouchers__ImportCsvResponse: {
+            /** Total Rows */
+            total_rows: number;
+            /** Total Vouchers Intended */
+            total_vouchers_intended: number;
+            /** Vouchers Created Count */
+            vouchers_created_count: number;
+            /** Errors Count */
+            errors_count: number;
+            /** Vouchers Created */
+            vouchers_created?: {
+                [key: string]: unknown;
+            }[];
+            /** Errors */
+            errors?: {
+                [key: string]: unknown;
+            }[];
+        };
     };
     responses: never;
     parameters: never;
@@ -16597,6 +21601,1443 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PerfResponse"];
+                };
+            };
+        };
+    };
+    submit_feedback_api_v1_me_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feedback_summary_api_v1_admin_feedback_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedbackSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    adoption_map_api_v1_admin_adoption_map_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptionRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_modules_api_v1_training_modules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleListItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_module_api_v1_training_modules__slug__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModuleDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    submit_quiz_api_v1_training_complete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuizSubmit"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuizResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_catalogos_api_v1_admin_corfo_catalogos_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogosResp"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_rendicion_api_v1_admin_corfo_rendicion_preview_get: {
+        parameters: {
+            query: {
+                /** @description REVTECH o TRONGKAI */
+                empresa: string;
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewResp"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mapping_full_api_v1_admin_corfo_mapping__empresa__full_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuentaUsoRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_mapping_api_v1_admin_corfo_mapping__empresa__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MappingItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_mapping_api_v1_admin_corfo_mapping__empresa__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MappingPost"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: number;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generar_excel_api_v1_admin_corfo_rendicion_excel_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenExcelReq"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_access_api_v1_rrhh_access_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_empleados_api_v1_rrhh_empleados_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                incluir_inactivos?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpleadoRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_empleado_api_v1_rrhh_empleados_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmpleadoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpleadoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    costos_empleado_api_v1_rrhh_empleados__rut__costos_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                rut: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CostoHistorico"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_libros_api_v1_rrhh_libros_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                periodo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibroRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_libro_api_v1_rrhh_libros__libro_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                libro_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibroDetalle"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_libro_api_v1_rrhh_libros_upload_post: {
+        parameters: {
+            query: {
+                /** @description Código empresa destino (RVT, AFIS, etc.) */
+                empresa_codigo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_libro_api_v1_rrhh_libros_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__rrhh__UploadResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    costo_empresa_api_v1_rrhh_costo_empresa_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                desde?: string | null;
+                hasta?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_empleado_api_v1_rrhh_empleados__rut__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                rut: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_empleado_api_v1_rrhh_empleados__rut__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                rut: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmpleadoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpleadoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_linea_api_v1_rrhh_libros__libro_id__lineas__linea_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                libro_id: number;
+                linea_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LineaUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LineaLibroRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_libro_excel_api_v1_rrhh_libros__libro_id__export_excel_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                libro_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_oc_branding_api_v1_admin_empresas__codigo__oc_branding_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcBrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_oc_branding_api_v1_admin_empresas__codigo__oc_branding_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OcBrandingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcBrandingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_logo_api_v1_admin_empresas__codigo__logo_upload_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_logo_api_v1_admin_empresas__codigo__logo_upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LogoUploadResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_cuotas_api_v1_ordenes_compra__oc_id__cuotas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuotaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_cuotas_api_v1_ordenes_compra__oc_id__cuotas_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CuotasReplaceBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuotaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    split_equitativo_api_v1_ordenes_compra__oc_id__cuotas_split_equitativo_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitEquitativoBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuotaRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_cuota_api_v1_ordenes_compra__oc_id__cuotas__cuota_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+                cuota_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generar_vouchers_api_v1_ordenes_compra__oc_id__cuotas_generar_vouchers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerarVouchersResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cuotas_proximas_api_v1_ordenes_compra_cuotas_proximas_a_vencer_get: {
+        parameters: {
+            query?: {
+                dias?: number;
+                incluir_vencidas?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuotaPendiente"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cuotas_resumen_api_v1_ordenes_compra_cuotas_resumen_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CuotasResumen"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_flujo_api_v1_flujos_caja_proyecto__proyecto_codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlujoCell"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upsert_cell_api_v1_flujos_caja_proyecto__proyecto_codigo__cell_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CellUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlujoCell"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_cell_api_v1_flujos_caja_proyecto__proyecto_codigo__cell__cell_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_codigo: string;
+                cell_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_excel_api_v1_flujos_caja_proyecto__proyecto_codigo__upload_post: {
+        parameters: {
+            query?: {
+                tipo_default?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proyecto_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_excel_api_v1_flujos_caja_proyecto__proyecto_codigo__upload_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__flujos_caja_proyecto__UploadResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    perf_stats_api_v1_admin_perf_stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    feature_usage_api_v1_admin_feature_usage_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_outbox_api_v1_admin_email_outbox_retry_post: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    outbox_stats_api_v1_admin_email_outbox_stats_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -16856,6 +23297,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProveedorSearchHit"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proveedores_cache_api_v1_proveedores_cache_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProveedorCacheItem"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quick_create_proveedor_api_v1_proveedores_quick_create_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["QuickCreateBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProveedorRead"];
                 };
             };
             /** @description Validation Error */
@@ -17202,7 +23709,9 @@ export interface operations {
     };
     get_kpis_api_v1_dashboard_kpis_get: {
         parameters: {
-            query?: never;
+            query?: {
+                empresa_codigo?: string | null;
+            };
             header?: {
                 authorization?: string | null;
             };
@@ -17765,6 +24274,41 @@ export interface operations {
             };
         };
     };
+    download_oc_pdf_api_v1_ordenes_compra__oc_id__pdf_get: {
+        parameters: {
+            query?: {
+                include_attachments?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     duplicate_oc_api_v1_ordenes_compra__oc_id__duplicate_post: {
         parameters: {
             query?: never;
@@ -17896,6 +24440,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OcImportCsvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_oc_to_signers_endpoint_api_v1_ordenes_compra__oc_id__send_to_signers_post: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */
@@ -19737,6 +26318,866 @@ export interface operations {
             };
         };
     };
+    fondo_overview_api_v1_admin_fondo_overview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FondoOverview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    marcha_blanca_checklist_api_v1_admin_marcha_blanca_checklist_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MarchaBlancaReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_empresas_sii_api_v1_admin_sii_empresas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaSiiStatus"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_credenciales_sii_api_v1_admin_sii_test_login__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_rcv_api_v1_admin_sii_sync_rcv__empresa_codigo__post: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncRcvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_admin_sii_runs__empresa_codigo__get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiiRunRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_documentos_api_v1_admin_sii_documentos__empresa_codigo__get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+                flujo?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiiDocumentoRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_csv_rcv_api_v1_admin_sii_import_csv__empresa_codigo__post: {
+        parameters: {
+            query: {
+                flujo: string;
+                periodo_default: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_csv_rcv_api_v1_admin_sii_import_csv__empresa_codigo__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__api__v1__sii__ImportCsvResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conciliar_api_v1_admin_sii_conciliar__empresa_codigo__post: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConciliarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    f29_preview_api_v1_admin_sii_f29_preview__empresa_codigo__get: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["F29PreviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_voucher_desde_dte_api_v1_admin_sii_crear_voucher_desde_dte__sii_doc_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                sii_doc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CrearVoucherDesdeDteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_empresas_nubox_api_v1_admin_nubox_empresas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaNuboxStatus"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_credenciales_nubox_api_v1_admin_nubox_test_login__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_remuneraciones_api_v1_admin_nubox_sync_remuneraciones__empresa_codigo__post: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncRemuneracionesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_excel_remuneraciones_api_v1_admin_nubox_import_excel__empresa_codigo__post: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_import_excel_remuneraciones_api_v1_admin_nubox_import_excel__empresa_codigo__post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportExcelResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_remuneraciones_api_v1_admin_nubox_remuneraciones__empresa_codigo__get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemuneracionRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_remuneraciones_api_v1_admin_nubox_resumen__empresa_codigo__get: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenRemuneraciones"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_empresas_nubox_api_api_v1_admin_nubox_api_empresas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaNuboxApiStatus"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_credentials_api_v1_admin_nubox_api_credentials__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetCredencialesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmpresaNuboxApiStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_credentials_api_v1_admin_nubox_api_test__empresa_codigo__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    emit_from_voucher_api_v1_admin_nubox_api_emit_from_voucher__voucher_id__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmitFromVoucherResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sync_sales_api_v1_admin_nubox_api_sync_sales__empresa_codigo__post: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SyncSalesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_ventas_api_v1_admin_nubox_api_sales__empresa_codigo__get: {
+        parameters: {
+            query?: {
+                periodo?: string | null;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VentaNuboxRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pdf_api_v1_admin_nubox_api_sales__empresa_codigo___nubox_document_id__pdf_get: {
+        parameters: {
+            query?: {
+                template?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+                nubox_document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_xml_api_v1_admin_nubox_api_sales__empresa_codigo___nubox_document_id__xml_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+                nubox_document_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     connect_api_v1_dropbox_connect_get: {
         parameters: {
             query?: never;
@@ -20403,6 +27844,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ExecutiveSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ai_secretaria_tareas_api_v1_ai_secretaria_tareas_get: {
+        parameters: {
+            query?: {
+                /** @description Filtrar por empresa_codigo */
+                empresa?: string | null;
+                /** @description Filtrar por encargado */
+                encargado?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecretariaBriefResponse"];
                 };
             };
             /** @description Validation Error */
@@ -23230,6 +30707,171 @@ export interface operations {
             };
         };
     };
+    get_empresa_valuation_api_v1_empresa__empresa_codigo__valuation_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValuationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_empresa_kpis_api_v1_empresa__empresa_codigo__kpis_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpisResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_empresa_impact_api_v1_empresa__empresa_codigo__impact_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactSummaryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_empresa_compliance_api_v1_empresa__empresa_codigo__compliance_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceResp"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_empresa_tributario_api_v1_empresa__empresa_codigo__tributario_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                empresa_codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TributarioResp"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     analyze_uploaded_document_api_v1_documents_analyze_post: {
         parameters: {
             query?: never;
@@ -24440,6 +32082,28 @@ export interface operations {
             };
         };
     };
+    resend_webhook_api_v1_webhooks_resend_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     stream_events_api_v1_stream_events_get: {
         parameters: {
             query?: {
@@ -25582,6 +33246,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InformeLpRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_informe_pdf_api_v1_informes_lp__informe_id__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                informe_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -26739,6 +34436,283 @@ export interface operations {
             };
         };
     };
+    export_transferencia_masiva_api_v1_vouchers_transferencia_masiva_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransferenciaMasivaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_transferencia_masiva_api_v1_vouchers_transferencia_masiva_preview_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    check_voucher_anomalies_api_v1_vouchers__voucher_id__anomaly_check_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnomalyReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voucher_anomaly_radar_api_v1_vouchers_anomaly_radar_get: {
+        parameters: {
+            query?: {
+                min_score?: number;
+                limit?: number;
+                /** @description Statuses separados por coma */
+                statuses?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnomalyRadarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_voucher_comments_api_v1_vouchers__voucher_id__comments_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_voucher_comment_api_v1_vouchers__voucher_id__comments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_voucher_comment_api_v1_vouchers__voucher_id__comments__comment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_voucher_comment_api_v1_vouchers__voucher_id__comments__comment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+                comment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentPatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_templates_api_v1_vouchers_templates_get: {
         parameters: {
             query?: {
@@ -27028,6 +35002,7 @@ export interface operations {
                 fecha_hasta?: string | null;
                 contraparte_rut?: string | null;
                 source?: string | null;
+                proyecto_codigo?: string | null;
                 limit?: number;
             };
             header?: {
@@ -27204,6 +35179,72 @@ export interface operations {
             };
         };
     };
+    bulk_voucher_pdf_api_v1_vouchers_bulk_pdf_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkPdfRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_mis_pendientes_api_v1_vouchers_mis_pendientes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MisPendientesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_voucher_api_v1_vouchers__voucher_id__get: {
         parameters: {
             query?: never;
@@ -27338,6 +35379,74 @@ export interface operations {
             };
         };
     };
+    download_voucher_pdf_api_v1_vouchers__voucher_id__pdf_get: {
+        parameters: {
+            query?: {
+                include_attachments?: boolean;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    duplicate_voucher_api_v1_vouchers__voucher_id__duplicate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     submit_voucher_api_v1_vouchers__voucher_id__submit_post: {
         parameters: {
             query?: never;
@@ -27358,6 +35467,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SubmitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reopen_voucher_api_v1_vouchers__voucher_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherRead"];
                 };
             };
             /** @description Validation Error */
@@ -27577,37 +35719,6 @@ export interface operations {
             };
         };
     };
-    list_mis_pendientes_api_v1_vouchers_mis_pendientes_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                authorization?: string | null;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MisPendientesResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_voucher_approvals_state_api_v1_vouchers__voucher_id__approvals_get: {
         parameters: {
             query?: never;
@@ -27715,6 +35826,185 @@ export interface operations {
             };
         };
     };
+    get_voucher_timeline_api_v1_vouchers__voucher_id__timeline_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_voucher_neighbors_api_v1_vouchers__voucher_id__neighbors_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    execute_voucher_api_v1_vouchers__voucher_id__execute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_execute_vouchers_api_v1_vouchers_bulk_execute_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkExecuteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkExecuteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bulk_delete_drafts_api_v1_vouchers_bulk_delete_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkDeleteDraftsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkDeleteDraftsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_voucher_from_factura_pdf_api_v1_vouchers_from_factura_pdf_post: {
         parameters: {
             query?: never;
@@ -27806,7 +36096,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ImportCsvResponse"];
+                    "application/json": components["schemas"]["app__api__v1__vouchers__ImportCsvResponse"];
                 };
             };
             /** @description Validation Error */
@@ -28012,6 +36302,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProyectoAvance"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reparto_default_api_v1_proyectos_contables__codigo__reparto_default_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepartoDefault"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ejecutado_por_fuente_api_v1_proyectos_contables__codigo__ejecutado_por_fuente_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EjecutadoPorFuente"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_subsidios_api_v1_subsidios_get: {
+        parameters: {
+            query?: {
+                estado?: ("ACTIVO" | "CERRADO" | "SUSPENDIDO") | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubsidioRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_subsidio_api_v1_subsidios__codigo__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubsidioRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ejecucion_subsidio_api_v1_subsidios__codigo__ejecucion_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubsidioEjecucion"];
                 };
             };
             /** @description Validation Error */
@@ -29198,6 +37653,41 @@ export interface operations {
             };
         };
     };
+    get_aging_report_api_v1_reportes_contables_aging_get: {
+        parameters: {
+            query?: {
+                empresa?: string | null;
+                fecha_corte?: string | null;
+                limit_proveedores?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgingReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_reportes_index_api_v1_reportes_contables_index_get: {
         parameters: {
             query?: never;
@@ -30000,6 +38490,39 @@ export interface operations {
             };
         };
     };
+    trigger_run_now_api_v1_admin_mailbox_run_now_post: {
+        parameters: {
+            query?: {
+                classify_limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxRunNowResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     trigger_classify_api_v1_admin_mailbox_classify_post: {
         parameters: {
             query?: {
@@ -30280,6 +38803,41 @@ export interface operations {
             };
         };
     };
+    auto_create_oc_manual_api_v1_admin_mailbox__inbox_id__auto_create_oc_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                inbox_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     link_voucher_api_v1_admin_mailbox__inbox_id__link_voucher_post: {
         parameters: {
             query?: never;
@@ -30341,6 +38899,334 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MailboxDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    auto_create_drafts_from_inbox_api_v1_admin_mailbox_auto_create_drafts_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoCreateDraftsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoCreateDraftsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_fund_metrics_api_v1_dashboard_fund_metrics_get: {
+        parameters: {
+            query?: {
+                fund_codigo?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FundMetrics"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_jcurve_api_v1_dashboard_fund_jcurve_get: {
+        parameters: {
+            query?: {
+                fund_codigo?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JCurveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_portfolio_api_v1_dashboard_portfolio_get: {
+        parameters: {
+            query?: {
+                fund_codigo?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_impact_aggregated_api_v1_dashboard_impact_get: {
+        parameters: {
+            query?: {
+                period?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_impact_dimensions_api_v1_dashboard_impact_dimensions_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactDimensionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_impact_sdg_api_v1_dashboard_impact_sdg_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SdgAlignmentResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compliance_api_v1_dashboard_compliance_get: {
+        parameters: {
+            query?: {
+                fund_codigo?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_lps_api_v1_dashboard_lps_get: {
+        parameters: {
+            query?: {
+                fund_codigo?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LpRow"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_my_pcap_api_v1_dashboard_lps_mine_get: {
+        parameters: {
+            query?: {
+                fund_codigo?: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyPcapResponse"];
                 };
             };
             /** @description Validation Error */
