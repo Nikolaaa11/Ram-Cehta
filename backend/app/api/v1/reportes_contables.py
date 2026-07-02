@@ -656,11 +656,20 @@ async def get_estado_resultados_html(
                     END AS monto,
                     FALSE AS es_total
                 FROM core.plan_cuentas pc
-                LEFT JOIN core.voucher_lines vl ON vl.cuenta_codigo = pc.codigo
-                LEFT JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
-                    AND v.empresa_codigo = :emp
-                    AND EXTRACT(year FROM v.fecha_contable) = :anio
-                    AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                -- R152ZZZZZZ — subquery scopeado por empresa. Antes vl se
+                -- unia por cuenta_codigo trayendo lineas de TODAS las
+                -- empresas, y el filtro v.empresa_codigo=:emp en el LEFT
+                -- JOIN solo dejaba v en NULL sin quitar esas lineas del SUM:
+                -- el Estado de Resultados de una empresa incluia los montos
+                -- de las 10 (plan_cuentas es global).
+                LEFT JOIN (
+                    SELECT vl.cuenta_codigo, vl.debit, vl.credit
+                    FROM core.voucher_lines vl
+                    JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
+                    WHERE v.empresa_codigo = :emp
+                      AND EXTRACT(year FROM v.fecha_contable) = :anio
+                      AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                ) vl ON vl.cuenta_codigo = pc.codigo
                 WHERE LEFT(pc.codigo, 1) IN ('4', '5')
                 GROUP BY pc.codigo, pc.nombre, pc.nivel
                 HAVING (
@@ -717,11 +726,17 @@ async def get_balance_general_html(
                     END AS saldo,
                     FALSE AS es_total
                 FROM core.plan_cuentas pc
-                LEFT JOIN core.voucher_lines vl ON vl.cuenta_codigo = pc.codigo
-                LEFT JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
-                    AND v.empresa_codigo = :emp
-                    AND v.fecha_contable <= :fecha
-                    AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                -- R152ZZZZZZ — subquery scopeado (mismo bug que el Estado de
+                -- Resultados): el Balance General sumaba movimientos de
+                -- todas las empresas por el LEFT JOIN inefectivo.
+                LEFT JOIN (
+                    SELECT vl.cuenta_codigo, vl.debit, vl.credit
+                    FROM core.voucher_lines vl
+                    JOIN core.vouchers v ON v.voucher_id = vl.voucher_id
+                    WHERE v.empresa_codigo = :emp
+                      AND v.fecha_contable <= :fecha
+                      AND v.status IN ('APPROVED', 'EXECUTED', 'SYNCED', 'RECONCILED')
+                ) vl ON vl.cuenta_codigo = pc.codigo
                 WHERE LEFT(pc.codigo, 1) IN ('1', '2', '3')
                 GROUP BY pc.codigo, pc.nombre, pc.nivel
                 HAVING ABS(COALESCE(SUM(vl.debit - vl.credit), 0)) > 0

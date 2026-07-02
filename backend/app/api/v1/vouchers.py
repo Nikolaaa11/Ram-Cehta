@@ -981,6 +981,29 @@ async def get_voucher(
     return VoucherRead.model_validate(v)
 
 
+async def _voucher_read_or_404(db, voucher_id: int) -> VoucherRead:
+    """R152ZZZZZZ — serializa VoucherRead con `lines` cargadas SIN pasar por
+    la firma-endpoint de get_voucher. get_voucher(user, db, scope, voucher_id)
+    tiene `scope: EmpresaScopeDep` (Depends) y NO es llamable directamente:
+    update_voucher, void_voucher y reopen_voucher hacían
+    `get_voucher(user, db, voucher_id)` (3 args) → el voucher_id caía en
+    `scope` y faltaba el 4º arg → TypeError → 500 en el happy path. No se
+    detectaba porque la BD está en marcha blanca (nadie editó/anuló/reabrió
+    un voucher todavía). El scope ya se valida al inicio de cada endpoint.
+    """
+    stmt = (
+        select(Voucher)
+        .options(selectinload(Voucher.lines))
+        .where(Voucher.voucher_id == voucher_id)
+    )
+    v = (await db.execute(stmt)).scalar_one_or_none()
+    if v is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    return VoucherRead.model_validate(v)
+
+
 @router.get("/vouchers/{voucher_id}.html")
 async def get_voucher_html(
     user: CurrentUser,
@@ -1639,7 +1662,7 @@ async def update_voucher(
         setattr(v, k, val)
 
     await db.commit()
-    return await get_voucher(user, db, voucher_id)
+    return await _voucher_read_or_404(db, voucher_id)
 
 
 # =====================================================================
@@ -1939,8 +1962,10 @@ async def reopen_voucher(
         )
     except Exception:
         pass
-    await db.refresh(v)
-    return VoucherRead.model_validate(v)
+    # R152ZZZZZZ — re-query con selectinload(lines) como void/submit:
+    # model_validate(v) sobre el objeto de db.get() disparaba lazy-load de
+    # v.lines bajo async → MissingGreenlet → 500 en el happy path.
+    return await _voucher_read_or_404(db, voucher_id)
 
 
 # =====================================================================
@@ -2003,7 +2028,7 @@ async def void_voucher(
         before={"status": status_prev},
         after={"status": "VOID", "void_reason": body.reason},
     )
-    return await get_voucher(user, db, voucher_id)
+    return await _voucher_read_or_404(db, voucher_id)
 
 
 # =====================================================================
