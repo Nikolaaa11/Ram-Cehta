@@ -491,6 +491,15 @@ const GROUPS: NavGroup[] = [
         external: true,
         isNew: true,
       },
+      // R152TTTTTT — Guía dedicada de ingreso de vouchers (categorías
+      // contables/financieras reales + foto→voucher + PWA móvil).
+      {
+        href: "/GUIA_INGRESO_VOUCHERS.html" as Route,
+        label: "Guía de vouchers",
+        icon: Receipt,
+        external: true,
+        isNew: true,
+      },
       { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
       {
         href: "/aprender" as Route,

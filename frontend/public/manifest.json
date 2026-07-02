@@ -26,6 +26,12 @@
   ],
   "shortcuts": [
     {
+      "name": "Foto a boleta o factura",
+      "short_name": "Foto voucher",
+      "url": "/vouchers/importar",
+      "description": "Sacar foto a una boleta o factura y crear el voucher con IA"
+    },
+    {
       "name": "Vouchers",
       "short_name": "Vouchers",
       "url": "/vouchers",

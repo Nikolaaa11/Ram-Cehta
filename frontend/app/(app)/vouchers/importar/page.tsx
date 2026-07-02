@@ -122,6 +122,9 @@ export default function ImportarVoucherPage() {
   const { session } = useSession();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // R152TTTTTT — input separado con capture="environment": en el teléfono
+  // abre la CÁMARA directo (no el selector de archivos). Mismo handler.
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("pick");
   const [meta, setMeta] = useState<FormMetadata | null>(null);
@@ -533,6 +536,35 @@ export default function ImportarVoucherPage() {
               ))}
             </select>
           </Surface>
+
+          {/* R152TTTTTT — Botón de CÁMARA para móvil: saca la foto a la
+              boleta/factura y la manda directo al mismo flujo de extracción.
+              capture="environment" abre la cámara trasera en iOS/Android. */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileInput}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => cameraInputRef.current?.click()}
+            className="w-full rounded-2xl bg-cehta-green px-6 py-5 text-white shadow-card transition-all hover:bg-cehta-green-700 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cehta-green"
+          >
+            <span className="flex items-center justify-center gap-3">
+              <ImageIcon className="size-7" strokeWidth={1.75} />
+              <span className="text-left">
+                <span className="block text-lg font-semibold leading-tight">
+                  Sacar foto a boleta o factura
+                </span>
+                <span className="block text-xs opacity-90 mt-0.5">
+                  Abre la cámara · la IA lee los datos y te precarga el voucher
+                </span>
+              </span>
+            </span>
+          </button>
 
           <div
             onDragOver={(e) => {

@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de Ingreso de Vouchers · Ram-Cehta</title>
+<style>
+  :root{
+    --green:#138A5E; --green-700:#0F6E4B; --green-50:#E7F5EE;
+    --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B; --ink-300:#CBD5E1;
+    --hair:#E5E9F0; --bg:#F7F9FB; --card:#FFFFFF; --amber:#B45309; --amber-50:#FEF3E2;
+    --blue:#1E40AF; --blue-50:#EAF0FF; --radius:16px;
+    --shadow:0 1px 3px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--ink-900);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--green-700);text-decoration:none}
+  .wrap{display:grid;grid-template-columns:288px 1fr;min-height:100vh}
+  aside{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--card);
+    border-right:1px solid var(--hair);padding:20px 14px}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 14px}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--green),var(--green-700));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px}
+  .brand b{font-size:15px;font-weight:700}.brand small{display:block;color:var(--ink-500);font-size:11px;font-weight:500}
+  .search{width:100%;padding:9px 12px;border:1px solid var(--hair);border-radius:10px;font-size:13px;
+    margin-bottom:12px;background:var(--bg)}
+  .search:focus{outline:none;border-color:var(--green);background:#fff}
+  nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-500);
+    font-weight:700;margin:14px 8px 5px}
+  nav a{display:block;padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--ink-700);font-weight:500}
+  nav a:hover{background:var(--green-50);color:var(--green-700)}
+  nav a.on{background:var(--green-50);color:var(--green-700);font-weight:600}
+  main{padding:0 0 80px}
+  .hero{background:linear-gradient(135deg,#0F6E4B,#138A5E);color:#fff;padding:48px 56px 40px}
+  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .hero p{opacity:.92;max-width:720px;margin-top:10px;font-size:15px}
+  .hero .chips{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap}
+  .hero .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+    padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .content{padding:34px 56px;max-width:1040px}
+  section{background:var(--card);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:28px 30px;margin-bottom:22px;box-shadow:var(--shadow);scroll-margin-top:20px}
+  section h2{font-size:21px;font-weight:750;display:flex;align-items:center;gap:11px;letter-spacing:-.01em}
+  section h2 .ic{width:38px;height:38px;border-radius:10px;background:var(--green-50);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  section .lead{color:var(--ink-700);margin:8px 0 18px;font-size:14.5px}
+  h4{font-size:13.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-500);
+    margin:20px 0 9px;display:flex;align-items:center;gap:7px}
+  .steps{counter-reset:s;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:7px 0 7px 38px;font-size:14px;border-bottom:1px dashed var(--hair)}
+  .steps li:last-child{border:none}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;
+    background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
+  th{text-align:left;background:var(--bg);color:var(--ink-500);font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.04em;padding:8px 10px;border-bottom:2px solid var(--hair)}
+  td{padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+  td b{color:var(--ink-900)} .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+    background:var(--bg);padding:1px 6px;border-radius:5px;white-space:nowrap}
+  .datos{background:var(--amber-50);border:1px solid #F5D8A8;border-radius:12px;padding:16px 18px;margin-top:18px}
+  .datos h4{color:var(--amber);margin-top:0}
+  .datos .row{display:flex;gap:10px;padding:6px 0;font-size:13.5px;border-bottom:1px dashed #F0D5A8}
+  .datos .row:last-child{border:none}.datos .row b{min-width:130px;color:var(--amber)}
+  .mock{border:1px solid var(--hair);border-radius:12px;overflow:hidden;margin:6px 0 4px;background:var(--bg)}
+  .mock .bar{display:flex;gap:6px;padding:9px 12px;background:#EEF2F6;border-bottom:1px solid var(--hair)}
+  .mock .bar span{width:10px;height:10px;border-radius:50%;background:#CBD5E1}
+  .mock .bar span:nth-child(1){background:#F87171}.mock .bar span:nth-child(2){background:#FBBF24}
+  .mock .bar span:nth-child(3){background:#34D399}
+  .mock .bd{padding:16px}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;display:inline-block}
+  .b-draft{background:#F1F5F9;color:#64748B}.b-pend{background:#FEF3E2;color:#B45309}
+  .b-app{background:#E7F5EE;color:#0F6E4B}.b-exec{background:#EAF0FF;color:#1E40AF}
+  .tip{background:var(--green-50);border-left:3px solid var(--green);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .tip b{color:var(--green-700)}
+  .warn{background:var(--amber-50);border-left:3px solid var(--amber);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .warn b{color:var(--amber)}
+  .ejemplo{background:linear-gradient(180deg,#F5F8FF,#EFF4FF);border:1px solid #D6E0F5;
+    border-radius:13px;padding:18px 20px;margin-top:18px}
+  .ejemplo .et{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;
+    font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+    padding:4px 10px;border-radius:7px;margin-bottom:12px}
+  .ejemplo p{font-size:13.5px;margin-bottom:8px}
+  .ej-calc{background:#fff;border:1px solid #DCE6F7;border-radius:9px;padding:12px 14px;margin-top:10px}
+  .ej-calc .ln{display:flex;justify-content:space-between;padding:5px 0;font-size:13px;border-bottom:1px dashed #E5ECF8}
+  .ej-calc .ln:last-child{border:none}
+  .ej-calc .ln b{color:var(--ink-900)}
+  .ej-calc .ln.tot{border-top:2px solid var(--blue);margin-top:3px;padding-top:8px;font-weight:800;font-size:14.5px}
+  .ej-calc .ln.tot span:last-child{color:var(--blue)}
+  .ej-calc .num{font-variant-numeric:tabular-nums;font-weight:600}
+  .ej-calc .hd{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-500);
+    font-weight:800;padding:4px 0 2px}
+  footer{padding:30px 56px;color:var(--ink-500);font-size:12.5px;border-top:1px solid var(--hair);background:var(--card)}
+  .flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .flow .n{background:#fff;border:1px solid var(--hair);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
+  .flow .ar{color:var(--ink-300);font-weight:800}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .quick a{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 16px 15px;
+    box-shadow:var(--shadow);transition:all .18s ease;display:block}
+  .quick a:hover{transform:translateY(-3px);border-color:var(--green);box-shadow:0 10px 28px rgba(19,138,94,.12)}
+  .quick .qi{font-size:24px;margin-bottom:8px;display:block}
+  .quick .qt{font-weight:700;font-size:14px;color:var(--ink-900)}
+  .quick .qd{font-size:11.5px;color:var(--ink-500);margin-top:3px;line-height:1.4}
+  /* Tarjetas de las 3 vías de ingreso */
+  .vias{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .via{border:1px solid var(--hair);border-radius:13px;padding:16px;background:var(--bg)}
+  .via.star{border-color:var(--green);background:var(--green-50)}
+  .via .vi{font-size:26px}
+  .via .vt{font-weight:750;font-size:14.5px;margin-top:6px}
+  .via .vd{font-size:12.5px;color:var(--ink-700);margin-top:4px;line-height:1.5}
+  .via .vw{font-size:11px;color:var(--ink-500);margin-top:8px;font-weight:600}
+  /* Simulación de teléfono */
+  .phone{width:250px;border:2px solid var(--ink-300);border-radius:26px;padding:10px 8px;background:#fff;margin:10px auto 4px}
+  .phone .notch{width:80px;height:6px;background:var(--ink-300);border-radius:99px;margin:0 auto 10px}
+  .phone .scr{border:1px solid var(--hair);border-radius:16px;overflow:hidden}
+  .phone .aph{background:linear-gradient(135deg,#0F6E4B,#138A5E);color:#fff;padding:10px 12px;font-size:12px;font-weight:700}
+  .phone .apb{padding:12px}
+  .phone .btn-cam{background:var(--green);color:#fff;border-radius:12px;padding:13px 10px;text-align:center;
+    font-size:12.5px;font-weight:800;margin-bottom:10px}
+  .phone .btn-cam small{display:block;font-weight:500;font-size:10px;opacity:.85;margin-top:2px}
+  .phone .fld{border:1px dashed var(--ink-300);border-radius:9px;padding:10px;text-align:center;
+    font-size:11px;color:var(--ink-500)}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}.hero,.content{padding:28px 22px}
+    .quick{grid-template-columns:repeat(2,1fr)}.vias{grid-template-columns:1fr}.cols2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <div class="brand"><div class="logo">RC</div><div><b>Ram-Cehta</b><small>Guía de ingreso de vouchers</small></div></div>
+  <input class="search" id="q" placeholder="🔎 Buscar cuenta o tema…">
+  <nav id="nav">
+    <div class="grp">Empezar</div>
+    <a href="#que-es" class="on">Cómo funciona un voucher</a>
+    <a href="#vias">Las 3 formas de ingresar</a>
+    <a href="#estados">Estados y firmas</a>
+    <div class="grp">Ingreso paso a paso</div>
+    <a href="#foto">📷 Por foto (boleta o factura)</a>
+    <a href="#manual">📝 Manual (formulario)</a>
+    <a href="#correo">📧 Desde el correo</a>
+    <div class="grp">Categorías</div>
+    <a href="#contables">Contables — qué compraste</a>
+    <a href="#financieras">Financieras — cómo se paga</a>
+    <a href="#tabla-rapida">Tabla rápida: ¿dónde va?</a>
+    <a href="#iva">IVA e impuesto específico</a>
+    <a href="#corfo">Fuentes CORFO</a>
+    <div class="grp">Ejemplos</div>
+    <a href="#ejemplos">5 ejemplos trabajados</a>
+    <div class="grp">Teléfono</div>
+    <a href="#app-telefono">📱 Instalar la app en el teléfono</a>
+    <a href="#errores">Errores comunes</a>
+    <div class="grp">Más</div>
+    <a href="/GUIA_USUARIO.html">← Guía general de la plataforma</a>
+  </nav>
+</aside>
+
+<main>
+<div class="hero">
+  <h1>Guía de Ingreso de Vouchers</h1>
+  <p>Todo lo que necesitás para cargar comprobantes en Ram-Cehta: por foto desde el teléfono, a mano
+     en el formulario o desde el correo — con las categorías contables y financieras reales del plan
+     de cuentas del fondo, explicadas con ejemplos.</p>
+  <div class="chips">
+    <span class="chip">📷 Foto → voucher con IA</span><span class="chip">📱 App para el teléfono</span>
+    <span class="chip">📚 Plan de cuentas real</span><span class="chip">🧮 Ejemplos con números</span>
+  </div>
+</div>
+
+<div class="content">
+
+<!-- ACCESOS RÁPIDOS -->
+<div class="quick">
+  <a href="#foto"><span class="qi">📷</span><div class="qt">Sacar foto a una boleta</div><div class="qd">La IA lee los datos y precarga el voucher</div></a>
+  <a href="#contables"><span class="qi">📒</span><div class="qt">¿Qué cuenta contable uso?</div><div class="qd">Categorías reales agrupadas por tipo de gasto</div></a>
+  <a href="#tabla-rapida"><span class="qi">⚡</span><div class="qt">Tabla rápida</div><div class="qd">"Compré X → va en la cuenta Y"</div></a>
+  <a href="#app-telefono"><span class="qi">📱</span><div class="qt">App en el teléfono</div><div class="qd">Instalá Ram-Cehta como app en 30 segundos</div></a>
+</div>
+
+<!-- QUÉ ES -->
+<section id="que-es">
+  <h2><span class="ic">🧾</span> Cómo funciona un voucher</h2>
+  <p class="lead">Un <b>voucher</b> es el comprobante contable de cada gasto, compra o pago del fondo.
+     Cada documento (factura, boleta, boleta de honorarios) se transforma en un voucher que registra
+     <b>dos caras de la misma moneda</b> — eso se llama <b>partida doble</b>:</p>
+  <div class="cols2">
+    <div>
+      <h4>📒 Información contable (el DEBE)</h4>
+      <p style="font-size:13.5px">Responde: <b>¿en qué se gastó la plata?</b> Acá van las cuentas de
+      gasto, costo o activo: arriendo, honorarios, combustible, software, un vehículo…
+      También va el <b>IVA crédito fiscal</b> como línea separada.</p>
+    </div>
+    <div>
+      <h4>💰 Información financiera (el HABER)</h4>
+      <p style="font-size:13.5px">Responde: <b>¿de dónde sale la plata (o a quién le quedamos debiendo)?</b>
+      Acá van los bancos y la caja si se paga al tiro, o "Facturas por pagar" / "Honorarios por pagar"
+      si queda pendiente.</p>
+    </div>
+  </div>
+  <div class="tip"><b>Regla de oro:</b> la suma de la información contable <b>siempre debe ser igual</b>
+    a la suma de la información financiera. La plataforma lo valida automáticamente y no te deja guardar
+    si no cuadra.</div>
+  <div class="ejemplo">
+    <span class="et">🧮 La partida doble en 10 segundos</span>
+    <p>Llega una factura de arriendo de oficina por <b>$1.190.000</b> (IVA incluido) que se pagará después:</p>
+    <div class="ej-calc">
+      <div class="hd">Información contable (DEBE) — en qué se gastó</div>
+      <div class="ln"><span>4201-30 · Arriendos y gastos comunes (neto)</span><span class="num">$1.000.000</span></div>
+      <div class="ln"><span>1113-02 · IVA crédito fiscal (19%)</span><span class="num">$190.000</span></div>
+      <div class="hd" style="margin-top:8px">Información financiera (HABER) — cómo se paga</div>
+      <div class="ln"><span>2102-01 · Facturas por pagar</span><span class="num">$1.190.000</span></div>
+      <div class="ln tot"><span>Ambos lados cuadran</span><span>$1.190.000 = $1.190.000 ✓</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- LAS 3 VÍAS -->
+<section id="vias">
+  <h2><span class="ic">🛣️</span> Las 3 formas de ingresar un voucher</h2>
+  <p class="lead">Elegí según dónde estés y qué tengas en la mano:</p>
+  <div class="vias">
+    <div class="via star">
+      <span class="vi">📷</span>
+      <div class="vt">Por foto (la más rápida)</div>
+      <div class="vd">Sacás una foto a la boleta o factura desde el teléfono. La IA lee proveedor, RUT,
+        montos y fecha, y te precarga el voucher. Vos solo revisás y elegís las cuentas.</div>
+      <div class="vw">📍 Vouchers → Importar con IA → botón verde "Sacar foto"</div>
+    </div>
+    <div class="via">
+      <span class="vi">📝</span>
+      <div class="vt">Manual (formulario)</div>
+      <div class="vd">Llenás el formulario completo campo por campo. Es la vía con más control:
+        ideal para vouchers con varias líneas contables o casos especiales.</div>
+      <div class="vw">📍 Vouchers → Nuevo voucher (formulario Nubox)</div>
+    </div>
+    <div class="via">
+      <span class="vi">📧</span>
+      <div class="vt">Desde el correo</div>
+      <div class="vd">Los proveedores mandan facturas a <b>contactocehta@gmail.com</b>. La plataforma
+        las procesa cada hora y quedan en la Bandeja de correo listas para convertir en voucher u OC.</div>
+      <div class="vw">📍 Administración → Bandeja de correo</div>
+    </div>
+  </div>
+  <div class="tip"><b>¿Cuál usar?</b> Si tenés el papel en la mano → <b>foto</b>. Si te llegó por
+    correo → <b>bandeja</b>. Si es un caso complejo (varias cuentas, cuotas, retenciones) → <b>manual</b>.
+    Las tres terminan en el mismo lugar: un voucher en estado borrador esperando firmas.</div>
+</section>
+
+<!-- ESTADOS -->
+<section id="estados">
+  <h2><span class="ic">🚦</span> Estados y firmas</h2>
+  <p class="lead">Todo voucher pasa por el mismo camino, sin excepciones. Nadie puede pagar algo
+     que no fue firmado por dos personas distintas.</p>
+  <div class="flow">
+    <span class="n"><span class="badge b-draft">DRAFT</span> Borrador</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-pend">PENDING</span> Esperando firmas</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-app">APPROVED</span> 2 firmas ✓</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-exec">EXECUTED</span> Pagado</span>
+  </div>
+  <table>
+    <tr><th>Estado</th><th>Qué significa</th><th>Quién actúa</th></tr>
+    <tr><td><span class="badge b-draft">DRAFT</span></td><td>Recién creado. Se puede editar todo.</td><td>Quien lo creó</td></tr>
+    <tr><td><span class="badge b-pend">PENDING</span></td><td>Enviado a aprobación. Ya no se edita: se firma o se rechaza.</td><td>Los firmantes de la empresa</td></tr>
+    <tr><td><span class="badge b-app">APPROVED</span></td><td>Tiene las 2 firmas. Habilitado para ordenar la transferencia.</td><td>Tesorería</td></tr>
+    <tr><td><span class="badge b-exec">EXECUTED</span></td><td>La plata salió del banco. Queda para conciliación y Nubox.</td><td>—</td></tr>
+  </table>
+  <div class="warn"><b>Si te rechazan un voucher:</b> vuelve a DRAFT con el motivo anotado. Corregí lo
+    observado y mandalo a firma de nuevo — no crees uno nuevo, porque se duplica el correlativo.</div>
+</section>
+
+<!-- POR FOTO -->
+<section id="foto">
+  <h2><span class="ic">📷</span> Ingreso por foto — boleta o factura</h2>
+  <p class="lead">La vía más rápida, pensada para el teléfono. Le sacás una foto al documento y la IA
+     (Claude) extrae proveedor, RUT, número de documento, fecha, neto, IVA y total. Funciona con
+     <b>boletas, facturas, boletas de honorarios y hasta PDFs</b>.</p>
+  <div class="cols2">
+    <div>
+      <h4>Paso a paso</h4>
+      <ol class="steps">
+        <li>Entrá a <b>Vouchers → Importar con IA</b> (en el teléfono: atajo "Foto voucher" si instalaste la app).</li>
+        <li>Elegí la <b>empresa</b> (si la factura trae el RUT receptor, la IA la detecta sola).</li>
+        <li>Tocá el botón verde <b>"Sacar foto a boleta o factura"</b> — se abre la cámara directo.</li>
+        <li>Encuadrá el documento completo, con buena luz, y sacá la foto.</li>
+        <li>Esperá unos segundos: la IA lee el documento y te muestra el <b>formulario precargado</b>.</li>
+        <li>Revisá los datos extraídos: proveedor, RUT, montos, fecha. Corregí lo que haga falta.</li>
+        <li>Completá las <b>cuentas contables y financieras</b> (la IA deja las líneas armadas, vos elegís la cuenta — mirá la <a href="#tabla-rapida">tabla rápida</a>).</li>
+        <li>Guardá → se crea el voucher en DRAFT y el documento queda archivado en Dropbox automáticamente.</li>
+      </ol>
+    </div>
+    <div>
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="scr">
+          <div class="aph">RC · Importar voucher con IA</div>
+          <div class="apb">
+            <div class="fld" style="margin-bottom:10px">Empresa: RHO SpA ▾</div>
+            <div class="btn-cam">📷 Sacar foto a boleta o factura
+              <small>Abre la cámara · la IA lee los datos</small></div>
+            <div class="fld">…o arrastrá / pegá el archivo aquí<br>(JPG · PNG · HEIC · PDF · máx 15 MB)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <h4>Consejos para que la IA lea bien</h4>
+  <table>
+    <tr><th>✓ Hacer</th><th>✗ Evitar</th></tr>
+    <tr><td>Documento plano, completo dentro del cuadro</td><td>Foto en ángulo o con dedos tapando montos</td></tr>
+    <tr><td>Luz pareja (cerca de una ventana)</td><td>Reflejos de flash sobre papel térmico</td></tr>
+    <tr><td>Boletas térmicas: foto apenas la recibís</td><td>Esperar semanas — el papel térmico se borra</td></tr>
+    <tr><td>Una foto por documento</td><td>Varias boletas en la misma foto</td></tr>
+  </table>
+  <div class="datos">
+    <h4>📊 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Extracción</b><span>La foto se envía a la IA (Claude Vision) que devuelve los campos. <b>Nada se guarda hasta que vos revisás y confirmás.</b></span></div>
+    <div class="row"><b>Empresa</b><span>Se detecta por el RUT receptor impreso en la factura. Si la IA se equivoca, cambiala en el selector antes de guardar.</span></div>
+    <div class="row"><b>Proveedor</b><span>Se busca por RUT en el catálogo. Si no existe, el voucher lo crea como proveedor nuevo.</span></div>
+    <div class="row"><b>Archivo original</b><span>Se archiva en Dropbox junto al voucher. Si subiste el archivo equivocado, eliminá el voucher en DRAFT y repetí.</span></div>
+  </div>
+</section>
+
+<!-- MANUAL -->
+<section id="manual">
+  <h2><span class="ic">📝</span> Ingreso manual — el formulario completo</h2>
+  <p class="lead">El formulario (Vouchers → Nuevo) replica el asiento de Nubox. Se llena de arriba
+     hacia abajo en 5 bloques:</p>
+  <h4>Bloque 1 · Identificación</h4>
+  <table>
+    <tr><th>Campo</th><th>Qué poner</th><th>Ejemplo</th></tr>
+    <tr><td><b>Empresa</b></td><td>La empresa del fondo que recibe el documento (el RUT receptor de la factura).</td><td>RHO SpA</td></tr>
+    <tr><td><b>Proveedor</b></td><td>Quién emitió el documento. Se busca por RUT o nombre; si no existe se crea.</td><td>Fumiagro Ltda.</td></tr>
+    <tr><td><b>Tipo de documento</b></td><td>Factura electrónica, boleta, boleta de honorarios, nota de crédito…</td><td>Factura electrónica (33)</td></tr>
+    <tr><td><b>N° documento</b></td><td>El folio impreso en el documento.</td><td>4521</td></tr>
+    <tr><td><b>Fecha</b></td><td>La fecha de <b>emisión</b> del documento (no la de hoy). Define el mes contable y el F29.</td><td>15-06-2026</td></tr>
+    <tr><td><b>Glosa</b></td><td>Descripción corta y útil: qué + para qué proyecto.</td><td>"Fumigación predio Panimávida jun-26"</td></tr>
+  </table>
+  <h4>Bloque 2 · Información contable (el DEBE)</h4>
+  <p style="font-size:13.5px">Una línea por concepto. Elegí la <b>cuenta contable</b> (ver <a href="#contables">categorías</a>)
+     y el monto <b>neto</b>. El IVA va en su propia línea con la cuenta <span class="mono">1113-02 IVA CREDITO FISCAL</span> —
+     el formulario lo calcula solo al marcar "documento afecto a IVA".</p>
+  <h4>Bloque 3 · Información financiera (el HABER)</h4>
+  <p style="font-size:13.5px">Cómo se paga: banco (<span class="mono">1101-02…06</span>), caja
+     (<span class="mono">1101-01</span>) o por pagar (<span class="mono">2102-01</span> facturas /
+     <span class="mono">2102-11</span> honorarios). Si es en cuotas, definí las cuotas acá.</p>
+  <h4>Bloque 4 · Impuestos</h4>
+  <p style="font-size:13.5px">IVA 19% (automático), <b>impuesto específico</b> opcional
+     (<a href="#iva">ver sección</a>) y retención de honorarios cuando corresponde.</p>
+  <h4>Bloque 5 · Fuente de financiamiento</h4>
+  <p style="font-size:13.5px">Solo para gastos de proyectos con subsidio: indica quién financia
+     (<a href="#corfo">fuentes CORFO</a>). Si es gasto normal de la empresa, dejalo en empresa directa.</p>
+  <div class="tip"><b>Atajo:</b> el formulario valida en vivo que DEBE = HABER y te muestra la diferencia
+    en rojo hasta que cuadre. Si no cuadra, casi siempre es porque falta la línea del IVA o pusiste el
+    total donde iba el neto.</div>
+</section>
+
+<!-- CORREO -->
+<section id="correo">
+  <h2><span class="ic">📧</span> Ingreso desde el correo</h2>
+  <p class="lead">Las facturas que llegan a <b>contactocehta@gmail.com</b> se procesan automáticamente
+     cada hora: la IA las clasifica, extrae los datos y las deja en la Bandeja de correo.</p>
+  <ol class="steps">
+    <li>Entrá a <b>Administración → Bandeja de correo</b>.</li>
+    <li>Buscá el correo con la factura (los procesados tienen etiqueta y datos extraídos).</li>
+    <li>Revisá los datos que leyó la IA (proveedor, monto, empresa destino).</li>
+    <li>Tocá <b>"Crear voucher"</b> — te lleva al formulario precargado, igual que la vía por foto.</li>
+    <li>Completá cuentas contables/financieras, guardá y mandá a firma.</li>
+  </ol>
+  <div class="tip"><b>Tip para proveedores:</b> pediles que manden la factura directo a
+    contactocehta@gmail.com con el PDF adjunto — así entra sola al sistema y no se pierde en
+    casillas personales.</div>
+</section>
+
+<!-- CATEGORÍAS CONTABLES -->
+<section id="contables">
+  <h2><span class="ic">📒</span> Categorías contables — ¿en qué se gastó?</h2>
+  <p class="lead">Estas son las cuentas <b>reales</b> del plan de cuentas del fondo (las mismas 212 de
+     Nubox). Acá están las que se usan en el día a día, agrupadas por tipo. El código se elige en el
+     buscador de cuentas del formulario — podés escribir el número o parte del nombre.</p>
+
+  <h4>🏢 Gastos de administración (los más comunes) — familia 4201</h4>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Cuándo usarla</th></tr>
+    <tr><td><span class="mono">4201-02</span></td><td><b>Honorarios profesionales</b></td><td>Boletas de honorarios: abogados, contadores, asesores, freelancers. Lleva retención (<a href="#iva">ver</a>).</td></tr>
+    <tr><td><span class="mono">4201-04</span></td><td><b>Gastos de oficina</b></td><td>Artículos de escritorio, insumos, papelería, tóner.</td></tr>
+    <tr><td><span class="mono">4201-05</span></td><td><b>Impuestos y patentes</b></td><td>Patente municipal, contribuciones, permisos.</td></tr>
+    <tr><td><span class="mono">4201-06</span></td><td><b>Mantención vehículos</b></td><td>Taller, repuestos, revisión técnica de vehículos de la empresa.</td></tr>
+    <tr><td><span class="mono">4201-07</span></td><td><b>Mantención equipos y edificios</b></td><td>Reparaciones de instalaciones, gásfiter, electricista.</td></tr>
+    <tr><td><span class="mono">4201-08</span></td><td><b>Gastos generales</b></td><td>Lo que no calza en ninguna otra — usar poco; preferí una cuenta específica.</td></tr>
+    <tr><td><span class="mono">4201-09</span></td><td><b>Representación y viáticos</b></td><td>Almuerzos con clientes, viajes de trabajo, alojamiento.</td></tr>
+    <tr><td><span class="mono">4201-10</span></td><td><b>Gastos bancarios</b></td><td>Comisiones de banco, mantención de cuenta, costos de transferencia.</td></tr>
+    <tr><td><span class="mono">4201-12</span></td><td><b>Legales y notariales</b></td><td>Notaría, CBR, legalizaciones, escrituras.</td></tr>
+    <tr><td><span class="mono">4201-16</span></td><td><b>Arriendo máquinas y equipos</b></td><td>Arriendo de maquinaria, equipos, generadores (no oficinas).</td></tr>
+    <tr><td><span class="mono">4201-18</span></td><td><b>Seguros</b></td><td>Pólizas: incendio, vehículos, responsabilidad civil.</td></tr>
+    <tr><td><span class="mono">4201-19</span></td><td><b>Capacitación personal</b></td><td>Cursos, diplomados, entrenamientos del equipo.</td></tr>
+    <tr><td><span class="mono">4201-25</span></td><td><b>Luz, gas, agua, aseo</b></td><td>Cuentas de servicios básicos de oficinas e instalaciones.</td></tr>
+    <tr><td><span class="mono">4201-26</span></td><td><b>Locomoción y colación</b></td><td>Uber/taxi/bencina de traslados puntuales, almuerzos del equipo en terreno.</td></tr>
+    <tr><td><span class="mono">4201-30</span></td><td><b>Arriendos y gastos comunes</b></td><td>Arriendo de oficinas, bodegas y sus gastos comunes.</td></tr>
+    <tr><td><span class="mono">4201-31</span></td><td><b>Teléfonos y correo</b></td><td>Planes de celular, internet, encomiendas y courier.</td></tr>
+    <tr><td><span class="mono">4201-32</span></td><td><b>Suscripciones y publicaciones</b></td><td>Diarios, revistas, membresías, suscripciones no-software.</td></tr>
+    <tr><td><span class="mono">4201-37</span></td><td><b>Servicios computacionales</b></td><td>Software, SaaS, hosting, licencias, soporte TI.</td></tr>
+  </table>
+
+  <h4>🏭 Costos de operación (empresas productivas) — familias 4101–4103</h4>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Cuándo usarla</th></tr>
+    <tr><td><span class="mono">4101-02</span></td><td><b>Costo materias primas y materiales</b></td><td>Insumos que van directo a producción.</td></tr>
+    <tr><td><span class="mono">4101-03</span></td><td><b>Combustibles y lubricantes</b></td><td>Diésel, bencina, aceites para operación. Suele llevar <a href="#iva">impuesto específico</a>.</td></tr>
+    <tr><td><span class="mono">4101-04</span></td><td><b>Luz y fuerza</b></td><td>Electricidad de plantas productivas (la de oficina va en 4201-25).</td></tr>
+    <tr><td><span class="mono">4101-05</span></td><td><b>Etiquetas y envases</b></td><td>Packaging de productos.</td></tr>
+    <tr><td><span class="mono">4101-07</span></td><td><b>Mantención maquinarias</b></td><td>Reparación de máquinas productivas.</td></tr>
+    <tr><td><span class="mono">4101-08</span></td><td><b>Gastos desarrollo proyecto</b></td><td>Gastos directos de proyectos en desarrollo.</td></tr>
+    <tr><td><span class="mono">4102-01</span></td><td><b>Fletes y despacho</b></td><td>Transporte de mercadería, courier de productos.</td></tr>
+    <tr><td><span class="mono">4103-01</span></td><td><b>Intereses y reajustes</b></td><td>Intereses de créditos y líneas bancarias.</td></tr>
+  </table>
+
+  <h4>🧾 Otros gastos — familia 4301</h4>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Cuándo usarla</th></tr>
+    <tr><td><span class="mono">4301-02</span></td><td><b>Gastos por subsidios</b></td><td>Gastos rendibles de proyectos con subsidio (CORFO). Van con <a href="#corfo">fuente de financiamiento</a>.</td></tr>
+    <tr><td><span class="mono">4301-03</span></td><td><b>Gastos boletas</b></td><td>Compras respaldadas solo con boleta simple (sin factura). Sin IVA crédito.</td></tr>
+    <tr><td><span class="mono">4201-39</span></td><td><b>Gastos rechazados</b></td><td>⚠️ Solo contador: gastos sin respaldo tributario válido. Pagan impuesto multa.</td></tr>
+  </table>
+
+  <h4>🏗️ Cuando comprás un ACTIVO (no un gasto)</h4>
+  <p style="font-size:13.5px">Si lo que compraste <b>dura más de un año y tiene valor significativo</b>
+     (un vehículo, una máquina, un software con licencia perpetua), no es gasto: es activo.</p>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Ejemplos</th></tr>
+    <tr><td><span class="mono">1209-02</span></td><td><b>Vehículos</b></td><td>Camionetas, autos de la empresa.</td></tr>
+    <tr><td><span class="mono">1209-03</span></td><td><b>Maquinarias</b></td><td>Máquinas productivas, equipos industriales.</td></tr>
+    <tr><td><span class="mono">1202-01</span></td><td><b>Software y licencias</b></td><td>Licencias perpetuas, desarrollos a medida (los SaaS mensuales van en 4201-37).</td></tr>
+    <tr><td><span class="mono">1207-03</span></td><td><b>Garantía de arriendo</b></td><td>El mes de garantía al arrendar — se recupera, no es gasto.</td></tr>
+    <tr><td><span class="mono">1104-04</span></td><td><b>Anticipo a proveedores</b></td><td>Adelantos antes de recibir la factura.</td></tr>
+    <tr><td><span class="mono">1104-02</span></td><td><b>Fondos por rendir</b></td><td>Plata entregada a alguien del equipo que después rinde con boletas.</td></tr>
+  </table>
+  <div class="warn"><b>¿Duda entre gasto y activo?</b> Regla práctica: si cuesta menos de ~$500.000 o
+    se consume dentro del año → gasto. Si es más caro y dura años → activo. Ante la duda, preguntale
+    a MCG Consultores (contabilidad) antes de firmar el voucher.</div>
+</section>
+
+<!-- CATEGORÍAS FINANCIERAS -->
+<section id="financieras">
+  <h2><span class="ic">💰</span> Categorías financieras — ¿cómo se paga?</h2>
+  <p class="lead">El otro lado del voucher: de qué cuenta sale la plata, o a quién le quedamos debiendo.
+     Elegí según <b>cuándo y cómo</b> se paga.</p>
+  <h4>🏦 Se paga al tiro (o ya se pagó)</h4>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Cuándo usarla</th></tr>
+    <tr><td><span class="mono">1101-01</span></td><td><b>Caja</b></td><td>Pagos en efectivo / caja chica.</td></tr>
+    <tr><td><span class="mono">1101-02</span></td><td><b>Banco Santander</b></td><td rowspan="5">Transferencia o cargo desde la cuenta corriente correspondiente. Elegí <b>el banco real de la empresa del voucher</b> — cada empresa opera con su banco.</td></tr>
+    <tr><td><span class="mono">1101-03</span></td><td><b>Banco BICE</b></td></tr>
+    <tr><td><span class="mono">1101-04</span></td><td><b>Banco Itaú</b></td></tr>
+    <tr><td><span class="mono">1101-05</span></td><td><b>Banco de Chile</b></td></tr>
+    <tr><td><span class="mono">1101-06</span></td><td><b>Banco BCI</b></td></tr>
+  </table>
+  <h4>📆 Queda pendiente de pago (a crédito)</h4>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Cuándo usarla</th></tr>
+    <tr><td><span class="mono">2102-01</span></td><td><b>Facturas por pagar</b></td><td>Factura recibida que se pagará después (30/60 días o cuotas). <b>La más común.</b></td></tr>
+    <tr><td><span class="mono">2102-11</span></td><td><b>Honorarios por pagar</b></td><td>Boletas de honorarios pendientes de pago.</td></tr>
+    <tr><td><span class="mono">2102-04</span></td><td><b>Otros acreedores varios</b></td><td>Deudas que no son facturas ni honorarios.</td></tr>
+    <tr><td><span class="mono">2103-01</span></td><td><b>Cta. cte. empresas del fondo</b></td><td>Cuando una empresa del fondo paga por otra (préstamos internos). ⚠️ Coordinado con MCG.</td></tr>
+  </table>
+  <h4>✂️ Retenciones (líneas adicionales del HABER)</h4>
+  <table>
+    <tr><th>Cuenta</th><th>Nombre</th><th>Cuándo usarla</th></tr>
+    <tr><td><span class="mono">2105-04</span></td><td><b>Retención profesionales</b></td><td>En boletas de honorarios: la parte que la empresa retiene y paga al SII (tasa 2026: <b>15,25%</b>).</td></tr>
+    <tr><td><span class="mono">2105-02</span></td><td><b>IVA débito fiscal</b></td><td>Solo en ventas propias (facturas emitidas), no en compras.</td></tr>
+  </table>
+  <div class="tip"><b>Cómo decidir en 2 preguntas:</b> ① ¿Ya salió la plata? → banco o caja.
+    ② ¿Queda debiendo? → facturas por pagar (2102-01) u honorarios por pagar (2102-11).
+    Cuando después se pague, el pago se registra contra esa cuenta por pagar y queda saldada.</div>
+</section>
+
+<!-- TABLA RÁPIDA -->
+<section id="tabla-rapida">
+  <h2><span class="ic">⚡</span> Tabla rápida: "compré X → va en la cuenta Y"</h2>
+  <p class="lead">La chuleta para el 95% de los casos. Buscá lo que compraste (Ctrl+F o el buscador
+     de la izquierda):</p>
+  <table>
+    <tr><th>¿Qué compraste / pagaste?</th><th>Cuenta contable (DEBE)</th><th>Ojo con…</th></tr>
+    <tr><td>Arriendo de oficina o bodega</td><td><span class="mono">4201-30</span> Arriendos y gastos comunes</td><td>El mes de garantía va en <span class="mono">1207-03</span></td></tr>
+    <tr><td>Cuenta de luz, agua, gas (oficina)</td><td><span class="mono">4201-25</span> Luz gas agua aseo</td><td>Si es de planta productiva → <span class="mono">4101-04</span></td></tr>
+    <tr><td>Internet / plan de celular</td><td><span class="mono">4201-31</span> Teléfonos telex correo</td><td>—</td></tr>
+    <tr><td>Software / SaaS / hosting</td><td><span class="mono">4201-37</span> Servicios computacionales</td><td>Licencia perpetua cara → activo <span class="mono">1202-01</span></td></tr>
+    <tr><td>Boleta de honorarios (asesor, abogado)</td><td><span class="mono">4201-02</span> Honorarios profesionales</td><td>+ retención 15,25% en <span class="mono">2105-04</span></td></tr>
+    <tr><td>Notaría / Conservador / legalización</td><td><span class="mono">4201-12</span> Legales y notariales</td><td>—</td></tr>
+    <tr><td>Bencina / diésel (operación)</td><td><span class="mono">4101-03</span> Combustibles y lubricantes</td><td>Lleva <a href="#iva">impuesto específico</a></td></tr>
+    <tr><td>Uber / taxi / traslados puntuales</td><td><span class="mono">4201-26</span> Locomoción y colación</td><td>—</td></tr>
+    <tr><td>Almuerzo de trabajo con externos</td><td><span class="mono">4201-09</span> Representación y viáticos</td><td>Guardá el detalle de asistentes</td></tr>
+    <tr><td>Artículos de oficina / tóner</td><td><span class="mono">4201-04</span> Gastos de oficina</td><td>—</td></tr>
+    <tr><td>Curso o diplomado del equipo</td><td><span class="mono">4201-19</span> Gastos capacit. personal</td><td>Puede tener franquicia SENCE</td></tr>
+    <tr><td>Seguro (póliza)</td><td><span class="mono">4201-18</span> Seguros</td><td>—</td></tr>
+    <tr><td>Patente municipal / permiso</td><td><span class="mono">4201-05</span> Impuestos y patentes</td><td>—</td></tr>
+    <tr><td>Reparación de camioneta</td><td><span class="mono">4201-06</span> Mant. vehículos y eq. transp.</td><td>—</td></tr>
+    <tr><td>Gásfiter / electricista / pintura oficina</td><td><span class="mono">4201-07</span> Mantenc. equip. y edificios</td><td>—</td></tr>
+    <tr><td>Arriendo de generador o maquinaria</td><td><span class="mono">4201-16</span> Arriendo máquinas y equipos</td><td>—</td></tr>
+    <tr><td>Comisión bancaria / costo transferencia</td><td><span class="mono">4201-10</span> Gastos bancarios</td><td>—</td></tr>
+    <tr><td>Flete / despacho de mercadería</td><td><span class="mono">4102-01</span> Fletes y despacho</td><td>—</td></tr>
+    <tr><td>Insumos de producción</td><td><span class="mono">4101-02</span> Costo m. primas y materiales</td><td>—</td></tr>
+    <tr><td>Envases / etiquetas de producto</td><td><span class="mono">4101-05</span> Etiquetas y envases</td><td>—</td></tr>
+    <tr><td>Gasto de proyecto CORFO (rendible)</td><td><span class="mono">4301-02</span> Gastos por subsidios</td><td>Marcar <a href="#corfo">fuente de financiamiento</a></td></tr>
+    <tr><td>Compra con boleta simple (sin factura)</td><td><span class="mono">4301-03</span> Gastos boletas</td><td>Sin IVA crédito</td></tr>
+    <tr><td>Camioneta / vehículo nuevo</td><td><span class="mono">1209-02</span> Vehículos (activo)</td><td>No es gasto — es activo fijo</td></tr>
+    <tr><td>Máquina productiva</td><td><span class="mono">1209-03</span> Maquinarias (activo)</td><td>No es gasto — es activo fijo</td></tr>
+    <tr><td>Adelanto a un proveedor</td><td><span class="mono">1104-04</span> Anticipo a proveedores</td><td>Se salda cuando llega la factura</td></tr>
+    <tr><td>Plata a rendir a alguien del equipo</td><td><span class="mono">1104-02</span> Fondos por rendir</td><td>Se salda con las boletas de la rendición</td></tr>
+    <tr><td>Intereses de crédito bancario</td><td><span class="mono">4103-01</span> Intereses y reajustes</td><td>—</td></tr>
+    <tr><td>Multa (SII, municipal, etc.)</td><td><span class="mono">4201-11</span> Intereses y multas</td><td>⚠️ No rebaja impuestos — avisá a MCG</td></tr>
+  </table>
+  <div class="tip"><b>¿No aparece lo tuyo?</b> Abrí <b>Contabilidad → Plan de cuentas</b> y usá el
+    buscador — están las 212 cuentas con su código. Y si sigue la duda: mejor preguntar a MCG que
+    inventar; corregir después en Nubox cuesta más.</div>
+</section>
+
+<!-- IVA / IMPUESTO ESPECÍFICO -->
+<section id="iva">
+  <h2><span class="ic">🧮</span> IVA, impuesto específico y retenciones</h2>
+  <h4>IVA 19% — el estándar</h4>
+  <p style="font-size:13.5px">Toda factura afecta trae neto + 19% de IVA. En el voucher, el IVA va en
+     su <b>propia línea contable</b> con la cuenta <span class="mono">1113-02 IVA CREDITO FISCAL</span>
+     — es plata que se recupera contra el F29 del mes, por eso no se mezcla con el gasto.
+     El formulario lo calcula automático (redondeo al peso, mitad hacia arriba).</p>
+  <h4>Impuesto específico — opcional, dos modalidades</h4>
+  <p style="font-size:13.5px">Algunos productos pagan un impuesto adicional al IVA. El formulario tiene
+     el campo <b>"Impuesto específico"</b> con dos modos:</p>
+  <table>
+    <tr><th>Modo</th><th>Cómo funciona</th><th>Casos típicos</th></tr>
+    <tr><td><b>$ monto fijo</b></td><td>Ingresás el monto exacto que aparece en la factura.</td><td>Combustibles (IEPD): la factura de diésel/bencina detalla el impuesto en pesos.</td></tr>
+    <tr><td><b>% del neto</b></td><td>Ingresás la tasa y el sistema calcula el monto sobre el neto.</td><td>Bebidas analcohólicas y alcoholes (ILA), artículos suntuarios.</td></tr>
+  </table>
+  <p style="font-size:13.5px;margin-top:8px">Si el documento no trae impuesto específico, simplemente
+     no lo llenes — es opcional.</p>
+  <h4>Retención de boletas de honorarios</h4>
+  <p style="font-size:13.5px">Las boletas de honorarios <b>no llevan IVA</b>, llevan retención: la
+     empresa paga al profesional el monto menos la retención, y esa retención se entera al SII en el
+     F29. <b>Tasa 2026: 15,25%</b> del bruto (sube gradualmente cada año hasta 17% en 2028).
+     La retención va al HABER en <span class="mono">2105-04 RETENCION PROFESIONALES</span>.</p>
+  <div class="datos">
+    <h4>📊 De dónde salen estos números · cómo corregirlos</h4>
+    <div class="row"><b>IVA</b><span>Calculado por el sistema: neto × 19%, redondeo half-up al peso. Si la factura difiere por $1-2, prima lo impreso en la factura — editá la línea del IVA.</span></div>
+    <div class="row"><b>Imp. específico</b><span>En modo % lo calcula el servidor sobre el neto contable. En modo $ va tal cual lo escribís. Se guarda en el voucher y baja al F29.</span></div>
+    <div class="row"><b>Retención</b><span>La tasa vigente la define el SII cada año. Si cambia, se actualiza en la configuración — avisá si ves una boleta con % distinto.</span></div>
+  </div>
+</section>
+
+<!-- CORFO -->
+<section id="corfo">
+  <h2><span class="ic">🏛️</span> Fuentes de financiamiento (proyectos CORFO)</h2>
+  <p class="lead">Cuando el gasto pertenece a un proyecto con subsidio, hay que marcar <b>quién financia</b>
+     ese peso. Esto alimenta directamente las rendiciones CORFO — si se marca mal, la rendición sale mal.</p>
+  <table>
+    <tr><th>Fuente</th><th>Qué significa</th><th>Cuándo usarla</th></tr>
+    <tr><td><b>Subsidio CORFO</b></td><td>Lo paga el subsidio del proyecto.</td><td>Gasto aprobado en el presupuesto del proyecto, rendible a CORFO.</td></tr>
+    <tr><td><b>Aporte PTEC / CEHTA</b></td><td>Aporte pecuniario comprometido por el fondo.</td><td>La parte del cofinanciamiento que pone CEHTA según convenio.</td></tr>
+    <tr><td><b>Empresa directa</b></td><td>Lo paga la empresa de su bolsillo.</td><td>Gastos normales de operación, fuera del proyecto.</td></tr>
+    <tr><td><b>IVA corporativo</b></td><td>El IVA del gasto del proyecto.</td><td>El IVA no es rendible a CORFO — se financia por la empresa y se recupera vía F29.</td></tr>
+  </table>
+  <div class="warn"><b>Regla CORFO clave:</b> el IVA nunca se rinde al subsidio. Por eso en gastos de
+    proyecto el neto puede ir a "Subsidio CORFO" pero la línea de IVA va como "IVA corporativo".
+    El sistema lo separa automáticamente si marcás la fuente en cada línea.</div>
+</section>
+
+<!-- EJEMPLOS -->
+<section id="ejemplos">
+  <h2><span class="ic">🧑‍🏫</span> 5 ejemplos trabajados, con números</h2>
+  <p class="lead">Los casos que más se repiten en el fondo, resueltos completos. Copiá la estructura
+     y cambiá los montos.</p>
+
+  <div class="ejemplo">
+    <span class="et">Ejemplo 1 · Factura con IVA que queda por pagar</span>
+    <p><b>Caso:</b> factura electrónica de arriendo de oficina, $1.000.000 neto, se paga a 30 días.</p>
+    <div class="ej-calc">
+      <div class="hd">Información contable (DEBE)</div>
+      <div class="ln"><span>4201-30 · Arriendos y gastos comunes</span><span class="num">$1.000.000</span></div>
+      <div class="ln"><span>1113-02 · IVA crédito fiscal (19%)</span><span class="num">$190.000</span></div>
+      <div class="hd" style="margin-top:8px">Información financiera (HABER)</div>
+      <div class="ln"><span>2102-01 · Facturas por pagar</span><span class="num">$1.190.000</span></div>
+      <div class="ln tot"><span>Cuadratura</span><span>$1.190.000 = $1.190.000 ✓</span></div>
+    </div>
+  </div>
+
+  <div class="ejemplo">
+    <span class="et">Ejemplo 2 · Boleta de honorarios con retención</span>
+    <p><b>Caso:</b> boleta de honorarios de un asesor por $800.000 brutos, pagada al tiro por Banco Santander.</p>
+    <div class="ej-calc">
+      <div class="hd">Información contable (DEBE)</div>
+      <div class="ln"><span>4201-02 · Honorarios profesionales (bruto)</span><span class="num">$800.000</span></div>
+      <div class="hd" style="margin-top:8px">Información financiera (HABER)</div>
+      <div class="ln"><span>2105-04 · Retención profesionales (15,25%)</span><span class="num">$122.000</span></div>
+      <div class="ln"><span>1101-02 · Banco Santander (líquido pagado)</span><span class="num">$678.000</span></div>
+      <div class="ln tot"><span>Cuadratura</span><span>$800.000 = $800.000 ✓</span></div>
+    </div>
+    <p style="margin-top:8px">💡 El asesor recibe $678.000; los $122.000 los entera la empresa al SII
+       en el F29 del mes. Sin IVA — las boletas de honorarios no llevan.</p>
+  </div>
+
+  <div class="ejemplo">
+    <span class="et">Ejemplo 3 · Combustible con impuesto específico</span>
+    <p><b>Caso:</b> factura de diésel para la operación: $500.000 neto + IVA + impuesto específico
+       de $42.350 detallado en la factura (modo <b>$ fijo</b>). Se paga por Banco BICE.</p>
+    <div class="ej-calc">
+      <div class="hd">Información contable (DEBE)</div>
+      <div class="ln"><span>4101-03 · Combustibles y lubricantes (neto)</span><span class="num">$500.000</span></div>
+      <div class="ln"><span>1113-02 · IVA crédito fiscal (19%)</span><span class="num">$95.000</span></div>
+      <div class="ln"><span>Impuesto específico (campo del formulario, $ fijo)</span><span class="num">$42.350</span></div>
+      <div class="hd" style="margin-top:8px">Información financiera (HABER)</div>
+      <div class="ln"><span>1101-03 · Banco BICE</span><span class="num">$637.350</span></div>
+      <div class="ln tot"><span>Cuadratura</span><span>$637.350 = $637.350 ✓</span></div>
+    </div>
+    <p style="margin-top:8px">💡 Copiá el impuesto específico <b>tal cual sale en la factura</b> —
+       no lo calcules vos. Si el documento fuera de bebidas con ILA, usarías el modo <b>% del neto</b>.</p>
+  </div>
+
+  <div class="ejemplo">
+    <span class="et">Ejemplo 4 · Boleta simple por foto (caja chica)</span>
+    <p><b>Caso:</b> almuerzo de equipo en terreno, boleta de restaurante por $48.000 pagada en efectivo.
+       Le sacás foto desde el teléfono.</p>
+    <div class="ej-calc">
+      <div class="hd">Información contable (DEBE)</div>
+      <div class="ln"><span>4201-26 · Locomoción y colación</span><span class="num">$48.000</span></div>
+      <div class="hd" style="margin-top:8px">Información financiera (HABER)</div>
+      <div class="ln"><span>1101-01 · Caja</span><span class="num">$48.000</span></div>
+      <div class="ln tot"><span>Cuadratura</span><span>$48.000 = $48.000 ✓</span></div>
+    </div>
+    <p style="margin-top:8px">💡 Boleta simple = sin IVA crédito: va el <b>total</b> directo al gasto,
+       sin línea de IVA. La IA lo detecta sola al leer la foto.</p>
+  </div>
+
+  <div class="ejemplo">
+    <span class="et">Ejemplo 5 · Gasto de proyecto CORFO con fuentes</span>
+    <p><b>Caso:</b> factura de un servicio del proyecto PTEC por $2.000.000 neto. El neto lo financia
+       el subsidio; el IVA lo pone la empresa (regla CORFO). Queda por pagar.</p>
+    <div class="ej-calc">
+      <div class="hd">Información contable (DEBE)</div>
+      <div class="ln"><span>4301-02 · Gastos por subsidios — <i>fuente: Subsidio CORFO</i></span><span class="num">$2.000.000</span></div>
+      <div class="ln"><span>1113-02 · IVA crédito fiscal — <i>fuente: IVA corporativo</i></span><span class="num">$380.000</span></div>
+      <div class="hd" style="margin-top:8px">Información financiera (HABER)</div>
+      <div class="ln"><span>2102-01 · Facturas por pagar</span><span class="num">$2.380.000</span></div>
+      <div class="ln tot"><span>Cuadratura</span><span>$2.380.000 = $2.380.000 ✓</span></div>
+    </div>
+    <p style="margin-top:8px">💡 Así la rendición CORFO toma los $2.000.000 y el F29 recupera los
+       $380.000 — cada peso etiquetado con quién lo financia.</p>
+  </div>
+</section>
+
+<!-- APP TELÉFONO -->
+<section id="app-telefono">
+  <h2><span class="ic">📱</span> Instalar Ram-Cehta como app en el teléfono</h2>
+  <p class="lead">La plataforma es una <b>PWA</b> (aplicación web instalable): se agrega a la pantalla
+     de inicio y se abre a pantalla completa como cualquier app, con atajo directo a "Foto voucher".
+     No se descarga de ninguna tienda — se instala desde el navegador en 30 segundos.</p>
+  <div class="cols2">
+    <div>
+      <h4>🤖 Android (Chrome)</h4>
+      <ol class="steps">
+        <li>Abrí <b>https://cehta-capital.vercel.app/dashboard</b> en Chrome e iniciá sesión.</li>
+        <li>Tocá el menú <b>⋮</b> (arriba a la derecha).</li>
+        <li>Elegí <b>"Agregar a pantalla de inicio"</b> (o "Instalar app" si aparece).</li>
+        <li>Confirmá — el ícono <b>Cehta</b> queda en tu pantalla de inicio.</li>
+        <li><b>Mantené apretado el ícono</b> → aparece el atajo <b>"Foto voucher"</b> que abre directo la cámara de importación.</li>
+      </ol>
+    </div>
+    <div>
+      <h4>🍎 iPhone (Safari)</h4>
+      <ol class="steps">
+        <li>Abrí <b>https://cehta-capital.vercel.app/dashboard</b> en <b>Safari</b> (tiene que ser Safari) e iniciá sesión.</li>
+        <li>Tocá el botón <b>Compartir</b> <span style="font-size:16px">⎋</span> (el cuadrado con flecha, abajo al centro).</li>
+        <li>Deslizá y elegí <b>"Agregar a inicio"</b>.</li>
+        <li>Confirmá con <b>"Agregar"</b> — el ícono <b>Cehta</b> queda en tu pantalla.</li>
+        <li>Abrila desde el ícono: corre a pantalla completa, sin barra del navegador.</li>
+      </ol>
+    </div>
+  </div>
+  <h4>El flujo móvil ideal (30 segundos por boleta)</h4>
+  <div class="flow">
+    <span class="n">📱 Abrís la app</span><span class="ar">→</span>
+    <span class="n">📷 "Sacar foto a boleta o factura"</span><span class="ar">→</span>
+    <span class="n">🤖 La IA lee los datos</span><span class="ar">→</span>
+    <span class="n">👀 Revisás y elegís cuentas</span><span class="ar">→</span>
+    <span class="n">✅ Guardás → voucher en DRAFT</span>
+  </div>
+  <div class="tip"><b>Tip de terreno:</b> sacá la foto apenas te entregan la boleta, aunque no tengas
+    tiempo de completar las cuentas — el voucher queda en DRAFT con el documento archivado en Dropbox
+    y lo terminás después desde el computador. Lo importante es no perder el papel.</div>
+</section>
+
+<!-- ERRORES COMUNES -->
+<section id="errores">
+  <h2><span class="ic">🚑</span> Errores comunes (y cómo evitarlos)</h2>
+  <table>
+    <tr><th>Error</th><th>Consecuencia</th><th>Cómo se hace bien</th></tr>
+    <tr><td>Poner el <b>total</b> donde va el <b>neto</b></td><td>El voucher no cuadra o el gasto queda inflado 19%.</td><td>El gasto lleva el neto; el IVA va en su línea 1113-02.</td></tr>
+    <tr><td>Fecha de hoy en vez de fecha de emisión</td><td>El documento cae al mes contable equivocado → descuadra el F29.</td><td>Usá siempre la fecha impresa en el documento.</td></tr>
+    <tr><td>Todo a "Gastos generales" (4201-08)</td><td>Los reportes pierden valor; MCG debe reclasificar.</td><td>Usá la <a href="#tabla-rapida">tabla rápida</a> — hay cuenta específica para casi todo.</td></tr>
+    <tr><td>Olvidar la retención en honorarios</td><td>Se le paga de más al profesional y el F29 queda corto.</td><td>Boleta de honorarios ⇒ siempre retención 15,25% en 2105-04.</td></tr>
+    <tr><td>IVA crédito en boletas simples</td><td>IVA crédito improcedente → riesgo SII.</td><td>Boleta simple = total directo al gasto, sin línea de IVA.</td></tr>
+    <tr><td>Gasto de proyecto sin fuente de financiamiento</td><td>No aparece en la rendición CORFO.</td><td>Marcá la fuente en cada línea (neto → subsidio, IVA → corporativo).</td></tr>
+    <tr><td>Glosa vacía o "pago"</td><td>Nadie entiende el gasto al firmar ni al auditar.</td><td>Glosa = qué + para qué: "Fumigación predio Panimávida jun-26".</td></tr>
+    <tr><td>Crear voucher nuevo tras un rechazo</td><td>Correlativo duplicado y doble registro.</td><td>El rechazado vuelve a DRAFT: corregilo y reenvialo.</td></tr>
+  </table>
+  <h4>✅ Checklist antes de mandar a firma</h4>
+  <ol class="steps">
+    <li>¿La empresa es la del RUT receptor del documento?</li>
+    <li>¿La fecha es la de emisión del documento?</li>
+    <li>¿El gasto está en su cuenta específica (no en gastos generales)?</li>
+    <li>¿El IVA está en su línea (o no está, si es boleta simple)?</li>
+    <li>¿DEBE = HABER? (el formulario lo marca en verde)</li>
+    <li>¿La glosa explica qué y para qué?</li>
+    <li>Si es proyecto CORFO: ¿cada línea tiene su fuente?</li>
+  </ol>
+</section>
+
+</div>
+<footer>
+  Guía de ingreso de vouchers · Ram-Cehta — FIP CEHTA ESG · Plan de cuentas oficial Nubox (212 cuentas) ·
+  <a href="/GUIA_USUARIO.html">Guía general de la plataforma</a> ·
+  Dudas contables: MCG Consultores · Dudas de plataforma: ClaudIA en la app
+</footer>
+</main>
+</div>
+<script>
+// Buscador del menú + resaltado de sección activa
+const q=document.getElementById('q'),links=[...document.querySelectorAll('#nav a')];
+q.addEventListener('input',()=>{const v=q.value.toLowerCase();
+  links.forEach(a=>{a.style.display=a.textContent.toLowerCase().includes(v)?'':'none'});
+  document.querySelectorAll('#nav .grp').forEach(g=>{let n=g.nextElementSibling,any=false;
+    while(n&&!n.classList.contains('grp')){if(n.style.display!=='none')any=true;n=n.nextElementSibling}
+    g.style.display=any?'':'none'})});
+const secs=[...document.querySelectorAll('section')];
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id))}})},
+  {rootMargin:'-30% 0px -60% 0px'});
+secs.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>
