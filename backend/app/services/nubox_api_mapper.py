@@ -106,16 +106,41 @@ def voucher_to_nubox_payload(
     total_neto = 0
     total_iva = 0
 
-    for idx, line in enumerate(lines, start=1):
-        # En vouchers de VENTA: el monto del producto va en credit (ingreso)
-        # En vouchers de COMPRA: va en debit (gasto)
-        # Pero para emitir DTE a Nubox necesitamos el precio "neto" del producto.
-        # Tomamos max(debit, credit) como el monto.
-        debit = int(Decimal(str(line.get("debit") or 0)))
-        credit = int(Decimal(str(line.get("credit") or 0)))
-        monto_linea = max(debit, credit)
-        if monto_linea == 0:
-            continue
+    # R152VVVVVV — base del DTE corregida. Antes se sumaba max(debit,credit)
+    # de TODAS las líneas de la partida doble (ambos lados + la línea del
+    # IVA) como "neto" y se recalculaba 19% encima: un voucher de venta
+    # neto 1.000.000 + IVA 190.000 + banco 1.190.000 emitía un DTE por
+    # montos duplicados. La base correcta son SOLO las líneas de producto:
+    # el lado del ingreso (credit en ventas; debit en nota de crédito, que
+    # reversa el ingreso), excluyendo las cuentas de IVA (2105-xx débito /
+    # 1113-xx crédito fiscal) y la contrapartida financiera.
+    _IVA_CUENTA_PREFIXES = ("2105", "1113")
+
+    def _es_linea_iva(ln: dict) -> bool:
+        cc = str(ln.get("cuenta_codigo") or "")
+        return cc.startswith(_IVA_CUENTA_PREFIXES)
+
+    # Lado del producto según el tipo de documento emitido.
+    lado_producto = "debit" if doc_tipo_str == "NOTA_CREDITO" else "credit"
+
+    def _monto_lado(ln: dict, lado: str) -> int:
+        return int(Decimal(str(ln.get(lado) or 0)))
+
+    lineas_producto = [
+        ln for ln in lines
+        if _monto_lado(ln, lado_producto) > 0 and not _es_linea_iva(ln)
+    ]
+    # Fallback defensivo: si el voucher vino sin líneas en el lado esperado
+    # (imputación atípica), usar el otro lado, siempre sin cuentas de IVA.
+    if not lineas_producto:
+        lado_producto = "debit" if lado_producto == "credit" else "credit"
+        lineas_producto = [
+            ln for ln in lines
+            if _monto_lado(ln, lado_producto) > 0 and not _es_linea_iva(ln)
+        ]
+
+    for idx, line in enumerate(lineas_producto, start=1):
+        monto_linea = _monto_lado(line, lado_producto)
 
         descripcion = (line.get("descripcion") or voucher.get("glosa") or "Item")[:80]
         is_iva_line = line.get("iva_tratamiento") in ("AFECTO", None)

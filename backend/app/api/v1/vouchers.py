@@ -1877,6 +1877,73 @@ async def submit_voucher(
 
 
 # =====================================================================
+# POST /vouchers/{id}/reopen — REJECTED → DRAFT (R152VVVVVV)
+# =====================================================================
+
+
+@router.post(
+    "/vouchers/{voucher_id}/reopen",
+    response_model=VoucherRead,
+    dependencies=[Depends(require_scope("legal:write"))],
+)
+async def reopen_voucher(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("legal:write"))],
+    db: DBSession,
+    request: Request,
+    voucher_id: int,
+) -> VoucherRead:
+    """Reabre un voucher RECHAZADO como borrador para corregirlo.
+
+    R152VVVVVV — antes REJECTED era terminal: el PATCH exige DRAFT y no
+    había vuelta atrás, así que un rechazo por un error menor de glosa
+    obligaba a retipear todo el voucher desde cero. El motivo del rechazo
+    se conserva en rejection_reason y en las firmas históricas.
+    """
+    lock_row = (await db.execute(
+        text("SELECT voucher_id FROM core.vouchers WHERE voucher_id = :vid FOR UPDATE"),
+        {"vid": voucher_id},
+    )).fetchone()
+    if lock_row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    v = await db.get(Voucher, voucher_id)
+    if v is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Voucher no encontrado"
+        )
+    await assert_empresa_access(user, db, v.empresa_codigo)
+    if v.status != "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Solo vouchers RECHAZADOS se pueden reabrir "
+                f"(este está en {v.status})"
+            ),
+        )
+    v.status = "DRAFT"
+    await db.commit()
+    try:
+        await audit_log(
+            db, request, user,
+            action="update",
+            entity_type="voucher",
+            entity_id=str(v.voucher_id),
+            entity_label=v.codigo,
+            summary=(
+                f"Voucher {v.codigo} reabierto como borrador por {user.email} "
+                f"(rechazo previo: {(v.rejection_reason or '')[:80]})"
+            ),
+            before={"status": "REJECTED"},
+            after={"status": "DRAFT"},
+        )
+    except Exception:
+        pass
+    await db.refresh(v)
+    return VoucherRead.model_validate(v)
+
+
+# =====================================================================
 # POST /vouchers/{id}/void — anular con razón
 # =====================================================================
 

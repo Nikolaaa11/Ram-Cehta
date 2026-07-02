@@ -139,3 +139,54 @@ def test_mapper_truncates_glosa_long_descriptions():
     payload = voucher_to_nubox_payload(voucher, lines)
     assert len(payload["client"]["tradeName"]) <= 100
     assert len(payload["comment"]) <= 500
+
+
+def test_mapper_base_neto_excluye_iva_y_contrapartida():
+    """R152VVVVVV — la base del DTE son SOLO las lineas de producto.
+
+    Antes se sumaba max(debit, credit) de TODAS las lineas (contrapartida
+    bancaria + linea de IVA incluidas) y se recalculaba 19% encima: una
+    venta de neto 1.000.000 emitia un DTE inflado. Con partida doble real
+    (banco 1.190.000 / ventas 1.000.000 + IVA debito 190.000) el detail
+    debe ser exactamente el neto y el tax exactamente el 19%.
+    """
+    voucher = {
+        "empresa_codigo": "REVTECH",
+        "tipo": "VENTA",
+        "doc_tributario_tipo": "FACTURA",
+        "doc_tributario_folio": None,
+        "fecha_documento": date(2026, 6, 30),
+        "fecha_contable": date(2026, 6, 30),
+        "glosa": "Venta de servicios",
+        "moneda": "CLP",
+        "contraparte_rut": "77.123.456-7",
+        "contraparte_nombre": "CLIENTE SPA",
+    }
+    lines = [
+        {
+            "line_number": 1, "cuenta_codigo": "1101-02",
+            "descripcion": "Banco Santander",
+            "debit": Decimal("1190000"), "credit": Decimal("0"),
+            "iva_tratamiento": None,
+        },
+        {
+            "line_number": 2, "cuenta_codigo": "5101-01",
+            "descripcion": "Venta servicios",
+            "debit": Decimal("0"), "credit": Decimal("1000000"),
+            "iva_tratamiento": "AFECTO",
+        },
+        {
+            "line_number": 3, "cuenta_codigo": "2105-02",
+            "descripcion": "IVA debito fiscal",
+            "debit": Decimal("0"), "credit": Decimal("190000"),
+            "iva_tratamiento": None,
+        },
+    ]
+    payload = voucher_to_nubox_payload(voucher, lines, sequence=7)
+    # Solo la linea de producto — ni el banco (debit) ni la linea de IVA.
+    assert len(payload["details"]) == 1
+    assert payload["details"][0]["price"] == 1000000
+    taxes = payload["details"][0]["taxes"]
+    assert len(taxes) == 1
+    assert taxes[0]["legalCode"] == "14"
+    assert taxes[0]["amount"] == 190000

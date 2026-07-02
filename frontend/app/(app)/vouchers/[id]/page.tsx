@@ -539,6 +539,51 @@ export default function VoucherDetailPage({ params }: PageProps) {
               <Printer className="h-4 w-4" strokeWidth={1.75} />
               Imprimir
             </button>
+            {/* R152VVVVVV: Reabrir voucher rechazado como borrador.
+                Antes REJECTED era terminal (PATCH y submit exigen DRAFT) y
+                habia que retipear todo desde cero. */}
+            {voucher.status === "REJECTED" && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!session) return;
+                  if (
+                    !confirm(
+                      `¿Reabrir ${voucher.codigo} como borrador?
+
+Podrás corregir lo observado y reenviarlo a firma. El motivo del rechazo queda en el historial.`,
+                    )
+                  )
+                    return;
+                  const t = toast.loading("Reabriendo voucher...");
+                  try {
+                    await apiClient.post(
+                      `/vouchers/${voucher.voucher_id}/reopen`,
+                      {},
+                      session,
+                    );
+                    toast.success(
+                      "Voucher reabierto en borrador — corregilo y reenvialo a firma",
+                      { id: t },
+                    );
+                    router.refresh();
+                    window.location.reload();
+                  } catch (err) {
+                    toast.error(
+                      err instanceof ApiError
+                        ? err.detail
+                        : "No se pudo reabrir",
+                      { id: t },
+                    );
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100"
+                title="Vuelve el voucher rechazado a borrador para corregirlo y reenviarlo"
+              >
+                <RotateCcw className="h-4 w-4" strokeWidth={1.75} />
+                Reabrir como borrador
+              </button>
+            )}
             {/* Skill nueva: Duplicar voucher (POST /vouchers/{id}/duplicate)
                 Crea un DRAFT clon con todas las líneas/imputación, fechas
                 hoy, status DRAFT. Use case: vouchers recurrentes. */}

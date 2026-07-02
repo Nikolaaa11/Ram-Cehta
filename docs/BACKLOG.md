@@ -19,11 +19,10 @@ Formato:
 > Tanda 2 (R152VVVVVV) ya resolvió: deadlock inbox_cron, dedupe de
 > clasificación (rowcount guard), outbox cableado al monitor horario,
 > adjuntos regenerados en retry + oc_sent_at, y PDF v2/panimavida en
-> el email al GG.
+> el email al GG. Tanda 3 (R152WWWWWW): base del DTE Nubox corregida
+> (+test con montos) y endpoint+botón Reabrir REJECTED→DRAFT.
 
-- [H] (2h) **[TECH] nubox_api_mapper arma mal la base del DTE**: suma `max(debit,credit)` de TODAS las líneas (ambos lados + línea IVA) como "neto" y recalcula 19% encima → DTE por 1.416.100 en vez de 1.190.000. Integración aún inerte, pero corregir antes de activar Nubox API. El test solo valida `len(details)>=1` — agregar asserts de montos.
 - [M] (2h) **[TECH] Vía correo/PDF crea vouchers DRAFT sin líneas** que no pueden avanzar (submit exige líneas y no hay endpoint para agregarlas después). Decidir: ¿crear con líneas sugeridas, o botón "completar en formulario Nubox" que precargue?
-- [M] (1h) **[TECH] Endpoint REJECTED→DRAFT (reabrir)**: hoy un voucher rechazado es terminal (PATCH y submit exigen DRAFT). "Duplicar" quedó arreglado este round y sirve de recuperación, pero un botón "Reabrir como borrador" es el flujo natural.
 - [L] (1h) **[TECH] Filtro de período del dashboard (from/to) no lo consume ningún endpoint** — el PeriodoFilter no afecta nada en toda la página. Implementar o quitar el control.
 - [L] (30m) **[TECH] Scope per-empresa en mapeo CORFO** (`corfo_rendiciones.py`): gate solo por rol admin/finance, sin validar scope de REVTECH/TRONGKAI.
 - [L] (15m) **[TECH] Regenerar tipos OpenAPI del frontend** (`npm run gen:types`) — datan del 13-may, sin impuesto_especifico ni campos R152 nuevos.
