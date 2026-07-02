@@ -177,6 +177,7 @@ async def update_f29_estado(
     ).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="F29 no encontrado")
+    await assert_empresa_access(user, db, row["empresa_codigo"])  # R152YYYYYY
     before = F29Read.model_validate(dict(row)).model_dump(mode="json")
 
     await db.execute(
@@ -357,6 +358,8 @@ async def delete_f29(
         )
     ).mappings().first()
     before = F29Read.model_validate(dict(row)).model_dump(mode="json") if row else None
+    if row:
+        await assert_empresa_access(user, db, row["empresa_codigo"])  # R152YYYYYY
 
     result = await db.execute(
         text("DELETE FROM core.f29_obligaciones WHERE f29_id = :id"),
@@ -405,23 +408,33 @@ async def bulk_update_estado_f29(
     # round-trips). Ahora 1 SELECT batched para validar + 1 UPDATE
     # batched. Mismo contract (BulkUpdateResult), mismas validaciones.
     existing = {
-        r[0]: r[1]
+        r[0]: (r[1], r[2])
         for r in (
             await db.execute(
                 text(
-                    "SELECT f29_id, estado FROM core.f29_obligaciones "
+                    "SELECT f29_id, estado, empresa_codigo FROM core.f29_obligaciones "
                     "WHERE f29_id = ANY(:ids)"
                 ),
                 {"ids": body.ids},
             )
         ).all()
     }
+    # R152YYYYYY — scope multi-tenant por item (antes el bulk editaba F29
+    # de cualquier empresa iterando ids).
+    from app.services.empresa_scope_service import get_allowed_empresa_codes
+    _allowed = await get_allowed_empresa_codes(user, db)
     to_update: list = []
     for f29_id in body.ids:
         if f29_id not in existing:
             failed.append(BulkItemError(id=f29_id, detail="not found"))
             continue
-        if existing[f29_id] == body.estado:
+        _estado, _emp = existing[f29_id]
+        if _allowed is not None and _emp not in _allowed:
+            failed.append(
+                BulkItemError(id=f29_id, detail="sin acceso a la empresa")
+            )
+            continue
+        if _estado == body.estado:
             failed.append(BulkItemError(id=f29_id, detail="ya en ese estado"))
             continue
         to_update.append(f29_id)
@@ -431,7 +444,14 @@ async def bulk_update_estado_f29(
             text(
                 """
                 UPDATE core.f29_obligaciones
-                SET estado = :estado, updated_at = now()
+                SET estado = :estado,
+                    -- R152YYYYYY: 'pagado' exige fecha_pago (invariante del
+                    -- PATCH individual); el bulk la dejaba NULL y el reporte
+                    -- tributario nunca contaba esas F29 como pagadas.
+                    fecha_pago = CASE WHEN :estado = 'pagado'
+                                      THEN COALESCE(fecha_pago, CURRENT_DATE)
+                                      ELSE fecha_pago END,
+                    updated_at = now()
                 WHERE f29_id = ANY(:ids)
                 """
             ),

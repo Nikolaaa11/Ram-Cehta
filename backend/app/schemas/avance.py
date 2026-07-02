@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 EstadoProyecto = Literal[
     "planificado", "en_progreso", "completado", "cancelado", "pausado"
@@ -37,6 +37,21 @@ class ProyectoBase(BaseModel):
     owner_email: str | None = None
     dropbox_roadmap_path: str | None = None
 
+    @model_validator(mode="after")
+    def _validar_fechas(self) -> "ProyectoBase":
+        # R152YYYYYY — sin esto se creaban proyectos con fin < inicio (201
+        # OK), y el Gantt dibujaba una barra falsa de 1 dia con datos
+        # corruptos que contaminaban KPIs.
+        if (
+            self.fecha_inicio
+            and self.fecha_fin_estimada
+            and self.fecha_fin_estimada < self.fecha_inicio
+        ):
+            raise ValueError(
+                "fecha_fin_estimada no puede ser anterior a fecha_inicio"
+            )
+        return self
+
 
 class ProyectoCreate(ProyectoBase):
     empresa_codigo: str = Field(..., min_length=1, max_length=64)
@@ -51,6 +66,18 @@ class ProyectoUpdate(BaseModel):
     progreso_pct: int | None = Field(default=None, ge=0, le=100)
     owner_email: str | None = None
     dropbox_roadmap_path: str | None = None
+
+    @model_validator(mode="after")
+    def _validar_fechas(self) -> "ProyectoUpdate":
+        if (
+            self.fecha_inicio
+            and self.fecha_fin_estimada
+            and self.fecha_fin_estimada < self.fecha_inicio
+        ):
+            raise ValueError(
+                "fecha_fin_estimada no puede ser anterior a fecha_inicio"
+            )
+        return self
 
 
 class ProyectoRead(BaseModel):

@@ -137,7 +137,12 @@ export function UpcomingTasksKanban({ empresa, encargado }: Props) {
         session,
       ),
     onSuccess: () => {
+      // R152YYYYYY — invalidar también las vistas que leen la MISMA data por
+      // otras keys (Calendario y brief de Claudia), si no quedaban stale
+      // hasta 2-30 min tras completar hitos desde el Kanban.
       qc.invalidateQueries({ queryKey: ["avance"] });
+      qc.invalidateQueries({ queryKey: ["upcoming-tasks-calendar"] });
+      qc.invalidateQueries({ queryKey: ["ai", "secretaria-tareas"] });
     },
     onError: (err) => {
       toast.error(

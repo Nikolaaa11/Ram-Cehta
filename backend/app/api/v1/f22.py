@@ -214,6 +214,19 @@ async def update_f22(
             detail="Sin campos para actualizar",
         )
 
+    # R152YYYYYY — scope multi-tenant: los writes por id no validaban la
+    # empresa del F22 (un finance de otra empresa podia editarlo/borrarlo).
+    _emp = await db.scalar(
+        text("SELECT empresa_codigo FROM core.f22_obligaciones WHERE f22_id = :id"),
+        {"id": f22_id},
+    )
+    if _emp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"F22 {f22_id} no encontrado",
+        )
+    await assert_empresa_access(user, db, str(_emp))
+
     # Construir SET dinámico
     sets = ", ".join(f"{k} = :{k}" for k in fields)
     fields["id"] = f22_id
@@ -255,6 +268,19 @@ async def marcar_pagado(
             detail="estado='pagado' requiere fecha_pago",
         )
 
+    # R152YYYYYY — scope multi-tenant: los writes por id no validaban la
+    # empresa del F22 (un finance de otra empresa podia editarlo/borrarlo).
+    _emp = await db.scalar(
+        text("SELECT empresa_codigo FROM core.f22_obligaciones WHERE f22_id = :id"),
+        {"id": f22_id},
+    )
+    if _emp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"F22 {f22_id} no encontrado",
+        )
+    await assert_empresa_access(user, db, str(_emp))
+
     row = (
         await db.execute(
             text(f"""
@@ -292,6 +318,19 @@ async def delete_f22(
     user: Annotated[AuthenticatedUser, Depends(require_scope("f29:delete"))],
     db: DBSession,
 ) -> Response:
+    # R152YYYYYY — scope multi-tenant: los writes por id no validaban la
+    # empresa del F22 (un finance de otra empresa podia editarlo/borrarlo).
+    _emp = await db.scalar(
+        text("SELECT empresa_codigo FROM core.f22_obligaciones WHERE f22_id = :id"),
+        {"id": f22_id},
+    )
+    if _emp is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"F22 {f22_id} no encontrado",
+        )
+    await assert_empresa_access(user, db, str(_emp))
+
     res = await db.execute(
         text("DELETE FROM core.f22_obligaciones WHERE f22_id = :id"),
         {"id": f22_id},

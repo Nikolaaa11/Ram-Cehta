@@ -57,6 +57,30 @@ from app.services.secretaria_ai_service import (
 
 router = APIRouter()
 
+# R152YYYYYY — el modulo IA quedo fuera del modelo multi-tenant ("el acceso
+# a empresas no esta restringido en V3" precede a EmpresaScopeDep). Guards:
+# - _deny_viewer: los endpoints de agregados fondo-level (ask, executive
+#   summary, insights, acta) no son para el rol viewer (auditor externo /
+#   stakeholder read-only): via tools leian compliance y entregables de las
+#   10 empresas.
+# - write_mode: solo admin — un viewer podia mutar entregables regulatorios
+#   pidiendoselo a la IA con write_mode=true.
+def _deny_viewer(user) -> None:
+    if getattr(user, "app_role", None) == "viewer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este asistente de datos del fondo no esta disponible para el rol viewer",
+        )
+
+
+def _gate_write_mode(user, write_mode: bool) -> None:
+    if write_mode and getattr(user, "app_role", None) != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="write_mode de la IA es solo para administradores",
+        )
+
+
 
 # ─── V5 fase 1 — Q&A con tool calling sobre datos estructurados ─────────
 
@@ -81,6 +105,8 @@ async def ai_ask(
 
     Devuelve 503 si `ANTHROPIC_API_KEY` no está configurado.
     """
+    _deny_viewer(user)
+    _gate_write_mode(user, body.write_mode)
     try:
         result = await ask(
             db,
@@ -137,6 +163,8 @@ async def ai_ask_stream(
     renderea cada frame en tiempo real, dando feedback visible al usuario
     de "qué está haciendo Claude".
     """
+    _deny_viewer(user)
+    _gate_write_mode(user, body.write_mode)
     return StreamingResponse(
         ask_stream(
             db,
@@ -169,6 +197,7 @@ async def ai_generate_acta(
 
     Si `empresa` se pasa, el acta es scoped a esa empresa específica.
     """
+    _deny_viewer(user)
     try:
         result = await generate_acta_cv_draft(db, empresa=body.empresa)
     except AiToolsNotConfiguredError as exc:
@@ -207,6 +236,7 @@ async def ai_executive_summary(
 
     Devuelve 503 si Anthropic no está configurado.
     """
+    _deny_viewer(user)
     try:
         result = await generate_executive_summary(db)
     except AiToolsNotConfiguredError as exc:
@@ -303,6 +333,7 @@ async def ai_insights_generate(
 
     Devuelve 503 si `ANTHROPIC_API_KEY` no está configurado.
     """
+    _deny_viewer(user)
     try:
         result = await generate_insights(db)
     except AiToolsNotConfiguredError as exc:
@@ -480,6 +511,12 @@ async def create_conversation(
     db: DBSession,
     body: ConversationCreate,
 ) -> ConversationRead:
+    # R152YYYYYY — scope: la conversacion define la empresa cuya KB Dropbox
+    # (contratos, docs legales) consulta el RAG. Sin esto, cualquier user
+    # con ai:chat leia documentos confidenciales de otra empresa.
+    if body.empresa_codigo:
+        from app.services.empresa_scope_service import assert_empresa_access
+        await assert_empresa_access(user, db, body.empresa_codigo)
     conv = AiConversation(
         user_id=user.sub,
         empresa_codigo=body.empresa_codigo,
@@ -699,11 +736,21 @@ async def ask_data_qa(
     Nicolás escribe "¿cuántos vouchers PENDING tiene TRONGKAI?" → Claude
     responde citando el número exacto del snapshot.
     """
+    # R152YYYYYY — scope: sin empresa el snapshot era CROSS-EMPRESA (montos
+    # de las 10 empresas para cualquier user con ai:chat, incluido viewer).
+    from app.services.empresa_scope_service import (
+        assert_empresa_access,
+        get_allowed_empresa_codes,
+    )
+    _allowed = await get_allowed_empresa_codes(user, db)
+    if body.empresa_codigo:
+        await assert_empresa_access(user, db, body.empresa_codigo)
     try:
         result = await answer_question(
             db,
             question=body.question,
             empresa_codigo=body.empresa_codigo,
+            allowed_codes=sorted(_allowed) if _allowed is not None else None,
         )
     except AiDataQANotConfigured as exc:
         raise HTTPException(

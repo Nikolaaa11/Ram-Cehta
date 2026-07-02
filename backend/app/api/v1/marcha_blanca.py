@@ -530,12 +530,15 @@ async def _build_checks(db: Any, user: AuthenticatedUser) -> list[CheckResult]:
     admin_with_2fa = await _count(
         db,
         """
+        -- R152YYYYYY: la columna real es app_role (no role) y la tabla
+        -- real es app.user_2fa (no core.user_2fa_totp): el check reventaba
+        -- siempre y G1 quedaba en FAIL permanente aunque hubiera 2FA.
         SELECT COUNT(DISTINCT u.id)
         FROM auth.users u
         JOIN core.user_roles ur ON ur.user_id = u.id
-        WHERE ur.role = 'admin'
-          AND EXISTS (SELECT 1 FROM core.user_2fa_totp t
-                      WHERE t.user_id = u.id AND t.activated_at IS NOT NULL)
+        WHERE ur.app_role = 'admin'
+          AND EXISTS (SELECT 1 FROM app.user_2fa t
+                      WHERE t.user_id = u.id AND t.enabled = TRUE)
         """,
     )
     checks.append(CheckResult(
@@ -556,8 +559,11 @@ async def _build_checks(db: Any, user: AuthenticatedUser) -> list[CheckResult]:
     # H1: Dropbox conectado
     dropbox_ok = await _count(
         db,
-        "SELECT COUNT(*) FROM core.integration_tokens "
-        "WHERE provider = 'dropbox' AND active = TRUE",
+        # R152YYYYYY: la tabla real es core.integrations (sin columna
+        # active) — el check decia "sin token Dropbox" aunque estuviera
+        # conectado.
+        "SELECT COUNT(*) FROM core.integrations "
+        "WHERE provider = 'dropbox'",
     )
     checks.append(CheckResult(
         id="H1_dropbox", category="H",

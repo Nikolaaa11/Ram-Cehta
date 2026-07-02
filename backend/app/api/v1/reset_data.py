@@ -159,10 +159,10 @@ async def reset_movimientos(
 @router.post(
     "/admin/reset/f29/{empresa_codigo}",
     response_model=ResetResult,
-    dependencies=[Depends(require_scope("f29:create"))],
+    dependencies=[Depends(require_scope("user:write"))],
 )
 async def reset_f29(
-    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_scope("user:write"))],
     db: DBSession,
     request: Request,
     empresa_codigo: str,
@@ -202,10 +202,10 @@ async def reset_f29(
 @router.post(
     "/admin/reset/f22/{empresa_codigo}",
     response_model=ResetResult,
-    dependencies=[Depends(require_scope("f29:create"))],
+    dependencies=[Depends(require_scope("user:write"))],
 )
 async def reset_f22(
-    user: Annotated[AuthenticatedUser, Depends(require_scope("f29:create"))],
+    user: Annotated[AuthenticatedUser, Depends(require_scope("user:write"))],
     db: DBSession,
     request: Request,
     empresa_codigo: str,

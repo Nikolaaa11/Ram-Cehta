@@ -1313,6 +1313,19 @@ async def upcoming_tasks(
     inicio_semana_pasada = hoy - timedelta(days=hoy.weekday() + 7)
     inicio_semana_actual = hoy - timedelta(days=hoy.weekday())
 
+    # R152YYYYYY — scoping multi-tenant: este endpoint alimentaba el Kanban,
+    # el Calendario y el brief de Claudia con hitos de las 10 empresas para
+    # cualquier usuario (mientras /calendar/obligations si filtraba — datos
+    # contradictorios entre pantallas). Ahora filtra por empresas permitidas
+    # y valida el query param `empresa` contra el scope.
+    from app.services.empresa_scope_service import (
+        assert_empresa_access as _aea,
+        get_allowed_empresa_codes as _gaec,
+    )
+    allowed_codes = await _gaec(user, db)
+    if empresa:
+        await _aea(user, db, empresa)
+
     # Cargar empresas en un dict para lookup O(1) al armar el contexto
     q_empresas = select(Empresa)
     empresas_list = list((await db.scalars(q_empresas)).all())
@@ -1327,6 +1340,10 @@ async def upcoming_tasks(
     )
     if empresa:
         q = q.where(ProyectoEmpresa.empresa_codigo == empresa)
+    elif allowed_codes is not None:
+        q = q.where(
+            ProyectoEmpresa.empresa_codigo.in_(sorted(allowed_codes) or ["__NONE__"])
+        )
     if encargado:
         q = q.where(Hito.encargado == encargado)
 
@@ -1508,6 +1525,16 @@ async def quick_edit_hito(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Hito no encontrado"
         )
+    # R152YYYYYY — scope multi-tenant via empresa del proyecto padre, igual
+    # que update_hito/delete_hito. Este endpoint (el que usa TODO el Kanban)
+    # permitia editar hitos de cualquier empresa enumerando IDs.
+    _proy_scope = await ProyectoRepository(db).get(hito.proyecto_id)
+    if not _proy_scope:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Proyecto padre no encontrado",
+        )
+    await assert_empresa_access(user, db, _proy_scope.empresa_codigo)
 
     payload = body.model_dump(exclude_unset=True)
 

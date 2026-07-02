@@ -15,6 +15,25 @@ Formato:
 
 ---
 
+## 🔎 Ronda 2 barrido (R152YYYYYY, 2026-07-02) — pendientes verificados
+
+> Ronda 2 (Gantt/tributario/IA/admin) ya ARREGLÓ y deployó: scope multi-tenant
+> en avance quick+upcoming, F29/F22 writes+bulk, rendicion-corfo, módulo IA
+> completo (data-qa, conversation, ask/write_mode, deny viewer), reset F29/F22
+> a admin-only, protección último admin, checklist marcha-blanca G1/H1 (tabla
+> app.user_2fa creada), validación fechas proyecto, invalidación cache Gantt,
+> fecha_pago en bulk F29.
+
+- [M] (1h) **[TECH] ETL cartolas — natural_key sin índice de fila**: 2 movimientos legítimamente idénticos el mismo día (2 comisiones iguales) → el 2º se pierde por ON CONFLICT DO NOTHING. Agregar índice de línea a la key (cartolas_parser_service.py:358).
+- [M] (30m) **[TECH] Cartolas — skip lee runs failed**: el pre-load de hashes no filtra por status, un PDF que falló OCR queda skipeado para siempre tras arreglar la causa (cartolas_sync_service.py:96).
+- [M] (1h) **[TECH] Informes LP expirados siguen sirviendo data**: is_expired es cosmético, el informe vencido devuelve live_data fresca; ?preview=1 muestra borradores. Cortar acceso server-side al expirar (informes_lp.py:941).
+- [M] (1h) **[TECH] Alertas F29 solo miran ventana 0-7 días**: una F29 vencida impaga sale de la alerta al día 1 y del KPI dashboard al día 31 → invisible con multas SII acumulando (notification_generator_service.py:130 + views.sql v_f29_alertas).
+- [L] (30m) **[TECH] Calendario OC filtra estado inexistente 'aprobada' y excluye 'parcial'**: OC parcialmente pagada desaparece del timeline (calendar.py:307).
+- [L] (30m) **[TECH] CalendarHitos dice "6 meses" pero upcoming-tasks descarta bucket futuro >14d**: el calendario de Gantt sale vacío al avanzar meses (avance.py:1256).
+- [L] (30m) **[TECH] import_entregables_csv sin cap de tamaño** (entregables.py:2076): riesgo OOM. El import Gantt sí capea 5MB.
+- [L] (15m) **[TECH] Links F29/F22 del calendario pasan ?empresa_codigo= pero las páginas no leen searchParams** — aterrizan sin filtrar.
+
+
 ## 🔎 Hallazgos barrido R152UUUUUU (2026-07-02) — verificados, pendientes de fix
 > Tanda 2 (R152VVVVVV) ya resolvió: deadlock inbox_cron, dedupe de
 > clasificación (rowcount guard), outbox cableado al monitor horario,

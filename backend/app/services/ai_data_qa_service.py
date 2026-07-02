@@ -35,6 +35,7 @@ async def build_context_snapshot(
     db: AsyncSession,
     *,
     empresa_codigo: str | None = None,
+    allowed_codes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Construye un snapshot estructurado del estado financiero.
 
@@ -61,10 +62,20 @@ async def build_context_snapshot(
     if empresa_codigo:
         where_emp = "AND empresa_codigo = :emp"
         params["emp"] = empresa_codigo
+    elif allowed_codes is not None:
+        # R152YYYYYY — scope multi-tenant: sin empresa explicita, el snapshot
+        # se restringe a las empresas permitidas del usuario (antes devolvia
+        # el estado financiero CROSS-EMPRESA de todo el fondo a cualquier
+        # user con ai:chat, incluido viewer).
+        where_emp = "AND empresa_codigo = ANY(:allowed)"
+        params["allowed"] = list(allowed_codes)
 
     snapshot: dict[str, Any] = {
         "as_of": date.today().isoformat(),
-        "scope": empresa_codigo or "all_empresas",
+        "scope": (
+            empresa_codigo
+            or (",".join(allowed_codes) if allowed_codes is not None else "all_empresas")
+        ),
     }
 
     # ── Vouchers ────────────────────────────────────────────────────────
@@ -228,6 +239,7 @@ async def answer_question(
     *,
     question: str,
     empresa_codigo: str | None = None,
+    allowed_codes: list[str] | None = None,
 ) -> dict[str, Any]:
     """Responde una pregunta sobre el estado del fondo.
 
@@ -245,7 +257,9 @@ async def answer_question(
     if not settings.anthropic_api_key:
         raise AiDataQANotConfigured("ANTHROPIC_API_KEY no configurado")
 
-    snapshot = await build_context_snapshot(db, empresa_codigo=empresa_codigo)
+    snapshot = await build_context_snapshot(
+        db, empresa_codigo=empresa_codigo, allowed_codes=allowed_codes
+    )
 
     import json
 

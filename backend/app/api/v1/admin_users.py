@@ -137,6 +137,23 @@ async def update_role(
     # un ex-admin con cak_xxx token podía seguir operando como admin
     # incluso después del downgrade.
     role_changed = existing.app_role != body.app_role
+    # R152YYYYYY — proteccion del ultimo admin: degradar al unico admin
+    # (incluido uno mismo) dejaba la plataforma sin administradores, con
+    # recuperacion solo por SQL directo en Supabase Studio.
+    if role_changed and existing.app_role == "admin":
+        _admins = await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.user_roles WHERE app_role = 'admin'"
+            )
+        )
+        if int(_admins or 0) <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "No se puede cambiar el rol del ultimo admin de la "
+                    "plataforma. Nombra otro admin primero."
+                ),
+            )
     if role_changed:
         await _revoke_user_api_tokens(
             db,

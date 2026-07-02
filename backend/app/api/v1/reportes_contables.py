@@ -16,7 +16,8 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import text
 from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, DBSession
@@ -244,6 +245,25 @@ async def get_rendicion_corfo(
     fecha_desde: Annotated[date, Query()],
     fecha_hasta: Annotated[date, Query()],
 ) -> RendicionCorfoReport:
+    # R152YYYYYY — este endpoint gemelo de corfo_rendiciones quedo sin
+    # NINGUN scope check: devolvia lineas completas (folios, RUTs, montos,
+    # presupuesto) de cualquier proyecto. Mismo gate que R152XXXXXX aplico
+    # al modulo hermano: rol admin/finance + scope de la empresa del proyecto.
+    if user.app_role not in ("admin", "finance"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo admin o finance pueden ver rendiciones CORFO",
+        )
+    _emp_proy = await db.scalar(
+        text(
+            "SELECT empresa_codigo FROM core.proyectos_contables "
+            "WHERE codigo = :p"
+        ),
+        {"p": proyecto},
+    )
+    if _emp_proy:
+        from app.services.empresa_scope_service import assert_empresa_access
+        await assert_empresa_access(user, db, str(_emp_proy))
     data = await rendicion_corfo(
         db,
         proyecto_codigo=proyecto,
