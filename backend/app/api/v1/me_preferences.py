@@ -191,9 +191,13 @@ async def _count_critical_entregables(db: AsyncSession) -> int:
             await db.scalar(
                 text(
                     """
-                    SELECT COUNT(*) FROM core.entregables
+                    -- R152ZZZZZZ — tabla real es app.entregables_regulatorios
+                    -- (core.entregables nunca existió) y la columna es
+                    -- fecha_limite, no fecha_entrega. La query fallaba
+                    -- siempre; el try/except lo tragaba pero sin rollback.
+                    SELECT COUNT(*) FROM app.entregables_regulatorios
                     WHERE estado IN ('pendiente', 'en_proceso')
-                      AND fecha_entrega <= current_date + INTERVAL '5 days'
+                      AND fecha_limite <= current_date + INTERVAL '5 days'
                     """
                 )
             )

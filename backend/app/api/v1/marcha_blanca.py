@@ -147,6 +147,13 @@ async def _count(db: Any, sql: str, params: dict | None = None) -> int:
         row = (await db.execute(text(sql), params or {})).fetchone()
         return int(row[0] or 0) if row else 0
     except Exception:
+        # R152ZZZZZZ — rollback: una tabla/columna faltante deja la
+        # transacción asyncpg ABORTADA y el siguiente check explotaba con
+        # "current transaction is aborted" → 500 del checklist entero
+        # (checklist es read-only, el rollback no pierde datos).
+        import contextlib
+        with contextlib.suppress(Exception):
+            await db.rollback()
         return -1  # tabla no existe / query inválida
 
 
@@ -183,6 +190,10 @@ async def _build_checks(db: Any, user: AuthenticatedUser) -> list[CheckResult]:
         if row and row[0] is not None:
             last_backup_age_h = int(row[0])
     except Exception:
+        # R152ZZZZZZ — rollback para no dejar la transacción abortada.
+        import contextlib
+        with contextlib.suppress(Exception):
+            await db.rollback()
         last_backup_age_h = None
 
     if last_backup_age_h is None:
