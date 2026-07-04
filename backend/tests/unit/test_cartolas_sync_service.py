@@ -15,6 +15,22 @@ from app.services.cartolas_parser_service import (
 )
 
 
+
+
+def _patch_integration(found: bool = True):
+    """R152ZZZZZZ — el servicio ya no hace DropboxService() sin args: primero
+    carga la integración desde core.integrations (IntegrationRepository).
+    Estos tests quedaron del diseño viejo; este helper mockea el repo."""
+    fake = MagicMock()
+    fake.access_token = "tok"
+    fake.refresh_token = "rtok"
+    repo = MagicMock()
+    repo.get_by_provider = AsyncMock(return_value=fake if found else None)
+    return patch(
+        "app.services.cartolas_sync_service.IntegrationRepository",
+        return_value=repo,
+    )
+
 class TestSyncCartolasForEmpresa:
     """Tests de orquestación con servicios mockeados."""
 
@@ -26,11 +42,7 @@ class TestSyncCartolasForEmpresa:
 
         mock_db = AsyncMock()
 
-        with patch(
-            "app.services.cartolas_sync_service.DropboxService"
-        ) as mock_class:
-            mock_class.side_effect = DropboxNotConfigured("Test no config")
-
+        with _patch_integration(found=False):
             result = await sync_cartolas_for_empresa(
                 mock_db, "TRONGKAI", triggered_by="test"
             )
@@ -54,7 +66,7 @@ class TestSyncCartolasForEmpresa:
             {"type": "folder", "name": "subdir", "path": "/x/subdir"},
         ]
 
-        with patch(
+        with _patch_integration(), patch(
             "app.services.cartolas_sync_service.DropboxService",
             return_value=mock_dbx,
         ):
@@ -96,7 +108,7 @@ class TestSyncCartolasForEmpresa:
         ]
         mock_dbx.download_file.return_value = fake_pdf
 
-        with patch.object(
+        with _patch_integration(), patch.object(
             cartolas_sync_service, "DropboxService", return_value=mock_dbx
         ):
             result = await cartolas_sync_service.sync_cartolas_for_empresa(
@@ -139,7 +151,7 @@ class TestSyncCartolasForEmpresa:
             periodo_hasta=None,
             error="PdfReader falló: invalid PDF header",
         )
-        with patch.object(
+        with _patch_integration(), patch.object(
             cartolas_sync_service, "DropboxService", return_value=mock_dbx
         ), patch.object(
             cartolas_sync_service, "parse_cartola_pdf", return_value=bad_result
@@ -181,7 +193,7 @@ class TestSyncCartolasForEmpresa:
             is_scanned=True,
             error="PDF parece escaneado",
         )
-        with patch.object(
+        with _patch_integration(), patch.object(
             cartolas_sync_service, "DropboxService", return_value=mock_dbx
         ), patch.object(
             cartolas_sync_service,

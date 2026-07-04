@@ -102,14 +102,28 @@ def test_generate_csv_montos_enteros():
 
 
 def test_generate_csv_glosa_punto_coma_escapado():
-    """Si la glosa tiene ;, debe escaparse para no romper el CSV."""
+    """Si la glosa tiene ;, debe escaparse SIN alterar el texto.
+
+    R152ZZZZZZ — test actualizado: desde R152FFFFFF el export usa
+    csv.writer con QUOTE_MINIMAL (comillas dobles CSV estándar) en vez de
+    reemplazar ';' por ',' — el replace destruía datos reales del asiento.
+    Un split(';') ingenuo corta adentro de las comillas, así que la
+    aserción correcta es parsear con csv.reader (como hace Excel y
+    cualquier parser real) y verificar 16 columnas + glosa intacta.
+    """
+    import csv as _csv
+    from io import StringIO as _StringIO
+
     rows = [_row()]
     rows[0]["glosa"] = "Pago; algo más; etc"
     out = generate_csv(rows)
-    data_line = out.split("\r\n")[1]
-    parts = data_line.split(";")
-    # 16 columnas siempre, sin que la glosa rompa el split
-    assert len(parts) == 16
+    parsed = list(_csv.reader(_StringIO(out.lstrip("﻿")), delimiter=";"))
+    header, data = parsed[0], parsed[1]
+    # 16 columnas siempre, sin que la glosa rompa el parseo
+    assert len(header) == 16
+    assert len(data) == 16
+    # y el texto de la glosa llega INTACTO al sistema contable oficial
+    assert data[3] == "Pago; algo más; etc"
 
 
 def test_generate_csv_nulls_se_renderizan_vacios():

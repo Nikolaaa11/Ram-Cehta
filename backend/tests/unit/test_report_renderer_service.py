@@ -30,7 +30,9 @@ class TestFormatHelpers:
         assert _fmt_clp(None) == "—"
 
     def test_fmt_date(self) -> None:
-        assert _fmt_date(date(2026, 5, 6)) == "2026-05-06"
+        # R152ZZZZZZ — actualizado: desde R152FFFFFF los reportes formales
+        # usan formato chileno dd/mm/yyyy (antes ISO). El test quedó viejo.
+        assert _fmt_date(date(2026, 5, 6)) == "06/05/2026"
         assert _fmt_date("custom-string") == "custom-string"
         assert _fmt_date(None) == "—"
 
