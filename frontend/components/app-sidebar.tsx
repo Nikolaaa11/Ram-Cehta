@@ -294,6 +294,15 @@ const GROUPS: NavGroup[] = [
         icon: Receipt,
         tourId: "vouchers",
       },
+      // R152VVVVVV — Gastos rápidos: form súper simple (Marketing/Desarrollo)
+      // para usuarios operativos que solo reportan gastos. Crea EGRESO DRAFT
+      // con imputación pre-armada; finanzas revisa y aprueba.
+      {
+        href: "/gastos" as Route,
+        label: "Gastos rápidos",
+        icon: Banknote,
+        isNew: true,
+      },
       { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
       // R152ttt — "Quitar Dashboard Institucional" (MEJORAS IA.docx #3)
       // Item oculto del menú. La página /dashboard/directorio sigue accesible
