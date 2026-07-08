@@ -110,11 +110,12 @@ class Settings(BaseSettings):
     inbox_max_messages_per_run: int = 50
 
     # R152QQQQ — Feature flag para el generador de PDF de OC.
-    #   "v1" → reportlab (legacy, programmatic). Default.
+    #   "v1" → reportlab (legacy, programmatic).
     #   "v2" → HTML+CSS Jinja2 + WeasyPrint (templates de oc-pagos-platform).
-    # Cambiar via env var OC_PDF_RENDERER en Fly secrets:
-    #   fly secrets set OC_PDF_RENDERER=v2 -a cehta-backend
-    oc_pdf_renderer: str = "v1"
+    # R152WWWWWW — default cambiado a "v2": el formato carta formal
+    # (panimavida) es el estándar de todas las empresas y requiere WeasyPrint.
+    # Override via env var OC_PDF_RENDERER en Fly secrets si hiciera falta.
+    oc_pdf_renderer: str = "v2"
 
     # R152UUUU — Redirect global de emails de OC para fase de prueba.
     # Si está set (CSV de emails), TODOS los TO/CC se sobreescriben con

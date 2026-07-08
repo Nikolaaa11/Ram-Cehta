@@ -517,13 +517,15 @@ async def generate_oc_pdf_v2_bundle(
     if ctx is None:
         raise ValueError(f"OC {oc_id} no encontrada")
 
-    # R152MMMMMM — template por empresa: 'panimavida' (formato carta
-    # formal con MANDANTE/PROVEEDOR + firmas, réplica del PDF canónico
-    # de RHO) o el default institucional.
+    # R152WWWWWW — el formato "panimavida" (carta formal PROVEEDOR/MANDANTE
+    # + hoja de firmas) es ahora el ESTÁNDAR de TODAS las empresas. Cada una
+    # con su propio logo y color (el template ya está parametrizado). El
+    # grid institucional viejo (orden_compra.html) queda solo para quien
+    # explícitamente setee oc_template='legacy'.
     template_name = (
-        "orden_compra_panimavida.html"
-        if ctx.get("_oc_template") == "panimavida"
-        else "orden_compra.html"
+        "orden_compra.html"
+        if ctx.get("_oc_template") == "legacy"
+        else "orden_compra_panimavida.html"
     )
     template = _env.get_template(template_name)
     html = template.render(**ctx)
