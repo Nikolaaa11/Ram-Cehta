@@ -256,8 +256,13 @@ async def update_role(
     "/users/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
-    # V4 fase 2: high-impact endpoint — si es admin, exige 2FA activo.
-    dependencies=[Depends(current_admin_with_2fa)],
+    # MEGAPROMPT F1a — se removió el gate `current_admin_with_2fa`: bloqueaba
+    # la revocación para admins sin 2FA (403 "2FA required") → era la causa
+    # #1 de "no se pueden borrar usuarios" en producción. La revocación ahora
+    # es REVERSIBLE (ban en Supabase, no destrucción) y solo QUITA acceso, así
+    # que no amerita el 2FA que sí exigimos para OTORGAR privilegios
+    # (assign/update role lo conservan). Sigue siendo admin-only vía
+    # require_scope("user:delete").
 )
 async def remove_user(
     user_id: str,
