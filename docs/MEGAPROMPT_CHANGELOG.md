@@ -11,13 +11,19 @@ los agentes de las migraciones.
   (clon de Victoria = acceso total operativo). Clave temporal `Cehta-Cescob-4429`.
   `app_metadata.app_role` seteado. Ver [SUPUESTOS](MEGAPROMPT_SUPUESTOS.md).
 
-### FASE 1a · Borrado/revocación de usuarios (FIX)
-- `backend/app/api/v1/admin_users.py`: `DELETE /admin/users/{id}` ("Revocar acceso")
-  solo borraba `core.user_roles` → la cuenta de Supabase seguía activa (login) y los
-  roles por empresa intactos. Ahora corta el acceso de verdad: (1) banea la cuenta en
-  Supabase Auth (`ban_duration`, reversible), (2) desactiva roles por empresa
-  (`active=false`), (3) revoca API tokens, (4) baja el rol global. Preserva historial.
-  Protegido: uno mismo, nrietta, último admin. _Deploy en curso._
+### FASE 1a · Borrado/revocación de usuarios (FIX — ✅ VERIFICADO EN PROD)
+- `backend/app/api/v1/admin_users.py`. Dos causas del bug "no se pueden borrar usuarios":
+  1. **Gate de 2FA**: el DELETE exigía `current_admin_with_2fa` → 403 "2FA required" antes
+     de ejecutar nada (el admin no tiene 2FA). Removido (revocación es reversible → no
+     amerita 2FA; se mantiene en assign/update role que otorgan privilegios).
+  2. **Lógica incompleta**: solo borraba `core.user_roles` → la cuenta de Supabase seguía
+     activa (login) y los roles por empresa intactos.
+- Ahora "Revocar acceso" corta el acceso de verdad: (1) banea la cuenta en Supabase Auth
+  (`ban_duration`, reversible), (2) desactiva roles por empresa (`active=false`), (3)
+  revoca API tokens, (4) baja el rol global. Preserva historial. Protegido: uno mismo,
+  nrietta, último admin.
+- **Test E2E en prod (5/5 verde)**: crear user → login OK → revocar (204) → login DESPUÉS
+  = 400 (bloqueado) → roles empresa 0, rol global 0.
 
 ## 📋 MAPA — estado real de cada fase
 
