@@ -20,7 +20,10 @@ from fastapi.responses import Response
 
 from sqlalchemy import text
 
+import httpx
+
 from app.api.deps import DBSession, current_admin_with_2fa, require_scope
+from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.core.security import AuthenticatedUser
 from app.infrastructure.repositories.user_role_repository import UserRoleRepository
@@ -71,6 +74,89 @@ async def _revoke_user_api_tokens(db, user_id: str, reason: str) -> int:
             error=str(exc),
         )
         return 0
+
+NRIETTA_EMAIL = "nrietta@cehtacapital.com"
+
+
+async def _ban_supabase_user(user_id: str, *, banned: bool) -> bool:
+    """MEGAPROMPT F1a — Banea (o des-banea) la cuenta en Supabase Auth.
+
+    Un ban_duration largo impide el login SIN borrar la cuenta ni el historial
+    (reversible). Sin esto, "revocar acceso" solo quitaba el rol pero la
+    persona seguía logueándose con su cuenta de Supabase. Soft-fail: si la
+    llamada falla, loggea y devuelve False (el caller decide si abortar).
+    """
+    s = get_settings()
+    base = str(s.supabase_url).rstrip("/")
+    key = s.supabase_service_role_key
+    ban_value = "876000h" if banned else "none"  # ~100 años / sin ban
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.put(
+                f"{base}/auth/v1/admin/users/{user_id}",
+                headers={
+                    "apikey": key,
+                    "Authorization": f"Bearer {key}",
+                    "Content-Type": "application/json",
+                },
+                json={"ban_duration": ban_value},
+            )
+        if resp.status_code == 200:
+            log.info("supabase.user_ban", user_id=user_id, banned=banned)
+            return True
+        log.warning(
+            "supabase.user_ban_failed",
+            user_id=user_id,
+            status=resp.status_code,
+            body=resp.text[:200],
+        )
+        return False
+    except Exception as exc:  # noqa: BLE001
+        log.warning("supabase.user_ban_error", user_id=user_id, error=str(exc))
+        return False
+
+
+async def _deactivate_company_roles(db, user_id: str) -> int:
+    """MEGAPROMPT F1a — Desactiva TODOS los roles por empresa del user.
+
+    active=FALSE en lugar de DELETE → preserva la trazabilidad de quién tuvo
+    qué rol. get_allowed_empresa_codes solo cuenta active=TRUE, así que el
+    usuario deja de ver cualquier empresa. Devuelve cuántas filas desactivó.
+    """
+    result = await db.execute(
+        text(
+            """UPDATE core.user_company_roles
+               SET active = FALSE
+               WHERE user_id = :uid AND active = TRUE
+               RETURNING empresa_codigo"""
+        ),
+        {"uid": user_id},
+    )
+    return len(result.fetchall())
+
+
+async def _email_for(db, user_id: str) -> str | None:
+    row = (
+        await db.execute(
+            text("SELECT email FROM auth.users WHERE id = :uid"),
+            {"uid": user_id},
+        )
+    ).first()
+    return row[0] if row else None
+
+
+async def _count_other_admins(db, exclude_user_id: str) -> int:
+    row = (
+        await db.execute(
+            text(
+                """SELECT count(*) FROM core.user_roles
+                   WHERE app_role = 'admin' AND user_id <> :uid"""
+            ),
+            {"uid": exclude_user_id},
+        )
+    ).first()
+    return int(row[0]) if row else 0
+
 
 router = APIRouter()
 
@@ -178,22 +264,62 @@ async def remove_user(
     user: Annotated[AuthenticatedUser, Depends(require_scope("user:delete"))],
     db: DBSession,
 ) -> Response:
+    """MEGAPROMPT F1a — Revocación de acceso REAL (soft-delete + ban).
+
+    Antes esto solo hacía `DELETE FROM core.user_roles`, dejando la cuenta de
+    Supabase activa (seguía logueándose) y los roles por empresa intactos
+    (seguía viendo/operando). Ahora corta el acceso de verdad:
+      1. Banea la cuenta en Supabase Auth (no puede loguearse; reversible).
+      2. Desactiva todos sus roles por empresa (deja de ver cualquier empresa).
+      3. Revoca sus API tokens.
+      4. Baja su rol global (DELETE de user_roles).
+    Preserva el historial (vouchers/OC creados, firmas) — son evidencia
+    contable/legal y no se borran. Protegido: uno mismo, nrietta, último admin.
+    """
     if user_id == user.sub:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No podés removerte a vos mismo (otro admin debe hacerlo)",
         )
-    repo = UserRoleRepository(db)
-    # R152AAAAAA — Revocar tokens ANTES del delete del user_role. Si el
-    # delete falla, queremos que los tokens igual queden revocados
-    # (el role downgrade implícito de DELETE = downgrade a viewer default).
-    await _revoke_user_api_tokens(db, user_id, reason="user_deleted")
 
-    deleted = await repo.delete(user_id)
-    if not deleted:
+    email = await _email_for(db, user_id)
+    if email is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Usuario {user_id} no encontrado",
         )
+    if email.strip().lower() == NRIETTA_EMAIL:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Esta cuenta está protegida y no puede revocarse.",
+        )
+
+    # Protección del último admin: no dejar la plataforma sin administradores.
+    current = await UserRoleRepository(db).get_role(user_id)
+    if current and current.app_role == "admin":
+        if await _count_other_admins(db, exclude_user_id=user_id) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No podés revocar al último admin. Asigná otro admin primero.",
+            )
+
+    # 1) Cortar login en Supabase Auth (soft-fail: no abortamos si la API falla,
+    #    pero lo dejamos registrado — igual quitamos roles/tokens).
+    await _ban_supabase_user(user_id, banned=True)
+    # 2) Sacar acceso a todas las empresas.
+    n_emp = await _deactivate_company_roles(db, user_id)
+    # 3) Revocar API tokens.
+    await _revoke_user_api_tokens(db, user_id, reason="user_deleted")
+    # 4) Bajar rol global.
+    deleted = await UserRoleRepository(db).delete(user_id)
+
     await db.commit()
+    log.info(
+        "admin.user_access_revoked",
+        user_id=user_id,
+        email=email,
+        empresa_roles_deactivated=n_emp,
+        role_row_deleted=deleted,
+        by=user.sub,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
