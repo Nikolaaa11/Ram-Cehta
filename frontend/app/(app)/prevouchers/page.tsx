@@ -24,6 +24,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useMyEmpresas } from "@/hooks/use-my-empresas";
 import { useSession } from "@/hooks/use-session";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
@@ -68,12 +69,11 @@ export default function PrevouchersPage() {
   const { session } = useSession();
   const [empresa, setEmpresa] = useState("");
 
-  const { data: empresas } = useApiQuery<EmpresaItem[]>(
-    ["me", "empresas"],
-    "/me/empresas",
-    !!session,
-    { staleTime: 5 * 60_000 },
-  );
+  // /me/empresas devuelve { is_admin, empresas[], scope_summary } — NO un
+  // array. useMyEmpresas ya lo tipa bien y comparte la misma query key que
+  // usa el sidebar, así que reusarlo evita el choque de cache.
+  const { data: misEmpresas } = useMyEmpresas();
+  const empresas = misEmpresas?.empresas ?? [];
   const qs = empresa ? `?empresa_codigo=${encodeURIComponent(empresa)}` : "";
   const { data, isLoading, isError } = useApiQuery<PrevoucherCola>(
     ["prevouchers", "cola", empresa],

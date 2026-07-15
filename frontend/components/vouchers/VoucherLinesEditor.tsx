@@ -28,6 +28,13 @@ interface LineIn {
   debit: string;
   credit: string;
   descripcion: string;
+  // Campos fiscales que el editor NO expone pero que DEBEN sobrevivir al
+  // guardado: la rendición CORFO suma por balance_treatment='GASTO' y el
+  // mapper de Nubox usa iva_amount. Viajan de ida y vuelta intactos.
+  iva_tratamiento: string | null;
+  iva_amount: number | null;
+  neto_amount: number | null;
+  balance_treatment: string;
 }
 
 // Tipo del schema generado: debit/credit llegan como number.
@@ -43,6 +50,10 @@ type VoucherLineRead = Pick<
   | "debit"
   | "credit"
   | "descripcion"
+  | "iva_tratamiento"
+  | "iva_amount"
+  | "neto_amount"
+  | "balance_treatment"
 >;
 
 interface CuentaItem {
@@ -71,6 +82,28 @@ function toLineIn(l: VoucherLineRead): LineIn {
     debit: Number(l.debit) > 0 ? String(Math.round(Number(l.debit))) : "",
     credit: Number(l.credit) > 0 ? String(Math.round(Number(l.credit))) : "",
     descripcion: l.descripcion ?? "",
+    // Se leen y se reenvían tal cual — el editor no los toca.
+    iva_tratamiento: l.iva_tratamiento ?? null,
+    iva_amount: l.iva_amount ?? null,
+    neto_amount: l.neto_amount ?? null,
+    balance_treatment: l.balance_treatment ?? "NA",
+  };
+}
+
+/** Línea nueva en blanco (sin datos fiscales previos que preservar). */
+function nuevaLinea(): LineIn {
+  return {
+    localId: nextLocalId++,
+    cuenta_codigo: "",
+    proyecto_codigo: "",
+    area_codigo: "",
+    debit: "",
+    credit: "",
+    descripcion: "",
+    iva_tratamiento: null,
+    iva_amount: null,
+    neto_amount: null,
+    balance_treatment: "NA",
   };
 }
 
@@ -123,21 +156,7 @@ export function VoucherLinesEditor({
   if (status !== "DRAFT") return null;
 
   function startEditing() {
-    setRows(
-      lines.length > 0
-        ? lines.map(toLineIn)
-        : [
-            {
-              localId: nextLocalId++,
-              cuenta_codigo: "",
-              proyecto_codigo: "",
-              area_codigo: "",
-              debit: "",
-              credit: "",
-              descripcion: "",
-            },
-          ],
-    );
+    setRows(lines.length > 0 ? lines.map(toLineIn) : [nuevaLinea()]);
     setEditing(true);
   }
 
@@ -146,18 +165,7 @@ export function VoucherLinesEditor({
   }
 
   function addRow() {
-    setRows((rs) => [
-      ...rs,
-      {
-        localId: nextLocalId++,
-        cuenta_codigo: "",
-        proyecto_codigo: "",
-        area_codigo: "",
-        debit: "",
-        credit: "",
-        descripcion: "",
-      },
-    ]);
+    setRows((rs) => [...rs, nuevaLinea()]);
   }
 
   function removeRow(localId: number) {
@@ -189,6 +197,12 @@ export function VoucherLinesEditor({
           debit: Number(r.debit) || 0,
           credit: Number(r.credit) || 0,
           descripcion: r.descripcion.trim() || null,
+          // Se reenvían intactos: el editor no los muestra, pero borrarlos
+          // dejaría la rendición CORFO en $0 (suma por balance_treatment).
+          iva_tratamiento: r.iva_tratamiento,
+          iva_amount: r.iva_amount,
+          neto_amount: r.neto_amount,
+          balance_treatment: r.balance_treatment,
         })),
       };
       const res = await apiClient.put<{ cuadrado: boolean }>(

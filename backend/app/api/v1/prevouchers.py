@@ -264,6 +264,32 @@ async def replace_voucher_lines(
                 ),
             )
 
+    # ⚠️ Preservar los campos fiscales que el cliente NO manda explícitamente.
+    # Este endpoint es replace-all (DELETE+INSERT); sin esto, un cliente que
+    # envíe solo cuenta/monto (como el editor de imputación) pisaba
+    # iva_tratamiento / iva_amount / neto_amount con NULL y balance_treatment
+    # con su default 'NA'. Consecuencia real: la rendición CORFO suma
+    # `CASE WHEN balance_treatment='GASTO'` (corfo_rendiciones.py:146), así que
+    # el voucher pasaba a valer $0 en el informe del subsidio, en silencio.
+    prev_rows = (
+        await db.execute(
+            text(
+                """SELECT line_number, iva_tratamiento, iva_amount,
+                          neto_amount, balance_treatment
+                   FROM core.voucher_lines WHERE voucher_id = :id"""
+            ),
+            {"id": voucher_id},
+        )
+    ).mappings().all()
+    prev_by_num = {r["line_number"]: dict(r) for r in prev_rows}
+
+    def _keep(line: VoucherLineCreate, campo: str):
+        """Valor explícito del body; si no vino, el de la línea previa."""
+        if campo in line.model_fields_set:
+            return getattr(line, campo)
+        previa = prev_by_num.get(line.line_number)
+        return previa[campo] if previa else getattr(line, campo)
+
     # Replace-all atómico + recálculo de totales.
     await db.execute(
         text("DELETE FROM core.voucher_lines WHERE voucher_id = :id"),
@@ -292,10 +318,10 @@ async def replace_voucher_lines(
                 "debit": line.debit,
                 "credit": line.credit,
                 "descripcion": line.descripcion,
-                "iva_trat": line.iva_tratamiento,
-                "iva_amount": line.iva_amount,
-                "neto_amount": line.neto_amount,
-                "bal": line.balance_treatment,
+                "iva_trat": _keep(line, "iva_tratamiento"),
+                "iva_amount": _keep(line, "iva_amount"),
+                "neto_amount": _keep(line, "neto_amount"),
+                "bal": _keep(line, "balance_treatment"),
             },
         )
     total_debit = sum((line.debit for line in body.lines), start=Decimal("0"))
