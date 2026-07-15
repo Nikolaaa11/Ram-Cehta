@@ -253,10 +253,23 @@
       </div>
       {% for f in firmantes %}
       <div class="firma">
+        {% if f.firmado_el %}
+        {# MEGAPROMPT F3 — firma electrónica estampada (core.oc_firmas) #}
+        <div class="linea" style="border-bottom:none; font-size:12px; font-weight:600; color:#0F6E4B;">
+          ✓ Firmado electrónicamente
+        </div>
+        <p class="nombre">{{ f.nombre }}</p>
+        <p class="cargo">{{ f.cargo }}</p>
+        <p class="emp">{{ empresa.razon_social }}</p>
+        <p style="font-size:7.5px; color:#6e6e73; margin-top:2px;">
+          {{ f.firmado_el }} · hash {{ f.hash_corto }}
+        </p>
+        {% else %}
         <div class="linea">&nbsp;</div>
         <p class="nombre">{{ f.nombre }}</p>
         <p class="cargo">{{ f.cargo }}</p>
         <p class="emp">{{ empresa.razon_social }}</p>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

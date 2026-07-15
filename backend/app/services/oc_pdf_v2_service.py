@@ -423,6 +423,37 @@ async def _load_context(
             "cargo": empresa.get("gerente_general_cargo") or "Gerente General",
         }]
 
+    # MEGAPROMPT F3 — si la OC tiene firmantes REALES asignados
+    # (core.oc_firmas), esos reemplazan a los genéricos del branding y las
+    # firmas completadas se ESTAMPAN en el PDF: "Firmado electrónicamente"
+    # + fecha/hora Chile + hash corto (trazable a core.oc_firmas.signature_hash).
+    with contextlib.suppress(Exception):
+        firmas_rows = (
+            await db.execute(
+                text(
+                    """SELECT firmante_nombre, firmante_email, firmante_cargo,
+                              status, signed_at, signature_hash
+                       FROM core.oc_firmas
+                       WHERE oc_id = :id AND status <> 'RECHAZADA'
+                       ORDER BY orden, firma_id"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().all()
+        if firmas_rows:
+            firmantes = []
+            for fr in firmas_rows:
+                item: dict[str, Any] = {
+                    "nombre": fr["firmante_nombre"] or fr["firmante_email"],
+                    "cargo": fr["firmante_cargo"] or "",
+                }
+                if fr["status"] == "FIRMADA" and fr["signed_at"]:
+                    item["firmado_el"] = fr["signed_at"].strftime(
+                        "%d/%m/%Y %H:%M UTC"
+                    )
+                    item["hash_corto"] = (fr["signature_hash"] or "")[:12]
+                firmantes.append(item)
+
     # Modelo Proveedor para template
     prov_ctx = type("Prov", (), {
         "razon_social": proveedor.get("razon_social") or "Proveedor sin nombre",

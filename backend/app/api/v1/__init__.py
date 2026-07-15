@@ -122,6 +122,10 @@ api_router.include_router(
     ordenes_compra_extract.router, prefix="/ordenes-compra", tags=["ordenes-compra-extract"]
 )
 api_router.include_router(ordenes_compra.router, prefix="/ordenes-compra", tags=["ordenes-compra"])
+# MEGAPROMPT F3 — flujo de firmas de OC (firmantes, firma 1-click, facturada).
+from app.api.v1 import oc_firmas  # noqa: E402
+
+api_router.include_router(oc_firmas.router, prefix="/ordenes-compra", tags=["oc-firmas"])
 api_router.include_router(movimientos.router, prefix="/movimientos", tags=["movimientos"])
 api_router.include_router(f29.router, prefix="/f29", tags=["f29"])
 # V5+: F22 anual — declaración impuesto a la renta. Mismo dominio que F29

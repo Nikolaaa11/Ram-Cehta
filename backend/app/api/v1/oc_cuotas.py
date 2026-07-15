@@ -546,7 +546,7 @@ async def generar_vouchers(
                        fecha_documento, fecha_contable,
                        glosa, contraparte_rut, contraparte_nombre,
                        contraparte_tipo, moneda, status,
-                       forma_pago, created_by
+                       forma_pago, created_by, oc_id
                    )
                    SELECT
                        u.codigo,
@@ -561,7 +561,8 @@ async def generar_vouchers(
                        :moneda,
                        'DRAFT',
                        :forma,
-                       CAST(:uid AS UUID)
+                       CAST(:uid AS UUID),
+                       CAST(:oc_link AS BIGINT)
                    FROM UNNEST(
                        CAST(:codigos AS TEXT[]),
                        CAST(:fechas AS DATE[]),
@@ -577,6 +578,8 @@ async def generar_vouchers(
                 "moneda": oc.get("moneda") or "CLP",
                 "forma": "TRANSFERENCIA",
                 "uid": user_uid,
+                # MEGAPROMPT F3 — FK directa voucher↔OC (migración 0068).
+                "oc_link": oc_id,
                 "codigos": [r["codigo"] for r in rows_to_insert],
                 "fechas": [r["fecha"] for r in rows_to_insert],
                 "glosas": [r["glosa"] for r in rows_to_insert],

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía Nubox al 100% · Ram-Cehta</title>
+<style>
+  :root{
+    --green:#138A5E; --green-700:#0F6E4B; --green-50:#E7F5EE;
+    --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B; --ink-300:#CBD5E1;
+    --hair:#E5E9F0; --bg:#F7F9FB; --card:#FFFFFF; --amber:#B45309; --amber-50:#FEF3E2;
+    --blue:#1E40AF; --blue-50:#EAF0FF; --radius:16px;
+    --shadow:0 1px 3px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--ink-900);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--green-700);text-decoration:none}
+  .wrap{display:grid;grid-template-columns:288px 1fr;min-height:100vh}
+  aside{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--card);
+    border-right:1px solid var(--hair);padding:20px 14px}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 14px}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--green),var(--green-700));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px}
+  .brand b{font-size:15px;font-weight:700}.brand small{display:block;color:var(--ink-500);font-size:11px;font-weight:500}
+  .search{width:100%;padding:9px 12px;border:1px solid var(--hair);border-radius:10px;font-size:13px;
+    margin-bottom:12px;background:var(--bg)}
+  .search:focus{outline:none;border-color:var(--green);background:#fff}
+  nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-500);
+    font-weight:700;margin:14px 8px 5px}
+  nav a{display:block;padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--ink-700);font-weight:500}
+  nav a:hover{background:var(--green-50);color:var(--green-700)}
+  nav a.on{background:var(--green-50);color:var(--green-700);font-weight:600}
+  main{padding:0 0 80px}
+  .hero{background:linear-gradient(135deg,#0F6E4B,#138A5E);color:#fff;padding:48px 56px 40px}
+  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .hero p{opacity:.92;max-width:740px;margin-top:10px;font-size:15px}
+  .hero .chips{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap}
+  .hero .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+    padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .content{padding:34px 56px;max-width:1040px}
+  section{background:var(--card);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:28px 30px;margin-bottom:22px;box-shadow:var(--shadow);scroll-margin-top:20px}
+  section h2{font-size:21px;font-weight:750;display:flex;align-items:center;gap:11px;letter-spacing:-.01em}
+  section h2 .ic{width:38px;height:38px;border-radius:10px;background:var(--green-50);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  section .lead{color:var(--ink-700);margin:8px 0 18px;font-size:14.5px}
+  h4{font-size:13.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-500);
+    margin:20px 0 9px;display:flex;align-items:center;gap:7px}
+  .steps{counter-reset:s;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:7px 0 7px 38px;font-size:14px;border-bottom:1px dashed var(--hair)}
+  .steps li:last-child{border:none}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;
+    background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
+  th{text-align:left;background:var(--bg);color:var(--ink-500);font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.04em;padding:8px 10px;border-bottom:2px solid var(--hair)}
+  td{padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+  td b{color:var(--ink-900)} .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+    background:var(--bg);padding:1px 6px;border-radius:5px}
+  .datos{background:var(--amber-50);border:1px solid #F5D8A8;border-radius:12px;padding:16px 18px;margin-top:18px}
+  .datos h4{color:var(--amber);margin-top:0}
+  .datos .row{display:flex;gap:10px;padding:6px 0;font-size:13.5px;border-bottom:1px dashed #F0D5A8}
+  .datos .row:last-child{border:none}.datos .row b{min-width:130px;color:var(--amber)}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;display:inline-block}
+  .b-ok{background:#E7F5EE;color:#0F6E4B}.b-pend{background:#FEF3E2;color:#B45309}
+  .b-info{background:#EAF0FF;color:#1E40AF}.b-off{background:#F1F5F9;color:#64748B}
+  .tip{background:var(--green-50);border-left:3px solid var(--green);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .tip b{color:var(--green-700)}
+  .warn{background:var(--amber-50);border-left:3px solid var(--amber);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .warn b{color:var(--amber)}
+  .flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .flow .n{background:#fff;border:1px solid var(--hair);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
+  .flow .ar{color:var(--ink-300);font-weight:800}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .quick a{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 16px 15px;
+    box-shadow:var(--shadow);transition:all .18s ease;display:block}
+  .quick a:hover{transform:translateY(-3px);border-color:var(--green);box-shadow:0 10px 28px rgba(19,138,94,.12)}
+  .quick .qi{font-size:24px;margin-bottom:8px;display:block}
+  .quick .qt{font-weight:700;font-size:14px;color:var(--ink-900)}
+  .quick .qd{font-size:11.5px;color:var(--ink-500);margin-top:3px;line-height:1.4}
+  .vias{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+  .via{border:1px solid var(--hair);border-radius:13px;padding:16px;background:var(--bg)}
+  .via.star{border-color:var(--green);background:var(--green-50)}
+  .via .vi{font-size:26px}
+  .via .vt{font-weight:750;font-size:14.5px;margin-top:6px}
+  .via .vd{font-size:12.5px;color:var(--ink-700);margin-top:4px;line-height:1.5}
+  .via .vw{font-size:11px;color:var(--ink-500);margin-top:8px;font-weight:600}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .check{list-style:none}
+  .check li{padding:6px 0 6px 30px;position:relative;font-size:14px;border-bottom:1px dashed var(--hair)}
+  .check li:last-child{border:none}
+  .check li::before{content:"✓";position:absolute;left:2px;color:var(--green);font-weight:800}
+  .check li.todo::before{content:"○";color:var(--amber)}
+  footer{padding:30px 56px;color:var(--ink-500);font-size:12.5px;border-top:1px solid var(--hair);background:var(--card)}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}.hero,.content{padding:28px 22px}
+    .quick{grid-template-columns:repeat(2,1fr)}.vias{grid-template-columns:1fr}.cols2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <div class="brand"><div class="logo">RC</div><div><b>Ram-Cehta</b><small>Guía Nubox al 100%</small></div></div>
+  <input class="search" id="q" placeholder="🔎 Buscar tema…">
+  <nav id="nav">
+    <div class="grp">Empezar</div>
+    <a href="#estado" class="on">Estado actual — qué ya funciona</a>
+    <a href="#caminos">Los 3 caminos a Nubox</a>
+    <a href="#uat-prod">Pruebas (UAT) vs Producción</a>
+    <div class="grp">Camino A · Contabilidad</div>
+    <a href="#mapeo">Prerequisito: mapear cuentas</a>
+    <a href="#export">Export CSV paso a paso</a>
+    <div class="grp">Camino B · API directa</div>
+    <a href="#api-estado">Ver estado y probar conexión</a>
+    <a href="#api-usos">Sincronizar ventas · PDF/XML</a>
+    <a href="#emitir">Emitir factura desde un voucher</a>
+    <div class="grp">Producción</div>
+    <a href="#prod">Checklist para pasar a producción</a>
+    <a href="#seguridad">Seguridad de credenciales</a>
+    <div class="grp">Ayuda</div>
+    <a href="#errores">Errores comunes / FAQ</a>
+    <a href="#checklist">Checklist "Nubox al 100%"</a>
+    <div class="grp">Más guías</div>
+    <a href="/GUIA_USUARIO.html">← Guía general de la plataforma</a>
+    <a href="/GUIA_INGRESO_VOUCHERS.html">← Guía de ingreso de vouchers</a>
+  </nav>
+</aside>
+
+<main>
+<div class="hero">
+  <h1>Nubox al 100% — Guía de integración</h1>
+  <p>Cómo Ram-Cehta se conecta con Nubox (el sistema contable oficial que lleva MCG Consultores):
+     qué ya está funcionando, cómo usar cada camino paso a paso, y exactamente qué falta para
+     operar con datos reales en producción.</p>
+  <div class="chips">
+    <span class="chip">✅ API conectada · 10/10 empresas</span><span class="chip">📤 Export CSV operativo</span>
+    <span class="chip">🔐 Credenciales cifradas</span><span class="chip">🧭 Ruta a producción</span>
+  </div>
+</div>
+
+<div class="content">
+
+<div class="quick">
+  <a href="#estado"><span class="qi">📍</span><div class="qt">¿Qué ya funciona?</div><div class="qd">Estado real de la integración hoy</div></a>
+  <a href="#export"><span class="qi">📤</span><div class="qt">Mandar asientos</div><div class="qd">Export CSV a Nubox paso a paso</div></a>
+  <a href="#emitir"><span class="qi">🧾</span><div class="qt">Emitir facturas</div><div class="qd">DTE desde un voucher vía API</div></a>
+  <a href="#prod"><span class="qi">🚀</span><div class="qt">Ir a producción</div><div class="qd">Qué falta y cómo conseguirlo</div></a>
+</div>
+
+<!-- ESTADO -->
+<section id="estado">
+  <h2><span class="ic">📍</span> Estado actual — qué ya funciona (julio 2026)</h2>
+  <p class="lead">Esto es lo que quedó activado y probado. No hay que repetir ninguno de estos pasos.</p>
+  <table>
+    <tr><th>Componente</th><th>Estado</th><th>Detalle</th></tr>
+    <tr><td><b>Tablas y migraciones</b></td><td><span class="badge b-ok">LISTO</span></td><td>Todas las migraciones de Nubox aplicadas en la base de datos.</td></tr>
+    <tr><td><b>Cifrado de credenciales</b></td><td><span class="badge b-ok">LISTO</span></td><td>La llave de cifrado está configurada en el servidor. Las credenciales se guardan siempre cifradas.</td></tr>
+    <tr><td><b>Credenciales de PRUEBA (UAT)</b></td><td><span class="badge b-ok">LISTO</span></td><td>Cargadas para las <b>10 empresas</b> (AFIS, CEHTA, CENERGY, CSL, DTE, EVOQUE, FIP_CEHTA, REVTECH, RHO, TRONGKAI).</td></tr>
+    <tr><td><b>Conexión con Nubox</b></td><td><span class="badge b-ok">PROBADA 10/10</span></td><td>Cada empresa respondió "API Nubox responde OK".</td></tr>
+    <tr><td><b>Export CSV de asientos</b></td><td><span class="badge b-ok">OPERATIVO</span></td><td>No necesita credenciales — funciona desde ya con vouchers aprobados.</td></tr>
+    <tr><td><b>Credenciales de PRODUCCIÓN</b></td><td><span class="badge b-pend">PENDIENTE</span></td><td>Hay que obtenerlas por empresa desde su cuenta Nubox (<a href="#prod">ver checklist</a>).</td></tr>
+  </table>
+  <div class="tip"><b>En una frase:</b> hoy podés practicar TODO con datos ficticios de prueba, y mandar
+    asientos reales a Nubox vía CSV. Lo único que falta para el 100% es conseguir las credenciales de
+    producción de cada empresa para que las facturas y ventas reales fluyan solas por la API.</div>
+</section>
+
+<!-- CAMINOS -->
+<section id="caminos">
+  <h2><span class="ic">🛣️</span> Los 3 caminos entre Ram-Cehta y Nubox</h2>
+  <p class="lead">Nubox se usa para cosas distintas y cada una tiene su propio camino. No se mezclan:</p>
+  <div class="vias">
+    <div class="via star">
+      <span class="vi">📤</span>
+      <div class="vt">A · Asientos contables (CSV)</div>
+      <div class="vd">Los vouchers aprobados/pagados se exportan en un archivo CSV que el contador
+        importa en Nubox. Es el flujo contable mensual con MCG. <b>Ya operativo</b> — no necesita
+        credenciales ni API.</div>
+      <div class="vw">📍 Administración → Exportación contable (/admin/nubox-exports)</div>
+    </div>
+    <div class="via">
+      <span class="vi">🧾</span>
+      <div class="vt">B · API directa (factura y ventas)</div>
+      <div class="vd">Conexión automática con Nubox: emitir facturas electrónicas (DTE) desde un
+        voucher, sincronizar las ventas del mes, y bajar PDF/XML firmados. <b>Conectada en modo
+        prueba</b> para las 10 empresas.</div>
+      <div class="vw">📍 Estado visible en Administración → Estado del sistema</div>
+    </div>
+    <div class="via">
+      <span class="vi">👥</span>
+      <div class="vt">C · Libro de remuneraciones</div>
+      <div class="vd">Lee el libro de remuneraciones del portal Nubox (usuario y clave del portal,
+        no API). <b>Experimental</b> — camino aparte, con carga manual de Excel como respaldo.</div>
+      <div class="vw">📍 Administración → Nubox (/admin/nubox)</div>
+    </div>
+  </div>
+  <div class="warn"><b>No confundir las pantallas:</b> la página <b>/admin/nubox</b> es SOLO el libro de
+    remuneraciones (camino C). El export contable vive en <b>/admin/nubox-exports</b> (camino A) y el
+    estado de la API en <b>/admin/sistema-status</b> (camino B).</div>
+</section>
+
+<!-- UAT VS PROD -->
+<section id="uat-prod">
+  <h2><span class="ic">🧪</span> Ambiente de pruebas (UAT) vs Producción</h2>
+  <p class="lead">Las credenciales que envió Nubox son de <b>certificación (UAT)</b>: un ambiente de
+     práctica con datos ficticios. Sirve para validar que todo funciona antes de tocar datos reales.</p>
+  <table>
+    <tr><th></th><th>UAT (lo de hoy)</th><th>Producción (el objetivo)</th></tr>
+    <tr><td><b>Datos</b></td><td>Ficticios y genéricos — <b>todas las empresas ven el mismo set de prueba</b> (por eso las 10 muestran "65 documentos").</td><td>Las facturas y ventas REALES de cada empresa.</td></tr>
+    <tr><td><b>Credenciales</b></td><td>Una cuenta genérica compartida que Nubox entrega a los partners.</td><td>Token del partner (Cehta) + una API Key <b>propia de cada empresa</b>, obtenida desde su cuenta Nubox.</td></tr>
+    <tr><td><b>Horario</b></td><td>⚠️ Solo lunes a viernes, 11:00–00:00 GMT (≈ 07:00–20:00 hora Chile). Fuera de eso, el test puede fallar aunque todo esté bien.</td><td>24/7.</td></tr>
+    <tr><td><b>Riesgo</b></td><td>Cero — nada de lo que hagas acá toca datos reales.</td><td>Emitir un DTE acá es un documento tributario real ante el SII.</td></tr>
+  </table>
+  <div class="warn"><b>Detalle técnico importante (URL de producción):</b> el archivo de Nubox indica que
+    la URL de producción es <span class="mono">api.pyme.nubox.com/nbxpymapi-environment-pyme</span>.
+    Al cargar credenciales de producción hay que ingresar <b>esa URL explícitamente</b> (la plataforma
+    tiene otra por defecto). Ya está contemplado en el checklist de producción — solo recordalo si lo
+    hacés por tu cuenta.</div>
+</section>
+
+<!-- MAPEO -->
+<section id="mapeo">
+  <h2><span class="ic">🔗</span> Prerequisito contable: mapear cuentas Cehta ↔ Nubox</h2>
+  <p class="lead">Para que un asiento llegue a Nubox con la cuenta correcta, cada cuenta del plan de
+     Ram-Cehta debe tener su <b>código Nubox equivalente</b> (campo "código Nubox" de la cuenta).
+     La regla del fondo es que ambos planes sean espejo 1:1 con MCG.</p>
+  <ol class="steps">
+    <li>Andá a <b>Contabilidad → Plan de cuentas</b>.</li>
+    <li>Verificá que las cuentas que usás en vouchers tengan su código Nubox cargado.</li>
+    <li>Si falta alguno: se puede editar la cuenta individualmente, o re-importar el plan por Excel
+        con la columna <b>NuboxCode</b> completa (el import actualiza sin duplicar).</li>
+    <li>Si MCG crea una cuenta nueva en Nubox, se replica en Ram-Cehta dentro de 24h (invariante del fondo).</li>
+  </ol>
+  <div class="warn"><b>Qué pasa si falta el mapeo:</b> el export NO se cae — usa el código interno de
+    Cehta como respaldo. El riesgo es silencioso: si ese código no existe en Nubox, el asiento se
+    rechaza o se imputa mal <b>al importar en Nubox</b>. Antes del primer export real, repasá el mapeo
+    con MCG.</div>
+</section>
+
