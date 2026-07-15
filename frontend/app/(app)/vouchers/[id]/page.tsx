@@ -47,6 +47,7 @@ import dynamic from "next/dynamic";
 // R152yy — above-the-fold (críticos) eager:
 import { VoucherApprovalsCard } from "@/components/vouchers/VoucherApprovalsCard";
 import { VoucherAttachmentsCard } from "@/components/vouchers/VoucherAttachmentsCard";
+import { VoucherLinesEditor } from "@/components/vouchers/VoucherLinesEditor";
 import { VoucherNavigation } from "@/components/vouchers/VoucherNavigation";
 
 // R152yy — below-the-fold lazy con skeleton.
@@ -885,6 +886,15 @@ Podrás corregir lo observado y reenviarlo a firma. El motivo del rechazo queda 
               </tfoot>
             </table>
           </div>
+          {/* MEGAPROMPT PREVOUCHER — editor de imputación para DRAFT: el
+              especialista completa cuentas/áreas/montos del pre-voucher sin
+              borrar y recrear (PUT /vouchers/{id}/lines). */}
+          <VoucherLinesEditor
+            voucherId={voucherId}
+            empresaCodigo={voucher.empresa_codigo}
+            status={voucher.status}
+            lines={voucher.lines}
+          />
           {/* V5++ ola CH fase 2: panel "Total con IVA" — solo aparece si el
               tipo de documento es afecto Y la moneda es CLP. Es informativo
               (read-only). El asiento contable sigue con Neto/Neto cuadrado;

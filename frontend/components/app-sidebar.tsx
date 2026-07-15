@@ -303,6 +303,14 @@ const GROUPS: NavGroup[] = [
         icon: Banknote,
         isNew: true,
       },
+      // MEGAPROMPT PREVOUCHER — cola de pre-vouchers (DRAFTs por completar)
+      // para especialistas contables: tomar → imputar → enviar a firmas.
+      {
+        href: "/prevouchers" as Route,
+        label: "Pre-vouchers · Cola",
+        icon: ClipboardList,
+        isNew: true,
+      },
       { href: "/notificaciones" as Route, label: "Notificaciones", icon: Bell },
       // R152ttt — "Quitar Dashboard Institucional" (MEJORAS IA.docx #3)
       // Item oculto del menú. La página /dashboard/directorio sigue accesible

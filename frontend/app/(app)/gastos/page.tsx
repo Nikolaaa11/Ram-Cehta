@@ -29,6 +29,7 @@ import {
   Megaphone,
   MonitorSmartphone,
   Paperclip,
+  ReceiptText,
   Sparkles,
   X,
 } from "lucide-react";
@@ -89,6 +90,16 @@ const CATEGORIAS = [
     hint: "Software, web, apps, licencias, servicios informáticos",
     cuenta: "4201-37", // SERVICIOS COMPUTACIONALES
     area: "TIC", // Tecnología y Sistemas
+  },
+  // MEGAPROMPT PREVOUCHER — categoría universal: cualquier gasto entra como
+  // pre-voucher y el especialista reclasifica la cuenta al procesarlo.
+  {
+    key: "OTRO",
+    label: "Otro gasto",
+    icon: ReceiptText,
+    hint: "Cualquier otro gasto o compra — finanzas lo clasifica",
+    cuenta: "4201-08", // GASTOS GENERALES (el contador reclasifica)
+    area: "ADM", // Administración y Finanzas
   },
 ] as const;
 
@@ -213,6 +224,9 @@ export default function GastosRapidosPage() {
         empresa_codigo: empresaCodigo,
         tipo: "EGRESO",
         status: "DRAFT",
+        // MEGAPROMPT PREVOUCHER — marca el origen: entra a la cola de
+        // /prevouchers para que el especialista lo complete.
+        source: "prevoucher",
         fecha_documento: fecha,
         fecha_contable: fecha,
         glosa,
@@ -282,13 +296,14 @@ export default function GastosRapidosPage() {
           <CheckCircle2 className="h-10 w-10 text-cehta-green" strokeWidth={1.5} />
         </div>
         <h1 className="mt-5 text-2xl font-semibold tracking-tight text-ink-900">
-          ¡Gasto enviado!
+          ¡Pre-voucher enviado!
         </h1>
         <p className="mt-2 text-sm text-ink-500">
           Quedó registrado como{" "}
-          <span className="font-mono font-semibold text-ink-900">{creado.codigo}</span>.
+          <span className="font-mono font-semibold text-ink-900">{creado.codigo}</span>{" "}
+          en la cola de finanzas.
           <br />
-          El equipo de finanzas lo va a revisar y aprobar.
+          Un especialista lo va a completar y mandar a firmas.
         </p>
         <Button className="mt-8 w-full" size="lg" onClick={resetForm}>
           Cargar otro gasto

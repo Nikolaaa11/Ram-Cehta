@@ -103,11 +103,41 @@ def run_pg_dump(
     log.info("backup.pg_dump.ok", size_bytes=size, mb=round(size / 1024 / 1024, 2))
 
 
-def upload_to_dropbox(local_path: Path, remote_filename: str) -> str:
-    """Sube el dump a Dropbox /99-Backups/. Devuelve el path remoto."""
+def _dropbox_from_db() -> "object":
+    """MEGAPROMPT PREVOUCHER — fix: DropboxService() sin token daba TypeError
+    (init exige access_token) → el cron de backup nunca pudo subir a
+    /99-Backups/. Cargamos el token de core.integrations igual que la API.
+    """
+    import psycopg2
+
     from app.services.dropbox_service import DropboxService
 
-    dbx = DropboxService()
+    conn = psycopg2.connect(parse_db_url_for_psycopg(os.environ["DATABASE_URL"]))
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT access_token, refresh_token FROM core.integrations "
+                "WHERE provider = 'dropbox' LIMIT 1"
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if not row or not row[0]:
+        raise RuntimeError(
+            "Dropbox no conectado (core.integrations sin provider='dropbox')"
+        )
+    return DropboxService(access_token=row[0], refresh_token=row[1])
+
+
+def parse_db_url_for_psycopg(url: str) -> str:
+    if url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+    return url
+
+
+def upload_to_dropbox(local_path: Path, remote_filename: str) -> str:
+    """Sube el dump a Dropbox /99-Backups/. Devuelve el path remoto."""
+    dbx = _dropbox_from_db()
     dbx.ensure_folder_path(DROPBOX_BACKUP_FOLDER)
 
     with local_path.open("rb") as f:

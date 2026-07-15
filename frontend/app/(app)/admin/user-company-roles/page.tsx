@@ -30,6 +30,10 @@ import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CompanyRole, UserCompanyRole } from "@/lib/api/schema";
 
+// MEGAPROMPT PREVOUCHER — el backend ahora devuelve el email (JOIN
+// auth.users); extendemos el tipo generado hasta el próximo gen:types.
+type UcrRow = UserCompanyRole & { email?: string | null };
+
 interface Empresa {
   codigo: string;
   razon_social: string;
@@ -66,13 +70,13 @@ export default function UserCompanyRolesPage() {
     enabled: !!session,
   });
 
-  const { data: assignments, isLoading } = useQuery<UserCompanyRole[]>({
+  const { data: assignments, isLoading } = useQuery<UcrRow[]>({
     queryKey: ["user-company-roles", empresaFilter],
     queryFn: () => {
       const qs = new URLSearchParams();
       if (empresaFilter) qs.set("empresa_codigo", empresaFilter);
       qs.set("only_active", "true");
-      return apiClient.get<UserCompanyRole[]>(
+      return apiClient.get<UcrRow[]>(
         `/admin/user-company-roles?${qs}`,
         session,
       );
@@ -107,19 +111,21 @@ export default function UserCompanyRolesPage() {
     },
   });
 
-  // Filtro local por search en user_id
+  // MEGAPROMPT PREVOUCHER — filtro por email (legible) o user_id.
   const filtered = useMemo(() => {
     if (!assignments) return [];
     if (!search.trim()) return assignments;
     const q = search.toLowerCase();
-    return assignments.filter((a) =>
-      a.user_id.toLowerCase().includes(q),
+    return assignments.filter(
+      (a) =>
+        a.user_id.toLowerCase().includes(q) ||
+        (a.email ?? "").toLowerCase().includes(q),
     );
   }, [assignments, search]);
 
   // Agrupar por empresa
   const grouped = useMemo(() => {
-    const map = new Map<string, UserCompanyRole[]>();
+    const map = new Map<string, UcrRow[]>();
     for (const a of filtered) {
       if (!map.has(a.empresa_codigo)) map.set(a.empresa_codigo, []);
       map.get(a.empresa_codigo)!.push(a);
@@ -209,7 +215,7 @@ export default function UserCompanyRolesPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" strokeWidth={1.75} />
             <input
               type="text"
-              placeholder="Buscar por user_id (UUID)…"
+              placeholder="Buscar por email…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-lg border-0 bg-ink-50 px-3 py-1.5 pl-9 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
@@ -277,7 +283,7 @@ export default function UserCompanyRolesPage() {
                   <thead className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
                     <tr>
                       <th className="px-4 py-2">Rol</th>
-                      <th className="px-4 py-2">User ID</th>
+                      <th className="px-4 py-2">Usuario</th>
                       <th className="px-4 py-2">Asignado</th>
                       <th className="px-4 py-2">Notas</th>
                       <th className="px-4 py-2 text-right"></th>
@@ -293,8 +299,9 @@ export default function UserCompanyRolesPage() {
                             {a.role}
                           </span>
                         </td>
-                        <td className="px-4 py-2 font-mono text-[10px] tabular-nums text-ink-600">
-                          {a.user_id}
+                        <td className="px-4 py-2 text-xs text-ink-700">
+                          {/* MEGAPROMPT PREVOUCHER — email legible; UUID como tooltip */}
+                          <span title={a.user_id}>{a.email ?? a.user_id}</span>
                         </td>
                         <td className="px-4 py-2 font-mono text-[10px] tabular-nums text-ink-500">
                           {new Date(a.assigned_at).toLocaleDateString("es-CL")}
@@ -358,7 +365,10 @@ function CreateAssignmentDialog({
   onCreated: () => void;
 }) {
   const { session } = useSession();
-  const [userId, setUserId] = useState("");
+  // MEGAPROMPT PREVOUCHER — asignación por EMAIL (el backend resuelve el
+  // UUID contra auth.users). Antes exigía copiar el UUID a mano desde
+  // fuera de la plataforma.
+  const [email, setEmail] = useState("");
   const [empresa, setEmpresa] = useState(empresas[0]?.codigo ?? "");
   const [role, setRole] = useState<CompanyRole>("GG");
   const [notas, setNotas] = useState("");
@@ -367,8 +377,8 @@ function CreateAssignmentDialog({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session) return;
-    if (!userId.trim()) {
-      toast.error("Ingresa el UUID del usuario");
+    if (!email.trim() || !email.includes("@")) {
+      toast.error("Ingresá el email del usuario");
       return;
     }
     setLoading(true);
@@ -376,7 +386,7 @@ function CreateAssignmentDialog({
       await apiClient.post(
         "/admin/user-company-roles",
         {
-          user_id: userId.trim(),
+          email: email.trim().toLowerCase(),
           empresa_codigo: empresa,
           role,
           notas: notas.trim() || null,
@@ -421,18 +431,18 @@ function CreateAssignmentDialog({
 
         <div>
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
-            User ID (UUID Supabase) <span className="text-negative">*</span>
+            Email del usuario <span className="text-negative">*</span>
           </label>
           <input
-            type="text"
+            type="email"
             required
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="b4307866-f9c9-4230-aad6-41b61d07a830"
-            className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 font-mono text-xs ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="nombre@empresa.cl"
+            className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
           />
           <p className="mt-1 text-[10px] italic text-ink-400">
-            Copialo desde /admin/usuarios — columna ID
+            El mismo con el que inicia sesión (se valida contra las cuentas existentes).
           </p>
         </div>
 
@@ -488,7 +498,7 @@ function CreateAssignmentDialog({
 
         <button
           type="submit"
-          disabled={loading || !userId.trim()}
+          disabled={loading || !email.trim()}
           className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-semibold text-white hover:bg-cehta-green-700 disabled:opacity-60"
         >
           <ShieldCheck className="h-4 w-4" strokeWidth={1.75} />

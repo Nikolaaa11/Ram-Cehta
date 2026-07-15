@@ -313,6 +313,11 @@ async def remove_user(
     await _ban_supabase_user(user_id, banned=True)
     # 2) Sacar acceso a todas las empresas.
     n_emp = await _deactivate_company_roles(db, user_id)
+    # MEGAPROMPT PREVOUCHER — invalidar el cache de scope (TTL 60s): sin esto
+    # el usuario revocado seguía viendo sus empresas hasta 1 minuto más.
+    from app.services.empresa_scope_service import invalidate_user_cache
+
+    invalidate_user_cache(user_id)
     # 3) Revocar API tokens.
     await _revoke_user_api_tokens(db, user_id, reason="user_deleted")
     # 4) Bajar rol global.

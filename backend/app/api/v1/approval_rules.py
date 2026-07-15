@@ -250,8 +250,19 @@ class UserCompanyRoleBase(BaseModel):
     notas: str | None = Field(default=None, max_length=200)
 
 
-class UserCompanyRoleCreate(UserCompanyRoleBase):
-    pass
+class UserCompanyRoleCreate(BaseModel):
+    """MEGAPROMPT PREVOUCHER — acepta user_id (UUID) O email.
+
+    Antes exigía el UUID crudo de Supabase que había que copiar a mano
+    desde fuera de la plataforma (la UI de usuarios ni siquiera lo muestra).
+    Ahora el admin asigna cargos por EMAIL y el backend lo resuelve.
+    """
+
+    user_id: str | None = None  # UUID as string
+    email: str | None = Field(default=None, max_length=200)
+    empresa_codigo: str = Field(min_length=2, max_length=20)
+    role: CompanyRole
+    notas: str | None = Field(default=None, max_length=200)
 
 
 class UserCompanyRoleRead(UserCompanyRoleBase):
@@ -259,6 +270,9 @@ class UserCompanyRoleRead(UserCompanyRoleBase):
     active: bool
     assigned_at: datetime
     assigned_by: str | None
+    # MEGAPROMPT PREVOUCHER — email del usuario (JOIN auth.users) para que
+    # la tabla de roles sea legible sin UUIDs crudos.
+    email: str | None = None
 
 
 @router.get(
@@ -287,11 +301,15 @@ async def list_user_company_roles(
     rows = (
         await db.execute(
             text(
-                "SELECT user_id::text AS user_id, empresa_codigo, role, "
-                "       active, assigned_at, assigned_by::text AS assigned_by, notas "
-                "FROM core.user_company_roles"
+                # MEGAPROMPT PREVOUCHER — JOIN auth.users para email legible.
+                "SELECT ucr.user_id::text AS user_id, ucr.empresa_codigo, "
+                "       ucr.role, ucr.active, ucr.assigned_at, "
+                "       ucr.assigned_by::text AS assigned_by, ucr.notas, "
+                "       au.email AS email "
+                "FROM core.user_company_roles ucr "
+                "LEFT JOIN auth.users au ON au.id = ucr.user_id"
                 f"{where_sql} "
-                "ORDER BY empresa_codigo, role, user_id"
+                "ORDER BY ucr.empresa_codigo, ucr.role, au.email"
             ),
             params,
         )
@@ -315,7 +333,29 @@ async def assign_user_company_role(
 
     V5++ ola CB: invalida el scope cache del user al final para que el
     cambio sea inmediato (sin esperar TTL de 60s).
+
+    MEGAPROMPT PREVOUCHER: acepta `email` como alternativa a `user_id` —
+    el backend resuelve el UUID contra auth.users (404 si no existe).
     """
+    resolved_user_id = body.user_id
+    if not resolved_user_id:
+        if not body.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Indicá user_id o email del usuario.",
+            )
+        resolved_user_id = await db.scalar(
+            text("SELECT id::text FROM auth.users WHERE lower(email) = :e"),
+            {"e": body.email.strip().lower()},
+        )
+        if not resolved_user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    f"No existe usuario con email '{body.email}'. "
+                    "Primero creá la cuenta (o revisá el correo)."
+                ),
+            )
     try:
         await db.execute(
             text(
@@ -334,7 +374,13 @@ async def assign_user_company_role(
                         notas = EXCLUDED.notas
                 """
             ),
-            {**body.model_dump(), "assigned_by": str(user.sub)},
+            {
+                "user_id": resolved_user_id,
+                "empresa_codigo": body.empresa_codigo,
+                "role": body.role,
+                "notas": body.notas,
+                "assigned_by": str(user.sub),
+            },
         )
         await db.commit()
     except Exception as exc:  # noqa: BLE001
@@ -345,17 +391,21 @@ async def assign_user_company_role(
         ) from exc
 
     # V5++ ola CB: refrescar cache para que el cambio sea inmediato
-    invalidate_user_cache(body.user_id)
+    invalidate_user_cache(resolved_user_id)
 
     row = (
         await db.execute(
             text(
-                "SELECT user_id::text AS user_id, empresa_codigo, role, active, "
-                "       assigned_at, assigned_by::text AS assigned_by, notas "
-                "FROM core.user_company_roles "
-                "WHERE user_id = CAST(:u AS UUID) AND empresa_codigo = :e AND role = :r"
+                "SELECT ucr.user_id::text AS user_id, ucr.empresa_codigo, "
+                "       ucr.role, ucr.active, ucr.assigned_at, "
+                "       ucr.assigned_by::text AS assigned_by, ucr.notas, "
+                "       au.email AS email "
+                "FROM core.user_company_roles ucr "
+                "LEFT JOIN auth.users au ON au.id = ucr.user_id "
+                "WHERE ucr.user_id = CAST(:u AS UUID) "
+                "  AND ucr.empresa_codigo = :e AND ucr.role = :r"
             ),
-            {"u": body.user_id, "e": body.empresa_codigo, "r": body.role},
+            {"u": resolved_user_id, "e": body.empresa_codigo, "r": body.role},
         )
     ).mappings().one()
     return UserCompanyRoleRead.model_validate(dict(row))

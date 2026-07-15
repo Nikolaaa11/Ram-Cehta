@@ -2297,8 +2297,11 @@ async def upload_voucher_attachment(
 
     try:
         # Crear estructura de carpetas + upload
+        # MEGAPROMPT PREVOUCHER — fix: el método se llama ensure_folder_path
+        # (ensure_folder no existe en DropboxService → AttributeError → todo
+        # upload de adjunto formal devolvía 502 desde su creación).
         await asyncio.to_thread(
-            dbx.ensure_folder,
+            dbx.ensure_folder_path,
             f"{_VOUCHER_ATTACHMENTS_ROOT}/{row['empresa_codigo']}/{anio}/{row['codigo']}",
         )
         await asyncio.to_thread(dbx.upload_file, target_path, contents, overwrite=True)
