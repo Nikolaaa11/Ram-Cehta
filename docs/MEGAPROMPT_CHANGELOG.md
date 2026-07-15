@@ -118,3 +118,22 @@ aprobación, y el sistema de carpetas completo.
    el listado muestra emails (JOIN auth.users) y la búsqueda es por email.
 4. **admin_users DELETE** no invalidaba el cache de scope (ventana de 60s en
    que el revocado seguía viendo empresas). Fix: invalidate_user_cache.
+
+## F2 · Resultado E2E final (post-fixes): ✅ 7/7 VERDE en producción
+Erick crea pre-voucher (201, source=prevoucher persistido) → Caterin lo ve en
+la cola (creador+cuadre) → reclasifica líneas (PUT /lines 200) → submit →
+PENDING → limpieza total (reject 200 ✅ fix verificado, reopen, delete).
+
+## ⚠️ F4 · ÚNICO PASO MANUAL PENDIENTE (Nicolás — 2 minutos)
+El script de carpetas corrió en Fly pero Dropbox lo rechazó: la app de
+Dropbox de Cehta (ID 6959091) NO tiene habilitado el permiso de ESCRITURA
+`files.content.write`. Esto bloquea crear carpetas Y probablemente todas las
+subidas (fotos de boletas, adjuntos, backups) están soft-fallando.
+Pasos:
+  1. Entrar a https://www.dropbox.com/developers/apps con la cuenta dueña
+     de la app → app ID 6959091 → pestaña **Permissions**.
+  2. Marcar `files.content.write` (y `files.content.read` si no está) → Submit.
+  3. En la plataforma: /admin/dropbox-connect → reconectar Dropbox (re-OAuth
+     para que el token nuevo traiga el permiso).
+  4. Correr: flyctl ssh console -a cehta-backend -C
+     "python -m scripts.ensure_dropbox_folders"  → debe dar 154/154 OK.
