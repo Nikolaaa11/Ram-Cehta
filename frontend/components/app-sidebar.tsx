@@ -517,6 +517,14 @@ const GROUPS: NavGroup[] = [
         external: true,
         isNew: true,
       },
+      // MEGAPROMPT PREVOUCHER — flujo de trabajo + cargos + carpetas.
+      {
+        href: "/GUIA_FLUJO_CARGOS.html" as Route,
+        label: "Flujo, cargos y carpetas",
+        icon: ClipboardList,
+        external: true,
+        isNew: true,
+      },
       { href: "/ayuda" as Route, label: "Centro de Ayuda", icon: Book },
       {
         href: "/aprender" as Route,
