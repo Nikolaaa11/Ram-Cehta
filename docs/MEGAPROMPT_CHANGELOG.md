@@ -68,3 +68,53 @@ los agentes de las migraciones.
 1. FASE 3 flujo de firmas (alto valor operativo, build acotado y coherente).
 2. FASE 4 tipos de voucher (BH propia/tercero + Excel transferencia).
 3. FASE 1b SII: dejar el import CSV como camino oficial; el captcha no se resuelve barato.
+
+---
+
+# MEGAPROMPT PREVOUCHER (2026-07-13) — commits 17594d4 + 595acff
+
+## F1 · Sistema de pre-vouchers ✅
+Decisión de diseño: **el voucher DRAFT ES el pre-voucher** (cero tabla nueva,
+cero migración de datos, una sola fuente de verdad).
+- **Entrada**: /gastos generalizado — categoría nueva "Otro gasto" (4201-08 +
+  área ADM), `source='prevoucher'`, wording "Pre-voucher enviado".
+- **Cola de especialistas**: página /prevouchers + `GET /prevouchers/cola`
+  (creador vía JOIN auth.users, adjuntos, días de espera, cuadre, OC origen,
+  scope multi-tenant). Item "Pre-vouchers · Cola" en el sidebar.
+- **El eslabón que faltaba**: `PUT /vouchers/{id}/lines` (replace-all de
+  líneas de un DRAFT, mismas validaciones que crear: cuenta imputable +
+  habilitada por empresa, área aplica, proyecto de la empresa, correlativo,
+  debit XOR credit). Antes NO existía NINGÚN endpoint de edición de líneas:
+  el especialista tenía que borrar y recrear el voucher.
+- **Editor de imputación** en el detalle del voucher (solo DRAFT): componente
+  VoucherLinesEditor — editar/agregar/quitar líneas inline con selects de
+  cuenta/área/proyecto y verificación de cuadre en vivo.
+
+## F2 · Verificación E2E en producción
+Ver resultado al final de esta sección (script test_e2e_prevoucher).
+
+## F3 · Guía de flujo + cargos ✅
+GUIA_FLUJO_CARGOS.html (menú Recursos + copia en Descargas): las 5 estaciones
+del flujo, tabla de cargos (2 niveles), cómo cambiarlos paso a paso, reglas de
+aprobación, y el sistema de carpetas completo.
+
+## F4 · Sistema de carpetas ✅
+- **Mapa completo** de dónde saca/guarda información la plataforma (26 rutas
+  Dropbox documentadas — ver guía §4). Root canónico `/Cehta Capital`.
+- **scripts/ensure_dropbox_folders.py**: crea idempotente la estructura
+  canónica (154 rutas: raíz + 15 carpetas × 10 empresas). Solo crea, nunca
+  borra/mueve. Correr en Fly: `flyctl ssh console -a cehta-backend -C
+  "python -m scripts.ensure_dropbox_folders"`.
+
+## Bugs reales encontrados por el mapeo y arreglados de paso
+1. **vouchers.py:2301** `dbx.ensure_folder` → método inexistente
+   (`ensure_folder_path`): subir un adjunto formal a un voucher devolvía
+   **502 SIEMPRE** desde que se creó la feature.
+2. **backup_db.py** `DropboxService()` sin token → TypeError: el cron de
+   backup **nunca pudo subir** un dump a /99-Backups/. Ahora carga la
+   credencial de core.integrations.
+3. **Roles por empresa inoperables**: el modal exigía el UUID de Supabase que
+   ninguna pantalla mostraba. Ahora se asigna por **email** (backend resuelve),
+   el listado muestra emails (JOIN auth.users) y la búsqueda es por email.
+4. **admin_users DELETE** no invalidaba el cache de scope (ventana de 60s en
+   que el revocado seguía viendo empresas). Fix: invalidate_user_cache.
