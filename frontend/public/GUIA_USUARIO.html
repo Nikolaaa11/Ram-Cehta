@@ -136,6 +136,8 @@
     <div class="grp">Operación diaria</div>
     <a href="#dashboard">Dashboard</a>
     <a href="#pendientes">Mis pendientes / notificaciones</a>
+    <a href="#gastos">Reportar un gasto (Gastos rápidos)</a>
+    <a href="#prevouchers">Pre-vouchers · Cola</a>
     <a href="#vouchers">Vouchers (comprobantes)</a>
     <a href="/GUIA_INGRESO_VOUCHERS.html" style="color:var(--green-700);font-weight:600">↳ Guía de ingreso de vouchers</a>
     <a href="#oc">Órdenes de compra</a>
@@ -171,6 +173,8 @@
     <a href="#integraciones">Integraciones / credenciales</a>
     <div class="grp">Referencia</div>
     <a href="#faq">Preguntas frecuentes</a>
+    <a href="/GUIA_FLUJO_CARGOS.html" style="color:var(--green-700);font-weight:600">↳ Flujo, cargos y carpetas</a>
+    <a href="/GUIA_NUBOX.html" style="color:var(--green-700);font-weight:600">↳ Integración Nubox</a>
   </nav>
 </aside>
 
@@ -255,7 +259,7 @@
   <div class="datos">
     <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
     <div class="row"><b>Origen</b><span>Tabla <span class="mono">user_company_roles</span> — qué rol tiene cada usuario en cada empresa.</span></div>
-    <div class="row"><b>Cómo cambiar</b><span>Admin → <b>Usuarios y roles</b> (<span class="mono">/admin/user-company-roles</span>): agregar/quitar rol por usuario y empresa.</span></div>
+    <div class="row"><b>Cómo cambiar</b><span>Admin → <b>Roles por empresa</b> (<span class="mono">/admin/user-company-roles</span>): agregar/quitar cargo por usuario y empresa. Se asigna escribiendo el <b>email</b> de la persona (ya no hace falta ningún código técnico). Paso a paso en la guía <a href="/GUIA_FLUJO_CARGOS.html" style="color:var(--green-700);font-weight:600">Flujo, cargos y carpetas</a>.</span></div>
     <div class="row"><b>Multi-empresa</b><span>Si solo ves una empresa, es porque tu rol está acotado. El admin amplía el alcance.</span></div>
   </div>
 </section>
@@ -407,8 +411,93 @@
   </ol>
   <div class="datos">
     <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
-    <div class="row"><b>Origen</b><span>Se generan solos: vouchers en estado PENDIENTE asignados a vos, F29/contratos por vencer, OCs sin firma, etc.</span></div>
+    <div class="row"><b>Origen</b><span>Se generan solos: vouchers en estado PENDIENTE asignados a vos, F29/contratos por vencer, OCs emitidas hace más de 7 días sin pagar, etc.</span></div>
     <div class="row"><b>Se limpian solas</b><span>Cuando resolvés el pendiente (firmás, completás), la notificación se marca leída automáticamente.</span></div>
+  </div>
+</section>
+
+<!-- GASTOS RÁPIDOS -->
+<section id="gastos">
+  <h2><span class="ic">⚡</span> Reportar un gasto (Gastos rápidos)</h2>
+  <span class="who">Para todos — no hace falta saber contabilidad</span>
+  <p class="lead">El camino de 1 minuto para reportar cualquier gasto o compra desde el teléfono.
+    Elegís de qué es, le sacás foto a la boleta y listo: lo que creás acá es un <b>pre-voucher</b>
+    (un voucher en borrador) que un especialista contable completa después. Vos no elegís cuentas.</p>
+
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Entrá a <b>Operaciones → Gastos rápidos</b> (<span class="mono">/gastos</span>). Desde el
+      teléfono funciona igual de bien.</li>
+    <li>Elegí <b>de qué es el gasto</b>: Marketing, Desarrollo u <b>Otro gasto</b> (si no encaja en
+      ninguno, usá Otro — finanzas lo clasifica).</li>
+    <li>Elegí la <b>empresa</b> a la que corresponde.</li>
+    <li><b>Sacá foto a la boleta o factura</b> (opcional pero recomendado): la IA lee el monto, la
+      fecha y el proveedor y los rellena solos. También podés subir un archivo.</li>
+    <li>Revisá el <b>monto</b> y escribí <b>qué compraste</b>. Apretá <b>Enviar gasto</b>.</li>
+  </ol>
+
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Campo</th><th>Para qué sirve</th></tr>
+    <tr><td><b>Categoría</b></td><td>Define la cuenta contable de partida y el centro de costo.
+      Marketing → gastos generales + área Comercial. Desarrollo → servicios computacionales + área
+      Tecnología. Otro gasto → gastos generales + área Administración. <b>El especialista puede
+      reclasificarla</b> al procesarlo.</td></tr>
+    <tr><td><b>Empresa</b></td><td>Solo aparecen las empresas a las que tenés acceso.</td></tr>
+    <tr><td><b>Foto</b></td><td>Queda archivada en la carpeta de la empresa en Dropbox y viaja
+      pegada al voucher como respaldo.</td></tr>
+  </table>
+
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Categorías</b><span>Fijas (Marketing · Desarrollo · Otro gasto). Apuntan a cuentas del <a href="#plan-cuentas">Plan de cuentas</a>; el operador nunca inventa una cuenta.</span></div>
+    <div class="row"><b>Extracción</b><span>La foto se manda a la IA que devuelve monto, fecha, proveedor y folio. <b>Nada se guarda hasta que apretás Enviar.</b></span></div>
+    <div class="row"><b>Dónde termina</b><span>En la cola de <a href="#prevouchers">Pre-vouchers</a> como borrador. <b>Desde acá no se paga nada</b> — solo se reporta.</span></div>
+  </div>
+
+  <div class="tip"><b>¿Sos contador y querés cargar el asiento completo de una vez?</b> Ese es el
+    otro camino: <a href="#vouchers">Vouchers → Nuevo</a>. Gastos rápidos existe para que el resto
+    del equipo no tenga que aprender contabilidad.</div>
+</section>
+
+<!-- PRE-VOUCHERS -->
+<section id="prevouchers">
+  <h2><span class="ic">📋</span> Pre-vouchers · Cola</h2>
+  <span class="who">Contador · Especialista contable</span>
+  <p class="lead">La bandeja de entrada del especialista: todos los gastos que el equipo reportó y
+    que esperan imputación contable. Tomás uno, completás las cuentas y lo mandás a firmas.</p>
+
+  <h4>Cómo se usa</h4>
+  <ol class="steps">
+    <li>Entrá a <b>Operaciones → Pre-vouchers · Cola</b> (<span class="mono">/prevouchers</span>).
+      Están ordenados por antigüedad: el que más lleva esperando, primero.</li>
+    <li>Mirá la tarjeta: quién lo cargó, hace cuántos días, si trae documento adjunto y si la
+      imputación ya cuadra.</li>
+    <li>Apretá <b>Completar</b> — se abre el voucher.</li>
+    <li>En el detalle, tocá <b>Editar imputación</b>: corregí las líneas (cuenta × área × proyecto,
+      debe/haber). El cuadre se calcula en vivo. Guardá.</li>
+    <li>Cuando cuadra, <b>Enviar a aprobación</b> → entra al flujo normal de firmas.</li>
+  </ol>
+
+  <h4>Parámetros que influyen</h4>
+  <table>
+    <tr><th>Señal en la tarjeta</th><th>Qué significa</th></tr>
+    <tr><td><b>Falta imputación</b></td><td>El asiento no cuadra o no tiene líneas útiles: hay que
+      completarlo antes de mandarlo a firmas.</td></tr>
+    <tr><td><b>Cuadrado ✓</b></td><td>Debe = Haber. Igual conviene revisar que la cuenta sea la
+      correcta (la categoría es solo un punto de partida).</td></tr>
+    <tr><td><b>Sin documento</b></td><td>Nadie adjuntó boleta ni factura. Podés pedirle el respaldo
+      a quien lo cargó (su correo está en la tarjeta).</td></tr>
+    <tr><td><b>Días esperando</b></td><td>Se marca en rojo a partir de 5 días.</td></tr>
+    <tr><td><b>Gastos rápidos</b></td><td>Etiqueta que indica que vino de <a href="#gastos">/gastos</a>
+      y no de un contador.</td></tr>
+  </table>
+
+  <div class="datos">
+    <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Origen</b><span>Son los vouchers en estado <b>DRAFT</b> de tus empresas — un pre-voucher NO es un objeto aparte: <b>es</b> el borrador del voucher (mismo código, mismos adjuntos).</span></div>
+    <div class="row"><b>Filtro</b><span>Por empresa, arriba a la derecha. La cola se refresca sola cada minuto.</span></div>
+    <div class="row"><b>Editar</b><span>Podés completar el borrador de otra persona: se preserva quién lo creó y su respaldo. Solo se editan borradores — un voucher en firmas o aprobado es inmutable.</span></div>
   </div>
 </section>
 
@@ -437,7 +526,7 @@
   </div>
   <h4>Cómo se usa — crear un voucher</h4>
   <ol class="steps">
-    <li>Andá a <b>Vouchers → Nuevo</b> (o <b>Nuevo Nubox</b> para el formato con información contable + financiera).</li>
+    <li>Andá a <b>Vouchers → Nuevo</b> (o <b>Nuevo Nubox</b> para el formato con información contable + financiera). <i>¿No sabés qué cuenta usar? Ese es el camino de <a href="#gastos">Gastos rápidos</a>: reportás en 1 minuto y un especialista lo completa.</i></li>
     <li>Elegí la <b>empresa</b> y el <b>tipo de documento</b> (factura electrónica, boleta, etc.).</li>
     <li>Completá <b>proveedor</b> (opcional), <b>número de documento</b> (folio) y <b>fechas</b>.</li>
     <li>Cargá las <b>líneas</b>: cada una con su cuenta del plan, comentario y monto. La <b>Información Contable</b> (debe) y la <b>Financiera</b> (haber) deben sumar igual.</li>
@@ -459,7 +548,8 @@
     <div class="row"><b>Desde correo</b><span>Si la factura llegó por mail, la IA puede pre-llenar el voucher (proveedor, monto, glosa). Revisá siempre antes de guardar.</span></div>
     <div class="row"><b>Desde OC</b><span>Las cuotas de una orden de compra se convierten en vouchers automáticamente.</span></div>
     <div class="row"><b>Plan de cuentas</b><span>Las cuentas de cada línea salen del <a href="#plan-cuentas">Plan de cuentas</a>. Si falta una cuenta, agregala ahí primero.</span></div>
-    <div class="row"><b>Corregir</b><span>Mientras está en <b>DRAFT</b> se edita libre. Una vez enviado a aprobación, hay que rechazarlo para editar. Si ya está EJECUTADO, se hace un <b>voucher de reverso</b> (no se borra — queda la trazabilidad).</span></div>
+    <div class="row"><b>Corregir</b><span>Mientras está en <b>DRAFT</b> se edita libre: en el detalle, botón <b>Editar imputación</b> — cambiás las líneas (cuenta × área × proyecto, debe/haber) con el cuadre en vivo, sin borrar ni recrear el voucher. Una vez enviado a aprobación, hay que rechazarlo para editar. Si ya está EJECUTADO, se hace un <b>voucher de reverso</b> (no se borra — queda la trazabilidad).</span></div>
+    <div class="row"><b>Pre-voucher</b><span>Un <a href="#prevouchers">pre-voucher</a> ES un voucher en DRAFT — no son dos cosas distintas. Los que reporta el equipo desde <a href="#gastos">Gastos rápidos</a> aparecen acá como borradores esperando imputación.</span></div>
   </div>
   <div class="ejemplo">
     <span class="et">📝 Ejemplo trabajado</span>
@@ -506,7 +596,7 @@
   <h4>Parámetros que influyen</h4>
   <table>
     <tr><th>Parámetro</th><th>Efecto</th></tr>
-    <tr><td><b>Empresa</b></td><td>Define el logo, color, datos y formato del PDF. <b>RHO</b> usa el formato "Panimávida" (carta formal + página de firmas); el resto el institucional.</td></tr>
+    <tr><td><b>Empresa</b></td><td>Define el logo, el color y los datos del PDF. <b>Las 10 empresas</b> usan el mismo formato de carta formal (PROVEEDOR / MANDANTE + página de firmas), cada una con su logo y color. ⚠️ Hay 8 empresas sin firmante ni teléfono cargado: en esas, el bloque de firmas sale en blanco hasta que se completen en <span class="mono">/admin/oc-branding</span>.</td></tr>
     <tr><td><b>Cuotas</b></td><td>Cantidad + fechas. La suma de cuotas siempre da el total exacto; la última absorbe el redondeo.</td></tr>
     <tr><td><b>Estado</b></td><td>emitida → pagada / anulada. No se puede anular una OC cuyas cuotas ya son vouchers aprobados.</td></tr>
   </table>
@@ -1006,11 +1096,13 @@
 <section id="usuarios">
   <h2><span class="ic">👤</span> Usuarios y roles</h2>
   <span class="who">Solo Admin</span>
-  <p class="lead">Crear usuarios, asignar roles por empresa y resetear claves.</p>
+  <p class="lead">Crear usuarios, asignar roles por empresa, resetear claves y <b>revocar accesos</b>.</p>
   <div class="datos">
     <h4>📍 De dónde salen los datos · cómo reemplazarlos</h4>
     <div class="row"><b>Origen</b><span>Usuarios (45, se preservan en la marcha blanca) + matriz de roles por empresa.</span></div>
     <div class="row"><b>Reemplazar</b><span>Admin → Usuarios y roles: agregar usuario, cambiar rol, resetear clave (genera Excel con las nuevas).</span></div>
+    <div class="row"><b>Revocar acceso</b><span>Botón <b>Revocar</b> en la fila del usuario (<span class="mono">/admin/usuarios</span>). Corta el acceso de verdad: bloquea el login, le quita todas las empresas y anula sus tokens. <b>Es reversible</b> y su historial (vouchers, OCs, firmas) se conserva intacto por auditoría.</span></div>
+    <div class="row"><b>Protecciones</b><span>No podés revocarte a vos mismo ni al último admin que quede. Ver la guía <a href="/GUIA_FLUJO_CARGOS.html" style="color:var(--green-700);font-weight:600">Flujo, cargos y carpetas</a>.</span></div>
   </div>
 </section>
 
@@ -1056,7 +1148,7 @@
   <p style="font-size:14px;margin-bottom:14px">Esas facturas traen <b>impuesto específico</b> además del IVA. Cargalo en su campo (modo "$ monto") y el total bruto va a coincidir con la factura.</p>
 
   <h4>"¿Dónde está la orden de compra de RHO con el formato nuevo?"</h4>
-  <p style="font-size:14px;margin-bottom:14px">RHO usa el formato "Panimávida" (carta formal + página de firmas) automáticamente. Descargá el PDF desde cualquier OC de RHO y sale con ese diseño y los firmantes configurados.</p>
+  <p style="font-size:14px;margin-bottom:14px">Todas. El formato de carta formal (PROVEEDOR / MANDANTE + página de firmas) es el estándar de las 10 empresas: descargá el PDF de cualquier OC y sale con el logo y el color de su empresa. Si el bloque de firmas sale vacío, es porque a esa empresa le falta cargar el firmante en <span class="mono">/admin/oc-branding</span>.</p>
 
   <h4>"¿Cómo reseteo la clave de un usuario?"</h4>
   <p style="font-size:14px;margin-bottom:14px">Solo el admin, en <a href="#usuarios">Usuarios y roles</a>. Genera un Excel con las claves nuevas para entregar.</p>
@@ -1064,7 +1156,7 @@
   <div class="tip"><b>¿No está tu duda?</b> Preguntale a <a href="#claudia">ClaudIA</a> dentro de la plataforma — conoce tus datos y te responde al instante.</div>
 </section>
 
-<div class="toc-note">Esta guía se actualiza con la plataforma. Versión 5 · marcha blanca 2026 · 37 secciones · accesos rápidos · 5 ejemplos trabajados con números reales · glosario · 4 flujos completos · 6 mockups · preguntas frecuentes.</div>
+<div class="toc-note">Esta guía se actualiza con la plataforma. Versión 6 · julio 2026 · 39 secciones · accesos rápidos · 5 ejemplos trabajados con números reales · glosario · 4 flujos completos · 6 mockups · preguntas frecuentes.</div>
 </div>
 
 <footer>

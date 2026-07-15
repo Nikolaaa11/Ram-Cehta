@@ -136,7 +136,8 @@
   <nav id="nav">
     <div class="grp">Empezar</div>
     <a href="#que-es" class="on">Cómo funciona un voucher</a>
-    <a href="#vias">Las 3 formas de ingresar</a>
+    <a href="#gasto-rapido">⚡ Reportar un gasto (sin contabilidad)</a>
+    <a href="#vias">Las formas de ingresar</a>
     <a href="#estados">Estados y firmas</a>
     <div class="grp">Ingreso paso a paso</div>
     <a href="#foto">📷 Por foto (boleta o factura)</a>
@@ -155,6 +156,7 @@
     <a href="#errores">Errores comunes</a>
     <div class="grp">Más</div>
     <a href="/GUIA_USUARIO.html">← Guía general de la plataforma</a>
+    <a href="/GUIA_FLUJO_CARGOS.html">← Flujo, cargos y carpetas</a>
   </nav>
 </aside>
 
@@ -217,9 +219,53 @@
   </div>
 </section>
 
-<!-- LAS 3 VÍAS -->
+<!-- CAMINO RÁPIDO · PRE-VOUCHER -->
+<section id="gasto-rapido">
+  <h2><span class="ic">⚡</span> Camino rápido: reportar un gasto sin saber contabilidad</h2>
+  <p class="lead">Todo lo que viene después de esta sección (cuentas, IVA, cuadratura) es trabajo de
+    contador. <b>Si vos solo querés reportar un gasto, no necesitás nada de eso.</b> Usá Gastos
+    rápidos: 1 minuto desde el teléfono, y un especialista se encarga del resto.</p>
+
+  <div class="flow">
+    <span class="n">⚡ Vos: reportás en /gastos</span><span class="ar">→</span>
+    <span class="n">📋 Especialista: completa la imputación</span><span class="ar">→</span>
+    <span class="n">✍️ Gerentes: firman</span>
+  </div>
+
+  <h4>Cómo se hace (para cualquiera del equipo)</h4>
+  <ol class="steps">
+    <li>Entrá a <b>Operaciones → Gastos rápidos</b> (<span class="mono">/gastos</span>).</li>
+    <li>Elegí de qué es: <b>Marketing</b>, <b>Desarrollo</b> u <b>Otro gasto</b>. Si dudás, poné
+      Otro — finanzas lo clasifica bien después.</li>
+    <li>Elegí la <b>empresa</b>.</li>
+    <li><b>Sacá foto a la boleta</b>: la IA lee el monto, la fecha y el proveedor y los rellena.</li>
+    <li>Revisá el monto, escribí qué compraste y <b>Enviar</b>.</li>
+  </ol>
+
+  <div class="tip"><b>Lo que creaste se llama pre-voucher</b>, y no es un objeto raro: <b>es</b> un
+    voucher en estado borrador (DRAFT), con tu foto adjunta y tu nombre como quien lo reportó. Queda
+    en la cola <span class="mono">/prevouchers</span> esperando al contador.</div>
+
+  <h4>Qué hace el especialista contable después</h4>
+  <ol class="steps">
+    <li>Abre <b>Operaciones → Pre-vouchers · Cola</b> (<span class="mono">/prevouchers</span>): ve
+      todos los gastos reportados, quién los cargó, hace cuántos días y si traen documento.</li>
+    <li>Aprieta <b>Completar</b> y, en el detalle del voucher, <b>Editar imputación</b>: define las
+      cuentas correctas (cuenta × área × proyecto, debe/haber) con el cuadre en vivo.</li>
+    <li><b>Enviar a aprobación</b> → sigue el flujo normal de firmas de esta guía.</li>
+  </ol>
+
+  <div class="datos">
+    <h4>📊 De dónde salen los datos · cómo reemplazarlos</h4>
+    <div class="row"><b>Categoría</b><span>Es un punto de partida, no la palabra final: Marketing → <span class="mono">4201-08</span> + área COM · Desarrollo → <span class="mono">4201-37</span> + área TIC · Otro gasto → <span class="mono">4201-08</span> + área ADM. El especialista reclasifica lo que haga falta.</span></div>
+    <div class="row"><b>Corregir</b><span>Un borrador se arregla desde su detalle con <b>Editar imputación</b> — no hace falta borrarlo y recrearlo (perderías el código y el respaldo).</span></div>
+    <div class="row"><b>Quién completa</b><span>Cualquiera con rol contable en esa empresa, no solo quien lo creó.</span></div>
+  </div>
+</section>
+
+<!-- LAS VÍAS -->
 <section id="vias">
-  <h2><span class="ic">🛣️</span> Las 3 formas de ingresar un voucher</h2>
+  <h2><span class="ic">🛣️</span> Las formas de ingresar un voucher</h2>
   <p class="lead">Elegí según dónde estés y qué tengas en la mano:</p>
   <div class="vias">
     <div class="via star">
@@ -244,9 +290,12 @@
       <div class="vw">📍 Administración → Bandeja de correo</div>
     </div>
   </div>
-  <div class="tip"><b>¿Cuál usar?</b> Si tenés el papel en la mano → <b>foto</b>. Si te llegó por
-    correo → <b>bandeja</b>. Si es un caso complejo (varias cuentas, cuotas, retenciones) → <b>manual</b>.
-    Las tres terminan en el mismo lugar: un voucher en estado borrador esperando firmas.</div>
+  <div class="tip"><b>¿Cuál usar?</b> La primera pregunta es <b>quién sos</b>: si no manejás cuentas
+    contables, tu camino es <a href="#gasto-rapido">⚡ Gastos rápidos</a> y acá terminaste. Si sos
+    contador: papel en la mano → <b>foto</b>; llegó por correo → <b>bandeja</b>; caso complejo
+    (varias cuentas, cuotas, retenciones) → <b>manual</b>.<br><br>
+    Todas terminan en el mismo lugar: un voucher en estado <b>borrador</b>. Ojo — borrador no es
+    "esperando firmas": es "esperando que alguien complete la imputación y lo envíe a aprobación".</div>
 </section>
 
 <!-- ESTADOS -->
@@ -262,7 +311,7 @@
   </div>
   <table>
     <tr><th>Estado</th><th>Qué significa</th><th>Quién actúa</th></tr>
-    <tr><td><span class="badge b-draft">DRAFT</span></td><td>Recién creado. Se puede editar todo.</td><td>Quien lo creó</td></tr>
+    <tr><td><span class="badge b-draft">DRAFT</span></td><td>Recién creado. Se puede editar todo (botón <b>Editar imputación</b> en el detalle). Un <a href="#gasto-rapido">pre-voucher</a> vive en este estado hasta que le ponen las cuentas.</td><td>Quien lo creó <b>o</b> el especialista contable desde <span class="mono">/prevouchers</span></td></tr>
     <tr><td><span class="badge b-pend">PENDING</span></td><td>Enviado a aprobación. Ya no se edita: se firma o se rechaza.</td><td>Los firmantes de la empresa</td></tr>
     <tr><td><span class="badge b-app">APPROVED</span></td><td>Tiene las 2 firmas. Habilitado para ordenar la transferencia.</td><td>Tesorería</td></tr>
     <tr><td><span class="badge b-exec">EXECUTED</span></td><td>La plata salió del banco. Queda para conciliación y Nubox.</td><td>—</td></tr>
@@ -684,9 +733,11 @@
     <span class="n">👀 Revisás y elegís cuentas</span><span class="ar">→</span>
     <span class="n">✅ Guardás → voucher en DRAFT</span>
   </div>
-  <div class="tip"><b>Tip de terreno:</b> sacá la foto apenas te entregan la boleta, aunque no tengas
-    tiempo de completar las cuentas — el voucher queda en DRAFT con el documento archivado en Dropbox
-    y lo terminás después desde el computador. Lo importante es no perder el papel.</div>
+  <div class="tip"><b>Tip de terreno:</b> sacá la foto apenas te entregan la boleta. Si no manejás
+    cuentas contables, usá <a href="#gasto-rapido">⚡ Gastos rápidos</a> y listo — <b>no tenés que
+    terminarlo vos</b>: queda en la cola y lo completa el especialista. Si sos contador y no tenés
+    tiempo ahora, el voucher igual queda en DRAFT con el documento archivado en Dropbox y lo
+    terminás después desde el computador. Lo importante es no perder el papel.</div>
 </section>
 
 <!-- ERRORES COMUNES -->
