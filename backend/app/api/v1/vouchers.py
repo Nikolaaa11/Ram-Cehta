@@ -1515,6 +1515,8 @@ async def create_voucher(
         banco_cuenta_alias=body.banco_cuenta_alias,
         threshold_aplicado=body.threshold_aplicado,
         reversal_of=body.reversal_of,
+        # MEGAPROMPT PREVOUCHER — persistir el origen (antes se descartaba).
+        source=body.source,
         created_by=str(user.sub),
         requested_by=str(user.sub),
     )
@@ -2522,9 +2524,13 @@ class VoucherApprovalRead(BaseModel):
     decision: Literal["APPROVED", "REJECTED"]
     signed_at: datetime
     signature_hash: str
-    ip_address: str | None
-    user_agent: str | None
-    comments: str | None
+    # MEGAPROMPT PREVOUCHER — con default: en pydantic v2 `str | None` SIN
+    # default sigue siendo requerido; el SELECT de get_voucher_approvals no
+    # traía user_agent → TODO reject (y cualquier lectura del estado de
+    # firmas con filas) tiraba 500 "user_agent missing" DESPUÉS de commitear.
+    ip_address: str | None = None
+    user_agent: str | None = None
+    comments: str | None = None
 
 
 class VoucherApprovalsState(BaseModel):

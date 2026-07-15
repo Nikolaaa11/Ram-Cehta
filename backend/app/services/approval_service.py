@@ -190,7 +190,7 @@ async def get_voucher_approvals(
                 """
                 SELECT approval_id, voucher_id, approver_user_id::text AS approver_user_id,
                        role, order_num, decision, signed_at, signature_hash,
-                       ip_address, comments
+                       ip_address, user_agent, comments
                 FROM core.voucher_approvals
                 WHERE voucher_id = :v
                 ORDER BY order_num ASC, signed_at ASC

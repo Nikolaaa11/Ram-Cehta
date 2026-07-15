@@ -157,6 +157,10 @@ class VoucherCreate(BaseModel):
 
     threshold_aplicado: bool = False
     reversal_of: int | None = None
+    # MEGAPROMPT PREVOUCHER — origen del voucher (prevoucher, ai_import,
+    # nubox_form, etc.). Antes pydantic descartaba el campo en silencio y
+    # /gastos no podía marcar sus borradores.
+    source: str | None = Field(default=None, max_length=40)
 
     # R152EEEEEE — Cap defensivo: voucher típico tiene 2-10 líneas, máximo
     # razonable son 50-100 para cierres complejos. Sin esto un POST con
