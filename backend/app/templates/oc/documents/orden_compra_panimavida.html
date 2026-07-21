@@ -119,27 +119,35 @@
     .firmas-page h2 {
       font-size: 11pt;
       font-weight: 700;
-      margin-bottom: 14mm;
+      margin-bottom: 4mm;
     }
+    /* MEGAPROMPT OC-DISEÑO — espaciado amplio como la OC Panimávida de
+       referencia: máx 3 firmas por fila, cada bloque con ~16mm de aire
+       ARRIBA de la línea (espacio real para firmar a mano) y filas bien
+       separadas. Antes la línea nacía pegada al borde del bloque
+       (padding-top 1.5mm) y las 6 firmas salían apretadas. */
     .firmas-grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 16mm 10mm;
+      gap: 10mm 8mm;
+      justify-content: space-between;
     }
     .firma {
-      width: 30%;
-      min-width: 52mm;
+      width: 31%;
+      min-width: 56mm;
       text-align: center;
       font-size: 9pt;
+      page-break-inside: avoid;
     }
     .firma .linea {
       border-top: 0.8pt solid #0F172A;
-      margin-bottom: 1.5mm;
+      margin-top: 17mm;   /* espacio en blanco para la firma manuscrita */
+      margin-bottom: 2mm;
       padding-top: 1.5mm;
     }
-    .firma .nombre { font-weight: 700; }
-    .firma .cargo { color: #475569; }
-    .firma .emp { color: #475569; text-transform: uppercase; font-size: 8pt; }
+    .firma .nombre { font-weight: 700; font-size: 9.5pt; letter-spacing: -0.01em; }
+    .firma .cargo { color: #475569; margin-top: 0.5mm; }
+    .firma .emp { color: #475569; text-transform: uppercase; font-size: 8pt; margin-top: 0.5mm; }
     body[data-watermark]::before {
       content: attr(data-watermark);
       position: fixed;
@@ -254,16 +262,19 @@
       {% for f in firmantes %}
       <div class="firma">
         {% if f.firmado_el %}
-        {# MEGAPROMPT F3 — firma electrónica estampada (core.oc_firmas) #}
-        <div class="linea" style="border-bottom:none; font-size:12px; font-weight:600; color:#0F6E4B;">
+        {# MEGAPROMPT F3 — firma electrónica estampada (core.oc_firmas).
+           El sello ocupa el ESPACIO de la firma manuscrita (sobre la línea),
+           no debajo: mismo alto que un bloque sin firmar. #}
+        <div style="margin-top: 9mm; font-size: 11pt; font-weight: 600; color: #0F6E4B;">
           ✓ Firmado electrónicamente
         </div>
+        <div style="font-size: 7pt; color: #64748B; margin-bottom: 1mm;">
+          {{ f.firmado_el }} · hash {{ f.hash_corto }}
+        </div>
+        <div class="linea" style="margin-top: 1.5mm;">&nbsp;</div>
         <p class="nombre">{{ f.nombre }}</p>
         <p class="cargo">{{ f.cargo }}</p>
         <p class="emp">{{ empresa.razon_social }}</p>
-        <p style="font-size:7.5px; color:#6e6e73; margin-top:2px;">
-          {{ f.firmado_el }} · hash {{ f.hash_corto }}
-        </p>
         {% else %}
         <div class="linea">&nbsp;</div>
         <p class="nombre">{{ f.nombre }}</p>
