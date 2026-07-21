@@ -2,7 +2,8 @@ import { serverApiGet } from "@/lib/api/server";
 import { Surface } from "@/components/ui/surface";
 import { HeroKpis } from "@/components/ceo/HeroKpis";
 import { ComparadorEmpresas } from "@/components/ceo/ComparadorEmpresas";
-import { ComparativoChart } from "@/components/ceo/ComparativoChart";
+// MEGAPROMPT PERF: lazy — recharts fuera del First Load de /ceo (~-100 kB gz).
+import { LazyComparativoChart } from "@/components/ceo/LazyComparativoChart";
 import { Heatmap } from "@/components/ceo/Heatmap";
 import { TopAlerts } from "@/components/ceo/TopAlerts";
 import { InsightsLivePreview } from "@/components/ceo/InsightsLivePreview";
@@ -112,7 +113,7 @@ export default async function CeoDashboardPage() {
 
       {/* 2.5) Comparativo overlay chart — líneas superpuestas por empresa */}
       <section data-presentation-section>
-        <ComparativoChart />
+        <LazyComparativoChart />
       </section>
 
       {/* 4) Top Alertas + 5) Insights AI Live (V4.7.13) */}

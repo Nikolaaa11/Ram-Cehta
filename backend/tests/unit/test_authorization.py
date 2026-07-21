@@ -22,7 +22,9 @@ def svc() -> AuthorizationService:
 
 def test_admin_emitida_gets_all_actions(svc: AuthorizationService) -> None:
     actions = svc.allowed_actions_for_oc(_user("admin"), "emitida")
-    assert set(actions) == {"download_pdf", "approve", "cancel", "mark_paid"}
+    assert set(actions) == {
+        "download_pdf", "approve", "cancel", "mark_paid", "send_to_firma",
+    }
 
 
 def test_admin_pagada_gets_download_only(svc: AuthorizationService) -> None:
@@ -42,7 +44,9 @@ def test_admin_anulada_gets_download_only(svc: AuthorizationService) -> None:
 
 def test_finance_emitida_gets_correct_actions(svc: AuthorizationService) -> None:
     actions = svc.allowed_actions_for_oc(_user("finance"), "emitida")
-    assert set(actions) == {"download_pdf", "approve", "mark_paid"}
+    assert set(actions) == {
+        "download_pdf", "approve", "mark_paid", "send_to_firma",
+    }
 
 
 def test_finance_cannot_cancel(svc: AuthorizationService) -> None:

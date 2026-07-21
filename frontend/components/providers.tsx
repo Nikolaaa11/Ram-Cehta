@@ -36,9 +36,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Capa 1+2+3: SW cleanup con reload-once
+    // Capa 1+2+3: SW cleanup con reload-once.
+    // MEGAPROMPT PERF: one-shot con localStorage — antes esto corría en
+    // CADA carga de página (getRegistrations + caches.keys + borrar TODOS
+    // los CacheStorage), penalizando cada arranque para limpiar un SW que
+    // ya no existe. Ahora corre una sola vez por browser; si alguna vez se
+    // reintroduce un SW legítimo, subir la versión del flag.
+    const SW_CLEANUP_FLAG = "sw-cleanup-v1-done";
     const swCleanup = async () => {
       if (!("serviceWorker" in navigator)) return;
+      if (localStorage.getItem(SW_CLEANUP_FLAG)) return;
       try {
         const hasController = !!navigator.serviceWorker.controller;
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -50,6 +57,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           const keys = await caches.keys();
           await Promise.all(keys.map((k) => caches.delete(k)));
         }
+        localStorage.setItem(SW_CLEANUP_FLAG, "1");
         const alreadyReloaded = sessionStorage.getItem("sw-cleanup-done");
         if ((hasController || foundAny) && !alreadyReloaded) {
           sessionStorage.setItem("sw-cleanup-done", "1");

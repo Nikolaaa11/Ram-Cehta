@@ -261,6 +261,13 @@ async def answer_question(
         db, empresa_codigo=empresa_codigo, allowed_codes=allowed_codes
     )
 
+    # MEGAPROMPT PERF (patrón R152UUUUU, igual que vouchers_extract) —
+    # devolver la conexión al pool ANTES de la llamada a Claude (hasta 90s ×
+    # 3 retries). El resto de la función no usa la BD. Sin esto, 4 preguntas
+    # concurrentes a Claudia Data agotaban el pool (3+1) y TODA la API
+    # esperaba pool_timeout=30s.
+    await db.close()
+
     import json
 
     from anthropic import AsyncAnthropic

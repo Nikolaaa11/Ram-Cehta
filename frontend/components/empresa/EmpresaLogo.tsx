@@ -57,13 +57,15 @@ export function EmpresaLogo({
         style={{ width: size, height: size }}
         title={empresaCodigo}
       >
+        {/* MEGAPROMPT PERF: sin `unoptimized` — Vercel sirve el logo
+            redimensionado a `size` px en WebP/AVIF (los originales en
+            /public/logos pesan hasta ~250 kB y se renderizan a 40px). */}
         <Image
           src={logo}
           alt={`Logo ${empresaCodigo}`}
           width={size}
           height={size}
           className="h-full w-full object-contain p-1"
-          unoptimized
         />
       </span>
     );

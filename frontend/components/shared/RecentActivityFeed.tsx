@@ -145,8 +145,11 @@ export function RecentActivityFeed({
     queryFn: () =>
       apiClient.get<PageResp>(`/audit/actions?${params.toString()}`, session),
     enabled: !loading && !!session,
-    refetchInterval: 30_000, // auto-refresh cada 30s
-    staleTime: 15_000,
+    // MEGAPROMPT PERF: 30s→60s. El feed vive en el dashboard (la página
+    // más abierta) y cada tick es una query a audit.action_log con JOINs;
+    // 60s corta ese tráfico a la mitad sin que se note en un feed de audit.
+    refetchInterval: 60_000,
+    staleTime: 45_000,
     retry: 0,
   });
 

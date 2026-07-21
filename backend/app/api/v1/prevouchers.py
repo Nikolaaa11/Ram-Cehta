@@ -30,12 +30,8 @@ from app.services.empresa_scope_service import (
     assert_empresa_access,
     get_allowed_empresa_codes,
 )
-from app.services.voucher_service import (
-    fetch_cuenta_metadata,
-    fetch_proyecto_metadata,
-    is_area_aplica_a_empresa,
-    is_cuenta_habilitada_para_empresa,
-)
+# (MEGAPROMPT PERF: los helpers per-línea de voucher_service se reemplazaron
+# por validación en lote con ANY() — 4 queries totales vs 4 por línea.)
 
 router = APIRouter()
 
@@ -210,6 +206,73 @@ async def replace_voucher_lines(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="line_number debe ser correlativo desde 1 sin saltos.",
         )
+    # MEGAPROMPT PERF — validación en LOTE: antes eran hasta 4 queries
+    # secuenciales POR LÍNEA (~40 round-trips a São Paulo para 10 líneas,
+    # 2-3s de guardado). Ahora son 4 queries totales, independiente del
+    # número de líneas — mismas reglas y mismos mensajes por línea.
+    cuenta_codes = sorted({line.cuenta_codigo for line in body.lines})
+    proy_codes = sorted(
+        {line.proyecto_codigo for line in body.lines if line.proyecto_codigo}
+    )
+    area_codes = sorted(
+        {line.area_codigo for line in body.lines if line.area_codigo}
+    )
+
+    cuentas_meta = {
+        r["codigo"]: dict(r)
+        for r in (
+            await db.execute(
+                text(
+                    """SELECT codigo, imputable, activa FROM core.plan_cuentas
+                       WHERE codigo = ANY(:codes)"""
+                ),
+                {"codes": cuenta_codes},
+            )
+        ).mappings().all()
+    }
+    habilitadas = {
+        r[0]
+        for r in (
+            await db.execute(
+                text(
+                    """SELECT cuenta_codigo FROM core.plan_cuenta_empresa
+                       WHERE empresa_codigo = :e AND habilitada = TRUE
+                         AND cuenta_codigo = ANY(:codes)"""
+                ),
+                {"e": empresa, "codes": cuenta_codes},
+            )
+        ).fetchall()
+    }
+    proys_de_empresa: set[str] = set()
+    if proy_codes:
+        proys_de_empresa = {
+            r[0]
+            for r in (
+                await db.execute(
+                    text(
+                        """SELECT codigo FROM core.proyectos_contables
+                           WHERE codigo = ANY(:codes) AND empresa_codigo = :e"""
+                    ),
+                    {"codes": proy_codes, "e": empresa},
+                )
+            ).fetchall()
+        }
+    areas_aplican: set[str] = set()
+    if area_codes:
+        areas_aplican = {
+            r[0]
+            for r in (
+                await db.execute(
+                    text(
+                        """SELECT area_codigo FROM core.area_empresa
+                           WHERE empresa_codigo = :e AND aplica = TRUE
+                             AND area_codigo = ANY(:codes)"""
+                    ),
+                    {"e": empresa, "codes": area_codes},
+                )
+            ).fetchall()
+        }
+
     for line in body.lines:
         if (line.debit > 0) == (line.credit > 0):
             raise HTTPException(
@@ -219,7 +282,7 @@ async def replace_voucher_lines(
                     f"(uno de los dos > 0, no ambos)."
                 ),
             )
-        cuenta = await fetch_cuenta_metadata(db, line.cuenta_codigo)
+        cuenta = cuentas_meta.get(line.cuenta_codigo)
         if cuenta is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -233,9 +296,7 @@ async def replace_voucher_lines(
                     f"no es imputable o está inactiva."
                 ),
             )
-        if not await is_cuenta_habilitada_para_empresa(
-            db, line.cuenta_codigo, empresa
-        ):
+        if line.cuenta_codigo not in habilitadas:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -243,19 +304,15 @@ async def replace_voucher_lines(
                     f"no está habilitada para empresa '{empresa}'"
                 ),
             )
-        if line.proyecto_codigo:
-            proy = await fetch_proyecto_metadata(db, line.proyecto_codigo)
-            if proy is None or proy["empresa_codigo"] != empresa:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        f"Línea {line.line_number}: proyecto "
-                        f"'{line.proyecto_codigo}' no existe o no es de {empresa}"
-                    ),
-                )
-        if line.area_codigo and not await is_area_aplica_a_empresa(
-            db, line.area_codigo, empresa
-        ):
+        if line.proyecto_codigo and line.proyecto_codigo not in proys_de_empresa:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Línea {line.line_number}: proyecto "
+                    f"'{line.proyecto_codigo}' no existe o no es de {empresa}"
+                ),
+            )
+        if line.area_codigo and line.area_codigo not in areas_aplican:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -290,40 +347,53 @@ async def replace_voucher_lines(
         previa = prev_by_num.get(line.line_number)
         return previa[campo] if previa else getattr(line, campo)
 
-    # Replace-all atómico + recálculo de totales.
+    # Replace-all atómico + recálculo de totales. MEGAPROMPT PERF: un solo
+    # INSERT con UNNEST (antes: 1 round-trip por línea) — mismo patrón que
+    # oc_cuotas/generar-vouchers (R152yyy).
     await db.execute(
         text("DELETE FROM core.voucher_lines WHERE voucher_id = :id"),
         {"id": voucher_id},
     )
-    for line in body.lines:
-        await db.execute(
-            text(
-                """INSERT INTO core.voucher_lines (
-                       voucher_id, line_number, cuenta_codigo, proyecto_codigo,
-                       area_codigo, debit, credit, descripcion,
-                       iva_tratamiento, iva_amount, neto_amount,
-                       balance_treatment
-                   ) VALUES (
-                       :vid, :n, :cuenta, :proyecto, :area, :debit, :credit,
-                       :descripcion, :iva_trat, :iva_amount, :neto_amount,
-                       :bal
-                   )"""
-            ),
-            {
-                "vid": voucher_id,
-                "n": line.line_number,
-                "cuenta": line.cuenta_codigo,
-                "proyecto": line.proyecto_codigo,
-                "area": line.area_codigo,
-                "debit": line.debit,
-                "credit": line.credit,
-                "descripcion": line.descripcion,
-                "iva_trat": _keep(line, "iva_tratamiento"),
-                "iva_amount": _keep(line, "iva_amount"),
-                "neto_amount": _keep(line, "neto_amount"),
-                "bal": _keep(line, "balance_treatment"),
-            },
-        )
+    await db.execute(
+        text(
+            """INSERT INTO core.voucher_lines (
+                   voucher_id, line_number, cuenta_codigo, proyecto_codigo,
+                   area_codigo, debit, credit, descripcion,
+                   iva_tratamiento, iva_amount, neto_amount, balance_treatment
+               )
+               SELECT :vid, u.n, u.cuenta, u.proyecto, u.area,
+                      u.debit, u.credit, u.descripcion,
+                      u.iva_trat, u.iva_amount, u.neto_amount, u.bal
+               FROM UNNEST(
+                   CAST(:ns AS INT[]),
+                   CAST(:cuentas AS TEXT[]),
+                   CAST(:proyectos AS TEXT[]),
+                   CAST(:areas AS TEXT[]),
+                   CAST(:debits AS NUMERIC[]),
+                   CAST(:credits AS NUMERIC[]),
+                   CAST(:descripciones AS TEXT[]),
+                   CAST(:iva_trats AS TEXT[]),
+                   CAST(:iva_amounts AS NUMERIC[]),
+                   CAST(:neto_amounts AS NUMERIC[]),
+                   CAST(:bals AS TEXT[])
+               ) AS u(n, cuenta, proyecto, area, debit, credit,
+                      descripcion, iva_trat, iva_amount, neto_amount, bal)"""
+        ),
+        {
+            "vid": voucher_id,
+            "ns": [line.line_number for line in body.lines],
+            "cuentas": [line.cuenta_codigo for line in body.lines],
+            "proyectos": [line.proyecto_codigo for line in body.lines],
+            "areas": [line.area_codigo for line in body.lines],
+            "debits": [line.debit for line in body.lines],
+            "credits": [line.credit for line in body.lines],
+            "descripciones": [line.descripcion for line in body.lines],
+            "iva_trats": [_keep(line, "iva_tratamiento") for line in body.lines],
+            "iva_amounts": [_keep(line, "iva_amount") for line in body.lines],
+            "neto_amounts": [_keep(line, "neto_amount") for line in body.lines],
+            "bals": [_keep(line, "balance_treatment") for line in body.lines],
+        },
+    )
     total_debit = sum((line.debit for line in body.lines), start=Decimal("0"))
     total_credit = sum((line.credit for line in body.lines), start=Decimal("0"))
     await db.execute(

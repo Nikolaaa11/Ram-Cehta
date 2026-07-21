@@ -137,14 +137,6 @@ app.add_middleware(
 # Gzip — comprime respuestas >500 bytes (60-80% reducción típica en JSON
 # de dashboards / lists). Beneficio neto en latencia es mayor mientras
 # más grande la respuesta. CPU overhead despreciable a este volumen.
-# V5++ ola BJ: compresslevel=4 (era 6) — sweet spot CPU/size:
-#   level 6: ~2ms CPU, 78% reducción → buena calidad, costo CPU notable
-#   level 4: ~0.5ms CPU, 75% reducción → 4x más rápido, casi mismo size
-#   level 1: 0.2ms CPU, 65% reducción → muy rápido, peor size
-# minimum_size=300 (era 500) — comprimimos respuestas más chicas también
-# (la mayoría de JSON de la app está entre 300-2000 bytes)
-app.add_middleware(GZipMiddleware, minimum_size=300, compresslevel=4)
-
 # V5++ ola AE — Audit middleware: cada POST/PATCH/PUT/DELETE va a
 # audit.http_mutations con method/path/status/latency. Best-effort,
 # nunca bloquea ni rompe response al cliente.
@@ -169,6 +161,18 @@ app.add_middleware(IdempotencyMiddleware)
 # Útil para decidir qué features apagar con datos reales (no asumiendo).
 from app.core.usage_tracking_middleware import UsageTrackingMiddleware
 app.add_middleware(UsageTrackingMiddleware)
+
+# MEGAPROMPT PERF — GZip se agrega AL FINAL para quedar OUTERMOST en el
+# stack Starlette (add_middleware invierte el orden): comprime la respuesta
+# como ÚLTIMO paso, después de que Idempotency/Audit vieron el JSON plano.
+# BUG que esto arregla: antes GZip quedaba POR DENTRO del middleware de
+# idempotencia → éste recibía el body ya comprimido, json.loads fallaba en
+# silencio, el cache de replay NUNCA se poblaba y un retry legítimo con la
+# misma Idempotency-Key recibía 409 "request en proceso" — pagando igual
+# 3 round-trips de BD por mutación sin obtener jamás el beneficio.
+# V5++ ola BJ: compresslevel=4 (sweet spot CPU/size: ~0.5ms, 75% reducción);
+# minimum_size=300 (la mayoría del JSON de la app está entre 300-2000 bytes).
+app.add_middleware(GZipMiddleware, minimum_size=300, compresslevel=4)
 
 app.include_router(api_router)
 

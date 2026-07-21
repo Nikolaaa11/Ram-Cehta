@@ -19,6 +19,7 @@ solo loggea warning — nunca rompe la response.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from typing import Any
 
@@ -77,24 +78,32 @@ class HttpMutationAuditMiddleware(BaseHTTPMiddleware):
         latency_ms = int((time.perf_counter() - started) * 1000)
         status_code = response.status_code
 
-        # Insertar fire-and-forget — no await en flujo crítico de response
-        try:
-            await _insert_mutation_log(
-                method=method,
-                path=path,
-                status_code=status_code,
-                latency_ms=latency_ms,
-                user_email=user_email,
-                ip=ip,
-                user_agent=ua,
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.warning(
-                "audit_mutation_insert_failed",
-                error=str(exc),
-                method=method,
-                path=path,
-            )
+        # MEGAPROMPT PERF — fire-and-forget DE VERDAD: antes el comentario
+        # decía "no await en flujo crítico" pero el await estaba igual,
+        # sumando ~40-60ms (INSERT + commit a São Paulo) y una conexión
+        # extra del pool a CADA mutación antes de responder al cliente.
+        # create_task despacha el INSERT en background; el trail es
+        # best-effort igual que siempre (los errores solo se loggean).
+        async def _log_in_background() -> None:
+            try:
+                await _insert_mutation_log(
+                    method=method,
+                    path=path,
+                    status_code=status_code,
+                    latency_ms=latency_ms,
+                    user_email=user_email,
+                    ip=ip,
+                    user_agent=ua,
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "audit_mutation_insert_failed",
+                    error=str(exc),
+                    method=method,
+                    path=path,
+                )
+
+        asyncio.create_task(_log_in_background())
 
         return response
 

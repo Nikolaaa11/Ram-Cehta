@@ -137,3 +137,55 @@ Pasos:
      para que el token nuevo traiga el permiso).
   4. Correr: flyctl ssh console -a cehta-backend -C
      "python -m scripts.ensure_dropbox_folders"  → debe dar 154/154 OK.
+
+---
+
+# MEGAPROMPT OC-DISEÑO + RENDIMIENTO (2026-07-21)
+
+## Frente A · OC con firmas amplias ✅ (commit 52cf35a)
+Template `orden_compra_panimavida.html` (default de las 10 empresas):
+- Espacio de firma **17mm** sobre cada línea (antes ~6mm apretado).
+- 3 firmas por fila, 2 filas bien separadas (gap 10mm), nunca se parten
+  entre páginas (`page-break-inside: avoid`).
+- Firma electrónica estampada: "✓ Firmado electrónicamente" + timestamp+hash
+  ARRIBA de la línea.
+- **Verificado visualmente** contra la OC.docx de referencia con una OC real
+  en producción (mismos 8 ítems Panimávida, $12.180.000/$2.314.200/$14.494.200
+  exactos) — PDF de 3 páginas OK, OC de prueba borrada después.
+
+## Frente B · Rendimiento (auditoría con evidencia + fixes aplicados)
+
+### Backend
+| Fix | Antes | Después |
+|---|---|---|
+| **Orden middleware GZip** (main.py) | GZip por DENTRO de Idempotency → el cache de replay parseaba bodies comprimidos, `json.loads` fallaba en silencio, NUNCA se poblaba y un retry legítimo recibía **409**; 3 round-trips BD/mutación pagados sin beneficio | GZip OUTERMOST (último `add_middleware`): Idempotency ve JSON plano, el replay-cache funciona |
+| **Audit trail** (audit_middleware.py) | El comentario decía "fire-and-forget" pero el `await` estaba en el flujo crítico: **+40-60ms + 1 conexión del pool** en CADA mutación antes de responder | `asyncio.create_task` → el INSERT corre en background, la respuesta sale de inmediato |
+| **Claudia Data** (ai_data_qa_service.py) | Retenía la conexión del pool (3+1) durante la llamada a Claude (hasta 90s×3 retries): 4 preguntas concurrentes congelaban TODA la API | `await db.close()` antes de llamar a Claude (patrón R152UUUUU) |
+| **PUT /vouchers/{id}/lines** (prevouchers.py) | Hasta **4 queries por línea** (~40 round-trips a São Paulo con 10 líneas ≈ **2-3s** de guardado) + 1 INSERT por línea | **4 queries totales** (`= ANY()`) + **1 INSERT** con UNNEST ≈ **~0.3-0.5s**. Mismas reglas, mismos mensajes de error por línea, preserva campos fiscales (`_keep`) |
+
+### Base de datos (aplicado directo con CONCURRENTLY, cero downtime)
+- **+1 índice parcial** `ix_vouchers_draft_created` (cola de pre-vouchers:
+  filtra DRAFT + ordena por created_at).
+- **−7 índices redundantes eliminados** (duplicados EXACTOS verificados por
+  definición + pg_stat antes de borrar): idx_mov_empresa_fecha,
+  idx_voucher_attachments_voucher_uploaded, idx_voucher_lines_{area,cuenta,
+  proyecto}, ix_vouchers_empresa_status_fecha (0 scans; su gemelo
+  ix_vouchers_filter_list tenía 51), ix_plan_cuentas_codigo (duplicaba la
+  PK). Cada uno costaba mantenimiento en CADA INSERT/UPDATE de esas tablas
+  (voucher_lines tenía 3 índices dobles → cada guardado de imputación
+  actualizaba 6 índices en vez de 3).
+
+### Frontend
+| Fix | Impacto |
+|---|---|
+| **PageTransition sin framer-motion** (CSS keyframes) | ~−38 kB gz del First Load de TODAS las rutas (vivía en el layout). Además elimina el doble delay exit+enter (280ms+280ms) al navegar |
+| **useSession → store compartido** (useSyncExternalStore) | 269 componentes creaban CADA UNO su listener Supabase + getSession(); ahora hay 1 listener global. API idéntica, 0 cambios en consumidores |
+| **LazyComparativoChart** en /ceo | recharts (~100-120 kB gz) fuera del First Load del dashboard CEO |
+| **EmpresaLogo sin `unoptimized`** | Vercel sirve logos redimensionados WebP (originales hasta ~250 kB renderizados a 40px) |
+| **RecentActivityFeed 30s→60s** | Mitad de tráfico del feed en la página más abierta |
+| **SW cleanup one-shot** (providers.tsx) | Antes borraba TODOS los CacheStorage en CADA carga de página; ahora corre 1 vez por browser (flag localStorage) |
+
+### Diferido (documentado, no en esta ronda)
+Lista OC noload(items), triggers FOR EACH STATEMENT, notifications batch
+insert, framer-motion en dashboard/vouchers (por-ruta), sidebar
+cuotas-resumen merge, covering index libro_mayor.
