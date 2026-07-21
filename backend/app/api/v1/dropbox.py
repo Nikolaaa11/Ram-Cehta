@@ -13,10 +13,11 @@ Notas de seguridad:
   Dropbox) requieren JWT con scope `integration:write` o `integration:read`.
 - `/callback` no se autentica con JWT porque Dropbox redirige al browser
   del admin sin Authorization header. La protección viene del CSRF state
-  que `DropboxOAuth2Flow` valida internamente contra `_oauth_session`.
-- `_oauth_session` es un dict en memoria — alcanza para single-admin. Si
-  algún día hay múltiples admins conectando en paralelo se debe migrar a
-  Redis o cookie firmada.
+  que `DropboxOAuth2Flow` valida internamente.
+- El CSRF state vive en `core.oauth_states` (Postgres), NO en memoria: la
+  app corre con 2 máquinas en Fly y `/callback` cae casi siempre en una
+  distinta a la que atendió `/connect`. Con el dict en memoria anterior el
+  callback moría con 400 y era imposible reconectar (ver migración 0069).
 """
 from __future__ import annotations
 
@@ -24,6 +25,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse, Response
+from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.config import settings
@@ -39,9 +41,13 @@ from app.services.dropbox_service import (
 
 router = APIRouter()
 
-# Sesión CSRF compartida entre /connect y /callback. Single-admin → dict OK.
-# Multi-admin/multi-tenant requeriría Redis o cookie firmada.
-_oauth_session: dict[str, Any] = {}
+# Clave con la que el SDK de Dropbox guarda el CSRF token en el dict `session`
+# (ver `build_oauth_flow`: csrf_token_session_key).
+_CSRF_KEY = "dropbox-auth-csrf-token"
+
+# Ventana para completar el flow. Autorizar en Dropbox toma segundos; 15 min
+# es holgado y acota el replay si alguien intercepta la URL de callback.
+_STATE_TTL = "15 minutes"
 
 
 @router.get("/connect")
@@ -49,16 +55,33 @@ async def connect(
     user: Annotated[
         AuthenticatedUser, Depends(require_scope("integration:write"))
     ],
+    db: DBSession,
 ) -> dict[str, str]:
-    """Inicia OAuth flow. Devuelve la authorize_url para redirigir al usuario."""
+    """Inicia OAuth flow. Devuelve la authorize_url para redirigir al usuario.
+
+    El CSRF token que genera `flow.start()` se persiste en `core.oauth_states`
+    porque el `/callback` lo va a leer desde OTRA máquina de Fly.
+    """
+    session: dict[str, Any] = {}
     try:
-        flow = build_oauth_flow(_oauth_session)
+        flow = build_oauth_flow(session)
         authorize_url = flow.start()
     except DropboxNotConfigured as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(exc),
         ) from exc
+
+    await db.execute(
+        text(
+            """INSERT INTO core.oauth_states (provider, csrf_token, created_at)
+               VALUES ('dropbox', :csrf, now())
+               ON CONFLICT (provider) DO UPDATE
+                 SET csrf_token = EXCLUDED.csrf_token, created_at = now()"""
+        ),
+        {"csrf": session.get(_CSRF_KEY)},
+    )
+    await db.commit()
     return {"authorize_url": authorize_url}
 
 
@@ -72,10 +95,32 @@ async def callback(
 
     Este endpoint es PÚBLICO porque Dropbox redirige al browser del admin sin
     Authorization header. La integridad la garantiza el CSRF token que
-    `DropboxOAuth2Flow.finish` valida contra `_oauth_session`.
+    `DropboxOAuth2Flow.finish` valida contra el state persistido en
+    `core.oauth_states` por `/connect`.
     """
+    # DELETE ... RETURNING: el state es de un solo uso (anti-replay) y vence.
+    row = (
+        await db.execute(
+            text(
+                f"""DELETE FROM core.oauth_states
+                    WHERE provider = 'dropbox'
+                      AND created_at > now() - interval '{_STATE_TTL}'
+                    RETURNING csrf_token"""  # noqa: S608 — TTL es constante del módulo
+            )
+        )
+    ).first()
+    await db.commit()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "El enlace para conectar Dropbox venció o ya se usó. "
+                "Volvé a entrar a /admin/dropbox-connect y autorizá de nuevo."
+            ),
+        )
+
     try:
-        flow = build_oauth_flow(_oauth_session)
+        flow = build_oauth_flow({_CSRF_KEY: row[0]})
         oauth_result = flow.finish({"code": code, "state": state})
     except DropboxNotConfigured as exc:
         raise HTTPException(

@@ -189,3 +189,40 @@ Template `orden_compra_panimavida.html` (default de las 10 empresas):
 Lista OC noload(items), triggers FOR EACH STATEMENT, notifications batch
 insert, framer-motion en dashboard/vouchers (por-ruta), sidebar
 cuotas-resumen merge, covering index libro_mayor.
+
+---
+
+## FIX CRÍTICO (2026-07-21, mismo día) — era IMPOSIBLE reconectar Dropbox
+
+Al verificar el paso manual de Dropbox de Nicolás, la BD mostraba el token
+viejo intacto (07-05-2026, sin `files.content.write`). Los logs de Fly dieron
+la causa exacta:
+
+```
+21:46:07  GET /dropbox/connect   → 200  (máquina 784792dc672e58)
+21:46:31  GET /dropbox/callback  → 400  (máquina e82d444c629de8)  ← OTRA máquina
+```
+
+`app/api/v1/dropbox.py` guardaba el CSRF token del flow OAuth en
+`_oauth_session`, un **dict en memoria del proceso**. La app corre con **2
+máquinas** en Fly, así que `/callback` casi siempre cae en una máquina que no
+tiene ese token → `DropboxOAuth2Flow.finish()` aborta → 400. El comentario del
+código decía "single-admin → dict OK", pero el problema nunca fue la cantidad
+de admins sino la cantidad de máquinas.
+
+**Impacto real**: desde que la app escaló a 2 máquinas era imposible completar
+el OAuth. Por eso Dropbox seguía en solo-lectura y todas las escrituras
+(fotos de boletas, adjuntos, carpetas, backups) fallaban en silencio.
+
+**Fix**: el state pasa a Postgres (`core.oauth_states`, migración
+`0069_oauth_states`), que las 2 máquinas sí comparten. Uso único (el callback
+lo borra al leerlo) + vencimiento de 15 min → además protege contra replay.
+
+**Verificado en producción** llamando `/connect` y luego `/callback` con un
+code falso pero el state real: el CSRF valida OK cruzando máquinas y el error
+pasa a venir de Dropbox por el code inválido (antes moría en el CSRF local).
+El state se consume correctamente. Tests: 1127 passed.
+
+⚠️ Pendiente de la misma familia (flagueado, NO arreglado): el rate limit TOTP
+de `two_factor.py:50` también vive en memoria — con 2 máquinas el límite
+efectivo es 10 intentos/5min en vez de 5.
