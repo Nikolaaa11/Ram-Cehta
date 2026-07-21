@@ -226,3 +226,40 @@ El state se consume correctamente. Tests: 1127 passed.
 ⚠️ Pendiente de la misma familia (flagueado, NO arreglado): el rate limit TOTP
 de `two_factor.py:50` también vive en memoria — con 2 máquinas el límite
 efectivo es 10 intentos/5min en vez de 5.
+
+### Segundo bug destapado al probar la subida real (mismo día)
+
+Con el permiso de escritura ya activo, probé el flujo completo *subir un
+adjunto a un voucher* — y dio **500**. El archivo SÍ llegaba a Dropbox y la
+fila SÍ se insertaba; explotaba recién al armar la respuesta:
+
+```
+vouchers.py:2344  VoucherAttachmentRead.model_validate(dict(new_row))
+ValidationError: uploaded_by
+  Input should be a valid string [input_value=UUID('b4307866-...')]
+```
+
+La columna `uploaded_by` es UUID y el schema la declara `str | None`;
+**Pydantic v2 no coerciona UUID→str** (ni en modo lax). Efecto para el
+usuario: la foto de la boleta se subía, pero la pantalla mostraba error →
+reintento → adjunto duplicado en Dropbox, uno de ellos huérfano.
+
+El `GET /vouchers/{id}/attachments` tenía el mismo defecto latente: nunca se
+notó porque, al fallar todas las subidas, la tabla estaba vacía y el listado
+siempre devolvía `[]`.
+
+**Fix**: `uploaded_by::text AS uploaded_by` en ambas queries (POST y GET).
+
+**Verificado end-to-end en producción**: subir → listar → generar link →
+**descargar el archivo real desde Dropbox** → borrar (Dropbox + BD) →
+7/7 ✅. Archivos de prueba y huérfano eliminados. 1127 tests passed.
+
+### Estado final de Dropbox (verificado 2026-07-21)
+- Conectado: `grietta@cenergy.cl`, **5 permisos** (con `files.content.write`).
+- Estructura creada: 154/154 rutas, 10 empresas bajo `/Cehta Capital/01-Empresas/`.
+- ⚠️ Conviven dos convenciones de nombres de una estructura anterior:
+  `00-Inteligencia de Negocios` vs `00-Inteligencia-Negocios`, `02-Fondo` vs
+  `02-Fondo (FIP CEHTA)`, `05-Proyectos & Avance` vs `05-Proyectos-Avance`.
+  La plataforma usa las canónicas; el contenido histórico puede estar en las
+  otras. Consolidarlas requiere mover archivos (irreversible) → decisión de
+  Nicolás, NO se tocó nada.

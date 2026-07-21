@@ -2203,7 +2203,12 @@ async def list_voucher_attachments(
             text(
                 """
                 SELECT attachment_id, voucher_id, tipo, file_name, dropbox_path,
-                       file_hash, mime_type, size_bytes, uploaded_by, uploaded_at
+                       file_hash, mime_type, size_bytes,
+                       -- ::text obligatorio: la columna es UUID y el schema
+                       -- VoucherAttachmentRead.uploaded_by es `str | None`.
+                       -- Pydantic v2 NO coerciona UUID→str (ni en modo lax).
+                       uploaded_by::text AS uploaded_by,
+                       uploaded_at
                 FROM core.voucher_attachments
                 WHERE voucher_id = :id
                 ORDER BY uploaded_at DESC
@@ -2325,7 +2330,13 @@ async def upload_voucher_attachment(
                 :v, :t, :n, :p, :h, :m, :s, CAST(:by AS UUID)
             )
             RETURNING attachment_id, voucher_id, tipo, file_name, dropbox_path,
-                      file_hash, mime_type, size_bytes, uploaded_by, uploaded_at
+                      file_hash, mime_type, size_bytes,
+                      -- ::text obligatorio (ver nota en GET /attachments):
+                      -- sin esto el POST subía el archivo a Dropbox, insertaba
+                      -- la fila, y RECIÉN AHÍ explotaba con 500 al serializar
+                      -- la respuesta. El adjunto quedaba huérfano y la UI
+                      -- mostraba error, invitando a reintentar y duplicar.
+                      uploaded_by::text AS uploaded_by, uploaded_at
             """
         ),
         {
