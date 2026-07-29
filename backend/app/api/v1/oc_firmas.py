@@ -343,7 +343,13 @@ async def _respuesta(
         sugeridos=_sugeridos_de(oc),
         equipo=await _equipo_de(db, oc["empresa_codigo"]),
         puedo_firmar=any(f.es_mi_firma and f.status == "PENDIENTE" for f in firmas),
-        pendientes=sum(1 for f in firmas if f.status == "PENDIENTE"),
+        # Los externos sin correo (proveedor/cliente sin cuenta) firman a MANO
+        # sobre el PDF impreso, no en la plataforma: no cuentan como
+        # "pendiente de firma electrónica" o la OC nunca se ve como completa
+        # aunque ya hayan firmado todos los que sí firman acá.
+        pendientes=sum(
+            1 for f in firmas if f.status == "PENDIENTE" and not f.sin_email
+        ),
     )
 
 
@@ -1452,13 +1458,19 @@ async def firmar_oc(
         },
     )
 
+    # Igual que en OcFirmasResponse.pendientes: un externo sin correo firma a
+    # MANO sobre el papel impreso, nunca por acá — sin este filtro la OC
+    # quedaba en 'en_firma' para siempre aunque ya hubieran firmado todos los
+    # firmantes de la plataforma (bug real: probado con las 5 firmas del
+    # equipo de RHO + 1 proveedor externo sin cuenta).
     pendientes = (
         await db.scalar(
             text(
                 "SELECT count(*) FROM core.oc_firmas "
-                "WHERE oc_id = :id AND status = 'PENDIENTE'"
+                "WHERE oc_id = :id AND status = 'PENDIENTE' "
+                "AND firmante_email NOT LIKE '%@' || :placeholder_domain"
             ),
-            {"id": oc_id},
+            {"id": oc_id, "placeholder_domain": _SIN_EMAIL_DOMAIN},
         )
         or 0
     )
