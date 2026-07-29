@@ -10,8 +10,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle, Copy, Edit, FileDown, Trash2, XCircle } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/toast";
 import { useSession } from "@/hooks/use-session";
+import { useMe } from "@/hooks/use-me";
 import { handleSessionExpired } from "@/lib/api/session-handling";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
@@ -31,9 +32,19 @@ const successBtn =
 const dangerBtn =
   "inline-flex items-center gap-2 rounded-xl bg-negative/10 px-3.5 py-2 text-sm font-medium text-negative ring-1 ring-negative/20 transition-colors hover:bg-negative/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-negative focus-visible:ring-offset-2";
 
+// Estados desde los que el backend acepta el DELETE (delete_oc →
+// _OC_ESTADOS_BORRABLES). Mas alla de estos, el camino es Anular.
+const ESTADOS_BORRABLES = new Set([
+  "borrador",
+  "emitida",
+  "en_firma",
+  "anulada",
+]);
+
 export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
   const router = useRouter();
   const { session } = useSession();
+  const { data: me } = useMe();
   const queryClient = useQueryClient();
 
   const canEdit = allowedActions.includes("update");
@@ -42,11 +53,19 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
   // Si el user puede editar esta OC, asumimos que tambien puede crear OCs en
   // esta empresa — el endpoint backend valida igualmente con require_scope.
   const canDuplicate = canEdit;
-  // Eliminacion fisica: solo OC en 'emitida' (no pagada) o 'anulada' (sin
-  // movimientos) — el backend valida estricto. Esto solo decide si mostramos
-  // el boton, no si la API permite.
+  // Eliminacion fisica. Dos condiciones:
+  //  1. el usuario tiene el scope global `oc:update`, que es EXACTAMENTE lo
+  //     que exige el backend en DELETE /ordenes-compra/{id}. Antes se usaba
+  //     `allowedActions.includes("update")`, pero el backend nunca emite la
+  //     accion "update" en allowed_actions (emite download_pdf / approve /
+  //     cancel / mark_paid / send_to_firma), asi que el boton Eliminar no
+  //     aparecia NUNCA, en ningun estado;
+  //  2. el estado esta en la lista de borrables.
+  // El chequeo fino (firmas puestas, vouchers con plata, acceso a la
+  // empresa) lo hace el backend y devuelve 409 con la explicacion.
   const canDelete =
-    canEdit && (estado === "emitida" || estado === "anulada");
+    (me?.allowed_actions?.includes("oc:update") ?? false) &&
+    ESTADOS_BORRABLES.has(estado ?? "");
 
   const deleteMutation = useMutation({
     mutationFn: () =>
@@ -57,12 +76,16 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
       router.push("/ordenes-compra");
     },
     onError: (err) => {
+      // El backend devuelve 409 con una explicacion larga (ya la firmo
+      // fulano / tiene vouchers pagados / anulala en vez de borrarla).
+      // Duracion extendida para que se alcance a leer.
       toast.error(
         err instanceof ApiError
           ? err.detail
           : err instanceof Error
             ? err.message
             : "Error al eliminar la OC",
+        { duration: 12_000 },
       );
     },
   });
@@ -262,15 +285,25 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
               {deleteMutation.isPending ? "Eliminando…" : "Eliminar"}
             </button>
           }
-          title={`¿Eliminar OC ${numeroOc}?`}
+          title={`¿Eliminar la OC ${numeroOc}?`}
           description={
             <>
-              La orden de compra se{" "}
-              <span className="font-medium text-ink-900">borra fisicamente</span>{" "}
-              (no se puede recuperar). Solo permitido si estado{" "}
-              <span className="font-mono text-xs">emitida</span> o{" "}
-              <span className="font-mono text-xs">anulada</span>. Para detener
-              pagos sin perder el rastro, usá <em>Anular</em>.
+              Vas a borrar la orden de compra{" "}
+              <span className="font-medium text-ink-900">{numeroOc}</span> de
+              forma definitiva: no se puede recuperar.
+              <br />
+              <br />
+              Junto con la OC se borran también{" "}
+              <span className="font-medium text-ink-900">
+                sus ítems, su forma de pago (cuotas) y sus firmantes
+              </span>
+              . Los correos y vouchers relacionados no se borran: solo dejan de
+              estar asociados a esta OC.
+              <br />
+              <br />
+              Si la OC ya está firmada o tiene pagos aprobados, el sistema no va
+              a dejar borrarla y te va a explicar por qué. En ese caso usá{" "}
+              <em>Anular</em>: la OC queda sin efecto pero con su historial.
             </>
           }
           confirmText="Eliminar definitivo"

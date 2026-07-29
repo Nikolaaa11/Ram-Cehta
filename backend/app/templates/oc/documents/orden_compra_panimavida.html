@@ -1,13 +1,28 @@
+{#- MEGAPROMPT OC-PDF-VERDE — rediseño completo del PDF de Orden de Compra
+    tomando como referencia las OC reales OC0035..OC0038 de Panimávida Energy.
+    El formato es el ESTÁNDAR de las 10 empresas: todo lo que era verde en la
+    muestra sale pintado con `color_primario` (viene de core.empresas.
+    oc_color_primario), nunca con un color literal, para que cada empresa
+    imprima con su propia marca.
+
+    `color_tinte` = el mismo color de marca al 10%, para las celdas de
+    NETO/IVA. Se arma como rgba() —CSS Color 3, lo entiende cualquier motor—
+    descomponiendo el hex a mano en vez de usar #RRGGBBAA (8 dígitos) o
+    color-mix(), que dependen de features nuevas del parser de WeasyPrint.
+    Si `color_primario` no fuera un hex de 7 chars (por si alguien carga
+    "rgb(...)" en BD) cae a un verde grisáceo neutro en vez de generar CSS
+    inválido. -#}
+{%- set _c = color_primario or '#1A793B' -%}
+{%- set _hex_ok = (_c | length == 7 and _c[0] == '#') -%}
+{%- set color_tinte = ('rgba(%d, %d, %d, 0.10)' | format(
+      _c[1:3] | int(base=16), _c[3:5] | int(base=16), _c[5:7] | int(base=16)
+    )) if _hex_ok else '#EFF4F1' -%}
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <title>{{ titulo }}</title>
   <style>
-    /* R152MMMMMM — Formato "Panimávida": réplica del PDF canónico
-       OC0013-PAN001-FUMIAGRO usado por el equipo RHO. Carta formal:
-       header simple, bloques PROVEEDOR/MANDANTE, itemizado, notas de
-       arbitraje CAM Santiago y página de firmas. */
     /* MEGAPROMPT FIRMA-VISUAL — tipografía manuscrita para las firmas.
        El contenedor de Fly NO trae ninguna fuente cursiva instalada (sólo
        Inter y DejaVu), así que la embebemos desde el repo. `firma_font_uri`
@@ -24,175 +39,307 @@
     {% endif %}
     @page {
       size: letter;
-      margin: 22mm 20mm 18mm 20mm;
+      margin: 16mm 17mm 15mm 17mm;
+      /* El color va interpolado y no con var(--...): las cajas de margen de
+         @page no heredan las custom properties del <body> en WeasyPrint. */
+      {#- El pie va PRE-ARMADO y saneado desde Python (`footer_texto`), no
+          interpolando campos acá: el Environment tiene autoescape activo para
+          .html y el contenido de <style> es raw-text, así que las entidades
+          NO se decodifican. "DTE Consulting & Development SpA" salía impreso
+          como "&amp;" en el pie de todas sus OC. `|safe` porque el texto ya
+          viene sin comillas ni saltos que puedan romper el string CSS. -#}
       @bottom-center {
-        content: "{{ empresa.direccion or '' }}{% if empresa.direccion and empresa.ciudad %}, {% endif %}{{ empresa.ciudad or '' }}   |   {{ empresa.razon_social }}";
-        font-size: 8pt;
-        color: #475569;
+        content: "{{ footer_texto|safe }}";
+        font-size: 7.5pt;
+        color: {{ _c }};
       }
+    }
+    :root {
+      --color-primario: {{ _c }};
+      --color-tinte: {{ color_tinte }};
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
-      font-size: 10pt;
-      color: #0F172A;
-      line-height: 1.45;
-    }
-    .doc-meta {
-      text-align: right;
       font-size: 9.5pt;
-      margin-bottom: 6mm;
+      color: #0F172A;
+      line-height: 1.4;
     }
-    .doc-meta p { margin: 0; }
-    .doc-meta .num { font-weight: 700; }
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 5mm;
+
+    /* ---------------------------------------------------------------
+       1. Encabezado: logo a la izquierda + bloque verde con los datos
+       del documento a la derecha (~45% del ancho, texto blanco).
+       Va en <table> y no en flex: WeasyPrint resuelve el reparto de
+       columnas de una tabla de forma predecible, el flex no siempre.
+       --------------------------------------------------------------- */
+    table.head { width: 100%; border-collapse: collapse; }
+    table.head td { vertical-align: middle; padding: 0; }
+    td.head-logo { width: 55%; }
+    td.head-logo img { max-height: 22mm; max-width: 62mm; }
+    td.head-meta {
+      width: 45%;
+      background: var(--color-primario);
+      color: #FFFFFF;
+      text-align: right;
+      padding: 4mm 5mm;
+      font-size: 9.5pt;
+      line-height: 1.5;
     }
-    .logo { max-height: 18mm; max-width: 55mm; object-fit: contain; }
+    td.head-meta p { margin: 0; }
+    td.head-meta p.num { font-weight: 700; }
+
     h1.titulo {
       text-align: center;
-      font-size: 14pt;
+      font-size: 19pt;
       font-weight: 800;
-      letter-spacing: 0.08em;
-      margin: 4mm 0 7mm 0;
-      color: var(--color-primario, #1E40AF);
+      letter-spacing: 0.03em;
+      margin: 9mm 0 7mm 0;
+      color: var(--color-primario);
     }
-    .partes {
-      display: flex;
-      gap: 8mm;
-      margin-bottom: 7mm;
-    }
-    .parte {
-      flex: 1;
-      border: 0.6pt solid #CBD5E1;
-      border-radius: 2mm;
-      padding: 4mm 5mm;
-    }
-    .parte h2 {
-      font-size: 9.5pt;
+
+    /* ---------------------------------------------------------------
+       2. PROVEEDOR + MANDANTE, 50/50 con un canal de aire al medio.
+       --------------------------------------------------------------- */
+    table.partes { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+    table.partes td.parte-col { width: 48.5%; vertical-align: top; padding: 0; }
+    table.partes td.parte-gap { width: 3%; padding: 0; }
+    table.parte { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+    table.parte th {
+      background: var(--color-primario);
+      border: 0.5pt solid var(--color-primario);
+      color: #FFFFFF;
+      font-size: 9pt;
       font-weight: 800;
       letter-spacing: 0.06em;
-      color: var(--color-primario, #1E40AF);
-      margin-bottom: 2.5mm;
-      border-bottom: 0.6pt solid #E2E8F0;
-      padding-bottom: 1.5mm;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 2mm 3mm;
     }
-    .parte table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-    .parte td { vertical-align: top; padding: 0.6mm 0; }
-    .parte td.k { width: 32mm; color: #475569; }
-    .parte td.k::after { content: " :"; }
-    .seccion-titulo {
-      font-size: 10.5pt;
-      font-weight: 700;
+    table.parte td {
+      border: 0.5pt solid #DCE3EB;
+      padding: 1.4mm 2.5mm;
+      vertical-align: top;
+    }
+    table.parte td.k {
+      width: 30mm;
+      color: #64748B;
+      background: #F8FAFC;
+    }
+    /* El ": " delante del valor es literal en la OC de referencia. */
+    table.parte td.v { color: #0F172A; }
+
+    /* ---------------------------------------------------------------
+       3. Itemizado
+       --------------------------------------------------------------- */
+    p.sec {
+      font-size: 11pt;
+      font-weight: 800;
+      color: var(--color-primario);
       margin-bottom: 2mm;
     }
-    .intro { font-size: 9.5pt; margin-bottom: 3mm; }
+    /* `pre-line` conserva los saltos de línea reales de las descripciones y
+       de la observación (el extractor los guarda con saltos de verdad) y
+       sigue colapsando los espacios sobrantes. Sin esto sale todo corrido. */
+    p.intro { font-size: 9pt; margin-bottom: 3.5mm; text-align: justify;
+              white-space: pre-line; }
+    table.items td.desc { white-space: pre-line; }
     table.items {
       width: 100%;
       border-collapse: collapse;
-      font-size: 9pt;
-      margin-bottom: 4mm;
+      font-size: 8.5pt;
+      margin-bottom: 5mm;
     }
     table.items th {
-      background: var(--color-primario, #1E40AF);
+      background: var(--color-primario);
+      border: 0.5pt solid var(--color-primario);
       color: #FFFFFF;
       font-weight: 700;
       padding: 2mm 2.5mm;
       text-align: left;
     }
     table.items td {
-      border-bottom: 0.5pt solid #E2E8F0;
+      border: 0.5pt solid #DCE3EB;
       padding: 2mm 2.5mm;
       vertical-align: top;
     }
-    table.items .num { text-align: right; white-space: nowrap; }
-    table.items .ctr { text-align: center; white-space: nowrap; }
+    /* La celda del número de ítem va en verde sólido con el número blanco,
+       igual que en la OC de referencia. */
+    table.items td.idx {
+      background: var(--color-primario);
+      border: 0.5pt solid var(--color-primario);
+      color: #FFFFFF;
+      font-weight: 700;
+      text-align: center;
+    }
+    table.items .r { text-align: right; white-space: nowrap; }
+    table.items .c { text-align: center; white-space: nowrap; }
+
+    /* ---------------------------------------------------------------
+       4. Totales pegados a la derecha
+       --------------------------------------------------------------- */
     table.totales {
-      width: 62mm;
+      width: 82mm;
       margin-left: auto;
       border-collapse: collapse;
-      font-size: 9.5pt;
+      font-size: 9pt;
       margin-bottom: 6mm;
     }
-    table.totales td { padding: 1.2mm 2.5mm; }
-    table.totales td.k { font-weight: 700; text-align: right; }
-    table.totales td.v { text-align: right; white-space: nowrap; }
-    table.totales tr.total td {
-      border-top: 1pt solid var(--color-primario, #1E40AF);
+    table.totales td.k {
+      text-align: right;
+      font-weight: 700;
+      padding: 1.8mm 3mm;
+      letter-spacing: 0.04em;
+    }
+    table.totales td.v {
+      width: 36mm;
+      text-align: right;
+      white-space: nowrap;
+      font-weight: 700;
+      background: var(--color-tinte);
+      border: 0.5pt solid #DCE3EB;
+      padding: 1.8mm 3mm;
+    }
+    table.totales tr.tot td.k,
+    table.totales tr.tot td.v {
+      background: var(--color-primario);
+      border: 0.5pt solid var(--color-primario);
+      color: #FFFFFF;
       font-weight: 800;
       font-size: 10.5pt;
     }
-    .notas { font-size: 8.5pt; color: #334155; }
-    .notas h3 { font-size: 9.5pt; margin-bottom: 1.5mm; color: #0F172A; }
+
+    /* ---------------------------------------------------------------
+       5. Forma de pago (hitos por porcentaje). Sección opcional.
+       --------------------------------------------------------------- */
+    table.hitos {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      margin-bottom: 6mm;
+    }
+    table.hitos th {
+      background: var(--color-primario);
+      border: 0.5pt solid var(--color-primario);
+      color: #FFFFFF;
+      font-weight: 700;
+      padding: 1.8mm 2.5mm;
+      text-align: left;
+    }
+    table.hitos td {
+      border: 0.5pt solid #DCE3EB;
+      padding: 1.8mm 2.5mm;
+      vertical-align: top;
+    }
+    table.hitos td.pct { font-weight: 700; color: var(--color-primario); }
+    table.hitos .r { text-align: right; white-space: nowrap; }
+    table.hitos .c { text-align: center; white-space: nowrap; }
+
+    /* ---------------------------------------------------------------
+       6. Notas de arbitraje
+       --------------------------------------------------------------- */
+    /* Bloque legal: se mantiene entero en una página. Partido a la mitad
+       quedaba una hoja con 2 viñetas sueltas, cosa que la OC de
+       referencia no hace. */
+    .notas { font-size: 8pt; color: #334155;
+             page-break-inside: avoid; break-inside: avoid; }
     .notas ul { margin-left: 5mm; }
     .notas li { margin-bottom: 1.5mm; text-align: justify; }
+
+    /* ---------------------------------------------------------------
+       7. Página de firmas — grilla de 3 columnas en <table>. Las celdas
+       de una misma fila miden LO MISMO por construcción (misma <tr> +
+       caja de alto fijo), estén firmadas o no.
+       --------------------------------------------------------------- */
     .firmas-page { page-break-before: always; }
-    .firmas-page h2 {
-      font-size: 11pt;
-      font-weight: 700;
-      margin-bottom: 4mm;
+    table.firmas {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+      margin-top: 2mm;
     }
-    /* MEGAPROMPT OC-DISEÑO — espaciado amplio como la OC Panimávida de
-       referencia: máx 3 firmas por fila, cada bloque con ~16mm de aire
-       ARRIBA de la línea (espacio real para firmar a mano) y filas bien
-       separadas. Antes la línea nacía pegada al borde del bloque
-       (padding-top 1.5mm) y las 6 firmas salían apretadas. */
-    .firmas-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10mm 8mm;
-      justify-content: space-between;
+    table.firmas td {
+      width: 33.33%;
+      vertical-align: top;
+      /* Padding simétrico en las 3 celdas: el aire entre cajas sale igual
+         y las cajas conservan exactamente el mismo ancho. */
+      padding: 0 2.5mm 6mm 2.5mm;
     }
-    .firma {
-      width: 31%;
-      min-width: 56mm;
+    table.firmas tr { page-break-inside: avoid; break-inside: avoid; }
+    /* Alto FIJO. El presupuesto interno es (caja 55mm − 6.9mm de padding y
+       bordes = 48.1mm de contenido):
+         manuscrita 18 + línea 1.5 + constancia 10.5 + nombre 4.4
+         + cargo 8.4 (aguanta 2 líneas, tipo "Jefa de Administración y
+         Finanzas") + razón social 3.7  =  46.5mm.
+       `overflow: hidden` es la red de seguridad: si un cargo se fuera a 3
+       líneas se recorta DENTRO del borde en vez de desbordar la caja y
+       descuadrar la fila. */
+    .firma-caja {
+      border: 0.6pt solid #DCE3EB;
+      border-radius: 1.5mm;
+      height: 55mm;
+      padding: 3mm 3mm 3.5mm 3mm;
       text-align: center;
-      font-size: 9pt;
-      page-break-inside: avoid;
-    }
-    .firma .linea {
-      border-top: 0.8pt solid #0F172A;
-      /* El hueco de 17mm para firmar lo aporta ahora .firma-manuscrita, que
-         se renderiza siempre (vacía si está pendiente). */
-      margin-top: 0;
-      margin-bottom: 0;
-      padding-top: 0;
-    }
-    .firma .nombre { font-weight: 700; font-size: 9.5pt; letter-spacing: -0.01em; }
-    .firma .cargo { color: #475569; margin-top: 0.5mm; }
-    .firma .emp { color: #475569; text-transform: uppercase; font-size: 8pt; margin-top: 0.5mm; }
-    /* MEGAPROMPT FIRMA-VISUAL — el nombre manuscrito ocupa exactamente el
-       hueco de 17mm que .linea reservaba para firmar a mano, de modo que una
-       celda firmada y una sin firmar miden lo mismo y la grilla no se mueve.
-       El alto fijo evita que un nombre muy largo empuje la línea hacia abajo. */
-    .firma .firma-manuscrita {
-      font-family: "Great Vibes", cursive;
-      font-size: 21pt;
-      line-height: 1;
-      color: #101B3D;
-      height: 17mm;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: 1mm;
+      font-size: 8.5pt;
       overflow: hidden;
     }
-    /* Alto FIJO de 2 líneas: la constancia ocupa el mismo espacio esté o no
+    .firma-caja.vacia { border: none; }
+    /* font-size/line-height 0: el &nbsp; que mantiene el div "no vacío" no
+       aporta alto propio, así el presupuesto de arriba es exacto. */
+    .firma-caja .linea {
+      border-top: 0.8pt solid #0F172A;
+      font-size: 0;
+      line-height: 0;
+      margin: 0 0 1.5mm 0;
+      padding: 0;
+    }
+    .firma-caja .nombre { font-weight: 700; font-size: 9pt; letter-spacing: -0.01em; }
+    .firma-caja .cargo { color: #475569; margin-top: 0.5mm; }
+    .firma-caja .emp {
+      color: #64748B;
+      text-transform: uppercase;
+      font-size: 7.5pt;
+      margin-top: 0.8mm;
+    }
+    /* MEGAPROMPT FIRMA-VISUAL — el nombre manuscrito ocupa exactamente el
+       hueco reservado para firmar a mano, de modo que una celda firmada y
+       una sin firmar miden lo mismo y la grilla no se mueve. El alto FIJO
+       evita que un nombre muy largo empuje la línea hacia abajo. */
+    .firma-caja .firma-manuscrita {
+      font-family: "Great Vibes", cursive;
+      font-size: 22pt;
+      color: #101B3D;
+      /* Sin flex a propósito: WeasyPrint 63 no implementa flex completo y
+         `align-items:flex-end` sobre un item anónimo de texto puede ignorarse,
+         dejando la firma flotando arriba en vez de apoyada en la línea.
+         `line-height` igual al alto de la caja apoya la línea base abajo y es
+         layout de bloque puro, que WeasyPrint sí garantiza. */
+      display: block;
+      height: 18mm;
+      line-height: 18mm;
+      text-align: center;
+      overflow: hidden;
+    }
+    /* Alto FIJO de 3 líneas: la constancia ocupa el mismo espacio esté o no
        la firma puesta, para que los nombres de una fila queden a la misma
        altura. El texto es de largo determinístico (fecha con formato fijo +
-       hash de 12 chars), así que a 6.5pt siempre entra en 2 líneas dentro de
-       una celda de 31%. 8mm = 2 líneas (5.8mm) + aire, para que no se corte. */
-    .firma .firma-constancia {
+       hash de 12 chars) pero corta por palabra, y en una caja de ~49mm de
+       ancho eso da 3 líneas — con 8mm (2 líneas) el hash quedaba cortado. */
+    .firma-caja .firma-constancia {
       font-size: 6.5pt;
       line-height: 1.3;
       color: #64748B;
-      height: 8mm;
+      height: 10.5mm;
       padding-top: 1.2mm;
       overflow: hidden;
     }
+    p.firmas-footer {
+      text-align: center;
+      color: var(--color-primario);
+      font-size: 8pt;
+      margin-top: 5mm;
+    }
+
     body[data-watermark]::before {
       content: attr(data-watermark);
       position: fixed;
@@ -201,55 +348,69 @@
       font-weight: 900;
       color: rgba(220, 38, 38, 0.12);
       transform: rotate(-28deg);
-      z-index: 0;
+      /* Negativo: con z-index 0 el pseudo-elemento posicionado se pinta
+         DESPUÉS del contenido en flujo y la marca "MUESTRA" tapaba el
+         encabezado verde y la tabla de ítems en toda OC en borrador. */
+      z-index: -1;
     }
   </style>
 </head>
-<body{% if watermark %} data-watermark="{{ watermark }}"{% endif %} style="--color-primario: {{ color_primario }};">
+<body{% if watermark %} data-watermark="{{ watermark }}"{% endif %} style="--color-primario: {{ _c }}; --color-tinte: {{ color_tinte }};">
 
-  <div class="header-row">
-    <div>
-      {% if logo_data_uri %}
-        <img class="logo" src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">
-      {% endif %}
-    </div>
-    <div class="doc-meta">
-      <p class="num">Nro. Orden: {{ folio }}</p>
-      <p>Fecha: {{ oc.fecha_emision.strftime("%d-%m-%Y") if oc.fecha_emision else "—" }}</p>
-      <p>Moneda: {{ oc.moneda.value }}</p>
-    </div>
-  </div>
+  {# ---------- 1. Encabezado ---------- #}
+  <table class="head">
+    <tr>
+      <td class="head-logo">
+        {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">{% endif %}
+      </td>
+      <td class="head-meta">
+        <p class="num">Nro. Orden: {{ folio }}</p>
+        <p>Fecha: {{ oc.fecha_emision.strftime("%d-%m-%Y") if oc.fecha_emision else "—" }}</p>
+        <p>Moneda: {{ oc.moneda.value }}</p>
+      </td>
+    </tr>
+  </table>
 
   <h1 class="titulo">ORDEN DE COMPRA</h1>
 
-  <div class="partes">
-    <div class="parte">
-      <h2>PROVEEDOR</h2>
-      <table>
-        <tr><td class="k">Señores</td><td>{{ proveedor.razon_social }}</td></tr>
-        {% if proveedor.direccion %}<tr><td class="k">Dirección</td><td>{{ proveedor.direccion }}</td></tr>{% endif %}
-        {% if proveedor.ciudad %}<tr><td class="k">Ciudad</td><td>{{ proveedor.ciudad }}</td></tr>{% endif %}
-        <tr><td class="k">RUT</td><td>{{ proveedor.rut }}</td></tr>
-        {% if proveedor.giro %}<tr><td class="k">Giro</td><td>{{ proveedor.giro }}</td></tr>{% endif %}
-        {% if oc.forma_pago %}<tr><td class="k">Cond. de Pago</td><td>{{ oc.forma_pago }}</td></tr>{% endif %}
-        {% if oc.plazo_pago %}<tr><td class="k">Plazo</td><td>{{ oc.plazo_pago }}</td></tr>{% endif %}
-        {% if proveedor.contacto_nombre %}<tr><td class="k">Atte. Señor(a)</td><td>{{ proveedor.contacto_nombre }}</td></tr>{% endif %}
-      </table>
-    </div>
-    <div class="parte">
-      <h2>MANDANTE</h2>
-      <table>
-        <tr><td class="k">Señores</td><td>{{ empresa.razon_social }}</td></tr>
-        {% if empresa.direccion %}<tr><td class="k">Dirección</td><td>{{ empresa.direccion }}</td></tr>{% endif %}
-        {% if empresa.ciudad %}<tr><td class="k">Ciudad</td><td>{{ empresa.ciudad }}</td></tr>{% endif %}
-        <tr><td class="k">RUT</td><td>{{ empresa.rut }}</td></tr>
-        {% if empresa.giro %}<tr><td class="k">Giro</td><td>{{ empresa.giro }}</td></tr>{% endif %}
-        {% if empresa.telefono %}<tr><td class="k">Fono</td><td>{{ empresa.telefono }}</td></tr>{% endif %}
-      </table>
-    </div>
-  </div>
+  {# ---------- 2. Partes ---------- #}
+  <table class="partes">
+    <tr>
+      <td class="parte-col">
+        <table class="parte">
+          <tr><th colspan="2">Proveedor</th></tr>
+          <tr><td class="k">Señores</td><td class="v">: {{ proveedor.razon_social }}</td></tr>
+          {% if proveedor.direccion %}<tr><td class="k">Dirección</td><td class="v">: {{ proveedor.direccion }}</td></tr>{% endif %}
+          {% if proveedor.ciudad %}<tr><td class="k">Ciudad</td><td class="v">: {{ proveedor.ciudad }}</td></tr>{% endif %}
+          {% if proveedor.rut %}<tr><td class="k">RUT</td><td class="v">: {{ proveedor.rut }}</td></tr>{% endif %}
+          {% if proveedor.giro %}<tr><td class="k">Giro</td><td class="v">: {{ proveedor.giro }}</td></tr>{% endif %}
+          {% if oc.forma_pago %}<tr><td class="k">Cond. de Pago</td><td class="v">: {{ oc.forma_pago }}</td></tr>{% endif %}
+          {# `plazo_entrega` y `plazo_pago` son campos distintos y se imprimen
+             con su etiqueta real: rotular el plazo de pago como "Plazo de
+             Entrega" sería decirle otra cosa al proveedor en un documento
+             que firma. Cada fila desaparece si el dato viene vacío. #}
+          {% if oc.plazo_entrega %}<tr><td class="k">Plazo de Entrega</td><td class="v">: {{ oc.plazo_entrega }}</td></tr>{% endif %}
+          {% if oc.plazo_pago %}<tr><td class="k">Plazo de Pago</td><td class="v">: {{ oc.plazo_pago }}</td></tr>{% endif %}
+          {% if proveedor.contacto_nombre %}<tr><td class="k">Atte. Señor/a</td><td class="v">: {{ proveedor.contacto_nombre }}</td></tr>{% endif %}
+        </table>
+      </td>
+      <td class="parte-gap"></td>
+      <td class="parte-col">
+        <table class="parte">
+          <tr><th colspan="2">Mandante</th></tr>
+          <tr><td class="k">Señores</td><td class="v">: {{ empresa.razon_social }}</td></tr>
+          {% if empresa.direccion %}<tr><td class="k">Dirección</td><td class="v">: {{ empresa.direccion }}</td></tr>{% endif %}
+          {% if empresa.ciudad %}<tr><td class="k">Ciudad</td><td class="v">: {{ empresa.ciudad }}</td></tr>{% endif %}
+          {% if empresa.rut %}<tr><td class="k">RUT</td><td class="v">: {{ empresa.rut }}</td></tr>{% endif %}
+          {% if empresa.giro %}<tr><td class="k">Giro</td><td class="v">: {{ empresa.giro }}</td></tr>{% endif %}
+          {% if empresa.telefono %}<tr><td class="k">Fono</td><td class="v">: {{ empresa.telefono }}</td></tr>{% endif %}
+        </table>
+      </td>
+    </tr>
+  </table>
 
-  <p class="seccion-titulo">Itemizado</p>
+  {# ---------- 3. Itemizado ---------- #}
+  <p class="sec">Itemizado</p>
   {% if oc.observaciones %}
     <p class="intro">{{ oc.observaciones }}</p>
   {% endif %}
@@ -257,36 +418,70 @@
   <table class="items">
     <thead>
       <tr>
-        <th class="ctr" style="width: 8mm;">Ítem</th>
+        <th class="c" style="width: 12mm;">Ítem</th>
         <th>Descripción</th>
-        <th class="ctr" style="width: 12mm;">Un.</th>
-        <th class="ctr" style="width: 12mm;">Cant.</th>
-        <th class="num" style="width: 24mm;">Precio Unit.</th>
-        <th class="num" style="width: 26mm;">Total</th>
+        <th class="c" style="width: 16mm;">Un.</th>
+        <th class="c" style="width: 16mm;">Cant.</th>
+        <th class="r" style="width: 28mm;">Precio Unit.</th>
+        <th class="r" style="width: 30mm;">Total</th>
       </tr>
     </thead>
     <tbody>
       {% for item in oc.items %}
       <tr>
-        <td class="ctr">{{ item.numero }}</td>
-        <td>{{ item.descripcion }}</td>
-        <td class="ctr">{{ item.unidad or "—" }}</td>
-        <td class="ctr">{{ item.cantidad|int if item.cantidad == item.cantidad|int else item.cantidad }}</td>
-        <td class="num">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
-        <td class="num">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
+        <td class="idx">{{ item.numero }}</td>
+        <td class="desc">{{ item.descripcion }}</td>
+        {# `unidad` sale de core.ordenes_compra_detalle.unidad (Días, Un, Gl,
+           m3...). Sin dato imprimimos el guión largo, no vacío. #}
+        <td class="c">{{ item.unidad or "—" }}</td>
+        {# %g quita los ceros de relleno; la coma es el separador decimal
+           chileno, igual que en la columna de porcentajes. #}
+        <td class="c">{{ "%g"|format(item.cantidad|float)|replace(".", ",") }}</td>
+        <td class="r">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
+        <td class="r">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 
+  {# ---------- 4. Totales ---------- #}
   <table class="totales">
     <tr><td class="k">NETO</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
     <tr><td class="k">IVA 19%</td><td class="v">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
-    <tr class="total"><td class="k">TOTAL</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
+    <tr class="tot"><td class="k">TOTAL</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
   </table>
 
+  {# ---------- 5. Forma de pago (hitos por porcentaje) ----------
+     Sólo se imprime si la OC tiene cuotas cargadas en core.oc_cuotas.
+     El porcentaje se muestra sin ceros de relleno (30%, 33,5%) y con coma
+     decimal, que es como se escribe en Chile. #}
+  {% if hitos_pago %}
+  <p class="sec">Forma de pago</p>
+  <table class="hitos">
+    <thead>
+      <tr>
+        <th class="c" style="width: 16mm;">%</th>
+        <th>Descripción</th>
+        <th class="c" style="width: 26mm;">Fecha</th>
+        <th class="r" style="width: 32mm;">Monto</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for h in hitos_pago %}
+      <tr>
+        <td class="c pct">{% if h.porcentaje is not none %}{{ "%g"|format(h.porcentaje|float)|replace(".", ",") }}%{% else %}—{% endif %}</td>
+        <td>{{ h.descripcion or "—" }}</td>
+        <td class="c">{{ h.fecha.strftime("%d-%m-%Y") if h.fecha else "—" }}</td>
+        <td class="r">{% if h.monto is not none %}{{ formatear_moneda(h.monto, oc.moneda.value) }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {# ---------- 6. Notas ---------- #}
+  <p class="sec">Notas:</p>
   <div class="notas">
-    <h3>Notas:</h3>
     <ul>
       <li>Devolver esta orden de compra firmada indicando nombre y cargo como señal de aceptación de esta.</li>
       <li>Cualquier dificultad o controversia que se produzca entre los contratantes respecto de la aplicación, interpretación, duración, validez, ejecución de este contrato o cualquier otro motivo será sometida a arbitraje, conforme al reglamento procesal de arbitraje del Centro de Arbitraje y Mediación de Santiago, vigente al momento de solicitarlo.</li>
@@ -295,58 +490,69 @@
     </ul>
   </div>
 
-  {# OC-FIRMANTES-EXTERNOS — un solo bloque para todas las firmas (externas e
-     internas). Se unifica en macro porque el sello de firma electrónica debe
+  {# ---------- 7. Firmas ---------- #}
+  {# OC-FIRMANTES-EXTERNOS — un solo macro para todas las firmas (externas e
+     internas). Se unifica porque el sello de firma electrónica debe
      comportarse IGUAL para el proveedor/cliente que para el equipo emisor;
      antes el externo iba hardcodeado y nunca podía quedar estampado.
      `razon_social_default` es la empresa que se imprime bajo el cargo cuando
      la firma no trae `empresa_firmante` propia. #}
   {% macro bloque_firma(f, razon_social_default) %}
-      <div class="firma">
-        {# MEGAPROMPT FIRMA-VISUAL — la firma se DIBUJA en cursiva sobre la
-           línea, como al firmar un PDF, en lugar de un sello de texto.
-           Los TRES bloques (manuscrita, línea, constancia) se renderizan
-           SIEMPRE, vacíos si la firma está pendiente: así una celda firmada
-           y una sin firmar miden exactamente lo mismo y los nombres quedan
-           alineados dentro de la fila. Si se renderizaran condicionalmente,
-           la constancia empujaría el nombre y descuadraría la grilla. #}
-        <div class="firma-manuscrita">
-          {%- if f.firmado_el %}{{ f.firma_visual or f.nombre }}{% endif -%}
+        <div class="firma-caja">
+          {# MEGAPROMPT FIRMA-VISUAL — la firma se DIBUJA en cursiva sobre la
+             línea, como al firmar un PDF, en lugar de un sello de texto.
+             Los TRES bloques (manuscrita, línea, constancia) se renderizan
+             SIEMPRE, vacíos si la firma está pendiente: así una celda firmada
+             y una sin firmar miden exactamente lo mismo y los nombres quedan
+             alineados dentro de la fila. Si se renderizaran condicionalmente,
+             la constancia empujaría el nombre y descuadraría la grilla. #}
+          <div class="firma-manuscrita">
+            {%- if f.firmado_el %}{{ f.firma_visual or f.nombre }}{% endif -%}
+          </div>
+          <div class="linea">&nbsp;</div>
+          <div class="firma-constancia">
+            {%- if f.firmado_el %}✓ Firmado electrónicamente · {{ f.firmado_el }} · hash {{ f.hash_corto }}{% endif -%}
+          </div>
+          <p class="nombre">{{ f.nombre }}</p>
+          <p class="cargo">{{ f.cargo }}</p>
+          <p class="emp">{{ f.empresa_firmante or razon_social_default }}</p>
         </div>
-        <div class="linea">&nbsp;</div>
-        <div class="firma-constancia">
-          {%- if f.firmado_el %}✓ Firmado electrónicamente · {{ f.firmado_el }} · hash {{ f.hash_corto }}{% endif -%}
-        </div>
-        <p class="nombre">{{ f.nombre }}</p>
-        <p class="cargo">{{ f.cargo }}</p>
-        <p class="emp">{{ f.empresa_firmante or razon_social_default }}</p>
-      </div>
   {% endmacro %}
 
+  {# Una sola lista ordenada de celdas para que la grilla fluya de corrido:
+     primero los firmantes del proveedor/cliente (con la razón social del
+     proveedor por defecto) y después el equipo de la empresa emisora.
+     `celdas` se muta con .append() — patrón estándar de Jinja, no se
+     reasigna la variable, así que la mutación sí sale del for. #}
+  {% set celdas = [] %}
+  {% if firmantes_externos %}
+    {% for fe in firmantes_externos %}{% set _ = celdas.append([fe, proveedor.razon_social]) %}{% endfor %}
+  {% else %}
+    {# Retrocompatibilidad: OCs sin firmantes externos cargados siguen
+       saliendo con la celda histórica del proveedor, idéntica. #}
+    {% set _ = celdas.append([
+        {"nombre": proveedor.contacto_nombre or proveedor.razon_social,
+         "cargo": "Representante Legal"},
+        proveedor.razon_social]) %}
+  {% endif %}
+  {% for f in firmantes %}{% set _ = celdas.append([f, empresa.razon_social]) %}{% endfor %}
+
   <div class="firmas-page">
-    <h2>Firmas:</h2>
-    <div class="firmas-grid">
-      {% if firmantes_externos %}
-      {# Firmantes del proveedor/cliente cargados en core.oc_firmas: van
-         primero y con la razón social del proveedor bajo el cargo, salvo que
-         la firma traiga la suya (caso mandante/tercero). #}
-      {% for fe in firmantes_externos %}
-      {{ bloque_firma(fe, proveedor.razon_social) }}
+    <p class="sec">Firmas:</p>
+    <table class="firmas">
+      {% for fila in celdas|batch(3) %}
+      <tr>
+        {% for celda in fila %}
+        <td>{{ bloque_firma(celda[0], celda[1]) }}</td>
+        {% endfor %}
+        {# Celdas de relleno sin borde: mantienen las 3 columnas del mismo
+           ancho aunque la última fila tenga 1 o 2 firmas. #}
+        {% for _n in range(3 - fila|length) %}
+        <td><div class="firma-caja vacia">&nbsp;</div></td>
+        {% endfor %}
+      </tr>
       {% endfor %}
-      {% else %}
-      {# Retrocompatibilidad: OCs sin firmantes externos cargados siguen
-         saliendo con la celda histórica del proveedor, idéntica. #}
-      <div class="firma">
-        <div class="linea">&nbsp;</div>
-        <p class="nombre">{{ proveedor.contacto_nombre or proveedor.razon_social }}</p>
-        <p class="cargo">Representante Legal</p>
-        <p class="emp">{{ proveedor.razon_social }}</p>
-      </div>
-      {% endif %}
-      {% for f in firmantes %}
-      {{ bloque_firma(f, empresa.razon_social) }}
-      {% endfor %}
-    </div>
+    </table>
   </div>
 
 </body>

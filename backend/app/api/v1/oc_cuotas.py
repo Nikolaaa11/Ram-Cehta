@@ -1,31 +1,61 @@
-"""R152yyy · Endpoints para split de OC en cuotas + generar vouchers DRAFT.
+"""R152yyy · Forma de pago de una OC (hitos por PORCENTAJE) + vouchers DRAFT.
 
-MEJORAS IA.docx #6: cada cuota de una OC debería generar un voucher.
+MEJORAS IA.docx #6: cada hito de pago de una OC debería generar un voucher.
+
+MEGAPROMPT OC-PORCENTAJES — el modelo pasó de "cuotas con monto fijo" a
+"hitos de pago por PORCENTAJE con fecha". Las OC reales se pactan así:
+"30% anticipo al inicio de fabricación y 70% contra entrega", "50% de
+anticipo y saldo contra entrega". Guardar el porcentaje (y no solo el monto)
+permite recalcular si cambia el total de la OC y es lo que el proveedor firma.
+
+Reglas del modelo nuevo:
+  · `porcentaje` (NUMERIC(6,3)) es la FUENTE DE VERDAD de cada hito.
+  · `monto` se DERIVA (porcentaje/100 x total de la OC) y se sigue guardando
+    porque lo consumen generar-vouchers y el flujo de caja — no se saca.
+  · Los porcentajes de una misma OC deben sumar 100 (tolerancia ±0.01 por
+    redondeo del navegador).
+  · El ÚLTIMO hito absorbe la diferencia de redondeo de los montos, para que
+    Σ(montos) sea EXACTAMENTE el total de la OC (si no, la OC no cuadra
+    contra los vouchers que se generan de ella).
 
 Flujo típico:
-  1. Operador crea OC (total $3.000.000, forma_pago "30/60/90 días")
-  2. POST /ordenes-compra/{id}/cuotas/split (genera 3 cuotas equitativas)
-       o POST /ordenes-compra/{id}/cuotas (define cuotas custom)
+  1. Operador crea OC (total $3.000.000)
+  2. PUT /ordenes-compra/{id}/cuotas  → hitos [{porcentaje, descripcion,
+       fecha_vencimiento}]; o POST .../cuotas/split-equitativo (reparte el
+       100% en N partes iguales)
   3. POST /ordenes-compra/{id}/cuotas/generar-vouchers
-       (crea 1 voucher DRAFT por cuota PENDIENTE, los linkea)
+       (crea 1 voucher DRAFT por hito PENDIENTE, los linkea)
   4. Cada voucher sigue el flujo normal (DRAFT → APPROVED → EXECUTED)
-  5. Cuando el voucher pasa a EXECUTED, la cuota queda PAGADA.
+  5. Cuando el voucher pasa a EXECUTED, el hito queda PAGADO.
+
+Nota de nomenclatura: hacia el negocio esto se llama "Forma de pago" /
+"hitos de pago"; la tabla y las rutas siguen diciendo `cuotas` para no
+romper integraciones ni links existentes.
 """
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from sqlalchemy import text
 
 from app.api.deps import CurrentUser, DBSession
 from app.core.security import AuthenticatedUser
-from app.services.empresa_scope_service import assert_empresa_access
+from app.services.audit_service import audit_log
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
+
+# Tolerancia al validar Σ(porcentajes) == 100. Sin ella, un reparto legítimo
+# como 33,334 + 33,333 + 33,333 se rechazaría por un decimal de redondeo.
+TOLERANCIA_PCT = Decimal("0.01")
+CIEN = Decimal("100")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -38,6 +68,9 @@ class CuotaRead(BaseModel):
     cuota_id: int
     oc_id: int
     numero_cuota: int
+    # `porcentaje` es la fuente de verdad del hito; `monto` es el derivado.
+    # Default None: filas viejas (pre-migración) pueden no tenerlo cargado.
+    porcentaje: Decimal | None = None
     monto: Decimal
     fecha_vencimiento: date
     descripcion: str | None
@@ -48,21 +81,42 @@ class CuotaRead(BaseModel):
     dias_a_vencer: int | None = None
 
 
-class CuotaCreate(BaseModel):
-    numero_cuota: int = Field(..., ge=1)
-    monto: Decimal = Field(..., gt=0)
+class HitoPagoCreate(BaseModel):
+    """Hito de pago tal como se pacta con el proveedor: % + fecha.
+
+    El `monto` NO se recibe: se deriva del porcentaje x total de la OC.
+    `numero_cuota` es opcional — si no viene, se numera por posición (el
+    frontend lo manda para los hitos que ya existen, así no se pisan los
+    que tienen voucher generado).
+    """
+
+    porcentaje: Decimal = Field(..., gt=0, le=100)
     fecha_vencimiento: date
     descripcion: str | None = Field(default=None, max_length=200)
+    numero_cuota: int | None = Field(default=None, ge=1, le=999)
 
 
 class SplitEquitativoBody(BaseModel):
-    cantidad: int = Field(..., ge=1, le=24, description="Cantidad de cuotas")
+    cantidad: int = Field(
+        ..., ge=1, le=24, description="Cantidad de hitos de pago iguales"
+    )
     primer_vencimiento: date
     dias_entre_cuotas: int = Field(default=30, ge=1, le=180)
 
 
-class CuotasReplaceBody(BaseModel):
-    cuotas: list[CuotaCreate] = Field(..., min_length=1, max_length=24)
+class HitosPagoReplaceBody(BaseModel):
+    """Body del PUT de forma de pago.
+
+    Acepta la clave `hitos` (nombre nuevo, orientado al negocio) y también
+    `cuotas` (nombre viejo) para no romper clientes ya desplegados.
+    """
+
+    hitos: list[HitoPagoCreate] = Field(
+        ...,
+        min_length=1,
+        max_length=24,
+        validation_alias=AliasChoices("hitos", "cuotas"),
+    )
 
 
 class GenerarVouchersResult(BaseModel):
@@ -101,6 +155,122 @@ async def _get_oc_or_404(db, oc_id: int, user=None) -> dict[str, Any]:
     return dict(row)
 
 
+def _fmt_pct(v: Decimal) -> str:
+    """Formatea un porcentaje para mensajes al operador: 30 · 33,334."""
+    s = f"{v.quantize(Decimal('0.001'), rounding=ROUND_HALF_UP)}"
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return (s or "0").replace(".", ",")
+
+
+def _pct_normalizado(v: Decimal) -> Decimal:
+    """Recorta el % a 3 decimales (la columna es NUMERIC(6,3)).
+
+    Se normaliza ANTES de validar la suma para que la validación opere sobre
+    exactamente los mismos valores que van a quedar guardados en la BD.
+    """
+    return Decimal(v).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+
+
+def _paso_redondeo(moneda: str | None) -> Decimal:
+    """Unidad mínima de la moneda: CLP no tiene decimales, el resto sí."""
+    return Decimal("1") if (moneda or "CLP").upper() == "CLP" else Decimal("0.01")
+
+
+def _validar_suma_100(suma: Decimal, extra_detalle: str = "") -> None:
+    """400 si los porcentajes no suman 100 (±0.01 de tolerancia).
+
+    La tolerancia existe porque el navegador puede mandar 33,333 tres veces
+    (=99,999) y eso es un reparto perfectamente válido: la diferencia se
+    absorbe después al derivar los montos.
+    """
+    if abs(suma - CIEN) <= TOLERANCIA_PCT:
+        return
+    diferencia = CIEN - suma
+    if diferencia > 0:
+        cierre = f"Faltan {_fmt_pct(diferencia)}% por repartir."
+    else:
+        cierre = f"Te pasaste en {_fmt_pct(-diferencia)}%."
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=(
+            f"Los porcentajes de los hitos de pago suman {_fmt_pct(suma)}% "
+            f"y tienen que sumar 100%. {cierre}{extra_detalle}"
+        ),
+    )
+
+
+def _derivar_montos(
+    total_oc: Decimal,
+    porcentajes: list[Decimal],
+    paso: Decimal,
+    ya_asignado: Decimal = Decimal("0"),
+) -> list[Decimal]:
+    """monto = porcentaje/100 x total de la OC, con el residuo en el último.
+
+    REGLA CONTABLE: el ÚLTIMO hito absorbe la diferencia de redondeo para
+    que Σ(montos) == total de la OC EXACTAMENTE. Si no se hiciera, una OC de
+    $1.000.000 repartida en 3 hitos de 33,333% daría $999.990 en vouchers y
+    la OC nunca cuadraría contra su ejecución (quedan $10 sin voucher,
+    invisibles para el operador).
+
+    `ya_asignado` es la suma de los hitos que NO se pueden tocar (los que ya
+    tienen voucher generado): el residuo se calcula contra el resto.
+    """
+    montos = [
+        (total_oc * p / CIEN).quantize(paso, rounding=ROUND_HALF_UP)
+        for p in porcentajes
+    ]
+    residuo = total_oc - ya_asignado - sum(montos, start=Decimal("0"))
+    montos[-1] = montos[-1] + residuo
+    return montos
+
+
+async def _guardar_hitos(
+    db,
+    oc_id: int,
+    filas: list[dict[str, Any]],
+) -> None:
+    """UPSERT en bloque de los hitos de pago (1 round-trip, sin N+1).
+
+    Los montos y porcentajes viajan como TEXT[] y se castean a NUMERIC en
+    Postgres: así no perdemos precisión decimal en el camino (nunca float).
+    """
+    if not filas:
+        return
+    await db.execute(
+        text(
+            """INSERT INTO core.oc_cuotas
+                   (oc_id, numero_cuota, monto, porcentaje,
+                    fecha_vencimiento, descripcion)
+               SELECT CAST(:oc_id AS BIGINT), u.numero,
+                      u.monto::numeric, u.pct::numeric,
+                      u.venc, u.descripcion
+               FROM UNNEST(
+                   CAST(:numeros AS INTEGER[]),
+                   CAST(:montos AS TEXT[]),
+                   CAST(:pcts AS TEXT[]),
+                   CAST(:vencs AS DATE[]),
+                   CAST(:descs AS TEXT[])
+               ) AS u(numero, monto, pct, venc, descripcion)
+               ON CONFLICT (oc_id, numero_cuota) DO UPDATE SET
+                   monto = EXCLUDED.monto,
+                   porcentaje = EXCLUDED.porcentaje,
+                   fecha_vencimiento = EXCLUDED.fecha_vencimiento,
+                   descripcion = EXCLUDED.descripcion,
+                   updated_at = NOW()"""
+        ),
+        {
+            "oc_id": oc_id,
+            "numeros": [int(f["numero_cuota"]) for f in filas],
+            "montos": [str(f["monto"]) for f in filas],
+            "pcts": [str(f["porcentaje"]) for f in filas],
+            "vencs": [f["fecha_vencimiento"] for f in filas],
+            "descs": [f["descripcion"] for f in filas],
+        },
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────
 # Endpoints
 # ─────────────────────────────────────────────────────────────────────
@@ -110,17 +280,24 @@ async def _get_oc_or_404(db, oc_id: int, user=None) -> dict[str, Any]:
 async def list_cuotas(
     user: CurrentUser, db: DBSession, oc_id: int
 ) -> list[CuotaRead]:
-    """Lista cuotas de una OC con estado del voucher asociado."""
+    """Lista los hitos de pago de una OC con estado del voucher asociado."""
     await _get_oc_or_404(db, oc_id, user)
+    # El JOIN con core.oc_cuotas es a propósito: la vista v_oc_cuotas_estado
+    # se creó antes de que existiera la columna `porcentaje` y no la expone.
+    # Leemos el % de la tabla base y el resto de la vista, así no hay que
+    # recrear la vista (migración ya aplicada en producción).
     rows = await db.execute(
         text(
-            """SELECT cuota_id, oc_id, numero_cuota, monto, fecha_vencimiento,
-                      descripcion, estado_cuota AS estado,
-                      voucher_id, voucher_codigo, voucher_status,
-                      dias_a_vencer
-               FROM core.v_oc_cuotas_estado
-               WHERE oc_id = :id
-               ORDER BY numero_cuota"""
+            """SELECT vw.cuota_id, vw.oc_id, vw.numero_cuota,
+                      c.porcentaje,
+                      vw.monto, vw.fecha_vencimiento,
+                      vw.descripcion, vw.estado_cuota AS estado,
+                      vw.voucher_id, vw.voucher_codigo, vw.voucher_status,
+                      vw.dias_a_vencer
+               FROM core.v_oc_cuotas_estado vw
+               JOIN core.oc_cuotas c ON c.cuota_id = vw.cuota_id
+               WHERE vw.oc_id = :id
+               ORDER BY vw.numero_cuota"""
         ),
         {"id": oc_id},
     )
@@ -137,18 +314,24 @@ async def split_equitativo(
     oc_id: int,
     body: SplitEquitativoBody,
 ) -> list[CuotaRead]:
-    """Genera N cuotas iguales con vencimientos cada `dias_entre_cuotas`.
+    """Reparte el 100% en N hitos iguales, cada `dias_entre_cuotas`.
 
-    Reemplaza CUALQUIER cuota previa que estuviera en estado PENDIENTE.
-    Cuotas ya generadas como voucher (VOUCHER_GENERADO/PAGADA) NO se tocan
-    para evitar romper vouchers en curso.
+    Ej: 3 hitos → 33,334% / 33,333% / 33,333% (el PRIMERO absorbe el residuo
+    del porcentaje, porque en la práctica el anticipo es el hito que se
+    negocia "y el resto se divide"). El ÚLTIMO absorbe el residuo del MONTO
+    para que la suma dé exactamente el total de la OC.
+
+    Reemplaza CUALQUIER hito previo que estuviera en estado PENDIENTE.
     """
     oc = await _get_oc_or_404(db, oc_id, user)
     total = Decimal(str(oc["total"] or 0))
     if total <= 0:
         raise HTTPException(
             status_code=400,
-            detail="La OC no tiene total > 0 — no se puede dividir en cuotas",
+            detail=(
+                "La OC no tiene total > 0 — no se puede repartir la forma "
+                "de pago en porcentajes."
+            ),
         )
 
     # R152DDDDDD — Advisory lock por oc_id antes de DELETE+INSERT.
@@ -158,7 +341,52 @@ async def split_equitativo(
         {"k": f"oc_cuotas_edit_{oc_id}"},
     )
 
-    # Borrar pendientes
+    # El reparto parejo asume que el 100% está disponible. Si ya hay hitos
+    # con voucher generado, repartir 100% de nuevo dejaría la OC con más
+    # pagos que su total (los hitos con voucher no se borran). En ese caso
+    # el operador tiene que editar la forma de pago a mano.
+    con_voucher = await db.scalar(
+        text(
+            """SELECT COUNT(*) FROM core.oc_cuotas
+               WHERE oc_id = :id AND voucher_id IS NOT NULL"""
+        ),
+        {"id": oc_id},
+    )
+    if int(con_voucher or 0) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Esta OC ya tiene {int(con_voucher)} hito(s) de pago con "
+                "voucher generado. El reparto automático los dejaría fuera "
+                "de cuadratura: editá los porcentajes a mano."
+            ),
+        )
+
+    # Reparto del 100% en N partes iguales (3 decimales, que es lo que
+    # aguanta la columna). ROUND_DOWN en la base + el residuo al primer hito
+    # garantiza Σ% == 100 exacto: 3 → 33,334 + 33,333 + 33,333.
+    n = body.cantidad
+    base_pct = (CIEN / n).quantize(Decimal("0.001"), rounding=ROUND_DOWN)
+    porcentajes = [base_pct] * n
+    porcentajes[0] = CIEN - base_pct * (n - 1)
+
+    paso = _paso_redondeo(oc.get("moneda"))
+    montos = _derivar_montos(total, porcentajes, paso)
+
+    # R152JJJJJJ — guard: con totales chicos y muchos hitos, alguno puede
+    # quedar en 0 o negativo (ej: total=10, cantidad=12). La suma siempre da
+    # exacto, pero la BD exige monto > 0.
+    if any(m <= 0 for m in montos):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Demasiados hitos ({n}) para el total de la OC ({total}): "
+                "alguno quedaría en $0 o negativo. Reducí la cantidad."
+            ),
+        )
+
+    # El DELETE va DESPUÉS de validar: si el reparto no es viable salimos con
+    # 400 sin haber borrado la forma de pago que el operador ya tenía.
     await db.execute(
         text(
             """DELETE FROM core.oc_cuotas
@@ -167,51 +395,33 @@ async def split_equitativo(
         {"id": oc_id},
     )
 
-    # Calcular monto por cuota — última absorbe residuo del redondeo
-    # R152UUUUUU — HALF_UP explícito (el default de quantize es
-    # HALF_EVEN/bankers, que viola el invariante MAESTRO).
-    base = (total / body.cantidad).quantize(
-        Decimal("1"), rounding=ROUND_HALF_UP
-    )
-    montos = [base] * (body.cantidad - 1)
-    montos.append(total - sum(montos))
-    # R152JJJJJJ — guard: con totales chicos y muchas cuotas, la última
-    # podía quedar en 0 o negativa (ej: total=10, cantidad=12 → base=1,
-    # última=-1). La suma siempre da exacto, pero una cuota <= 0 es inválida.
-    if montos[-1] <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Demasiadas cuotas ({body.cantidad}) para el monto total "
-                f"{total}: la última cuota quedaría en {montos[-1]}. Reducí "
-                "la cantidad de cuotas."
-            ),
-        )
-
-    for i, monto in enumerate(montos, start=1):
-        venc = body.primer_vencimiento + timedelta(
-            days=(i - 1) * body.dias_entre_cuotas
-        )
-        await db.execute(
-            text(
-                """INSERT INTO core.oc_cuotas
-                       (oc_id, numero_cuota, monto, fecha_vencimiento, descripcion)
-                   VALUES (:oc_id, :n, :monto, :venc, :desc)
-                   ON CONFLICT (oc_id, numero_cuota) DO UPDATE SET
-                       monto = EXCLUDED.monto,
-                       fecha_vencimiento = EXCLUDED.fecha_vencimiento,
-                       descripcion = EXCLUDED.descripcion,
-                       updated_at = NOW()"""
-            ),
-            {
-                "oc_id": oc_id,
-                "n": i,
-                "monto": monto,
-                "venc": venc,
-                "desc": f"Cuota {i} de {body.cantidad}",
-            },
-        )
+    filas = [
+        {
+            "numero_cuota": i,
+            "porcentaje": _pct_normalizado(porcentajes[i - 1]),
+            "monto": montos[i - 1],
+            "fecha_vencimiento": body.primer_vencimiento
+            + timedelta(days=(i - 1) * body.dias_entre_cuotas),
+            "descripcion": f"Hito {i} de {n}",
+        }
+        for i in range(1, n + 1)
+    ]
+    await _guardar_hitos(db, oc_id, filas)
     await db.commit()
+
+    await audit_log(
+        db,
+        None,
+        user,
+        action="oc.forma_pago_split",
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=oc.get("numero_oc"),
+        summary=(
+            f"OC {oc.get('numero_oc')}: forma de pago repartida en {n} hitos "
+            f"iguales ({_fmt_pct(porcentajes[0])}% el primero)"
+        ),
+    )
     return await list_cuotas(user, db, oc_id)
 
 
@@ -223,50 +433,128 @@ async def replace_cuotas(
     user: CurrentUser,
     db: DBSession,
     oc_id: int,
-    body: CuotasReplaceBody,
+    body: HitosPagoReplaceBody,
 ) -> list[CuotaRead]:
-    """Reemplaza cuotas custom. Las que ya tengan voucher quedan intactas."""
+    """Define la FORMA DE PAGO de la OC: hitos por porcentaje + fecha.
+
+    El operador manda `{porcentaje, descripcion, fecha_vencimiento}` por hito
+    y el backend deriva el `monto` (= porcentaje/100 x total de la OC). Los
+    hitos que ya tienen voucher generado quedan intactos.
+
+    Reglas:
+      · Σ(porcentajes) debe dar 100 (±0.01) → si no, 400 con el faltante.
+      · El último hito editable absorbe el residuo de redondeo del monto.
+    """
     oc = await _get_oc_or_404(db, oc_id, user)
-
-    # Numeros de cuotas que ya tienen voucher — NO tocar
-    existing = await db.execute(
-        text(
-            """SELECT numero_cuota, monto FROM core.oc_cuotas
-               WHERE oc_id = :id AND voucher_id IS NOT NULL"""
-        ),
-        {"id": oc_id},
-    )
-    locked_rows = existing.fetchall()
-    locked = {int(r[0]) for r in locked_rows}
-
-    # R152UUUUUU — validación server-side Σ(cuotas) == total de la OC.
-    # Antes se aceptaba cualquier suma (cuotas por $2M en una OC de $3M →
-    # $1M sin cuota/voucher, invisible). Las cuotas con voucher (locked)
-    # conservan su monto actual, así que cuentan con el monto de la BD.
     total_oc = Decimal(str(oc["total"] or 0))
-    suma_locked = sum((Decimal(str(r[1])) for r in locked_rows), start=Decimal("0"))
-    suma_nuevas = sum(
-        (c.monto for c in body.cuotas if c.numero_cuota not in locked),
-        start=Decimal("0"),
-    )
-    suma_final = suma_locked + suma_nuevas
-    if total_oc > 0 and suma_final != total_oc:
+    if total_oc <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"La suma de las cuotas ({suma_final}) no coincide con el "
-                f"total de la OC ({total_oc}). "
-                + (
-                    f"Ya hay {len(locked)} cuota(s) con voucher por "
-                    f"{suma_locked} que no se pueden modificar. "
-                    if locked
-                    else ""
-                )
-                + "Ajustá los montos para que cuadren."
+                "La OC no tiene total > 0 — cargá los ítems antes de definir "
+                "la forma de pago (los montos se calculan sobre el total)."
             ),
         )
 
-    # Borrar pendientes
+    # Advisory lock ANTES de leer los hitos bloqueados: sin esto, dos
+    # operadores editando la misma OC podían pisarse (mismo patrón que
+    # split-equitativo, R152DDDDDD).
+    await db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtext(:k))"),
+        {"k": f"oc_cuotas_edit_{oc_id}"},
+    )
+
+    # Hitos que ya tienen voucher — NO se tocan (romperían vouchers en curso)
+    locked_rows = (
+        await db.execute(
+            text(
+                """SELECT numero_cuota, monto, porcentaje
+                   FROM core.oc_cuotas
+                   WHERE oc_id = :id AND voucher_id IS NOT NULL"""
+            ),
+            {"id": oc_id},
+        )
+    ).mappings().all()
+    locked = {int(r["numero_cuota"]) for r in locked_rows}
+    suma_locked_monto = sum(
+        (Decimal(str(r["monto"])) for r in locked_rows), start=Decimal("0")
+    )
+    # % de los hitos bloqueados: el guardado, o el derivado del monto para
+    # filas viejas cargadas antes de que existiera la columna `porcentaje`.
+    suma_locked_pct = sum(
+        (
+            _pct_normalizado(Decimal(str(r["porcentaje"])))
+            if r["porcentaje"] is not None
+            else _pct_normalizado(Decimal(str(r["monto"])) * CIEN / total_oc)
+            for r in locked_rows
+        ),
+        start=Decimal("0"),
+    )
+
+    # ── Numeración de los hitos ──────────────────────────────────────
+    # El frontend manda `numero_cuota` para los hitos que ya existen (así no
+    # se pisa uno con voucher); los nuevos vienen sin número y se numeran
+    # con el primer hueco libre.
+    usados = [h.numero_cuota for h in body.hitos if h.numero_cuota is not None]
+    if len(usados) != len(set(usados)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Hay hitos de pago repetidos con el mismo número.",
+        )
+    ocupados = set(usados)
+    siguiente = 1
+    numerados: list[tuple[int, HitoPagoCreate]] = []
+    for h in body.hitos:
+        if h.numero_cuota is not None:
+            numerados.append((h.numero_cuota, h))
+            continue
+        while siguiente in ocupados:
+            siguiente += 1
+        ocupados.add(siguiente)
+        numerados.append((siguiente, h))
+
+    # ── Validación de porcentajes ────────────────────────────────────
+    # Para los hitos bloqueados manda SIEMPRE lo que hay en la BD (aunque el
+    # payload traiga otro %): no se pueden modificar, así que la suma real
+    # de la OC se calcula con su valor persistido.
+    editables = [(n, h) for n, h in numerados if n not in locked]
+    pcts_editables = [_pct_normalizado(h.porcentaje) for _, h in editables]
+    suma_total_pct = suma_locked_pct + sum(pcts_editables, start=Decimal("0"))
+    detalle_locked = (
+        f" Ojo: {len(locked)} hito(s) ya tienen voucher generado y aportan "
+        f"{_fmt_pct(suma_locked_pct)}% que no se puede modificar."
+        if locked
+        else ""
+    )
+    _validar_suma_100(suma_total_pct, detalle_locked)
+
+    # ── Derivación de montos ─────────────────────────────────────────
+    paso = _paso_redondeo(oc.get("moneda"))
+    filas: list[dict[str, Any]] = []
+    if editables:
+        montos = _derivar_montos(
+            total_oc, pcts_editables, paso, ya_asignado=suma_locked_monto
+        )
+        if any(m <= 0 for m in montos):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Con esos porcentajes algún hito queda en $0 o negativo "
+                    f"sobre un total de {total_oc}. Revisá el reparto."
+                ),
+            )
+        filas = [
+            {
+                "numero_cuota": numero,
+                "porcentaje": pcts_editables[i],
+                "monto": montos[i],
+                "fecha_vencimiento": hito.fecha_vencimiento,
+                "descripcion": hito.descripcion,
+            }
+            for i, (numero, hito) in enumerate(editables)
+        ]
+
+    # Borrar pendientes (replace-all de lo editable)
     await db.execute(
         text(
             """DELETE FROM core.oc_cuotas
@@ -274,30 +562,27 @@ async def replace_cuotas(
         ),
         {"id": oc_id},
     )
-
-    for c in body.cuotas:
-        if c.numero_cuota in locked:
-            continue  # no piso una cuota con voucher
-        await db.execute(
-            text(
-                """INSERT INTO core.oc_cuotas
-                       (oc_id, numero_cuota, monto, fecha_vencimiento, descripcion)
-                   VALUES (:oc_id, :n, :monto, :venc, :desc)
-                   ON CONFLICT (oc_id, numero_cuota) DO UPDATE SET
-                       monto = EXCLUDED.monto,
-                       fecha_vencimiento = EXCLUDED.fecha_vencimiento,
-                       descripcion = EXCLUDED.descripcion,
-                       updated_at = NOW()"""
-            ),
-            {
-                "oc_id": oc_id,
-                "n": c.numero_cuota,
-                "monto": c.monto,
-                "venc": c.fecha_vencimiento,
-                "desc": c.descripcion,
-            },
-        )
+    await _guardar_hitos(db, oc_id, filas)
     await db.commit()
+
+    await audit_log(
+        db,
+        None,
+        user,
+        action="oc.forma_pago_actualizada",
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=oc.get("numero_oc"),
+        summary=(
+            f"OC {oc.get('numero_oc')}: forma de pago con {len(numerados)} "
+            f"hito(s) — "
+            + (
+                " + ".join(f"{_fmt_pct(p)}%" for p in pcts_editables)
+                if pcts_editables
+                else "sin hitos editables (todos con voucher generado)"
+            )
+        ),
+    )
     return await list_cuotas(user, db, oc_id)
 
 
@@ -309,6 +594,15 @@ async def replace_cuotas(
 async def delete_cuota(
     user: CurrentUser, db: DBSession, oc_id: int, cuota_id: int
 ) -> Response:
+    """Borra un hito de pago suelto (sin voucher generado).
+
+    Ojo: al borrar un hito los porcentajes dejan de sumar 100. El camino
+    normal es editar la forma de pago completa con el PUT; esto queda para
+    limpiezas puntuales.
+    """
+    # Multi-tenant: faltaba el scoping por empresa en este endpoint (el resto
+    # del router ya lo hace vía _get_oc_or_404).
+    await _get_oc_or_404(db, oc_id, user)
     row = (
         await db.execute(
             text(
@@ -657,6 +951,7 @@ class CuotasResumen(BaseModel):
 async def cuotas_proximas(
     user: CurrentUser,
     db: DBSession,
+    scope: EmpresaScopeDep,
     dias: Annotated[int, Query(ge=1, le=180)] = 30,
     incluir_vencidas: bool = Query(default=True),
 ) -> list[CuotaPendiente]:
@@ -664,6 +959,11 @@ async def cuotas_proximas(
 
     Default: próximas 30 días + vencidas. Ordenadas por fecha asc.
     Pensado para widget "Próximos vencimientos" y badge sidebar.
+
+    FIX fuga multi-tenant: este endpoint recibía `user` pero no lo usaba y
+    devolvía los hitos de LAS 10 EMPRESAS a cualquier usuario autenticado.
+    El widget de /action-center mostraba número de OC, proveedor y monto de
+    empresas fuera del alcance de quien miraba. Ahora filtra por el scope.
     """
     where_clauses = [
         "c.estado IN ('PENDIENTE', 'VOUCHER_GENERADO')",
@@ -671,6 +971,13 @@ async def cuotas_proximas(
     ]
     if not incluir_vencidas:
         where_clauses.append("c.fecha_vencimiento >= CURRENT_DATE")
+
+    params: dict[str, Any] = {}
+    # None = admin global (ve todo). Lista = restringir a esas empresas.
+    scoped = scope.filter_codes(None)
+    if scoped is not None:
+        where_clauses.append("oc.empresa_codigo = ANY(:empresas)")
+        params["empresas"] = list(scoped)
 
     rows = await db.execute(
         text(
@@ -689,6 +996,7 @@ async def cuotas_proximas(
                 ORDER BY c.fecha_vencimiento ASC, c.cuota_id ASC
                 LIMIT 100"""
         ),
+        params,
     )
     return [CuotaPendiente.model_validate(dict(r._mapping)) for r in rows]
 
@@ -698,13 +1006,25 @@ async def cuotas_proximas(
     response_model=CuotasResumen,
 )
 async def cuotas_resumen(
-    user: CurrentUser, db: DBSession
+    user: CurrentUser, db: DBSession, scope: EmpresaScopeDep
 ) -> CuotasResumen:
-    """Resumen de cuotas pendientes (badge/sidebar)."""
+    """Resumen de cuotas pendientes (badge/sidebar).
+
+    FIX fuga multi-tenant: agregaba sobre TODA la tabla, así que el badge del
+    sidebar le sumaba a cada usuario la plata pendiente de las 10 empresas.
+    `oc_cuotas` no tiene empresa_codigo, por eso el JOIN con ordenes_compra.
+    """
+    params: dict[str, Any] = {}
+    filtro_empresa = ""
+    scoped = scope.filter_codes(None)
+    if scoped is not None:
+        filtro_empresa = "WHERE oc.empresa_codigo = ANY(:empresas)"
+        params["empresas"] = list(scoped)
+
     row = (
         await db.execute(
             text(
-                """SELECT
+                f"""SELECT
                     COUNT(*) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')) AS total_pendientes,
                     COUNT(*) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')
                                      AND fecha_vencimiento < CURRENT_DATE) AS vencidas,
@@ -715,8 +1035,11 @@ async def cuotas_resumen(
                                      AND fecha_vencimiento BETWEEN CURRENT_DATE
                                          AND CURRENT_DATE + INTERVAL '30 days') AS proximas_30,
                     COALESCE(SUM(monto) FILTER (WHERE estado IN ('PENDIENTE','VOUCHER_GENERADO')), 0) AS monto_total
-                   FROM core.oc_cuotas"""
+                   FROM core.oc_cuotas c
+                   JOIN core.ordenes_compra oc ON oc.oc_id = c.oc_id
+                   {filtro_empresa}"""
             ),
+            params,
         )
     ).first()
     if not row:

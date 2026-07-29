@@ -63,6 +63,7 @@ class OrdenCompraRepository:
             total=data.total_calculado,
             forma_pago=data.forma_pago,
             plazo_pago=data.plazo_pago,
+            plazo_entrega=data.plazo_entrega,
             observaciones=data.observaciones,
         )
         self._session.add(oc)

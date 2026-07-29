@@ -248,7 +248,8 @@ async def _load_context(
             text(
                 """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
                           fecha_emision, validez_dias, moneda, neto, iva, total,
-                          forma_pago, plazo_pago, observaciones, estado
+                          forma_pago, plazo_pago, plazo_entrega,
+                          observaciones, estado
                    FROM core.ordenes_compra
                    WHERE oc_id = :id"""
             ),
@@ -265,7 +266,7 @@ async def _load_context(
             await db.execute(
                 text(
                     """SELECT codigo, razon_social, rut, giro, direccion, ciudad,
-                              telefono, logo_dropbox_path,
+                              telefono, logo_dropbox_path, pagina_web,
                               gerente_general_nombre, gerente_general_cargo,
                               oc_color_primario,
                               oc_template, oc_firmantes
@@ -295,6 +296,10 @@ async def _load_context(
     empresa.setdefault("gerente_general_cargo", "Gerente General")
     empresa.setdefault("oc_color_primario", None)
     empresa.setdefault("logo_dropbox_path", None)
+    # MEGAPROMPT OC-PDF-VERDE — pie de la página de firmas. En entornos sin
+    # la migración R115 la columna no existe y el fallback de arriba no la
+    # trae: el default deja el pie con la razón social, como antes.
+    empresa.setdefault("pagina_web", None)
     # R152MMMMMM — template por empresa ('default' | 'panimavida') y
     # firmantes JSONB [{nombre, cargo}, ...] para la página de firmas.
     empresa.setdefault("oc_template", None)
@@ -399,7 +404,10 @@ async def _load_context(
         "moneda": type("M", (), {"value": moneda_str})(),
         "forma_pago": oc_row.get("forma_pago"),
         "plazo_pago": oc_row.get("plazo_pago"),
-        "plazo_entrega": None,
+        # Plazo de ENTREGA — el diseño de referencia lo lista aparte del
+        # plazo de pago. Antes estaba fijo en None y la fila del template
+        # era código muerto.
+        "plazo_entrega": oc_row.get("plazo_entrega"),
         "lugar_entrega": None,
         "garantia": None,
         "observaciones": oc_row.get("observaciones"),
@@ -423,6 +431,7 @@ async def _load_context(
         "ciudad": empresa.get("ciudad"),
         "telefono": empresa.get("telefono"),
         "email": None,
+        "pagina_web": empresa.get("pagina_web"),
         "representante_legal": empresa.get("gerente_general_nombre"),
     })()
 
@@ -522,6 +531,50 @@ async def _load_context(
         # no los genéricos del branding (mismo criterio que antes de F3).
         firmantes = firmantes_internos
 
+    # MEGAPROMPT OC-PDF-VERDE — hitos de pago para la sección "Forma de pago".
+    # Las OC reales se pactan por PORCENTAJE ("30% anticipo al inicio de
+    # fabricación, 70% contra entrega"), y eso es lo que el proveedor firma.
+    # UNA sola query (nada de un SELECT por cuota) y envuelta como las firmas:
+    # si la BD todavía no tiene la columna `porcentaje` el PDF tiene que salir
+    # igual — sin la sección — en lugar de tumbar la generación entera.
+    # Las cuotas ANULADAS no se imprimen: son hitos que el operador descartó.
+    hitos_pago: list[dict[str, Any]] = []
+    cuotas_rows: Any = []
+    try:
+        cuotas_rows = (
+            await db.execute(
+                text(
+                    """SELECT numero_cuota, porcentaje, descripcion,
+                              fecha_vencimiento, monto
+                       FROM core.oc_cuotas
+                       WHERE oc_id = :id AND estado <> 'ANULADA'
+                       ORDER BY numero_cuota"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().all()
+    except Exception:
+        with contextlib.suppress(Exception):
+            await db.rollback()
+        cuotas_rows = []
+
+    _total_oc = Decimal(str(oc_row.get("total") or 0))
+    for cr in cuotas_rows:
+        pct = cr.get("porcentaje")
+        # Cuotas viejas creadas antes de la columna `porcentaje`: derivamos el
+        # % desde el monto para que la columna nunca salga vacía en el PDF.
+        if pct is None and _total_oc > 0 and cr["monto"] is not None:
+            with contextlib.suppress(Exception):
+                pct = (
+                    Decimal(str(cr["monto"])) / _total_oc * 100
+                ).quantize(Decimal("0.001"))
+        hitos_pago.append({
+            "porcentaje": pct,
+            "descripcion": cr.get("descripcion"),
+            "fecha": cr.get("fecha_vencimiento"),
+            "monto": cr.get("monto"),
+        })
+
     # Modelo Proveedor para template
     prov_ctx = type("Prov", (), {
         "razon_social": proveedor.get("razon_social") or "Proveedor sin nombre",
@@ -536,6 +589,34 @@ async def _load_context(
 
     css_content = (_DOCUMENTS_DIR / "document.css").read_text(encoding="utf-8")
 
+    # Pie de página armado y SANEADO acá, no interpolado en el template: el
+    # @bottom-center vive dentro de <style>, que es raw-text, y el Environment
+    # tiene autoescape para .html — "DTE Consulting & Development SpA" salía
+    # impreso como "&amp;". Se quitan comillas, backslashes y saltos porque
+    # cualquiera de los tres rompe el string CSS y tumba la regla @page entera
+    # (el PDF quedaría sin pie en TODAS las páginas).
+    # `emp_ctx` es una clase creada al vuelo con type(), no un dict: se accede
+    # por atributo. (Un .get() acá tumbaba la generación con AttributeError.)
+    _pie_partes = [
+        p for p in (
+            getattr(emp_ctx, "direccion", None),
+            getattr(emp_ctx, "ciudad", None),
+        ) if p
+    ]
+    _pie = ", ".join(_pie_partes)
+    # La OC de referencia cierra con el dominio de la empresa, no con la razón
+    # social ("... Colbún | Panimávida.Energy"). Si no hay web, cae a la razón.
+    _razon = (
+        getattr(emp_ctx, "pagina_web", None)
+        or getattr(emp_ctx, "razon_social", None)
+        or ""
+    )
+    _razon = _razon.replace("https://", "").replace("http://", "").rstrip("/")
+    footer_texto = f"{_pie}   |   {_razon}" if _pie else _razon
+    for _malo in ('"', "\\", "\n", "\r"):
+        footer_texto = footer_texto.replace(_malo, " ")
+    footer_texto = " ".join(footer_texto.split())
+
     return {
         "titulo": f"Orden de Compra {oc_ctx.numero}",
         "tipo_doc": "ORDEN DE COMPRA",
@@ -543,6 +624,7 @@ async def _load_context(
         "fecha_emision_larga": _fecha_larga(oc_ctx.fecha_emision),
         "estado": oc_ctx.estado.value,
         "color_primario": color_primario,
+        "footer_texto": footer_texto,
         "empresa": emp_ctx,
         "logo_data_uri": _logo_data_uri(emp_codigo, logo_bytes),
         "proveedor": prov_ctx,
@@ -562,6 +644,9 @@ async def _load_context(
         "firmantes": firmantes,
         "firmantes_externos": firmantes_externos,
         "firma_font_uri": _firma_font_data_uri(),
+        # MEGAPROMPT OC-PDF-VERDE — [{porcentaje, descripcion, fecha, monto}].
+        # Vacía ⇒ el template omite la sección "Forma de pago" entera.
+        "hitos_pago": hitos_pago,
         "_oc_template": (empresa.get("oc_template") or "default").lower(),
         # Pasamos también attachments para mergear después.
         "_oc_id": oc_id,

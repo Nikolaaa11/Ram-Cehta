@@ -12,6 +12,14 @@ from app.domain.value_objects.iva import calcular_iva
 class OCDetalleCreate(BaseModel):
     item: int = Field(..., ge=1)
     descripcion: str = Field(..., min_length=1)
+    # `unidad` — unidad de medida de la línea (Un, Gl, Días, m3, m2, ml, Kg,
+    # Ton, Hrs, Global…). La columna core.ordenes_compra_detalle.unidad ya
+    # existía y el PDF v2 la imprime en la columna "Un.", pero este schema no
+    # la aceptaba: el POST la descartaba silenciosamente y SIEMPRE se guardaba
+    # NULL. Es texto libre (no enum) porque cada rubro usa su nomenclatura:
+    # el form ofrece sugerencias pero el operador puede escribir la suya.
+    # Opcional con default: si no viene, el PDF imprime "—".
+    unidad: str | None = Field(default=None, max_length=20)
     precio_unitario: Decimal = Field(..., gt=0)
     cantidad: Decimal = Field(..., gt=0)
 
@@ -20,6 +28,11 @@ class OCDetalleRead(BaseModel):
     detalle_id: int
     item: int
     descripcion: str
+    # Default None a propósito: el modelo ORM OrdenCompraDetalle no mapea la
+    # columna `unidad` (se agregó por SQL directo), así que al construir el
+    # schema desde la entidad el atributo no existe y pydantic aplica el
+    # default. El endpoint la hidrata con una query aparte.
+    unidad: str | None = None
     precio_unitario: Decimal
     cantidad: Decimal
     total_linea: Decimal | None
@@ -46,6 +59,7 @@ class OrdenCompraCreate(BaseModel):
     neto: Decimal | None = Field(default=None, ge=0)
     forma_pago: str | None = None
     plazo_pago: str | None = None
+    plazo_entrega: str | None = None
     observaciones: str | None = None
     items: list[OCDetalleCreate] = Field(..., min_length=1)
 
@@ -90,6 +104,7 @@ class OrdenCompraRead(BaseModel):
     total: Decimal
     forma_pago: str | None
     plazo_pago: str | None
+    plazo_entrega: str | None = None
     observaciones: str | None
     estado: str
     pdf_url: str | None
@@ -154,6 +169,7 @@ class OrdenCompraUpdate(BaseModel):
 
     forma_pago: str | None = None
     plazo_pago: str | None = None
+    plazo_entrega: str | None = None
     validez_dias: int | None = Field(default=None, ge=1)
     observaciones: str | None = None
     pdf_url: str | None = None

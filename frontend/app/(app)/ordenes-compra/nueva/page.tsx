@@ -19,6 +19,7 @@ import type { OcRead } from "@/lib/api/schema";
 
 interface ItemForm {
   descripcion: string;
+  unidad: string;
   precio_unitario: string;
   cantidad: string;
 }
@@ -53,6 +54,22 @@ const MONEDAS: ComboboxItem[] = [
   { value: "USD", label: "USD" },
 ];
 
+// Unidades que usa el equipo en las OC reales. Son SUGERENCIAS (datalist),
+// no una lista cerrada: el operador puede escribir cualquier otra y se
+// guarda tal cual. Aparecen en la columna "Un." del PDF.
+const UNIDADES_SUGERIDAS = [
+  "Un",
+  "Gl",
+  "Días",
+  "m3",
+  "m2",
+  "ml",
+  "Kg",
+  "Ton",
+  "Hrs",
+  "Global",
+];
+
 export default function NuevaOcPage() {
   const router = useRouter();
   const { session } = useSession();
@@ -73,9 +90,12 @@ export default function NuevaOcPage() {
   const [validezDias, setValidezDias] = useState("30");
   const [formaPago, setFormaPago] = useState("");
   const [plazoPago, setPlazoPago] = useState("");
+  // Plazo de ENTREGA — distinto del plazo de pago. Las OC reales llevan
+  // los dos y el PDF los imprime en filas separadas del bloque PROVEEDOR.
+  const [plazoEntrega, setPlazoEntrega] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [items, setItems] = useState<ItemForm[]>([
-    { descripcion: "", precio_unitario: "", cantidad: "1" },
+    { descripcion: "", unidad: "", precio_unitario: "", cantidad: "1" },
   ]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +113,7 @@ export default function NuevaOcPage() {
       validezDias,
       formaPago,
       plazoPago,
+      plazoEntrega,
       observaciones,
       items,
     }),
@@ -106,6 +127,7 @@ export default function NuevaOcPage() {
       validezDias,
       formaPago,
       plazoPago,
+      plazoEntrega,
       observaciones,
       items,
     ],
@@ -124,6 +146,7 @@ export default function NuevaOcPage() {
         if (saved.validezDias) setValidezDias(saved.validezDias);
         if (saved.formaPago) setFormaPago(saved.formaPago);
         if (saved.plazoPago) setPlazoPago(saved.plazoPago);
+        if (saved.plazoEntrega) setPlazoEntrega(saved.plazoEntrega);
         if (saved.observaciones) setObservaciones(saved.observaciones);
         if (saved.items?.length) setItems(saved.items);
         toast.info("Restauré tu borrador del último intento.");
@@ -210,7 +233,7 @@ export default function NuevaOcPage() {
   const addItem = () =>
     setItems([
       ...items,
-      { descripcion: "", precio_unitario: "", cantidad: "1" },
+      { descripcion: "", unidad: "", precio_unitario: "", cantidad: "1" },
     ]);
   const removeItem = (idx: number) =>
     setItems(items.length > 1 ? items.filter((_, i) => i !== idx) : items);
@@ -252,10 +275,14 @@ export default function NuevaOcPage() {
         validez_dias: Number(validezDias) || 30,
         forma_pago: formaPago || null,
         plazo_pago: plazoPago || null,
+        plazo_entrega: plazoEntrega || null,
         observaciones: observaciones || null,
         items: items.map((it, i) => ({
           item: i + 1,
           descripcion: it.descripcion,
+          // Unidad de medida (Un, Gl, Días, m3…). Si el operador no la
+          // completa mandamos null y el PDF imprime "—".
+          unidad: it.unidad?.trim() ? it.unidad.trim() : null,
           precio_unitario: Number(it.precio_unitario),
           cantidad: Number(it.cantidad) || 1,
         })),
@@ -532,7 +559,7 @@ export default function NuevaOcPage() {
               </div>
               <div>
                 <label className={labelBase} htmlFor="plazo-pago">
-                  Plazo
+                  Plazo de pago
                 </label>
                 <input
                   id="plazo-pago"
@@ -540,6 +567,19 @@ export default function NuevaOcPage() {
                   value={plazoPago}
                   onChange={(e) => setPlazoPago(e.target.value)}
                   placeholder="30 días"
+                  className={inputBase}
+                />
+              </div>
+              <div>
+                <label className={labelBase} htmlFor="plazo-entrega">
+                  Plazo de entrega
+                </label>
+                <input
+                  id="plazo-entrega"
+                  type="text"
+                  value={plazoEntrega}
+                  onChange={(e) => setPlazoEntrega(e.target.value)}
+                  placeholder="Entrega inmediata / No aplica"
                   className={inputBase}
                 />
               </div>
@@ -580,7 +620,7 @@ export default function NuevaOcPage() {
                   key={idx}
                   className="grid grid-cols-12 items-start gap-3 border-t border-hairline pt-3 first:border-0 first:pt-0"
                 >
-                  <div className="col-span-12 sm:col-span-6">
+                  <div className="col-span-12 sm:col-span-4">
                     <label className="sr-only" htmlFor={`item-desc-${idx}`}>
                       Descripción
                     </label>
@@ -596,7 +636,7 @@ export default function NuevaOcPage() {
                       className={inputBase}
                     />
                   </div>
-                  <div className="col-span-6 sm:col-span-3">
+                  <div className="col-span-4 sm:col-span-3">
                     <label className="sr-only" htmlFor={`item-price-${idx}`}>
                       Precio unitario
                     </label>
@@ -614,7 +654,7 @@ export default function NuevaOcPage() {
                       className={`${inputBase} tabular-nums`}
                     />
                   </div>
-                  <div className="col-span-4 sm:col-span-2">
+                  <div className="col-span-3 sm:col-span-2">
                     <label className="sr-only" htmlFor={`item-qty-${idx}`}>
                       Cantidad
                     </label>
@@ -631,6 +671,28 @@ export default function NuevaOcPage() {
                       className={`${inputBase} tabular-nums`}
                     />
                   </div>
+                  {/* Unidad al lado de la cantidad: "3 Días", "50 m3".
+                      Input libre con sugerencias — el operador puede tipear
+                      una unidad que no esté en la lista y se guarda igual. */}
+                  <div className="col-span-3 sm:col-span-2">
+                    <label className="sr-only" htmlFor={`item-unidad-${idx}`}>
+                      Unidad
+                    </label>
+                    <input
+                      id={`item-unidad-${idx}`}
+                      type="text"
+                      list="oc-unidades-sugeridas"
+                      value={it.unidad ?? ""}
+                      onChange={(e) =>
+                        updateItem(idx, { unidad: e.target.value })
+                      }
+                      placeholder="Unidad"
+                      maxLength={20}
+                      autoComplete="off"
+                      title="Unidad de medida: Un, Gl, Días, m3, Kg, Hrs… (opcional)"
+                      className={inputBase}
+                    />
+                  </div>
                   <div className="col-span-2 sm:col-span-1 flex">
                     <button
                       type="button"
@@ -645,6 +707,19 @@ export default function NuevaOcPage() {
                 </div>
               ))}
             </div>
+            {/* Un solo datalist compartido por todas las filas: los <input
+                list="..."> de cada ítem apuntan acá. */}
+            <datalist id="oc-unidades-sugeridas">
+              {UNIDADES_SUGERIDAS.map((u) => (
+                <option key={u} value={u} />
+              ))}
+            </datalist>
+            <p className="mt-4 text-xs text-ink-400">
+              La <span className="font-medium text-ink-500">unidad</span> es
+              opcional y sale impresa en la columna “Un.” de la orden de
+              compra. Podés elegir una de la lista (Un, Gl, Días, m3, Kg, Hrs…)
+              o escribir la que uses. El total lo calcula el sistema.
+            </p>
           </Surface.Body>
         </Surface>
 

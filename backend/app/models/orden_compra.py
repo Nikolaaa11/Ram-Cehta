@@ -25,6 +25,10 @@ class OrdenCompra(Base):
     total: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     forma_pago: Mapped[str | None] = mapped_column(Text)
     plazo_pago: Mapped[str | None] = mapped_column(Text)
+    # Plazo de ENTREGA de los bienes/servicios — distinto del plazo de pago.
+    # Las OC reales llevan ambos ("Cond. de Pago: 30% anticipo" y
+    # "Plazo de Entrega: No aplica") y el PDF los imprime en filas separadas.
+    plazo_entrega: Mapped[str | None] = mapped_column(Text)
     observaciones: Mapped[str | None] = mapped_column(Text)
     estado: Mapped[str] = mapped_column(Text, server_default="emitida")
     pdf_url: Mapped[str | None] = mapped_column(Text)

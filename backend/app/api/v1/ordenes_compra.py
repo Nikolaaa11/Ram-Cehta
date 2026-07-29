@@ -85,6 +85,7 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
         total=oc.total,
         forma_pago=oc.forma_pago,
         plazo_pago=oc.plazo_pago,
+        plazo_entrega=oc.plazo_entrega,
         observaciones=oc.observaciones,
         estado=oc.estado,
         pdf_url=oc.pdf_url,
@@ -93,6 +94,81 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
         updated_at=oc.updated_at,
         allowed_actions=_authz.allowed_actions_for_oc(user, oc.estado),
     )
+
+
+async def _persistir_unidades(
+    db: DBSession, oc_id: int, items: list[OCDetalleCreate]
+) -> None:
+    """Graba `unidad` en core.ordenes_compra_detalle para los ítems recién creados.
+
+    ¿Por qué acá y no en OrdenCompraRepository.create()? Porque el modelo ORM
+    `OrdenCompraDetalle` no mapea la columna `unidad` (se agregó por migración
+    SQL directa), así que el INSERT del repo no la puede escribir y la unidad
+    se perdía. Un solo UPDATE con UNNEST — nada de un query por ítem — que
+    matchea por (oc_id, item), que es UNIQUE en la tabla.
+
+    No abre transacción propia: corre dentro de la del endpoint, antes del
+    commit, para que la OC y sus unidades sean atómicas.
+    """
+    # Normalizamos acá (no en el schema) para que "  " no quede guardado como
+    # unidad vacía y el PDF imprima "—" en vez de un espacio.
+    pares = [
+        (it.item, (it.unidad or "").strip())
+        for it in items
+        if (it.unidad or "").strip()
+    ]
+    if not pares:
+        return
+    await db.execute(
+        text(
+            """
+            UPDATE core.ordenes_compra_detalle AS d
+               SET unidad = u.unidad
+              FROM UNNEST(CAST(:items AS INT[]), CAST(:unidades AS TEXT[]))
+                   AS u(item, unidad)
+             WHERE d.oc_id = :oc_id
+               AND d.item = u.item
+            """
+        ),
+        {
+            "oc_id": oc_id,
+            "items": [item for item, _ in pares],
+            "unidades": [unidad for _, unidad in pares],
+        },
+    )
+
+
+async def _leer_unidades(db: DBSession, oc_id: int) -> dict[int, str]:
+    """Devuelve {detalle_id: unidad} de una OC en UNA query (sin N+1)."""
+    rows = (
+        await db.execute(
+            text(
+                "SELECT detalle_id, unidad FROM core.ordenes_compra_detalle "
+                "WHERE oc_id = :oc_id AND unidad IS NOT NULL"
+            ),
+            {"oc_id": oc_id},
+        )
+    ).all()
+    return {int(r[0]): str(r[1]) for r in rows}
+
+
+async def _to_read_con_unidades(
+    db: DBSession, user: AuthenticatedUser, oc: OrdenCompra
+) -> OrdenCompraRead:
+    """`_to_read` + hidratación de `unidad` por ítem.
+
+    El ORM no trae `unidad` (columna no mapeada), así que sin esto la API
+    devolvería siempre `unidad: null` aunque en la BD esté cargada — mentirle
+    al frontend sobre un dato que el PDF sí imprime.
+    """
+    out = _to_read(user, oc)
+    if not out.items:
+        return out
+    unidades = await _leer_unidades(db, oc.oc_id)
+    if unidades:
+        for item in out.items:
+            item.unidad = unidades.get(item.detalle_id)
+    return out
 
 
 @router.get("", response_model=Page[OrdenCompraListItem])
@@ -194,6 +270,9 @@ async def create_oc(
         )
     try:
         oc = await repo.create(body)
+        # La unidad de cada ítem va en el mismo commit que la OC (ver
+        # `_persistir_unidades`: el repo no puede escribirla).
+        await _persistir_unidades(db, oc.oc_id, body.items)
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
@@ -218,7 +297,8 @@ async def create_oc(
                 "devolver. Refrescá la lista en unos segundos."
             ),
         )
-    after = _to_read(user, oc).model_dump(mode="json")
+    creada = await _to_read_con_unidades(db, user, oc)
+    after = creada.model_dump(mode="json")
     await audit_log(
         db,
         request,
@@ -246,7 +326,7 @@ async def create_oc(
             "created_by": str(user.sub),
         },
     )
-    return _to_read(user, oc)
+    return creada
 
 
 @router.get("/{oc_id:int}", response_model=OrdenCompraRead)
@@ -263,7 +343,7 @@ async def get_oc(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Sin acceso a OCs de empresa '{oc.empresa_codigo}'",
         )
-    return _to_read(user, oc)
+    return await _to_read_con_unidades(db, user, oc)
 
 
 _OC_EDITABLE_ESTADOS = {"emitida", "parcial"}
@@ -591,6 +671,10 @@ async def duplicate_oc(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"OC {body.numero_oc} ya existe para empresa {original.empresa_codigo}",
         )
+    # La unidad de cada ítem del original en UNA query: el ORM no la mapea,
+    # y sin esto el duplicado perdería las unidades (aparecerían como "—"
+    # en el PDF de la copia).
+    unidades_originales = await _leer_unidades(db, original.oc_id)
     # Construir el OrdenCompraCreate copiando los campos del original. El IVA
     # se recalcula automaticamente en repo.create() segun moneda + neto, asi
     # que no hay riesgo de inconsistencia.
@@ -604,11 +688,13 @@ async def duplicate_oc(
         neto=original.neto,
         forma_pago=original.forma_pago,
         plazo_pago=original.plazo_pago,
+        plazo_entrega=original.plazo_entrega,
         observaciones=body.observaciones if body.observaciones is not None else original.observaciones,
         items=[
             OCDetalleCreate(
                 item=d.item,
                 descripcion=d.descripcion,
+                unidad=unidades_originales.get(d.detalle_id),
                 precio_unitario=d.precio_unitario,
                 cantidad=d.cantidad,
             )
@@ -617,6 +703,7 @@ async def duplicate_oc(
     )
     try:
         new_oc = await repo.create(duplicate_payload)
+        await _persistir_unidades(db, new_oc.oc_id, duplicate_payload.items)
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
@@ -640,7 +727,8 @@ async def duplicate_oc(
                 "Refrescá la lista para verla."
             ),
         )
-    after = _to_read(user, new_oc).model_dump(mode="json")
+    duplicada = await _to_read_con_unidades(db, user, new_oc)
+    after = duplicada.model_dump(mode="json")
     await audit_log(
         db,
         request,
@@ -671,7 +759,7 @@ async def duplicate_oc(
             "duplicated_from_oc_id": original.oc_id,
         },
     )
-    return _to_read(user, new_oc)
+    return duplicada
 
 
 @router.patch("/{oc_id}", response_model=OrdenCompraRead)
@@ -728,19 +816,30 @@ async def update_oc(
         before=before,
         after=after,
     )
-    return _to_read(user, refreshed)
+    # Con unidades: el PATCH no las toca, pero la respuesta alimenta la
+    # pantalla de detalle y no pueden "desaparecer" tras editar la cabecera.
+    return await _to_read_con_unidades(db, user, refreshed)
 
 
 # =====================================================================
-# DELETE /ordenes-compra/{oc_id} — borrar OC (solo emitida o anulada)
+# DELETE /ordenes-compra/{oc_id} — borrar OC mal cargada
 # =====================================================================
 #
-# Permitimos eliminacion fisica solo si la OC todavia no tiene impacto
-# financiero, es decir si esta en `emitida` (recien creada, sin pagos)
-# o `anulada` (cancelada antes de pagar). Las `parcial` y `pagada`
-# tienen movimientos contables asociados y no se borran — para esos
-# casos usar el flujo de `anular` (PATCH /estado anulada) que mantiene
-# el rastro auditable.
+# El criterio NO es el estado por sí solo sino el impacto real:
+#   1. ¿Hay una firma puesta? → documento firmado, evidencia legal, no se
+#      borra nunca (se anula).
+#   2. ¿Hay plata comprometida o movida (vouchers APPROVED/EXECUTED/
+#      SYNCED/RECONCILED)? → no se borra, hay que revertir la plata primero.
+# Si no pasa ninguna de las dos, la OC es "papel" y se puede borrar.
+#
+# Por eso el allowlist de estados incluye los 4 estados PRE-firma:
+# `borrador`, `emitida`, `en_firma` y `anulada`. Los estados posteriores
+# (`firmada`, `enviada_proveedor`, `facturada`) y los que implican pago
+# (`parcial`, `pagada`) quedan fuera: ahí el camino es anular, no borrar.
+_OC_ESTADOS_BORRABLES = ("borrador", "emitida", "en_firma", "anulada")
+_VOUCHER_ESTADOS_CON_PLATA = ("APPROVED", "EXECUTED", "SYNCED", "RECONCILED")
+
+
 @router.delete(
     "/{oc_id:int}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -753,7 +852,28 @@ async def delete_oc(
     request: Request,
     oc_id: int,
 ) -> Response:
-    """Borra una OC. Solo permitido si estado in ('emitida', 'anulada').
+    """Borra fisicamente una OC mal cargada. Estados permitidos: borrador,
+    emitida, en_firma, anulada.
+
+    Bloqueos (409, con explicacion de que hacer en su lugar):
+      · la OC tiene al menos una firma con status='FIRMADA' → documento
+        firmado, evidencia legal, se anula pero no se borra;
+      · la OC tiene vouchers APPROVED/EXECUTED/SYNCED/RECONCILED (directos
+        via vouchers.oc_id o via sus cuotas) → ya hay plata comprometida.
+    Ambas condiciones se chequean en UNA sola query (subselects), no una
+    query por condicion.
+
+    Borrado en cascada — verificado contra las FK reales:
+      · core.ordenes_compra_detalle  ON DELETE CASCADE (+ cascade ORM)
+      · core.oc_cuotas               ON DELETE CASCADE  → forma de pago
+      · core.oc_firmas               ON DELETE CASCADE  → firmantes pendientes
+      · core.oc_attachments          ON DELETE CASCADE  → adjuntos del email
+      · core.vouchers.oc_id          ON DELETE SET NULL → el voucher sobrevive
+      · webhooks/eventos de email    ON DELETE SET NULL
+    La excepcion es core.inbox_messages.linked_oc_id, cuya FK quedo SIN
+    ON DELETE (NO ACTION): si la OC nacio de un email, Postgres abortaba el
+    DELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar —
+    mismo efecto que un SET NULL, el correo NO se borra.
 
     V5++ ola CJ — scope check sobre empresa.
     """
@@ -764,21 +884,103 @@ async def delete_oc(
             status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
         )
     await assert_empresa_access(user, db, oc.empresa_codigo)
-    if oc.estado not in {"emitida", "anulada"}:
+    if oc.estado not in _OC_ESTADOS_BORRABLES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                f"Solo OCs en estado 'emitida' o 'anulada' pueden borrarse "
-                f"(esta esta en '{oc.estado}'). Para detener pagos usar "
-                f"PATCH /{oc_id}/estado con estado='anulada'."
+                f"La OC {oc.numero_oc} esta en estado '{oc.estado}' y ya no se "
+                "puede borrar: solo se borran las que todavia no avanzaron "
+                "(borrador, emitida, en firma o anulada). Si esta mal cargada, "
+                "anulala — queda registrada como anulada y no se puede pagar."
             ),
         )
+
+    # UNA query: firmas puestas + quienes firmaron + vouchers con plata.
+    # Los vouchers se cuentan una sola vez aunque esten enlazados por los dos
+    # caminos (vouchers.oc_id directo y oc_cuotas.voucher_id).
+    guard = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM core.oc_firmas f
+                      WHERE f.oc_id = :id AND f.status = 'FIRMADA')
+                        AS firmas,
+                    (SELECT string_agg(
+                                DISTINCT COALESCE(f.firmante_nombre,
+                                                  f.firmante_email),
+                                ', ')
+                       FROM core.oc_firmas f
+                      WHERE f.oc_id = :id AND f.status = 'FIRMADA')
+                        AS firmantes,
+                    (SELECT COUNT(*) FROM core.vouchers v
+                      WHERE v.status = ANY(:estados_plata)
+                        AND (v.oc_id = :id
+                             OR v.voucher_id IN (
+                                 SELECT c.voucher_id FROM core.oc_cuotas c
+                                  WHERE c.oc_id = :id
+                                    AND c.voucher_id IS NOT NULL)))
+                        AS vouchers
+                """
+            ),
+            {"id": oc_id, "estados_plata": list(_VOUCHER_ESTADOS_CON_PLATA)},
+        )
+    ).mappings().one()
+
+    if (guard["firmas"] or 0) > 0:
+        quienes = guard["firmantes"] or "un firmante"
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Esta OC ya la firmo {quienes}. Un documento firmado no se "
+                "puede borrar porque es respaldo legal de la operacion. "
+                f"Anulala en vez de borrarla: la OC {oc.numero_oc} queda como "
+                "anulada, sin efecto, y con el historial intacto."
+            ),
+        )
+    if (guard["vouchers"] or 0) > 0:
+        cantidad = guard["vouchers"]
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Esta OC tiene {cantidad} voucher(s) aprobado(s) o pagado(s) "
+                "asociados: ya se comprometio o se movio la plata, y borrarla "
+                "dejaria esos pagos sin respaldo. Primero anula o revierte "
+                "esos vouchers; si igual queres dejarla sin efecto, anula la "
+                f"OC {oc.numero_oc}."
+            ),
+        )
+
     numero_oc = oc.numero_oc
     estado_prev = oc.estado
     empresa_prev = oc.empresa_codigo
-    before = _to_read(user, oc).model_dump(mode="json")
-    await db.delete(oc)
-    await db.commit()
+    # Snapshot completo (con unidades) ANTES de borrar: es lo unico que queda
+    # de la OC en el audit_log si despues hay que reconstruirla.
+    before = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
+    # Desligar los emails que apuntan a esta OC (la FK no tiene ON DELETE).
+    # El correo queda en la bandeja, solo pierde el vinculo.
+    await db.execute(
+        text(
+            "UPDATE core.inbox_messages SET linked_oc_id = NULL "
+            "WHERE linked_oc_id = :id"
+        ),
+        {"id": oc_id},
+    )
+    try:
+        await db.delete(oc)
+        await db.commit()
+    except IntegrityError as exc:
+        # Alguna FK sin ON DELETE que no cubrimos: mejor un mensaje claro
+        # que un 500 opaco.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"No se pudo borrar la OC {numero_oc}: todavia hay registros "
+                "en el sistema que dependen de ella. Anulala en vez de "
+                "borrarla, o avisa a soporte con este numero de OC."
+            ),
+        ) from exc
     await audit_log(
         db,
         request,
