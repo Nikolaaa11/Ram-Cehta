@@ -8,6 +8,20 @@
        OC0013-PAN001-FUMIAGRO usado por el equipo RHO. Carta formal:
        header simple, bloques PROVEEDOR/MANDANTE, itemizado, notas de
        arbitraje CAM Santiago y página de firmas. */
+    /* MEGAPROMPT FIRMA-VISUAL — tipografía manuscrita para las firmas.
+       El contenedor de Fly NO trae ninguna fuente cursiva instalada (sólo
+       Inter y DejaVu), así que la embebemos desde el repo. `firma_font_uri`
+       llega como data: URI en base64 para que WeasyPrint no dependa de
+       rutas del filesystem. Si por lo que sea no cargara, el CSS cae a la
+       cursiva genérica y la firma igual se imprime. Great Vibes, OFL. */
+    {% if firma_font_uri %}
+    @font-face {
+      font-family: "Great Vibes";
+      src: url("{{ firma_font_uri }}") format("truetype");
+      font-weight: normal;
+      font-style: normal;
+    }
+    {% endif %}
     @page {
       size: letter;
       margin: 22mm 20mm 18mm 20mm;
@@ -141,13 +155,44 @@
     }
     .firma .linea {
       border-top: 0.8pt solid #0F172A;
-      margin-top: 17mm;   /* espacio en blanco para la firma manuscrita */
-      margin-bottom: 2mm;
-      padding-top: 1.5mm;
+      /* El hueco de 17mm para firmar lo aporta ahora .firma-manuscrita, que
+         se renderiza siempre (vacía si está pendiente). */
+      margin-top: 0;
+      margin-bottom: 0;
+      padding-top: 0;
     }
     .firma .nombre { font-weight: 700; font-size: 9.5pt; letter-spacing: -0.01em; }
     .firma .cargo { color: #475569; margin-top: 0.5mm; }
     .firma .emp { color: #475569; text-transform: uppercase; font-size: 8pt; margin-top: 0.5mm; }
+    /* MEGAPROMPT FIRMA-VISUAL — el nombre manuscrito ocupa exactamente el
+       hueco de 17mm que .linea reservaba para firmar a mano, de modo que una
+       celda firmada y una sin firmar miden lo mismo y la grilla no se mueve.
+       El alto fijo evita que un nombre muy largo empuje la línea hacia abajo. */
+    .firma .firma-manuscrita {
+      font-family: "Great Vibes", cursive;
+      font-size: 21pt;
+      line-height: 1;
+      color: #101B3D;
+      height: 17mm;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 1mm;
+      overflow: hidden;
+    }
+    /* Alto FIJO de 2 líneas: la constancia ocupa el mismo espacio esté o no
+       la firma puesta, para que los nombres de una fila queden a la misma
+       altura. El texto es de largo determinístico (fecha con formato fijo +
+       hash de 12 chars), así que a 6.5pt siempre entra en 2 líneas dentro de
+       una celda de 31%. 8mm = 2 líneas (5.8mm) + aire, para que no se corte. */
+    .firma .firma-constancia {
+      font-size: 6.5pt;
+      line-height: 1.3;
+      color: #64748B;
+      height: 8mm;
+      padding-top: 1.2mm;
+      overflow: hidden;
+    }
     body[data-watermark]::before {
       content: attr(data-watermark);
       position: fixed;
@@ -250,38 +295,56 @@
     </ul>
   </div>
 
+  {# OC-FIRMANTES-EXTERNOS — un solo bloque para todas las firmas (externas e
+     internas). Se unifica en macro porque el sello de firma electrónica debe
+     comportarse IGUAL para el proveedor/cliente que para el equipo emisor;
+     antes el externo iba hardcodeado y nunca podía quedar estampado.
+     `razon_social_default` es la empresa que se imprime bajo el cargo cuando
+     la firma no trae `empresa_firmante` propia. #}
+  {% macro bloque_firma(f, razon_social_default) %}
+      <div class="firma">
+        {# MEGAPROMPT FIRMA-VISUAL — la firma se DIBUJA en cursiva sobre la
+           línea, como al firmar un PDF, en lugar de un sello de texto.
+           Los TRES bloques (manuscrita, línea, constancia) se renderizan
+           SIEMPRE, vacíos si la firma está pendiente: así una celda firmada
+           y una sin firmar miden exactamente lo mismo y los nombres quedan
+           alineados dentro de la fila. Si se renderizaran condicionalmente,
+           la constancia empujaría el nombre y descuadraría la grilla. #}
+        <div class="firma-manuscrita">
+          {%- if f.firmado_el %}{{ f.firma_visual or f.nombre }}{% endif -%}
+        </div>
+        <div class="linea">&nbsp;</div>
+        <div class="firma-constancia">
+          {%- if f.firmado_el %}✓ Firmado electrónicamente · {{ f.firmado_el }} · hash {{ f.hash_corto }}{% endif -%}
+        </div>
+        <p class="nombre">{{ f.nombre }}</p>
+        <p class="cargo">{{ f.cargo }}</p>
+        <p class="emp">{{ f.empresa_firmante or razon_social_default }}</p>
+      </div>
+  {% endmacro %}
+
   <div class="firmas-page">
     <h2>Firmas:</h2>
     <div class="firmas-grid">
+      {% if firmantes_externos %}
+      {# Firmantes del proveedor/cliente cargados en core.oc_firmas: van
+         primero y con la razón social del proveedor bajo el cargo, salvo que
+         la firma traiga la suya (caso mandante/tercero). #}
+      {% for fe in firmantes_externos %}
+      {{ bloque_firma(fe, proveedor.razon_social) }}
+      {% endfor %}
+      {% else %}
+      {# Retrocompatibilidad: OCs sin firmantes externos cargados siguen
+         saliendo con la celda histórica del proveedor, idéntica. #}
       <div class="firma">
         <div class="linea">&nbsp;</div>
         <p class="nombre">{{ proveedor.contacto_nombre or proveedor.razon_social }}</p>
         <p class="cargo">Representante Legal</p>
         <p class="emp">{{ proveedor.razon_social }}</p>
       </div>
+      {% endif %}
       {% for f in firmantes %}
-      <div class="firma">
-        {% if f.firmado_el %}
-        {# MEGAPROMPT F3 — firma electrónica estampada (core.oc_firmas).
-           El sello ocupa el ESPACIO de la firma manuscrita (sobre la línea),
-           no debajo: mismo alto que un bloque sin firmar. #}
-        <div style="margin-top: 9mm; font-size: 11pt; font-weight: 600; color: #0F6E4B;">
-          ✓ Firmado electrónicamente
-        </div>
-        <div style="font-size: 7pt; color: #64748B; margin-bottom: 1mm;">
-          {{ f.firmado_el }} · hash {{ f.hash_corto }}
-        </div>
-        <div class="linea" style="margin-top: 1.5mm;">&nbsp;</div>
-        <p class="nombre">{{ f.nombre }}</p>
-        <p class="cargo">{{ f.cargo }}</p>
-        <p class="emp">{{ empresa.razon_social }}</p>
-        {% else %}
-        <div class="linea">&nbsp;</div>
-        <p class="nombre">{{ f.nombre }}</p>
-        <p class="cargo">{{ f.cargo }}</p>
-        <p class="emp">{{ empresa.razon_social }}</p>
-        {% endif %}
-      </div>
+      {{ bloque_firma(f, empresa.razon_social) }}
       {% endfor %}
     </div>
   </div>

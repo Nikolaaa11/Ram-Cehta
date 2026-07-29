@@ -33,6 +33,7 @@ import io
 import logging
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +51,7 @@ log = logging.getLogger(__name__)
 _TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates" / "oc"
 _DOCUMENTS_DIR = _TEMPLATES_DIR / "documents"
 _LOGOS_DIR = _TEMPLATES_DIR / "logos"
+_FONTS_DIR = _TEMPLATES_DIR / "fonts"
 
 _env = Environment(
     loader=FileSystemLoader(str(_DOCUMENTS_DIR)),
@@ -153,6 +155,25 @@ def _formatear_moneda(monto: Any, moneda: str = "CLP") -> str:
     if m == "USD":
         return _fmt_usd(monto)
     return f"{m} {monto}"
+
+
+@lru_cache(maxsize=1)
+def _firma_font_data_uri() -> str:
+    """Data URI de la tipografía manuscrita de las firmas (Great Vibes, OFL).
+
+    El contenedor de Fly no trae ninguna fuente cursiva instalada, así que
+    va embebida en el repo y se inyecta al CSS como base64. Cacheado: son
+    ~450 KB que se leen del disco una sola vez por proceso, no en cada PDF.
+
+    Si el archivo faltara, devuelve "" y el template omite el @font-face:
+    la firma cae a la cursiva genérica en vez de romper la generación.
+    """
+    try:
+        raw = (_FONTS_DIR / "GreatVibes-Regular.ttf").read_bytes()
+    except OSError:
+        log.warning("oc_pdf_v2.firma_font_ausente")
+        return ""
+    return "data:font/truetype;base64," + base64.b64encode(raw).decode("ascii")
 
 
 def _logo_data_uri(empresa_codigo: str, logo_bytes: bytes | None) -> str:
@@ -427,12 +448,23 @@ async def _load_context(
     # (core.oc_firmas), esos reemplazan a los genéricos del branding y las
     # firmas completadas se ESTAMPAN en el PDF: "Firmado electrónicamente"
     # + fecha/hora Chile + hash corto (trazable a core.oc_firmas.signature_hash).
-    with contextlib.suppress(Exception):
+    #
+    # OC-FIRMANTES-EXTERNOS — el firmante del proveedor/cliente dejó de ir
+    # hardcodeado en el template: ahora sale de esta misma tabla marcado con
+    # es_externo, porque las OCs reales alternan su cargo ("Representante
+    # Legal" / "Representante Comercial") y a veces firma además un tercero
+    # (mandante). Los separamos en dos listas para que el template pinte
+    # primero los externos y después el equipo emisor.
+    firmantes_externos: list[dict[str, Any]] = []
+    firmas_rows: Any = []
+    try:
         firmas_rows = (
             await db.execute(
                 text(
                     """SELECT firmante_nombre, firmante_email, firmante_cargo,
-                              status, signed_at, signature_hash
+                              status, signed_at, signature_hash,
+                              COALESCE(es_externo, FALSE) AS es_externo,
+                              empresa_firmante, firma_visual
                        FROM core.oc_firmas
                        WHERE oc_id = :id AND status <> 'RECHAZADA'
                        ORDER BY orden, firma_id"""
@@ -440,19 +472,55 @@ async def _load_context(
                 {"id": oc_id},
             )
         ).mappings().all()
-        if firmas_rows:
-            firmantes = []
-            for fr in firmas_rows:
-                item: dict[str, Any] = {
-                    "nombre": fr["firmante_nombre"] or fr["firmante_email"],
-                    "cargo": fr["firmante_cargo"] or "",
-                }
-                if fr["status"] == "FIRMADA" and fr["signed_at"]:
-                    item["firmado_el"] = fr["signed_at"].strftime(
-                        "%d/%m/%Y %H:%M UTC"
-                    )
-                    item["hash_corto"] = (fr["signature_hash"] or "")[:12]
-                firmantes.append(item)
+    except Exception:
+        # Entorno sin la migración de es_externo/empresa_firmante todavía: el
+        # PDF tiene que seguir saliendo, con todas las firmas como internas.
+        with contextlib.suppress(Exception):
+            await db.rollback()
+        with contextlib.suppress(Exception):
+            firmas_rows = (
+                await db.execute(
+                    text(
+                        """SELECT firmante_nombre, firmante_email, firmante_cargo,
+                                  status, signed_at, signature_hash
+                           FROM core.oc_firmas
+                           WHERE oc_id = :id AND status <> 'RECHAZADA'
+                           ORDER BY orden, firma_id"""
+                    ),
+                    {"id": oc_id},
+                )
+            ).mappings().all()
+
+    if firmas_rows:
+        firmantes_internos: list[dict[str, Any]] = []
+        for fr in firmas_rows:
+            item: dict[str, Any] = {
+                "nombre": fr["firmante_nombre"] or fr["firmante_email"],
+                "cargo": fr["firmante_cargo"] or "",
+                # NULL ⇒ el template cae a la razón social por defecto
+                # (proveedor para los externos, empresa emisora para el equipo).
+                "empresa_firmante": fr.get("empresa_firmante"),
+            }
+            if fr["status"] == "FIRMADA" and fr["signed_at"]:
+                item["firmado_el"] = fr["signed_at"].strftime(
+                    "%d/%m/%Y %H:%M UTC"
+                )
+                item["hash_corto"] = (fr["signature_hash"] or "")[:12]
+                # Texto manuscrito que el template dibuja en cursiva SOBRE la
+                # línea. Cae al nombre del firmante para las firmas viejas,
+                # anteriores a que existiera firma_visual.
+                item["firma_visual"] = (
+                    fr.get("firma_visual")
+                    or fr["firmante_nombre"]
+                    or ""
+                )
+            if fr.get("es_externo"):
+                firmantes_externos.append(item)
+            else:
+                firmantes_internos.append(item)
+        # Reemplazo total: si la OC tiene firmantes cargados, mandan ellos y
+        # no los genéricos del branding (mismo criterio que antes de F3).
+        firmantes = firmantes_internos
 
     # Modelo Proveedor para template
     prov_ctx = type("Prov", (), {
@@ -488,7 +556,12 @@ async def _load_context(
         "watermark": "MUESTRA" if oc_ctx.estado.value == "borrador" else None,
         "css": css_content,
         # R152MMMMMM — firmantes + template elegido por la empresa.
+        # `firmantes` = equipo emisor; `firmantes_externos` = proveedor/cliente.
+        # Si `firmantes_externos` va vacío el template imprime la celda
+        # histórica del proveedor (OCs viejas sin firmantes cargados).
         "firmantes": firmantes,
+        "firmantes_externos": firmantes_externos,
+        "firma_font_uri": _firma_font_data_uri(),
         "_oc_template": (empresa.get("oc_template") or "default").lower(),
         # Pasamos también attachments para mergear después.
         "_oc_id": oc_id,

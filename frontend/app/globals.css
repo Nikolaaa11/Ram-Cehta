@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Firma manuscrita — la MISMA fuente que embebe el PDF de la OC, para que
+   la vista previa del diálogo de firma sea fiel a lo que sale impreso.
+   Self-hosted (no Google Fonts): la plataforma no depende de terceros y
+   funciona igual sin internet externo. Great Vibes, licencia OFL.
+   `font-display: swap` evita que el diálogo quede en blanco mientras carga. */
+@font-face {
+  font-family: "Great Vibes";
+  src: url("/fonts/GreatVibes-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

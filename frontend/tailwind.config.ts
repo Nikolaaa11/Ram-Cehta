@@ -106,6 +106,10 @@ const config: Config = {
           "sans-serif",
         ],
         mono: ['"SF Mono"', "ui-monospace", "Menlo", "monospace"],
+        // Firma manuscrita: MISMA tipografía que estampa el PDF de la OC
+        // (Great Vibes, OFL, self-hosted en /public/fonts). Así la vista
+        // previa del diálogo de firma es fiel a lo que sale impreso.
+        firma: ['"Great Vibes"', "cursive"],
       },
       fontSize: {
         "kpi-lg": [

@@ -236,6 +236,15 @@ const GROUPS: NavGroup[] = [
       // El branding por empresa ya viene embedded en el PDF generado
       // (R152www: logo + GG + firma colectiva RHO automático).
       { href: "/ordenes-compra", label: "Órdenes de Compra", icon: FileText },
+      // MEGAPROMPT F3 — Catálogo de personas que firman las OC de cada empresa.
+      // Se carga una vez acá y después salen como chips clickeables al preparar
+      // cada orden (y define el orden de las firmas impresas en el PDF).
+      {
+        href: "/ordenes-compra/equipo" as Route,
+        label: "Equipo de firmantes",
+        icon: PenTool,
+        isNew: true,
+      },
       // R152zzz — Flujo de caja proyectado por proyecto (MEJORAS IA #8).
       {
         href: "/flujos-caja-proyecto" as Route,

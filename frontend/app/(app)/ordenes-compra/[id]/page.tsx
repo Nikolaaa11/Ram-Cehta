@@ -5,6 +5,7 @@ import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { OcCuotasSection } from "@/components/ordenes-compra/OcCuotasSection";
+import { OcFirmasSection } from "@/components/ordenes-compra/OcFirmasSection";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { FileLink } from "@/components/shared/FileLink";
@@ -272,6 +273,13 @@ export default async function OcDetallePage({
           </div>
         </Surface>
       )}
+
+      {/* OC-FIRMANTES-EXTERNOS — picker de firmantes (equipo + externos).
+          Va antes de Cuotas porque en el flujo real primero se firma la OC y
+          recién con la factura se arman las cuotas. Cliente. */}
+      <Surface>
+        <OcFirmasSection ocId={ocId} empresaCodigo={oc.empresa_codigo} />
+      </Surface>
 
       {/* R152yyy — Sección Cuotas + generar vouchers DRAFT. Cliente. */}
       <Surface>

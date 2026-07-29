@@ -83,6 +83,7 @@ from app.api.v1 import corfo_rendiciones  # Round 152w
 from app.api.v1 import rrhh  # R152vvv
 from app.api.v1 import empresa_oc_branding  # R152www
 from app.api.v1 import oc_cuotas  # R152yyy
+from app.api.v1 import oc_equipo  # MEGAPROMPT OC — equipo firmante por empresa
 from app.api.v1 import flujos_caja_proyecto  # R152zzz
 from app.api.v1 import perf_stats  # R152NNNNN — observabilidad de caches + DB pool
 from app.api.v1 import feature_usage  # R152PPPPP — telemetría de uso por endpoint
@@ -101,6 +102,9 @@ api_router.include_router(rrhh.router, prefix="/rrhh", tags=["rrhh"])
 api_router.include_router(empresa_oc_branding.router, tags=["empresa-oc-branding"])
 # R152yyy — Split de OC en cuotas + generar vouchers DRAFT por cuota
 api_router.include_router(oc_cuotas.router, tags=["oc-cuotas"])
+# MEGAPROMPT OC — Catálogo de firmantes por empresa (picker clickeable de OC).
+# Sin prefix: los paths completos (/empresas/{codigo}/equipo) viven en el router.
+api_router.include_router(oc_equipo.router, tags=["oc-equipo"])
 # R152zzz — Flujos de caja proyectado por proyecto contable
 api_router.include_router(flujos_caja_proyecto.router, tags=["flujos-caja-proyecto"])
 # R152NNNNN — Performance stats: hit-rate de caches + estado del pool
