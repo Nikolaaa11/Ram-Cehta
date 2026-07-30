@@ -30,6 +30,17 @@ class OrdenCompra(Base):
     # "Plazo de Entrega: No aplica") y el PDF los imprime en filas separadas.
     plazo_entrega: Mapped[str | None] = mapped_column(Text)
     observaciones: Mapped[str | None] = mapped_column(Text)
+    # Encargado del proveedor a quien va dirigida la OC ("Atte. Señor/a" en
+    # el PDF). Snapshot al crear/editar — no se re-deriva del catálogo
+    # proveedor_contactos, así una OC ya emitida no cambia de destinatario
+    # si el proveedor actualiza sus contactos después.
+    atte_nombre: Mapped[str | None] = mapped_column(Text)
+    atte_cargo: Mapped[str | None] = mapped_column(Text)
+    proveedor_contacto_id: Mapped[int | None] = mapped_column(Integer)
+    tipo_documento: Mapped[str] = mapped_column(Text, server_default="FACTURA")
+    iva_porcentaje: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), server_default="19.00"
+    )
     estado: Mapped[str] = mapped_column(Text, server_default="emitida")
     pdf_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

@@ -391,7 +391,7 @@
              que firma. Cada fila desaparece si el dato viene vacío. #}
           {% if oc.plazo_entrega %}<tr><td class="k">Plazo de Entrega</td><td class="v">: {{ oc.plazo_entrega }}</td></tr>{% endif %}
           {% if oc.plazo_pago %}<tr><td class="k">Plazo de Pago</td><td class="v">: {{ oc.plazo_pago }}</td></tr>{% endif %}
-          {% if proveedor.contacto_nombre %}<tr><td class="k">Atte. Señor/a</td><td class="v">: {{ proveedor.contacto_nombre }}</td></tr>{% endif %}
+          {% if proveedor.contacto_nombre %}<tr><td class="k">Atte. Señor/a</td><td class="v">: {{ proveedor.contacto_nombre }}{% if proveedor.contacto_cargo %}, {{ proveedor.contacto_cargo }}{% endif %}</td></tr>{% endif %}
         </table>
       </td>
       <td class="parte-gap"></td>
@@ -447,9 +447,16 @@
   {# ---------- 4. Totales ---------- #}
   <table class="totales">
     <tr><td class="k">NETO</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
-    <tr><td class="k">IVA 19%</td><td class="v">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
+    {# IVA% ya no es fijo — cada OC puede llevar un % distinto (boletas,
+       exentos, casos pactados). "%g" saca los ceros de relleno (19, no
+       19,00) salvo que el operador haya puesto un decimal real (12,5). #}
+    <tr><td class="k">IVA {{ "%g"|format(oc.iva_porcentaje|float)|replace(".", ",") }}%</td><td class="v">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
     <tr class="tot"><td class="k">TOTAL</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
   </table>
+
+  {% if oc.tipo_documento == "BOLETA" %}
+  <p class="intro">Documento de respaldo: <strong>Boleta</strong> (sin derecho a crédito fiscal IVA).</p>
+  {% endif %}
 
   {# ---------- 5. Forma de pago (hitos por porcentaje) ----------
      Sólo se imprime si la OC tiene cuotas cargadas en core.oc_cuotas.

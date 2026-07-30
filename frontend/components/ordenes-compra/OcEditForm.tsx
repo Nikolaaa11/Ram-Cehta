@@ -13,14 +13,16 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
+import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import type { OcRead } from "@/lib/api/schema";
+import type { ProveedorContacto } from "@/components/proveedores/ProveedorContactosPanel";
 
 interface Props {
   initialData: OcRead;
@@ -32,7 +34,17 @@ interface FormState {
   plazo_pago: string;
   validez_dias: string;
   pdf_url: string;
+  tipo_documento: string;
+  iva_porcentaje: string;
+  proveedor_contacto_id: string;
+  atte_nombre: string;
+  atte_cargo: string;
 }
+
+const TIPOS_DOCUMENTO: ComboboxItem[] = [
+  { value: "FACTURA", label: "Factura" },
+  { value: "BOLETA", label: "Boleta" },
+];
 
 const inputBase =
   "w-full rounded-lg border-0 ring-1 ring-hairline bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green disabled:bg-ink-100/40 disabled:text-ink-500";
@@ -54,6 +66,13 @@ export function OcEditForm({ initialData }: Props) {
       plazo_pago: initialData.plazo_pago ?? "",
       validez_dias: String(initialData.validez_dias ?? ""),
       pdf_url: initialData.pdf_url ?? "",
+      tipo_documento: initialData.tipo_documento ?? "FACTURA",
+      iva_porcentaje: String(initialData.iva_porcentaje ?? "19"),
+      proveedor_contacto_id: initialData.proveedor_contacto_id
+        ? String(initialData.proveedor_contacto_id)
+        : "",
+      atte_nombre: initialData.atte_nombre ?? "",
+      atte_cargo: initialData.atte_cargo ?? "",
     }),
     [initialData],
   );
@@ -62,6 +81,18 @@ export function OcEditForm({ initialData }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Encargados del proveedor de esta OC — para re-elegir "Dirigido a".
+  const contactosQ = useQuery<ProveedorContacto[]>({
+    queryKey: ["proveedor-contactos", initialData.proveedor_id],
+    queryFn: () =>
+      apiClient.get<ProveedorContacto[]>(
+        `/proveedores/${initialData.proveedor_id}/contactos`,
+        session,
+      ),
+    enabled: !!session && !!initialData.proveedor_id,
+  });
+  const contactos = contactosQ.data ?? [];
+
   // V5++ ola CE — Warning si hay cambios sin guardar. No autosave en edicion
   // (riesgo de pisar valores del servidor con un draft viejo en otra pestaña).
   const hasUnsavedEdits =
@@ -69,7 +100,12 @@ export function OcEditForm({ initialData }: Props) {
     form.forma_pago !== initial.forma_pago ||
     form.plazo_pago !== initial.plazo_pago ||
     form.validez_dias !== initial.validez_dias ||
-    form.pdf_url !== initial.pdf_url;
+    form.pdf_url !== initial.pdf_url ||
+    form.tipo_documento !== initial.tipo_documento ||
+    form.iva_porcentaje !== initial.iva_porcentaje ||
+    form.proveedor_contacto_id !== initial.proveedor_contacto_id ||
+    form.atte_nombre !== initial.atte_nombre ||
+    form.atte_cargo !== initial.atte_cargo;
   useUnsavedChangesWarning(hasUnsavedEdits && !submitting);
   useFormShortcuts({
     "mod+s": (e) => {
@@ -103,6 +139,30 @@ export function OcEditForm({ initialData }: Props) {
     }
     if (form.pdf_url !== initial.pdf_url) {
       out.pdf_url = form.pdf_url === "" ? null : form.pdf_url;
+    }
+    if (form.tipo_documento !== initial.tipo_documento) {
+      out.tipo_documento = form.tipo_documento;
+    }
+    if (form.iva_porcentaje !== initial.iva_porcentaje) {
+      const n = Number(form.iva_porcentaje);
+      if (!Number.isNaN(n) && n >= 0 && n <= 100) out.iva_porcentaje = n;
+    }
+    if (form.proveedor_contacto_id !== initial.proveedor_contacto_id) {
+      out.proveedor_contacto_id = form.proveedor_contacto_id
+        ? Number(form.proveedor_contacto_id)
+        : null;
+    }
+    if (
+      !form.proveedor_contacto_id &&
+      form.atte_nombre !== initial.atte_nombre
+    ) {
+      out.atte_nombre = form.atte_nombre === "" ? null : form.atte_nombre;
+    }
+    if (
+      !form.proveedor_contacto_id &&
+      form.atte_cargo !== initial.atte_cargo
+    ) {
+      out.atte_cargo = form.atte_cargo === "" ? null : form.atte_cargo;
     }
     return out;
   }, [form, initial]);
@@ -253,6 +313,82 @@ export function OcEditForm({ initialData }: Props) {
                   disabled={locked}
                   className={inputBase}
                 />
+              </div>
+              <div>
+                <label className={labelBase}>Tipo de documento</label>
+                <Combobox
+                  items={TIPOS_DOCUMENTO}
+                  value={form.tipo_documento}
+                  onValueChange={(v) => !locked && update("tipo_documento", v)}
+                  placeholder="Tipo de documento"
+                  triggerClassName={`w-full h-[38px] ${locked ? "pointer-events-none opacity-60" : ""}`}
+                />
+              </div>
+              <div>
+                <label className={labelBase} htmlFor="iva-porcentaje">
+                  IVA %
+                  <span className="ml-1 text-[10px] font-normal text-ink-400">
+                    · cambiarlo recalcula IVA y total
+                  </span>
+                </label>
+                <input
+                  id="iva-porcentaje"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  value={form.iva_porcentaje}
+                  onChange={(e) => update("iva_porcentaje", e.target.value)}
+                  disabled={locked}
+                  className={`${inputBase} tabular-nums`}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelBase} htmlFor="dirigido-a">
+                  Dirigido a
+                  <span className="ml-1 text-[10px] font-normal text-ink-400">
+                    · "Atte. Señor/a" en el PDF
+                  </span>
+                </label>
+                {contactos.length > 0 && (
+                  <select
+                    id="dirigido-a"
+                    value={form.proveedor_contacto_id}
+                    onChange={(e) =>
+                      update("proveedor_contacto_id", e.target.value)
+                    }
+                    disabled={locked}
+                    className={`${inputBase} mb-2`}
+                  >
+                    <option value="">— Sin encargado del catálogo —</option>
+                    {contactos.map((c) => (
+                      <option key={c.contacto_id} value={c.contacto_id}>
+                        {c.nombre}
+                        {c.cargo ? ` — ${c.cargo}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {!form.proveedor_contacto_id && (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      value={form.atte_nombre}
+                      onChange={(e) => update("atte_nombre", e.target.value)}
+                      placeholder="Nombre del encargado (opcional)"
+                      disabled={locked}
+                      className={inputBase}
+                    />
+                    <input
+                      type="text"
+                      value={form.atte_cargo}
+                      onChange={(e) => update("atte_cargo", e.target.value)}
+                      placeholder="Cargo (opcional)"
+                      disabled={locked}
+                      className={inputBase}
+                    />
+                  </div>
+                )}
               </div>
               <div className="sm:col-span-2">
                 <label className={labelBase} htmlFor="observaciones">

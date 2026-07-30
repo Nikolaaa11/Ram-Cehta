@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import (
@@ -22,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.domain.value_objects.iva import calcular_iva, porcentaje_a_tasa
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
@@ -87,6 +89,11 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
         plazo_pago=oc.plazo_pago,
         plazo_entrega=oc.plazo_entrega,
         observaciones=oc.observaciones,
+        proveedor_contacto_id=oc.proveedor_contacto_id,
+        atte_nombre=oc.atte_nombre,
+        atte_cargo=oc.atte_cargo,
+        tipo_documento=oc.tipo_documento,
+        iva_porcentaje=oc.iva_porcentaje,
         estado=oc.estado,
         pdf_url=oc.pdf_url,
         items=[OCDetalleRead.model_validate(d) for d in (oc.items or [])],
@@ -169,6 +176,34 @@ async def _to_read_con_unidades(
         for item in out.items:
             item.unidad = unidades.get(item.detalle_id)
     return out
+
+
+async def _resolve_atte_snapshot(
+    db: DBSession, proveedor_id: int, proveedor_contacto_id: int
+) -> tuple[str, str | None]:
+    """Nombre/cargo del encargado elegido, para snapshotear en atte_nombre/
+    atte_cargo. 404 explícito si el contacto no existe o es de otro
+    proveedor — evitar que una OC quede "dirigida a" alguien de otra empresa
+    por un id mal armado en el body.
+    """
+    row = (
+        await db.execute(
+            text(
+                """SELECT nombre, cargo FROM core.proveedor_contactos
+                   WHERE contacto_id = :cid AND proveedor_id = :pid AND activo"""
+            ),
+            {"cid": proveedor_contacto_id, "pid": proveedor_id},
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                f"El contacto {proveedor_contacto_id} no existe en el "
+                f"catálogo del proveedor {proveedor_id}."
+            ),
+        )
+    return str(row[0]), (str(row[1]) if row[1] else None)
 
 
 @router.get("", response_model=Page[OrdenCompraListItem])
@@ -259,6 +294,17 @@ async def create_oc(
             )
         # Reemplazamos el body con proveedor_id resuelto.
         body = body.model_copy(update={"proveedor_id": proveedor.proveedor_id})
+
+    # Si vino un contacto del catálogo, el catálogo manda: resolvemos
+    # nombre/cargo ahí y pisamos lo que haya venido suelto en atte_nombre/
+    # atte_cargo (evita mandar un texto libre inconsistente con el id).
+    if body.proveedor_contacto_id is not None and body.proveedor_id is not None:
+        atte_nombre, atte_cargo = await _resolve_atte_snapshot(
+            db, body.proveedor_id, body.proveedor_contacto_id
+        )
+        body = body.model_copy(
+            update={"atte_nombre": atte_nombre, "atte_cargo": atte_cargo}
+        )
 
     repo = OrdenCompraRepository(db)
     # Optimistic check para feedback rápido — pero el verdadero gate es el
@@ -690,6 +736,11 @@ async def duplicate_oc(
         plazo_pago=original.plazo_pago,
         plazo_entrega=original.plazo_entrega,
         observaciones=body.observaciones if body.observaciones is not None else original.observaciones,
+        proveedor_contacto_id=original.proveedor_contacto_id,
+        atte_nombre=original.atte_nombre,
+        atte_cargo=original.atte_cargo,
+        tipo_documento=original.tipo_documento,
+        iva_porcentaje=original.iva_porcentaje,
         items=[
             OCDetalleCreate(
                 item=d.item,
@@ -786,7 +837,35 @@ async def update_oc(
             detail="Solo OCs en estado 'emitida' o 'parcial' son editables",
         )
     before = _to_read(user, oc).model_dump(mode="json")
-    updated = await repo.update_fields(oc, body)
+
+    # Si viene un contacto del catálogo, el catálogo manda (mismo criterio
+    # que en la creación): resuelve y pisa atte_nombre/atte_cargo sueltos.
+    if body.proveedor_contacto_id is not None:
+        if oc.proveedor_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Esta OC no tiene proveedor asociado, no se le puede asignar un contacto.",
+            )
+        atte_nombre, atte_cargo = await _resolve_atte_snapshot(
+            db, oc.proveedor_id, body.proveedor_contacto_id
+        )
+        body = body.model_copy(
+            update={"atte_nombre": atte_nombre, "atte_cargo": atte_cargo}
+        )
+
+    # iva/total son derivados de neto — nunca vienen directo en el body. Si
+    # cambia iva_porcentaje ("cambiarle el IVA a las OC" cuando resulta ser
+    # boleta y no factura), recalculamos acá con el mismo neto ya guardado.
+    derived: dict = {}
+    if body.iva_porcentaje is not None:
+        nuevo_iva = (
+            calcular_iva(oc.neto, porcentaje_a_tasa(body.iva_porcentaje))
+            if oc.moneda == "CLP"
+            else Decimal("0")
+        )
+        derived = {"iva": nuevo_iva, "total": oc.neto + nuevo_iva}
+
+    updated = await repo.update_fields(oc, body, derived=derived)
     await db.commit()
     # re-fetch para refrescar items via selectin
     refreshed = await repo.get(oc_id)

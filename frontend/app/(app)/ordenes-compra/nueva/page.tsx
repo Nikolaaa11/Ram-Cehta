@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft, Cloud, Plus, Trash2 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
+import type { ProveedorContacto } from "@/components/proveedores/ProveedorContactosPanel";
 import { useSession } from "@/hooks/use-session";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useFormAutosave } from "@/hooks/use-form-autosave";
@@ -54,6 +55,11 @@ const MONEDAS: ComboboxItem[] = [
   { value: "USD", label: "USD" },
 ];
 
+const TIPOS_DOCUMENTO: ComboboxItem[] = [
+  { value: "FACTURA", label: "Factura" },
+  { value: "BOLETA", label: "Boleta" },
+];
+
 // Unidades que usa el equipo en las OC reales. Son SUGERENCIAS (datalist),
 // no una lista cerrada: el operador puede escribir cualquier otra y se
 // guarda tal cual. Aparecen en la columna "Un." del PDF.
@@ -83,6 +89,16 @@ export default function NuevaOcPage() {
   const [proveedorLookup, setProveedorLookup] = useState<ProveedorLookupState>({
     status: "idle",
   });
+  // proveedor_id resuelto — solo se conoce cuando el proveedor YA existe en
+  // el catálogo (por RUT o por el typeahead). Con esto se puede cargar sus
+  // encargados para el selector "Dirigido a". Si es null, el operador puede
+  // igual tipear un destinatario suelto (atte_nombre/atte_cargo).
+  const [proveedorId, setProveedorId] = useState<number | null>(null);
+  const [proveedorContactoId, setProveedorContactoId] = useState<string>("");
+  const [atteNombreManual, setAtteNombreManual] = useState("");
+  const [atteCargoManual, setAtteCargoManual] = useState("");
+  const [tipoDocumento, setTipoDocumento] = useState("FACTURA");
+  const [ivaPorcentaje, setIvaPorcentaje] = useState("19");
   const [fechaEmision, setFechaEmision] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -181,6 +197,8 @@ export default function NuevaOcPage() {
       setProveedorLookup({ status: "idle" });
       return;
     }
+    setProveedorId(null);
+    setProveedorContactoId("");
     let cancelled = false;
     setProveedorLookup({ status: "searching" });
     const timer = setTimeout(() => {
@@ -204,6 +222,7 @@ export default function NuevaOcPage() {
             setProveedorNombre((current) =>
               current.trim() === "" ? result.proveedor!.razon_social : current,
             );
+            setProveedorId(result.proveedor.proveedor_id);
           } else {
             setProveedorLookup({
               status: "new",
@@ -220,6 +239,27 @@ export default function NuevaOcPage() {
       clearTimeout(timer);
     };
   }, [proveedorRut, session]);
+
+  // Encargados del proveedor resuelto — para el selector "Dirigido a".
+  const contactosQ = useQuery<ProveedorContacto[]>({
+    queryKey: ["proveedor-contactos", proveedorId],
+    queryFn: () =>
+      apiClient.get<ProveedorContacto[]>(
+        `/proveedores/${proveedorId}/contactos`,
+        session,
+      ),
+    enabled: !!session && !!proveedorId,
+  });
+  const contactos = contactosQ.data ?? [];
+
+  // Preselecciona el contacto principal (es_default) apenas cargan — el
+  // operador puede igual elegir otro o dejarlo en blanco.
+  useEffect(() => {
+    if (!contactos.length || proveedorContactoId) return;
+    const principal = contactos.find((c) => c.es_default);
+    if (principal) setProveedorContactoId(String(principal.contacto_id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contactos]);
 
   const empresaItems = useMemo<ComboboxItem[]>(
     () =>
@@ -277,6 +317,8 @@ export default function NuevaOcPage() {
         plazo_pago: plazoPago || null,
         plazo_entrega: plazoEntrega || null,
         observaciones: observaciones || null,
+        tipo_documento: tipoDocumento,
+        iva_porcentaje: Number(ivaPorcentaje) || 0,
         items: items.map((it, i) => ({
           item: i + 1,
           descripcion: it.descripcion,
@@ -303,6 +345,15 @@ export default function NuevaOcPage() {
           payload.proveedor_rut = proveedorLookup.rutCanonical;
           payload.proveedor_nombre = proveedorNombre.trim();
         }
+      }
+      // "Dirigido a" — si se eligió un encargado del catálogo, el backend
+      // resuelve nombre/cargo desde ahí (manda el id). Si no, se manda lo
+      // que se haya tipeado suelto.
+      if (proveedorContactoId) {
+        payload.proveedor_contacto_id = Number(proveedorContactoId);
+      } else if (atteNombreManual.trim()) {
+        payload.atte_nombre = atteNombreManual.trim();
+        payload.atte_cargo = atteCargoManual.trim() || null;
       }
       // Disciplina 2: el `neto` lo recomputa el backend a partir de los
       // items (compute_totals en OrdenCompraCreate). NO lo mandamos desde
@@ -356,7 +407,7 @@ export default function NuevaOcPage() {
         </div>
         <p className="mt-1 text-sm text-ink-500">
           Tipeá el RUT del proveedor y vamos a precargar/crearlo solos. El
-          total se calcula automáticamente en el backend (neto + 19% IVA).
+          total se calcula automáticamente en el backend (neto + IVA%).
           <span className="ml-2 hidden text-xs text-ink-400 sm:inline">
             · <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono">⌘S</kbd> guardar
           </span>
@@ -471,11 +522,15 @@ export default function NuevaOcPage() {
                   onSelect={(hit) => {
                     setProveedorNombre(hit.razon_social);
                     if (hit.rut) setProveedorRut(hit.rut);
+                    setProveedorId(hit.proveedor_id);
+                    setProveedorContactoId("");
                   }}
                   onClear={() => {
                     setProveedorNombre("");
                     // No tocamos proveedorRut aquí — el operador puede
                     // estar editando solo el nombre y mantener el RUT.
+                    setProveedorId(null);
+                    setProveedorContactoId("");
                   }}
                   // R152xxx — MEJORAS IA #4b: si el proveedor no existe,
                   // el dropdown ofrece "+ Crear: {query}" que llama
@@ -493,6 +548,7 @@ export default function NuevaOcPage() {
                       );
                       setProveedorNombre(created.razon_social);
                       if (created.rut) setProveedorRut(created.rut);
+                      setProveedorId(created.proveedor_id);
                       toast.success(
                         `Proveedor "${created.razon_social}" creado. Completa los datos en /admin/proveedores cuando puedas.`,
                         { duration: 8000 },
@@ -508,6 +564,61 @@ export default function NuevaOcPage() {
                   idPrefix="oc-prov"
                   placeholder="Buscar por nombre o RUT…"
                 />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={labelBase} htmlFor="dirigido-a">
+                  Dirigido a
+                  <span className="ml-1 text-[10px] font-normal text-ink-400">
+                    · "Atte. Señor/a" en el PDF
+                  </span>
+                </label>
+                {contactos.length > 0 && (
+                  <select
+                    id="dirigido-a"
+                    value={proveedorContactoId}
+                    onChange={(e) => setProveedorContactoId(e.target.value)}
+                    className={`${inputBase} mb-2`}
+                  >
+                    <option value="">— Sin encargado del catálogo —</option>
+                    {contactos.map((c) => (
+                      <option key={c.contacto_id} value={c.contacto_id}>
+                        {c.nombre}
+                        {c.cargo ? ` — ${c.cargo}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {!proveedorContactoId && (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      value={atteNombreManual}
+                      onChange={(e) => setAtteNombreManual(e.target.value)}
+                      placeholder="Nombre del encargado (opcional)"
+                      className={inputBase}
+                    />
+                    <input
+                      type="text"
+                      value={atteCargoManual}
+                      onChange={(e) => setAtteCargoManual(e.target.value)}
+                      placeholder="Cargo (opcional)"
+                      className={inputBase}
+                    />
+                  </div>
+                )}
+                {proveedorId && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    Los encargados se administran en{" "}
+                    <Link
+                      href={`/proveedores/${proveedorId}`}
+                      target="_blank"
+                      className="underline hover:text-ink-700"
+                    >
+                      la ficha del proveedor
+                    </Link>
+                    .
+                  </p>
+                )}
               </div>
               <div>
                 <label className={labelBase} htmlFor="fecha-emision">
@@ -581,6 +692,44 @@ export default function NuevaOcPage() {
                   onChange={(e) => setPlazoEntrega(e.target.value)}
                   placeholder="Entrega inmediata / No aplica"
                   className={inputBase}
+                />
+              </div>
+              <div>
+                <label className={labelBase}>Tipo de documento</label>
+                <Combobox
+                  items={TIPOS_DOCUMENTO}
+                  value={tipoDocumento}
+                  onValueChange={(v) => {
+                    setTipoDocumento(v);
+                    // Ayuda, no fuerza: boleta no da crédito fiscal, así que
+                    // sugerimos 0% si el operador no tocó el default 19.
+                    // Si vuelve a factura y seguía en 0, sugerimos 19 de nuevo.
+                    if (v === "BOLETA" && ivaPorcentaje === "19") {
+                      setIvaPorcentaje("0");
+                    } else if (v === "FACTURA" && ivaPorcentaje === "0") {
+                      setIvaPorcentaje("19");
+                    }
+                  }}
+                  placeholder="Tipo de documento"
+                  triggerClassName="w-full h-[38px]"
+                />
+              </div>
+              <div>
+                <label className={labelBase} htmlFor="iva-porcentaje">
+                  IVA %
+                  <span className="ml-1 text-[10px] font-normal text-ink-400">
+                    · editable — no toda compra es 19%
+                  </span>
+                </label>
+                <input
+                  id="iva-porcentaje"
+                  type="number"
+                  value={ivaPorcentaje}
+                  onChange={(e) => setIvaPorcentaje(e.target.value)}
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  className={`${inputBase} tabular-nums`}
                 />
               </div>
               <div className="sm:col-span-2">

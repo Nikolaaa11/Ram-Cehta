@@ -157,7 +157,7 @@ export default async function OcDetallePage({
         </Surface>
         <Surface>
           <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
-            IVA
+            IVA {oc.iva_porcentaje != null ? `${oc.iva_porcentaje}%` : ""}
           </p>
           <p className="mt-1.5 text-kpi-sm font-display text-ink-900 tabular-nums">
             {toCLP(oc.iva)}
@@ -204,6 +204,19 @@ export default async function OcDetallePage({
             </Field>
             <Field label="Plazo">
               {oc.plazo_pago ?? <span className="text-ink-300">—</span>}
+            </Field>
+            <Field label="Tipo de documento">
+              {oc.tipo_documento === "BOLETA" ? "Boleta" : "Factura"}
+            </Field>
+            <Field label="Dirigido a">
+              {oc.atte_nombre ? (
+                <>
+                  {oc.atte_nombre}
+                  {oc.atte_cargo ? ` — ${oc.atte_cargo}` : ""}
+                </>
+              ) : (
+                <span className="text-ink-300">—</span>
+              )}
             </Field>
             <Field label="Observaciones" className="sm:col-span-2">
               {oc.observaciones ? (

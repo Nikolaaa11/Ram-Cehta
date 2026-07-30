@@ -15,6 +15,7 @@ from app.infrastructure.repositories.proveedor_repository import ProveedorReposi
 from app.models.proveedor import Proveedor
 from app.schemas.common import Page
 from app.schemas.proveedor import ProveedorCreate, ProveedorRead, ProveedorUpdate
+from app.schemas.proveedor_contacto import ContactoCreate, ContactoRead, ContactoUpdate
 from app.services.audit_service import audit_log
 from app.services.empresa_scope_service import EmpresaScopeDep
 
@@ -586,6 +587,239 @@ async def merge_proveedor_into(
         ordenes_compra_moved=ordenes_compra_moved,
         source_deactivated=deactivated,
     )
+
+
+_SELECT_CONTACTOS = """
+    SELECT contacto_id, proveedor_id, nombre, cargo, email, telefono,
+           orden, es_default, activo
+    FROM core.proveedor_contactos
+    WHERE proveedor_id = :pid
+"""
+
+
+async def _listar_contactos(db: DBSession, proveedor_id: int) -> list[ContactoRead]:
+    rows = (
+        await db.execute(
+            text(_SELECT_CONTACTOS + " AND activo ORDER BY orden, contacto_id"),
+            {"pid": proveedor_id},
+        )
+    ).mappings().all()
+    return [ContactoRead.model_validate(dict(r)) for r in rows]
+
+
+async def _get_contacto_or_404(
+    db: DBSession, proveedor_id: int, contacto_id: int
+) -> ContactoRead:
+    row = (
+        await db.execute(
+            text(_SELECT_CONTACTOS + " AND contacto_id = :cid"),
+            {"pid": proveedor_id, "cid": contacto_id},
+        )
+    ).mappings().first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"El contacto {contacto_id} no existe para el proveedor {proveedor_id}",
+        )
+    return ContactoRead.model_validate(dict(row))
+
+
+@router.get("/{proveedor_id}/contactos", response_model=list[ContactoRead])
+async def listar_contactos_proveedor(
+    user: CurrentUser, db: DBSession, proveedor_id: int
+) -> list[ContactoRead]:
+    """Encargados del proveedor — catálogo para el selector "Dirigido a" al
+    crear una OC. Solo devuelve activos (a diferencia de empresa_equipo, acá
+    no hay motivo legal para conservar inactivos visibles: el snapshot
+    atte_nombre/atte_cargo ya quedó grabado en la OC que lo usó)."""
+    repo = ProveedorRepository(db)
+    proveedor = await repo.get(proveedor_id)
+    if not proveedor:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proveedor {proveedor_id} no encontrado",
+        )
+    return await _listar_contactos(db, proveedor_id)
+
+
+@router.post(
+    "/{proveedor_id}/contactos",
+    response_model=ContactoRead,
+    status_code=status.HTTP_201_CREATED,
+)
+async def crear_contacto_proveedor(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:update"))],
+    db: DBSession,
+    request: Request,
+    proveedor_id: int,
+    body: ContactoCreate,
+) -> ContactoRead:
+    repo = ProveedorRepository(db)
+    proveedor = await repo.get(proveedor_id)
+    if not proveedor or not proveedor.activo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Proveedor {proveedor_id} no encontrado o inactivo",
+        )
+
+    # Solo puede haber un default activo (índice único parcial) — si este
+    # viene marcado como tal, primero le sacamos la marca al que la tenía.
+    if body.es_default:
+        await db.execute(
+            text(
+                "UPDATE core.proveedor_contactos SET es_default = FALSE "
+                "WHERE proveedor_id = :pid AND es_default"
+            ),
+            {"pid": proveedor_id},
+        )
+
+    nombre = body.nombre.strip()
+    contacto_id = await db.scalar(
+        text(
+            """INSERT INTO core.proveedor_contactos
+                   (proveedor_id, nombre, cargo, email, telefono, orden, es_default)
+               VALUES (
+                   :pid, :nombre, :cargo, :email, :telefono,
+                   COALESCE((SELECT MAX(orden) FROM core.proveedor_contactos
+                             WHERE proveedor_id = :pid), 0) + 1,
+                   :es_default
+               )
+               RETURNING contacto_id"""
+        ),
+        {
+            "pid": proveedor_id,
+            "nombre": nombre,
+            "cargo": (body.cargo or "").strip() or None,
+            "email": body.email,
+            "telefono": (body.telefono or "").strip() or None,
+            "es_default": body.es_default,
+        },
+    )
+    await audit_log(
+        db,
+        request,
+        user,
+        action="create",
+        entity_type="proveedor_contacto",
+        entity_id=str(contacto_id),
+        entity_label=f"{proveedor.razon_social} · {nombre}",
+        summary=f"Contacto '{nombre}' agregado a {proveedor.razon_social}",
+        before=None,
+        after={
+            "nombre": nombre,
+            "cargo": body.cargo,
+            "email": body.email,
+            "es_default": body.es_default,
+        },
+    )
+    await db.commit()
+    return await _get_contacto_or_404(db, proveedor_id, int(contacto_id))
+
+
+@router.patch("/{proveedor_id}/contactos/{contacto_id}", response_model=ContactoRead)
+async def actualizar_contacto_proveedor(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:update"))],
+    db: DBSession,
+    request: Request,
+    proveedor_id: int,
+    contacto_id: int,
+    body: ContactoUpdate,
+) -> ContactoRead:
+    antes = await _get_contacto_or_404(db, proveedor_id, contacto_id)
+    fields = body.model_dump(exclude_unset=True)
+    if not fields:
+        return antes
+    if "nombre" in fields:
+        nombre = (fields["nombre"] or "").strip()
+        if len(nombre) < 2:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El nombre es obligatorio (mínimo 2 caracteres).",
+            )
+        fields["nombre"] = nombre
+
+    if fields.get("es_default") is True:
+        await db.execute(
+            text(
+                "UPDATE core.proveedor_contactos SET es_default = FALSE "
+                "WHERE proveedor_id = :pid AND contacto_id != :cid AND es_default"
+            ),
+            {"pid": proveedor_id, "cid": contacto_id},
+        )
+
+    set_clauses: list[str] = []
+    params: dict = {"pid": proveedor_id, "cid": contacto_id}
+    for k, v in fields.items():
+        if k in {"cargo", "email", "telefono"}:
+            v = (str(v).strip() or None) if v is not None else None
+        set_clauses.append(f"{k} = :{k}")
+        params[k] = v
+
+    sql = (
+        "UPDATE core.proveedor_contactos SET "
+        + ", ".join(set_clauses)
+        + ", updated_at = NOW() WHERE proveedor_id = :pid AND contacto_id = :cid"
+    )
+    result = await db.execute(text(sql), params)
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"El contacto {contacto_id} no existe para el proveedor {proveedor_id}",
+        )
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="proveedor_contacto",
+        entity_id=str(contacto_id),
+        entity_label=f"{antes.nombre}",
+        summary=f"Contacto {antes.nombre} editado",
+        before=antes.model_dump(mode="json"),
+        after={k: params.get(k, v) for k, v in fields.items()},
+    )
+    await db.commit()
+    return await _get_contacto_or_404(db, proveedor_id, contacto_id)
+
+
+@router.delete(
+    "/{proveedor_id}/contactos/{contacto_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response,
+)
+async def eliminar_contacto_proveedor(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("proveedor:update"))],
+    db: DBSession,
+    request: Request,
+    proveedor_id: int,
+    contacto_id: int,
+) -> Response:
+    """Borrado real (no hay motivo contable para conservarlo). Las OC que ya
+    usaron este contacto no se ven afectadas: `proveedor_contacto_id` tiene
+    ON DELETE SET NULL y atte_nombre/atte_cargo son un snapshot aparte que
+    sobrevive al borrado del catálogo."""
+    contacto = await _get_contacto_or_404(db, proveedor_id, contacto_id)
+    await db.execute(
+        text(
+            "DELETE FROM core.proveedor_contactos "
+            "WHERE proveedor_id = :pid AND contacto_id = :cid"
+        ),
+        {"pid": proveedor_id, "cid": contacto_id},
+    )
+    await audit_log(
+        db,
+        request,
+        user,
+        action="delete",
+        entity_type="proveedor_contacto",
+        entity_id=str(contacto_id),
+        entity_label=contacto.nombre,
+        summary=f"Contacto {contacto.nombre} eliminado",
+        before=contacto.model_dump(mode="json"),
+        after=None,
+    )
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{proveedor_id}", response_model=ProveedorRead)

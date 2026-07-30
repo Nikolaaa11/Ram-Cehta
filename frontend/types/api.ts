@@ -578,12 +578,20 @@ export interface paths {
         };
         /**
          * List Cuotas
-         * @description Lista cuotas de una OC con estado del voucher asociado.
+         * @description Lista los hitos de pago de una OC con estado del voucher asociado.
          */
         get: operations["list_cuotas_api_v1_ordenes_compra__oc_id__cuotas_get"];
         /**
          * Replace Cuotas
-         * @description Reemplaza cuotas custom. Las que ya tengan voucher quedan intactas.
+         * @description Define la FORMA DE PAGO de la OC: hitos por porcentaje + fecha.
+         *
+         *     El operador manda `{porcentaje, descripcion, fecha_vencimiento}` por hito
+         *     y el backend deriva el `monto` (= porcentaje/100 x total de la OC). Los
+         *     hitos que ya tienen voucher generado quedan intactos.
+         *
+         *     Reglas:
+         *       · Σ(porcentajes) debe dar 100 (±0.01) → si no, 400 con el faltante.
+         *       · El último hito editable absorbe el residuo de redondeo del monto.
          */
         put: operations["replace_cuotas_api_v1_ordenes_compra__oc_id__cuotas_put"];
         post?: never;
@@ -604,11 +612,14 @@ export interface paths {
         put?: never;
         /**
          * Split Equitativo
-         * @description Genera N cuotas iguales con vencimientos cada `dias_entre_cuotas`.
+         * @description Reparte el 100% en N hitos iguales, cada `dias_entre_cuotas`.
          *
-         *     Reemplaza CUALQUIER cuota previa que estuviera en estado PENDIENTE.
-         *     Cuotas ya generadas como voucher (VOUCHER_GENERADO/PAGADA) NO se tocan
-         *     para evitar romper vouchers en curso.
+         *     Ej: 3 hitos → 33,334% / 33,333% / 33,333% (el PRIMERO absorbe el residuo
+         *     del porcentaje, porque en la práctica el anticipo es el hito que se
+         *     negocia "y el resto se divide"). El ÚLTIMO absorbe el residuo del MONTO
+         *     para que la suma dé exactamente el total de la OC.
+         *
+         *     Reemplaza CUALQUIER hito previo que estuviera en estado PENDIENTE.
          */
         post: operations["split_equitativo_api_v1_ordenes_compra__oc_id__cuotas_split_equitativo_post"];
         delete?: never;
@@ -627,7 +638,14 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete Cuota */
+        /**
+         * Delete Cuota
+         * @description Borra un hito de pago suelto (sin voucher generado).
+         *
+         *     Ojo: al borrar un hito los porcentajes dejan de sumar 100. El camino
+         *     normal es editar la forma de pago completa con el PUT; esto queda para
+         *     limpiezas puntuales.
+         */
         delete: operations["delete_cuota_api_v1_ordenes_compra__oc_id__cuotas__cuota_id__delete"];
         options?: never;
         head?: never;
@@ -680,6 +698,11 @@ export interface paths {
          *
          *     Default: próximas 30 días + vencidas. Ordenadas por fecha asc.
          *     Pensado para widget "Próximos vencimientos" y badge sidebar.
+         *
+         *     FIX fuga multi-tenant: este endpoint recibía `user` pero no lo usaba y
+         *     devolvía los hitos de LAS 10 EMPRESAS a cualquier usuario autenticado.
+         *     El widget de /action-center mostraba número de OC, proveedor y monto de
+         *     empresas fuera del alcance de quien miraba. Ahora filtra por el scope.
          */
         get: operations["cuotas_proximas_api_v1_ordenes_compra_cuotas_proximas_a_vencer_get"];
         put?: never;
@@ -700,9 +723,117 @@ export interface paths {
         /**
          * Cuotas Resumen
          * @description Resumen de cuotas pendientes (badge/sidebar).
+         *
+         *     FIX fuga multi-tenant: agregaba sobre TODA la tabla, así que el badge del
+         *     sidebar le sumaba a cada usuario la plata pendiente de las 10 empresas.
+         *     `oc_cuotas` no tiene empresa_codigo, por eso el JOIN con ordenes_compra.
          */
         get: operations["cuotas_resumen_api_v1_ordenes_compra_cuotas_resumen_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresas/{codigo}/equipo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Equipo
+         * @description Catálogo de personas que pueden firmar OCs de esta empresa.
+         *
+         *     Devuelve activos e inactivos — la UI muestra los inactivos apagados para
+         *     que el operador pueda reactivarlos sin volver a cargarlos.
+         */
+        get: operations["listar_equipo_api_v1_empresas__codigo__equipo_get"];
+        put?: never;
+        /**
+         * Crear Miembro
+         * @description Agrega una persona al equipo firmante de la empresa.
+         *
+         *     Queda al final del orden (MAX(orden)+1, calculado dentro del mismo INSERT
+         *     para no dejar ventana de carrera entre dos altas simultáneas).
+         *
+         *     Si el email matchea un usuario de la plataforma se puebla `user_id`; si no,
+         *     la persona igual se carga (firma manuscrita en el PDF) y el listado la
+         *     devuelve con `tiene_cuenta=false` para que la UI lo avise.
+         */
+        post: operations["crear_miembro_api_v1_empresas__codigo__equipo_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/empresas/{codigo}/equipo/{miembro_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Eliminar Miembro
+         * @description Saca a una persona del equipo. Borrado real, con UNA excepción.
+         *
+         *     La tabla es un catálogo (no tiene histórico contable colgando), así que
+         *     por defecto se borra de verdad: si el operador cargó a alguien por error,
+         *     quiere que desaparezca de la lista, no un cementerio de inactivos.
+         *
+         *     EXCEPCIÓN — si esa persona figura en alguna `core.oc_firmas` con
+         *     status='FIRMADA' de una OC de esta misma empresa, NO se borra: se marca
+         *     `activo=false` y el endpoint devuelve 200 explicando por qué. Motivo:
+         *     preservar la trazabilidad de quién firmó. Aunque `oc_firmas` guarda
+         *     nombre/cargo/email denormalizados y sobreviviría al DELETE, dejar el
+         *     miembro vivo mantiene el vínculo con la persona real del catálogo (misma
+         *     fila, mismo miembro_id) para auditorías y para el PDF re-generado.
+         *
+         *     Un miembro inactivo no aparece en las plantillas ni en el JSONB que
+         *     sincroniza el trigger, así que a efectos operativos queda igual de fuera.
+         */
+        delete: operations["eliminar_miembro_api_v1_empresas__codigo__equipo__miembro_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Actualizar Miembro
+         * @description Edición parcial. Solo cambian los campos presentes en el body.
+         *
+         *     Mandar `email: null` limpia el email (y el `user_id` asociado); cambiarlo
+         *     re-resuelve la cuenta contra auth.users — si no re-resolviéramos, el
+         *     miembro quedaría apuntando al usuario viejo y las notificaciones de firma
+         *     irían a la persona equivocada.
+         */
+        patch: operations["actualizar_miembro_api_v1_empresas__codigo__equipo__miembro_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/empresas/{codigo}/equipo/orden": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reordenar Equipo
+         * @description Reasigna `orden` = posición+1 según la lista recibida.
+         *
+         *     El orden importa: es el que se imprime en el PDF (columna de firmas) y el
+         *     que define el orden de invitación. Se resuelve en UN solo UPDATE con
+         *     UNNEST ... WITH ORDINALITY — con 5-6 miembros un UPDATE por fila también
+         *     andaría, pero cada UPDATE dispara el trigger que re-arma los JSONB de
+         *     `core.empresas`, así que multiplicarlos multiplica escrituras.
+         */
+        put: operations["reordenar_equipo_api_v1_empresas__codigo__equipo_orden_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1173,6 +1304,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/proveedores/{proveedor_id}/contactos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Contactos Proveedor
+         * @description Encargados del proveedor — catálogo para el selector "Dirigido a" al
+         *     crear una OC. Solo devuelve activos (a diferencia de empresa_equipo, acá
+         *     no hay motivo legal para conservar inactivos visibles: el snapshot
+         *     atte_nombre/atte_cargo ya quedó grabado en la OC que lo usó).
+         */
+        get: operations["listar_contactos_proveedor_api_v1_proveedores__proveedor_id__contactos_get"];
+        put?: never;
+        /** Crear Contacto Proveedor */
+        post: operations["crear_contacto_proveedor_api_v1_proveedores__proveedor_id__contactos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/proveedores/{proveedor_id}/contactos/{contacto_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Eliminar Contacto Proveedor
+         * @description Borrado real (no hay motivo contable para conservarlo). Las OC que ya
+         *     usaron este contacto no se ven afectadas: `proveedor_contacto_id` tiene
+         *     ON DELETE SET NULL y atte_nombre/atte_cargo son un snapshot aparte que
+         *     sobrevive al borrado del catálogo.
+         */
+        delete: operations["eliminar_contacto_proveedor_api_v1_proveedores__proveedor_id__contactos__contacto_id__delete"];
+        options?: never;
+        head?: never;
+        /** Actualizar Contacto Proveedor */
+        patch: operations["actualizar_contacto_proveedor_api_v1_proveedores__proveedor_id__contactos__contacto_id__patch"];
+        trace?: never;
+    };
     "/api/v1/proveedores/{proveedor_id}": {
         parameters: {
             query?: never;
@@ -1559,7 +1738,28 @@ export interface paths {
         post?: never;
         /**
          * Delete Oc
-         * @description Borra una OC. Solo permitido si estado in ('emitida', 'anulada').
+         * @description Borra fisicamente una OC mal cargada. Estados permitidos: borrador,
+         *     emitida, en_firma, anulada.
+         *
+         *     Bloqueos (409, con explicacion de que hacer en su lugar):
+         *       · la OC tiene al menos una firma con status='FIRMADA' → documento
+         *         firmado, evidencia legal, se anula pero no se borra;
+         *       · la OC tiene vouchers APPROVED/EXECUTED/SYNCED/RECONCILED (directos
+         *         via vouchers.oc_id o via sus cuotas) → ya hay plata comprometida.
+         *     Ambas condiciones se chequean en UNA sola query (subselects), no una
+         *     query por condicion.
+         *
+         *     Borrado en cascada — verificado contra las FK reales:
+         *       · core.ordenes_compra_detalle  ON DELETE CASCADE (+ cascade ORM)
+         *       · core.oc_cuotas               ON DELETE CASCADE  → forma de pago
+         *       · core.oc_firmas               ON DELETE CASCADE  → firmantes pendientes
+         *       · core.oc_attachments          ON DELETE CASCADE  → adjuntos del email
+         *       · core.vouchers.oc_id          ON DELETE SET NULL → el voucher sobrevive
+         *       · webhooks/eventos de email    ON DELETE SET NULL
+         *     La excepcion es core.inbox_messages.linked_oc_id, cuya FK quedo SIN
+         *     ON DELETE (NO ACTION): si la OC nacio de un email, Postgres abortaba el
+         *     DELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar —
+         *     mismo efecto que un SET NULL, el correo NO se borra.
          *
          *     V5++ ola CJ — scope check sobre empresa.
          */
@@ -1774,6 +1974,249 @@ export interface paths {
          *       - Forzar re-envío después de cambiar email del GG
          */
         post: operations["send_oc_to_signers_endpoint_api_v1_ordenes_compra__oc_id__send_to_signers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/firmas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Firmas */
+        get: operations["get_firmas_api_v1_ordenes_compra__oc_id__firmas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/firmantes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reemplazar Firmantes
+         * @description Replace-all: la OC queda EXACTAMENTE con este set de firmantes.
+         *
+         *     Es el endpoint del picker — el operador clickea integrantes del equipo,
+         *     suma al representante del proveedor y guarda. Por eso `notificar=false`
+         *     (default) no manda un solo correo ni mueve el estado de la OC.
+         *
+         *     Lo único intocable son las firmas ya FIRMADAS: si el set entrante no las
+         *     incluye devolvemos 409 nombrando a quién firmó. Es un fondo de inversión
+         *     real — una firma electrónica registrada no se borra para "reordenar".
+         */
+        put: operations["reemplazar_firmantes_api_v1_ordenes_compra__oc_id__firmantes_put"];
+        /**
+         * Asignar Firmantes
+         * @description Asigna firmantes a la OC y les avisa por correo + notificación in-app.
+         *
+         *     Idempotente por (oc_id, email): re-invitar a alguien ya asignado no
+         *     duplica ni re-notifica. La OC pasa a estado 'en_firma'.
+         */
+        post: operations["asignar_firmantes_api_v1_ordenes_compra__oc_id__firmantes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/firmantes/{firma_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Quitar Firmante
+         * @description Saca un firmante de la OC. Nunca uno que ya firmó (409).
+         */
+        delete: operations["quitar_firmante_api_v1_ordenes_compra__oc_id__firmantes__firma_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/firmantes/aplicar-plantilla": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aplicar Plantilla Firmantes
+         * @description Carga de una los firmantes habituales o los de la OC anterior.
+         *
+         *     ADITIVO a propósito: respeta lo que ya hay (firmas hechas, el externo del
+         *     proveedor que se cargó a mano) y solo suma los que faltan. Es el "no
+         *     tener que ponerlos a cada rato" del pedido. No notifica ni cambia estado.
+         */
+        post: operations["aplicar_plantilla_firmantes_api_v1_ordenes_compra__oc_id__firmantes_aplicar_plantilla_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/enviar-a-firma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enviar A Firma
+         * @description Recién acá salen los correos: invita a los PENDIENTE sin notificar.
+         *
+         *     Se separa del armado del set justamente para que preparar la OC no
+         *     despierte a nadie. Re-llamarlo no re-spamea: quien ya tiene notified_at
+         *     queda afuera (el recordatorio de 48h lo maneja el monitor horario).
+         */
+        post: operations["enviar_a_firma_api_v1_ordenes_compra__oc_id__enviar_a_firma_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/firmar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Firmar Oc
+         * @description Firma en 1 click. Registra usuario/fecha/hash/IP y estampa el PDF.
+         *
+         *     Cuando se completa la última firma pendiente: estado → 'firmada' y la OC
+         *     se envía automáticamente al proveedor (PDF adjunto, CC creador +
+         *     encargados) → 'enviada_proveedor'.
+         */
+        post: operations["firmar_oc_api_v1_ordenes_compra__oc_id__firmar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/rechazar-firma": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rechazar Firma
+         * @description El firmante rechaza con motivo → la OC vuelve a 'emitida' para corregir.
+         */
+        post: operations["rechazar_firma_api_v1_ordenes_compra__oc_id__rechazar_firma_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/marcar-facturada": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Marcar Facturada
+         * @description Registra que llegó la factura del proveedor → OC 'facturada'.
+         *
+         *     Con esto la OC aparece en "Listas para voucher" (la factura puede venir
+         *     linkeada desde el mailbox o adjunta por Dropbox). El folio queda en
+         *     observaciones para trazabilidad del voucher.
+         */
+        post: operations["marcar_facturada_api_v1_ordenes_compra__oc_id__marcar_facturada_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/prevouchers/cola": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cola Prevouchers
+         * @description Cola de pre-vouchers (vouchers DRAFT) pendientes de procesar.
+         *
+         *     Ordenada por antigüedad (el que más lleva esperando, primero). El
+         *     especialista "toma" un pre-voucher abriéndolo en /vouchers/{id},
+         *     completa la imputación con PUT /vouchers/{id}/lines y lo envía a
+         *     firmas con POST /vouchers/{id}/submit.
+         */
+        get: operations["cola_prevouchers_api_v1_prevouchers_cola_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/{voucher_id}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace Voucher Lines
+         * @description Reemplaza TODAS las líneas de un voucher DRAFT (replace-all atómico).
+         *
+         *     Es el paso "completar la imputación" del flujo de pre-vouchers: el
+         *     especialista toma el borrador cargado por un operativo y fija las
+         *     cuentas/áreas/proyectos correctos sin borrar y recrear el voucher
+         *     (preservando código, adjuntos y trazabilidad del creador).
+         *
+         *     Mismas validaciones por línea que POST /vouchers: cuenta existe +
+         *     imputable (nivel 4) + activa + habilitada para la empresa; proyecto de
+         *     la misma empresa; área aplica a la empresa; line_number correlativo
+         *     desde 1 (garantizado por el schema). Solo DRAFT (400 si no).
+         */
+        put: operations["replace_voucher_lines_api_v1_vouchers__voucher_id__lines_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2697,7 +3140,20 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Remove User */
+        /**
+         * Remove User
+         * @description MEGAPROMPT F1a — Revocación de acceso REAL (soft-delete + ban).
+         *
+         *     Antes esto solo hacía `DELETE FROM core.user_roles`, dejando la cuenta de
+         *     Supabase activa (seguía logueándose) y los roles por empresa intactos
+         *     (seguía viendo/operando). Ahora corta el acceso de verdad:
+         *       1. Banea la cuenta en Supabase Auth (no puede loguearse; reversible).
+         *       2. Desactiva todos sus roles por empresa (deja de ver cualquier empresa).
+         *       3. Revoca sus API tokens.
+         *       4. Baja su rol global (DELETE de user_roles).
+         *     Preserva el historial (vouchers/OC creados, firmas) — son evidencia
+         *     contable/legal y no se borran. Protegido: uno mismo, nrietta, último admin.
+         */
         delete: operations["remove_user_api_v1_admin_users__user_id__delete"];
         options?: never;
         head?: never;
@@ -3260,6 +3716,9 @@ export interface paths {
         /**
          * Connect
          * @description Inicia OAuth flow. Devuelve la authorize_url para redirigir al usuario.
+         *
+         *     El CSRF token que genera `flow.start()` se persiste en `core.oauth_states`
+         *     porque el `/callback` lo va a leer desde OTRA máquina de Fly.
          */
         get: operations["connect_api_v1_dropbox_connect_get"];
         put?: never;
@@ -3283,7 +3742,8 @@ export interface paths {
          *
          *     Este endpoint es PÚBLICO porque Dropbox redirige al browser del admin sin
          *     Authorization header. La integridad la garantiza el CSRF token que
-         *     `DropboxOAuth2Flow.finish` valida contra `_oauth_session`.
+         *     `DropboxOAuth2Flow.finish` valida contra el state persistido en
+         *     `core.oauth_states` por `/connect`.
          */
         get: operations["callback_api_v1_dropbox_callback_get"];
         put?: never;
@@ -8658,6 +9118,9 @@ export interface paths {
          *
          *     V5++ ola CB: invalida el scope cache del user al final para que el
          *     cambio sea inmediato (sin esperar TTL de 60s).
+         *
+         *     MEGAPROMPT PREVOUCHER: acepta `email` como alternativa a `user_id` —
+         *     el backend resuelve el UUID contra auth.users (404 si no existe).
          */
         post: operations["assign_user_company_role_api_v1_admin_user_company_roles_post"];
         /**
@@ -10432,6 +10895,19 @@ export interface components {
             /** Token */
             token: string;
         };
+        /**
+         * AplicarPlantillaRequest
+         * @description `default` = firmantes habituales de la empresa;
+         *     `anterior` = los de la última OC de la misma empresa que tenga firmantes.
+         */
+        AplicarPlantillaRequest: {
+            /**
+             * Origen
+             * @default default
+             * @enum {string}
+             */
+            origen: "default" | "anterior";
+        };
         /** ApprovalRuleCreate */
         ApprovalRuleCreate: {
             /** Empresa Codigo */
@@ -11851,6 +12327,58 @@ export interface components {
             /** Notas */
             notas?: string | null;
         };
+        /** ContactoCreate */
+        ContactoCreate: {
+            /** Nombre */
+            nombre: string;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /**
+             * Es Default
+             * @default false
+             */
+            es_default: boolean;
+        };
+        /** ContactoRead */
+        ContactoRead: {
+            /** Contacto Id */
+            contacto_id: number;
+            /** Proveedor Id */
+            proveedor_id: number;
+            /** Nombre */
+            nombre: string;
+            /** Cargo */
+            cargo: string | null;
+            /** Email */
+            email: string | null;
+            /** Telefono */
+            telefono: string | null;
+            /** Orden */
+            orden: number;
+            /** Es Default */
+            es_default: boolean;
+            /** Activo */
+            activo: boolean;
+        };
+        /** ContactoUpdate */
+        ContactoUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Telefono */
+            telefono?: string | null;
+            /** Es Default */
+            es_default?: boolean | null;
+            /** Activo */
+            activo?: boolean | null;
+        };
         /** ConversationCreate */
         ConversationCreate: {
             /** Empresa Codigo */
@@ -12040,20 +12568,6 @@ export interface components {
             /** Corfo Cargo */
             corfo_cargo: string | null;
         };
-        /** CuotaCreate */
-        CuotaCreate: {
-            /** Numero Cuota */
-            numero_cuota: number;
-            /** Monto */
-            monto: number | string;
-            /**
-             * Fecha Vencimiento
-             * Format: date
-             */
-            fecha_vencimiento: string;
-            /** Descripcion */
-            descripcion?: string | null;
-        };
         /** CuotaPendiente */
         CuotaPendiente: {
             /** Cuota Id */
@@ -12094,6 +12608,8 @@ export interface components {
             oc_id: number;
             /** Numero Cuota */
             numero_cuota: number;
+            /** Porcentaje */
+            porcentaje?: string | null;
             /** Monto */
             monto: string;
             /**
@@ -12113,11 +12629,6 @@ export interface components {
             voucher_status?: string | null;
             /** Dias A Vencer */
             dias_a_vencer?: number | null;
-        };
-        /** CuotasReplaceBody */
-        CuotasReplaceBody: {
-            /** Cuotas */
-            cuotas: components["schemas"]["CuotaCreate"][];
         };
         /**
          * CuotasResumen
@@ -13272,6 +13783,19 @@ export interface components {
             /** Proximos 7D */
             proximos_7d?: components["schemas"]["EntregableDigestRow"][];
         };
+        /** EnviarAFirmaRequest */
+        EnviarAFirmaRequest: {
+            /** Mensaje */
+            mensaje?: string | null;
+        };
+        /**
+         * EquipoOrdenRequest
+         * @description Lista COMPLETA de miembro_ids en el orden deseado (posición+1).
+         */
+        EquipoOrdenRequest: {
+            /** Miembro Ids */
+            miembro_ids: number[];
+        };
         /** EstadoFinancieroCreate */
         EstadoFinancieroCreate: {
             /** Empresa Codigo */
@@ -13910,6 +14434,48 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        /** FirmaRead */
+        FirmaRead: {
+            /** Firma Id */
+            firma_id: number;
+            /** Firmante Email */
+            firmante_email: string;
+            /** Firmante Nombre */
+            firmante_nombre: string | null;
+            /** Firmante Cargo */
+            firmante_cargo: string | null;
+            /** Orden */
+            orden: number;
+            /** Status */
+            status: string;
+            /** Signed At */
+            signed_at: string | null;
+            /** Notified At */
+            notified_at: string | null;
+            /** Reminder Sent At */
+            reminder_sent_at: string | null;
+            /** Comments */
+            comments: string | null;
+            /**
+             * Es Mi Firma
+             * @default false
+             */
+            es_mi_firma: boolean;
+            /**
+             * Es Externo
+             * @default false
+             */
+            es_externo: boolean;
+            /** Empresa Firmante */
+            empresa_firmante?: string | null;
+            /**
+             * Sin Email
+             * @default false
+             */
+            sin_email: boolean;
+            /** Firma Visual */
+            firma_visual?: string | null;
+        };
         /** Firmante */
         Firmante: {
             /** Nombre */
@@ -13920,6 +14486,90 @@ export interface components {
             email?: string | null;
             /** Rut */
             rut?: string | null;
+        };
+        /** FirmanteIn */
+        FirmanteIn: {
+            /**
+             * Email
+             * Format: email
+             */
+            email: string;
+            /** Nombre */
+            nombre?: string | null;
+            /** Cargo */
+            cargo?: string | null;
+        };
+        /**
+         * FirmanteSet
+         * @description Un firmante dentro del set completo que manda el PUT replace-all.
+         *
+         *     `email` es opcional SOLO para externos: alguien del proveedor que firma a
+         *     mano el PDF impreso y no tiene (ni necesita) cuenta en la plataforma.
+         */
+        FirmanteSet: {
+            /** Email */
+            email?: string | null;
+            /** Nombre */
+            nombre: string;
+            /** Cargo */
+            cargo?: string | null;
+            /**
+             * Es Externo
+             * @default false
+             */
+            es_externo: boolean;
+            /** Empresa Firmante */
+            empresa_firmante?: string | null;
+        };
+        /** FirmantesAssignRequest */
+        FirmantesAssignRequest: {
+            /** Firmantes */
+            firmantes: components["schemas"]["FirmanteIn"][];
+            /** Mensaje */
+            mensaje?: string | null;
+        };
+        /**
+         * FirmantesReplaceRequest
+         * @description PUT /{oc_id}/firmantes — deja exactamente este set de firmantes.
+         *
+         *     `notificar=False` (default) es el modo "preparar la OC": el usuario clickea
+         *     integrantes decenas de veces y ni se manda un mail ni se mueve el estado.
+         */
+        FirmantesReplaceRequest: {
+            /** Firmantes */
+            firmantes?: components["schemas"]["FirmanteSet"][];
+            /**
+             * Notificar
+             * @default false
+             */
+            notificar: boolean;
+            /** Mensaje */
+            mensaje?: string | null;
+        };
+        /** FirmarRequest */
+        FirmarRequest: {
+            /** Comments */
+            comments?: string | null;
+            /** Firma Visual */
+            firma_visual?: string | null;
+        };
+        /** FirmarResponse */
+        FirmarResponse: {
+            /** Ok */
+            ok: boolean;
+            /** Estado */
+            estado: string;
+            /** Completamente Firmada */
+            completamente_firmada: boolean;
+            /**
+             * Enviada Proveedor
+             * @default false
+             */
+            enviada_proveedor: boolean;
+            /** Proveedor Email */
+            proveedor_email?: string | null;
+            /** Detalle */
+            detalle?: string | null;
         };
         /** FlujoCell */
         FlujoCell: {
@@ -14773,6 +15423,28 @@ export interface components {
             encargado?: string | null;
         };
         /**
+         * HitoPagoCreate
+         * @description Hito de pago tal como se pacta con el proveedor: % + fecha.
+         *
+         *     El `monto` NO se recibe: se deriva del porcentaje x total de la OC.
+         *     `numero_cuota` es opcional — si no viene, se numera por posición (el
+         *     frontend lo manda para los hitos que ya existen, así no se pisan los
+         *     que tienen voucher generado).
+         */
+        HitoPagoCreate: {
+            /** Porcentaje */
+            porcentaje: number | string;
+            /**
+             * Fecha Vencimiento
+             * Format: date
+             */
+            fecha_vencimiento: string;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Numero Cuota */
+            numero_cuota?: number | null;
+        };
+        /**
          * HitoQuickEdit
          * @description Single endpoint para todas las acciones quick del Kanban.
          *
@@ -14849,6 +15521,17 @@ export interface components {
             deliverable_url?: string | null;
             /** Encargado */
             encargado?: string | null;
+        };
+        /**
+         * HitosPagoReplaceBody
+         * @description Body del PUT de forma de pago.
+         *
+         *     Acepta la clave `hitos` (nombre nuevo, orientado al negocio) y también
+         *     `cuotas` (nombre viejo) para no romper clientes ya desplegados.
+         */
+        HitosPagoReplaceBody: {
+            /** Hitos */
+            hitos: components["schemas"]["HitoPagoCreate"][];
         };
         /** ImpactDimensionRow */
         ImpactDimensionRow: {
@@ -15830,6 +16513,26 @@ export interface components {
             /** Mutual */
             mutual?: number | string | null;
         };
+        /** LinesReplaceRequest */
+        LinesReplaceRequest: {
+            /** Lines */
+            lines: components["schemas"]["VoucherLineCreate"][];
+        };
+        /** LinesReplaceResponse */
+        LinesReplaceResponse: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Lineas */
+            lineas: number;
+            /** Total Debit */
+            total_debit: string;
+            /** Total Credit */
+            total_credit: string;
+            /** Cuadrado */
+            cuadrado: boolean;
+        };
         /** LinkOcRequest */
         LinkOcRequest: {
             /** Oc Id */
@@ -16473,6 +17176,11 @@ export interface components {
             /** Items */
             items: components["schemas"]["MappingItem"][];
         };
+        /** MarcarFacturadaRequest */
+        MarcarFacturadaRequest: {
+            /** Folio */
+            folio?: string | null;
+        };
         /** MarchaBlancaReport */
         MarchaBlancaReport: {
             /**
@@ -16593,6 +17301,69 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** MiembroCreate */
+        MiembroCreate: {
+            /** Nombre */
+            nombre: string;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Rut */
+            rut?: string | null;
+            /**
+             * Es Default
+             * @default false
+             */
+            es_default: boolean;
+        };
+        /** MiembroRead */
+        MiembroRead: {
+            /** Miembro Id */
+            miembro_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Nombre */
+            nombre: string;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Rut */
+            rut?: string | null;
+            /** Orden */
+            orden: number;
+            /** Es Default */
+            es_default: boolean;
+            /** Activo */
+            activo: boolean;
+            /**
+             * Tiene Cuenta
+             * @default false
+             */
+            tiene_cuenta: boolean;
+        };
+        /**
+         * MiembroUpdate
+         * @description PATCH parcial. Solo los campos enviados se tocan (exclude_unset).
+         *
+         *     Mandar `email: null` o `cargo: null` explícitamente LIMPIA el campo —
+         *     por eso el router usa exclude_unset y no exclude_none.
+         */
+        MiembroUpdate: {
+            /** Nombre */
+            nombre?: string | null;
+            /** Cargo */
+            cargo?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Rut */
+            rut?: string | null;
+            /** Es Default */
+            es_default?: boolean | null;
+            /** Activo */
+            activo?: boolean | null;
         };
         /**
          * MisPendientesItem
@@ -17119,6 +17890,8 @@ export interface components {
             item: number;
             /** Descripcion */
             descripcion: string;
+            /** Unidad */
+            unidad?: string | null;
             /** Precio Unitario */
             precio_unitario: number | string;
             /** Cantidad */
@@ -17132,6 +17905,8 @@ export interface components {
             item: number;
             /** Descripcion */
             descripcion: string;
+            /** Unidad */
+            unidad?: string | null;
             /** Precio Unitario */
             precio_unitario: string;
             /** Cantidad */
@@ -17375,6 +18150,25 @@ export interface components {
             /** Items */
             items: components["schemas"]["OcExtractedItem"][];
         };
+        /** OcFirmasResponse */
+        OcFirmasResponse: {
+            /** Oc Id */
+            oc_id: number;
+            /** Numero Oc */
+            numero_oc: string;
+            /** Estado */
+            estado: string;
+            /** Firmas */
+            firmas: components["schemas"]["FirmaRead"][];
+            /** Sugeridos */
+            sugeridos: components["schemas"]["FirmanteIn"][];
+            /** Equipo */
+            equipo?: components["schemas"]["MiembroRead"][];
+            /** Puedo Firmar */
+            puedo_firmar: boolean;
+            /** Pendientes */
+            pendientes: number;
+        };
         /** OcImportCsvResponse */
         OcImportCsvResponse: {
             /** Total Rows */
@@ -17440,8 +18234,27 @@ export interface components {
             forma_pago?: string | null;
             /** Plazo Pago */
             plazo_pago?: string | null;
+            /** Plazo Entrega */
+            plazo_entrega?: string | null;
             /** Observaciones */
             observaciones?: string | null;
+            /** Proveedor Contacto Id */
+            proveedor_contacto_id?: number | null;
+            /** Atte Nombre */
+            atte_nombre?: string | null;
+            /** Atte Cargo */
+            atte_cargo?: string | null;
+            /**
+             * Tipo Documento
+             * @default FACTURA
+             * @enum {string}
+             */
+            tipo_documento: "FACTURA" | "BOLETA";
+            /**
+             * Iva Porcentaje
+             * @default 19.00
+             */
+            iva_porcentaje: number | string;
             /** Items */
             items: components["schemas"]["OCDetalleCreate"][];
         };
@@ -17505,8 +18318,26 @@ export interface components {
             forma_pago: string | null;
             /** Plazo Pago */
             plazo_pago: string | null;
+            /** Plazo Entrega */
+            plazo_entrega?: string | null;
             /** Observaciones */
             observaciones: string | null;
+            /** Proveedor Contacto Id */
+            proveedor_contacto_id?: number | null;
+            /** Atte Nombre */
+            atte_nombre?: string | null;
+            /** Atte Cargo */
+            atte_cargo?: string | null;
+            /**
+             * Tipo Documento
+             * @default FACTURA
+             */
+            tipo_documento: string;
+            /**
+             * Iva Porcentaje
+             * @default 19.00
+             */
+            iva_porcentaje: string;
             /** Estado */
             estado: string;
             /** Pdf Url */
@@ -17534,10 +18365,12 @@ export interface components {
          * @description PATCH /ordenes-compra/{id} — edición de campos no-críticos.
          *
          *     Sólo permite editar campos operativos. Los campos críticos
-         *     (numero_oc, empresa_codigo, fecha_emision, neto, iva, total, estado)
-         *     NO se pueden modificar acá: 'numero_oc' rompería trazabilidad,
-         *     los montos se recalculan al crear, y 'estado' tiene su propio endpoint
-         *     `PATCH /{id}/estado` con validación de transiciones.
+         *     (numero_oc, empresa_codigo, fecha_emision, neto, estado) NO se pueden
+         *     modificar acá: 'numero_oc' rompería trazabilidad, 'neto' se recalcula
+         *     de los items, y 'estado' tiene su propio endpoint `PATCH /{id}/estado`
+         *     con validación de transiciones. `iva`/`total` tampoco se aceptan
+         *     directos — se derivan server-side de `iva_porcentaje` cuando viene en
+         *     el body (ver `update_oc` en ordenes_compra.py).
          *
          *     Si el body trae alguno de esos campos, son ignorados (extra='ignore'
          *     por default en pydantic v2). Si querés que sea hard-fail, cambiar a
@@ -17548,12 +18381,24 @@ export interface components {
             forma_pago?: string | null;
             /** Plazo Pago */
             plazo_pago?: string | null;
+            /** Plazo Entrega */
+            plazo_entrega?: string | null;
             /** Validez Dias */
             validez_dias?: number | null;
             /** Observaciones */
             observaciones?: string | null;
             /** Pdf Url */
             pdf_url?: string | null;
+            /** Proveedor Contacto Id */
+            proveedor_contacto_id?: number | null;
+            /** Atte Nombre */
+            atte_nombre?: string | null;
+            /** Atte Cargo */
+            atte_cargo?: string | null;
+            /** Tipo Documento */
+            tipo_documento?: ("FACTURA" | "BOLETA") | null;
+            /** Iva Porcentaje */
+            iva_porcentaje?: number | string | null;
         };
         /** OwnerCount */
         OwnerCount: {
@@ -18210,6 +19055,53 @@ export interface components {
             /** Corfo Item */
             corfo_item: string | null;
         };
+        /** PrevoucherCola */
+        PrevoucherCola: {
+            /** Items */
+            items: components["schemas"]["PrevoucherItem"][];
+            /** Total */
+            total: number;
+        };
+        /** PrevoucherItem */
+        PrevoucherItem: {
+            /** Voucher Id */
+            voucher_id: number;
+            /** Codigo */
+            codigo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Tipo */
+            tipo: string;
+            /**
+             * Fecha Documento
+             * Format: date
+             */
+            fecha_documento: string;
+            /** Glosa */
+            glosa: string;
+            /** Total Debit */
+            total_debit: string;
+            /** Moneda */
+            moneda: string;
+            /** Contraparte Nombre */
+            contraparte_nombre: string | null;
+            /** Source */
+            source: string | null;
+            /** Creador Email */
+            creador_email: string | null;
+            /** Dias Esperando */
+            dias_esperando: number;
+            /** Adjuntos */
+            adjuntos: number;
+            /** Lineas */
+            lineas: number;
+            /** Cuadrado */
+            cuadrado: boolean;
+            /** Oc Id */
+            oc_id: number | null;
+            /** Oc Numero */
+            oc_numero: string | null;
+        };
         /**
          * ProveedorCacheItem
          * @description Item mínimo de catálogo proveedor — para precarga client-side.
@@ -18855,6 +19747,11 @@ export interface components {
              * Format: date
              */
             date: string;
+        };
+        /** RechazarFirmaRequest */
+        RechazarFirmaRequest: {
+            /** Motivo */
+            motivo: string;
         };
         /** ReconcileRequest */
         ReconcileRequest: {
@@ -19642,7 +20539,7 @@ export interface components {
         SplitEquitativoBody: {
             /**
              * Cantidad
-             * @description Cantidad de cuotas
+             * @description Cantidad de hitos de pago iguales
              */
             cantidad: number;
             /**
@@ -20383,10 +21280,19 @@ export interface components {
             sin_fecha?: components["schemas"]["HitoConContexto"][];
             stats: components["schemas"]["UpcomingStats"];
         };
-        /** UserCompanyRoleCreate */
+        /**
+         * UserCompanyRoleCreate
+         * @description MEGAPROMPT PREVOUCHER — acepta user_id (UUID) O email.
+         *
+         *     Antes exigía el UUID crudo de Supabase que había que copiar a mano
+         *     desde fuera de la plataforma (la UI de usuarios ni siquiera lo muestra).
+         *     Ahora el admin asigna cargos por EMAIL y el backend lo resuelve.
+         */
         UserCompanyRoleCreate: {
             /** User Id */
-            user_id: string;
+            user_id?: string | null;
+            /** Email */
+            email?: string | null;
             /** Empresa Codigo */
             empresa_codigo: string;
             /**
@@ -20419,6 +21325,8 @@ export interface components {
             assigned_at: string;
             /** Assigned By */
             assigned_by: string | null;
+            /** Email */
+            email?: string | null;
         };
         /** UserMeResponse */
         UserMeResponse: {
@@ -20647,11 +21555,11 @@ export interface components {
             /** Signature Hash */
             signature_hash: string;
             /** Ip Address */
-            ip_address: string | null;
+            ip_address?: string | null;
             /** User Agent */
-            user_agent: string | null;
+            user_agent?: string | null;
             /** Comments */
-            comments: string | null;
+            comments?: string | null;
         };
         /**
          * VoucherApprovalsState
@@ -20813,6 +21721,8 @@ export interface components {
             threshold_aplicado: boolean;
             /** Reversal Of */
             reversal_of?: number | null;
+            /** Source */
+            source?: string | null;
             /** Lines */
             lines: components["schemas"]["VoucherLineCreate"][];
         };
@@ -22574,7 +23484,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CuotasReplaceBody"];
+                "application/json": components["schemas"]["HitosPagoReplaceBody"];
             };
         };
         responses: {
@@ -22752,6 +23662,190 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CuotasResumen"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_equipo_api_v1_empresas__codigo__equipo_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiembroRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_miembro_api_v1_empresas__codigo__equipo_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MiembroCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiembroRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eliminar_miembro_api_v1_empresas__codigo__equipo__miembro_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+                miembro_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description El miembro ya firmó alguna OC: no se borra, se desactiva. El body explica qué pasó para que la UI lo muestre. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    actualizar_miembro_api_v1_empresas__codigo__equipo__miembro_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+                miembro_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MiembroUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiembroRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reordenar_equipo_api_v1_empresas__codigo__equipo_orden_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                codigo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EquipoOrdenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MiembroRead"][];
                 };
             };
             /** @description Validation Error */
@@ -23430,6 +24524,146 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MergeProveedorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_contactos_proveedor_api_v1_proveedores__proveedor_id__contactos_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proveedor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactoRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_contacto_proveedor_api_v1_proveedores__proveedor_id__contactos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proveedor_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eliminar_contacto_proveedor_api_v1_proveedores__proveedor_id__contactos__contacto_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proveedor_id: number;
+                contacto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    actualizar_contacto_proveedor_api_v1_proveedores__proveedor_id__contactos__contacto_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                proveedor_id: number;
+                contacto_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContactoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactoRead"];
                 };
             };
             /** @description Validation Error */
@@ -24477,6 +25711,404 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_firmas_api_v1_ordenes_compra__oc_id__firmas_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcFirmasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reemplazar_firmantes_api_v1_ordenes_compra__oc_id__firmantes_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FirmantesReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcFirmasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    asignar_firmantes_api_v1_ordenes_compra__oc_id__firmantes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FirmantesAssignRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcFirmasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quitar_firmante_api_v1_ordenes_compra__oc_id__firmantes__firma_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+                firma_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcFirmasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    aplicar_plantilla_firmantes_api_v1_ordenes_compra__oc_id__firmantes_aplicar_plantilla_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AplicarPlantillaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcFirmasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enviar_a_firma_api_v1_ordenes_compra__oc_id__enviar_a_firma_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EnviarAFirmaRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcFirmasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    firmar_oc_api_v1_ordenes_compra__oc_id__firmar_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FirmarRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirmarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rechazar_firma_api_v1_ordenes_compra__oc_id__rechazar_firma_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RechazarFirmaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirmarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    marcar_facturada_api_v1_ordenes_compra__oc_id__marcar_facturada_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarcarFacturadaRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirmarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cola_prevouchers_api_v1_prevouchers_cola_get: {
+        parameters: {
+            query?: {
+                empresa_codigo?: string | null;
+                solo_con_adjunto?: boolean;
+                limit?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrevoucherCola"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replace_voucher_lines_api_v1_vouchers__voucher_id__lines_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                voucher_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinesReplaceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinesReplaceResponse"];
                 };
             };
             /** @description Validation Error */

@@ -249,7 +249,8 @@ async def _load_context(
                 """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
                           fecha_emision, validez_dias, moneda, neto, iva, total,
                           forma_pago, plazo_pago, plazo_entrega,
-                          observaciones, estado
+                          observaciones, estado,
+                          atte_nombre, atte_cargo, tipo_documento, iva_porcentaje
                    FROM core.ordenes_compra
                    WHERE oc_id = :id"""
             ),
@@ -416,6 +417,14 @@ async def _load_context(
         "emails_insumos": None,
         "total_neto": oc_row.get("neto") or 0,
         "iva": oc_row.get("iva") or 0,
+        # `or` rompería con 0% (Python trata 0 como falsy) — una OC en 0%
+        # (boleta, exenta) volvería a mostrar "19%" en el PDF. None-check.
+        "iva_porcentaje": (
+            oc_row.get("iva_porcentaje")
+            if oc_row.get("iva_porcentaje") is not None
+            else Decimal("19.00")
+        ),
+        "tipo_documento": oc_row.get("tipo_documento") or "FACTURA",
         "total": oc_row.get("total") or 0,
         "estado": type("E", (), {"value": oc_row.get("estado") or "borrador"})(),
         "items": items,
@@ -576,13 +585,21 @@ async def _load_context(
         })
 
     # Modelo Proveedor para template
+    # "Atte. Señor/a" — MEGAPROMPT ENCARGADOS: prioriza el snapshot de la OC
+    # (atte_nombre/atte_cargo, elegido al crearla desde el catálogo
+    # proveedor_contactos) sobre el `contacto` suelto histórico del
+    # proveedor. Así, si el proveedor cambia de encargado después, las OC ya
+    # emitidas no cambian de destinatario retroactivamente.
+    _atte_nombre = oc_row.get("atte_nombre") or proveedor.get("contacto_nombre")
+    _atte_cargo = oc_row.get("atte_cargo") if oc_row.get("atte_nombre") else None
     prov_ctx = type("Prov", (), {
         "razon_social": proveedor.get("razon_social") or "Proveedor sin nombre",
         "rut": proveedor.get("rut") or "—",
         "giro": proveedor.get("giro"),
         "direccion": proveedor.get("direccion"),
         "ciudad": proveedor.get("ciudad"),
-        "contacto_nombre": proveedor.get("contacto_nombre"),
+        "contacto_nombre": _atte_nombre,
+        "contacto_cargo": _atte_cargo,
         "contacto_email": proveedor.get("contacto_email"),
         "contacto_telefono": proveedor.get("contacto_telefono"),
     })()

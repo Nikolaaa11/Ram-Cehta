@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.domain.value_objects.iva import calcular_iva
+from app.domain.value_objects.iva import calcular_iva, porcentaje_a_tasa
 
 
 class OCDetalleCreate(BaseModel):
@@ -61,6 +61,23 @@ class OrdenCompraCreate(BaseModel):
     plazo_pago: str | None = None
     plazo_entrega: str | None = None
     observaciones: str | None = None
+    # A quién va dirigida la OC ("Atte. Señor/a" en el PDF). Si viene
+    # proveedor_contacto_id, el endpoint resuelve nombre/cargo desde el
+    # catálogo (core.proveedor_contactos) y los snapshotea acá — así, si el
+    # proveedor cambia de encargado después, las OC ya emitidas no cambian
+    # de destinatario retroactivamente. atte_nombre/atte_cargo también se
+    # pueden mandar sueltos (texto libre) para un contacto no cargado aún
+    # en el catálogo.
+    proveedor_contacto_id: int | None = None
+    atte_nombre: str | None = None
+    atte_cargo: str | None = None
+    # Boletas no dan derecho a crédito fiscal IVA (a diferencia de la
+    # factura electrónica) — es solo una etiqueta informativa en el PDF, no
+    # cambia el cálculo (eso lo hace iva_porcentaje).
+    tipo_documento: Literal["FACTURA", "BOLETA"] = "FACTURA"
+    # Reemplaza el 19% hardcodeado: no toda compra es afecta a IVA completo
+    # (boletas, exentos, casos pactados con el proveedor). 0-100, 2 decimales.
+    iva_porcentaje: Decimal = Field(default=Decimal("19.00"), ge=0, le=100)
     items: list[OCDetalleCreate] = Field(..., min_length=1)
 
     @model_validator(mode="after")
@@ -84,7 +101,9 @@ class OrdenCompraCreate(BaseModel):
 
     @property
     def iva_calculado(self) -> Decimal:
-        return calcular_iva(self.neto or Decimal("0")) if self.moneda == "CLP" else Decimal("0")
+        if self.moneda != "CLP":
+            return Decimal("0")
+        return calcular_iva(self.neto or Decimal("0"), porcentaje_a_tasa(self.iva_porcentaje))
 
     @property
     def total_calculado(self) -> Decimal:
@@ -106,6 +125,11 @@ class OrdenCompraRead(BaseModel):
     plazo_pago: str | None
     plazo_entrega: str | None = None
     observaciones: str | None
+    proveedor_contacto_id: int | None = None
+    atte_nombre: str | None = None
+    atte_cargo: str | None = None
+    tipo_documento: str = "FACTURA"
+    iva_porcentaje: Decimal = Decimal("19.00")
     estado: str
     pdf_url: str | None
     items: list[OCDetalleRead]
@@ -157,10 +181,12 @@ class OrdenCompraUpdate(BaseModel):
     """PATCH /ordenes-compra/{id} — edición de campos no-críticos.
 
     Sólo permite editar campos operativos. Los campos críticos
-    (numero_oc, empresa_codigo, fecha_emision, neto, iva, total, estado)
-    NO se pueden modificar acá: 'numero_oc' rompería trazabilidad,
-    los montos se recalculan al crear, y 'estado' tiene su propio endpoint
-    `PATCH /{id}/estado` con validación de transiciones.
+    (numero_oc, empresa_codigo, fecha_emision, neto, estado) NO se pueden
+    modificar acá: 'numero_oc' rompería trazabilidad, 'neto' se recalcula
+    de los items, y 'estado' tiene su propio endpoint `PATCH /{id}/estado`
+    con validación de transiciones. `iva`/`total` tampoco se aceptan
+    directos — se derivan server-side de `iva_porcentaje` cuando viene en
+    el body (ver `update_oc` en ordenes_compra.py).
 
     Si el body trae alguno de esos campos, son ignorados (extra='ignore'
     por default en pydantic v2). Si querés que sea hard-fail, cambiar a
@@ -173,5 +199,15 @@ class OrdenCompraUpdate(BaseModel):
     validez_dias: int | None = Field(default=None, ge=1)
     observaciones: str | None = None
     pdf_url: str | None = None
+    # A quién va dirigida + tipo de documento / IVA% SÍ son editables acá
+    # (a diferencia de neto/iva/total): el pedido explícito fue poder
+    # "cambiarle el IVA a las OC" ya emitidas cuando resulta ser boleta y
+    # no factura. El endpoint recalcula iva/total server-side cuando
+    # iva_porcentaje viene en el body — nunca acepta iva/total directos.
+    proveedor_contacto_id: int | None = None
+    atte_nombre: str | None = None
+    atte_cargo: str | None = None
+    tipo_documento: Literal["FACTURA", "BOLETA"] | None = None
+    iva_porcentaje: Decimal | None = Field(default=None, ge=0, le=100)
 
     model_config = {"extra": "ignore"}

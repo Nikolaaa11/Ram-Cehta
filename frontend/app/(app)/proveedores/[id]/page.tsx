@@ -4,6 +4,7 @@ import { ArrowLeft, Building2, Landmark, MessageCircle } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Badge } from "@/components/ui/badge";
 import { ProveedorActions } from "@/components/proveedores/ProveedorActions";
+import { ProveedorContactosPanel } from "@/components/proveedores/ProveedorContactosPanel";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toDateTime } from "@/lib/format";
@@ -147,6 +148,11 @@ export default async function ProveedorDetallePage({
           })()}
         </Surface.Body>
       </Surface>
+
+      <ProveedorContactosPanel
+        proveedorId={proveedor.proveedor_id}
+        razonSocial={proveedor.razon_social}
+      />
 
       <Surface>
         <Surface.Header divider>

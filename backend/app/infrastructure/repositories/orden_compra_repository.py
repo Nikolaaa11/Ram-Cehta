@@ -65,6 +65,11 @@ class OrdenCompraRepository:
             plazo_pago=data.plazo_pago,
             plazo_entrega=data.plazo_entrega,
             observaciones=data.observaciones,
+            proveedor_contacto_id=data.proveedor_contacto_id,
+            atte_nombre=data.atte_nombre,
+            atte_cargo=data.atte_cargo,
+            tipo_documento=data.tipo_documento,
+            iva_porcentaje=data.iva_porcentaje,
         )
         self._session.add(oc)
         await self._session.flush()
@@ -90,10 +95,20 @@ class OrdenCompraRepository:
         return oc
 
     async def update_fields(
-        self, oc: OrdenCompra, data: OrdenCompraUpdate
+        self,
+        oc: OrdenCompra,
+        data: OrdenCompraUpdate,
+        derived: dict | None = None,
     ) -> OrdenCompra:
-        """Edita sólo campos no-críticos. Validación de estado en el endpoint."""
+        """Edita sólo campos no-críticos. Validación de estado en el endpoint.
+
+        `derived` son columnas que el endpoint calculó server-side (iva/total
+        cuando cambia iva_porcentaje) — no vienen del schema porque el
+        schema no permite mandarlas directo (son derivadas, no editables).
+        """
         for k, v in data.model_dump(exclude_unset=True).items():
+            setattr(oc, k, v)
+        for k, v in (derived or {}).items():
             setattr(oc, k, v)
         await self._session.flush()
         await self._session.refresh(oc)
