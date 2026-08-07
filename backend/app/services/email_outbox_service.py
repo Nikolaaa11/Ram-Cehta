@@ -213,6 +213,7 @@ async def _try_send_outbox_row(
     if oc_id_ref:
         try:
             import base64
+            from app.services.oc_filename_util import oc_pdf_filename
             from app.services.send_oc_to_signers_service import (
                 generate_oc_pdf_for_email,
             )
@@ -221,8 +222,16 @@ async def _try_send_outbox_row(
                 text("SELECT numero_oc FROM core.ordenes_compra WHERE oc_id = :id"),
                 {"id": oc_id_ref},
             )
+            # OC-FILENAME — el retry tiene que producir EXACTAMENTE el mismo
+            # nombre que el envío original; si no, el destinatario recibe dos
+            # adjuntos que parecen documentos distintos.
+            # Por eso se le pasa `numero` tal cual, SIN caer al oc_id: ningún
+            # emisor (oc_firmas, send_oc_to_signers) usa ese fallback, así que
+            # meterlo acá era justamente la divergencia que este comentario
+            # dice evitar. Para número vacío el helper ya devuelve "OC.pdf",
+            # que es lo mismo que produce el emisor.
             attachments = [{
-                "filename": f"OC-{numero or oc_id_ref}.pdf",
+                "filename": oc_pdf_filename(numero),
                 "content": base64.b64encode(pdf_bytes).decode("ascii"),
             }]
         except Exception as exc:  # noqa: BLE001 — mejor sin adjunto que dead

@@ -28,6 +28,7 @@ from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
 from app.models.orden_compra import OrdenCompra
+from app.services.oc_filename_util import oc_pdf_content_disposition
 from app.schemas.proveedor import ProveedorCreate
 from app.schemas.bulk import (
     BulkItemError,
@@ -648,7 +649,13 @@ async def download_oc_pdf(
         duration_s=round(_time.monotonic() - t0, 2),
     )
 
-    filename = f"oc-{oc_numero}.pdf"
+    # OC-FILENAME — el nombre lo arma oc_filename_util (misma regla que el
+    # frontend). Antes era f"oc-{oc_numero}.pdf": minúscula y con el prefijo
+    # duplicado, porque los numero_oc reales ya empiezan con "OC".
+    # Content-Disposition va con fallback ASCII + filename* RFC 5987: Starlette
+    # codifica los headers en latin-1 y un número con un carácter fuera de
+    # latin-1 tiraba un 500 al descargar.
+    content_disposition = oc_pdf_content_disposition(oc_numero)
 
     # Round 17 — audit log de descarga PDF (forense). Soft-fail.
     # R152KKKK — Bug fix: `request` no estaba en scope. Lo omito (audit_log
@@ -678,7 +685,7 @@ async def download_oc_pdf(
         iter([pdf_bytes]),
         media_type="application/pdf",
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Content-Disposition": content_disposition,
             "Content-Length": str(len(pdf_bytes)),
         },
     )

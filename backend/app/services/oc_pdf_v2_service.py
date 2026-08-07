@@ -176,34 +176,143 @@ def _firma_font_data_uri() -> str:
     return "data:font/truetype;base64," + base64.b64encode(raw).decode("ascii")
 
 
-def _logo_data_uri(empresa_codigo: str, logo_bytes: bytes | None) -> str:
-    """Devuelve data URI del logo. Si no hay bytes, busca archivo local."""
-    if logo_bytes:
-        # Detección naive: PNG/JPG por magic bytes
-        if logo_bytes[:4] == b"\x89PNG":
-            mime = "image/png"
-        elif logo_bytes[:3] == b"\xff\xd8\xff":
-            mime = "image/jpeg"
-        else:
-            mime = "image/png"
-        b64 = base64.b64encode(logo_bytes).decode("ascii")
-        return f"data:{mime};base64,{b64}"
+def _logo_raw_bytes(empresa_codigo: str, logo_bytes: bytes | None) -> bytes | None:
+    """Bytes finales del logo: los de Dropbox o, si no hay, el archivo local.
 
-    # Fallback local
+    Se separó del data URI porque el encabezado del PDF necesita además las
+    dimensiones en píxeles del archivo para calcular hasta dónde puede
+    agrandarlo sin pixelarlo (ver `_logo_max_css`).
+    """
+    if logo_bytes:
+        return logo_bytes
     fname = _LOGO_LOCAL.get(empresa_codigo.upper())
     if not fname:
-        return ""
+        return None
     path = _LOGOS_DIR / fname
     if not path.exists():
-        return ""
+        return None
     try:
-        data = path.read_bytes()
-        mime = "image/png" if fname.lower().endswith(".png") else "image/jpeg"
-        b64 = base64.b64encode(data).decode("ascii")
-        return f"data:{mime};base64,{b64}"
+        return path.read_bytes()
     except Exception as exc:
         log.warning("oc_pdf_v2.local_logo_read_failed", extra={"err": str(exc)})
+        return None
+
+
+def _logo_data_uri(raw: bytes | None) -> str:
+    """Data URI del logo a partir de sus bytes. "" si no hay logo."""
+    if not raw:
         return ""
+    # Detección naive: PNG/JPG por magic bytes
+    if raw[:4] == b"\x89PNG":
+        mime = "image/png"
+    elif raw[:3] == b"\xff\xd8\xff":
+        mime = "image/jpeg"
+    else:
+        mime = "image/png"
+    return f"data:{mime};base64," + base64.b64encode(raw).decode("ascii")
+
+
+def _imagen_px(raw: bytes) -> tuple[int, int] | None:
+    """(ancho, alto) en píxeles de un PNG o JPEG, leyendo sólo la cabecera.
+
+    Sin Pillow a propósito: no es dependencia del backend y para esto alcanza
+    con parsear la cabecera. PNG trae el tamaño fijo en el chunk IHDR; en JPEG
+    hay que recorrer los marcadores hasta el SOFn. Devuelve None ante cualquier
+    formato raro (SVG, WebP, archivo truncado) y el caller cae al tope de
+    diseño, que es el comportamiento previo.
+    """
+    try:
+        if raw[:8] == b"\x89PNG\r\n\x1a\n" and raw[12:16] == b"IHDR":
+            return (
+                int.from_bytes(raw[16:20], "big"),
+                int.from_bytes(raw[20:24], "big"),
+            )
+        if raw[:3] == b"\xff\xd8\xff":
+            i, n = 2, len(raw)
+            while i + 9 < n:
+                if raw[i] != 0xFF:
+                    i += 1
+                    continue
+                marker = raw[i + 1]
+                # Marcadores sin payload (RSTn, SOI, TEM): no traen longitud.
+                if marker in (0x01, 0xD8) or 0xD0 <= marker <= 0xD9:
+                    i += 2
+                    continue
+                # SOS (0xDA) arranca los datos comprimidos: de ahí en adelante
+                # los bytes NO son marcadores (hay byte-stuffing FF 00 y fill
+                # bytes), así que seguir recorriendo lee longitudes basura y
+                # puede aterrizar en un falso SOFn devolviendo un tamaño
+                # inventado. En un JPEG bien formado el SOF siempre viene antes
+                # del SOS, así que si llegamos acá el tamaño no está: cortamos.
+                if marker == 0xDA:
+                    return None
+                seg_len = int.from_bytes(raw[i + 2:i + 4], "big")
+                # SOF0..SOF15 llevan el tamaño real; DHT(C4)/JPG(C8)/DAC(CC) no.
+                if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                    alto = int.from_bytes(raw[i + 5:i + 7], "big")
+                    ancho = int.from_bytes(raw[i + 7:i + 9], "big")
+                    return (ancho, alto) if ancho and alto else None
+                if seg_len < 2:
+                    return None
+                i += 2 + seg_len
+    except Exception:
+        return None
+    return None
+
+
+# Topes de DISEÑO del logo en el encabezado de la OC (ver el comentario largo
+# en orden_compra_panimavida.html): 88mm de ancho = los ~100mm de la columna
+# menos el canal de aire, 26mm de alto ≈ el alto natural del bloque de color.
+_LOGO_MAX_W_MM = 88.0
+_LOGO_MAX_H_MM = 26.0
+
+# Topes HISTÓRICOS (los que rigieron hasta este cambio). Actúan como PISO: el
+# recorte por resolución de abajo nunca puede dejar un logo más chico de lo que
+# ya venía imprimiéndose. Sin este piso, un logo de pocos píxeles —por ejemplo
+# uno subido a mano desde /admin/empresas, que es de dónde sale `logo_bytes` en
+# producción vía empresas.logo_dropbox_path— pasaría a imprimirse hasta un 45%
+# más chico que hoy, en silencio y para una sola empresa. Achicar el logo es
+# exactamente lo contrario de lo que se pidió; preferimos conservar el tamaño
+# actual aunque ese archivo puntual siga viéndose con la misma nitidez de
+# siempre, y reservar la mejora para los logos que sí tienen píxeles de sobra.
+_LOGO_PREV_W_MM = 62.0
+_LOGO_PREV_H_MM = 22.0
+
+# Piso de resolución efectiva para AGRANDAR. Estirar un logo más allá de esto
+# lo deja borroso en papel y "se ve mal" igual que si estuviera chico. 175 DPI
+# es el punto en que afis.jpg (110x153px, el único archivo de baja resolución
+# de las 10 empresas) conserva los ~22mm de alto que ya venía imprimiendo, en
+# vez de subir a 26mm y perder nitidez. Todos los demás logos pasan holgados y
+# quedan con el tope de diseño.
+_LOGO_MIN_DPI = 175.0
+
+
+def _logo_max_css(raw: bytes | None) -> str:
+    """Declaraciones `max-width`/`max-height` del logo del encabezado.
+
+    Se arma en Python y NO interpolando campos en el <style> del template: el
+    Environment tiene autoescape para .html y el contenido de <style> es
+    raw-text, así que las entidades no se decodificarían. Acá el string sale
+    de dos floats formateados por nosotros, no de datos de usuario, y el
+    template lo inyecta con `|safe`.
+
+    El tope queda acotado entre dos referencias, y ese doble borde es lo que
+    hace que el cambio sólo pueda mejorar:
+      · PISO  = el tope histórico (62x22mm). Nunca imprimimos más chico que
+        antes, aunque al archivo le falten píxeles.
+      · TECHO = el tope de diseño (88x26mm), y sólo se llega si el archivo
+        tiene resolución para sostenerlo a `_LOGO_MIN_DPI`.
+    Como se fijan sólo los máximos, el motor escala proporcionalmente y el
+    logo nunca se deforma, sea cual sea su ratio.
+    """
+    ancho_mm, alto_mm = _LOGO_MAX_W_MM, _LOGO_MAX_H_MM
+    px = _imagen_px(raw) if raw else None
+    if px:
+        px_w, px_h = px
+        if px_w > 0 and px_h > 0:
+            ancho_mm = min(ancho_mm, max(_LOGO_PREV_W_MM, px_w * 25.4 / _LOGO_MIN_DPI))
+            alto_mm = min(alto_mm, max(_LOGO_PREV_H_MM, px_h * 25.4 / _LOGO_MIN_DPI))
+    return f"max-width: {ancho_mm:.1f}mm; max-height: {alto_mm:.1f}mm;"
 
 
 def _qr_placeholder_svg() -> str:
@@ -388,6 +497,12 @@ async def _load_context(
         or _COLOR_FALLBACK.get(emp_codigo)
         or "#0A1628"
     )
+
+    # Bytes finales del logo (Dropbox → archivo local → nada). Se resuelven una
+    # sola vez porque el contexto los necesita dos veces: para el data URI y
+    # para medir sus píxeles y decidir cuánto se puede agrandar en el
+    # encabezado sin que quede pixelado.
+    _logo_raw = _logo_raw_bytes(emp_codigo, logo_bytes)
 
     # Verify URL (mismo patrón que oc-pagos-platform)
     try:
@@ -643,7 +758,11 @@ async def _load_context(
         "color_primario": color_primario,
         "footer_texto": footer_texto,
         "empresa": emp_ctx,
-        "logo_data_uri": _logo_data_uri(emp_codigo, logo_bytes),
+        "logo_data_uri": _logo_data_uri(_logo_raw),
+        # Topes del logo en el encabezado, recortados según los píxeles reales
+        # del archivo para no escalarlo hasta pixelarlo. El template lo inyecta
+        # con |safe dentro del <style> (ver `_logo_max_css`).
+        "logo_max_css": _logo_max_css(_logo_raw),
         "proveedor": prov_ctx,
         "cuenta": None,  # Ram-Cehta aún no tiene cuenta_bancaria_id en OC
         "tipo_cuenta_label": "Cuenta Corriente",

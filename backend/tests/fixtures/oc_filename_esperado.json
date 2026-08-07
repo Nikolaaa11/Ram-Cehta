@@ -1,0 +1,30 @@
+{
+  "_comentario": "Corpus COMPARTIDO backend<->frontend. Lo consumen backend/tests/unit/test_oc_filename_paridad.py y frontend/lib/__tests__/oc-filename-paridad.test.ts. Si cambia el helper hay que regenerar este archivo y los dos tests fallan hasta que ambos coincidan.",
+  "casos": {
+    "OC-FLUJO-COMPLETO-9901": "OC-FLUJO-COMPLETO-9901.pdf",
+    "OC0041-PAN001-Comercializadora los Canelos jv": "OC0041-PAN001-Comercializadora_los_Canelos_jv.pdf",
+    "2026-001": "OC-2026-001.pdf",
+    "oc0041": "OC0041.pdf",
+    "OC": "OC.pdf",
+    "oc": "OC.pdf",
+    "OCTUBRE-01": "OC-OCTUBRE-01.pdf",
+    "OC-Panimávida-001": "OC-Panimávida-001.pdf",
+    "OC-´123": "OC-´123.pdf",
+    "12/34.:78*90?A\"B<C>D|E": "OC-12-34.-78-90-A-B-C-D-E.pdf",
+    "": "OC.pdf",
+    "   ": "OC.pdf",
+    "0": "OC-0.pdf",
+    "OC123": "OC_123.pdf",
+    "OC﻿123": "OC_123.pdf",
+    "OC 123": "OC_123.pdf",
+    "OC 123": "OC_123.pdf",
+    "OC　123": "OC_123.pdf",
+    "OC\t\n123": "OC--123.pdf",
+    "OC---123": "OC---123.pdf",
+    "  OC-9901  ": "OC-9901.pdf",
+    "OC-中文-01": "OC-中文-01.pdf",
+    "OC-😀-01": "OC-😀-01.pdf",
+    "OC.": "OC.pdf",
+    "OC-9901.": "OC-9901.pdf"
+  }
+}

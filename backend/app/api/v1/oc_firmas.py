@@ -69,6 +69,7 @@ from app.schemas.oc_firma import (
 from app.services.audit_service import audit_log
 from app.services.email_service import EmailService
 from app.services.empresa_scope_service import assert_empresa_access
+from app.services.oc_filename_util import oc_pdf_filename
 
 log = get_logger(__name__)
 
@@ -471,7 +472,12 @@ async def _enviar_invitaciones(
                         attachments=(
                             [
                                 {
-                                    "filename": f"OC-{oc['numero_oc']}.pdf",
+                                    # OC-FILENAME — mismo nombre que la
+                                    # descarga desde la UI (no duplicar el
+                                    # prefijo "OC-" del numero_oc).
+                                    "filename": oc_pdf_filename(
+                                        oc["numero_oc"]
+                                    ),
                                     "content": pdf_b64,
                                 }
                             ]
@@ -585,7 +591,9 @@ async def _enviar_oc_a_proveedor(
                 html=html,
                 attachments=[
                     {
-                        "filename": f"OC-{oc['numero_oc']}.pdf",
+                        # OC-FILENAME — el proveedor recibe el PDF con el
+                        # mismo nombre que ve el operador en la plataforma.
+                        "filename": oc_pdf_filename(oc["numero_oc"]),
                         "content": base64.b64encode(pdf_bytes).decode("ascii"),
                     }
                 ],

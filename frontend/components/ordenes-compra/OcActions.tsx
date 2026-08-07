@@ -15,6 +15,7 @@ import { useSession } from "@/hooks/use-session";
 import { useMe } from "@/hooks/use-me";
 import { handleSessionExpired } from "@/lib/api/session-handling";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { ocPdfFilename } from "@/lib/oc-filename";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { DuplicateOcDialog } from "@/components/ordenes-compra/DuplicateOcDialog";
 
@@ -180,7 +181,10 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = `oc-${numeroOc}.pdf`;
+            // OC-FILENAME — helper compartido (espejo del backend).
+            // `a.download` pisa el Content-Disposition: si se arma a mano
+            // vuelve a divergir del nombre que manda el backend.
+            a.download = ocPdfFilename(numeroOc);
             document.body.appendChild(a);
             a.click();
             a.remove();

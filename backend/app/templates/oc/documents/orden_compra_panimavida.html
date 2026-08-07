@@ -67,26 +67,120 @@
     }
 
     /* ---------------------------------------------------------------
-       1. Encabezado: logo a la izquierda + bloque verde con los datos
-       del documento a la derecha (~45% del ancho, texto blanco).
+       1. Encabezado: logo a la izquierda + bloque de color de marca a
+       la derecha (~45% del ancho, texto blanco).
        Va en <table> y no en flex: WeasyPrint resuelve el reparto de
        columnas de una tabla de forma predecible, el flex no siempre.
+
+       Referencia de medidas para todo este bloque: el ancho útil de la
+       hoja carta con los márgenes de @page es 181.9mm
+       (215.9 − 17 de margen izquierdo − 17 de derecho). Así, 55% ≈
+       100.0mm para la columna del logo y 45% ≈ 81.9mm para la caja de
+       marca, que es exactamente lo que hay hoy impreso en producción:
+       la geometría de la caja NO se toca, sólo su aire interno.
+
+       `table-layout: fixed` fija las columnas en los % declarados. Con
+       el layout automático, el ancho mínimo del texto de la caja podía
+       ensancharla y comerse la columna del logo justo en las OC de
+       folio largo, que son las que peor se veían.
        --------------------------------------------------------------- */
-    table.head { width: 100%; border-collapse: collapse; }
-    table.head td { vertical-align: middle; padding: 0; }
-    td.head-logo { width: 55%; }
-    td.head-logo img { max-height: 22mm; max-width: 62mm; }
+    table.head { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    /* OJO: acá NO va `padding: 0`. `table.head td` (especificidad 0,1,2)
+       le ganaba al `padding` de `td.head-meta` (0,1,1) y la caja de marca
+       salía impresa SIN aire interno: el texto terminaba clavado en el
+       borde derecho de la caja —y de la hoja— en los 198.9mm. El reset
+       `*` de más arriba ya deja todos los padding en 0. */
+    table.head td { vertical-align: middle; }
+
+    td.head-logo {
+      width: 55%;
+      /* Canal de aire entre el logo y la caja de color. Antes el hueco
+         salía "gratis" porque el logo era chico; ahora que ocupa casi
+         toda la columna hay que reservarlo explícitamente para que un
+         logo apaisado no quede pegado al bloque de color. */
+      padding-right: 9mm;
+    }
+    td.head-logo img {
+      /* `block` en vez del inline por defecto: como imagen inline el logo
+         se apoya en la línea base y el hueco del descendente de la fuente
+         (~1.5mm) se sumaba a la caja de línea, de modo que el
+         `vertical-align: middle` de la celda centraba la LÍNEA y no la
+         imagen — por eso el logo terminaba 1.2mm más arriba que la caja
+         de color. Como bloque no hay línea base y la celda lo centra de
+         verdad. */
+      display: block;
+      /* Sin `width`/`height` explícitos y sólo con topes: el motor escala
+         proporcionalmente y NINGÚN logo se deforma, sea cual sea su ratio.
+         El tope que ata depende del ratio de cada logo, y esa es justamente
+         la gracia porque este encabezado lo comparten las 10 empresas
+         (medido sobre los archivos reales de templates/oc/logos/):
+           · rho.png      1553×512  (3.03:1) → ata el alto  → 78.9 × 26.0mm
+           · evoque.png   1473×512  (2.88:1) → ata el alto  → 74.8 × 26.0mm
+           · cehta.png    1218×512  (2.38:1) → ata el alto  → 61.9 × 26.0mm
+           · trongkai.png 2977×512  (5.81:1) → ata el ancho → 88.0 × 15.1mm
+           · dte.png       427×428  (1.00:1) → ata el alto  → 25.9 × 26.0mm
+           · revtech.png   660×111  (5.95:1) → ata el ancho → 88.0 × 14.8mm
+           · afis.jpg      110×153  (0.72:1) → lo ata el DPI→ 16.0 × 22.2mm*
+         (*) afis.jpg es el único archivo de baja resolución del set y su
+         tope lo baja el guard de DPI que arma `logo_max_css` en
+         oc_pdf_v2_service.py (ver abajo): se queda en los ~22mm de alto que
+         ya venía imprimiendo en vez de subir a 26 y salir borroso.
+
+         Los valores vienen PRE-ARMADOS desde Python (`logo_max_css`) para
+         poder recortarlos cuando el archivo del logo no tiene píxeles
+         suficientes: agrandar la caja de un logo chico no lo mejora, lo
+         pixela. El `default` de acá es el tope de diseño y es el que rige
+         si alguien renderiza el template sin pasar la variable:
+           · 88mm de ancho  = los ~100mm de la columna − 9mm de canal de
+             aire, con ~3mm de holgura para que un redondeo de márgenes
+             nunca desborde la celda.
+           · 26mm de alto   = el alto natural de la caja de marca (3 líneas
+             de 9.5pt a line-height 1.5 = 15.1mm + 4.5mm de padding arriba
+             y abajo = 24.1mm) más un par de mm, para que en el caso normal
+             sea el LOGO el que manda el alto del encabezado y ambos bloques
+             queden alineados arriba y abajo sin cálculos frágiles.
+             No es un invariante: si el logo termina midiendo menos de 24.1mm
+             de alto (le pasa a afis.jpg, al que el piso de resolución lo deja
+             en ~22mm) manda la caja de marca y el logo queda centrado con un
+             par de mm de aire. El `vertical-align: middle` de la celda cubre
+             ese caso, que es el mismo comportamiento razonable de siempre.
+         Nitidez: rho.png tiene 1553px de ancho, que repartidos en 78.8mm
+         dan ~500 DPI efectivos. Sobra de lejos para impresión (300 DPI);
+         el logo estaba chico por maquetación, nunca por resolución. */
+      {{ logo_max_css | default('max-width: 88mm; max-height: 26mm;', true) | safe }}
+    }
     td.head-meta {
       width: 45%;
       background: var(--color-primario);
       color: #FFFFFF;
       text-align: right;
-      padding: 4mm 5mm;
+      /* 6mm de aire lateral (antes 5mm, que ni se aplicaban por el choque
+         de especificidad de arriba). Los 4.5mm verticales son un piso: si
+         el logo es más alto, la celda se estira con él y el texto queda
+         centrado, que es el efecto buscado. */
+      padding: 4.5mm 6mm;
       font-size: 9.5pt;
       line-height: 1.5;
     }
-    td.head-meta p { margin: 0; }
+    /* `overflow-wrap` es la red de seguridad para un folio largo SIN
+       guiones ni espacios donde cortar: envuelve dentro de la caja en vez
+       de desbordarla y salirse de la hoja. */
+    td.head-meta p { margin: 0; overflow-wrap: break-word; }
     td.head-meta p.num { font-weight: 700; }
+    /* Folios largos: 'OC0041-PAN001-Comercializadora los Canelos jv' (45
+       caracteres) es un folio REAL que hay en producción. En cuerpo normal
+       se partía en 3 líneas y estiraba el encabezado; a 7.8pt entra en 2 y
+       el bloque de color sigue midiendo lo mismo que el logo.
+
+       El umbral que dispara esta clase vive en el body (no acá) porque CSS no
+       sabe medir texto. Está calibrado con la medida REAL tomada del PDF de
+       producción: 'Nro. Orden: OC-FLUJO-COMPLETO-9901' ocupa 67.3mm sobre un
+       content box de 69.9mm (81.9mm de caja − 12mm de padding), o sea que un
+       folio de 22 caracteres todavía entra holgado en una línea a 9.5pt. Con
+       el umbral en 18 que teníamos, ese folio —que existe en la base— salía
+       impreso MÁS CHICO que las líneas 'Fecha:' y 'Moneda:' de abajo, siendo
+       que es el dato identificatorio del documento. */
+    td.head-meta p.num-largo { font-size: 7.8pt; line-height: 1.35; }
 
     h1.titulo {
       text-align: center;
@@ -364,7 +458,15 @@
         {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">{% endif %}
       </td>
       <td class="head-meta">
-        <p class="num">Nro. Orden: {{ folio }}</p>
+        {#- El umbral del folio largo se decide acá y no en CSS porque CSS no
+            sabe medir texto. 18 caracteres deja pasar todos los folios
+            normales ("OC0035", "OC-2026-0041") en cuerpo pleno y sólo achica
+            los excepcionales tipo "OC0041-PAN001-Comercializadora los Canelos
+            jv". `|string` porque el folio podría no llegar como str. -#}
+        {#- Umbral 23: ver la justificación medida en el CSS de `p.num-largo`.
+            Un folio de hasta 22 caracteres entra en una línea a cuerpo normal
+            y no hay razón para achicarlo. -#}
+        <p class="num{% if folio and folio|string|length > 23 %} num-largo{% endif %}">Nro. Orden: {{ folio }}</p>
         <p>Fecha: {{ oc.fecha_emision.strftime("%d-%m-%Y") if oc.fecha_emision else "—" }}</p>
         <p>Moneda: {{ oc.moneda.value }}</p>
       </td>

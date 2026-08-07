@@ -30,6 +30,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 // vouchers. Reemplaza el tab "Configuración" (sin valor operativo).
 import { OcMailboxPanel } from "@/components/ordenes-compra/OcMailboxPanel";
 import { OcFirmadasPanel } from "@/components/ordenes-compra/OcFirmadasPanel";
+import { ocPdfFilename } from "@/lib/oc-filename";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { Surface } from "@/components/ui/surface";
@@ -263,7 +264,10 @@ function OcRowActions({ oc }: { oc: OcListItem }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `oc-${oc.numero_oc}.pdf`;
+      // OC-FILENAME — el helper compartido (espejo del backend). `a.download`
+      // pisa el Content-Disposition, así que el nombre TIENE que salir de acá
+      // y no armarse a mano, si no diverge del que manda el backend.
+      a.download = ocPdfFilename(oc.numero_oc);
       document.body.appendChild(a);
       a.click();
       a.remove();

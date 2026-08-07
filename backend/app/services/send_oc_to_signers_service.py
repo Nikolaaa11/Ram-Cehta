@@ -25,6 +25,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.email_service import EmailService
+from app.services.oc_filename_util import oc_pdf_filename
 
 log = structlog.get_logger(__name__)
 
@@ -239,8 +240,10 @@ async def send_oc_to_signers(
         gg_nombre=gg_nombre,
         firma_colectiva=firma_colectiva,
     )
+    # OC-FILENAME — mismo nombre que la descarga desde la UI (el numero_oc ya
+    # suele traer el prefijo "OC", no hay que duplicarlo).
     attachment = {
-        "filename": f"OC-{numero_oc}.pdf",
+        "filename": oc_pdf_filename(numero_oc),
         "content": base64.b64encode(pdf_bytes).decode("ascii"),
     }
 
@@ -413,7 +416,7 @@ def _build_oc_email_html(
   </p>
 
   <div style="background:#f9fafb; border-left:3px solid #236C4F; padding:12px 16px; margin:20px 0; font-size:13px; color:#374151;">
-    <strong>📎 Adjunto:</strong> OC-{numero_oc}.pdf<br>
+    <strong>📎 Adjunto:</strong> {oc_pdf_filename(numero_oc)}<br>
     Incluye logo de {empresa_razon_social}, datos del proveedor, ítems,
     totales con IVA, validez y bloque de firma.
   </div>
