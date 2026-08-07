@@ -78,3 +78,6 @@ backend/alembic.log
 .env.brasil*
 
 .vercel
+
+# Salida del banco de vista previa del PDF de OC (PNG/PDF/HTML generados).
+backend/scripts/_preview_oc/

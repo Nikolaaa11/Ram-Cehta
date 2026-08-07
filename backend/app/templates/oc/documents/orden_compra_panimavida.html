@@ -1,22 +1,29 @@
-{#- MEGAPROMPT OC-PDF-VERDE — rediseño completo del PDF de Orden de Compra
-    tomando como referencia las OC reales OC0035..OC0038 de Panimávida Energy.
-    El formato es el ESTÁNDAR de las 10 empresas: todo lo que era verde en la
-    muestra sale pintado con `color_primario` (viene de core.empresas.
-    oc_color_primario), nunca con un color literal, para que cada empresa
-    imprima con su propia marca.
+{#- PROPUESTA A — "EDITORIAL SOBRIO".
+    Rediseño del PDF de Orden de Compra sobre la base del formato Panimávida.
+    Sigue siendo el formato ESTÁNDAR de las 10 empresas: todo lo que lleva color
+    sale de `color_primario` (core.empresas.oc_color_primario), nunca de un
+    literal, para que cada empresa imprima con su propia marca.
 
-    `color_tinte` = el mismo color de marca al 10%, para las celdas de
-    NETO/IVA. Se arma como rgba() —CSS Color 3, lo entiende cualquier motor—
-    descomponiendo el hex a mano en vez de usar #RRGGBBAA (8 dígitos) o
-    color-mix(), que dependen de features nuevas del parser de WeasyPrint.
-    Si `color_primario` no fuera un hex de 7 chars (por si alguien carga
-    "rgb(...)" en BD) cae a un verde grisáceo neutro en vez de generar CSS
-    inválido. -#}
+    Cambio de criterio respecto de la versión anterior: el color de marca deja
+    de ser RELLENO de cajas grandes y pasa a ser ACENTO (filetes, un dato clave,
+    el total). La jerarquía se construye con peso, cuerpo y espaciado, que es lo
+    que hace legible y atemporal a la papelería de un estudio de ingeniería.
+
+    `color_tinte` = el mismo color de marca al 10%. Se conserva porque sigue
+    siendo útil para la franja de identificación y la fila de TOTAL, y porque se
+    arma como rgba() —CSS Color 3, lo entiende cualquier motor— descomponiendo
+    el hex a mano en vez de usar #RRGGBBAA (8 dígitos) o color-mix(), que
+    dependen de features nuevas del parser de WeasyPrint. Si `color_primario` no
+    fuera un hex de 7 chars (por si alguien carga "rgb(...)" en BD) cae a un
+    gris azulado neutro en vez de generar CSS inválido.
+    `color_suave` (4%) es para la franja de identificación de la hoja de firmas. -#}
 {%- set _c = color_primario or '#1A793B' -%}
 {%- set _hex_ok = (_c | length == 7 and _c[0] == '#') -%}
-{%- set color_tinte = ('rgba(%d, %d, %d, 0.10)' | format(
-      _c[1:3] | int(base=16), _c[3:5] | int(base=16), _c[5:7] | int(base=16)
-    )) if _hex_ok else '#EFF4F1' -%}
+{%- set _r = (_c[1:3] | int(base=16)) if _hex_ok else 0 -%}
+{%- set _g = (_c[3:5] | int(base=16)) if _hex_ok else 0 -%}
+{%- set _b = (_c[5:7] | int(base=16)) if _hex_ok else 0 -%}
+{%- set color_tinte = ('rgba(%d, %d, %d, 0.10)' | format(_r, _g, _b)) if _hex_ok else '#EFF4F1' -%}
+{%- set color_suave = ('rgba(%d, %d, %d, 0.05)' | format(_r, _g, _b)) if _hex_ok else '#F6F8F7' -%}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -39,75 +46,99 @@
     {% endif %}
     @page {
       size: letter;
+      /* Márgenes idénticos a los de producción: el banco de render local
+         (Chromium) los recibe por parámetro con estos mismos valores, así que
+         la geometría del preview y la del PDF real coinciden. */
       margin: 16mm 17mm 15mm 17mm;
       /* El color va interpolado y no con var(--...): las cajas de margen de
-         @page no heredan las custom properties del <body> en WeasyPrint. */
+         @page no heredan las custom properties del <body> en WeasyPrint.
+         Tampoco heredan `font-family` del body, así que se declara acá; sin
+         esto el pie sale en la serif por defecto del motor y desentona con
+         todo el documento (se veía así en la versión anterior). */
       {#- El pie va PRE-ARMADO y saneado desde Python (`footer_texto`), no
           interpolando campos acá: el Environment tiene autoescape activo para
           .html y el contenido de <style> es raw-text, así que las entidades
           NO se decodifican. "DTE Consulting & Development SpA" salía impreso
           como "&amp;" en el pie de todas sus OC. `|safe` porque el texto ya
           viene sin comillas ni saltos que puedan romper el string CSS. -#}
-      @bottom-center {
+      @bottom-left {
         content: "{{ footer_texto|safe }}";
-        font-size: 7.5pt;
+        font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+        font-size: 7pt;
+        color: #7C8896;
+        vertical-align: top;
+        padding-top: 3mm;
+      }
+      /* Foliación. Es un documento contractual que se firma y que puede tener
+         anexos: sin "Página N de M" no hay forma de saber si falta una hoja.
+         `counter(pages)` sólo existe dentro de las cajas de margen de @page —
+         no hay manera de imprimirlo desde el flujo del documento. */
+      @bottom-right {
+        content: "Página " counter(page) " de " counter(pages);
+        font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 0.04em;
         color: {{ _c }};
+        vertical-align: top;
+        padding-top: 3mm;
       }
     }
     :root {
       --color-primario: {{ _c }};
       --color-tinte: {{ color_tinte }};
+      --color-suave: {{ color_suave }};
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
-      font-size: 9.5pt;
-      color: #0F172A;
+      font-size: 9pt;
+      color: #16202E;
       line-height: 1.4;
     }
 
-    /* ---------------------------------------------------------------
-       1. Encabezado: logo a la izquierda + bloque de color de marca a
-       la derecha (~45% del ancho, texto blanco).
+    /* ================================================================
+       PALETA DE GRISES (una sola escala, para que las reglas no compitan)
+         #16202E  texto principal
+         #5A6675  texto secundario / valores atenuados
+         #8A94A2  rótulos
+         #C7CFD9  filete medio (cierres de bloque)
+         #E4E9EF  filete fino (separadores de fila)
+       ================================================================ */
+
+    /* ----------------------------------------------------------------
+       1. MASTHEAD — logo a la izquierda, identidad del documento a la
+       derecha, cerrado por un filete grueso de marca.
+
+       Se elimina el bloque de color sólido del encabezado: su función
+       (destacar folio/fecha/moneda) la cumple mejor la tipografía, y el
+       bloque obligaba a que el logo compitiera contra un rectángulo
+       saturado que además cambia de color según la empresa.
+
        Va en <table> y no en flex: WeasyPrint resuelve el reparto de
        columnas de una tabla de forma predecible, el flex no siempre.
 
-       Referencia de medidas para todo este bloque: el ancho útil de la
-       hoja carta con los márgenes de @page es 181.9mm
-       (215.9 − 17 de margen izquierdo − 17 de derecho). Así, 55% ≈
-       100.0mm para la columna del logo y 45% ≈ 81.9mm para la caja de
-       marca, que es exactamente lo que hay hoy impreso en producción:
-       la geometría de la caja NO se toca, sólo su aire interno.
+       La GEOMETRÍA de las columnas NO se toca respecto de producción: el
+       ancho útil con los márgenes de @page es 181.9mm (215.9 − 17 − 17),
+       así 55% ≈ 100.0mm para el logo y 45% ≈ 81.9mm para la identidad.
+       Es la misma repartición sobre la que está calibrado `logo_max_css`.
+       `table-layout: fixed` fija las columnas en los % declarados: con
+       layout automático, el ancho mínimo del texto podía ensanchar la
+       columna derecha y comerse la del logo en los folios largos.
+       ---------------------------------------------------------------- */
+    table.mast { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    table.mast td { vertical-align: bottom; padding: 0; }
 
-       `table-layout: fixed` fija las columnas en los % declarados. Con
-       el layout automático, el ancho mínimo del texto de la caja podía
-       ensancharla y comerse la columna del logo justo en las OC de
-       folio largo, que son las que peor se veían.
-       --------------------------------------------------------------- */
-    table.head { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    /* OJO: acá NO va `padding: 0`. `table.head td` (especificidad 0,1,2)
-       le ganaba al `padding` de `td.head-meta` (0,1,1) y la caja de marca
-       salía impresa SIN aire interno: el texto terminaba clavado en el
-       borde derecho de la caja —y de la hoja— en los 198.9mm. El reset
-       `*` de más arriba ya deja todos los padding en 0. */
-    table.head td { vertical-align: middle; }
-
-    td.head-logo {
+    td.mast-logo {
       width: 55%;
-      /* Canal de aire entre el logo y la caja de color. Antes el hueco
-         salía "gratis" porque el logo era chico; ahora que ocupa casi
-         toda la columna hay que reservarlo explícitamente para que un
-         logo apaisado no quede pegado al bloque de color. */
+      /* Canal de aire entre el logo y la columna de identidad. */
       padding-right: 9mm;
     }
-    td.head-logo img {
+    td.mast-logo img {
       /* `block` en vez del inline por defecto: como imagen inline el logo
          se apoya en la línea base y el hueco del descendente de la fuente
-         (~1.5mm) se sumaba a la caja de línea, de modo que el
-         `vertical-align: middle` de la celda centraba la LÍNEA y no la
-         imagen — por eso el logo terminaba 1.2mm más arriba que la caja
-         de color. Como bloque no hay línea base y la celda lo centra de
-         verdad. */
+         (~1.5mm) se sumaba a la caja de línea, descolgando el logo respecto
+         del bloque de al lado. Como bloque no hay línea base. */
       display: block;
       /* Sin `width`/`height` explícitos y sólo con topes: el motor escala
          proporcionalmente y NINGÚN logo se deforma, sea cual sea su ratio.
@@ -123,277 +154,528 @@
            · afis.jpg      110×153  (0.72:1) → lo ata el DPI→ 16.0 × 22.2mm*
          (*) afis.jpg es el único archivo de baja resolución del set y su
          tope lo baja el guard de DPI que arma `logo_max_css` en
-         oc_pdf_v2_service.py (ver abajo): se queda en los ~22mm de alto que
-         ya venía imprimiendo en vez de subir a 26 y salir borroso.
+         oc_pdf_v2_service.py: se queda en los ~22mm de alto que ya venía
+         imprimiendo en vez de subir a 26 y salir borroso.
 
-         Los valores vienen PRE-ARMADOS desde Python (`logo_max_css`) para
-         poder recortarlos cuando el archivo del logo no tiene píxeles
-         suficientes: agrandar la caja de un logo chico no lo mejora, lo
-         pixela. El `default` de acá es el tope de diseño y es el que rige
-         si alguien renderiza el template sin pasar la variable:
-           · 88mm de ancho  = los ~100mm de la columna − 9mm de canal de
-             aire, con ~3mm de holgura para que un redondeo de márgenes
-             nunca desborde la celda.
-           · 26mm de alto   = el alto natural de la caja de marca (3 líneas
-             de 9.5pt a line-height 1.5 = 15.1mm + 4.5mm de padding arriba
-             y abajo = 24.1mm) más un par de mm, para que en el caso normal
-             sea el LOGO el que manda el alto del encabezado y ambos bloques
-             queden alineados arriba y abajo sin cálculos frágiles.
-             No es un invariante: si el logo termina midiendo menos de 24.1mm
-             de alto (le pasa a afis.jpg, al que el piso de resolución lo deja
-             en ~22mm) manda la caja de marca y el logo queda centrado con un
-             par de mm de aire. El `vertical-align: middle` de la celda cubre
-             ese caso, que es el mismo comportamiento razonable de siempre.
-         Nitidez: rho.png tiene 1553px de ancho, que repartidos en 78.8mm
-         dan ~500 DPI efectivos. Sobra de lejos para impresión (300 DPI);
-         el logo estaba chico por maquetación, nunca por resolución. */
+         Los valores vienen PRE-ARMADOS desde Python (`logo_max_css`) y NO se
+         pisan acá. El `default` es el tope de diseño y rige sólo si alguien
+         renderiza el template sin pasar la variable. */
       {{ logo_max_css | default('max-width: 88mm; max-height: 26mm;', true) | safe }}
     }
-    td.head-meta {
-      width: 45%;
-      background: var(--color-primario);
-      color: #FFFFFF;
-      text-align: right;
-      /* 6mm de aire lateral (antes 5mm, que ni se aplicaban por el choque
-         de especificidad de arriba). Los 4.5mm verticales son un piso: si
-         el logo es más alto, la celda se estira con él y el texto queda
-         centrado, que es el efecto buscado. */
-      padding: 4.5mm 6mm;
-      font-size: 9.5pt;
-      line-height: 1.5;
-    }
-    /* `overflow-wrap` es la red de seguridad para un folio largo SIN
-       guiones ni espacios donde cortar: envuelve dentro de la caja en vez
-       de desbordarla y salirse de la hoja. */
-    td.head-meta p { margin: 0; overflow-wrap: break-word; }
-    td.head-meta p.num { font-weight: 700; }
-    /* Folios largos: 'OC0041-PAN001-Comercializadora los Canelos jv' (45
-       caracteres) es un folio REAL que hay en producción. En cuerpo normal
-       se partía en 3 líneas y estiraba el encabezado; a 7.8pt entra en 2 y
-       el bloque de color sigue midiendo lo mismo que el logo.
-
-       El umbral que dispara esta clase vive en el body (no acá) porque CSS no
-       sabe medir texto. Está calibrado con la medida REAL tomada del PDF de
-       producción: 'Nro. Orden: OC-FLUJO-COMPLETO-9901' ocupa 67.3mm sobre un
-       content box de 69.9mm (81.9mm de caja − 12mm de padding), o sea que un
-       folio de 22 caracteres todavía entra holgado en una línea a 9.5pt. Con
-       el umbral en 18 que teníamos, ese folio —que existe en la base— salía
-       impreso MÁS CHICO que las líneas 'Fecha:' y 'Moneda:' de abajo, siendo
-       que es el dato identificatorio del documento. */
-    td.head-meta p.num-largo { font-size: 7.8pt; line-height: 1.35; }
-
-    h1.titulo {
-      text-align: center;
-      font-size: 19pt;
+    /* Sin logo cargado la columna izquierda quedaba vacía y el documento
+       arrancaba con un hueco. El nombre de la empresa hace de logotipo
+       tipográfico: es un documento que ve un tercero, tiene que decir de
+       quién es aunque falte el archivo. No inventa dato alguno — es la misma
+       `empresa.razon_social` que ya se imprime en el bloque Mandante. */
+    p.mast-wordmark {
+      font-size: 15pt;
       font-weight: 800;
-      letter-spacing: 0.03em;
-      margin: 9mm 0 7mm 0;
-      color: var(--color-primario);
+      letter-spacing: -0.015em;
+      line-height: 1.15;
+      color: #16202E;
+      overflow-wrap: break-word;
     }
-
-    /* ---------------------------------------------------------------
-       2. PROVEEDOR + MANDANTE, 50/50 con un canal de aire al medio.
-       --------------------------------------------------------------- */
-    table.partes { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
-    table.partes td.parte-col { width: 48.5%; vertical-align: top; padding: 0; }
-    table.partes td.parte-gap { width: 3%; padding: 0; }
-    table.parte { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
-    table.parte th {
-      background: var(--color-primario);
-      border: 0.5pt solid var(--color-primario);
-      color: #FFFFFF;
-      font-size: 9pt;
-      font-weight: 800;
-      letter-spacing: 0.06em;
+    td.mast-id { width: 45%; text-align: right; }
+    /* Rótulo del tipo de documento: chico, espaciado y atenuado. Manda el
+       FOLIO, que es el dato con el que el proveedor va a referirse a esta
+       orden; el rótulo sólo lo contextualiza. */
+    p.mast-kicker {
+      font-size: 8pt;
+      font-weight: 700;
+      letter-spacing: 0.22em;
       text-transform: uppercase;
-      text-align: left;
-      padding: 2mm 3mm;
+      color: #8A94A2;
+      margin-bottom: 1.2mm;
     }
-    table.parte td {
-      border: 0.5pt solid #DCE3EB;
-      padding: 1.4mm 2.5mm;
-      vertical-align: top;
+    p.mast-folio {
+      /* 14.5pt, no 16: la columna mide 81.9mm y el folio más largo que hay
+         hoy en producción sin ser excepcional ('OC-FLUJO-COMPLETO-9901', 22
+         caracteres) medía 365mm-equivalentes a 16pt y se partía en dos
+         líneas, estirando el encabezado y descolgando el logo. A 14.5pt
+         entra completo con ~10% de holgura. */
+      font-size: 14.5pt;
+      font-weight: 800;
+      letter-spacing: -0.015em;
+      line-height: 1.1;
+      color: #16202E;
+      /* `overflow-wrap` es la red de seguridad para un folio largo SIN
+         guiones ni espacios donde cortar: envuelve dentro de la columna en
+         vez de desbordarla y salirse de la hoja. */
+      overflow-wrap: break-word;
     }
-    table.parte td.k {
-      width: 30mm;
-      color: #64748B;
-      background: #F8FAFC;
+    p.mast-folio .n {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: var(--color-primario);
+      letter-spacing: 0.02em;
     }
-    /* El ": " delante del valor es literal en la OC de referencia. */
-    table.parte td.v { color: #0F172A; }
+    /* Folios largos: 'OC0041-PAN001-Comercializadora los Canelos jv' (45
+       caracteres) es un folio REAL que hay en producción. El umbral que
+       dispara esta clase vive en el body (no acá) porque CSS no sabe medir
+       texto: está calibrado sobre el ancho de la columna (81.9mm) — a 16pt
+       entran ~22 caracteres en una línea, así que a partir de ahí se baja a
+       10.5pt, donde el folio de 45 caracteres entra en dos líneas sin
+       estirar el encabezado ni empujar el logo. */
+    p.mast-folio.largo { font-size: 10.5pt; line-height: 1.25; }
+    p.mast-folio.largo .n { font-size: 8pt; }
 
-    /* ---------------------------------------------------------------
-       3. Itemizado
-       --------------------------------------------------------------- */
-    p.sec {
-      font-size: 11pt;
+    /* Filete de marca que cierra el masthead. Es EL gesto de color de la
+       página: 1.6pt de ancho completo. */
+    div.rule-mark {
+      border-top: 1.6pt solid var(--color-primario);
+      margin-top: 3.4mm;
+    }
+
+    /* ----------------------------------------------------------------
+       2. FRANJA DE DATOS — fecha / moneda / documento tributario / total.
+       Rótulo arriba en versalitas atenuadas y dato abajo en negrita: es el
+       patrón de ficha técnica, se lee de un vistazo y no necesita bordes.
+       El TOTAL es el único dato pintado con el color de marca en toda la
+       página (el "un dato clave" de la dirección editorial).
+       ---------------------------------------------------------------- */
+    table.meta {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      border-bottom: 0.5pt solid #E4E9EF;
+    }
+    table.meta td {
+      vertical-align: top;
+      padding: 2.8mm 4mm 3.2mm 0;
+    }
+    table.meta td.last { padding-right: 0; text-align: right; }
+    p.lbl {
+      font-size: 6.6pt;
+      font-weight: 700;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: #8A94A2;
+      margin-bottom: 0.6mm;
+    }
+    p.val { font-size: 9.5pt; font-weight: 600; color: #16202E; }
+    p.val.acento {
+      font-size: 12pt;
       font-weight: 800;
       color: var(--color-primario);
-      margin-bottom: 2mm;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
     }
+
+    /* ----------------------------------------------------------------
+       3. TÍTULOS DE SECCIÓN — versalitas oscuras sobre filete de marca.
+       Antes eran texto chico de color que pesaba menos que los bloques
+       pintados; ahora el peso viene del contraste (texto casi negro) y del
+       filete, y la sección se lee como una sección aunque el color de la
+       empresa sea claro.
+       ---------------------------------------------------------------- */
+    p.sec {
+      font-size: 8.6pt;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #16202E;
+      border-bottom: 1pt solid var(--color-primario);
+      padding-bottom: 1.5mm;
+      margin-bottom: 2.8mm;
+    }
+    p.sec .aside {
+      float: right;
+      font-size: 7pt;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: none;
+      color: #8A94A2;
+    }
+
+    /* ----------------------------------------------------------------
+       4. PARTES — Proveedor y Mandante, 50/50.
+
+       Dos arreglos concretos respecto de producción:
+       (a) Desaparece el ": " literal delante de cada valor. Era un resabio
+           de volcado de base de datos; en un documento redactado el rótulo
+           ya separa por posición y tipografía.
+       (b) Los dos bloques cierran SIEMPRE a la misma altura: el filete de
+           cierre va en el <td> exterior (`parte-col`), y las celdas de una
+           misma fila de tabla miden lo mismo por construcción, tenga cada
+           bloque la cantidad de filas que tenga.
+       Además los términos comerciales (condición y plazos) salen de la
+       columna del proveedor —no son datos del proveedor, son condiciones de
+       ESTA orden— y pasan a la franja de abajo. Eso deja ambas columnas con
+       la misma cantidad de filas y ahorra media docena de milímetros.
+       ---------------------------------------------------------------- */
+    table.partes {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-top: 3mm;
+      margin-bottom: 6mm;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    table.partes > tbody > tr > td.parte-col {
+      width: 48.5%;
+      vertical-align: top;
+      padding: 0 0 2.5mm 0;
+      border-bottom: 0.8pt solid #C7CFD9;
+    }
+    table.partes > tbody > tr > td.parte-gap { width: 3%; padding: 0; border: none; }
+    p.parte-tit {
+      font-size: 7.4pt;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-primario);
+      border-bottom: 0.5pt solid #E4E9EF;
+      padding-bottom: 1.2mm;
+      margin-bottom: 1.4mm;
+    }
+    table.parte { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    table.parte td { padding: 0.75mm 0; vertical-align: top; font-size: 8.6pt; }
+    table.parte td.k {
+      width: 24mm;
+      color: #8A94A2;
+      font-size: 7.4pt;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      /* Pequeño empuje para que el rótulo, más chico, quede ópticamente en
+         la misma línea base que el valor. */
+      padding-top: 1.1mm;
+    }
+    table.parte td.v { color: #16202E; overflow-wrap: break-word; }
+    table.parte td.v.fuerte { font-weight: 700; }
+
+    /* Franja de condiciones comerciales: mismo patrón de ficha que la franja
+       de datos del encabezado. Sólo se imprime si hay al menos un dato. */
+    table.terminos {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-bottom: 6.5mm;
+      border-bottom: 0.5pt solid #E4E9EF;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    table.terminos td {
+      vertical-align: top;
+      padding: 0 4mm 2.6mm 0;
+      overflow-wrap: break-word;
+    }
+
+    /* ----------------------------------------------------------------
+       5. ITEMIZADO — tabla sin rejilla: sólo filete de cabecera y
+       separadores horizontales finos. Los bordes verticales no aportan
+       información y en una tabla de 6 columnas generan ruido.
+
+       `table-layout: fixed` con anchos explícitos: además de dar reparto
+       predecible, hace que la columna Total mida EXACTAMENTE 30mm, que es
+       lo que permite alinear los totales de abajo con la misma grilla.
+       Reparto (suma 181.9mm de ancho útil):
+         N° 8 · Un. 13 · Cant. 14 · P. unitario 27 · Total 30 → 92
+         Descripción = 89.9mm, que es lo que faltaba: las descripciones
+         reales ("Instalación de fosa séptica, cámaras de inspección y
+         drenes", 58 caracteres) entraban en dos líneas porque "Un." y
+         "Cant." se llevaban 32mm para imprimir "Gl" y "1".
+       ---------------------------------------------------------------- */
     /* `pre-line` conserva los saltos de línea reales de las descripciones y
        de la observación (el extractor los guarda con saltos de verdad) y
        sigue colapsando los espacios sobrantes. Sin esto sale todo corrido. */
-    p.intro { font-size: 9pt; margin-bottom: 3.5mm; text-align: justify;
-              white-space: pre-line; }
-    table.items td.desc { white-space: pre-line; }
+    p.intro {
+      font-size: 8.6pt;
+      color: #5A6675;
+      margin-bottom: 3mm;
+      text-align: justify;
+      white-space: pre-line;
+    }
     table.items {
       width: 100%;
       border-collapse: collapse;
-      font-size: 8.5pt;
-      margin-bottom: 5mm;
+      table-layout: fixed;
+      font-size: 8.6pt;
     }
     table.items th {
-      background: var(--color-primario);
-      border: 0.5pt solid var(--color-primario);
-      color: #FFFFFF;
-      font-weight: 700;
-      padding: 2mm 2.5mm;
+      border-top: 0.5pt solid #C7CFD9;
+      border-bottom: 1pt solid var(--color-primario);
+      color: #5A6675;
+      font-size: 6.8pt;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      padding: 1.6mm 2.5mm 1.4mm 2.5mm;
       text-align: left;
+      vertical-align: bottom;
     }
     table.items td {
-      border: 0.5pt solid #DCE3EB;
-      padding: 2mm 2.5mm;
+      border-bottom: 0.5pt solid #E4E9EF;
+      padding: 2.2mm 2.5mm;
       vertical-align: top;
     }
-    /* La celda del número de ítem va en verde sólido con el número blanco,
-       igual que en la OC de referencia. */
+    /* El número de ítem deja de ser un bloque de color sólido de alto
+       variable (que en producción hacía que la fila 1 fuese un rectángulo
+       alto y la fila 2 uno bajo). Pasa a ser una cifra atenuada y tabular:
+       ordena la lectura sin pelearse con el resto. */
     table.items td.idx {
-      background: var(--color-primario);
-      border: 0.5pt solid var(--color-primario);
-      color: #FFFFFF;
+      color: #8A94A2;
       font-weight: 700;
-      text-align: center;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+      padding-right: 2mm;
     }
-    table.items .r { text-align: right; white-space: nowrap; }
-    table.items .c { text-align: center; white-space: nowrap; }
+    table.items td.desc { overflow-wrap: break-word; white-space: pre-line; }
+    table.items .r {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    table.items .c {
+      text-align: center;
+      white-space: nowrap;
+      color: #5A6675;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    /* La última fila del cuerpo no lleva filete: lo aporta la tabla de
+       totales, que arranca justo debajo con la misma grilla. */
+    table.items tbody tr:last-child td { border-bottom: none; }
 
-    /* ---------------------------------------------------------------
-       4. Totales pegados a la derecha
-       --------------------------------------------------------------- */
+    /* ----------------------------------------------------------------
+       6. TOTALES — misma tabla de anchos que el itemizado, de modo que las
+       cifras caen en la MISMA columna y con el mismo padding derecho que la
+       columna Total de arriba. Alineación de números por construcción, no
+       por ojo.
+       ---------------------------------------------------------------- */
     table.totales {
-      width: 82mm;
-      margin-left: auto;
+      width: 100%;
       border-collapse: collapse;
+      table-layout: fixed;
       font-size: 9pt;
-      margin-bottom: 6mm;
+      margin-bottom: 6.5mm;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     table.totales td.k {
       text-align: right;
-      font-weight: 700;
-      padding: 1.8mm 3mm;
-      letter-spacing: 0.04em;
+      color: #5A6675;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 7.4pt;
+      padding: 1.5mm 3mm 1.5mm 0;
+      border-top: 0.5pt solid #E4E9EF;
     }
     table.totales td.v {
-      width: 36mm;
+      width: 30mm;
       text-align: right;
       white-space: nowrap;
-      font-weight: 700;
-      background: var(--color-tinte);
-      border: 0.5pt solid #DCE3EB;
-      padding: 1.8mm 3mm;
+      font-weight: 600;
+      padding: 1.5mm 2.5mm;
+      border-top: 0.5pt solid #E4E9EF;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
     }
+    /* Fila TOTAL: el único fondo tintado que queda en el documento, y es de
+       marca al 10%, no sólido. El peso lo dan el cuerpo (11.5pt), el filete
+       superior de marca y el color del número. */
     table.totales tr.tot td.k,
     table.totales tr.tot td.v {
-      background: var(--color-primario);
-      border: 0.5pt solid var(--color-primario);
-      color: #FFFFFF;
+      border-top: 1.2pt solid var(--color-primario);
+      border-bottom: 1.2pt solid var(--color-primario);
+      background: var(--color-tinte);
+      color: var(--color-primario);
       font-weight: 800;
-      font-size: 10.5pt;
+      padding-top: 2mm;
+      padding-bottom: 2mm;
+    }
+    table.totales tr.tot td.k { font-size: 8.2pt; color: #16202E; }
+    table.totales tr.tot td.v { font-size: 11.5pt; letter-spacing: -0.01em; }
+    p.nota-doc {
+      font-size: 7.6pt;
+      color: #5A6675;
+      text-align: right;
+      margin-top: -3.5mm;
+      margin-bottom: 5.5mm;
     }
 
-    /* ---------------------------------------------------------------
-       5. Forma de pago (hitos por porcentaje). Sección opcional.
-       --------------------------------------------------------------- */
+    /* ----------------------------------------------------------------
+       7. FORMA DE PAGO (hitos por porcentaje). Sección opcional.
+       Mismo lenguaje que el itemizado y con la columna Monto también de
+       30mm, para que TODA cifra de dinero del documento caiga sobre el
+       mismo eje vertical.
+       ---------------------------------------------------------------- */
     table.hitos {
       width: 100%;
       border-collapse: collapse;
-      font-size: 8.5pt;
-      margin-bottom: 6mm;
+      table-layout: fixed;
+      font-size: 8.6pt;
+      margin-bottom: 6.5mm;
+      page-break-inside: avoid;
+      break-inside: avoid;
     }
     table.hitos th {
-      background: var(--color-primario);
-      border: 0.5pt solid var(--color-primario);
-      color: #FFFFFF;
-      font-weight: 700;
-      padding: 1.8mm 2.5mm;
+      border-top: 0.5pt solid #C7CFD9;
+      border-bottom: 1pt solid var(--color-primario);
+      color: #5A6675;
+      font-size: 6.8pt;
+      font-weight: 800;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      padding: 1.6mm 2.5mm 1.4mm 2.5mm;
       text-align: left;
+      vertical-align: bottom;
     }
     table.hitos td {
-      border: 0.5pt solid #DCE3EB;
-      padding: 1.8mm 2.5mm;
+      border-bottom: 0.5pt solid #E4E9EF;
+      padding: 2mm 2.5mm;
       vertical-align: top;
+      overflow-wrap: break-word;
     }
-    table.hitos td.pct { font-weight: 700; color: var(--color-primario); }
-    table.hitos .r { text-align: right; white-space: nowrap; }
-    table.hitos .c { text-align: center; white-space: nowrap; }
+    table.hitos td.pct {
+      font-weight: 800;
+      color: var(--color-primario);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    table.hitos .r {
+      text-align: right;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
+    table.hitos .c {
+      text-align: center;
+      white-space: nowrap;
+      color: #5A6675;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum" 1;
+    }
 
-    /* ---------------------------------------------------------------
-       6. Notas de arbitraje
-       --------------------------------------------------------------- */
-    /* Bloque legal: se mantiene entero en una página. Partido a la mitad
-       quedaba una hoja con 2 viñetas sueltas, cosa que la OC de
-       referencia no hace. */
-    .notas { font-size: 8pt; color: #334155;
-             page-break-inside: avoid; break-inside: avoid; }
-    .notas ul { margin-left: 5mm; }
-    .notas li { margin-bottom: 1.5mm; text-align: justify; }
+    /* ----------------------------------------------------------------
+       8. CONDICIONES GENERALES (notas de arbitraje).
+       A dos columnas, como el articulado al pie de un contrato impreso: la
+       misma cantidad de texto ocupa ~10mm menos de alto y, sobre todo, la
+       medida de línea baja de ~110 caracteres (ilegible) a ~55, que es la
+       medida cómoda de lectura.
+       Se hace con <table> y no con `column-count`: WeasyPrint 63 implementa
+       multicolumna de forma parcial y el corte entre columnas no es fiable.
+       El TEXTO es cláusula contractual y va literal, sin tocar una coma.
+       ---------------------------------------------------------------- */
+    table.notas {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    table.notas { margin-bottom: 5mm; }
+    table.notas td { width: 48.5%; vertical-align: top; padding: 0; }
+    table.notas td.gap { width: 3%; padding: 0; }
+    p.nota {
+      font-size: 7.2pt;
+      line-height: 1.36;
+      color: #5A6675;
+      text-align: justify;
+      /* Sangría francesa: el número queda colgado a la izquierda y el texto
+         forma un bloque limpio. Bloque puro, sin listas ni marcadores, que
+         es lo que WeasyPrint pagina mejor. */
+      padding-left: 4.6mm;
+      text-indent: -4.6mm;
+      margin-bottom: 1.4mm;
+    }
+    p.nota .n { font-weight: 800; color: var(--color-primario); }
 
-    /* ---------------------------------------------------------------
-       7. Página de firmas — grilla de 3 columnas en <table>. Las celdas
-       de una misma fila miden LO MISMO por construcción (misma <tr> +
-       caja de alto fijo), estén firmadas o no.
-       --------------------------------------------------------------- */
+    /* ----------------------------------------------------------------
+       9. HOJA DE FIRMAS — grilla de 3 columnas en <table>. Las celdas de
+       una misma fila miden LO MISMO por construcción (misma <tr> + caja de
+       alto fijo), estén firmadas o no.
+
+       Se quitan los recuadros con borde alrededor de cada firma: en un
+       documento sobrio la firma se apoya en una línea, no vive en una caja.
+       El espacio en blanco entre celdas hace el mismo trabajo de separar.
+       ---------------------------------------------------------------- */
     .firmas-page { page-break-before: always; }
+    /* Franja de identificación de la hoja de firmas. Una hoja de firmas
+       suelta tiene que poder identificarse sola: si se separa del cuerpo (se
+       escanea, se archiva, se manda por correo) debe decir a qué orden, a
+       qué proveedor y a qué monto corresponde. Usa sólo datos que ya están
+       en el documento. */
+    table.sigid {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: var(--color-suave);
+      border-top: 1.2pt solid var(--color-primario);
+      border-bottom: 0.5pt solid #E4E9EF;
+      margin-bottom: 5mm;
+    }
+    table.sigid td {
+      vertical-align: top;
+      padding: 2.6mm 4mm 2.8mm 4mm;
+      overflow-wrap: break-word;
+    }
+    table.sigid td.last { text-align: right; }
+
     table.firmas {
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
       table-layout: fixed;
-      margin-top: 2mm;
+      margin-top: 1mm;
     }
     table.firmas td {
       width: 33.33%;
       vertical-align: top;
-      /* Padding simétrico en las 3 celdas: el aire entre cajas sale igual
-         y las cajas conservan exactamente el mismo ancho. */
-      padding: 0 2.5mm 6mm 2.5mm;
+      /* Padding simétrico en las 3 celdas: el aire entre bloques sale igual
+         y los bloques conservan exactamente el mismo ancho.
+         El inferior es el aire ENTRE filas de firmas. Está calibrado, no
+         elegido a ojo: agrupar las firmas por parte pasó de 2 filas
+         corridas a 3 (1 del proveedor + 2 del mandante) y con 13mm la
+         tercera se iba a una página nueva. Sobre la caja de 46mm queda
+         separación de sobra porque la fila siguiente arranca con los 17mm
+         en blanco del hueco de firma. */
+      padding: 0 3mm 8mm 3mm;
     }
+    /* La última fila de cada grupo no necesita el aire de separación: abajo
+       viene el rótulo del grupo siguiente (que trae su propio margen) o el
+       pie de la hoja. Sin esto se pagaba dos veces el mismo espacio. */
+    table.firmas tr:last-child td { padding-bottom: 1mm; }
     table.firmas tr { page-break-inside: avoid; break-inside: avoid; }
-    /* Alto FIJO. El presupuesto interno es (caja 55mm − 6.9mm de padding y
-       bordes = 48.1mm de contenido):
-         manuscrita 18 + línea 1.5 + constancia 10.5 + nombre 4.4
+    /* Alto FIJO. Presupuesto interno (52mm de caja):
+         manuscrita 17 + línea 1.5 + constancia 10.5 + nombre 4.4
          + cargo 8.4 (aguanta 2 líneas, tipo "Jefa de Administración y
-         Finanzas") + razón social 3.7  =  46.5mm.
+         Finanzas") + razón social 3.7  =  45.5mm, con ~6mm de holgura.
        `overflow: hidden` es la red de seguridad: si un cargo se fuera a 3
-       líneas se recorta DENTRO del borde en vez de desbordar la caja y
-       descuadrar la fila. */
+       líneas se recorta DENTRO del bloque en vez de desbordar y descuadrar
+       la fila. */
     .firma-caja {
-      border: 0.6pt solid #DCE3EB;
-      border-radius: 1.5mm;
-      height: 55mm;
-      padding: 3mm 3mm 3.5mm 3mm;
+      height: 46mm;
       text-align: center;
       font-size: 8.5pt;
       overflow: hidden;
     }
-    .firma-caja.vacia { border: none; }
+    .firma-caja.vacia { visibility: hidden; }
     /* font-size/line-height 0: el &nbsp; que mantiene el div "no vacío" no
        aporta alto propio, así el presupuesto de arriba es exacto. */
     .firma-caja .linea {
-      border-top: 0.8pt solid #0F172A;
+      border-top: 0.8pt solid #16202E;
       font-size: 0;
       line-height: 0;
       margin: 0 0 1.5mm 0;
       padding: 0;
     }
-    .firma-caja .nombre { font-weight: 700; font-size: 9pt; letter-spacing: -0.01em; }
-    .firma-caja .cargo { color: #475569; margin-top: 0.5mm; }
+    .firma-caja .nombre {
+      font-weight: 700;
+      font-size: 9pt;
+      letter-spacing: -0.01em;
+      color: #16202E;
+    }
+    .firma-caja .cargo { color: #5A6675; margin-top: 0.5mm; font-size: 8.2pt; }
     .firma-caja .emp {
-      color: #64748B;
+      color: #8A94A2;
       text-transform: uppercase;
-      font-size: 7.5pt;
-      margin-top: 0.8mm;
+      font-size: 7pt;
+      letter-spacing: 0.06em;
+      margin-top: 1mm;
     }
     /* MEGAPROMPT FIRMA-VISUAL — el nombre manuscrito ocupa exactamente el
        hueco reservado para firmar a mano, de modo que una celda firmada y
@@ -401,7 +683,7 @@
        evita que un nombre muy largo empuje la línea hacia abajo. */
     .firma-caja .firma-manuscrita {
       font-family: "Great Vibes", cursive;
-      font-size: 22pt;
+      font-size: 21pt;
       color: #101B3D;
       /* Sin flex a propósito: WeasyPrint 63 no implementa flex completo y
          `align-items:flex-end` sobre un item anónimo de texto puede ignorarse,
@@ -409,29 +691,54 @@
          `line-height` igual al alto de la caja apoya la línea base abajo y es
          layout de bloque puro, que WeasyPrint sí garantiza. */
       display: block;
-      height: 18mm;
-      line-height: 18mm;
+      height: 17mm;
+      line-height: 17mm;
       text-align: center;
       overflow: hidden;
     }
     /* Alto FIJO de 3 líneas: la constancia ocupa el mismo espacio esté o no
        la firma puesta, para que los nombres de una fila queden a la misma
        altura. El texto es de largo determinístico (fecha con formato fijo +
-       hash de 12 chars) pero corta por palabra, y en una caja de ~49mm de
+       hash de 12 chars) pero corta por palabra, y en un bloque de ~49mm de
        ancho eso da 3 líneas — con 8mm (2 líneas) el hash quedaba cortado. */
     .firma-caja .firma-constancia {
       font-size: 6.5pt;
       line-height: 1.3;
-      color: #64748B;
+      color: #8A94A2;
       height: 10.5mm;
       padding-top: 1.2mm;
       overflow: hidden;
     }
+    /* Rótulo de PARTE contractual. La OC es un contrato entre dos partes y
+       una firma obliga a una de ellas: con 6 firmas seguidas, sin este
+       rótulo hay que deducir de la razón social bajo cada nombre a quién
+       obliga cada una. Va subordinado a `p.sec` (más chico, sin filete
+       inferior) para que "Firmas" siga leyéndose como el título de la
+       sección y estos dos como su desglose.
+       `page-break-after: avoid` evita el rótulo huérfano al pie de página
+       con su grilla en la siguiente. */
+    p.firmas-grupo {
+      font-size: 7pt;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--color-primario);
+      margin-bottom: 1mm;
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+    /* Aire entre el último bloque de firmas de un grupo y el rótulo del
+       siguiente. No va en `margin-top` del rótulo para no separar el primero
+       del título "Firmas". */
+    table.firmas + p.firmas-grupo { margin-top: 4mm; }
     p.firmas-footer {
       text-align: center;
-      color: var(--color-primario);
-      font-size: 8pt;
-      margin-top: 5mm;
+      color: #8A94A2;
+      font-size: 7.4pt;
+      letter-spacing: 0.04em;
+      border-top: 0.5pt solid #E4E9EF;
+      padding-top: 3mm;
+      margin-top: 2.5mm;
     }
 
     body[data-watermark]::before {
@@ -444,75 +751,112 @@
       transform: rotate(-28deg);
       /* Negativo: con z-index 0 el pseudo-elemento posicionado se pinta
          DESPUÉS del contenido en flujo y la marca "MUESTRA" tapaba el
-         encabezado verde y la tabla de ítems en toda OC en borrador. */
+         encabezado y la tabla de ítems en toda OC en borrador. */
       z-index: -1;
     }
   </style>
 </head>
-<body{% if watermark %} data-watermark="{{ watermark }}"{% endif %} style="--color-primario: {{ _c }}; --color-tinte: {{ color_tinte }};">
+<body{% if watermark %} data-watermark="{{ watermark }}"{% endif %} style="--color-primario: {{ _c }}; --color-tinte: {{ color_tinte }}; --color-suave: {{ color_suave }};">
 
-  {# ---------- 1. Encabezado ---------- #}
-  <table class="head">
+  {# ---------- 1. Masthead ---------- #}
+  <table class="mast">
     <tr>
-      <td class="head-logo">
-        {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">{% endif %}
+      <td class="mast-logo">
+        {% if logo_data_uri %}<img src="{{ logo_data_uri }}" alt="{{ empresa.nombre_corto }}">
+        {% else %}<p class="mast-wordmark">{{ empresa.razon_social }}</p>{% endif %}
       </td>
-      <td class="head-meta">
+      <td class="mast-id">
+        <p class="mast-kicker">Orden de Compra</p>
         {#- El umbral del folio largo se decide acá y no en CSS porque CSS no
-            sabe medir texto. 18 caracteres deja pasar todos los folios
-            normales ("OC0035", "OC-2026-0041") en cuerpo pleno y sólo achica
-            los excepcionales tipo "OC0041-PAN001-Comercializadora los Canelos
-            jv". `|string` porque el folio podría no llegar como str. -#}
-        {#- Umbral 23: ver la justificación medida en el CSS de `p.num-largo`.
-            Un folio de hasta 22 caracteres entra en una línea a cuerpo normal
-            y no hay razón para achicarlo. -#}
-        <p class="num{% if folio and folio|string|length > 23 %} num-largo{% endif %}">Nro. Orden: {{ folio }}</p>
-        <p>Fecha: {{ oc.fecha_emision.strftime("%d-%m-%Y") if oc.fecha_emision else "—" }}</p>
-        <p>Moneda: {{ oc.moneda.value }}</p>
+            sabe medir texto. 22 caracteres deja pasar todos los folios
+            normales ("OC0035", "OC-2026-0041", "OC-FLUJO-COMPLETO-9901") en
+            cuerpo pleno y sólo achica los excepcionales tipo
+            "OC0041-PAN001-Comercializadora los Canelos jv".
+            `|string` porque el folio podría no llegar como str. -#}
+        <p class="mast-folio{% if folio and folio|string|length > 23 %} largo{% endif %}"><span class="n">N°</span> {{ folio }}</p>
+      </td>
+    </tr>
+  </table>
+  <div class="rule-mark"></div>
+
+  {# ---------- 2. Franja de datos del documento ---------- #}
+  <table class="meta">
+    <tr>
+      <td>
+        <p class="lbl">Fecha de emisión</p>
+        <p class="val">{{ oc.fecha_emision.strftime("%d-%m-%Y") if oc.fecha_emision else "—" }}</p>
+      </td>
+      <td>
+        <p class="lbl">Moneda</p>
+        <p class="val">{{ oc.moneda.value }}</p>
+      </td>
+      <td>
+        <p class="lbl">Documento tributario</p>
+        {# `tipo_documento` es FACTURA o BOLETA; se rotula en capitalizado
+           para que el documento se lea redactado y no como un enum. #}
+        <p class="val">{% if oc.tipo_documento == "BOLETA" %}Boleta{% elif oc.tipo_documento %}Factura{% else %}—{% endif %}</p>
+      </td>
+      <td class="last">
+        <p class="lbl">Total {{ oc.moneda.value }} (IVA incl.)</p>
+        <p class="val acento">{{ formatear_moneda(oc.total, oc.moneda.value) }}</p>
       </td>
     </tr>
   </table>
 
-  <h1 class="titulo">ORDEN DE COMPRA</h1>
-
-  {# ---------- 2. Partes ---------- #}
+  {# ---------- 3. Partes ----------
+     Sin el ": " literal delante del valor y con las dos columnas cerrando a
+     la misma altura gracias al filete del <td> exterior. #}
   <table class="partes">
     <tr>
       <td class="parte-col">
+        <p class="parte-tit">Proveedor</p>
         <table class="parte">
-          <tr><th colspan="2">Proveedor</th></tr>
-          <tr><td class="k">Señores</td><td class="v">: {{ proveedor.razon_social }}</td></tr>
-          {% if proveedor.direccion %}<tr><td class="k">Dirección</td><td class="v">: {{ proveedor.direccion }}</td></tr>{% endif %}
-          {% if proveedor.ciudad %}<tr><td class="k">Ciudad</td><td class="v">: {{ proveedor.ciudad }}</td></tr>{% endif %}
-          {% if proveedor.rut %}<tr><td class="k">RUT</td><td class="v">: {{ proveedor.rut }}</td></tr>{% endif %}
-          {% if proveedor.giro %}<tr><td class="k">Giro</td><td class="v">: {{ proveedor.giro }}</td></tr>{% endif %}
-          {% if oc.forma_pago %}<tr><td class="k">Cond. de Pago</td><td class="v">: {{ oc.forma_pago }}</td></tr>{% endif %}
-          {# `plazo_entrega` y `plazo_pago` son campos distintos y se imprimen
-             con su etiqueta real: rotular el plazo de pago como "Plazo de
-             Entrega" sería decirle otra cosa al proveedor en un documento
-             que firma. Cada fila desaparece si el dato viene vacío. #}
-          {% if oc.plazo_entrega %}<tr><td class="k">Plazo de Entrega</td><td class="v">: {{ oc.plazo_entrega }}</td></tr>{% endif %}
-          {% if oc.plazo_pago %}<tr><td class="k">Plazo de Pago</td><td class="v">: {{ oc.plazo_pago }}</td></tr>{% endif %}
-          {% if proveedor.contacto_nombre %}<tr><td class="k">Atte. Señor/a</td><td class="v">: {{ proveedor.contacto_nombre }}{% if proveedor.contacto_cargo %}, {{ proveedor.contacto_cargo }}{% endif %}</td></tr>{% endif %}
+          <tr><td class="k">Señores</td><td class="v fuerte">{{ proveedor.razon_social }}</td></tr>
+          {% if proveedor.rut %}<tr><td class="k">RUT</td><td class="v">{{ proveedor.rut }}</td></tr>{% endif %}
+          {% if proveedor.giro %}<tr><td class="k">Giro</td><td class="v">{{ proveedor.giro }}</td></tr>{% endif %}
+          {% if proveedor.direccion %}<tr><td class="k">Dirección</td><td class="v">{{ proveedor.direccion }}{% if proveedor.ciudad %}, {{ proveedor.ciudad }}{% endif %}</td></tr>
+          {% elif proveedor.ciudad %}<tr><td class="k">Ciudad</td><td class="v">{{ proveedor.ciudad }}</td></tr>{% endif %}
+          {% if proveedor.contacto_nombre %}<tr><td class="k">Atención</td><td class="v">{{ proveedor.contacto_nombre }}{% if proveedor.contacto_cargo %}, {{ proveedor.contacto_cargo }}{% endif %}</td></tr>{% endif %}
         </table>
       </td>
       <td class="parte-gap"></td>
       <td class="parte-col">
+        <p class="parte-tit">Mandante</p>
         <table class="parte">
-          <tr><th colspan="2">Mandante</th></tr>
-          <tr><td class="k">Señores</td><td class="v">: {{ empresa.razon_social }}</td></tr>
-          {% if empresa.direccion %}<tr><td class="k">Dirección</td><td class="v">: {{ empresa.direccion }}</td></tr>{% endif %}
-          {% if empresa.ciudad %}<tr><td class="k">Ciudad</td><td class="v">: {{ empresa.ciudad }}</td></tr>{% endif %}
-          {% if empresa.rut %}<tr><td class="k">RUT</td><td class="v">: {{ empresa.rut }}</td></tr>{% endif %}
-          {% if empresa.giro %}<tr><td class="k">Giro</td><td class="v">: {{ empresa.giro }}</td></tr>{% endif %}
-          {% if empresa.telefono %}<tr><td class="k">Fono</td><td class="v">: {{ empresa.telefono }}</td></tr>{% endif %}
+          <tr><td class="k">Señores</td><td class="v fuerte">{{ empresa.razon_social }}</td></tr>
+          {% if empresa.rut %}<tr><td class="k">RUT</td><td class="v">{{ empresa.rut }}</td></tr>{% endif %}
+          {% if empresa.giro %}<tr><td class="k">Giro</td><td class="v">{{ empresa.giro }}</td></tr>{% endif %}
+          {% if empresa.direccion %}<tr><td class="k">Dirección</td><td class="v">{{ empresa.direccion }}{% if empresa.ciudad %}, {{ empresa.ciudad }}{% endif %}</td></tr>
+          {% elif empresa.ciudad %}<tr><td class="k">Ciudad</td><td class="v">{{ empresa.ciudad }}</td></tr>{% endif %}
+          {% if empresa.telefono %}<tr><td class="k">Teléfono</td><td class="v">{{ empresa.telefono }}</td></tr>{% endif %}
         </table>
       </td>
     </tr>
   </table>
 
-  {# ---------- 3. Itemizado ---------- #}
-  <p class="sec">Itemizado</p>
+  {# ---------- 4. Condiciones comerciales ----------
+     `plazo_entrega` y `plazo_pago` son campos DISTINTOS y se imprimen con su
+     etiqueta real: rotular el plazo de pago como "Plazo de entrega" sería
+     decirle otra cosa al proveedor en un documento que firma. La franja
+     entera desaparece si no hay ningún dato cargado. #}
+  {% if oc.forma_pago or oc.plazo_entrega or oc.plazo_pago %}
+  <table class="terminos">
+    <tr>
+      {% if oc.forma_pago %}
+      <td><p class="lbl">Condición de pago</p><p class="val">{{ oc.forma_pago }}</p></td>
+      {% endif %}
+      {% if oc.plazo_entrega %}
+      <td><p class="lbl">Plazo de entrega</p><p class="val">{{ oc.plazo_entrega }}</p></td>
+      {% endif %}
+      {% if oc.plazo_pago %}
+      <td><p class="lbl">Plazo de pago</p><p class="val">{{ oc.plazo_pago }}</p></td>
+      {% endif %}
+    </tr>
+  </table>
+  {% endif %}
+
+  {# ---------- 5. Itemizado ---------- #}
+  <p class="sec"><span class="aside">{{ oc.items|length }} {% if oc.items|length == 1 %}ítem{% else %}ítems{% endif %}</span>Itemizado</p>
   {% if oc.observaciones %}
     <p class="intro">{{ oc.observaciones }}</p>
   {% endif %}
@@ -520,11 +864,16 @@
   <table class="items">
     <thead>
       <tr>
-        <th class="c" style="width: 12mm;">Ítem</th>
+        <th class="r" style="width: 8mm;">N°</th>
         <th>Descripción</th>
-        <th class="c" style="width: 16mm;">Un.</th>
-        <th class="c" style="width: 16mm;">Cant.</th>
-        <th class="r" style="width: 28mm;">Precio Unit.</th>
+        <th class="c" style="width: 13mm;">Un.</th>
+        {# Cant. va a la DERECHA, no centrada: es una cifra que se lee en
+           columna contra las de arriba y abajo (1 / 120 / 45). Centrada, el
+           dígito de las unidades queda en una abscisa distinta en cada fila y
+           no hay forma de comparar magnitudes de un vistazo. "Un." sí va
+           centrada porque es una etiqueta de texto, no un número. #}
+        <th class="r" style="width: 14mm;">Cant.</th>
+        <th class="r" style="width: 27mm;">P. unitario</th>
         <th class="r" style="width: 30mm;">Total</th>
       </tr>
     </thead>
@@ -538,7 +887,7 @@
         <td class="c">{{ item.unidad or "—" }}</td>
         {# %g quita los ceros de relleno; la coma es el separador decimal
            chileno, igual que en la columna de porcentajes. #}
-        <td class="c">{{ "%g"|format(item.cantidad|float)|replace(".", ",") }}</td>
+        <td class="r">{{ "%g"|format(item.cantidad|float)|replace(".", ",") }}</td>
         <td class="r">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
         <td class="r">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
       </tr>
@@ -546,21 +895,25 @@
     </tbody>
   </table>
 
-  {# ---------- 4. Totales ---------- #}
+  {# ---------- 6. Totales ----------
+     Tabla aparte (no <tfoot>) a propósito: WeasyPrint repite el <tfoot> al
+     pie de CADA fragmento cuando la tabla se parte entre páginas, y una OC
+     de 25 ítems terminaría imprimiendo el TOTAL dos veces. Los anchos
+     replican los del itemizado para que las cifras caigan en el mismo eje. #}
   <table class="totales">
-    <tr><td class="k">NETO</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
+    <tr><td class="k">Neto</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
     {# IVA% ya no es fijo — cada OC puede llevar un % distinto (boletas,
        exentos, casos pactados). "%g" saca los ceros de relleno (19, no
        19,00) salvo que el operador haya puesto un decimal real (12,5). #}
     <tr><td class="k">IVA {{ "%g"|format(oc.iva_porcentaje|float)|replace(".", ",") }}%</td><td class="v">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
-    <tr class="tot"><td class="k">TOTAL</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
+    <tr class="tot"><td class="k">Total {{ oc.moneda.value }}</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
   </table>
 
   {% if oc.tipo_documento == "BOLETA" %}
-  <p class="intro">Documento de respaldo: <strong>Boleta</strong> (sin derecho a crédito fiscal IVA).</p>
+  <p class="nota-doc">Documento de respaldo: <strong>boleta</strong> — sin derecho a crédito fiscal IVA.</p>
   {% endif %}
 
-  {# ---------- 5. Forma de pago (hitos por porcentaje) ----------
+  {# ---------- 7. Forma de pago (hitos por porcentaje) ----------
      Sólo se imprime si la OC tiene cuotas cargadas en core.oc_cuotas.
      El porcentaje se muestra sin ceros de relleno (30%, 33,5%) y con coma
      decimal, que es como se escribe en Chile. #}
@@ -570,9 +923,9 @@
     <thead>
       <tr>
         <th class="c" style="width: 16mm;">%</th>
-        <th>Descripción</th>
+        <th>Hito</th>
         <th class="c" style="width: 26mm;">Fecha</th>
-        <th class="r" style="width: 32mm;">Monto</th>
+        <th class="r" style="width: 30mm;">Monto</th>
       </tr>
     </thead>
     <tbody>
@@ -588,18 +941,7 @@
   </table>
   {% endif %}
 
-  {# ---------- 6. Notas ---------- #}
-  <p class="sec">Notas:</p>
-  <div class="notas">
-    <ul>
-      <li>Devolver esta orden de compra firmada indicando nombre y cargo como señal de aceptación de esta.</li>
-      <li>Cualquier dificultad o controversia que se produzca entre los contratantes respecto de la aplicación, interpretación, duración, validez, ejecución de este contrato o cualquier otro motivo será sometida a arbitraje, conforme al reglamento procesal de arbitraje del Centro de Arbitraje y Mediación de Santiago, vigente al momento de solicitarlo.</li>
-      <li>Las partes confieren poder especial irrevocable a la Cámara de Comercio de Santiago A.G., para que, a petición escrita de cualquiera de ellas, designe a un árbitro arbitrador de entre los integrantes del cuerpo arbitral del Centro de Arbitraje y Mediación de Santiago.</li>
-      <li>En contra de las resoluciones del arbitrador no procederá recurso alguno, renunciando las partes expresamente a ellos. El árbitro queda especialmente facultado para resolver todo asunto relacionado con su competencia y/o jurisdicción.</li>
-    </ul>
-  </div>
-
-  {# ---------- 7. Firmas ---------- #}
+  {# ---------- 9. Firmas ---------- #}
   {# OC-FIRMANTES-EXTERNOS — un solo macro para todas las firmas (externas e
      internas). Se unifica porque el sello de firma electrónica debe
      comportarse IGUAL para el proveedor/cliente que para el equipo emisor;
@@ -628,33 +970,42 @@
         </div>
   {% endmacro %}
 
-  {# Una sola lista ordenada de celdas para que la grilla fluya de corrido:
-     primero los firmantes del proveedor/cliente (con la razón social del
-     proveedor por defecto) y después el equipo de la empresa emisora.
-     `celdas` se muta con .append() — patrón estándar de Jinja, no se
+  {# Las firmas se agrupan por PARTE CONTRACTUAL, no en una sola lista
+     corrida. Con 6 firmas seguidas y `batch(3)`, el límite entre las del
+     proveedor y las del mandante caía a mitad de una fila y quedaba
+     invisible: la única pista de a quién obliga cada firma era la razón
+     social en 7pt bajo el cargo. En un documento que se firma, qué parte
+     obliga cada firma es información contractual, no decoración.
+     Cada lista se batchea por separado, así el corte SIEMPRE coincide con
+     un salto de fila.
+     `celdas_*` se mutan con .append() — patrón estándar de Jinja, no se
      reasigna la variable, así que la mutación sí sale del for. #}
-  {% set celdas = [] %}
+  {% set celdas_prov = [] %}
   {% if firmantes_externos %}
-    {% for fe in firmantes_externos %}{% set _ = celdas.append([fe, proveedor.razon_social]) %}{% endfor %}
+    {% for fe in firmantes_externos %}{% set _ = celdas_prov.append([fe, proveedor.razon_social]) %}{% endfor %}
   {% else %}
     {# Retrocompatibilidad: OCs sin firmantes externos cargados siguen
        saliendo con la celda histórica del proveedor, idéntica. #}
-    {% set _ = celdas.append([
+    {% set _ = celdas_prov.append([
         {"nombre": proveedor.contacto_nombre or proveedor.razon_social,
          "cargo": "Representante Legal"},
         proveedor.razon_social]) %}
   {% endif %}
-  {% for f in firmantes %}{% set _ = celdas.append([f, empresa.razon_social]) %}{% endfor %}
+  {% set celdas_mand = [] %}
+  {% for f in firmantes %}{% set _ = celdas_mand.append([f, empresa.razon_social]) %}{% endfor %}
 
-  <div class="firmas-page">
-    <p class="sec">Firmas:</p>
+  {# Grilla de un grupo. Se llama sólo si el grupo tiene firmas: hoy 8 de las
+     10 empresas no tienen firmantes cargados en /admin/oc-branding, así que
+     `celdas_mand` vacía es el caso NORMAL y no puede imprimir un rótulo
+     "Por el mandante" seguido de nada. #}
+  {% macro grilla_firmas(celdas) %}
     <table class="firmas">
       {% for fila in celdas|batch(3) %}
       <tr>
         {% for celda in fila %}
         <td>{{ bloque_firma(celda[0], celda[1]) }}</td>
         {% endfor %}
-        {# Celdas de relleno sin borde: mantienen las 3 columnas del mismo
+        {# Celdas de relleno invisibles: mantienen las 3 columnas del mismo
            ancho aunque la última fila tenga 1 o 2 firmas. #}
         {% for _n in range(3 - fila|length) %}
         <td><div class="firma-caja vacia">&nbsp;</div></td>
@@ -662,6 +1013,53 @@
       </tr>
       {% endfor %}
     </table>
+  {% endmacro %}
+
+  <div class="firmas-page">
+    {# Franja de identificación: la hoja de firmas dice sola a qué orden, a
+       qué proveedor y a qué monto pertenece. #}
+    <table class="sigid">
+      <tr>
+        <td>
+          <p class="lbl">Orden de compra</p>
+          <p class="val">N° {{ folio }}</p>
+        </td>
+        <td>
+          <p class="lbl">Proveedor</p>
+          <p class="val">{{ proveedor.razon_social }}</p>
+        </td>
+        <td class="last">
+          <p class="lbl">Total {{ oc.moneda.value }} (IVA incl.)</p>
+          <p class="val">{{ formatear_moneda(oc.total, oc.moneda.value) }}</p>
+        </td>
+      </tr>
+    </table>
+
+  {# ---------- 8. Condiciones generales ----------
+       TEXTO LITERAL — cláusula contractual de arbitraje. No se toca. #}
+    <p class="sec">Condiciones generales</p>
+    <table class="notas">
+      <tr>
+        <td>
+          <p class="nota"><span class="n">1.</span> Devolver esta orden de compra firmada indicando nombre y cargo como señal de aceptación de esta.</p>
+          <p class="nota"><span class="n">2.</span> Cualquier dificultad o controversia que se produzca entre los contratantes respecto de la aplicación, interpretación, duración, validez, ejecución de este contrato o cualquier otro motivo será sometida a arbitraje, conforme al reglamento procesal de arbitraje del Centro de Arbitraje y Mediación de Santiago, vigente al momento de solicitarlo.</p>
+        </td>
+        <td class="gap"></td>
+        <td>
+          <p class="nota"><span class="n">3.</span> Las partes confieren poder especial irrevocable a la Cámara de Comercio de Santiago A.G., para que, a petición escrita de cualquiera de ellas, designe a un árbitro arbitrador de entre los integrantes del cuerpo arbitral del Centro de Arbitraje y Mediación de Santiago.</p>
+          <p class="nota"><span class="n">4.</span> En contra de las resoluciones del arbitrador no procederá recurso alguno, renunciando las partes expresamente a ellos. El árbitro queda especialmente facultado para resolver todo asunto relacionado con su competencia y/o jurisdicción.</p>
+        </td>
+      </tr>
+    </table>
+
+    <p class="sec">Firmas</p>
+    <p class="firmas-grupo">Por el proveedor</p>
+    {{ grilla_firmas(celdas_prov) }}
+    {% if celdas_mand %}
+    <p class="firmas-grupo">Por el mandante</p>
+    {{ grilla_firmas(celdas_mand) }}
+    {% endif %}
+    <p class="firmas-footer">Documento firmado electrónicamente. La constancia bajo cada firma acredita fecha, hora y hash de verificación.</p>
   </div>
 
 </body>
