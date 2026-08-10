@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de Vouchers para Encargados · Ram-Cehta</title>
+<style>
+  :root{
+    --green:#138A5E; --green-700:#0F6E4B; --green-50:#E7F5EE;
+    --ink-900:#0F172A; --ink-700:#334155; --ink-500:#64748B; --ink-300:#CBD5E1;
+    --hair:#E5E9F0; --bg:#F7F9FB; --card:#FFFFFF; --amber:#B45309; --amber-50:#FEF3E2;
+    --blue:#1E40AF; --blue-50:#EAF0FF; --red:#991B1B; --red-50:#FEF2F2; --radius:16px;
+    --shadow:0 1px 3px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.05);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:var(--bg);color:var(--ink-900);line-height:1.6;-webkit-font-smoothing:antialiased}
+  a{color:var(--green-700);text-decoration:none}
+  .wrap{display:grid;grid-template-columns:288px 1fr;min-height:100vh}
+  aside{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--card);
+    border-right:1px solid var(--hair);padding:20px 14px}
+  .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 14px}
+  .brand .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--green),var(--green-700));
+    display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px}
+  .brand b{font-size:15px;font-weight:700}.brand small{display:block;color:var(--ink-500);font-size:11px;font-weight:500}
+  .search{width:100%;padding:9px 12px;border:1px solid var(--hair);border-radius:10px;font-size:13px;
+    margin-bottom:12px;background:var(--bg)}
+  .search:focus{outline:none;border-color:var(--green);background:#fff}
+  nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-500);
+    font-weight:700;margin:14px 8px 5px}
+  nav a{display:block;padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--ink-700);font-weight:500}
+  nav a:hover{background:var(--green-50);color:var(--green-700)}
+  nav a.on{background:var(--green-50);color:var(--green-700);font-weight:600}
+  main{padding:0 0 80px}
+  .hero{background:linear-gradient(135deg,#0F6E4B,#138A5E);color:#fff;padding:48px 56px 40px}
+  .hero h1{font-size:30px;font-weight:800;letter-spacing:-.02em}
+  .hero p{opacity:.92;max-width:720px;margin-top:10px;font-size:15px}
+  .hero .chips{margin-top:20px;display:flex;gap:8px;flex-wrap:wrap}
+  .hero .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.25);
+    padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .content{padding:34px 56px;max-width:1040px}
+  section{background:var(--card);border:1px solid var(--hair);border-radius:var(--radius);
+    padding:28px 30px;margin-bottom:22px;box-shadow:var(--shadow);scroll-margin-top:20px}
+  section h2{font-size:21px;font-weight:750;display:flex;align-items:center;gap:11px;letter-spacing:-.01em}
+  section h2 .ic{width:38px;height:38px;border-radius:10px;background:var(--green-50);
+    display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+  section .lead{color:var(--ink-700);margin:8px 0 18px;font-size:14.5px}
+  section p{font-size:14px}
+  h3{font-size:16.5px;font-weight:750;margin:24px 0 6px;letter-spacing:-.01em}
+  h4{font-size:13.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-500);
+    margin:20px 0 9px;display:flex;align-items:center;gap:7px}
+  .steps{counter-reset:s;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:7px 0 7px 38px;font-size:14px;border-bottom:1px dashed var(--hair)}
+  .steps li:last-child{border:none}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;
+    background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}
+  th{text-align:left;background:var(--bg);color:var(--ink-500);font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.04em;padding:8px 10px;border-bottom:2px solid var(--hair)}
+  td{padding:8px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+  td b{color:var(--ink-900)} .mono{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
+    background:var(--bg);padding:1px 6px;border-radius:5px;white-space:nowrap}
+  .datos{background:var(--amber-50);border:1px solid #F5D8A8;border-radius:12px;padding:16px 18px;margin-top:18px}
+  .datos h4{color:var(--amber);margin-top:0}
+  .datos .row{display:flex;gap:10px;padding:6px 0;font-size:13.5px;border-bottom:1px dashed #F0D5A8}
+  .datos .row:last-child{border:none}.datos .row b{min-width:150px;color:var(--amber)}
+  .badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;display:inline-block}
+  .b-draft{background:#F1F5F9;color:#64748B}.b-pend{background:#FEF3E2;color:#B45309}
+  .b-app{background:#E7F5EE;color:#0F6E4B}.b-exec{background:#EAF0FF;color:#1E40AF}
+  .b-rej{background:var(--red-50);color:var(--red)}
+  .tip{background:var(--green-50);border-left:3px solid var(--green);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .tip b{color:var(--green-700)}
+  .warn{background:var(--amber-50);border-left:3px solid var(--amber);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .warn b{color:var(--amber)}
+  .stop{background:var(--red-50);border-left:3px solid var(--red);padding:11px 14px;border-radius:0 8px 8px 0;
+    font-size:13.5px;margin-top:14px;color:var(--ink-700)}
+  .stop b{color:var(--red)}
+  .ejemplo{background:linear-gradient(180deg,#F5F8FF,#EFF4FF);border:1px solid #D6E0F5;
+    border-radius:13px;padding:18px 20px;margin-top:18px;scroll-margin-top:20px}
+  .ejemplo .et{display:inline-flex;align-items:center;gap:6px;background:var(--blue);color:#fff;
+    font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+    padding:4px 10px;border-radius:7px;margin-bottom:12px}
+  .ejemplo p{font-size:13.5px;margin-bottom:8px}
+  footer{padding:30px 56px;color:var(--ink-500);font-size:12.5px;border-top:1px solid var(--hair);background:var(--card)}
+  .flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .flow .n{background:#fff;border:1px solid var(--hair);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600}
+  .flow .ar{color:var(--ink-300);font-weight:800}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+  .quick a{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:16px 16px 15px;
+    box-shadow:var(--shadow);transition:all .18s ease;display:block}
+  .quick a:hover{transform:translateY(-3px);border-color:var(--green);box-shadow:0 10px 28px rgba(19,138,94,.12)}
+  .quick .qi{font-size:24px;margin-bottom:8px;display:block}
+  .quick .qt{font-weight:700;font-size:14px;color:var(--ink-900)}
+  .quick .qd{font-size:11.5px;color:var(--ink-500);margin-top:3px;line-height:1.4}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  /* ---- Asiento: la misma tabla que imprime el voucher (DEBE / HABER) ---- */
+  .asiento{background:#fff;border:1px solid #DCE6F7;border-radius:10px;overflow:hidden;margin-top:10px}
+  .asiento table{margin:0;font-size:13px}
+  .asiento th{background:var(--green);color:#fff;font-size:10.5px;padding:7px 9px;border:none}
+  .asiento th.n,.asiento td.n{text-align:right}
+  .asiento td{padding:7px 9px;border-bottom:1px solid #EEF2F8}
+  .asiento td.n{font-variant-numeric:tabular-nums;font-weight:650;white-space:nowrap}
+  .asiento td.c{font-family:ui-monospace,Menlo,monospace;font-size:12px;white-space:nowrap}
+  .asiento tr.alt td{background:#F8FAFC}
+  .asiento tr.tot td{border-top:2px solid var(--ink-900);border-bottom:none;
+    font-weight:800;font-size:13.5px;background:#fff;padding-top:9px}
+  .asiento .dash{color:var(--ink-300)}
+  .cuadra,.nocuadra{display:flex;align-items:center;gap:9px;padding:10px 13px;font-size:13px;font-weight:650}
+  .cuadra{background:var(--green-50);color:var(--green-700);border-top:1px solid #CFE8DC}
+  .nocuadra{background:var(--red-50);color:var(--red);border-top:1px solid #F5D0D0}
+  .cuadra .k,.nocuadra .k{font-size:17px;line-height:1}
+  /* ---- El diagrama de las dos columnas ---- */
+  .tt{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--ink-900);border-radius:10px;
+    overflow:hidden;margin-top:12px;background:#fff}
+  .tt .h{padding:9px 12px;font-weight:800;font-size:13px;text-align:center;color:#fff}
+  .tt .h.d{background:var(--green-700)} .tt .h.h{background:var(--ink-700)}
+  .tt .b{padding:14px 16px;font-size:13px}
+  .tt .b:first-of-type{border-right:2px solid var(--ink-900)}
+  .tt .b ul{margin:8px 0 0 16px} .tt .b li{margin-bottom:4px}
+  .tt .q{font-weight:750;color:var(--ink-900);display:block;margin-bottom:4px}
+  /* ---- Mensajes literales de pantalla ---- */
+  .err{font-family:ui-monospace,Menlo,monospace;font-size:12px;line-height:1.5;
+    background:var(--red-50);border:1px solid #F5D0D0;color:var(--red);
+    border-radius:8px;padding:8px 10px;display:block;white-space:pre-wrap}
+  .ok-chip{display:inline-flex;align-items:center;gap:5px;background:var(--green-50);color:var(--green-700);
+    border:1px solid #CFE8DC;border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700}
+  .bad-chip{display:inline-flex;align-items:center;gap:5px;background:var(--red-50);color:var(--red);
+    border:1px solid #F5D0D0;border-radius:7px;padding:4px 9px;font-size:12px;font-weight:700}
+  .never{border:1px solid var(--hair);border-left:4px solid var(--red);border-radius:0 12px 12px 0;
+    padding:16px 18px;margin-top:14px;background:#fff}
+  .never .nt{font-weight:800;font-size:15px;color:var(--red);margin-bottom:6px}
+  .never p{font-size:13.5px;color:var(--ink-700);margin-bottom:6px}
+  .never p:last-child{margin-bottom:0}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}.hero,.content{padding:28px 22px}
+    .quick{grid-template-columns:repeat(2,1fr)}.cols2{grid-template-columns:1fr}
+    .tt{grid-template-columns:1fr}.tt .b:first-of-type{border-right:none;border-bottom:2px solid var(--ink-900)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<aside>
+  <div class="brand"><div class="logo">RC</div><div><b>Ram-Cehta</b><small>Vouchers para encargados</small></div></div>
+  <input class="search" id="q" placeholder="🔎 Buscar tema o cuenta…">
+  <nav id="nav">
+    <div class="grp">Entender</div>
+    <a href="#que-es" class="on">Qué es un voucher</a>
+    <a href="#tipos">Los tipos y cuándo usar cada uno</a>
+    <div class="grp">El concepto que traba a todos</div>
+    <a href="#debe-haber">⭐ El DEBE y el HABER</a>
+    <a href="#regla">La regla práctica</a>
+    <div class="grp">Casos reales</div>
+    <a href="#asientos">Los 5 asientos del fondo</a>
+    <a href="#ej1">1 · Factura afecta (con IVA)</a>
+    <a href="#ej2">2 · Boleta de honorarios</a>
+    <a href="#ej3">3 · Gasto exento (sin IVA)</a>
+    <a href="#ej4">4 · Cuota de una OC</a>
+    <a href="#ej5">5 · Caja chica</a>
+    <div class="grp">El circuito</div>
+    <a href="#firmas">Quién firma y en qué orden</a>
+    <a href="#rechazo">Qué pasa si te rechazan</a>
+    <div class="grp">Cuidado</div>
+    <a href="#errores">Los 8 errores más comunes</a>
+    <a href="#nunca">Lo que NO se hace nunca</a>
+    <a href="#checklist">Checklist antes de firmar</a>
+    <div class="grp">Más</div>
+    <a href="/GUIA_INGRESO_VOUCHERS.html">← Guía de ingreso (cuentas y vías)</a>
+    <a href="/GUIA_FLUJO_CARGOS.html">← Flujo, cargos y carpetas</a>
+    <a href="/GUIA_USUARIO.html">← Guía general de la plataforma</a>
+  </nav>
+</aside>
+
+<main>
+<div class="hero">
+  <h1>Vouchers, explicados para quien no sabe contabilidad</h1>
+  <p>Esta guía asume <b>cero</b> conocimiento contable. Al terminarla vas a poder cargar un gasto
+     correcto solo: entender qué es un voucher, elegir el tipo, entender el debe y el haber de una
+     vez, copiar los cinco asientos reales del fondo y saber qué significa cada error que te aparece
+     en pantalla.</p>
+  <div class="chips">
+    <span class="chip">⚖️ El debe y el haber sin misterio</span><span class="chip">🧮 5 asientos con números reales</span>
+    <span class="chip">✍️ Circuito de 2 firmas</span><span class="chip">🚑 Errores tal como se ven</span>
+  </div>
+</div>
+
+<div class="content">
+
+<div class="quick">
+  <a href="#debe-haber"><span class="qi">⚖️</span><div class="qt">No entiendo debe/haber</div><div class="qd">La explicación completa, con la regla para no equivocarse</div></a>
+  <a href="#asientos"><span class="qi">🧮</span><div class="qt">Necesito copiar un asiento</div><div class="qd">Los 5 casos del fondo, con montos reales</div></a>
+  <a href="#errores"><span class="qi">🚑</span><div class="qt">Me salió un error</div><div class="qd">El mensaje literal y qué hacer con él</div></a>
+  <a href="#firmas"><span class="qi">✍️</span><div class="qt">¿Quién tiene que firmar?</div><div class="qd">Siempre dos personas, en cualquier orden</div></a>
+</div>
+
+<!-- QUÉ ES -->
+<section id="que-es">
+  <h2><span class="ic">🧾</span> Qué es un voucher y por qué existe</h2>
+  <p class="lead">Sin jerga y en dos párrafos.</p>
+
+  <p>Un <b>voucher</b> es el registro de una cosa que le pasó a la plata de la empresa. Llegó una
+     factura, se pagó un honorario, salió efectivo de la caja: cada uno de esos hechos se anota
+     una vez, en un voucher, y con el papel que lo respalda al lado. El voucher no es un trámite
+     que inventó la plataforma — es la anotación oficial que después alimenta la contabilidad del
+     fondo, el F29 que se le declara al SII y las rendiciones a CORFO. Si un gasto no tiene
+     voucher, para efectos prácticos <b>no ocurrió</b>: no lo ve el contador, no baja a Nubox y no
+     se puede rendir.</p>
+
+  <p>Y existe por una segunda razón, más importante todavía: un voucher es <b>una orden para mover
+     plata que dos personas distintas tienen que firmar</b>. Nadie en el fondo puede sacar dinero
+     por su cuenta. El que carga el voucher no puede firmarlo, y el que firma primero no puede
+     firmar de nuevo. Ese ida y vuelta es lento a propósito. Cuando alguien firma, está diciendo
+     "leí esto y me hago cargo", así que el voucher tiene que estar bien escrito: la glosa tiene
+     que explicar qué se compró y para qué, y los montos tienen que cuadrar. Un voucher confuso no
+     es un problema tuyo solamente — es un gerente firmando algo que no entiende.</p>
+
+  <div class="tip"><b>La versión corta:</b> un voucher = un hecho económico + su respaldo + dos
+    firmas. Nada más, y nada menos.</div>
+
+  <h4>Cómo se llama tu voucher, y por qué importa</h4>
+  <p>Apenas lo creás, la plataforma le pone un código que ya no cambia nunca:</p>
+  <p style="margin-top:8px"><span class="mono">AFIS-2026-COM-00010</span> = empresa
+     <b>AFIS</b> · año <b>2026</b> · tipo <b>COMPRA</b> · el número <b>10</b> de esa serie.</p>
+  <p style="margin-top:8px">La numeración es correlativa y no admite huecos: por eso <b>no se borra
+     ni se rehace un voucher</b> para arreglarlo. Si te equivocaste, se corrige el que ya existe
+     (mientras sea borrador) o se hace un reverso (si ya está firmado). Crear uno nuevo "limpio"
+     deja un número quemado en el libro.</p>
+</section>
+
+<!-- TIPOS -->
+<section id="tipos">
+  <h2><span class="ic">🏷️</span> Los tipos de voucher y cuándo usar cada uno</h2>
+  <p class="lead">El tipo se elige en el primer campo del formulario y queda escrito en el código
+     para siempre. Elegilo bien la primera vez.</p>
+  <table>
+    <tr><th>Tipo</th><th>Código</th><th>Cuándo se usa</th><th>Ojo con…</th></tr>
+    <tr>
+      <td><b>Egreso (pago)</b></td><td><span class="mono">EGR</span></td>
+      <td>Sale plata de la empresa: se paga una boleta de honorarios, una cuota de una OC, un
+          gasto de caja chica, una transferencia a un proveedor.</td>
+      <td><b>Es el más usado.</b> Pide contraparte y banco.</td>
+    </tr>
+    <tr>
+      <td><b>Compra (factura recibida)</b></td><td><span class="mono">COM</span></td>
+      <td>Llega una factura de un proveedor y se registra la deuda, se pague hoy o en 30 días.</td>
+      <td>La plataforma <b>exige</b> tipo de documento + folio. Sin eso no te deja guardar.</td>
+    </tr>
+    <tr>
+      <td><b>Venta (factura emitida)</b></td><td><span class="mono">VEN</span></td>
+      <td>La empresa emite una factura a un cliente.</td>
+      <td>También exige tipo de documento + folio.</td>
+    </tr>
+    <tr>
+      <td><b>Ingreso (cobro)</b></td><td><span class="mono">ING</span></td>
+      <td>Entra plata: un cliente paga, entra un aporte, se recibe una cuota de subsidio.</td>
+      <td>Pide contraparte y banco.</td>
+    </tr>
+    <tr>
+      <td><b>Traspaso (interno)</b></td><td><span class="mono">TRA</span></td>
+      <td>La plata se mueve dentro de la misma empresa: del banco a la caja, entre dos cuentas
+          corrientes propias.</td>
+      <td>No hay proveedor ni cliente: nadie de afuera participa.</td>
+    </tr>
+    <tr>
+      <td><b>Apertura (saldo inicial)</b></td><td><span class="mono">APE</span></td>
+      <td>Carga de los saldos con los que arranca un ejercicio.</td>
+      <td rowspan="2">⚠️ <b>Solo contabilidad.</b> Si no sos del área contable, nunca vas a
+          necesitar estos dos.</td>
+    </tr>
+    <tr>
+      <td><b>Cierre (resultados)</b></td><td><span class="mono">CIE</span></td>
+      <td>Asientos de cierre de ejercicio.</td>
+    </tr>
+    <tr>
+      <td><b>Reverso</b></td><td><span class="mono">REV</span></td>
+      <td>Anula contablemente un voucher <b>ya firmado</b>, dando vuelta su asiento.</td>
+      <td>No está en el selector: se crea desde el detalle del voucher original, con el botón
+          <b>hoy no hay botón para crearlo</b>: pedíselo a administración. Ver
+          <a href="#nunca">Lo que NO se hace nunca</a>.</td>
+    </tr>
+  </table>
+
+  <div class="tip"><b>Si dudás entre Egreso y Compra:</b> preguntate qué estás registrando.
+    ¿La <b>deuda</b> que nace cuando llega la factura? → Compra. ¿La <b>plata que sale</b> del
+    banco o de la caja? → Egreso. Una misma factura pagada a 30 días genera los dos, en momentos
+    distintos: primero la compra, después el pago.</div>
+</section>
+
+<!-- DEBE Y HABER -->
+<section id="debe-haber">
+  <h2><span class="ic">⚖️</span> El DEBE y el HABER, de una vez y bien</h2>
+  <p class="lead">Este es el punto donde se traba todo el mundo. Se traba por una sola razón: las
+     dos palabras están mal elegidas. Leelas una vez con atención y no vuelve a pasar.</p>
+
+  <h3>Lo primero: las palabras te están mintiendo</h3>
+  <p><b>DEBE no significa "deuda". HABER no significa "tener".</b> No hay ninguna relación entre
+     el significado cotidiano de esas palabras y lo que hacen en un voucher. Son nombres heredados
+     de hace 500 años y hoy son, literalmente, <b>el nombre de la columna izquierda y el de la
+     columna derecha</b>. Nada más que eso.</p>
+
+  <p style="margin-top:10px">Si te ayuda, mientras leés esta sección traducí mentalmente:
+     <b>DEBE = columna izquierda</b>, <b>HABER = columna derecha</b>. Vas a entender todo mucho
+     más rápido, y no vas a perder nada: es exactamente lo que son.</p>
+
+  <h3>Lo segundo: cada hecho se anota dos veces</h3>
+  <p>Toda operación tiene dos caras, y las dos se anotan. Si comprás un notebook con plata del
+     banco, pasaron dos cosas a la vez: <b>entró un notebook</b> y <b>salió plata del banco</b>.
+     Anotar solo una de las dos sería contar la mitad de la historia. Por eso cada voucher tiene
+     dos columnas, y por eso el total de una tiene que ser <b>idéntico</b> al total de la otra.
+     Eso se llama <b>partida doble</b>, y es la única regla que de verdad tenés que respetar.</p>
+
+  <div class="tt">
+    <div class="h d">DEBE · columna izquierda</div>
+    <div class="h h">HABER · columna derecha</div>
+    <div class="b">
+      <span class="q">¿Qué recibió o consumió la empresa?</span>
+      Acá va la cosa que llegó, se gastó o se compró.
+      <ul>
+        <li>El <b>gasto</b>: arriendo, honorarios, combustible, software</li>
+        <li>El <b>activo</b>: una camioneta, una máquina</li>
+        <li>El <b>IVA crédito fiscal</b> (es plata que se recupera del SII, así que también "entra")</li>
+        <li>La plata que <b>entra</b> al banco o a la caja</li>
+      </ul>
+    </div>
+    <div class="b">
+      <span class="q">¿De dónde salió esa plata?</span>
+      Acá va la fuente: quién la puso o a quién se le queda debiendo.
+      <ul>
+        <li>El <b>banco</b> o la <b>caja</b>, si ya se pagó</li>
+        <li><b>Facturas por pagar</b> / <b>Honorarios por pagar</b>, si queda pendiente</li>
+        <li>La <b>retención</b> que se le descuenta al profesional</li>
+        <li>El <b>ingreso</b>, cuando la empresa vende o cobra</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="tip"><b>Fijate en algo que confunde:</b> el banco aparece en las dos columnas según
+    qué pasó. Si <b>sale</b> plata del banco, el banco va al <b>HABER</b> (es la fuente del pago).
+    Si <b>entra</b> plata, el banco va al <b>DEBE</b> (recibió algo). Por eso "debe" no es "deuda":
+    tu cuenta corriente llena de plata vive en el DEBE.</div>
+
+  <h3>Lo tercero: una línea va en una columna o en la otra, nunca en las dos</h3>
+  <p>Cada línea del voucher es un renglón con una cuenta y un monto, y ese monto va o al debe o al
+     haber. Si intentás poner las dos, la plataforma te frena con este mensaje:</p>
+  <span class="err">Línea 2: debe tener débito XOR crédito (uno de los dos &gt; 0, no ambos).</span>
+  <p style="margin-top:10px">Un voucher puede tener 2 líneas o 10. Lo único que importa es que la
+     suma de la izquierda dé igual que la suma de la derecha.</p>
+</section>
+
+<!-- LA REGLA PRÁCTICA -->
+<section id="regla">
+  <h2><span class="ic">🎯</span> La regla práctica para no equivocarse nunca</h2>
+  <p class="lead">Tres preguntas, en este orden. Funciona para el 95% de los vouchers del fondo.</p>
+
+  <ol class="steps">
+    <li><b>¿Qué recibió la empresa?</b> Esa cosa —el gasto, el servicio, el activo— va al
+      <b>DEBE</b>, por su monto <b>neto</b> (sin IVA).</li>
+    <li><b>¿El documento tiene IVA desglosado?</b> Si sí, el IVA va en <b>su propia línea</b>, también
+      al <b>DEBE</b>, con la cuenta <span class="mono">1113-02 IVA CREDITO FISCAL</span>. Si el
+      documento no desglosa IVA (boleta simple, factura exenta, boleta de honorarios), <b>no hay
+      línea de IVA</b> y el gasto se lleva el total.</li>
+    <li><b>¿De dónde sale la plata?</b> Esa cuenta va al <b>HABER</b>, por el <b>total</b> del
+      documento. Si ya se pagó: el banco o la caja. Si queda debiendo: facturas por pagar u
+      honorarios por pagar.</li>
+  </ol>
+
+  <div class="tip"><b>Verificación de 3 segundos:</b> sumá la columna izquierda y la derecha. Si
+    dan lo mismo, está. La plataforma te muestra el resultado en vivo mientras cargás:
+    <span class="ok-chip">✓ Partida doble cuadrada</span> en verde, o
+    <span class="bad-chip">✗ Descuadrado</span> en rojo con la diferencia al lado.</div>
+
+  <h4>La diferencia no es un obstáculo: es información</h4>
+  <p>Cuando no cuadra, el número de la diferencia te dice <b>exactamente qué falta</b>. Aprendé a
+     leerlo y te ahorrás horas:</p>
+  <table>
+    <tr><th>Lo que ves</th><th>Casi seguro que…</th></tr>
+    <tr><td>La diferencia es igual al <b>IVA</b> del documento</td><td>Te falta la línea de <span class="mono">1113-02 IVA CREDITO FISCAL</span>, o la pusiste en la columna equivocada.</td></tr>
+    <tr><td>La diferencia es el <b>19%</b> de una de tus líneas</td><td>Pusiste el <b>total</b> donde iba el <b>neto</b> (o al revés).</td></tr>
+    <tr><td>La diferencia es igual al <b>monto de una línea entera</b></td><td>Falta esa línea, o la cargaste dos veces en la misma columna.</td></tr>
+    <tr><td>La diferencia es el <b>doble</b> de un monto que ves</td><td>Una línea está en la columna equivocada: moverla corrige el doble de una vez.</td></tr>
+    <tr><td>La diferencia es un <b>número raro y chico</b> ($1, $2)</td><td>Redondeo. Mandá lo que dice el documento impreso: la factura le gana al cálculo.</td></tr>
+  </table>
+  <div class="warn"><b>Lo que jamás resuelve el problema:</b> agregar una línea de "ajuste" por el
+    monto de la diferencia para que cuadre. Eso apaga la alarma sin apagar el incendio. Ver
+    <a href="#nunca">Lo que NO se hace nunca</a>.</div>
+</section>
+
+<!-- ASIENTOS -->
+<section id="asientos">
+  <h2><span class="ic">🧮</span> Los 5 asientos del fondo, con números reales</h2>
+  <p class="lead">Estos son los casos que se repiten. Las cuentas son las del plan de cuentas real
+     del fondo (212 cuentas, las mismas de Nubox) — están escritas con su nombre exacto para que
+     las reconozcas en el buscador del formulario. Copiá la estructura y cambiá los montos.</p>
+
+  <div class="ejemplo" id="ej1">
+    <span class="et">Ejemplo 1 · Factura afecta (con IVA), queda por pagar</span>
+    <p><b>Caso:</b> factura electrónica de un proveedor de software. Neto <b>$845.000</b>,
+       IVA 19% <b>$160.550</b>, total <b>$1.005.550</b>. Se paga a 30 días.
+       Tipo de voucher: <b>Compra</b>.</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">4201-37</td><td>SERVICIOS COMPUTACIONALES</td><td class="n">845.000</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">1113-02</td><td>IVA CREDITO FISCAL</td><td class="n">160.550</td><td class="n dash">—</td></tr>
+        <tr><td>3</td><td class="c">2102-01</td><td>FACTURAS POR PAGAR, CORRIENTES</td><td class="n dash">—</td><td class="n">1.005.550</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">1.005.550</td><td class="n">1.005.550</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $1.005.550 al debe y $1.005.550 al haber.</div>
+    </div>
+    <p style="margin-top:10px">💡 El gasto se lleva el <b>neto</b> y el IVA va aparte porque el IVA
+       <b>no es un gasto</b>: es plata que la empresa recupera contra el F29 del mes. Mezclarlos
+       infla el costo un 19% y descuadra la declaración.</p>
+  </div>
+
+  <div class="ejemplo" id="ej2">
+    <span class="et">Ejemplo 2 · Boleta de honorarios con retención</span>
+    <p><b>Caso:</b> boleta de honorarios de un asesor por <b>$1.200.000 brutos</b>. La empresa le
+       retiene el <b>15,25%</b> (tasa vigente 2026) y se lo entera al SII por él. Queda pendiente
+       de pago. Tipo de voucher: <b>Egreso</b>.</p>
+    <p><b>Los números:</b> retención = $1.200.000 × 15,25% = <b>$183.000</b> ·
+       líquido = $1.200.000 − $183.000 = <b>$1.017.000</b> (siempre por resta).</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">4201-02</td><td>HONORARIOS PROFESIONALES <i>(bruto)</i></td><td class="n">1.200.000</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">2105-04</td><td>RETENCION PROFESIONALES</td><td class="n dash">—</td><td class="n">183.000</td></tr>
+        <tr><td>3</td><td class="c">2102-11</td><td>HONORARIOS POR PAGAR <i>(líquido)</i></td><td class="n dash">—</td><td class="n">1.017.000</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">1.200.000</td><td class="n">1.200.000</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $1.200.000 al debe y $1.200.000 al haber.</div>
+    </div>
+    <p style="margin-top:10px">💡 <b>Sin IVA.</b> Las boletas de honorarios no llevan IVA, llevan
+       retención. Si ves una línea de <span class="mono">1113-02</span> en un voucher de honorarios,
+       está mal.</p>
+    <p>💡 <b>La retención no es un gasto de la empresa.</b> Es plata del profesional que la empresa
+       guarda para pagársela al SII en su nombre. Por eso va al haber en una cuenta de deuda
+       (<span class="mono">2105-04</span>) y nunca a una cuenta de gasto.</p>
+    <p>💡 <b>Cuando se paga de verdad</b>, la línea 3 va contra el banco
+       (<span class="mono">1101-02</span> a <span class="mono">1101-06</span>) en vez de "por pagar":
+       el asesor recibe $1.017.000. Los $183.000 <b>no salen del banco todavía</b>: quedan en
+       <span class="mono">2105-04</span> hasta que se pagan con el F29.</p>
+    <div class="warn"><b>Cuidado con el redondeo:</b> el peso chileno no tiene centavos. Si el bruto
+      es $1.000.600, la retención da $152.591,5 y la plataforma la sube a <b>$152.592</b>; el líquido
+      sale <b>por resta</b>: $848.008. Nunca calcules el líquido por tu cuenta multiplicando por
+      84,75% — te puede dar un peso de diferencia y el asiento no cuadra.</div>
+  </div>
+
+  <div class="ejemplo" id="ej3">
+    <span class="et">Ejemplo 3 · Gasto exento — documento sin IVA</span>
+    <p><b>Caso:</b> factura <b>exenta</b> de una capacitación por <b>$600.000</b>. El documento dice
+       "exenta" y <b>no desglosa IVA</b>. Queda por pagar. Tipo de voucher: <b>Compra</b>.</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">4201-19</td><td>GASTOS CAPACIT. PERSONAL <i>(total)</i></td><td class="n">600.000</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">2102-01</td><td>FACTURAS POR PAGAR, CORRIENTES</td><td class="n dash">—</td><td class="n">600.000</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">600.000</td><td class="n">600.000</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $600.000 al debe y $600.000 al haber.</div>
+    </div>
+    <p style="margin-top:10px">💡 <b>Dos líneas y listo.</b> Sin IVA no hay tercera línea, y el gasto
+       se lleva el <b>total</b> del documento, no un neto: acá no hay neto que separar.</p>
+    <p>💡 <b>Quién decide si es exento es el documento, no vos.</b> Mirá el papel: si desglosa IVA,
+       usás el Ejemplo 1; si no lo desglosa, usás éste. No lo deduzcas del tipo de servicio.</p>
+    <p>💡 <b>Mismo asiento para una boleta simple</b> (la del almacén, sin factura), pero con la
+       cuenta <span class="mono">4301-03 GASTOS BOLETAS</span>. Una boleta simple no da derecho a
+       IVA crédito.</p>
+    <div class="stop"><b>Nunca inventes la línea de IVA en un documento exento.</b> Sacar crédito
+      fiscal de un documento que no lo tiene es un problema con el SII, no un error de tipeo.</div>
+  </div>
+
+  <div class="ejemplo" id="ej4">
+    <span class="et">Ejemplo 4 · Pago de una cuota de una Orden de Compra</span>
+    <p><b>Caso:</b> hay una OC de honorarios ya firmada por <b>$2.000.000 brutos</b>, pactada en
+       <b>2 hitos</b>. Desde la OC apretás <b>Generar vouchers</b> y la plataforma crea
+       <b>un voucher borrador por cada hito pendiente</b>, con las líneas ya cargadas y una glosa
+       del tipo <span class="mono">OC #123 · Cuota 1/2 · Anticipo</span>.</p>
+    <p><b>Los números:</b> retención total = $2.000.000 × 15,25% = $305.000 · líquido total =
+       $1.695.000 · cada hito paga <b>$847.500</b>. La plataforma reparte la retención en
+       proporción: <b>$152.500</b> por hito.</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">4201-02</td><td>HONORARIOS PROFESIONALES <i>(bruto del hito)</i></td><td class="n">1.000.000</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">2105-04</td><td>RETENCION PROFESIONALES</td><td class="n dash">—</td><td class="n">152.500</td></tr>
+        <tr><td>3</td><td class="c">2102-11</td><td>HONORARIOS POR PAGAR <i>(líquido del hito)</i></td><td class="n dash">—</td><td class="n">847.500</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">1.000.000</td><td class="n">1.000.000</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $1.000.000 al debe y $1.000.000 al haber.</div>
+    </div>
+    <p style="margin-top:10px">💡 Los hitos se reparten sobre el <b>líquido</b> (la plata que sale de
+       verdad), no sobre el bruto. Las dos retenciones suman exactamente los $305.000 que se declaran
+       al SII: nunca $1 de más ni de menos.</p>
+
+    <h4 style="margin-top:18px">⚠️ El caso que confunde a todo el mundo: la OC de factura</h4>
+    <p>Cuando la OC <b>no es de honorarios</b> (una factura común), la plataforma
+       <b>no puede saber en qué cuenta va el gasto</b>: la OC guarda los montos, pero no guarda la
+       cuenta contable. Entonces genera el voucher con las líneas que <b>sí</b> conoce y
+       <b>deja afuera la del gasto</b>. Con una OC de $845.000 neto + $160.550 de IVA, el borrador
+       te llega así:</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">1113-02</td><td>IVA CREDITO FISCAL</td><td class="n">160.550</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">2102-01</td><td>FACTURAS POR PAGAR, CORRIENTES</td><td class="n dash">—</td><td class="n">1.005.550</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">160.550</td><td class="n">1.005.550</td></tr>
+      </table>
+      <div class="nocuadra"><span class="k">✗</span> Descuadrado en $845.000 — falta imputar el gasto.</div>
+    </div>
+    <p style="margin-top:10px">💡 <b>Eso no es un error de la plataforma: es una pregunta.</b> La
+       diferencia de $845.000 es exactamente el neto del documento, y lo que falta es que
+       <b>vos elijas la cuenta del gasto</b> y agregues esa línea al debe. Con la línea puesta, el
+       asiento cierra solo. Es el único caso del fondo donde un voucher nace descuadrado a
+       propósito.</p>
+    <div class="stop"><b>Lo que no se hace acá:</b> agregar una línea de ajuste por $845.000 para
+      "cuadrarlo rápido". La línea que falta es el gasto y tiene nombre — buscalo en la
+      <a href="/GUIA_INGRESO_VOUCHERS.html#tabla-rapida">tabla rápida de cuentas</a>.</div>
+  </div>
+
+  <div class="ejemplo" id="ej5">
+    <span class="et">Ejemplo 5 · Caja chica</span>
+    <p><b>Caso A — gasto pagado en efectivo:</b> almuerzo del equipo en terreno, boleta del
+       restorán por <b>$48.000</b>, pagado con la caja. Tipo de voucher: <b>Egreso</b>.</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">4201-26</td><td>LOCOMOCION Y COLACION</td><td class="n">48.000</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">1101-01</td><td>CUENTA CAJA</td><td class="n dash">—</td><td class="n">48.000</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">48.000</td><td class="n">48.000</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $48.000 al debe y $48.000 al haber.</div>
+    </div>
+    <p style="margin-top:10px">💡 La boleta simple va completa al gasto: sin línea de IVA.</p>
+
+    <p style="margin-top:16px"><b>Caso B — plata entregada para rendir después.</b> Le entregás
+       <b>$200.000</b> en efectivo a alguien del equipo que va a terreno. Todavía no hay gasto:
+       hay plata que cambió de bolsillo y alguien que la debe rendir. Son <b>dos vouchers</b>.</p>
+    <p style="margin-top:8px"><b>1) Al entregar la plata:</b></p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">1104-02</td><td>FONDOS POR RENDIR</td><td class="n">200.000</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">1101-01</td><td>CUENTA CAJA</td><td class="n dash">—</td><td class="n">200.000</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">200.000</td><td class="n">200.000</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $200.000 al debe y $200.000 al haber.</div>
+    </div>
+    <p style="margin-top:12px"><b>2) Cuando rinde con las boletas</b> (gastó $173.500 y devuelve
+       $26.500):</p>
+    <div class="asiento">
+      <table>
+        <tr><th>#</th><th>Cuenta</th><th>Nombre</th><th class="n">DEBE</th><th class="n">HABER</th></tr>
+        <tr><td>1</td><td class="c">4201-26</td><td>LOCOMOCION Y COLACION</td><td class="n">173.500</td><td class="n dash">—</td></tr>
+        <tr class="alt"><td>2</td><td class="c">1101-01</td><td>CUENTA CAJA <i>(el vuelto que devuelve)</i></td><td class="n">26.500</td><td class="n dash">—</td></tr>
+        <tr><td>3</td><td class="c">1104-02</td><td>FONDOS POR RENDIR <i>(se salda)</i></td><td class="n dash">—</td><td class="n">200.000</td></tr>
+        <tr class="tot"><td colspan="3">TOTALES</td><td class="n">200.000</td><td class="n">200.000</td></tr>
+      </table>
+      <div class="cuadra"><span class="k">✓</span> El asiento cuadra: $200.000 al debe y $200.000 al haber.</div>
+    </div>
+    <p style="margin-top:10px">💡 Mirá la línea 2 del segundo asiento: <b>la caja está en el DEBE</b>,
+       porque le está <b>entrando</b> el vuelto. Es el mejor ejemplo de que "debe" no quiere decir
+       "deuda". La misma cuenta cambia de columna según para qué lado se mueva la plata.</p>
+  </div>
+
+  <div class="datos">
+    <h4>📊 De dónde salen estos números</h4>
+    <div class="row"><b>Las cuentas</b><span>Del plan de cuentas oficial del fondo (212 cuentas, las mismas de Nubox). Los nombres están escritos tal cual figuran en el sistema, en mayúsculas, para que los reconozcas en el buscador.</span></div>
+    <div class="row"><b>IVA 19%</b><span>Lo calcula la plataforma sobre el neto, con redondeo al peso. Si la factura impresa difiere en $1 o $2, <b>manda la factura</b>: editá la línea del IVA.</span></div>
+    <div class="row"><b>Retención 15,25%</b><span>Tasa vigente durante 2026 (Art. 74 N°2 de la Ley de la Renta, escala de la Ley 21.133). Sube gradualmente en los años siguientes; la plataforma la aplica según la fecha del documento, no según la fecha de hoy.</span></div>
+    <div class="row"><b>Prorrateo de hitos</b><span>Lo hace la plataforma sobre el líquido de la OC. La suma de las retenciones de todos los hitos coincide exactamente con la retención total de la OC.</span></div>
+  </div>
+</section>
+
+<!-- FIRMAS -->
+<section id="firmas">
+  <h2><span class="ic">✍️</span> El circuito de firmas: quién firma y en qué orden</h2>
+  <p class="lead">Ningún voucher se paga con una sola firma. Nunca, sin importar el monto.</p>
+
+  <div class="flow">
+    <span class="n"><span class="badge b-draft">DRAFT</span> Borrador</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-pend">PENDING</span> Esperando 2 firmas</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-app">APPROVED</span> Firmado</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-exec">EXECUTED</span> Pagado</span>
+  </div>
+
+  <h4>Los cuatro momentos</h4>
+  <table>
+    <tr><th>Estado</th><th>Qué significa</th><th>Quién actúa</th><th>Se puede editar</th></tr>
+    <tr>
+      <td><span class="badge b-draft">DRAFT</span></td>
+      <td>Borrador. Podés cambiar todo: cuentas, montos, glosa, fecha. Acá puede estar descuadrado
+          sin problema.</td>
+      <td>Vos, o quien lleve la contabilidad de esa empresa</td><td><b>Sí, todo</b></td>
+    </tr>
+    <tr>
+      <td><span class="badge b-pend">PENDING</span></td>
+      <td>Apretaste <b>Enviar a aprobación</b>. Acá la plataforma ya verificó que cuadra. Queda a la
+          espera de las firmas.</td>
+      <td>Los dos firmantes de la empresa</td><td>No</td>
+    </tr>
+    <tr>
+      <td><span class="badge b-app">APPROVED</span></td>
+      <td>Las dos firmas están puestas. Es una orden de pago válida.</td>
+      <td>Tesorería, para ordenar la transferencia</td><td>No</td>
+    </tr>
+    <tr>
+      <td><span class="badge b-exec">EXECUTED</span></td>
+      <td>La plata salió. Queda para conciliar contra la cartola y para bajar a Nubox.</td>
+      <td>—</td><td>No</td>
+    </tr>
+  </table>
+
+  <h4>Quiénes son los dos que firman</h4>
+  <p>La regla configurada hoy en la plataforma es la misma para todas las empresas y para
+     <b>todos los montos, desde $1</b>:</p>
+  <table>
+    <tr><th>Firma</th><th>Rol</th><th>Quién es</th></tr>
+    <tr><td>Una</td><td><b>Gerente General</b> <span class="mono">GG</span></td><td>El líder de la empresa a la que pertenece el voucher.</td></tr>
+    <tr><td>Otra</td><td><b>Director</b> <span class="mono">DIRECTOR</span></td><td>El CFO del fondo, que firma en todas las empresas.</td></tr>
+  </table>
+
+  <div class="tip"><b>No hay orden.</b> Cualquiera de los dos puede firmar primero; el otro completa
+    después. La pantalla te dice en todo momento cuántas firmas hay
+    (<i>"1 de 2 firmas registradas"</i>) y de quién se está esperando la que falta.</div>
+
+  <h4>Las tres reglas que la plataforma hace cumplir sola</h4>
+  <ol class="steps">
+    <li><b>El que carga el voucher no lo puede firmar.</b> Aunque tengas el rol. Si lo intentás:
+      <span class="err">Segregación de deberes: el creador del voucher no puede firmarlo.
+Pedile a otro aprobador con el rol 'GG' en RHO.</span></li>
+    <li><b>Una persona no puede poner las dos firmas.</b> Si ya firmaste un paso, el botón
+      desaparece y aparece un cartel: <i>"No puedes firmar este paso: ya firmaste otro paso de este
+      voucher. Por regla anti-doble-firma, un mismo usuario no puede firmar 2 pasos del mismo
+      flujo."</i> Debajo te muestra los correos de quienes sí pueden.</li>
+    <li><b>No se firma un voucher descuadrado.</b> Nunca llega a esa instancia: la plataforma frena
+      antes, al enviarlo a aprobación.</li>
+  </ol>
+</section>
+
+<!-- RECHAZO -->
+<section id="rechazo">
+  <h2><span class="ic">↩️</span> Qué pasa si te rechazan un voucher</h2>
+  <p class="lead">Un rechazo no es el final del voucher. Es una devolución con instrucciones.</p>
+
+  <div class="flow">
+    <span class="n"><span class="badge b-pend">PENDING</span></span><span class="ar">→</span>
+    <span class="n">🚫 Alguien lo rechaza con un motivo</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-rej">REJECTED</span></span><span class="ar">→</span>
+    <span class="n">↩️ "Reabrir como borrador"</span><span class="ar">→</span>
+    <span class="n"><span class="badge b-draft">DRAFT</span> corregís y reenviás</span>
+  </div>
+
+  <ol class="steps">
+    <li><b>Quién puede rechazar:</b> cualquiera con un rol activo en esa empresa, no solamente los
+      dos firmantes. Un Director puede frenar un voucher dudoso aunque no le tocara firmar.</li>
+    <li><b>El motivo es obligatorio</b> y tiene que tener contenido (al menos 10 caracteres): nadie
+      puede rechazar con un "no" seco. Ese texto queda guardado y visible en el voucher.</li>
+    <li><b>El voucher no se borra ni pierde su número.</b> Queda en <span class="badge b-rej">REJECTED</span>
+      con el motivo a la vista y con las firmas históricas registradas.</li>
+    <li><b>Para corregirlo:</b> abrí el voucher y apretá <b>Reabrir como borrador</b>. Vuelve a
+      <span class="badge b-draft">DRAFT</span>, con el mismo código, y podés editar todo de nuevo.</li>
+    <li><b>Reenvialo</b> con <b>Enviar a aprobación</b>. Vuelve a empezar el circuito de firmas.</li>
+  </ol>
+
+  <div class="stop"><b>No crees un voucher nuevo después de un rechazo.</b> Quema un número del
+    correlativo, deja el rechazado dando vueltas y el mismo gasto queda registrado dos veces.
+    Reabrir es siempre el camino.</div>
+</section>
+
+<!-- ERRORES -->
+<section id="errores">
+  <h2><span class="ic">🚑</span> Los 8 errores más comunes, y cómo se ven en pantalla</h2>
+  <p class="lead">Los mensajes de abajo son <b>literales</b>: es exactamente el texto que te va a
+     aparecer. Buscá el tuyo acá antes de pedir ayuda.</p>
+
+  <h3>1 · El voucher no cuadra</h3>
+  <p><b>Mientras cargás</b>, el indicador de la parte de abajo del formulario está en rojo:</p>
+  <p style="margin-top:6px"><span class="bad-chip">✗ Descuadrado en Bruto — corregí líneas antes de enviar</span>
+     &nbsp;y al lado el campo <b>Diferencia</b> con el monto que falta.</p>
+  <p style="margin-top:8px"><b>Si igual intentás enviarlo a firma</b>, la plataforma lo frena y te
+     dice en cuánto está descuadrado (acá, un voucher al que le falta la línea del IVA):</p>
+  <span class="err">El voucher RHO-2026-COM-00004 está descuadrado: el debe suma 845000.00
+y el haber 1005550.00 (diferencia de -160550.00). Un asiento tiene que
+cuadrar antes de salir a firma — revisá las líneas.</span>
+  <p style="margin-top:8px">El código y los montos son los de <i>tu</i> voucher. La diferencia
+     negativa no tiene nada de raro: significa que falta plata del lado del <b>debe</b>.</p>
+  <p style="margin-top:8px"><b>Qué hacer:</b> leé la diferencia con la
+     <a href="#regla">tabla de diagnóstico</a>. En 9 de cada 10 casos falta la línea del IVA o
+     confundiste neto con total.</p>
+
+  <h3>2 · Una línea con monto en las dos columnas</h3>
+  <span class="err">Línea 2: debe tener débito XOR crédito (uno de los dos &gt; 0, no ambos).</span>
+  <p style="margin-top:8px"><b>Qué hacer:</b> decidí de qué lado va esa línea y borrá el monto del
+     otro. Si de verdad son dos cosas distintas, son dos líneas.</p>
+
+  <h3>3 · Elegiste una cuenta que no es imputable</h3>
+  <span class="err">Línea 3: cuenta '4201' no es imputable o está inactiva.</span>
+  <p style="margin-top:8px"><b>Qué significa:</b> el plan de cuentas tiene <b>títulos de grupo</b> —
+     <span class="mono">4201</span> es "GASTO DE ADMINISTRACIÓN"— y <b>cuentas de detalle</b> —
+     <span class="mono">4201-37</span> es "SERVICIOS COMPUTACIONALES"—. Los títulos son carpetas: no
+     reciben montos. De las 212 cuentas del plan, <b>147 son imputables</b> y las otras 65 son
+     títulos.</p>
+  <p><b>Qué hacer:</b> elegí siempre una cuenta con <b>guion y dos dígitos al final</b>. Es la regla
+     visual más rápida: <span class="mono">4201</span> no sirve, <span class="mono">4201-37</span>
+     sí.</p>
+
+  <h3>4 · La cuenta existe, pero no está habilitada para esa empresa</h3>
+  <span class="err">Línea 1: cuenta 'XXXX-XX' no está habilitada para empresa 'TU_EMPRESA'</span>
+  <p style="margin-top:8px"><b>Qué significa:</b> además de existir en el plan, cada cuenta tiene que
+     estar <b>habilitada</b> para la empresa del voucher. Son dos permisos distintos y la plataforma
+     los revisa por separado.</p>
+  <p><b>Qué hacer:</b> primero revisá que la <b>empresa</b> del voucher sea la correcta — si te
+     equivocaste de empresa, éste es el síntoma. Si la empresa está bien y estás seguro de que
+     debería poder usar esa cuenta, avisale a Administración: hay que habilitarla, no es un error
+     tuyo ni se arregla cambiando de cuenta.</p>
+
+  <h3>5 · El proyecto o el área no corresponden a esa empresa</h3>
+  <span class="err">Línea 2: área 'XXX' no aplica a empresa 'TU_EMPRESA'
+Línea 1: proyecto 'XXXXX' no existe o no es de TU_EMPRESA</span>
+  <p style="margin-top:8px"><b>Qué significa:</b> los proyectos y las áreas están asignados por
+     empresa. Un proyecto de una empresa no se puede imputar desde otra.</p>
+  <p><b>Qué hacer:</b> revisá primero la <b>empresa</b> del voucher — casi siempre el error real es
+     ése, no el proyecto. La empresa del voucher es la del RUT <b>receptor</b> del documento, no la
+     del proveedor que emitió la factura.</p>
+
+  <h3>6 · Compra o Venta sin identificar el documento</h3>
+  <span class="err">Voucher de COMPRA requiere doc_tributario_tipo + folio</span>
+  <p style="margin-top:8px"><b>Qué significa:</b> un voucher de Compra o de Venta tiene que decir
+     <b>qué documento</b> es (factura electrónica, boleta, nota de crédito…) y <b>qué número</b>
+     tiene. Sin eso el gasto no se puede cruzar contra el SII.</p>
+  <p><b>Qué hacer:</b> completá "Tipo de documento" y "N° documento" con lo que dice el papel. Si de
+     verdad no hay documento tributario, entonces el voucher probablemente no es una Compra: mirá
+     los <a href="#tipos">tipos</a>.</p>
+
+  <h3>7 · Querés editar un voucher que ya mandaste a firma</h3>
+  <span class="err">Solo se pueden editar vouchers en DRAFT (este está en PENDING).
+Para corregir un voucher ya enviado, crear voucher de REVERSO.</span>
+  <p style="margin-top:8px"><b>Qué hacer:</b> si <b>todavía no lo firmó nadie</b>, pedile a un
+     firmante que lo <b>rechace</b> con el motivo — vuelve a borrador y lo corregís (ver
+     <a href="#rechazo">rechazos</a>). Si <b>ya está firmado</b>, el único camino es el reverso.</p>
+
+  <h3>8 · Intentás firmar tu propio voucher</h3>
+  <span class="err">Segregación de deberes: el creador del voucher no puede firmarlo.
+Pedile a otro aprobador con el rol 'GG' en CENERGY.</span>
+  <p style="margin-top:8px"><b>Qué significa:</b> no es una falla de permisos: es la regla más
+     básica de control interno. Quien pide la plata no autoriza la plata.</p>
+  <p><b>Qué hacer:</b> avisale al Gerente General de esa empresa o al Director. La pantalla del
+     voucher muestra los correos de quienes pueden firmarlo.</p>
+
+  <div class="warn"><b>Bonus — un mensaje que no es culpa tuya:</b> si al firmar aparece
+    <i>"No hay regla de aprobación configurada para este voucher. Configurá las reglas en
+    /admin/approval-rules antes de aprobar"</i>, significa que esa empresa todavía no tiene cargada
+    su regla de firmas. No lo podés resolver desde el voucher: avisá a Administración. Al día de
+    hoy le falta a <b>PANIMÁVIDA</b>.</div>
+</section>
+
+<!-- NUNCA -->
+<section id="nunca">
+  <h2><span class="ic">⛔</span> Lo que NO se hace nunca</h2>
+  <p class="lead">Tres cosas. Ninguna es una preferencia de estilo: las tres rompen algo que después
+     cuesta mucho reparar.</p>
+
+  <div class="never">
+    <div class="nt">1 · Editar un voucher ya aprobado</div>
+    <p>Cuando dos personas firman, están firmando <b>ese</b> asiento, con <b>esos</b> montos. Si
+       después se puede cambiar, la firma no vale nada: quedaría respaldando algo que ya no dice lo
+       mismo. Por eso la plataforma lo bloquea, y por eso no hay que buscarle la vuelta.</p>
+    <p><b>Lo que sí se hace:</b> un <b>voucher de reverso</b>. El reverso da vuelta el asiento y lo
+       neutraliza; después cargás uno nuevo con los datos correctos. El libro queda con las tres
+       anotaciones —el original, el reverso y el bueno— y cualquiera puede reconstruir qué pasó.</p>
+
+    <div class="warn">
+      <b>Ojo: el reverso todavía no tiene botón propio.</b> El sistema lo soporta por dentro, pero
+      la pantalla del voucher no lo ofrece — la acción que vas a encontrar es <b>Anular</b>, y no es
+      la correcta para corregir. Si te equivocaste en un voucher ya firmado, <b>avisale a
+      administración</b>: es de las cosas que conviene que pasen por una sola mano.
+    </div>
+
+    <p><b>Por qué no alcanza con anular:</b> anular saca el asiento de la vista, pero no explica
+       nada. El reverso deja la corrección escrita.</p>
+  </div>
+
+  <div class="never">
+    <div class="nt">2 · Forzar la cuadratura con una línea de ajuste inventada</div>
+    <p>Es la tentación más grande y el daño más difícil de encontrar después. Falta $845.000 para que
+       cuadre, agregás una línea de "ajuste" o de "gastos generales" por $845.000, el indicador se
+       pone verde y el voucher sale a firma. <b>Cuadró el papel y se rompió la contabilidad.</b></p>
+    <p>El descuadre <b>no es un obstáculo: es la plataforma avisándote que falta un dato</b>. Ese
+       monto que "sobra" siempre tiene un nombre real: es el IVA que no cargaste, es el gasto que la
+       OC no sabía imputar (<a href="#ej4">Ejemplo 4</a>), es la retención que olvidaste, o es un
+       monto que copiaste mal. Encontrá el nombre y ponelo. Si no lo encontrás, preguntá — con el
+       voucher en borrador no pasa nada.</p>
+    <p><b>Cómo se ve el daño meses después:</b> el gerente firmó un gasto que no existe, el reporte
+       por cuenta miente, la rendición a CORFO incluye una línea que ningún documento respalda, y
+       nadie se acuerda de por qué está ahí.</p>
+  </div>
+
+  <div class="never">
+    <div class="nt">3 · Imputar el IVA al pozo CORFO</div>
+    <p>En un gasto de proyecto con subsidio, cada línea lleva marcada <b>quién la financia</b>. El
+       neto del gasto puede ir a <b>Subsidio CORFO</b>; <b>el IVA nunca</b>. El IVA no es un costo del
+       proyecto: la empresa lo recupera del SII vía F29, así que cargárselo al subsidio es pedirle a
+       CORFO que pague dos veces la misma plata.</p>
+    <p><b>Lo correcto:</b> la línea del neto con fuente <b>Subsidio CORFO</b>, y la línea de
+       <span class="mono">1113-02 IVA CREDITO FISCAL</span> con fuente <b>IVA corporativo</b> (o
+       empresa directa).</p>
+    <p>⚠️ <b>Y acá va lo importante:</b> hoy la plataforma <b>no te lo va a impedir</b>. La regla que
+       bloqueaba esto fue desactivada por decisión operativa, para no obligar a usar cuentas
+       específicas. O sea: <b>nadie te va a frenar</b>. Este es de los pocos puntos de la guía donde
+       la única red de seguridad sos vos.</p>
+  </div>
+
+  <div class="stop"><b>Y una cuarta, más chica pero muy repetida:</b> no cambies la fecha del
+    documento para que caiga en un mes que te conviene. La fecha es la de <b>emisión</b> impresa en
+    el papel. Moverla desordena el F29 del mes y el descalce aparece cuando ya no se puede corregir.</div>
+</section>
+
+<!-- CHECKLIST -->
+<section id="checklist">
+  <h2><span class="ic">✅</span> Checklist antes de mandar a firma</h2>
+  <p class="lead">Sesenta segundos que le ahorran a dos gerentes un rechazo y a vos rehacer el
+     trabajo.</p>
+  <ol class="steps">
+    <li><b>La empresa</b> del voucher es la del RUT <b>receptor</b> del documento.</li>
+    <li><b>El tipo</b> es el correcto (Compra si es una factura que llega; Egreso si es plata que sale).</li>
+    <li><b>La fecha</b> es la de emisión del documento, no la de hoy.</li>
+    <li><b>La glosa</b> explica <i>qué</i> y <i>para qué</i>. "Pago" no es una glosa; "Fumigación
+      predio Panimávida jun-26" sí.</li>
+    <li><b>El gasto</b> está en su cuenta específica, no en <span class="mono">4201-08 GASTOS GENERALES</span>.</li>
+    <li><b>El IVA</b> está en su línea propia (<span class="mono">1113-02</span>) — o no está, si el
+      documento no lo desglosa.</li>
+    <li><b>Si es boleta de honorarios:</b> está la retención en <span class="mono">2105-04</span> y
+      no hay ninguna línea de IVA.</li>
+    <li><b>Cuadra</b>: el indicador está en verde
+      (<span class="ok-chip">✓ Partida doble cuadrada</span>).</li>
+    <li><b>El documento está adjunto</b> — la plataforma hoy no te lo exige, pero el gerente que
+      firma lo va a buscar.</li>
+    <li><b>Si es proyecto con subsidio:</b> cada línea tiene su fuente, y la del IVA <b>no</b> es
+      Subsidio CORFO.</li>
+  </ol>
+
+  <div class="tip"><b>Cuando dudes, no adivines.</b> Un borrador puede quedar días en
+    <span class="badge b-draft">DRAFT</span> sin molestar a nadie y sin consecuencias. Un voucher mal
+    imputado que pasó las dos firmas hay que reversarlo, y eso ya involucra a tres personas. Preguntá
+    antes: a quien lleve la contabilidad de tu empresa, o a MCG Consultores para las dudas
+    contables.</div>
+</section>
+
+</div>
+<footer>
+  Guía de vouchers para encargados · Ram-Cehta — FIP CEHTA ESG · Plan de cuentas oficial Nubox
+  (212 cuentas) · Retención de honorarios 15,25% (2026) ·
+  <a href="/GUIA_INGRESO_VOUCHERS.html">Guía de ingreso: cuentas y vías</a> ·
+  <a href="/GUIA_USUARIO.html">Guía general de la plataforma</a> ·
+  Dudas contables: MCG Consultores · Dudas de plataforma: ClaudIA en la app
+</footer>
+</main>
+</div>
+<script>
+// Buscador del menú + resaltado de sección activa
+const q=document.getElementById('q'),links=[...document.querySelectorAll('#nav a')];
+q.addEventListener('input',()=>{const v=q.value.toLowerCase();
+  links.forEach(a=>{a.style.display=a.textContent.toLowerCase().includes(v)?'':'none'});
+  document.querySelectorAll('#nav .grp').forEach(g=>{let n=g.nextElementSibling,any=false;
+    while(n&&!n.classList.contains('grp')){if(n.style.display!=='none')any=true;n=n.nextElementSibling}
+    g.style.display=any?'':'none'})});
+const secs=[...document.querySelectorAll('section')];
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+  links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id))}})},
+  {rootMargin:'-30% 0px -60% 0px'});
+secs.forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

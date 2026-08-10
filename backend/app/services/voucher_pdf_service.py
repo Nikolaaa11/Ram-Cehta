@@ -2,7 +2,9 @@
 
 Genera un PDF "bundle" por voucher:
   1. Cover PDF (1-3 páginas) con branding de la empresa y todo el detalle:
-     header, info grid, glosa, tabla de líneas, totales, approvals, footer.
+     header, info grid, glosa, VISTA CONTABLE (el asiento + cuadratura),
+     VISTA FINANCIERA (composición del documento tributario), approvals,
+     footer.
   2. Si include_attachments=True: descarga cada adjunto desde Dropbox y los
      concatena al final del PDF. PDFs nativos se merge-an con pypdf, imágenes
      (jpg/png/webp) se renderizan a A4 con Pillow + reportlab, otros tipos
@@ -25,14 +27,15 @@ import asyncio
 import contextlib
 import io
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Final
 
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib import colors
 from reportlab.lib.colors import HexColor
-from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
@@ -49,6 +52,11 @@ from reportlab.platypus import (
 )
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# La cuenta de retención no se hardcodea acá: se lee de donde ya vive, que es
+# el motor de asientos. El día que cambie, cambia en un solo lugar y el PDF
+# sigue leyendo la retención correcta.
+from app.domain.services.asiento_desde_oc import CUENTA_RETENCION_HONORARIOS
 
 log = logging.getLogger(__name__)
 
@@ -169,7 +177,8 @@ async def _fetch_voucher_bundle_data(
                        contraparte_rut, contraparte_nombre, contraparte_tipo,
                        doc_tributario_tipo, doc_tributario_folio,
                        banco, banco_cuenta_alias, forma_pago,
-                       fecha_vencimiento, source, created_at, threshold_aplicado
+                       fecha_vencimiento, source, created_at, threshold_aplicado,
+                       impuesto_especifico
                 FROM core.vouchers
                 WHERE voucher_id = :id
                 """
@@ -210,7 +219,7 @@ async def _fetch_voucher_bundle_data(
                 """
                 SELECT line_number, cuenta_codigo, proyecto_codigo, area_codigo,
                        debit, credit, descripcion, neto_amount, iva_amount,
-                       tipo_imputacion
+                       iva_tratamiento, tipo_imputacion
                 FROM core.voucher_lines
                 WHERE voucher_id = :id
                 ORDER BY line_number
@@ -478,8 +487,310 @@ def _short_hash(h: str | None) -> str:
     return h[:16] + ("…" if len(h) > 16 else "")
 
 
-def _is_nubox_voucher(voucher: dict[str, Any]) -> bool:
-    return (voucher.get("source") or "").lower() == "nubox_form"
+# ---------------------------------------------------------------------------
+# Cálculo puro — las dos vistas del voucher
+# ---------------------------------------------------------------------------
+#
+# Estas funciones no saben nada de reportlab: comen los dicts que arma
+# `_fetch_voucher_bundle_data` y devuelven números. Están separadas del armado
+# de la tabla a propósito. El bug que motivó este rediseño —Σ(debe+haber)
+# comparado contra Σ(netos), que imprimía "DIFERENCIA -$440.168" arriba de un
+# asiento que cuadraba perfecto— vivía adentro del constructor de la tabla,
+# donde ningún test lo podía ver: una función que devuelve un `Table` no se
+# puede afirmar, una que devuelve un Decimal sí.
+#
+# Antes había DOS layouts elegidos por `source == 'nubox_form'`. Eso estaba mal
+# de raíz: el mismo asiento se imprimía distinto según por qué pantalla se
+# había cargado (/vouchers/nubox caía en la rama rota, /vouchers/corfo en la
+# sana, con idéntico shape de datos). El layout ahora se decide por lo único
+# que importa: si el desglose tributario está cargado o no.
+
+
+def _dec(value: Any) -> Decimal:
+    """Decimal de una columna NOT NULL DEFAULT 0 (`debit` / `credit`).
+
+    Acá NULL y 0 significan lo mismo porque la columna no admite NULL: si viene
+    None es un dict armado a mano, no un dato faltante.
+    """
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
+
+
+def _dec_or_none(value: Any) -> Decimal | None:
+    """Decimal de una columna NULLABLE (`neto_amount`, `iva_amount`, …).
+
+    El contrapunto de `_dec`: acá None es "no está cargado" y NO es cero.
+    Confundir los dos es exactamente cómo se imprime un $0 que miente.
+    """
+    if value is None:
+        return None
+    return Decimal(str(value))
+
+
+ESTADO_CUADRA: Final[str] = "CUADRA"
+ESTADO_DESCUADRE: Final[str] = "DESCUADRE"
+ESTADO_SIN_LINEAS: Final[str] = "SIN_LINEAS"
+ESTADO_SIN_MONTOS: Final[str] = "SIN_MONTOS"
+
+
+@dataclass(frozen=True)
+class CuadraturaContable:
+    """Lo único que responde la vista contable: ¿el asiento cuadra?
+
+    `estado` tiene cuatro valores y no dos porque "0 == 0" es cierto y a la vez
+    inútil: un voucher sin líneas, o con líneas en cero, tiene diferencia cero
+    y NO cuadra — no hay asiento que cuadrar. Un booleano solo obligaría al PDF
+    a decirle al gerente "el asiento cuadra" sobre una hoja vacía.
+    """
+
+    total_debe: Decimal
+    total_haber: Decimal
+    diferencia: Decimal  # debe - haber. Cero cuando cuadra.
+    estado: str
+    cantidad_lineas: int
+
+    @property
+    def cuadra(self) -> bool:
+        return self.estado == ESTADO_CUADRA
+
+    @property
+    def hay_asiento(self) -> bool:
+        """False cuando no hay nada que verificar (sin líneas o todo en cero)."""
+        return self.estado in (ESTADO_CUADRA, ESTADO_DESCUADRE)
+
+
+def calcular_cuadratura_contable(lines: list[dict]) -> CuadraturaContable:
+    """Σ DEBE y Σ HABER del asiento, calculadas desde las líneas.
+
+    Se calcula desde las líneas y NO desde `vouchers.total_debit/total_credit`:
+    el asiento son las líneas: el encabezado es un derivado que puede quedar
+    viejo. Si el papel dice que cuadra, tiene que ser porque lo que está
+    impreso arriba suma igual, no porque un contador guardado dijo que sí.
+
+    Las dos sumas son independientes a propósito. La BD NO tiene el CHECK de
+    `debit XOR credit` (la migración 0035 lo declara, `pg_constraint` en
+    producción está vacío), así que una línea con los dos lados cargados es
+    posible; sumarlos por separado la deja a la vista en vez de taparla.
+    """
+    total_debe = sum((_dec(ln.get("debit")) for ln in lines), start=Decimal("0"))
+    total_haber = sum((_dec(ln.get("credit")) for ln in lines), start=Decimal("0"))
+    diferencia = total_debe - total_haber
+
+    if not lines:
+        estado = ESTADO_SIN_LINEAS
+    elif total_debe == 0 and total_haber == 0:
+        estado = ESTADO_SIN_MONTOS
+    elif diferencia == 0:
+        estado = ESTADO_CUADRA
+    else:
+        estado = ESTADO_DESCUADRE
+
+    return CuadraturaContable(
+        total_debe=total_debe,
+        total_haber=total_haber,
+        diferencia=diferencia,
+        estado=estado,
+        cantidad_lineas=len(lines),
+    )
+
+
+# Regímenes en los que la ley dice que la operación no lleva IVA. Cuando la
+# línea los declara, un IVA de $0 es un dato (lo afirma el régimen), no un
+# relleno. Con cualquier otro tratamiento —o sin tratamiento— un IVA no
+# cargado es desconocido y se imprime como tal.
+_TRATAMIENTOS_SIN_IVA: Final[frozenset[str]] = frozenset({"EXENTO", "NO_GRAVADO"})
+
+
+@dataclass(frozen=True)
+class DesgloseTributario:
+    """Composición del documento: cuánta plata sale y de qué está hecha.
+
+    Todos los montos son `Decimal | None`, y el None es la mitad del valor de
+    esta clase: significa "no está cargado", que es distinto de cero. El
+    renderer imprime "—" para None y "$0" para Decimal(0), y esa diferencia es
+    la que separa un documento honesto de uno que inventa.
+    """
+
+    neto: Decimal | None
+    iva: Decimal | None
+    impuesto_especifico: Decimal | None
+    retencion: Decimal | None
+    total_documento: Decimal | None
+    total_a_pagar: Decimal | None
+    tratamiento_iva: str | None  # AFECTO / EXENTO / NO_GRAVADO / MIXTO / None
+
+    @property
+    def hay_desglose(self) -> bool:
+        """True si hay algo tributario que valga la pena imprimir.
+
+        Ojo con la sutileza: un 0 guardado SÍ es un dato (la trampa del cero
+        falso también se comete al revés, confundiendo un cero legítimo con
+        ausencia). Lo que no sirve es encender la sección entera para mostrar
+        un único número que dice cero, con neto, IVA y total en guiones —
+        eso es justamente "un número impreso que no significa nada".
+
+        Entonces: el neto y el IVA valen por sí solos, porque son la
+        composición del documento. La retención y el impuesto específico sólo
+        encienden la sección si tienen monto: en cero no le dicen nada al
+        lector que el asiento no diga mejor.
+        """
+        if self.neto is not None or self.iva is not None:
+            return True
+        return any(
+            v is not None and v != 0
+            for v in (self.impuesto_especifico, self.retencion)
+        )
+
+
+def calcular_desglose_tributario(
+    voucher: dict, lines: list[dict]
+) -> DesgloseTributario:
+    """Arma la vista financiera desde los datos del propio voucher.
+
+    Fuentes, todas del voucher y ninguna inventada:
+      - neto / IVA: `voucher_lines.neto_amount` / `.iva_amount`, sumando sólo
+        las líneas que los traen. Que el gasto los traiga y la contrapartida no
+        es la forma normal del asiento, no una anomalía.
+      - impuesto específico: `vouchers.impuesto_especifico` (combustibles, ILA).
+      - retención: el haber imputado a la cuenta de retención de honorarios.
+        No hay columna `retencion` en el voucher — el único registro de la
+        retención ES esa línea del asiento, así que se lee de ahí.
+
+    Deliberadamente NO se toca la OC (`vouchers.oc_id`): una OC con hitos
+    genera un voucher por hito, así que el neto/IVA/retención de la OC son los
+    del contrato entero y no los de este documento. Imprimirlos acá sería el
+    mismo error que estamos arreglando, con otro disfraz.
+    """
+    # --- Neto: suma de las líneas que lo traen. Ninguna lo trae => None.
+    netos = [
+        n
+        for n in (_dec_or_none(ln.get("neto_amount")) for ln in lines)
+        if n is not None
+    ]
+    neto = sum(netos, start=Decimal("0")) if netos else None
+
+    # --- IVA. Se decide a nivel DOCUMENTO y no línea por línea, porque en el
+    # asiento real el IVA vive en su PROPIA línea (1113-02 IVA CRÉDITO FISCAL)
+    # y el neto en la del gasto. Emparejarlos por línea daba "no sé" sobre una
+    # factura afecta perfectamente cargada.
+    ivas_explicitos = [
+        i
+        for i in (_dec_or_none(ln.get("iva_amount")) for ln in lines)
+        if i is not None
+    ]
+    lineas_con_neto = [
+        ln for ln in lines if _dec_or_none(ln.get("neto_amount")) is not None
+    ]
+    if ivas_explicitos:
+        # Alguien cargó el desglose: el IVA del documento es lo que cargó.
+        iva = sum(ivas_explicitos, start=Decimal("0"))
+    elif lineas_con_neto and all(
+        (ln.get("iva_tratamiento") or "").upper() in _TRATAMIENTOS_SIN_IVA
+        for ln in lineas_con_neto
+    ):
+        # Todo el documento está bajo un régimen que no lleva IVA: el cero lo
+        # afirma la ley, no lo inventamos nosotros.
+        iva = Decimal("0")
+    else:
+        # O no hay nada cargado, o hay un neto afecto sin su IVA. En los dos
+        # casos la respuesta honesta es "no sé", nunca cero.
+        iva = None
+
+    impuesto_especifico = _dec_or_none(voucher.get("impuesto_especifico"))
+
+    # --- Retención: la POSICIÓN NETA de la cuenta de retención, no su haber.
+    #
+    # Buscarla por cuenta y sumarla por haber hacía que el papel se
+    # contradijera solo. Dos casos reales lo disparan:
+    #   · el REVERSO de un voucher de honorarios, que lleva 2105-04 al DEBE;
+    #   · el voucher que paga la retención al SII en el F29, ídem.
+    # En los dos, la suma de haberes daba Decimal("0") —que no es None—, así
+    # que se apagaba el cartel honesto "sin desglose" y se imprimía
+    # "Retención $0" ocho líneas debajo de una vista contable que mostraba
+    # "2105-04 · Debe $152.500". El mismo documento afirmando dos cosas
+    # incompatibles.
+    #
+    # `haber − debe` da el signo correcto en los dos sentidos: positivo cuando
+    # se retiene (nace el pasivo), negativo cuando se entera al SII (se
+    # extingue). Y si las dos patas se cancelan, el resultado es un 0 que SÍ
+    # es un dato real, no una ausencia disfrazada.
+    lineas_retencion = [
+        ln
+        for ln in lines
+        if (ln.get("cuenta_codigo") or "") == CUENTA_RETENCION_HONORARIOS
+    ]
+    retencion = (
+        sum(
+            (_dec(ln.get("credit")) - _dec(ln.get("debit")) for ln in lineas_retencion),
+            start=Decimal("0"),
+        )
+        if lineas_retencion
+        else None
+    )
+
+    # --- Total del documento. Sólo se puede afirmar con neto E IVA conocidos.
+    # `impuesto_especifico` NULL sí se puede tomar como cero: el modelo lo
+    # documenta como "NULL = no aplica" (app/models/voucher.py), o sea que la
+    # ausencia ahí es una afirmación del schema, no un dato faltante.
+    if neto is not None and iva is not None:
+        # `is None` y no `or`: con `or`, un impuesto específico guardado en cero
+        # entraría por la rama del fallback. Da el mismo número, pero es la
+        # trampa de este repo escrita a mano y el que lea después no tiene por
+        # qué demostrarse que es inocua.
+        extra = Decimal("0") if impuesto_especifico is None else impuesto_especifico
+        total_documento = neto + iva + extra
+    else:
+        total_documento = None
+
+    total_a_pagar = (
+        total_documento - retencion
+        if total_documento is not None and retencion is not None
+        else None
+    )
+
+    tratamientos = {(ln.get("iva_tratamiento") or "").upper() for ln in lines}
+    tratamientos.discard("")
+    tratamientos.discard("NA")  # "no aplica" no describe un régimen: no se muestra
+    if len(tratamientos) == 1:
+        tratamiento_iva: str | None = next(iter(tratamientos))
+    elif tratamientos:
+        tratamiento_iva = "MIXTO"
+    else:
+        tratamiento_iva = None
+
+    return DesgloseTributario(
+        neto=neto,
+        iva=iva,
+        impuesto_especifico=impuesto_especifico,
+        retencion=retencion,
+        total_documento=total_documento,
+        total_a_pagar=total_a_pagar,
+        tratamiento_iva=tratamiento_iva,
+    )
+
+
+def formatear_debe_haber(
+    debit: Any, credit: Any, moneda: str = "CLP"
+) -> tuple[str, str]:
+    """Las dos celdas de monto de una línea, ya formateadas.
+
+    En un libro contable el lado que no lleva monto va VACÍO. No "—", que
+    significa "no sé" y acá sí sabemos que es cero; y no "$0" en cada fila,
+    que es ruido y hace que el ojo tenga que buscar el número real.
+
+    La excepción es la línea sin monto de ningún lado: ahí los dos ceros se
+    imprimen, porque esa línea está mal cargada y esconderla sería tapar el
+    problema con un espacio en blanco.
+    """
+    d = _dec(debit)
+    c = _dec(credit)
+    if d == 0 and c == 0:
+        return _fmt_money(d, moneda), _fmt_money(c, moneda)
+    return (
+        _fmt_money(d, moneda) if d != 0 else "",
+        _fmt_money(c, moneda) if c != 0 else "",
+    )
 
 
 class _CoverDoc(BaseDocTemplate):
@@ -771,6 +1082,10 @@ def _build_cover_pdf(data: dict[str, Any], logo_bytes: bytes | None) -> bytes:
         "Section", parent=styles["Heading3"],
         fontSize=11, textColor=CEHTA_GREEN_DARK, spaceBefore=8, spaceAfter=4,
         fontName="Helvetica-Bold",
+        # Un título solo al pie de una página, con su contenido en la
+        # siguiente, se lee como una sección vacía. Pasaba con "VISTA
+        # FINANCIERA" en los vouchers de tres líneas o más.
+        keepWithNext=1,
     )
     glosa_style = ParagraphStyle(
         "Glosa", parent=styles["Normal"],
@@ -804,7 +1119,6 @@ def _build_cover_pdf(data: dict[str, Any], logo_bytes: bytes | None) -> bytes:
     ]))
 
     # Info grid: 2 columns x 4 rows
-    nubox = _is_nubox_voucher(voucher)
     info_pairs: list[tuple[str, str, str, str]] = [
         (
             "Fecha documento",
@@ -876,18 +1190,31 @@ def _build_cover_pdf(data: dict[str, Any], logo_bytes: bytes | None) -> bytes:
     story.append(glosa_tbl)
     story.append(Spacer(1, 3 * mm))
 
-    # Lines table
-    story.append(Paragraph(
-        "DETALLE FINANCIERO / CONTABLE" if nubox else "IMPUTACIÓN CONTABLE",
-        section,
-    ))
     moneda = voucher.get("moneda") or "CLP"
-    lines_tbl = _build_lines_table(lines, moneda, nubox=nubox)
-    story.append(lines_tbl)
-    story.append(Spacer(1, 3 * mm))
 
-    # Totals box
-    story.append(_build_totals_table(voucher, lines, moneda, nubox=nubox))
+    # --- VISTA CONTABLE: el asiento, y si cuadra o no.
+    # Va primero porque es la que responde la pregunta del que firma: ¿está
+    # bien hecho el trabajo? Se imprime siempre y con el mismo layout para
+    # todos los vouchers, venga de la pantalla que venga.
+    story.append(Paragraph("VISTA CONTABLE · EL ASIENTO", section))
+    story.append(_build_contable_table(lines, moneda))
+    story.append(_build_cuadratura_box(calcular_cuadratura_contable(lines), moneda))
+
+    # --- VISTA FINANCIERA: de qué está hecho el monto del documento.
+    # Separada de la contable porque responde otra pregunta (cuánta plata sale
+    # y cómo se compone), y porque mezclarlas fue lo que produjo la resta sin
+    # sentido que este rediseño saca.
+    # El título va ADENTRO del KeepTogether y no antes: `keepWithNext` no puede
+    # engancharse a un KeepTogether (reportlab lo excluye vía `_ktAllow`, porque
+    # es un `_ContainerSpace`), así que el título quedaba huérfano al pie de la
+    # página con su contenido en la siguiente. Se verificó rindiendo el asiento
+    # de honorarios de 3 líneas.
+    story.append(KeepTogether([
+        Paragraph("VISTA FINANCIERA · EL DOCUMENTO", section),
+        *_build_financiera_block(
+            voucher, calcular_desglose_tributario(voucher, lines), moneda
+        ),
+    ]))
 
     # Approvals
     if status_str in _APPROVAL_REQUIRED_STATUSES:
@@ -910,10 +1237,16 @@ def _esc(s: Any) -> str:
     )
 
 
-def _build_lines_table(
-    lines: list[dict], moneda: str, *, nubox: bool
-) -> Table:
-    """Tabla de líneas con header en cehta-green, alternancia de filas, total."""
+def _build_contable_table(lines: list[dict], moneda: str) -> Table:
+    """VISTA CONTABLE — el asiento, una línea por fila, en DEBE o en HABER.
+
+    Seis columnas: # · Cuenta · Nombre de la cuenta · Glosa · Debe · Haber.
+    El nombre de la cuenta y la glosa van en columnas separadas (antes
+    compartían una celda con un `<br/>` en el medio) porque responden cosas
+    distintas: contra qué cuenta se imputó, y por qué. El nombre ya viene
+    resuelto en `_fetch_voucher_bundle_data` con una sola query batch contra
+    `core.plan_cuentas`, así que separarlo no cuesta un round-trip más.
+    """
     styles = getSampleStyleSheet()
     cell = ParagraphStyle(
         "Cell", parent=styles["Normal"], fontSize=8, leading=10,
@@ -922,87 +1255,57 @@ def _build_lines_table(
     cell_mono = ParagraphStyle(
         "CellMono", parent=cell, fontName="Courier", fontSize=8,
     )
-    if nubox:
-        header = ["#", "Cuenta", "Descripción", "Neto", "IVA", "Total"]
-    else:
-        header = ["#", "Cuenta", "Descripción", "Debe", "Haber"]
+    cell_grey = ParagraphStyle("CellGrey", parent=cell, textColor=CEHTA_GREY)
+    cell_right = ParagraphStyle("CellRight", parent=cell, alignment=TA_RIGHT)
 
+    header = ["#", "Cuenta", "Nombre de la cuenta", "Glosa", "Debe", "Haber"]
     rows: list[list[Any]] = [header]
-    total_debit = Decimal("0")
-    total_credit = Decimal("0")
-    total_neto = Decimal("0")
-    total_iva = Decimal("0")
+
+    total_debe = Decimal("0")
+    total_haber = Decimal("0")
 
     for ln in lines:
-        debit = Decimal(str(ln.get("debit") or 0))
-        credit = Decimal(str(ln.get("credit") or 0))
-        neto = Decimal(str(ln.get("neto_amount") or 0))
-        iva = Decimal(str(ln.get("iva_amount") or 0))
-        total_debit += debit
-        total_credit += credit
-        total_neto += neto
-        total_iva += iva
-
-        desc_parts = []
-        if ln.get("cuenta_nombre"):
-            desc_parts.append(_esc(ln["cuenta_nombre"]))
-        if ln.get("descripcion"):
-            desc_parts.append(f"<font color='#6b7280'>{_esc(ln['descripcion'])}</font>")
-        desc_html = "<br/>".join(desc_parts) or "—"
-
-        if nubox:
-            total_line = debit + credit  # bruto approx
-            rows.append([
-                Paragraph(str(ln.get("line_number", "")), cell),
-                Paragraph(_esc(ln.get("cuenta_codigo") or ""), cell_mono),
-                Paragraph(desc_html, cell),
-                Paragraph(_fmt_money(neto, moneda) if neto else "—", cell),
-                Paragraph(_fmt_money(iva, moneda) if iva else "—", cell),
-                Paragraph(_fmt_money(total_line, moneda) if total_line else "—", cell),
-            ])
-        else:
-            rows.append([
-                Paragraph(str(ln.get("line_number", "")), cell),
-                Paragraph(_esc(ln.get("cuenta_codigo") or ""), cell_mono),
-                Paragraph(desc_html, cell),
-                Paragraph(_fmt_money(debit, moneda) if debit else "—", cell),
-                Paragraph(_fmt_money(credit, moneda) if credit else "—", cell),
-            ])
-
-    # Total row
-    if nubox:
+        total_debe += _dec(ln.get("debit"))
+        total_haber += _dec(ln.get("credit"))
+        celda_debe, celda_haber = formatear_debe_haber(
+            ln.get("debit"), ln.get("credit"), moneda
+        )
         rows.append([
-            "",
-            "",
-            Paragraph("<b>TOTAL</b>", cell),
-            Paragraph(f"<b>{_fmt_money(total_neto, moneda)}</b>", cell),
-            Paragraph(f"<b>{_fmt_money(total_iva, moneda)}</b>", cell),
-            Paragraph(
-                f"<b>{_fmt_money(total_neto + total_iva, moneda)}</b>", cell
-            ),
+            Paragraph(str(ln.get("line_number", "")), cell),
+            Paragraph(_esc(ln.get("cuenta_codigo") or ""), cell_mono),
+            # Nombre vacío = la cuenta no está en el plan. "—" (no sé cómo se
+            # llama) es la lectura correcta y además deja el hueco a la vista.
+            Paragraph(_esc(ln.get("cuenta_nombre") or "—"), cell),
+            Paragraph(_esc(ln.get("descripcion") or "—"), cell_grey),
+            Paragraph(celda_debe, cell_right),
+            Paragraph(celda_haber, cell_right),
+        ])
+
+    hay_total = bool(lines)
+    if hay_total:
+        rows.append([
+            "", "", "",
+            Paragraph("<b>TOTAL</b>", cell_right),
+            Paragraph(f"<b>{_fmt_money(total_debe, moneda)}</b>", cell_right),
+            Paragraph(f"<b>{_fmt_money(total_haber, moneda)}</b>", cell_right),
         ])
     else:
         rows.append([
-            "",
-            "",
-            Paragraph("<b>TOTAL</b>", cell),
-            Paragraph(f"<b>{_fmt_money(total_debit, moneda)}</b>", cell),
-            Paragraph(f"<b>{_fmt_money(total_credit, moneda)}</b>", cell),
+            Paragraph("<i>Sin líneas contables cargadas</i>", cell_grey),
+            "", "", "", "", "",
         ])
 
     content_w = PAGE_W - MARGIN_L - MARGIN_R
-    if nubox:
-        col_widths = [
-            content_w * 0.05, content_w * 0.13, content_w * 0.42,
-            content_w * 0.13, content_w * 0.13, content_w * 0.14,
-        ]
-    else:
-        col_widths = [
-            content_w * 0.05, content_w * 0.15, content_w * 0.50,
-            content_w * 0.15, content_w * 0.15,
-        ]
+    col_widths = [
+        content_w * 0.05, content_w * 0.12, content_w * 0.25,
+        content_w * 0.26, content_w * 0.16, content_w * 0.16,
+    ]
 
     tbl = Table(rows, colWidths=col_widths, repeatRows=1)
+    # Índices de columna EXPLÍCITOS y no negativos: con `(-3, ...)` sobre una
+    # tabla de 6 columnas el "alinear a la derecha" caía sobre la Glosa.
+    col_debe, col_haber = 4, 5
+    ultima_fila = len(rows) - 1
     style: list[Any] = [
         # Header
         ("BACKGROUND", (0, 0), (-1, 0), CEHTA_GREEN),
@@ -1010,114 +1313,284 @@ def _build_lines_table(
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 9),
         ("ALIGN", (0, 0), (0, 0), "CENTER"),
-        ("ALIGN", (-3, 0), (-1, 0), "RIGHT"),
+        ("ALIGN", (col_debe, 0), (col_haber, 0), "RIGHT"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
         ("TOPPADDING", (0, 0), (-1, 0), 6),
         # Body
         ("FONTSIZE", (0, 1), (-1, -1), 8),
         ("ALIGN", (0, 1), (0, -1), "CENTER"),
-        ("ALIGN", (-3, 1), (-1, -1), "RIGHT"),
         ("VALIGN", (0, 1), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
         ("RIGHTPADDING", (0, 0), (-1, -1), 4),
         ("TOPPADDING", (0, 1), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 1), (-1, -1), 3),
-        ("GRID", (0, 0), (-1, -2), 0.25, CEHTA_BORDER),
-        # Total row
-        ("LINEABOVE", (0, -1), (-1, -1), 1.0, colors.black),
-        ("FONTNAME", (-3, -1), (-1, -1), "Helvetica-Bold"),
-        ("TOPPADDING", (0, -1), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, -1), (-1, -1), 4),
     ]
-    # Alternating rows
-    for i in range(1, len(rows) - 1):
+    if hay_total:
+        style += [
+            ("GRID", (0, 0), (-1, -2), 0.25, CEHTA_BORDER),
+            ("LINEABOVE", (0, -1), (-1, -1), 1.0, colors.black),
+            ("TOPPADDING", (0, -1), (-1, -1), 4),
+            ("BOTTOMPADDING", (0, -1), (-1, -1), 4),
+        ]
+    else:
+        style += [
+            ("GRID", (0, 0), (-1, -1), 0.25, CEHTA_BORDER),
+            ("SPAN", (0, 1), (5, 1)),
+            ("ALIGN", (0, 1), (0, 1), "LEFT"),
+        ]
+    # Zebra sobre el cuerpo, sin tocar la fila de totales.
+    fin_cuerpo = ultima_fila if hay_total else ultima_fila + 1
+    for i in range(1, fin_cuerpo):
         if i % 2 == 0:
             style.append(("BACKGROUND", (0, i), (-1, i), CEHTA_ROW_ALT))
     tbl.setStyle(TableStyle(style))
     return tbl
 
 
-def _build_totals_table(
-    voucher: dict, lines: list[dict], moneda: str, *, nubox: bool
-) -> Table:
-    """Caja de totales con sumas y diferencia (14pt en montos)."""
+# Veredicto de cuadratura: (texto, color de fondo, color de texto). El texto se
+# arma con `.format()` sobre los datos reales — nunca hay un cartel verde que
+# no venga de haber comparado los dos totales impresos justo arriba.
+_VEREDICTO_CUADRATURA: Final[dict[str, tuple[str, str, str]]] = {
+    ESTADO_CUADRA: (
+        "<b>EL ASIENTO CUADRA.</b> El total del debe es igual al total del "
+        "haber.",
+        "#f0fdf4",
+        "#166534",
+    ),
+    ESTADO_DESCUADRE: (
+        "<b>EL ASIENTO NO CUADRA.</b> {detalle} Debe corregirse antes de "
+        "aprobar.",
+        "#fef2f2",
+        "#991b1b",
+    ),
+    ESTADO_SIN_LINEAS: (
+        "<b>SIN ASIENTO CARGADO.</b> Este voucher todavía no tiene ninguna "
+        "línea contable, así que no hay cuadratura que verificar.",
+        "#fef3c7",
+        "#92400e",
+    ),
+    ESTADO_SIN_MONTOS: (
+        "<b>ASIENTO SIN MONTOS.</b> Las líneas están cargadas pero todas en "
+        "cero: no hay nada que verificar.",
+        "#fef3c7",
+        "#92400e",
+    ),
+}
+
+
+def _build_cuadratura_box(
+    cuadratura: CuadraturaContable, moneda: str
+) -> KeepTogether:
+    """Cierre de la vista contable: los dos totales y el veredicto, con palabras.
+
+    Reemplaza la caja de tres columnas que imprimía "DIFERENCIA" siempre —
+    incluso cuando valía cero, que es el caso normal y bueno. Acá la diferencia
+    aparece SÓLO cuando existe; cuando el asiento cuadra el papel lo dice en
+    castellano y en verde, que es lo que el que firma necesita leer.
+    """
     styles = getSampleStyleSheet()
-    total_label = ParagraphStyle(
-        "TotLabel", parent=styles["Normal"], fontSize=8, leading=10,
-        textColor=CEHTA_GREY, alignment=TA_CENTER,
-        fontName="Helvetica-Bold",
+    tot_label = ParagraphStyle(
+        "CuadLabel", parent=styles["Normal"], fontSize=8, leading=10,
+        textColor=CEHTA_GREY, alignment=TA_CENTER, fontName="Helvetica-Bold",
     )
-    total_value = ParagraphStyle(
-        "TotValue", parent=styles["Normal"], fontSize=14, leading=18,
-        textColor=colors.black, alignment=TA_CENTER,
-        fontName="Helvetica-Bold",
-    )
-    total_diff_value_ok = ParagraphStyle(
-        "TotDiffOk", parent=total_value, textColor=CEHTA_GREEN_DARK,
-    )
-    total_diff_value_bad = ParagraphStyle(
-        "TotDiffBad", parent=total_value, textColor=HexColor("#991b1b"),
+    tot_value = ParagraphStyle(
+        "CuadValue", parent=styles["Normal"], fontSize=14, leading=18,
+        textColor=colors.black, alignment=TA_CENTER, fontName="Helvetica-Bold",
     )
 
-    if nubox:
-        total_contable = sum(
-            (Decimal(str(ln.get("neto_amount") or 0)) for ln in lines),
-            start=Decimal("0"),
+    plantilla, bg_hex, fg_hex = _VEREDICTO_CUADRATURA[cuadratura.estado]
+    if cuadratura.estado == ESTADO_DESCUADRE:
+        monto = _fmt_money(abs(cuadratura.diferencia), moneda)
+        lado = "El debe supera al haber" if cuadratura.diferencia > 0 else (
+            "El haber supera al debe"
         )
-        total_financiera = sum(
-            (Decimal(str(ln.get("debit") or 0)) + Decimal(str(ln.get("credit") or 0))
-             for ln in lines),
-            start=Decimal("0"),
-        )
-        diff = total_contable - total_financiera
-        labels = ["Σ CONTABLE", "Σ FINANCIERA", "DIFERENCIA"]
-        amounts = [total_contable, total_financiera, diff]
+        texto = plantilla.format(detalle=f"{lado} en {monto}.")
     else:
-        total_debit = Decimal(str(voucher.get("total_debit") or 0))
-        total_credit = Decimal(str(voucher.get("total_credit") or 0))
-        # Recompute from lines for safety
-        sum_d = sum(
-            (Decimal(str(ln.get("debit") or 0)) for ln in lines),
-            start=Decimal("0"),
-        )
-        sum_c = sum(
-            (Decimal(str(ln.get("credit") or 0)) for ln in lines),
-            start=Decimal("0"),
-        )
-        if total_debit == 0 and sum_d > 0:
-            total_debit = sum_d
-        if total_credit == 0 and sum_c > 0:
-            total_credit = sum_c
-        diff = total_debit - total_credit
-        labels = ["Σ DEBE", "Σ HABER", "DIFERENCIA"]
-        amounts = [total_debit, total_credit, diff]
+        texto = plantilla
 
-    diff_style = total_diff_value_ok if diff == 0 else total_diff_value_bad
-    val_paragraphs = [
-        Paragraph(_fmt_money(amounts[0], moneda), total_value),
-        Paragraph(_fmt_money(amounts[1], moneda), total_value),
-        Paragraph(_fmt_money(amounts[2], moneda), diff_style),
+    veredicto_style = ParagraphStyle(
+        "CuadVeredicto", parent=styles["Normal"], fontSize=9, leading=12,
+        textColor=HexColor(fg_hex), alignment=TA_CENTER,
+    )
+
+    # Sin asiento no hay totales: "$0" ahí sería afirmar que las sumas dieron
+    # cero cuando en realidad no hay nada que sumar.
+    if cuadratura.hay_asiento:
+        txt_debe = _fmt_money(cuadratura.total_debe, moneda)
+        txt_haber = _fmt_money(cuadratura.total_haber, moneda)
+    else:
+        txt_debe = txt_haber = "—"
+
+    rows: list[list[Any]] = [
+        [Paragraph("TOTAL DEBE", tot_label), Paragraph("TOTAL HABER", tot_label)],
+        [Paragraph(txt_debe, tot_value), Paragraph(txt_haber, tot_value)],
+        [Paragraph(texto, veredicto_style), ""],
     ]
-    label_paragraphs = [Paragraph(lbl, total_label) for lbl in labels]
 
     content_w = PAGE_W - MARGIN_L - MARGIN_R
-    col_w = content_w / 3
-    tbl = Table(
-        [label_paragraphs, val_paragraphs],
-        colWidths=[col_w, col_w, col_w],
-    )
+    col_w = content_w / 2
+    tbl = Table(rows, colWidths=[col_w, col_w])
     tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), CEHTA_LIGHT_GREY),
+        ("BACKGROUND", (0, 0), (-1, 1), CEHTA_LIGHT_GREY),
+        ("BACKGROUND", (0, 2), (-1, 2), HexColor(bg_hex)),
         ("BOX", (0, 0), (-1, -1), 0.5, CEHTA_BORDER),
-        ("LINEAFTER", (0, 0), (-2, -1), 0.5, CEHTA_BORDER),
+        ("LINEAFTER", (0, 0), (0, 1), 0.5, CEHTA_BORDER),
+        ("LINEABOVE", (0, 2), (-1, 2), 0.5, CEHTA_BORDER),
+        ("SPAN", (0, 2), (1, 2)),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, 0), 8),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
         ("TOPPADDING", (0, 1), (-1, 1), 2),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), 10),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 8),
+        ("TOPPADDING", (0, 2), (-1, 2), 6),
+        ("BOTTOMPADDING", (0, 2), (-1, 2), 6),
+        ("LEFTPADDING", (0, 2), (-1, 2), 10),
+        ("RIGHTPADDING", (0, 2), (-1, 2), 10),
     ]))
+    # KeepTogether para que el veredicto no se separe de los totales que lo
+    # justifican: media caja al pie de una página sería peor que no tenerla.
     return KeepTogether([Spacer(1, 2 * mm), tbl])
+
+
+def _caption_documento(voucher: dict) -> str:
+    """Encabezado de la vista financiera: qué documento y de quién.
+
+    Se arma sólo con lo que existe. Si no hay ni documento ni contraparte
+    devuelve "", y el bloque se imprime sin caption en vez de con guiones.
+    """
+    partes: list[str] = []
+    tipo = voucher.get("doc_tributario_tipo")
+    folio = voucher.get("doc_tributario_folio")
+    if tipo and folio:
+        partes.append(f"Documento: {_esc(tipo)} N° {_esc(folio)}")
+    elif tipo:
+        partes.append(f"Documento: {_esc(tipo)} (sin folio)")
+    elif folio:
+        partes.append(f"Documento: folio {_esc(folio)}")
+
+    nombre = voucher.get("contraparte_nombre")
+    rut = voucher.get("contraparte_rut")
+    if nombre and rut:
+        partes.append(f"Contraparte: {_esc(nombre)} ({_esc(rut)})")
+    elif nombre:
+        partes.append(f"Contraparte: {_esc(nombre)}")
+    elif rut:
+        partes.append(f"Contraparte: RUT {_esc(rut)}")
+
+    return "  ·  ".join(partes)
+
+
+def _build_financiera_block(
+    voucher: dict, desglose: DesgloseTributario, moneda: str
+) -> list[Any]:
+    """VISTA FINANCIERA — neto, IVA, retención y total del documento.
+
+    Devuelve los flowables SIN envolver: el caller los mete en un KeepTogether
+    junto con el título de la sección, que es la única forma de que el título
+    no se despegue del contenido.
+
+    Cuando el desglose NO está cargado —que hoy es el caso de los 4 vouchers de
+    producción— esta sección lo DICE. No imprime $0: un cero es una afirmación
+    ("el IVA de esta compra fue cero") y sería falsa. El guion con la
+    aclaración es la verdad, y un documento que admite lo que no sabe vale más
+    que uno que rellena.
+    """
+    styles = getSampleStyleSheet()
+    caption_style = ParagraphStyle(
+        "FinCaption", parent=styles["Normal"], fontSize=8, leading=11,
+        textColor=CEHTA_GREY,
+    )
+    label_style = ParagraphStyle(
+        "FinLabel", parent=styles["Normal"], fontSize=9, leading=12,
+        textColor=colors.black,
+    )
+    value_style = ParagraphStyle(
+        "FinValue", parent=label_style, alignment=TA_RIGHT,
+        fontName="Helvetica-Bold",
+    )
+    aviso_style = ParagraphStyle(
+        "FinAviso", parent=styles["Normal"], fontSize=9, leading=12,
+        textColor=CEHTA_GREY,
+    )
+
+    out: list[Any] = []
+    caption = _caption_documento(voucher)
+    if caption:
+        out.append(Paragraph(caption, caption_style))
+        out.append(Spacer(1, 2 * mm))
+
+    content_w = PAGE_W - MARGIN_L - MARGIN_R
+
+    if not desglose.hay_desglose:
+        aviso = Table(
+            [[Paragraph(
+                "<b>Sin desglose tributario cargado.</b> Este voucher no "
+                "registra neto ni IVA por línea, así que no es posible "
+                "componer el total del documento. No se imprime $0 porque el "
+                "dato falta: no es que valga cero.",
+                aviso_style,
+            )]],
+            colWidths=[content_w],
+        )
+        aviso.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), CEHTA_LIGHT_GREY),
+            ("BOX", (0, 0), (-1, -1), 0.5, CEHTA_BORDER),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        out.append(aviso)
+        return out
+
+    etiqueta_iva = "IVA"
+    if desglose.tratamiento_iva:
+        etiqueta_iva += (
+            f" <font size='7' color='#6b7280'>({desglose.tratamiento_iva})</font>"
+        )
+
+    filas: list[tuple[str, Decimal | None]] = [
+        ("Neto", desglose.neto),
+        (etiqueta_iva, desglose.iva),
+    ]
+    if desglose.impuesto_especifico is not None:
+        filas.append(("Impuesto específico", desglose.impuesto_especifico))
+    if desglose.retencion is not None:
+        filas.append((
+            "Retención <font size='7' color='#6b7280'>(cuenta "
+            f"{CUENTA_RETENCION_HONORARIOS})</font>",
+            desglose.retencion,
+        ))
+    filas.append(("Total del documento", desglose.total_documento))
+    # El índice se toma acá y no buscando la etiqueta después: la línea negra
+    # tiene que caer sobre ESTA fila aunque mañana alguien reescriba el texto.
+    fila_total = len(filas) - 1
+    if desglose.total_a_pagar is not None:
+        filas.append((
+            "Total a pagar <font size='7' color='#6b7280'>(documento menos "
+            "retención)</font>",
+            desglose.total_a_pagar,
+        ))
+    rows = [
+        [Paragraph(lbl, label_style), Paragraph(_fmt_money(monto, moneda), value_style)]
+        for lbl, monto in filas
+    ]
+
+    tbl = Table(rows, colWidths=[content_w * 0.68, content_w * 0.32])
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), CEHTA_LIGHT_GREY),
+        ("BOX", (0, 0), (-1, -1), 0.5, CEHTA_BORDER),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LINEABOVE", (0, fila_total), (-1, fila_total), 1.0, colors.black),
+        ("FONTNAME", (0, fila_total), (-1, fila_total), "Helvetica-Bold"),
+    ]))
+    out.append(tbl)
+    return out
 
 
 def _build_approvals_table(approvals: list[dict]) -> Table:

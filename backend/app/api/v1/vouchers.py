@@ -101,12 +101,13 @@ from app.schemas.voucher import (
     VoucherTipo,
     VoucherUpdate,
 )
+# MEGAPROMPT PERF — `fetch_cuenta_metadata`, `fetch_proyecto_metadata`,
+# `is_cuenta_habilitada_para_empresa` e `is_area_aplica_a_empresa` ya no se
+# importan acá: las validaciones de línea de `create_voucher` e `import-csv`
+# leen los mismos datos EN LOTE. Las funciones siguen existiendo y las usan
+# `vouchers_nubox_form` y `voucher_templates`.
 from app.services.voucher_service import (
-    fetch_cuenta_metadata,
-    fetch_proyecto_metadata,
     generate_voucher_code,
-    is_area_aplica_a_empresa,
-    is_cuenta_habilitada_para_empresa,
     is_period_locked_for,
     validate_corfo_eligibility,
 )
@@ -1997,9 +1998,104 @@ async def create_voucher(
     # pueden crearse en cualquier status sin necesidad de adjunto.
     # El operador sube el documento después desde el detalle del voucher.
 
-    # 4-7. Validar cada línea
+    # 4-7. Validar cada línea — LOS DATOS SE TRAEN EN LOTE, LA REGLA SE
+    # APLICA LÍNEA POR LÍNEA.
+    #
+    # MEGAPROMPT PERF — Antes: hasta 4 queries secuenciales POR LÍNEA
+    # (cuenta + habilitada + proyecto + área). Con el cap de 200 líneas del
+    # schema eran hasta 800 round-trips encadenados sobre una sola conexión
+    # (~10-13 s contra São Paulo, con esa conexión del pool retenida todo el
+    # rato). Ahora son 4 queries totales, independientes del número de
+    # líneas — 2 si ninguna línea trae proyecto ni área.
+    #
+    # Sentencias SQL de todo el endpoint, contadas (antes → después):
+    #                            1 línea    10 líneas   200 líneas
+    #   sin proyecto/área          7 → 7      25 → 7      405 → 7
+    #   con proyecto + área        9 → 9      45 → 9      805 → 9
+    #
+    # El voucher típico tiene 2-10 líneas: hoy el ahorro es de ~0,5 s. Lo que
+    # de verdad se elimina es la única superficie del alta que escala mal.
+    #
+    # Es el mismo patrón que PUT /vouchers/{id}/lines
+    # (prevouchers.py:209-274). Lo que NO cambia: las reglas, los códigos
+    # HTTP y el texto de cada error. El bucle sigue cortando en la PRIMERA
+    # línea que falla y sigue diciendo qué línea y qué cuenta corregir —
+    # validar en lote no puede degradar el diagnóstico del operador.
+    cuenta_codes = sorted({line.cuenta_codigo for line in body.lines})
+    proy_codes = sorted(
+        {line.proyecto_codigo for line in body.lines if line.proyecto_codigo}
+    )
+    area_codes = sorted(
+        {line.area_codigo for line in body.lines if line.area_codigo}
+    )
+
+    # `corfo_elegible` y `tipo_gasto_corfo` se traen aunque hoy no los mire
+    # nadie: son los que consume el bloque CORFO comentado más abajo (R147).
+    # Sin ellos en el SELECT, reactivarlo sería un KeyError en producción.
+    cuentas_meta = {
+        r["codigo"]: dict(r)
+        for r in (
+            await db.execute(
+                text(
+                    """SELECT codigo, imputable, activa, nivel,
+                              corfo_elegible, tipo_gasto_corfo
+                       FROM core.plan_cuentas
+                       WHERE codigo = ANY(:codes)"""
+                ),
+                {"codes": cuenta_codes},
+            )
+        ).mappings().all()
+    }
+    cuentas_habilitadas = {
+        r[0]
+        for r in (
+            await db.execute(
+                text(
+                    """SELECT cuenta_codigo FROM core.plan_cuenta_empresa
+                       WHERE empresa_codigo = :e AND habilitada = TRUE
+                         AND cuenta_codigo = ANY(:codes)"""
+                ),
+                {"e": body.empresa_codigo, "codes": cuenta_codes},
+            )
+        ).fetchall()
+    }
+    # Los proyectos se traen SIN filtrar por empresa a propósito: el error
+    # distingue "el proyecto no existe" de "existe pero es de otra empresa",
+    # y filtrando en el WHERE los dos casos quedarían indistinguibles.
+    proyectos_meta: dict[str, dict[str, Any]] = {}
+    if proy_codes:
+        proyectos_meta = {
+            r["codigo"]: dict(r)
+            for r in (
+                await db.execute(
+                    text(
+                        """SELECT codigo, empresa_codigo, tipo_financiamiento,
+                                  tipos_gasto_elegibles
+                           FROM core.proyectos_contables
+                           WHERE codigo = ANY(:codes)"""
+                    ),
+                    {"codes": proy_codes},
+                )
+            ).mappings().all()
+        }
+    areas_aplican: set[str] = set()
+    if area_codes:
+        areas_aplican = {
+            r[0]
+            for r in (
+                await db.execute(
+                    text(
+                        """SELECT area_codigo FROM core.area_empresa
+                           WHERE empresa_codigo = :e AND aplica = TRUE
+                             AND area_codigo = ANY(:codes)"""
+                    ),
+                    {"e": body.empresa_codigo, "codes": area_codes},
+                )
+            ).fetchall()
+        }
+
     for line in body.lines:
-        cuenta = await fetch_cuenta_metadata(db, line.cuenta_codigo)
+        cuenta = cuentas_meta.get(line.cuenta_codigo)
         if cuenta is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -2018,9 +2114,7 @@ async def create_voucher(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Línea {line.line_number}: cuenta '{line.cuenta_codigo}' está inactiva",
             )
-        if not await is_cuenta_habilitada_para_empresa(
-            db, line.cuenta_codigo, body.empresa_codigo
-        ):
+        if line.cuenta_codigo not in cuentas_habilitadas:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -2030,7 +2124,7 @@ async def create_voucher(
             )
 
         if line.proyecto_codigo:
-            proy = await fetch_proyecto_metadata(db, line.proyecto_codigo)
+            proy = proyectos_meta.get(line.proyecto_codigo)
             if proy is None:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -2063,9 +2157,7 @@ async def create_voucher(
             #         detail=f"Línea {line.line_number}: {corfo_err}",
             #     )
 
-        if line.area_codigo and not await is_area_aplica_a_empresa(
-            db, line.area_codigo, body.empresa_codigo
-        ):
+        if line.area_codigo and line.area_codigo not in areas_aplican:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
@@ -4723,6 +4815,18 @@ async def bulk_approve_vouchers(
     # siempre en mismo orden → no hay ciclo.
     sorted_vids = sorted(body.voucher_ids)
 
+    # MEGAPROMPT PERF — `load_user_roles_for_empresa` y `load_active_rules`
+    # repetían LA MISMA query por cada voucher del batch (tope 50 → hasta 100
+    # round-trips) aunque en la práctica un lote es de una o dos empresas.
+    # Memo por empresa dentro del request: mismo patrón que
+    # `list_mis_pendientes` (rules_cache, más arriba en este archivo). Son
+    # tablas de referencia que este endpoint no escribe, así que el snapshot
+    # vale para todo el lote — y de paso garantiza que los 50 vouchers se
+    # evalúen contra la MISMA regla, que es lo que uno espera de una firma
+    # en lote. Con 50 vouchers de una empresa: ~500 → ~400 round-trips.
+    rules_cache: dict[str, list[dict[str, Any]]] = {}
+    user_roles_cache: dict[str, list[str]] = {}
+
     for vid in sorted_vids:
         try:
             # Round 141 hotfix — Lock pesimista del voucher para evitar race
@@ -4777,9 +4881,13 @@ async def bulk_approve_vouchers(
                 ))
                 continue
 
-            user_roles = await load_user_roles_for_empresa(
-                db, user_sub, voucher.empresa_codigo
-            )
+            if voucher.empresa_codigo not in user_roles_cache:
+                user_roles_cache[voucher.empresa_codigo] = (
+                    await load_user_roles_for_empresa(
+                        db, user_sub, voucher.empresa_codigo
+                    )
+                )
+            user_roles = user_roles_cache[voucher.empresa_codigo]
             if body.role not in user_roles:
                 items.append(BulkApproveItemResult(
                     voucher_id=vid, success=False,
@@ -4789,7 +4897,11 @@ async def bulk_approve_vouchers(
                 ))
                 continue
 
-            rules = await load_active_rules(db, voucher.empresa_codigo)
+            if voucher.empresa_codigo not in rules_cache:
+                rules_cache[voucher.empresa_codigo] = await load_active_rules(
+                    db, voucher.empresa_codigo
+                )
+            rules = rules_cache[voucher.empresa_codigo]
             bt = await get_voucher_balance_treatment_dominante(db, vid)
             rule = find_matching_rule(
                 rules,
@@ -5022,10 +5134,50 @@ async def import_vouchers_csv(
     if dry_run or not parsed_vouchers:
         return ImportCsvResponse(**report.to_dict())
 
+    # MEGAPROMPT PERF — El chequeo de cuentas era UNA QUERY POR LÍNEA de CADA
+    # voucher: un CSV de 100 vouchers × 3 líneas eran 300 round-trips para
+    # leer 3 columnas de una tabla de 212 filas, casi todas repetidas. Se
+    # traen todas de una antes del bucle: 1 query, independiente del tamaño
+    # del CSV, y la validación queda en memoria con el mismo mensaje.
+    # `plan_cuentas` es tabla de referencia y este endpoint no la escribe, así
+    # que el snapshot vale para todo el import (incluso después de un rollback
+    # de un voucher fallido, que sólo revierte inserts de vouchers).
+    csv_cuenta_codes = sorted(
+        {line.cuenta_codigo for vc in parsed_vouchers for line in vc.lines}
+    )
+    cuentas_csv: dict[str, dict[str, Any]] = {}
+    if csv_cuenta_codes:
+        cuentas_csv = {
+            r["codigo"]: dict(r)
+            for r in (
+                await db.execute(
+                    text(
+                        """SELECT codigo, imputable, activa
+                           FROM core.plan_cuentas
+                           WHERE codigo = ANY(:codes)"""
+                    ),
+                    {"codes": csv_cuenta_codes},
+                )
+            ).mappings().all()
+        }
+
     # Insertar best-effort: cada voucher en su propia transacción lógica.
     # Si uno falla por validación contra DB (cuenta no existe, empresa
     # inactiva), seguimos con los demás.
     for vc in parsed_vouchers:
+        # SAVEPOINT por voucher. Antes el `except` de abajo llamaba
+        # `db.rollback()`, que NO revierte "el voucher que falló": revierte la
+        # TRANSACCIÓN ENTERA. Con un CSV de 100 vouchers y el #50 roto, se
+        # borraban los 49 anteriores ya flusheados, el bucle seguía, y el
+        # commit final guardaba del 51 al 100. El reporte, en cambio, seguía
+        # listando los 99 "creados": la respuesta le decía al operador que
+        # había creado 99 vouchers cuando existían 50, sin ningún error que lo
+        # delatara. Un import contable que miente sobre lo que guardó es peor
+        # que uno que falla entero.
+        #
+        # Con el savepoint, el rollback alcanza SÓLO al voucher que falló y el
+        # reporte vuelve a decir la verdad.
+        savepoint = await db.begin_nested()
         try:
             # Re-usar el handler create_voucher hubiera sido lindo pero
             # depende de Pydantic-as-body. Replicamos la lógica esencial:
@@ -5058,10 +5210,11 @@ async def import_vouchers_csv(
                 )
                 continue
 
-            # 3. Cuentas existen + imputables (validación por línea)
+            # 3. Cuentas existen + imputables (validación por línea, sobre el
+            # lote traído arriba)
             cuentas_ok = True
             for line in vc.lines:
-                cuenta = await fetch_cuenta_metadata(db, line.cuenta_codigo)
+                cuenta = cuentas_csv.get(line.cuenta_codigo)
                 if cuenta is None or not cuenta["imputable"] or not cuenta["activa"]:
                     report.errors.append(
                         _make_csv_error(
@@ -5133,8 +5286,20 @@ async def import_vouchers_csv(
                 "lines": len(vc.lines),
             })
         except Exception as exc:  # noqa: BLE001
-            await db.rollback()
+            # Sólo el savepoint: los vouchers anteriores siguen vivos en la
+            # transacción y se commitean al final.
+            if savepoint.is_active:
+                await savepoint.rollback()
             report.errors.append(_make_csv_error(vc, f"error: {exc}"))
+        finally:
+            # `finally` y no `else`: el cuerpo del try tiene varios `continue`
+            # (empresa inactiva, período cerrado, cuenta inválida) y un
+            # `continue` se saltea el `else`, dejando el savepoint abierto y
+            # anidando uno nuevo en la vuelta siguiente. `finally` corre
+            # también en esos caminos. Tras un rollback el savepoint ya no
+            # está activo, así que no se commitea dos veces.
+            if savepoint.is_active:
+                await savepoint.commit()
 
     try:
         await db.commit()
