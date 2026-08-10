@@ -16,6 +16,7 @@ import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { toast } from "@/components/ui/toast";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { toCLP } from "@/lib/format";
 import type { OcRead } from "@/lib/api/schema";
 
 interface ItemForm {
@@ -55,10 +56,85 @@ const MONEDAS: ComboboxItem[] = [
   { value: "USD", label: "USD" },
 ];
 
+// Los 4 documentos que la OC sabe emitir. El `value` es el token que viaja a
+// la BD — es el mismo del catálogo SII que ya usa core.vouchers.doc_tributario_tipo,
+// para que el mapeo OC→voucher sea la identidad. La etiqueta en castellano es
+// presentación: vive acá y en el PDF, nunca en la columna.
 const TIPOS_DOCUMENTO: ComboboxItem[] = [
-  { value: "FACTURA", label: "Factura" },
-  { value: "BOLETA", label: "Boleta" },
+  { value: "FACTURA", label: "Factura", group: "Afectas a IVA" },
+  { value: "BOLETA", label: "Boleta", group: "Afectas a IVA" },
+  { value: "FACTURA_EXENTA", label: "Factura exenta", group: "Sin IVA" },
+  { value: "HONORARIOS", label: "Boleta de honorarios", group: "Sin IVA" },
 ];
+
+const esAfecto = (tipo: string) => tipo === "FACTURA" || tipo === "BOLETA";
+
+/**
+ * Escala del Art. 74 N°2 LIR (Ley 21.133). Esto es una SUGERENCIA de UI para
+ * que el operador no tenga que buscar la tasa del año: la tasa de verdad vive
+ * en `core.tax_config` (invariante 10) y el servidor la confirma contra la
+ * fecha de emisión. Mismo criterio que el default "19" del IVA.
+ * A partir de 2028 la ley la deja fija en 17%.
+ */
+function retencionSugerida(fechaEmision: string): string {
+  const anio = Number(fechaEmision.slice(0, 4));
+  if (!Number.isFinite(anio) || anio <= 2024) return "13.75";
+  if (anio === 2025) return "14.5";
+  if (anio === 2026) return "15.25";
+  if (anio === 2027) return "16";
+  return "17";
+}
+
+/**
+ * Espejo de la matemática del backend (§3 del megaprompt de honorarios). Vive
+ * acá SÓLO para el resumen en vivo: el número que vale es el que devuelve el
+ * servidor al guardar.
+ *
+ * Es una excepción consciente a "sin cálculos de negocio en el FE": sin ver
+ * las tres cifras antes de guardar, el operador carga el líquido pactado en el
+ * campo del bruto y el profesional termina cobrando 15% de menos. Mismo
+ * criterio que OcCuotasSection, que ya espeja `_derivar_montos`.
+ *
+ * `Math.round` es half-up para positivos, igual que el ROUND_HALF_UP de
+ * `_round_clp`. La retención se redondea y el líquido sale POR RESTA, para que
+ * `total_a_pagar + retencion_monto == total` cierre exacto (§3.3).
+ */
+function derivarTotales(opts: {
+  base: number;
+  tipo: string;
+  ivaPct: number;
+  retencionPct: number;
+  moneda: string;
+}) {
+  const { base, tipo, ivaPct, retencionPct, moneda } = opts;
+  // El backend no calcula IVA fuera de CLP (OrdenCompraCreate.iva_calculado).
+  const iva =
+    esAfecto(tipo) && moneda === "CLP" ? Math.round(base * (ivaPct / 100)) : 0;
+  const total = base + iva;
+  const retencion =
+    tipo === "HONORARIOS" ? Math.round(base * (retencionPct / 100)) : 0;
+  return { neto: base, iva, total, retencion, totalAPagar: total - retencion };
+}
+
+/**
+ * Gross-up: bruto que hay que contratar para que el profesional reciba
+ * `liquido` después de la retención. $1.000.000 al 15,25% → $1.179.941.
+ */
+function brutoDesdeLiquido(liquido: number, retencionPct: number): number {
+  const factor = 1 - retencionPct / 100;
+  if (factor <= 0) return liquido; // retención 100%: no hay gross-up posible
+  return Math.round(liquido / factor);
+}
+
+/**
+ * Parseo tolerante: "" y basura valen 0, pero un 0 tipeado vale 0 de verdad.
+ * Nada de `Number(x) || fallback`: con 0% de IVA o de retención eso devuelve
+ * el fallback y la OC exenta vuelve a mostrar 19%.
+ */
+const toNum = (v: string, fallback = 0): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 // Unidades que usa el equipo en las OC reales. Son SUGERENCIAS (datalist),
 // no una lista cerrada: el operador puede escribir cualquier otra y se
@@ -75,6 +151,46 @@ const UNIDADES_SUGERIDAS = [
   "Hrs",
   "Global",
 ];
+
+/** Fila del resumen de totales. `destacado` = la cifra que se va a girar. */
+function TotalRow({
+  label,
+  valor,
+  destacado = false,
+  negativo = false,
+}: {
+  label: React.ReactNode;
+  valor: string;
+  destacado?: boolean;
+  negativo?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-baseline justify-between gap-4${
+        destacado ? " border-t border-hairline pt-2" : ""
+      }`}
+    >
+      <dt
+        className={
+          destacado
+            ? "text-sm font-medium text-ink-900"
+            : "text-sm text-ink-500"
+        }
+      >
+        {label}
+      </dt>
+      <dd
+        className={
+          destacado
+            ? "text-base font-semibold text-cehta-green tabular-nums"
+            : `text-sm tabular-nums ${negativo ? "text-negative" : "text-ink-900"}`
+        }
+      >
+        {negativo ? `− ${valor}` : valor}
+      </dd>
+    </div>
+  );
+}
 
 export default function NuevaOcPage() {
   const router = useRouter();
@@ -99,6 +215,12 @@ export default function NuevaOcPage() {
   const [atteCargoManual, setAtteCargoManual] = useState("");
   const [tipoDocumento, setTipoDocumento] = useState("FACTURA");
   const [ivaPorcentaje, setIvaPorcentaje] = useState("19");
+  // Retención de honorarios. Sólo se usa (y se muestra) con tipo HONORARIOS.
+  const [retencionPorcentaje, setRetencionPorcentaje] = useState("15.25");
+  // Modo de carga del monto en honorarios (§3.2 del megaprompt): BRUTO = lo
+  // que cargo en los ítems es el honorario antes de retención; LIQUIDO = es
+  // lo que el profesional recibe en la cuenta y lo grosseamos al guardar.
+  const [modoMonto, setModoMonto] = useState<"BRUTO" | "LIQUIDO">("BRUTO");
   const [fechaEmision, setFechaEmision] = useState(
     new Date().toISOString().slice(0, 10),
   );
@@ -132,6 +254,10 @@ export default function NuevaOcPage() {
       plazoEntrega,
       observaciones,
       items,
+      tipoDocumento,
+      ivaPorcentaje,
+      retencionPorcentaje,
+      modoMonto,
     }),
     [
       empresaCodigo,
@@ -146,6 +272,10 @@ export default function NuevaOcPage() {
       plazoEntrega,
       observaciones,
       items,
+      tipoDocumento,
+      ivaPorcentaje,
+      retencionPorcentaje,
+      modoMonto,
     ],
   );
   const { clear: clearDraft, hasSaved } = useFormAutosave(
@@ -165,6 +295,15 @@ export default function NuevaOcPage() {
         if (saved.plazoEntrega) setPlazoEntrega(saved.plazoEntrega);
         if (saved.observaciones) setObservaciones(saved.observaciones);
         if (saved.items?.length) setItems(saved.items);
+        // Los porcentajes se chequean contra null y no por truthiness: un "0"
+        // guardado a propósito (exenta, retención cero) tiene que volver.
+        // Los drafts viejos no traen estos campos y quedan en su default.
+        if (saved.tipoDocumento) setTipoDocumento(saved.tipoDocumento);
+        if (saved.ivaPorcentaje != null) setIvaPorcentaje(saved.ivaPorcentaje);
+        if (saved.retencionPorcentaje != null) {
+          setRetencionPorcentaje(saved.retencionPorcentaje);
+        }
+        if (saved.modoMonto) setModoMonto(saved.modoMonto);
         toast.info("Restauré tu borrador del último intento.");
       },
     },
@@ -174,6 +313,7 @@ export default function NuevaOcPage() {
     proveedorRut.trim().length > 0 ||
     proveedorNombre.trim().length > 0 ||
     observaciones.trim().length > 0 ||
+    tipoDocumento !== "FACTURA" ||
     items.some((it) => it.descripcion.trim() || it.precio_unitario);
   useUnsavedChangesWarning(isDirty && !submitting);
   useFormShortcuts({
@@ -280,6 +420,84 @@ export default function NuevaOcPage() {
   const updateItem = (idx: number, patch: Partial<ItemForm>) =>
     setItems(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
+  const esHonorarios = tipoDocumento === "HONORARIOS";
+  const esExenta = tipoDocumento === "FACTURA_EXENTA";
+  const grossUp = esHonorarios && modoMonto === "LIQUIDO";
+  const ivaPct = toNum(ivaPorcentaje);
+  // Campo vacío ≠ 0%: si el operador lo borra mandamos null y el servidor
+  // resuelve la tasa vigente contra core.tax_config por la fecha de emisión
+  // (invariante 10). Para el preview usamos la misma escala legal.
+  const retencionVacia = esHonorarios && retencionPorcentaje.trim() === "";
+  const retPct = retencionVacia
+    ? toNum(retencionSugerida(fechaEmision))
+    : toNum(retencionPorcentaje);
+
+  /**
+   * Las líneas TAL COMO se van a guardar. En modo LÍQUIDO los precios cargados
+   * son el líquido pactado y hay que convertirlos a bruto antes de mandarlos:
+   * el backend deriva `neto` (y de ahí la retención) de los ítems, así que el
+   * bruto tiene que estar en las líneas, no en un campo aparte.
+   *
+   * El residuo del redondeo lo absorbe el último ítem para que Σ(línea) dé el
+   * bruto exacto — misma disciplina que `_derivar_montos` en las cuotas.
+   */
+  const lineasAGuardar = useMemo(() => {
+    // Cantidad vacía/inválida cuenta como 1, igual que el payload histórico.
+    const cantidadDe = (v: string) => {
+      const n = toNum(v, 1);
+      return n > 0 ? n : 1;
+    };
+    const lineas = items.map((it) => ({
+      precio: toNum(it.precio_unitario),
+      cantidad: cantidadDe(it.cantidad),
+    }));
+    if (!grossUp) return lineas;
+    const liquido = lineas.reduce((acc, l) => acc + l.precio * l.cantidad, 0);
+    if (liquido <= 0) return lineas;
+    const objetivo = brutoDesdeLiquido(liquido, retPct);
+    const factor = objetivo / liquido;
+    const escaladas = lineas.map((l) => ({
+      ...l,
+      // precio_unitario es NUMERIC(18,2) en BD: 2 decimales, no más.
+      precio: Math.round(l.precio * factor * 100) / 100,
+    }));
+    const sumaPrevias = escaladas
+      .slice(0, -1)
+      .reduce((acc, l) => acc + l.precio * l.cantidad, 0);
+    const ultima = escaladas[escaladas.length - 1];
+    if (ultima) {
+      ultima.precio =
+        Math.round(((objetivo - sumaPrevias) / ultima.cantidad) * 100) / 100;
+    }
+    return escaladas;
+  }, [items, grossUp, retPct]);
+
+  // B del contrato = Σ(precio × cantidad) de lo que efectivamente se manda.
+  const baseImponible = lineasAGuardar.reduce(
+    (acc, l) => acc + l.precio * l.cantidad,
+    0,
+  );
+  const totales = derivarTotales({
+    base: baseImponible,
+    tipo: tipoDocumento,
+    ivaPct,
+    retencionPct: retPct,
+    moneda,
+  });
+  // Lo que el operador tipeó cuando dijo "esto es el líquido". Sirve para
+  // mostrarle si el redondeo del gross-up lo movió un peso.
+  const liquidoPactado = items.reduce((acc, it) => {
+    const cant = toNum(it.cantidad, 1);
+    return acc + toNum(it.precio_unitario) * (cant > 0 ? cant : 1);
+  }, 0);
+
+  const fmtMonto = (v: number) =>
+    moneda === "CLP"
+      ? toCLP(v)
+      : `${moneda} ${v.toLocaleString("es-CL", { maximumFractionDigits: 2 })}`;
+  const fmtPct = (v: number) =>
+    `${v.toLocaleString("es-CL", { maximumFractionDigits: 2 })}%`;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -318,16 +536,29 @@ export default function NuevaOcPage() {
         plazo_entrega: plazoEntrega || null,
         observaciones: observaciones || null,
         tipo_documento: tipoDocumento,
-        iva_porcentaje: Number(ivaPorcentaje) || 0,
-        items: items.map((it, i) => ({
-          item: i + 1,
-          descripcion: it.descripcion,
-          // Unidad de medida (Un, Gl, Días, m3…). Si el operador no la
-          // completa mandamos null y el PDF imprime "—".
-          unidad: it.unidad?.trim() ? it.unidad.trim() : null,
-          precio_unitario: Number(it.precio_unitario),
-          cantidad: Number(it.cantidad) || 1,
-        })),
+        // Exenta y honorarios NO llevan IVA (el servidor igual lo pisa a 0;
+        // mandarlo coherente evita chocar con el CHECK de la BD). Y una OC
+        // afecta nunca lleva retención.
+        iva_porcentaje: esAfecto(tipoDocumento) ? ivaPct : 0,
+        retencion_porcentaje: esHonorarios
+          ? retencionVacia
+            ? null // el servidor resuelve la vigente por fecha_emision
+            : retPct
+          : 0,
+        // En modo LÍQUIDO los precios ya vienen grosseados: lo que se guarda
+        // como ítem es el BRUTO, que es lo que la boleta de honorarios dice.
+        items: items.map((it, i) => {
+          const linea = lineasAGuardar[i];
+          return {
+            item: i + 1,
+            descripcion: it.descripcion,
+            // Unidad de medida (Un, Gl, Días, m3…). Si el operador no la
+            // completa mandamos null y el PDF imprime "—".
+            unidad: it.unidad?.trim() ? it.unidad.trim() : null,
+            precio_unitario: linea?.precio ?? toNum(it.precio_unitario),
+            cantidad: linea?.cantidad ?? toNum(it.cantidad, 1),
+          };
+        }),
       };
       // Adjuntar proveedor: si existe, mandamos id resuelto del lookup;
       // si es nuevo, RUT+nombre para que el backend lo cree.
@@ -406,8 +637,9 @@ export default function NuevaOcPage() {
           )}
         </div>
         <p className="mt-1 text-sm text-ink-500">
-          Tipeá el RUT del proveedor y vamos a precargar/crearlo solos. El
-          total se calcula automáticamente en el backend (neto + IVA%).
+          Tipeá el RUT del proveedor y vamos a precargar/crearlo solos. Los
+          totales los calcula el backend según el tipo de documento; abajo de
+          los ítems vas a ver el resumen antes de guardar.
           <span className="ml-2 hidden text-xs text-ink-400 sm:inline">
             · <kbd className="rounded bg-ink-100 px-1.5 py-0.5 font-mono">⌘S</kbd> guardar
           </span>
@@ -709,29 +941,85 @@ export default function NuevaOcPage() {
                     } else if (v === "FACTURA" && ivaPorcentaje === "0") {
                       setIvaPorcentaje("19");
                     }
+                    if (v === "HONORARIOS") {
+                      // Precarga la tasa del año de emisión de la OC. El campo
+                      // queda editable y el servidor confirma contra tax_config.
+                      setRetencionPorcentaje(retencionSugerida(fechaEmision));
+                    } else {
+                      // El gross-up sólo tiene sentido con retención.
+                      setModoMonto("BRUTO");
+                    }
                   }}
                   placeholder="Tipo de documento"
                   triggerClassName="w-full h-[38px]"
                 />
+                {esExenta && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    Operación exenta (Art. 12 D.L. 825): no lleva IVA ni da
+                    crédito fiscal. No es lo mismo que una factura al 0%.
+                  </p>
+                )}
+                {esHonorarios && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    El profesional emite su boleta por el bruto; la empresa
+                    retiene y entera al SII.
+                  </p>
+                )}
               </div>
-              <div>
-                <label className={labelBase} htmlFor="iva-porcentaje">
-                  IVA %
-                  <span className="ml-1 text-[10px] font-normal text-ink-400">
-                    · editable — no toda compra es 19%
-                  </span>
-                </label>
-                <input
-                  id="iva-porcentaje"
-                  type="number"
-                  value={ivaPorcentaje}
-                  onChange={(e) => setIvaPorcentaje(e.target.value)}
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  className={`${inputBase} tabular-nums`}
-                />
-              </div>
+              {/* IVA% sólo en afectas y retención% sólo en honorarios: mostrar
+                  los dos siempre es cómo se cargan mal los datos. */}
+              {esAfecto(tipoDocumento) && (
+                <div>
+                  <label className={labelBase} htmlFor="iva-porcentaje">
+                    IVA %
+                    <span className="ml-1 text-[10px] font-normal text-ink-400">
+                      · editable — no toda compra es 19%
+                    </span>
+                  </label>
+                  <input
+                    id="iva-porcentaje"
+                    type="number"
+                    value={ivaPorcentaje}
+                    onChange={(e) => setIvaPorcentaje(e.target.value)}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    className={`${inputBase} tabular-nums`}
+                  />
+                </div>
+              )}
+              {esHonorarios && (
+                <div>
+                  <label className={labelBase} htmlFor="retencion-porcentaje">
+                    Retención %
+                    <span className="ml-1 text-[10px] font-normal text-ink-400">
+                      · Art. 74 N°2 LIR
+                    </span>
+                  </label>
+                  <input
+                    id="retencion-porcentaje"
+                    type="number"
+                    value={retencionPorcentaje}
+                    onChange={(e) => setRetencionPorcentaje(e.target.value)}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    className={`${inputBase} tabular-nums`}
+                  />
+                  {retencionPorcentaje !== retencionSugerida(fechaEmision) && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRetencionPorcentaje(retencionSugerida(fechaEmision))
+                      }
+                      className="mt-1 text-xs text-cehta-green underline underline-offset-2"
+                    >
+                      Usar {retencionSugerida(fechaEmision)}% (vigente para{" "}
+                      {fechaEmision.slice(0, 4)})
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className={labelBase} htmlFor="observaciones">
                   Observaciones
@@ -869,6 +1157,129 @@ export default function NuevaOcPage() {
               compra. Podés elegir una de la lista (Un, Gl, Días, m3, Kg, Hrs…)
               o escribir la que uses. El total lo calcula el sistema.
             </p>
+
+            {/* Resumen en vivo antes de guardar. Acá es donde el operador se
+                da cuenta de que pactó un líquido y lo estaba cargando como
+                bruto — que es el error caro de las boletas de honorarios. */}
+            <div className="mt-5 border-t border-hairline pt-4">
+              {esHonorarios && (
+                <div className="mb-4 rounded-xl bg-ink-100/40 p-3 ring-1 ring-hairline">
+                  <p className="text-xs font-medium text-ink-700">
+                    Lo que cargué en los ítems es…
+                  </p>
+                  <div className="mt-2 inline-flex rounded-xl bg-white p-0.5 ring-1 ring-hairline">
+                    {(
+                      [
+                        ["BRUTO", "Bruto (antes de retención)"],
+                        ["LIQUIDO", "Líquido (lo que recibe)"],
+                      ] as const
+                    ).map(([valor, etiqueta]) => (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => setModoMonto(valor)}
+                        aria-pressed={modoMonto === valor}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                          modoMonto === valor
+                            ? "bg-cehta-green text-white shadow-card"
+                            : "text-ink-700 hover:bg-ink-100/60"
+                        }`}
+                      >
+                        {etiqueta}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-ink-500">
+                    {modoMonto === "BRUTO"
+                      ? "Se retiene sobre ese monto: el profesional recibe menos de lo que cargaste."
+                      : "Lo convertimos a bruto al guardar. El bruto es lo que va en la OC y en la boleta de honorarios; el líquido es lo que se transfiere."}
+                  </p>
+                </div>
+              )}
+
+              {baseImponible <= 0 ? (
+                <p className="text-xs text-ink-400">
+                  Cargá los precios de los ítems para ver los totales.
+                </p>
+              ) : (
+                <dl className="ml-auto w-full max-w-sm space-y-1.5">
+                  {grossUp && (
+                    <TotalRow
+                      label="Líquido pactado (lo cargado)"
+                      valor={fmtMonto(liquidoPactado)}
+                    />
+                  )}
+                  <TotalRow
+                    label={
+                      esHonorarios
+                        ? "Honorarios brutos"
+                        : esExenta
+                          ? "Neto exento"
+                          : "Neto"
+                    }
+                    valor={fmtMonto(totales.neto)}
+                  />
+                  {esAfecto(tipoDocumento) && (
+                    <TotalRow
+                      label={`IVA ${fmtPct(ivaPct)}`}
+                      valor={fmtMonto(totales.iva)}
+                    />
+                  )}
+                  {esHonorarios && (
+                    <TotalRow
+                      label={`Retención ${fmtPct(retPct)}`}
+                      valor={fmtMonto(totales.retencion)}
+                      negativo
+                    />
+                  )}
+                  <TotalRow
+                    label={esHonorarios ? "Líquido a pagar" : "Total"}
+                    valor={fmtMonto(totales.totalAPagar)}
+                    destacado
+                  />
+                </dl>
+              )}
+
+              {baseImponible > 0 && (
+                <div className="mt-3 space-y-1 text-xs text-ink-400">
+                  {esHonorarios && retencionVacia && (
+                    <p>
+                      Dejaste la tasa vacía: se aplica la vigente a la fecha de
+                      emisión ({fmtPct(retPct)}), que resuelve el servidor.
+                    </p>
+                  )}
+                  {esHonorarios && !retencionVacia && retPct <= 0 && (
+                    <p className="text-warning">
+                      La retención está en 0%: esta OC no va a retener nada.
+                      Verificá que sea a propósito.
+                    </p>
+                  )}
+                  {grossUp &&
+                    totales.totalAPagar !== Math.round(liquidoPactado) && (
+                      <p>
+                        El redondeo a peso deja el líquido en{" "}
+                        {fmtMonto(totales.totalAPagar)} en vez de{" "}
+                        {fmtMonto(liquidoPactado)}. Se redondea la retención y
+                        el líquido sale por resta, para que retención + líquido
+                        dé exacto el bruto.
+                      </p>
+                    )}
+                  {esHonorarios && (
+                    <p>
+                      Se guarda el bruto ({fmtMonto(totales.neto)}). La
+                      retención la entera la empresa al SII por cuenta del
+                      profesional.
+                    </p>
+                  )}
+                  {esAfecto(tipoDocumento) && moneda !== "CLP" && (
+                    <p>
+                      En {moneda} el backend no calcula IVA: el total va sin
+                      IVA.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
           </Surface.Body>
         </Surface>
 

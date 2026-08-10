@@ -1,10 +1,24 @@
 from __future__ import annotations
 
+from decimal import Decimal
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
 from app.schemas.orden_compra import OrdenCompraCreate, OrdenCompraUpdate
+
+# Columnas NOT NULL con default en la BD: un `null` explícito en el PATCH no
+# significa "borrar" sino "no tocar". Mandarlo igual dispara un
+# NotNullViolation que le llega al operador como un 500 sin explicación.
+_NO_NULEABLES = frozenset(
+    {
+        "tipo_documento",
+        "iva_porcentaje",
+        "retencion_porcentaje",
+        "validez_dias",
+    }
+)
 
 
 class OrdenCompraRepository:
@@ -50,7 +64,33 @@ class OrdenCompraRepository:
         )
         return (result or 0) > 0
 
-    async def create(self, data: OrdenCompraCreate) -> OrdenCompra:
+    async def create(
+        self, data: OrdenCompraCreate, derived: dict | None = None
+    ) -> OrdenCompra:
+        """Alta de la OC con sus ítems.
+
+        `derived` son los montos que el endpoint ya calculó server-side: iva,
+        total, retencion_monto, total_a_pagar y las tasas ya pisadas según el
+        tipo de documento (ver `_derivar_totales_oc` en
+        `api/v1/ordenes_compra.py`). Es el camino normal — la aritmética vive
+        en una sola función y el repositorio sólo persiste.
+
+        Si no viene (llamador viejo), se cae a las propiedades del schema, que
+        sólo saben de FACTURA/BOLETA: IVA sobre el neto, sin retención y el
+        líquido igual al total. Las tres columnas nuevas se escriben SIEMPRE:
+        `total_a_pagar` es NOT NULL en la BD y omitirla revienta el INSERT.
+        """
+        d = derived or {}
+
+        def _der(clave: str, por_defecto: Decimal) -> Decimal:
+            # `is not None`, nunca `or`: un IVA de 0 (exenta, honorarios) o una
+            # retención de 0 son valores legítimos, y `or` los reemplazaría por
+            # el default — la trampa del cero falso que ya se cometió en esta
+            # misma tabla.
+            valor = d.get(clave)
+            return valor if valor is not None else por_defecto
+
+        total = _der("total", data.total_calculado)
         oc = OrdenCompra(
             numero_oc=data.numero_oc,
             empresa_codigo=data.empresa_codigo,
@@ -58,9 +98,12 @@ class OrdenCompraRepository:
             fecha_emision=data.fecha_emision,
             validez_dias=data.validez_dias,
             moneda=data.moneda,
-            neto=data.neto,
-            iva=data.iva_calculado,
-            total=data.total_calculado,
+            # `neto` sale del derived cuando el endpoint lo derivó: en CLP
+            # viene redondeado a peso entero, y ese es el valor que tiene que
+            # quedar en la fila para que `total = neto + iva` cierre en BD.
+            neto=_der("neto", data.neto),
+            iva=_der("iva", data.iva_calculado),
+            total=total,
             forma_pago=data.forma_pago,
             plazo_pago=data.plazo_pago,
             plazo_entrega=data.plazo_entrega,
@@ -69,7 +112,13 @@ class OrdenCompraRepository:
             atte_nombre=data.atte_nombre,
             atte_cargo=data.atte_cargo,
             tipo_documento=data.tipo_documento,
-            iva_porcentaje=data.iva_porcentaje,
+            iva_porcentaje=_der("iva_porcentaje", data.iva_porcentaje),
+            retencion_porcentaje=_der("retencion_porcentaje", Decimal("0")),
+            retencion_monto=_der("retencion_monto", Decimal("0")),
+            # Sin retención el líquido ES el total — así una OC creada por un
+            # llamador que no derivó nada queda igual a como estaba antes de
+            # este cambio, no en NULL.
+            total_a_pagar=_der("total_a_pagar", total),
         )
         self._session.add(oc)
         await self._session.flush()
@@ -102,11 +151,19 @@ class OrdenCompraRepository:
     ) -> OrdenCompra:
         """Edita sólo campos no-críticos. Validación de estado en el endpoint.
 
-        `derived` son columnas que el endpoint calculó server-side (iva/total
-        cuando cambia iva_porcentaje) — no vienen del schema porque el
-        schema no permite mandarlas directo (son derivadas, no editables).
+        `derived` son columnas que el endpoint calculó server-side — iva,
+        total, retencion_monto, total_a_pagar y las tasas ya pisadas según el
+        tipo de documento. No vienen del schema porque el schema no permite
+        mandarlas directo (son derivadas, no editables).
+
+        El orden importa: primero lo que mandó el cliente, después lo
+        derivado. Si el body trae `iva_porcentaje: 19` y `tipo_documento:
+        HONORARIOS`, el 19 se escribe y el derivado lo pisa con 0 — que es
+        exactamente la regla de §4.3 (pisar, no rechazar).
         """
         for k, v in data.model_dump(exclude_unset=True).items():
+            if v is None and k in _NO_NULEABLES:
+                continue
             setattr(oc, k, v)
         for k, v in (derived or {}).items():
             setattr(oc, k, v)

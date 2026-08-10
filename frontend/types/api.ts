@@ -18249,12 +18249,14 @@ export interface components {
              * @default FACTURA
              * @enum {string}
              */
-            tipo_documento: "FACTURA" | "BOLETA";
+            tipo_documento: "FACTURA" | "FACTURA_EXENTA" | "BOLETA" | "HONORARIOS";
             /**
              * Iva Porcentaje
              * @default 19.00
              */
             iva_porcentaje: number | string;
+            /** Retencion Porcentaje */
+            retencion_porcentaje?: number | string | null;
             /** Items */
             items: components["schemas"]["OCDetalleCreate"][];
         };
@@ -18279,6 +18281,18 @@ export interface components {
             neto: string;
             /** Total */
             total: string;
+            /**
+             * Tipo Documento
+             * @default FACTURA
+             */
+            tipo_documento: string;
+            /**
+             * Retencion Monto
+             * @default 0
+             */
+            retencion_monto: string;
+            /** Total A Pagar */
+            total_a_pagar?: string | null;
             /** Estado */
             estado: string;
             /** Pdf Url */
@@ -18338,6 +18352,18 @@ export interface components {
              * @default 19.00
              */
             iva_porcentaje: string;
+            /**
+             * Retencion Porcentaje
+             * @default 0
+             */
+            retencion_porcentaje: string;
+            /**
+             * Retencion Monto
+             * @default 0
+             */
+            retencion_monto: string;
+            /** Total A Pagar */
+            total_a_pagar?: string | null;
             /** Estado */
             estado: string;
             /** Pdf Url */
@@ -18370,7 +18396,9 @@ export interface components {
          *     de los items, y 'estado' tiene su propio endpoint `PATCH /{id}/estado`
          *     con validación de transiciones. `iva`/`total` tampoco se aceptan
          *     directos — se derivan server-side de `iva_porcentaje` cuando viene en
-         *     el body (ver `update_oc` en ordenes_compra.py).
+         *     el body (ver `update_oc` en ordenes_compra.py). Lo mismo vale para
+         *     `retencion_monto` y `total_a_pagar`: se derivan de
+         *     `retencion_porcentaje` + `tipo_documento`, nunca se aceptan del cliente.
          *
          *     Si el body trae alguno de esos campos, son ignorados (extra='ignore'
          *     por default en pydantic v2). Si querés que sea hard-fail, cambiar a
@@ -18396,9 +18424,11 @@ export interface components {
             /** Atte Cargo */
             atte_cargo?: string | null;
             /** Tipo Documento */
-            tipo_documento?: ("FACTURA" | "BOLETA") | null;
+            tipo_documento?: ("FACTURA" | "FACTURA_EXENTA" | "BOLETA" | "HONORARIOS") | null;
             /** Iva Porcentaje */
             iva_porcentaje?: number | string | null;
+            /** Retencion Porcentaje */
+            retencion_porcentaje?: number | string | null;
         };
         /** OwnerCount */
         OwnerCount: {

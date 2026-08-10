@@ -37,7 +37,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader, Undefined, select_autoescape
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -114,6 +114,18 @@ def _fecha_larga(d: Any) -> str:
 
 
 def _fmt_clp(monto: Any) -> str:
+    # Una variable que el contexto NO trajo llega acá como jinja2.Undefined.
+    # Sin este guard, `Decimal(str(Undefined))` levanta, el except la
+    # convierte en `str(Undefined)` == "" y la celda del importe sale VACÍA:
+    # el PDF dice "LÍQUIDO A PAGAR" seguido de nada, y se emite igual.
+    # En un documento de plata, un importe faltante tiene que reventar el
+    # render, no imprimirse en blanco — un PDF que no sale se nota; una
+    # franja vacía en la hoja 1 de una OC firmada, no siempre.
+    if isinstance(monto, Undefined):
+        raise ValueError(
+            "_fmt_clp recibió una variable que el contexto del template no "
+            "definió. Falta pasarla desde oc_pdf_v2_service."
+        )
     if monto is None:
         return "$0"
     try:
@@ -351,21 +363,65 @@ async def _load_context(
 ) -> dict[str, Any] | None:
     """Carga OC + empresa + proveedor + items y arma el contexto Jinja."""
 
-    # OC base
-    oc_row = (
-        await db.execute(
-            text(
-                """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
-                          fecha_emision, validez_dias, moneda, neto, iva, total,
-                          forma_pago, plazo_pago, plazo_entrega,
-                          observaciones, estado,
-                          atte_nombre, atte_cargo, tipo_documento, iva_porcentaje
-                   FROM core.ordenes_compra
-                   WHERE oc_id = :id"""
-            ),
-            {"id": oc_id},
-        )
-    ).mappings().first()
+    # OC base — best-effort en las columnas de retención (HONORARIOS) y
+    # `total_a_pagar`. El deploy NO corre migraciones (release_command
+    # desactivado), así que entre el deploy y el SQL aplicado a mano hay una
+    # ventana en la que estas columnas no existen: sin el fallback el PDF de
+    # TODAS las empresas se caería durante esa ventana. Mismo patrón que
+    # empresas/items/firmas/cuotas más abajo.
+    try:
+        oc_row = (
+            await db.execute(
+                text(
+                    """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
+                              fecha_emision, validez_dias, moneda, neto, iva, total,
+                              forma_pago, plazo_pago, plazo_entrega,
+                              observaciones, estado,
+                              atte_nombre, atte_cargo, tipo_documento, iva_porcentaje,
+                              retencion_porcentaje, retencion_monto, total_a_pagar
+                       FROM core.ordenes_compra
+                       WHERE oc_id = :id"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().first()
+    except Exception:
+        with contextlib.suppress(Exception):
+            await db.rollback()
+        oc_row = (
+            await db.execute(
+                text(
+                    """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
+                              fecha_emision, validez_dias, moneda, neto, iva, total,
+                              forma_pago, plazo_pago, plazo_entrega,
+                              observaciones, estado,
+                              atte_nombre, atte_cargo, tipo_documento, iva_porcentaje
+                       FROM core.ordenes_compra
+                       WHERE oc_id = :id"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().first()
+        # El SELECT reducido NO trae las columnas de retención, pero SÍ trae
+        # `tipo_documento`: si la OC es de honorarios o exenta, el template
+        # entraría igual en su rama tributaria con retención 0 y el BRUTO
+        # rotulado como "líquido a pagar". Eso no es un PDF degradado, es un
+        # documento contractual firmado que sobredeclara lo que hay que girar
+        # (en una OC de 3.645.000 al 15,25%, 555.863 de más) y que además
+        # afirma "retención 0%" en la nota legal.
+        # El resto de los fallbacks de este módulo degradan datos OPCIONALES
+        # (logo, firmas, ítems); éste degradaría cifras de plata. Preferimos
+        # que no salga el PDF a que salga mintiendo.
+        if oc_row is not None and oc_row.get("tipo_documento") in (
+            "HONORARIOS",
+            "FACTURA_EXENTA",
+        ):
+            raise RuntimeError(
+                f"OC #{oc_id} es {oc_row['tipo_documento']} y no se pudieron "
+                "leer las columnas de retención: no se emite el PDF antes que "
+                "emitirlo con montos incorrectos. Revisar que la migración "
+                "megaprompt_oc_honorarios_exenta.sql esté aplicada."
+            )
     if oc_row is None:
         return None
 
@@ -514,6 +570,35 @@ async def _load_context(
 
     # Modelo OC para el template (formato que espera orden_compra.html)
     moneda_str = (oc_row.get("moneda") or "CLP").upper()
+
+    # HONORARIOS / FACTURA_EXENTA — cifras de retención para el bloque de
+    # totales del template.
+    #
+    # `is not None` en TODAS, nunca `or`: `retencion_porcentaje` y
+    # `retencion_monto` valen 0 LEGÍTIMAMENTE en facturas, boletas y exentas,
+    # y Python trata 0 como falso. Con `or` una boleta de honorarios pactada
+    # sin retención imprimiría la tasa por defecto y una exenta volvería a
+    # mostrar 19% de IVA. Ese bug ya se cometió en esta misma tabla.
+    _total = (
+        Decimal(str(oc_row["total"]))
+        if oc_row.get("total") is not None
+        else Decimal("0")
+    )
+    _ret_monto = (
+        Decimal(str(oc_row["retencion_monto"]))
+        if oc_row.get("retencion_monto") is not None
+        else Decimal("0")
+    )
+    _total_a_pagar = oc_row.get("total_a_pagar")
+    if _total_a_pagar is None:
+        # OC anterior al backfill, o entorno todavía sin la columna. El líquido
+        # se obtiene POR RESTA y no redondeando aparte, que es lo que hace
+        # cerrar exacto la identidad total_a_pagar + retencion_monto == total
+        # (§3.3 del contrato). Sin retención da `total`, que es el caso de
+        # facturas, boletas y exentas.
+        _total_a_pagar = _total - _ret_monto
+    else:
+        _total_a_pagar = Decimal(str(_total_a_pagar))
     oc_ctx = type("OcCtx", (), {
         "numero": oc_row["numero_oc"],
         "fecha_emision": oc_row["fecha_emision"],
@@ -530,8 +615,11 @@ async def _load_context(
         "gestiones_proveedor": None,
         "emails_documentacion": None,
         "emails_insumos": None,
-        "total_neto": oc_row.get("neto") or 0,
-        "iva": oc_row.get("iva") or 0,
+        # None-check y no `or` también acá: un neto o un IVA de 0 son montos
+        # válidos y `or 0` los deja igual por casualidad, pero es el mismo
+        # patrón que sí rompe abajo. Se unifica para no dejar la trampa armada.
+        "total_neto": oc_row["neto"] if oc_row.get("neto") is not None else 0,
+        "iva": oc_row["iva"] if oc_row.get("iva") is not None else 0,
         # `or` rompería con 0% (Python trata 0 como falsy) — una OC en 0%
         # (boleta, exenta) volvería a mostrar "19%" en el PDF. None-check.
         "iva_porcentaje": (
@@ -539,8 +627,23 @@ async def _load_context(
             if oc_row.get("iva_porcentaje") is not None
             else Decimal("19.00")
         ),
+        # Token del catálogo SII: FACTURA | FACTURA_EXENTA | BOLETA | HONORARIOS.
+        # La etiqueta en castellano es PRESENTACIÓN y la arma el template.
         "tipo_documento": oc_row.get("tipo_documento") or "FACTURA",
-        "total": oc_row.get("total") or 0,
+        "total": _total,
+        # Retención de honorarios. Sin la columna (entorno pre-migración) o con
+        # NULL, la tasa cae a 0 y NO a 15,25: una OC que no es de honorarios
+        # imprimiría una retención inventada, que en un documento contractual
+        # es peor que no imprimir nada.
+        "retencion_porcentaje": (
+            oc_row.get("retencion_porcentaje")
+            if oc_row.get("retencion_porcentaje") is not None
+            else Decimal("0")
+        ),
+        "retencion_monto": _ret_monto,
+        # Lo que efectivamente se transfiere: `total` en factura/boleta/exenta,
+        # `total − retención` (LÍQUIDO) en honorarios.
+        "total_a_pagar": _total_a_pagar,
         "estado": type("E", (), {"value": oc_row.get("estado") or "borrador"})(),
         "items": items,
     })()
@@ -682,7 +785,13 @@ async def _load_context(
             await db.rollback()
         cuotas_rows = []
 
-    _total_oc = Decimal(str(oc_row.get("total") or 0))
+    # El denominador es `total_a_pagar`, no `total`: el monto de un hito es
+    # PLATA QUE SALE (§3.1 del contrato) y en honorarios se reparte sobre el
+    # líquido. Con `total` (bruto) los porcentajes derivados de una OC de
+    # honorarios saldrían ~15% más chicos y dos hitos de 50% imprimirían
+    # "42,4%" cada uno. En factura/boleta/exenta ambos valores coinciden, así
+    # que el cambio es inerte fuera de honorarios.
+    _total_oc = _total_a_pagar
     for cr in cuotas_rows:
         pct = cr.get("porcentaje")
         # Cuotas viejas creadas antes de la columna `porcentaje`: derivamos el

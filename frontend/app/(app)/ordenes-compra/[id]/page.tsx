@@ -28,6 +28,19 @@ const ESTADO_VARIANT: Record<string, BadgeVariant> = {
   rechazada: "danger",
 };
 
+/**
+ * Etiquetas en castellano de los 4 tipos del catálogo SII. El token crudo es
+ * el fallback a propósito: antes esto era un ternario binario y una
+ * FACTURA_EXENTA se imprimía como "Factura". Mejor mostrar el token feo que
+ * mentir sobre el documento tributario.
+ */
+const TIPO_DOCUMENTO_LABEL: Record<string, string> = {
+  FACTURA: "Factura",
+  FACTURA_EXENTA: "Factura exenta",
+  BOLETA: "Boleta",
+  HONORARIOS: "Boleta de honorarios",
+};
+
 function EstadoBadge({ estado }: { estado: string }) {
   // R152CCCCCC — Localizar via ocStatusLabel. Antes mostraba el estado
   // crudo capitalizado, lo que con valores backend en uppercase inglés
@@ -99,6 +112,18 @@ export default async function OcDetallePage({
     );
   }
 
+  // §3.1 del megaprompt de honorarios: `total` es el VALOR DEL CONTRATO
+  // (neto + IVA) y `total_a_pagar` es la PLATA QUE SALE. Sólo difieren cuando
+  // hay retención. Los `??` son defensivos: entre el deploy del frontend y la
+  // migración, el backend todavía no manda los campos nuevos.
+  const totalContrato = Number(oc.total ?? 0);
+  const retencionMonto = Number(oc.retencion_monto ?? 0);
+  const totalAPagar = Number(oc.total_a_pagar ?? totalContrato);
+  const esHonorarios = oc.tipo_documento === "HONORARIOS";
+  const esExenta = oc.tipo_documento === "FACTURA_EXENTA";
+  const monedaKpi =
+    oc.moneda === "UF" || oc.moneda === "USD" ? oc.moneda : "CLP";
+
   return (
     <div className="space-y-6">
       <Link
@@ -145,36 +170,65 @@ export default async function OcDetallePage({
         </div>
       </header>
 
-      {/* KPI cards */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {/* KPI cards — el bloque cambia según el tipo de documento, no son
+          filas escondidas. La card verde es SIEMPRE la plata que se gira:
+          con honorarios eso es el líquido, no el bruto. */}
+      <section
+        className={`grid grid-cols-1 gap-4 ${
+          esExenta ? "sm:grid-cols-2" : "sm:grid-cols-3"
+        }`}
+      >
         <Surface>
           <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
-            Neto
+            {esHonorarios
+              ? "Honorarios brutos"
+              : esExenta
+                ? "Neto exento"
+                : "Neto"}
           </p>
           <p className="mt-1.5 text-kpi-sm font-display text-ink-900 tabular-nums">
             {toCLP(oc.neto)}
           </p>
         </Surface>
-        <Surface>
-          <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
-            IVA {oc.iva_porcentaje != null ? `${oc.iva_porcentaje}%` : ""}
-          </p>
-          <p className="mt-1.5 text-kpi-sm font-display text-ink-900 tabular-nums">
-            {toCLP(oc.iva)}
-          </p>
-        </Surface>
+        {esHonorarios ? (
+          <Surface>
+            <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+              Retención{" "}
+              {oc.retencion_porcentaje != null
+                ? `${oc.retencion_porcentaje}%`
+                : ""}
+            </p>
+            <p className="mt-1.5 text-kpi-sm font-display text-negative tabular-nums">
+              − {toCLP(retencionMonto)}
+            </p>
+            <p className="mt-1 text-[11px] text-ink-400">
+              La entera la empresa al SII
+            </p>
+          </Surface>
+        ) : (
+          !esExenta && (
+            <Surface>
+              <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
+                IVA {oc.iva_porcentaje != null ? `${oc.iva_porcentaje}%` : ""}
+              </p>
+              <p className="mt-1.5 text-kpi-sm font-display text-ink-900 tabular-nums">
+                {toCLP(oc.iva)}
+              </p>
+            </Surface>
+          )
+        )}
         <Surface className="ring-cehta-green/20 bg-cehta-green/[0.04]">
           <p className="text-xs uppercase tracking-wide text-ink-500 font-medium">
-            Total
+            {esHonorarios ? "Líquido a pagar" : "Total"}
           </p>
           <p className="mt-1.5 text-kpi-sm font-display text-cehta-green tabular-nums">
-            <MonedaDisplay
-              amount={Number(oc.total)}
-              currency={
-                oc.moneda === "UF" || oc.moneda === "USD" ? oc.moneda : "CLP"
-              }
-            />
+            <MonedaDisplay amount={totalAPagar} currency={monedaKpi} />
           </p>
+          {esHonorarios && (
+            <p className="mt-1 text-[11px] text-ink-400">
+              Sobre un bruto contratado de {toCLP(totalContrato)}
+            </p>
+          )}
         </Surface>
       </section>
 
@@ -206,7 +260,7 @@ export default async function OcDetallePage({
               {oc.plazo_pago ?? <span className="text-ink-300">—</span>}
             </Field>
             <Field label="Tipo de documento">
-              {oc.tipo_documento === "BOLETA" ? "Boleta" : "Factura"}
+              {TIPO_DOCUMENTO_LABEL[oc.tipo_documento] ?? oc.tipo_documento}
             </Field>
             <Field label="Dirigido a">
               {oc.atte_nombre ? (
@@ -294,9 +348,12 @@ export default async function OcDetallePage({
         <OcFirmasSection ocId={ocId} empresaCodigo={oc.empresa_codigo} />
       </Surface>
 
-      {/* R152yyy — Sección Cuotas + generar vouchers DRAFT. Cliente. */}
+      {/* R152yyy — Sección Cuotas + generar vouchers DRAFT. Cliente.
+          Los hitos se reparten sobre `total_a_pagar`, no sobre `total`: son
+          transferencias, y con honorarios el bruto incluye plata que nunca
+          sale de la empresa (se entera al SII). Regla §3.1. */}
       <Surface>
-        <OcCuotasSection ocId={ocId} totalOc={Number(oc.total ?? 0)} />
+        <OcCuotasSection ocId={ocId} totalOc={totalAPagar} />
       </Surface>
     </div>
   );

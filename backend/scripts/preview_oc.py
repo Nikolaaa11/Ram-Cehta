@@ -14,9 +14,11 @@ previa sea representativa:
   · Tablas y bloques, que es lo que WeasyPrint pagina de forma predecible.
 
 Uso:
-    python scripts/preview_oc.py                    # escenario por defecto (RHO)
-    python scripts/preview_oc.py --escenario afis   # otra empresa/logo
-    python scripts/preview_oc.py --items 25         # OC larga, para ver el corte
+    python scripts/preview_oc.py                       # escenario por defecto (RHO)
+    python scripts/preview_oc.py --escenario afis      # otra empresa/logo
+    python scripts/preview_oc.py --items 25            # OC larga, para ver el corte
+    python scripts/preview_oc.py --tipo honorarios     # bloque de totales con retención
+    python scripts/preview_oc.py --tipo exenta         # factura exenta (sin fila de IVA)
 
 Deja el PDF y un PNG por página en scripts/_preview_oc/.
 """
@@ -28,7 +30,7 @@ import json
 import subprocess
 import sys
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 _BACKEND = Path(__file__).resolve().parent.parent
@@ -64,8 +66,33 @@ ESCENARIOS = {
     "sin-logo": ("PANIMAVIDA", "Panimávida Energy SpA", "#1A793B"),
 }
 
+# Los 4 tipos de documento que la OC sabe emitir, en la forma en que los
+# guarda `core.ordenes_compra.tipo_documento` (tokens del catálogo SII).
+# La clave del dict es sólo el atajo de línea de comandos.
+#   flag → (token, iva_porcentaje, retencion_porcentaje)
+# La retención de 2026 es 15,25% (Art. 74 N°2 LIR, escala de la Ley 21.133).
+# Acá va literal a propósito: esto es un banco de vista previa, no el motor —
+# en la aplicación la tasa se lee de core.tax_config por fecha de emisión.
+TIPOS = {
+    "factura":    ("FACTURA",        Decimal("19.00"), Decimal("0")),
+    "boleta":     ("BOLETA",         Decimal("19.00"), Decimal("0")),
+    "exenta":     ("FACTURA_EXENTA", Decimal("0"),     Decimal("0")),
+    "honorarios": ("HONORARIOS",     Decimal("0"),     Decimal("15.25")),
+}
 
-def construir_contexto(escenario: str, n_items: int, folio: str) -> dict:
+
+def _clp(monto: Decimal) -> Decimal:
+    """Peso chileno, ROUND_HALF_UP — el mismo criterio que `calcular_iva`.
+
+    `round()` de Python usa banker's rounding (redondea .5 al par), así que
+    con él la vista previa mostraría cifras que difieren en $1 de las que
+    calcula el servidor. En un banco cuyo trabajo es verificar un documento
+    de plata, ese peso de diferencia es exactamente lo que hace dudar.
+    """
+    return Decimal(monto).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
+
+def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> dict:
     codigo, razon, color = ESCENARIOS[escenario]
     raw = _logo_raw_bytes(codigo, None)
 
@@ -91,8 +118,18 @@ def construir_contexto(escenario: str, n_items: int, folio: str) -> dict:
                 plazo=None,
             )
         )
-    neto = sum(int(i.total) for i in items)
-    iva = round(neto * 0.19)
+    # Aritmética por tipo, la misma de la §3 del contrato:
+    #   FACTURA/BOLETA  total = neto + IVA           · sin retención
+    #   FACTURA_EXENTA  total = neto (IVA forzado 0) · sin retención
+    #   HONORARIOS      total = neto = BRUTO, IVA 0  · líquido = total − retención
+    # El líquido se obtiene POR RESTA y no redondeando aparte, para que
+    # `total_a_pagar + retencion_monto == total` cierre exacto.
+    token, iva_pct, ret_pct = TIPOS[tipo]
+    neto = Decimal(sum(int(i.total) for i in items))
+    iva = _clp(neto * iva_pct / 100)
+    total = neto + iva
+    retencion = _clp(neto * ret_pct / 100)
+    total_a_pagar = total - retencion
 
     firmantes = [
         {"nombre": "Javier Álvarez Abarca", "cargo": "Gerente General",
@@ -122,9 +159,12 @@ def construir_contexto(escenario: str, n_items: int, folio: str) -> dict:
         observaciones=("La presente Orden de Compra es por los servicios "
                        "detallados a continuación para el proyecto Panimávida:"),
         gestiones_proveedor=None, emails_documentacion=None, emails_insumos=None,
-        total_neto=Decimal(neto), iva=Decimal(iva),
-        iva_porcentaje=Decimal("19.00"), tipo_documento="FACTURA",
-        total=Decimal(neto + iva), estado=_obj(value="firmada"), items=items,
+        total_neto=neto, iva=iva,
+        iva_porcentaje=iva_pct, tipo_documento=token,
+        total=total,
+        retencion_porcentaje=ret_pct, retencion_monto=retencion,
+        total_a_pagar=total_a_pagar,
+        estado=_obj(value="firmada"), items=items,
     )
     emp = _obj(
         nombre_corto=codigo, razon_social=razon, rut="77.931.386-7",
@@ -138,11 +178,15 @@ def construir_contexto(escenario: str, n_items: int, folio: str) -> dict:
         ciudad="Colbún", contacto_nombre="Octavio Parada", contacto_cargo="Titular",
         contacto_email=None, contacto_telefono=None,
     )
+    # Los hitos se reparten sobre `total_a_pagar` (plata que sale), no sobre
+    # el bruto, y el residuo de redondeo lo absorbe el último para que la suma
+    # cierre exacto — igual que `_derivar_montos` en el backend.
+    _h1 = _clp(total_a_pagar * Decimal("30") / 100)
     hitos = [
         {"porcentaje": Decimal("30"), "descripcion": "Anticipo al inicio de la obra",
-         "fecha": date(2026, 8, 15), "monto": Decimal(round((neto + iva) * 0.30))},
+         "fecha": date(2026, 8, 15), "monto": _h1},
         {"porcentaje": Decimal("70"), "descripcion": "Contra entrega conforme",
-         "fecha": date(2026, 9, 30), "monto": Decimal(round((neto + iva) * 0.70))},
+         "fecha": date(2026, 9, 30), "monto": total_a_pagar - _h1},
     ]
 
     return {
@@ -186,6 +230,14 @@ def main() -> int:
     ap.add_argument("--folio", default="OC-FLUJO-COMPLETO-9901")
     ap.add_argument("--template", default="orden_compra_panimavida.html")
     ap.add_argument(
+        "--tipo",
+        default="factura",
+        choices=sorted(TIPOS),
+        help=("Tipo de documento tributario. Cada uno imprime un bloque de "
+              "totales distinto: honorarios agrega la retención y el líquido, "
+              "exenta saca la fila de IVA."),
+    )
+    ap.add_argument(
         "--prefix",
         default=None,
         help=("Prefijo de los archivos de salida. Sirve para comparar variantes "
@@ -193,9 +245,15 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    prefijo = args.prefix or args.escenario
+    # El default histórico (factura) conserva el nombre de archivo de siempre
+    # para no invalidar las corridas ya guardadas; los tipos nuevos se sufijan
+    # solos, así `--tipo honorarios` sin `--prefix` no pisa la factura.
+    prefijo = args.prefix or (
+        args.escenario if args.tipo == "factura"
+        else f"{args.escenario}_{args.tipo}"
+    )
     _OUT.mkdir(exist_ok=True)
-    ctx = construir_contexto(args.escenario, args.items, args.folio)
+    ctx = construir_contexto(args.escenario, args.items, args.folio, args.tipo)
     html = _env.get_template(args.template).render(**ctx)
 
     html_path = _OUT / f"{prefijo}.html"

@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
-from typing import Annotated
+from decimal import ROUND_HALF_UP, Decimal
+from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
@@ -23,7 +23,18 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
-from app.domain.value_objects.iva import calcular_iva, porcentaje_a_tasa
+# Motor de cálculo de la OC. La aritmética de los cuatro tipos de documento
+# vive ahí y NO se reimplementa acá: este módulo decide qué tasa corresponde
+# (leyendo core.tax_config) y aporta la única regla que el motor no conoce a
+# propósito — que en moneda extranjera la OC no calcula IVA.
+from app.domain.value_objects.retencion import (
+    IVA_PORCENTAJE_GENERAL,
+    TIPOS_AFECTOS,
+    TIPOS_CON_RETENCION,
+    calcular_totales,
+    normalizar_porcentajes,
+    porcentaje_retencion_por_fecha,
+)
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
@@ -58,6 +69,412 @@ router = APIRouter()
 _authz = AuthorizationService()
 
 
+# =====================================================================
+# Derivación tributaria de la OC (contrato §3 y §4.3)
+# =====================================================================
+#
+# Los cuatro tokens son los del catálogo SII que ya usa
+# `core.vouchers.doc_tributario_tipo`: el mapeo OC → voucher tiene que ser
+# la identidad. Toda tabla de traducción entre dos catálogos termina
+# divergiendo, y acá divergir significa declararle al SII una operación
+# afecta como exenta. Los sets de tipos salen del motor (`retencion.py`), no
+# se redeclaran: dos listas de tipos es cómo empieza una divergencia.
+
+# Sólo para mensajes de error: el operador no tiene por qué leer tokens en
+# mayúscula. La columna guarda el token, nunca la etiqueta.
+_ETIQUETA_TIPO_DOC = {
+    "FACTURA": "Factura afecta",
+    "FACTURA_EXENTA": "Factura exenta",
+    "BOLETA": "Boleta de ventas y servicios",
+    "HONORARIOS": "Boleta de honorarios",
+}
+
+
+def _campo_explicito(body: Any, campo: str) -> Any:
+    """Valor que el cliente mandó EXPLÍCITAMENTE, o None si no lo mandó.
+
+    Usa `model_fields_set` en vez de comparar contra el default. Si el schema
+    tuviera default 0 en vez de None, un `getattr` pelado devolvería 0 y la
+    trampa del cero falso entraría por la puerta de atrás: un honorario
+    retendría 0% porque nadie mandó la tasa, en lugar de leer la vigente de
+    `core.tax_config`. "No lo mandó" y "lo mandó en 0" son cosas distintas.
+    """
+    if campo not in getattr(body, "model_fields_set", ()):
+        return None
+    return getattr(body, campo, None)
+
+
+def _col(oc: OrdenCompra, nombre: str, por_defecto: Decimal) -> Decimal:
+    """Lee una columna nueva tolerando que la migración todavía no corrió.
+
+    El deploy NO aplica migraciones (el `release_command` está desactivado y
+    el SQL se corre a mano), así que existe una ventana en la que el código
+    nuevo pide columnas que la fila todavía no tiene, o que existen con NULL
+    en las OCs anteriores al backfill. `is not None`, nunca `or`: un monto de
+    0 es un valor legítimo y `or` lo reemplazaría por el default.
+    """
+    valor = getattr(oc, nombre, None)
+    return valor if valor is not None else por_defecto
+
+
+def _validar_coherencia_tributaria(
+    *,
+    tipo_documento: str,
+    moneda: str,
+    retencion_porcentaje: Decimal | None,
+) -> None:
+    """422 en castellano cuando el tipo de documento y la tasa se contradicen.
+
+    Asimetría deliberada con el IVA (§4.3): lo que el cliente AFIRMA se
+    rechaza, lo que quedó HEREDADO en la fila se pisa en silencio. Por eso
+    `retencion_porcentaje` acá es el valor explícito del body — si es None,
+    el operador no dijo nada y no hay nada que rechazar.
+
+    Incluye FACTURA_EXENTA entre los tipos sin retención aunque el CHECK de
+    BD sólo nombre FACTURA/BOLETA: una exenta con retención dejaría
+    `total_a_pagar != total` en un documento que no retiene nada, y eso es
+    plata mal girada. La API puede ser más estricta que la BD; al revés no.
+    """
+    tipo = (tipo_documento or "FACTURA").upper()
+
+    # `is not None` y no `if retencion_porcentaje:` — un 0 explícito es un
+    # dato válido, no la ausencia del campo.
+    if (
+        retencion_porcentaje is not None
+        and retencion_porcentaje > 0
+        and tipo not in TIPOS_CON_RETENCION
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El documento es '{_ETIQUETA_TIPO_DOC.get(tipo, tipo)}' y no "
+                "admite retención: la retención del Art. 74 N°2 de la LIR "
+                "sólo corre en boletas de honorarios. Cambiá el tipo de "
+                "documento a 'Boleta de honorarios' o dejá la retención en 0."
+            ),
+        )
+
+    if tipo in TIPOS_CON_RETENCION and (moneda or "CLP") != "CLP":
+        # El redondeo del motor es a peso chileno. Aplicarlo sobre UF daría
+        # una retención cuantizada a la unidad (15,33 UF → 15 UF), y además
+        # la boleta de honorarios electrónica se emite en pesos: la retención
+        # se entera al SII en CLP. Mejor un 422 legible que un monto mudo.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Una boleta de honorarios se emite en pesos: la retención se "
+                f"calcula y se entera al SII en CLP, no en {moneda}. Cambiá "
+                "la moneda a CLP o usá otro tipo de documento."
+            ),
+        )
+
+
+def _derivar_totales_oc(
+    *,
+    neto: Decimal,
+    moneda: str,
+    tipo_documento: str,
+    iva_porcentaje: Decimal,
+    retencion_porcentaje: Decimal,
+) -> dict[str, Decimal]:
+    """Los seis números tributarios de una OC, calculados en el servidor.
+
+    El cliente propone el tipo y las tasas; los montos los calcula el
+    servidor y nunca se aceptan del body (§4.3). Devuelve un dict listo para
+    el `derived=` del repositorio, con las TASAS ya normalizadas por el motor:
+    si el tipo no admite IVA o no admite retención, la tasa correspondiente
+    vuelve pisada a 0. Así lo que se persiste y lo que se calcula no se pueden
+    contradecir, ni siquiera si alguien edita la fila a mano después.
+
+    `neto` es la B de la §3: la suma del itemizado. En HONORARIOS es el
+    honorario BRUTO, no el líquido.
+
+    La aritmética no está acá: es toda de `calcular_totales`. Este wrapper
+    aporta lo único que el motor no puede saber — la moneda — y traduce los
+    `ValueError` del motor a 422 en vez de dejarlos salir como 500.
+    """
+    tipo = (tipo_documento or "FACTURA").upper()
+
+    # La regla de la moneda: en UF/USD la OC no calcula IVA porque el impuesto
+    # se liquida al convertir. Es preexistente y el motor la desconoce a
+    # propósito (está documentado en su docstring).
+    #
+    # Se aplica sobre el PORCENTAJE y no sobre el monto: si se pisara el monto,
+    # la fila quedaría con `iva_porcentaje = 19` e `iva = 0` y el PDF imprimiría
+    # "IVA 19% ......... 0" — que es exactamente lo que hace hoy. Pisando el
+    # porcentaje, la fila es coherente consigo misma y el PDF dice la verdad.
+    iva_pct_pedido = iva_porcentaje if moneda == "CLP" else Decimal("0")
+
+    # El peso chileno no tiene centavos. La suma del itemizado puede traerlos
+    # igual —`precio_unitario` es NUMERIC(18,2) y una cantidad fraccionaria o
+    # un gross-up escalado dejan restos— y de ahí se propagan a `neto`,
+    # `total`, `total_a_pagar`, a los hitos de pago y a los vouchers.
+    # Se corta acá, en el único punto por el que pasan TODAS las altas y
+    # ediciones (formulario, duplicar, importación CSV e inbox), en vez de
+    # parchear cada origen. El motor no lo hace a propósito: no conoce la
+    # moneda, y en UF/USD los decimales sí son significativos.
+    if moneda == "CLP":
+        neto = neto.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+
+    try:
+        # `normalizar_porcentajes` devuelve lo que hay que PERSISTIR;
+        # `calcular_totales` los montos. Se llama a las dos porque la segunda
+        # no devuelve las tasas, y las tasas también se guardan (invariante 5:
+        # la OC es el snapshot de la tasa que se le aplicó).
+        iva_pct, ret_pct = normalizar_porcentajes(
+            tipo,
+            iva_porcentaje=iva_pct_pedido,
+            retencion_porcentaje=retencion_porcentaje,
+        )
+        # Sin `fecha_emision`: el default por fecha del motor es el fallback en
+        # código, y acá la tasa ya viene resuelta contra core.tax_config, que
+        # es la fuente de verdad (invariante 10). Pasar los dos dejaría que el
+        # motor decidiera cuando el llamador ya decidió.
+        totales = calcular_totales(
+            tipo,
+            neto,
+            iva_porcentaje=iva_pct,
+            retencion_porcentaje=ret_pct,
+        )
+    except ValueError as exc:
+        # Tipo desconocido, porcentaje fuera de 0..100, retención en un tipo
+        # que no la admite. Son errores del pedido, no del servidor: 422 con
+        # el mensaje del motor, que ya está en castellano y explica cuál es
+        # la contradicción.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+        ) from exc
+
+    return {
+        # `neto` viaja en el derived aunque el cliente ya lo haya mandado:
+        # el redondeo a peso entero de arriba tiene que PERSISTIRSE, no sólo
+        # usarse para calcular. Sin esto quedaba un `neto` con centavos y un
+        # `total` entero, o sea la fila contradiciendo la identidad
+        # total = neto + iva contra la que después se concilia.
+        "neto": neto,
+        "iva_porcentaje": iva_pct,
+        "iva": totales.iva,
+        # §3.1: `total` NO cambia de significado. Sigue siendo neto + IVA, o
+        # sea el VALOR DEL CONTRATO. El líquido es una columna nueva, no una
+        # redefinición de ésta.
+        "total": totales.total,
+        "retencion_porcentaje": ret_pct,
+        "retencion_monto": totales.retencion_monto,
+        "total_a_pagar": totales.total_a_pagar,
+    }
+
+
+async def _retencion_porcentaje_vigente(db: DBSession, fecha: date) -> Decimal:
+    """Tasa de retención de honorarios vigente a `fecha`, desde `core.tax_config`.
+
+    Invariante 10: la tasa vive en la tabla, no en el código. La escala del
+    Art. 74 N°2 (Ley 21.133) sube todos los años hasta 2028, así que una OC
+    con fecha 2027 tiene que traer 16% sin que nadie toque una línea.
+
+    Dos motivos reales por los que la tabla puede no responder: el deploy no
+    corre migraciones (hay una ventana en la que `core.tax_config` todavía no
+    existe) y la escala sembrada podría no cubrir la fecha pedida. En los dos
+    casos caemos al fallback puro del motor y lo dejamos logueado — lo que no
+    se hace nunca es devolver 0 en silencio, porque eso es no retener nada.
+    """
+    import structlog
+
+    log = structlog.get_logger(__name__)
+    valor: Decimal | None = None
+    try:
+        # SAVEPOINT: si `core.tax_config` todavía no existe, el error aborta
+        # la transacción entera en Postgres y se llevaría puesto lo que el
+        # endpoint haya hecho antes.
+        async with db.begin_nested():
+            valor = await db.scalar(
+                text(
+                    """
+                    SELECT valor
+                      FROM core.tax_config
+                     WHERE clave = 'RETENCION_HONORARIOS'
+                       AND vigencia_desde <= :f
+                       AND (vigencia_hasta IS NULL OR vigencia_hasta >= :f)
+                     ORDER BY vigencia_desde DESC
+                     LIMIT 1
+                    """
+                ),
+                {"f": fecha},
+            )
+    except Exception as exc:
+        valor = None
+        log.warning(
+            "oc_tax_config_inaccesible", fecha=str(fecha), error=str(exc)
+        )
+
+    if valor is not None:
+        return Decimal(str(valor))
+
+    try:
+        fallback = porcentaje_retencion_por_fecha(fecha)
+    except ValueError as exc:
+        # La escala en código arranca en 2024 y no se extrapola hacia atrás
+        # (antes había otros valores; inventarlos sería inventar un dato
+        # tributario). Con tax_config caído y una OC retroactiva no hay tasa
+        # que aplicar, y adivinar sería peor que pedirla.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"{exc}. Cargá la tasa de retención a mano en la OC, o sembrá "
+                "la vigencia que falta en core.tax_config."
+            ),
+        ) from exc
+    log.warning(
+        "oc_retencion_fallback_motor",
+        fecha=str(fecha),
+        porcentaje=str(fallback),
+        motivo="core.tax_config sin fila vigente o inaccesible",
+    )
+    return fallback
+
+
+def _iva_porcentaje_efectivo(
+    tipo_documento: str,
+    *,
+    explicito: Decimal | None,
+    actual: Decimal | None,
+    tipo_anterior: str | None,
+) -> Decimal:
+    """IVA% que hay que guardar, contemplando la VUELTA a un tipo afecto.
+
+    El "pisar en vez de rechazar" de §4.3 del contrato es cómodo pero
+    unidireccional: cuando una OC pasa a HONORARIOS o FACTURA_EXENTA el
+    servidor le escribe `iva_porcentaje = 0` (correcto, esos tipos no llevan
+    IVA). El problema aparece al volver: `PATCH {"tipo_documento":"FACTURA"}`
+    no manda IVA%, así que se reusaba el 0 que el propio servidor había
+    forzado y quedaba una **factura afecta con 0% de IVA** — 19% menos de lo
+    que el proveedor va a facturar, y encima indistinguible de una exenta,
+    que es exactamente el estado que la §2.1 dice que hay que evitar.
+
+    Regla: si la OC entra a un tipo afecto VINIENDO de uno que no lo era, y
+    el cliente no mandó una tasa, se restaura la general. Si ya era afecta,
+    manda su tasa guardada — incluido un 0 puesto a propósito, que en una
+    afecta es raro pero es del operador, no nuestro.
+    """
+    if (tipo_documento or "").upper() not in TIPOS_AFECTOS:
+        return Decimal("0")
+    if explicito is not None:
+        return explicito
+    venia_sin_iva = (tipo_anterior or "").upper() not in TIPOS_AFECTOS
+    if venia_sin_iva:
+        return IVA_PORCENTAJE_GENERAL
+    return actual if actual is not None else IVA_PORCENTAJE_GENERAL
+
+
+async def _resolver_retencion_porcentaje(
+    db: DBSession,
+    *,
+    tipo_documento: str,
+    fecha_emision: date,
+    explicito: Decimal | None,
+    actual: Decimal | None = None,
+    tipo_anterior: str | None = None,
+) -> Decimal:
+    """Tasa de retención que hay que guardar en la OC.
+
+    Precedencia:
+      1. Lo que el cliente mandó explícitamente — puede ser 0 y es válido
+         (hay prestadores que no sufren retención: extranjeros sin domicilio,
+         casos con resolución del SII).
+      2. La que la OC YA tiene, si venía siendo del mismo tipo. Invariante 5,
+         snapshot: una OC de 2026 sigue con 15,25% aunque el SII suba la tasa
+         en 2027, y un 0 cargado a propósito no se pisa.
+      3. La vigente en `core.tax_config` a la FECHA DE EMISIÓN de la OC. Sólo
+         cuando la OC ACABA de convertirse en honorarios y no traía tasa.
+    Cualquier tipo que no sea honorarios devuelve 0 sin tocar la BD.
+
+    La condición del paso 2 es "el tipo no cambió", NO "la tasa es > 0". Con
+    `actual > 0` una OC de honorarios con retención 0 puesta a mano volvía a
+    15,25% en cualquier PATCH que disparara el recálculo — la trampa del cero
+    falso escrita con otra sintaxis, y además una violación del invariante de
+    snapshot: el sistema le cambiaba la plata a una OC sin que nadie lo pida.
+    """
+    if (tipo_documento or "").upper() not in TIPOS_CON_RETENCION:
+        return Decimal("0")
+    if explicito is not None:
+        return explicito
+    era_del_mismo_tipo = (tipo_anterior or "").upper() == (
+        tipo_documento or ""
+    ).upper()
+    if actual is not None and era_del_mismo_tipo:
+        return actual
+    return await _retencion_porcentaje_vigente(db, fecha_emision)
+
+
+async def _assert_oc_sin_firmas(db: DBSession, oc: OrdenCompra) -> None:
+    """Invariante 2: una OC firmada no cambia de tipo de documento ni de tasa.
+
+    `_OC_EDITABLE_ESTADOS` bloquea el estado 'firmada', pero el estado y las
+    firmas son dos cosas distintas: una OC puede tener una firma puesta y
+    seguir figurando 'emitida' si el flujo quedó a mitad de camino. Cambiarle
+    el tipo tributario después de que alguien la firmó altera un documento
+    probatorio: el firmante aprobó un total con IVA y le queda uno con
+    retención.
+
+    409 y no 403 a propósito: no es falta de permiso — no hay permiso que lo
+    habilite — es que el documento ya no admite ese cambio.
+    """
+    firmas = (
+        await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.oc_firmas "
+                "WHERE oc_id = :id AND status = 'FIRMADA'"
+            ),
+            {"id": oc.oc_id},
+        )
+    ) or 0
+    if firmas > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"La OC {oc.numero_oc} ya tiene {firmas} firma(s) puesta(s): "
+                "no se le puede cambiar el tipo de documento ni las tasas de "
+                "IVA o retención. Es un documento probatorio. Si el tipo está "
+                "mal, anulá la OC y emitila de nuevo."
+            ),
+        )
+
+    # Segundo guard, independiente del anterior: plata ya girada. Una OC en
+    # estado 'parcial' está dentro de `_OC_EDITABLE_ESTADOS` y puede tener
+    # vouchers EXECUTED. Recalcularle los totales deja los hitos y los pagos
+    # ya hechos apuntando a un total que dejó de existir — y en el caso de
+    # honorarios la diferencia es exactamente la retención.
+    # Es el mismo criterio que ya aplican `delete_oc` y `anular_oc`; faltaba
+    # acá, que es el único camino por el que el total puede cambiar.
+    # Misma condición que el guard de `delete_oc`: un voucher se ata a la OC
+    # por `v.oc_id` (voucher creado sobre la OC) o por `oc_cuotas.voucher_id`
+    # (voucher generado desde un hito). Mirar sólo uno de los dos caminos
+    # dejaría pasar la mitad de los casos.
+    con_plata = (
+        await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.vouchers v "
+                "WHERE v.status = ANY(:estados) "
+                "  AND (v.oc_id = :id "
+                "       OR v.voucher_id IN (SELECT c.voucher_id "
+                "                             FROM core.oc_cuotas c "
+                "                            WHERE c.oc_id = :id "
+                "                              AND c.voucher_id IS NOT NULL))"
+            ),
+            {"id": oc.oc_id, "estados": list(_VOUCHER_ESTADOS_CON_PLATA)},
+        )
+    ) or 0
+    if con_plata > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"La OC {oc.numero_oc} tiene {con_plata} pago(s) ya "
+                "aprobado(s) o ejecutado(s): cambiarle el tipo de documento o "
+                "las tasas movería el total contra el que se giró esa plata. "
+                "Anulá la OC y emitila de nuevo con el tipo correcto."
+            ),
+        )
+
+
 def _to_list_item(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraListItem:
     return OrdenCompraListItem(
         oc_id=oc.oc_id,
@@ -68,6 +485,15 @@ def _to_list_item(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraListIt
         moneda=oc.moneda,
         neto=oc.neto,
         total=oc.total,
+        # Los tres datos, y que el listado elija (§3.1). `total` sigue siendo
+        # el valor del contrato; `total_a_pagar` es lo que se gira; el tipo es
+        # lo que permite saber si los dos difieren. Cuál se muestra en la
+        # columna es una decisión de producto, pero la API no puede obligar a
+        # adivinarla — sin estos campos el listado no podría ni distinguir una
+        # boleta de honorarios de una factura.
+        tipo_documento=oc.tipo_documento,
+        retencion_monto=_col(oc, "retencion_monto", Decimal("0")),
+        total_a_pagar=_col(oc, "total_a_pagar", oc.total),
         estado=oc.estado,
         pdf_url=oc.pdf_url,
         allowed_actions=_authz.allowed_actions_for_oc(user, oc.estado),
@@ -95,6 +521,12 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
         atte_cargo=oc.atte_cargo,
         tipo_documento=oc.tipo_documento,
         iva_porcentaje=oc.iva_porcentaje,
+        retencion_porcentaje=_col(oc, "retencion_porcentaje", Decimal("0")),
+        retencion_monto=_col(oc, "retencion_monto", Decimal("0")),
+        # Ninguna OC anterior a la migración tiene retención, así que en la
+        # ventana previa al backfill el líquido ES el total. Con `_col` el
+        # detalle nunca devuelve un `null` que el frontend imprima como "—".
+        total_a_pagar=_col(oc, "total_a_pagar", oc.total),
         estado=oc.estado,
         pdf_url=oc.pdf_url,
         items=[OCDetalleRead.model_validate(d) for d in (oc.items or [])],
@@ -252,6 +684,26 @@ async def create_oc(
     # V5++ ola AD: validar acceso a empresa
     await assert_empresa_access(user, db, body.empresa_codigo)
 
+    # §4.3 — coherencia tributaria ANTES de tocar nada. Si el tipo y la tasa
+    # se contradicen no tiene sentido haber auto-creado un proveedor primero:
+    # el 422 dejaría el proveedor huérfano en la BD.
+    retencion_explicita = _campo_explicito(body, "retencion_porcentaje")
+    _validar_coherencia_tributaria(
+        tipo_documento=body.tipo_documento,
+        moneda=body.moneda,
+        retencion_porcentaje=retencion_explicita,
+    )
+    # La tasa por defecto de un honorario sale de core.tax_config POR LA FECHA
+    # DE EMISIÓN, no de una constante: una OC fechada en 2027 tiene que nacer
+    # con 16%. Se resuelve acá arriba, antes de cualquier INSERT, para que el
+    # SAVEPOINT de la consulta no se cruce con nada escrito.
+    retencion_pct = await _resolver_retencion_porcentaje(
+        db,
+        tipo_documento=body.tipo_documento,
+        fecha_emision=body.fecha_emision,
+        explicito=retencion_explicita,
+    )
+
     # R152EEEEEE — Guard explícito: una OC SIN proveedor identificable
     # quedaba con proveedor_id=NULL → orphan FK, rompía reportes,
     # auditoría legal sin contraparte. Exigir id O rut+nombre.
@@ -315,8 +767,17 @@ async def create_oc(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"OC {body.numero_oc} ya existe para empresa {body.empresa_codigo}",
         )
+    # El cliente propone, el servidor calcula: iva, retención, total y
+    # total_a_pagar salen de una sola función y jamás del body.
+    derived = _derivar_totales_oc(
+        neto=body.neto or Decimal("0"),
+        moneda=body.moneda,
+        tipo_documento=body.tipo_documento,
+        iva_porcentaje=body.iva_porcentaje,
+        retencion_porcentaje=retencion_pct,
+    )
     try:
-        oc = await repo.create(body)
+        oc = await repo.create(body, derived=derived)
         # La unidad de cada ítem va en el mismo commit que la OC (ver
         # `_persistir_unidades`: el repo no puede escribirla).
         await _persistir_unidades(db, oc.oc_id, body.items)
@@ -368,6 +829,13 @@ async def create_oc(
             "empresa_codigo": oc.empresa_codigo,
             "proveedor_id": oc.proveedor_id,
             "total": float(oc.total) if oc.total else None,
+            # Campos NUEVOS, no redefinición de `total` (§3.1). Los
+            # suscriptores externos ya publicados siguen leyendo `total` con
+            # el mismo significado de siempre; el que quiera saber cuánta
+            # plata sale lee `total_a_pagar` y lo elige explícitamente.
+            "total_a_pagar": float(_col(oc, "total_a_pagar", oc.total)),
+            "retencion_monto": float(_col(oc, "retencion_monto", Decimal("0"))),
+            "tipo_documento": oc.tipo_documento,
             "moneda": oc.moneda,
             "estado": oc.estado,
             "created_by": str(user.sub),
@@ -491,6 +959,16 @@ async def get_oc_html(
         "neto": str(oc.neto),
         "iva": str(oc.iva),
         "total": str(oc.total),
+        # Sin estos cuatro, este HTML imprimía una boleta de honorarios como
+        # si fuera una factura: el BRUTO rotulado "Total", sin línea de
+        # retención, sin líquido y sin decir de qué documento tributario se
+        # trata. Es la misma inducción a error que el PDF v2 evita, en un
+        # endpoint que también termina impreso (está pensado para Ctrl+P).
+        "tipo_documento": oc.tipo_documento or "FACTURA",
+        "iva_porcentaje": str(oc.iva_porcentaje),
+        "retencion_porcentaje": str(_col(oc, "retencion_porcentaje", Decimal("0"))),
+        "retencion_monto": str(_col(oc, "retencion_monto", Decimal("0"))),
+        "total_a_pagar": str(_col(oc, "total_a_pagar", oc.total)),
         "forma_pago": oc.forma_pago or "",
         "plazo_pago": oc.plazo_pago or "",
         "observaciones": oc.observaciones or "",
@@ -728,14 +1206,41 @@ async def duplicate_oc(
     # y sin esto el duplicado perdería las unidades (aparecerían como "—"
     # en el PDF de la copia).
     unidades_originales = await _leer_unidades(db, original.oc_id)
-    # Construir el OrdenCompraCreate copiando los campos del original. El IVA
-    # se recalcula automaticamente en repo.create() segun moneda + neto, asi
-    # que no hay riesgo de inconsistencia.
+
+    fecha_dup = body.fecha_emision or date.today()
+    # El tipo de documento y el IVA% se copian; la tasa de RETENCIÓN no: se
+    # relee por la fecha de emisión del duplicado. Un duplicado es una OC
+    # nueva y la escala del Art. 74 N°2 sube todos los años — arrastrar el
+    # 15,25% de 2026 a una OC de 2027 retiene de menos, y la diferencia se la
+    # come el mandante ante el SII. El invariante 5 (snapshot) protege a la OC
+    # original de re-derivarse, no a su copia. Si la tasa era pactada distinto,
+    # se corrige con un PATCH sobre el duplicado.
+    _validar_coherencia_tributaria(
+        tipo_documento=original.tipo_documento,
+        moneda=original.moneda,
+        retencion_porcentaje=None,
+    )
+    retencion_pct_dup = await _resolver_retencion_porcentaje(
+        db,
+        tipo_documento=original.tipo_documento,
+        fecha_emision=fecha_dup,
+        explicito=None,
+        # El duplicado HEREDA la tasa del original (mismo tipo → gana el
+        # snapshot). Sin esto, duplicar una OC de honorarios con retención 0
+        # cargada a mano devolvía una con 15,25%: duplicar le cambiaría la
+        # plata al documento en silencio, que es justo lo que nadie espera
+        # del botón "Duplicar".
+        actual=_col(original, "retencion_porcentaje", None),
+        tipo_anterior=original.tipo_documento,
+    )
+    # Construir el OrdenCompraCreate copiando los campos del original. Los
+    # montos los deriva el servidor abajo (`_derivar_totales_oc`), nunca el
+    # schema, asi que no hay riesgo de inconsistencia.
     duplicate_payload = OrdenCompraCreate(
         numero_oc=body.numero_oc,
         empresa_codigo=original.empresa_codigo,
         proveedor_id=original.proveedor_id,
-        fecha_emision=body.fecha_emision or date.today(),
+        fecha_emision=fecha_dup,
         validez_dias=original.validez_dias,
         moneda=original.moneda,  # type: ignore[arg-type]
         neto=original.neto,
@@ -748,6 +1253,7 @@ async def duplicate_oc(
         atte_cargo=original.atte_cargo,
         tipo_documento=original.tipo_documento,
         iva_porcentaje=original.iva_porcentaje,
+        retencion_porcentaje=retencion_pct_dup,
         items=[
             OCDetalleCreate(
                 item=d.item,
@@ -759,8 +1265,15 @@ async def duplicate_oc(
             for d in (original.items or [])
         ],
     )
+    derived_dup = _derivar_totales_oc(
+        neto=duplicate_payload.neto or Decimal("0"),
+        moneda=duplicate_payload.moneda,
+        tipo_documento=duplicate_payload.tipo_documento,
+        iva_porcentaje=duplicate_payload.iva_porcentaje,
+        retencion_porcentaje=retencion_pct_dup,
+    )
     try:
-        new_oc = await repo.create(duplicate_payload)
+        new_oc = await repo.create(duplicate_payload, derived=derived_dup)
         await _persistir_unidades(db, new_oc.oc_id, duplicate_payload.items)
         await db.commit()
     except IntegrityError as exc:
@@ -787,6 +1300,16 @@ async def duplicate_oc(
         )
     duplicada = await _to_read_con_unidades(db, user, new_oc)
     after = duplicada.model_dump(mode="json")
+    # Que la retención cambió al duplicar tiene que quedar dicho en la
+    # auditoría: es el único campo que NO se copia, y si el operador no lo
+    # espera, lo descubre en el PDF y no sabe por qué.
+    retencion_original = _col(original, "retencion_porcentaje", Decimal("0"))
+    nota_retencion = (
+        f" · retención {retencion_original}% → {retencion_pct_dup}% "
+        f"(tasa vigente al {fecha_dup})"
+        if retencion_pct_dup != retencion_original
+        else ""
+    )
     await audit_log(
         db,
         request,
@@ -797,7 +1320,7 @@ async def duplicate_oc(
         entity_label=new_oc.numero_oc,
         summary=(
             f"OC {new_oc.numero_oc} duplicada desde {original.numero_oc} "
-            f"({original.empresa_codigo})"
+            f"({original.empresa_codigo}){nota_retencion}"
         ),
         before=None,
         after=after,
@@ -811,6 +1334,11 @@ async def duplicate_oc(
             "empresa_codigo": new_oc.empresa_codigo,
             "proveedor_id": new_oc.proveedor_id,
             "total": float(new_oc.total) if new_oc.total else None,
+            "total_a_pagar": float(_col(new_oc, "total_a_pagar", new_oc.total)),
+            "retencion_monto": float(
+                _col(new_oc, "retencion_monto", Decimal("0"))
+            ),
+            "tipo_documento": new_oc.tipo_documento,
             "moneda": new_oc.moneda,
             "estado": new_oc.estado,
             "created_by": str(user.sub),
@@ -860,17 +1388,53 @@ async def update_oc(
             update={"atte_nombre": atte_nombre, "atte_cargo": atte_cargo}
         )
 
-    # iva/total son derivados de neto — nunca vienen directo en el body. Si
-    # cambia iva_porcentaje ("cambiarle el IVA a las OC" cuando resulta ser
-    # boleta y no factura), recalculamos acá con el mismo neto ya guardado.
+    # iva / retención / total / total_a_pagar son DERIVADOS del neto y del
+    # tipo de documento: nunca vienen directo en el body. El disparador del
+    # recálculo son las TRES entradas, no sólo el IVA%. Antes miraba únicamente
+    # `iva_porcentaje`, y un PATCH {"tipo_documento": "HONORARIOS"} dejaba la
+    # OC marcada como honorario con el IVA del 19% intacto y sin retención:
+    # incoherente con el CHECK de la BD (IntegrityError → 500 opaco), con el
+    # PDF y con lo que después se le gira al profesional.
+    tipo_nuevo = _campo_explicito(body, "tipo_documento")
+    iva_pct_nuevo = _campo_explicito(body, "iva_porcentaje")
+    ret_pct_nuevo = _campo_explicito(body, "retencion_porcentaje")
+
     derived: dict = {}
-    if body.iva_porcentaje is not None:
-        nuevo_iva = (
-            calcular_iva(oc.neto, porcentaje_a_tasa(body.iva_porcentaje))
-            if oc.moneda == "CLP"
-            else Decimal("0")
+    if tipo_nuevo is not None or iva_pct_nuevo is not None or ret_pct_nuevo is not None:
+        # Invariante 2 — el estado 'firmada' ya está fuera de
+        # `_OC_EDITABLE_ESTADOS`, pero las firmas y el estado son cosas
+        # distintas: chequeamos la evidencia, no la etiqueta.
+        await _assert_oc_sin_firmas(db, oc)
+        tipo_efectivo = tipo_nuevo if tipo_nuevo is not None else oc.tipo_documento
+        _validar_coherencia_tributaria(
+            tipo_documento=tipo_efectivo,
+            moneda=oc.moneda,
+            retencion_porcentaje=ret_pct_nuevo,
         )
-        derived = {"iva": nuevo_iva, "total": oc.neto + nuevo_iva}
+        # La fecha de emisión NO se puede editar (no está en el schema), así
+        # que la tasa por defecto de un honorario sigue siendo la del año en
+        # que se emitió la OC. Cambiar de FACTURA a HONORARIOS en 2026 no
+        # trae la tasa de hoy: trae la que correspondía a esa OC.
+        retencion_pct = await _resolver_retencion_porcentaje(
+            db,
+            tipo_documento=tipo_efectivo,
+            fecha_emision=oc.fecha_emision,
+            explicito=ret_pct_nuevo,
+            actual=_col(oc, "retencion_porcentaje", Decimal("0")),
+            tipo_anterior=oc.tipo_documento,
+        )
+        derived = _derivar_totales_oc(
+            neto=oc.neto,
+            moneda=oc.moneda,
+            tipo_documento=tipo_efectivo,
+            iva_porcentaje=_iva_porcentaje_efectivo(
+                tipo_efectivo,
+                explicito=iva_pct_nuevo,
+                actual=oc.iva_porcentaje,
+                tipo_anterior=oc.tipo_documento,
+            ),
+            retencion_porcentaje=retencion_pct,
+        )
 
     updated = await repo.update_fields(oc, body, derived=derived)
     await db.commit()
@@ -1193,6 +1757,16 @@ async def update_estado(
                 "estado_after": body.estado,
                 "partial_payment": body.estado == "parcial",
                 "total": float(updated.total) if updated.total else None,
+                # `oc.paid` es plata que YA salió: el suscriptor que concilia
+                # contra el banco necesita el líquido, no el bruto (§3.1).
+                # `total` se conserva con su significado histórico.
+                "total_a_pagar": float(
+                    _col(updated, "total_a_pagar", updated.total)
+                ),
+                "retencion_monto": float(
+                    _col(updated, "retencion_monto", Decimal("0"))
+                ),
+                "tipo_documento": updated.tipo_documento,
                 "moneda": updated.moneda,
                 "proveedor_id": updated.proveedor_id,
                 "changed_by": str(user.sub),
@@ -1425,7 +1999,31 @@ async def import_ocs_csv(
                 )
                 continue
 
-            oc = await repo.create(oc_data)
+            # Mismo cálculo server-side que el alta individual. Hoy el CSV no
+            # trae columna de tipo de documento y todo cae en FACTURA, pero el
+            # camino es el mismo a propósito: el día que se agregue la columna
+            # no hay una segunda aritmética que acordarse de actualizar. Y
+            # `total_a_pagar` es NOT NULL: dejar este path con los defaults del
+            # schema reventaba el INSERT.
+            retencion_csv = _campo_explicito(oc_data, "retencion_porcentaje")
+            _validar_coherencia_tributaria(
+                tipo_documento=oc_data.tipo_documento,
+                moneda=oc_data.moneda,
+                retencion_porcentaje=retencion_csv,
+            )
+            derived_csv = _derivar_totales_oc(
+                neto=oc_data.neto or Decimal("0"),
+                moneda=oc_data.moneda,
+                tipo_documento=oc_data.tipo_documento,
+                iva_porcentaje=oc_data.iva_porcentaje,
+                retencion_porcentaje=await _resolver_retencion_porcentaje(
+                    db,
+                    tipo_documento=oc_data.tipo_documento,
+                    fecha_emision=oc_data.fecha_emision,
+                    explicito=retencion_csv,
+                ),
+            )
+            oc = await repo.create(oc_data, derived=derived_csv)
             await db.flush()
             report.ocs_created.append({
                 "oc_id": oc.oc_id,
@@ -1433,6 +2031,7 @@ async def import_ocs_csv(
                 "empresa_codigo": oc.empresa_codigo,
                 "neto": str(oc.neto),
                 "total": str(oc.total),
+                "total_a_pagar": str(_col(oc, "total_a_pagar", oc.total)),
                 "moneda": oc.moneda,
                 "items": len(oc_data.items),
             })
@@ -1448,6 +2047,13 @@ async def import_ocs_csv(
                         "empresa_codigo": oc.empresa_codigo,
                         "proveedor_id": oc.proveedor_id,
                         "total": float(oc.total) if oc.total else None,
+                        "total_a_pagar": float(
+                            _col(oc, "total_a_pagar", oc.total)
+                        ),
+                        "retencion_monto": float(
+                            _col(oc, "retencion_monto", Decimal("0"))
+                        ),
+                        "tipo_documento": oc.tipo_documento,
                         "moneda": oc.moneda,
                         "estado": oc.estado,
                         "created_by": str(user.sub),

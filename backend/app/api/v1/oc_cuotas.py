@@ -10,12 +10,16 @@ permite recalcular si cambia el total de la OC y es lo que el proveedor firma.
 
 Reglas del modelo nuevo:
   · `porcentaje` (NUMERIC(6,3)) es la FUENTE DE VERDAD de cada hito.
-  · `monto` se DERIVA (porcentaje/100 x total de la OC) y se sigue guardando
-    porque lo consumen generar-vouchers y el flujo de caja — no se saca.
+  · `monto` se DERIVA (porcentaje/100 x `total_a_pagar` de la OC) y se sigue
+    guardando porque lo consumen generar-vouchers y el flujo de caja.
+    OJO: la base es `total_a_pagar`, no `total`. En una boleta de
+    honorarios `total` es el BRUTO y repartir sobre él le giraría al
+    profesional la retención que la empresa le debe al SII. Ver
+    `_base_de_reparto`.
   · Los porcentajes de una misma OC deben sumar 100 (tolerancia ±0.01 por
     redondeo del navegador).
   · El ÚLTIMO hito absorbe la diferencia de redondeo de los montos, para que
-    Σ(montos) sea EXACTAMENTE el total de la OC (si no, la OC no cuadra
+    Σ(montos) sea EXACTAMENTE `total_a_pagar` (si no, la OC no cuadra
     contra los vouchers que se generan de ella).
 
 Flujo típico:
@@ -139,7 +143,8 @@ async def _get_oc_or_404(db, oc_id: int, user=None) -> dict[str, Any]:
         await db.execute(
             text(
                 """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
-                          total, moneda, observaciones, estado
+                          total, total_a_pagar, retencion_monto,
+                          tipo_documento, moneda, observaciones, estado
                    FROM core.ordenes_compra WHERE oc_id = :id"""
             ),
             {"id": oc_id},
@@ -153,6 +158,35 @@ async def _get_oc_or_404(db, oc_id: int, user=None) -> dict[str, Any]:
     if user is not None:
         await assert_empresa_access(user, db, row["empresa_codigo"])
     return dict(row)
+
+
+def _base_de_reparto(oc: dict[str, Any]) -> Decimal:
+    """Sobre qué monto se reparten los hitos de pago.
+
+    Es `total_a_pagar`, NO `total`. La distinción sólo importa en las boletas
+    de honorarios, y ahí importa mucho: `total` es el honorario BRUTO y
+    `total_a_pagar` es el líquido, después de descontar la retención que el
+    mandante le entera al SII por cuenta del prestador.
+
+    Repartir sobre el bruto significaría transferirle al profesional también
+    la plata de la retención — en una OC de 3.645.000 al 15,25% son 555.863
+    de más, y encima la empresa después tiene que enterar esa retención igual,
+    o sea la paga dos veces. Los hitos son PLATA QUE SALE (regla §3.1 del
+    contrato en docs/MEGAPROMPT_OC_HONORARIOS_EXENTA.md), así que van contra
+    el líquido.
+
+    Para los otros tres tipos de documento `total_a_pagar == total`, así que
+    esto no cambia absolutamente nada de lo que ya existía.
+
+    El fallback a `total` cubre la ventana entre el SQL y el deploy: si la
+    columna todavía no tiene valor, el reparto sigue funcionando como antes
+    en vez de tirar 500. No usa `or` porque un `total_a_pagar` de 0 es un
+    valor legítimo que hay que respetar, y `or` lo confundiría con ausencia.
+    """
+    valor = oc.get("total_a_pagar")
+    if valor is None:
+        valor = oc.get("total")
+    return Decimal(str(valor or 0))
 
 
 def _fmt_pct(v: Decimal) -> str:
@@ -324,7 +358,7 @@ async def split_equitativo(
     Reemplaza CUALQUIER hito previo que estuviera en estado PENDIENTE.
     """
     oc = await _get_oc_or_404(db, oc_id, user)
-    total = Decimal(str(oc["total"] or 0))
+    total = _base_de_reparto(oc)
     if total <= 0:
         raise HTTPException(
             status_code=400,
@@ -446,7 +480,7 @@ async def replace_cuotas(
       · El último hito editable absorbe el residuo de redondeo del monto.
     """
     oc = await _get_oc_or_404(db, oc_id, user)
-    total_oc = Decimal(str(oc["total"] or 0))
+    total_oc = _base_de_reparto(oc)
     if total_oc <= 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

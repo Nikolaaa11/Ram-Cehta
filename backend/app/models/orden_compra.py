@@ -37,10 +37,30 @@ class OrdenCompra(Base):
     atte_nombre: Mapped[str | None] = mapped_column(Text)
     atte_cargo: Mapped[str | None] = mapped_column(Text)
     proveedor_contacto_id: Mapped[int | None] = mapped_column(Integer)
+    # FACTURA | FACTURA_EXENTA | BOLETA | HONORARIOS — mismo catálogo que
+    # core.vouchers.doc_tributario_tipo, para que el mapeo OC→voucher sea la
+    # identidad. FACTURA_EXENTA no es "FACTURA con 0%": la exenta no da
+    # crédito fiscal y se declara en otra línea del F29/RCV.
     tipo_documento: Mapped[str] = mapped_column(Text, server_default="FACTURA")
     iva_porcentaje: Mapped[Decimal] = mapped_column(
         Numeric(5, 2), server_default="19.00"
     )
+    # Retención de segunda categoría (Art. 74 N°2 LIR). Sólo HONORARIOS
+    # retiene. La tasa se GUARDA, no se re-deriva de core.tax_config: si el
+    # SII la sube en 2027, las OC de 2026 tienen que seguir mostrando 15,25%.
+    # 0 es un valor legítimo — nunca `x or Decimal(...)` sobre este campo.
+    retencion_porcentaje: Mapped[Decimal] = mapped_column(
+        Numeric(5, 2), server_default="0"
+    )
+    retencion_monto: Mapped[Decimal] = mapped_column(
+        Numeric(18, 2), server_default="0"
+    )
+    # PLATA QUE SALE = total - retencion_monto. `total` conserva su
+    # semántica histórica (neto + iva) porque lo consumen hitos, exports,
+    # webhooks y el PDF; redefinirlo habría cambiado el significado en diez
+    # lugares a la vez. NOT NULL sin server_default a propósito: quien
+    # inserta tiene que calcularlo, un 0 por omisión sería un monto falso.
+    total_a_pagar: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     estado: Mapped[str] = mapped_column(Text, server_default="emitida")
     pdf_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

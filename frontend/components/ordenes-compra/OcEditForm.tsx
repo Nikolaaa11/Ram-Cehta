@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { apiClient, ApiError } from "@/lib/api/client";
+import { toCLP } from "@/lib/format";
 import { useSession } from "@/hooks/use-session";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
@@ -36,15 +37,39 @@ interface FormState {
   pdf_url: string;
   tipo_documento: string;
   iva_porcentaje: string;
+  retencion_porcentaje: string;
   proveedor_contacto_id: string;
   atte_nombre: string;
   atte_cargo: string;
 }
 
+// Mismos 4 tokens que el form de alta: el `value` es el del catálogo SII que
+// viaja a la BD, la etiqueta en castellano es sólo presentación.
 const TIPOS_DOCUMENTO: ComboboxItem[] = [
-  { value: "FACTURA", label: "Factura" },
-  { value: "BOLETA", label: "Boleta" },
+  { value: "FACTURA", label: "Factura", group: "Afectas a IVA" },
+  { value: "BOLETA", label: "Boleta", group: "Afectas a IVA" },
+  { value: "FACTURA_EXENTA", label: "Factura exenta", group: "Sin IVA" },
+  { value: "HONORARIOS", label: "Boleta de honorarios", group: "Sin IVA" },
 ];
+
+const esAfecto = (tipo: string) => tipo === "FACTURA" || tipo === "BOLETA";
+
+/** Ver el gemelo en `ordenes-compra/nueva`: sugerencia de UI, la tasa de
+ *  verdad vive en `core.tax_config` y el servidor la confirma. */
+function retencionSugerida(fechaEmision: string): string {
+  const anio = Number(String(fechaEmision).slice(0, 4));
+  if (!Number.isFinite(anio) || anio <= 2024) return "13.75";
+  if (anio === 2025) return "14.5";
+  if (anio === 2026) return "15.25";
+  if (anio === 2027) return "16";
+  return "17";
+}
+
+/** Nada de `Number(x) || fallback`: un 0 legítimo caería en el fallback. */
+const toNum = (v: string, fallback = 0): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
 
 const inputBase =
   "w-full rounded-lg border-0 ring-1 ring-hairline bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green disabled:bg-ink-100/40 disabled:text-ink-500";
@@ -52,12 +77,29 @@ const labelBase = "mb-1.5 block text-sm font-medium text-ink-700";
 
 const LOCKED_STATES = new Set(["pagada", "anulada"]);
 
+/**
+ * Estados donde el tipo de documento y las tasas quedan congelados aunque el
+ * resto del form siga editable: una OC firmada es un documento probatorio y no
+ * cambia de tipo ni de tasa nunca (invariante 2). La API ya lo bloquea; acá lo
+ * decimos antes de que el operador escriba y se coma un 4xx.
+ */
+const FISCAL_LOCKED_STATES = new Set([
+  "firmada",
+  "aprobada",
+  "pagada",
+  "anulada",
+  "rechazada",
+  "cerrada",
+]);
+
 export function OcEditForm({ initialData }: Props) {
   const router = useRouter();
   const { session } = useSession();
   const queryClient = useQueryClient();
 
   const locked = LOCKED_STATES.has(initialData.estado.toLowerCase());
+  const fiscalLocked =
+    locked || FISCAL_LOCKED_STATES.has(initialData.estado.toLowerCase());
 
   const initial = useMemo<FormState>(
     () => ({
@@ -68,6 +110,9 @@ export function OcEditForm({ initialData }: Props) {
       pdf_url: initialData.pdf_url ?? "",
       tipo_documento: initialData.tipo_documento ?? "FACTURA",
       iva_porcentaje: String(initialData.iva_porcentaje ?? "19"),
+      // `??` y no `||`: una OC con retención 0 guardada a propósito tiene que
+      // mostrar 0, no el default.
+      retencion_porcentaje: String(initialData.retencion_porcentaje ?? "0"),
       proveedor_contacto_id: initialData.proveedor_contacto_id
         ? String(initialData.proveedor_contacto_id)
         : "",
@@ -103,6 +148,7 @@ export function OcEditForm({ initialData }: Props) {
     form.pdf_url !== initial.pdf_url ||
     form.tipo_documento !== initial.tipo_documento ||
     form.iva_porcentaje !== initial.iva_porcentaje ||
+    form.retencion_porcentaje !== initial.retencion_porcentaje ||
     form.proveedor_contacto_id !== initial.proveedor_contacto_id ||
     form.atte_nombre !== initial.atte_nombre ||
     form.atte_cargo !== initial.atte_cargo;
@@ -140,12 +186,33 @@ export function OcEditForm({ initialData }: Props) {
     if (form.pdf_url !== initial.pdf_url) {
       out.pdf_url = form.pdf_url === "" ? null : form.pdf_url;
     }
-    if (form.tipo_documento !== initial.tipo_documento) {
-      out.tipo_documento = form.tipo_documento;
+    const tipoCambio = form.tipo_documento !== initial.tipo_documento;
+    if (tipoCambio) out.tipo_documento = form.tipo_documento;
+    // Cuando cambia el tipo mandamos SIEMPRE los dos porcentajes coherentes.
+    // Un PATCH con sólo `tipo_documento` dejaría una OC de honorarios con el
+    // IVA de la factura vieja y chocaría con el CHECK de coherencia de la BD.
+    // `Number("")` es 0 y es finito, así que sin el guard de vacío un campo
+    // borrado se mandaba como una tasa de 0 EXPLÍCITA: el backend la respeta
+    // (y hace bien, un 0 a propósito es válido) y la OC se quedaba sin
+    // retención en silencio. Vacío significa "no lo toqué", no "es cero".
+    const pct = (raw: string): number | null => {
+      if (raw.trim() === "") return null;
+      const n = Number(raw);
+      return Number.isFinite(n) && n >= 0 && n <= 100 ? n : null;
+    };
+    if (tipoCambio || form.iva_porcentaje !== initial.iva_porcentaje) {
+      const n = esAfecto(form.tipo_documento) ? pct(form.iva_porcentaje) : 0;
+      if (n !== null) out.iva_porcentaje = n;
     }
-    if (form.iva_porcentaje !== initial.iva_porcentaje) {
-      const n = Number(form.iva_porcentaje);
-      if (!Number.isNaN(n) && n >= 0 && n <= 100) out.iva_porcentaje = n;
+    if (
+      tipoCambio ||
+      form.retencion_porcentaje !== initial.retencion_porcentaje
+    ) {
+      const n =
+        form.tipo_documento === "HONORARIOS"
+          ? pct(form.retencion_porcentaje)
+          : 0;
+      if (n !== null) out.retencion_porcentaje = n;
     }
     if (form.proveedor_contacto_id !== initial.proveedor_contacto_id) {
       out.proveedor_contacto_id = form.proveedor_contacto_id
@@ -168,6 +235,39 @@ export function OcEditForm({ initialData }: Props) {
   }, [form, initial]);
 
   const isDirty = Object.keys(dirty).length > 0;
+
+  const esHonorarios = form.tipo_documento === "HONORARIOS";
+  const esExenta = form.tipo_documento === "FACTURA_EXENTA";
+
+  /**
+   * Preview de los totales con lo que hay en el form. Los ítems no se editan
+   * acá, así que el neto es fijo y lo único que se mueve son las tasas —
+   * pero cambiar el tipo de documento cambia lo que se va a girar, y eso el
+   * operador tiene que verlo antes de guardar, no después en el PDF.
+   *
+   * Espejo de §3 del megaprompt: `Math.round` es half-up igual que
+   * `_round_clp`, y el líquido sale POR RESTA para que cierre exacto. El
+   * número que vale es el que devuelve el servidor.
+   */
+  const neto = toNum(String(initialData.neto ?? "0"));
+  const ivaPct = toNum(form.iva_porcentaje);
+  const retPct = toNum(form.retencion_porcentaje);
+  // El backend no calcula IVA fuera de CLP.
+  const ivaCalc =
+    esAfecto(form.tipo_documento) && initialData.moneda === "CLP"
+      ? Math.round(neto * (ivaPct / 100))
+      : 0;
+  const totalCalc = neto + ivaCalc;
+  const retencionCalc = esHonorarios ? Math.round(neto * (retPct / 100)) : 0;
+  const totalAPagarCalc = totalCalc - retencionCalc;
+  const fmtMonto = (v: number) =>
+    initialData.moneda === "CLP"
+      ? toCLP(v)
+      : `${initialData.moneda} ${v.toLocaleString("es-CL", {
+          maximumFractionDigits: 2,
+        })}`;
+  const fmtPct = (v: number) =>
+    `${v.toLocaleString("es-CL", { maximumFractionDigits: 2 })}%`;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -319,29 +419,137 @@ export function OcEditForm({ initialData }: Props) {
                 <Combobox
                   items={TIPOS_DOCUMENTO}
                   value={form.tipo_documento}
-                  onValueChange={(v) => !locked && update("tipo_documento", v)}
+                  onValueChange={(v) => {
+                    if (fiscalLocked) return;
+                    update("tipo_documento", v);
+                    // Al pasar a honorarios precargamos la tasa del año de
+                    // emisión si la OC venía sin retención; el servidor la
+                    // confirma contra core.tax_config.
+                    if (v === "HONORARIOS" && toNum(form.retencion_porcentaje) <= 0) {
+                      update(
+                        "retencion_porcentaje",
+                        retencionSugerida(initialData.fecha_emision),
+                      );
+                    }
+                  }}
                   placeholder="Tipo de documento"
-                  triggerClassName={`w-full h-[38px] ${locked ? "pointer-events-none opacity-60" : ""}`}
+                  triggerClassName={`w-full h-[38px] ${fiscalLocked ? "pointer-events-none opacity-60" : ""}`}
                 />
+                {fiscalLocked && !locked && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    OC{" "}
+                    <span className="capitalize">{initialData.estado}</span>: el
+                    tipo de documento y las tasas ya no se tocan.
+                  </p>
+                )}
+                {esExenta && (
+                  <p className="mt-1 text-xs text-ink-400">
+                    Operación exenta (Art. 12 D.L. 825): sin IVA y sin crédito
+                    fiscal.
+                  </p>
+                )}
               </div>
-              <div>
-                <label className={labelBase} htmlFor="iva-porcentaje">
-                  IVA %
-                  <span className="ml-1 text-[10px] font-normal text-ink-400">
-                    · cambiarlo recalcula IVA y total
-                  </span>
-                </label>
-                <input
-                  id="iva-porcentaje"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step="0.01"
-                  value={form.iva_porcentaje}
-                  onChange={(e) => update("iva_porcentaje", e.target.value)}
-                  disabled={locked}
-                  className={`${inputBase} tabular-nums`}
-                />
+              {/* IVA% sólo en afectas, retención% sólo en honorarios. */}
+              {esAfecto(form.tipo_documento) && (
+                <div>
+                  <label className={labelBase} htmlFor="iva-porcentaje">
+                    IVA %
+                    <span className="ml-1 text-[10px] font-normal text-ink-400">
+                      · cambiarlo recalcula IVA y total
+                    </span>
+                  </label>
+                  <input
+                    id="iva-porcentaje"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    value={form.iva_porcentaje}
+                    onChange={(e) => update("iva_porcentaje", e.target.value)}
+                    disabled={fiscalLocked}
+                    className={`${inputBase} tabular-nums`}
+                  />
+                </div>
+              )}
+              {esHonorarios && (
+                <div>
+                  <label className={labelBase} htmlFor="retencion-porcentaje">
+                    Retención %
+                    <span className="ml-1 text-[10px] font-normal text-ink-400">
+                      · Art. 74 N°2 LIR
+                    </span>
+                  </label>
+                  <input
+                    id="retencion-porcentaje"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    value={form.retencion_porcentaje}
+                    onChange={(e) =>
+                      update("retencion_porcentaje", e.target.value)
+                    }
+                    disabled={fiscalLocked}
+                    className={`${inputBase} tabular-nums`}
+                  />
+                  <p className="mt-1 text-xs text-ink-400">
+                    Los ítems son el honorario BRUTO: acá no se puede grossear
+                    un líquido. Si el monto está mal cargado hay que anular la
+                    OC y rehacerla.
+                  </p>
+                </div>
+              )}
+              {/* Resumen en vivo: cambiar el tipo o la tasa mueve lo que se va
+                  a girar, y eso se ve acá, no recién en el PDF. */}
+              <div className="sm:col-span-2">
+                <div className="rounded-xl bg-ink-100/40 p-3 ring-1 ring-hairline">
+                  <dl className="ml-auto w-full max-w-sm space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-4">
+                      <dt className="text-sm text-ink-500">
+                        {esHonorarios
+                          ? "Honorarios brutos"
+                          : esExenta
+                            ? "Neto exento"
+                            : "Neto"}
+                      </dt>
+                      <dd className="text-sm text-ink-900 tabular-nums">
+                        {fmtMonto(neto)}
+                      </dd>
+                    </div>
+                    {esAfecto(form.tipo_documento) && (
+                      <div className="flex items-baseline justify-between gap-4">
+                        <dt className="text-sm text-ink-500">
+                          IVA {fmtPct(ivaPct)}
+                        </dt>
+                        <dd className="text-sm text-ink-900 tabular-nums">
+                          {fmtMonto(ivaCalc)}
+                        </dd>
+                      </div>
+                    )}
+                    {esHonorarios && (
+                      <div className="flex items-baseline justify-between gap-4">
+                        <dt className="text-sm text-ink-500">
+                          Retención {fmtPct(retPct)}
+                        </dt>
+                        <dd className="text-sm text-negative tabular-nums">
+                          − {fmtMonto(retencionCalc)}
+                        </dd>
+                      </div>
+                    )}
+                    <div className="flex items-baseline justify-between gap-4 border-t border-hairline pt-2">
+                      <dt className="text-sm font-medium text-ink-900">
+                        {esHonorarios ? "Líquido a pagar" : "Total"}
+                      </dt>
+                      <dd className="text-base font-semibold text-cehta-green tabular-nums">
+                        {fmtMonto(totalAPagarCalc)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <p className="mt-2 text-xs text-ink-400">
+                    Preview: los totales definitivos los recalcula el servidor
+                    al guardar.
+                  </p>
+                </div>
               </div>
               <div className="sm:col-span-2">
                 <label className={labelBase} htmlFor="dirigido-a">

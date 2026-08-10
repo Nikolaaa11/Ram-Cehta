@@ -24,6 +24,49 @@
 {%- set _b = (_c[5:7] | int(base=16)) if _hex_ok else 0 -%}
 {%- set color_tinte = ('rgba(%d, %d, %d, 0.10)' | format(_r, _g, _b)) if _hex_ok else '#EFF4F1' -%}
 {%- set color_suave = ('rgba(%d, %d, %d, 0.05)' | format(_r, _g, _b)) if _hex_ok else '#F6F8F7' -%}
+{#- ---------------------------------------------------------------------
+    TIPO DE DOCUMENTO TRIBUTARIO — presentación.
+
+    En BD el valor es un token del catálogo SII, el mismo que usa
+    `core.vouchers.doc_tributario_tipo`: FACTURA · FACTURA_EXENTA · BOLETA ·
+    HONORARIOS. La etiqueta en castellano ("Boleta de honorarios") es
+    PRESENTACIÓN y se arma acá, nunca se guarda en la columna: el mapeo
+    OC → voucher tiene que ser la identidad, y toda tabla de traducción
+    entre dos catálogos termina divergiendo.
+
+    Un token que no esté en el mapa NO cae a "Factura": imprime el guión.
+    En un documento que el proveedor firma, rotular mal el tipo de documento
+    tributario es peor que declarar que no se sabe.
+
+    Los dos booleanos existen porque el bloque de totales, la nota legal y el
+    rótulo del importe son TRES lugares que dependen del mismo dato: repetir
+    la comparación de string en cada uno es cómo se llega a que dos de los
+    tres cambien y el tercero no.
+    --------------------------------------------------------------------- -#}
+{%- set _td = oc.tipo_documento or '' -%}
+{%- set doc_label = {
+      'FACTURA': 'Factura',
+      'FACTURA_EXENTA': 'Factura exenta',
+      'BOLETA': 'Boleta',
+      'HONORARIOS': 'Boleta de honorarios',
+    }.get(_td) -%}
+{%- set es_honorarios = (_td == 'HONORARIOS') -%}
+{%- set es_exenta = (_td == 'FACTURA_EXENTA') -%}
+{#- Rótulo del importe de las DOS franjas identificatorias (encabezado de la
+    hoja 1 y cabecera de la hoja de firmas). Ambas muestran `oc.total`, que es
+    el VALOR DEL CONTRATO — el compromiso que los firmantes aprueban y el
+    desembolso total del mandante, que en honorarios incluye lo que se entera
+    al SII. El LÍQUIDO (plata que efectivamente se transfiere al prestador) es
+    el protagonista del bloque de totales, no de la franja. Lo que sí cambia
+    acá es el rótulo: "(IVA incl.)" sobre una boleta de honorarios o sobre una
+    exenta es sencillamente falso. -#}
+{%- if es_honorarios -%}
+  {%- set total_label = 'Honorarios brutos ' ~ oc.moneda.value -%}
+{%- elif es_exenta -%}
+  {%- set total_label = 'Total ' ~ oc.moneda.value ~ ' (exento)' -%}
+{%- else -%}
+  {%- set total_label = 'Total ' ~ oc.moneda.value ~ ' (IVA incl.)' -%}
+{%- endif -%}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -489,6 +532,12 @@
     }
     table.totales tr.tot td.k { font-size: 8.2pt; color: #16202E; }
     table.totales tr.tot td.v { font-size: 11.5pt; letter-spacing: -0.01em; }
+    /* Fila de DESGLOSE: la cifra está, pero no compite con la que manda.
+       Se usa en honorarios, donde el bruto y la retención son las dos partes
+       de las que sale el líquido, no el resultado. Baja al gris secundario
+       de la escala documentada arriba; no inventa un gris nuevo ni cambia el
+       cuerpo, porque la columna tiene que seguir alineada con las de arriba. */
+    table.totales td.v.aten { color: #5A6675; }
     p.nota-doc {
       font-size: 7.6pt;
       color: #5A6675;
@@ -496,6 +545,13 @@
       margin-top: -3.5mm;
       margin-bottom: 5.5mm;
     }
+    /* Variante de párrafo de la nota. Las notas de una línea van alineadas a
+       la derecha, sobre el mismo eje que las cifras. La de honorarios ocupa
+       tres líneas, y tres líneas alineadas a la derecha se leen como un error
+       de composición: se justifica y se ancla a la izquierda, igual que el
+       articulado del pie. Sólo cambia la alineación — el cuerpo, el gris y el
+       enganche con la tabla de totales quedan como están. */
+    p.nota-doc.bloque { text-align: justify; }
 
     /* ----------------------------------------------------------------
        7. FORMA DE PAGO (hitos por porcentaje). Sección opcional.
@@ -792,12 +848,13 @@
       </td>
       <td>
         <p class="lbl">Documento tributario</p>
-        {# `tipo_documento` es FACTURA o BOLETA; se rotula en capitalizado
-           para que el documento se lea redactado y no como un enum. #}
-        <p class="val">{% if oc.tipo_documento == "BOLETA" %}Boleta{% elif oc.tipo_documento %}Factura{% else %}—{% endif %}</p>
+        {# Etiqueta larga en castellano, resuelta arriba: el documento se lee
+           redactado y no como un enum ("Boleta de honorarios", no
+           "HONORARIOS"). #}
+        <p class="val">{{ doc_label or "—" }}</p>
       </td>
       <td class="last">
-        <p class="lbl">Total {{ oc.moneda.value }} (IVA incl.)</p>
+        <p class="lbl">{{ total_label }}</p>
         <p class="val acento">{{ formatear_moneda(oc.total, oc.moneda.value) }}</p>
       </td>
     </tr>
@@ -900,16 +957,57 @@
      pie de CADA fragmento cuando la tabla se parte entre páginas, y una OC
      de 25 ítems terminaría imprimiendo el TOTAL dos veces. Los anchos
      replican los del itemizado para que las cifras caigan en el mismo eje. #}
+  {#- Un bloque POR TIPO y no un bloque único con filas escondidas: cada tipo
+      de documento tiene una aritmética distinta y su propia cifra final, y
+      cuando el operador se equivoca de tipo lo que tiene que ver es un bloque
+      que no reconoce, no una fila de más. Las tres variantes conservan la
+      misma grilla (columna de valores de 30mm) y la misma fila destacada, así
+      que el documento se sigue leyendo igual sea cual sea el tipo. -#}
   <table class="totales">
+    {% if es_honorarios %}
+    {#- BOLETA DE HONORARIOS. Tres filas, no cuatro: acá el neto, el total y
+        el bruto son EL MISMO número (el IVA es 0 por definición), así que una
+        fila "Total" aparte repetiría la primera cifra y sembraría la duda de
+        cuál de las dos manda.
+        La cifra tintada y con el filete de marca es el LÍQUIDO: es lo que el
+        profesional cobra y lo que tesorería gira. El bruto y la retención van
+        arriba, atenuados, porque son el desglose del que sale el líquido.
+        `total_a_pagar` llega calculado del servidor por RESTA (nunca
+        redondeando la retención y el líquido por separado), de modo que
+        líquido + retención cierra exacto contra el bruto. -#}
+    <tr><td class="k">Honorarios brutos</td><td class="v aten">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
+    <tr><td class="k">Retención {{ "%g"|format(oc.retencion_porcentaje|float)|replace(".", ",") }}%</td><td class="v aten">−{{ formatear_moneda(oc.retencion_monto, oc.moneda.value) }}</td></tr>
+    <tr class="tot"><td class="k">Líquido a pagar {{ oc.moneda.value }}</td><td class="v">{{ formatear_moneda(oc.total_a_pagar, oc.moneda.value) }}</td></tr>
+    {% elif es_exenta %}
+    {#- FACTURA EXENTA. Sin fila de IVA: imprimir "IVA 0%" invitaría a leer
+        una operación exenta como una afecta con tasa cero, que es justo la
+        confusión que este tipo de documento existe para evitar (no genera
+        crédito fiscal y se declara en otra línea del F29). El rótulo dice
+        "Neto exento" para que quede dicho en el documento, no deducido. -#}
+    <tr><td class="k">Neto exento</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
+    <tr class="tot"><td class="k">Total {{ oc.moneda.value }}</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
+    {% else %}
+    {#- FACTURA / BOLETA afectas — el bloque histórico, intacto.
+        IVA% no es fijo: cada OC puede llevar un % distinto (casos pactados).
+        "%g" saca los ceros de relleno (19, no 19,00) salvo que el operador
+        haya puesto un decimal real (12,5). -#}
     <tr><td class="k">Neto</td><td class="v">{{ formatear_moneda(oc.total_neto, oc.moneda.value) }}</td></tr>
-    {# IVA% ya no es fijo — cada OC puede llevar un % distinto (boletas,
-       exentos, casos pactados). "%g" saca los ceros de relleno (19, no
-       19,00) salvo que el operador haya puesto un decimal real (12,5). #}
     <tr><td class="k">IVA {{ "%g"|format(oc.iva_porcentaje|float)|replace(".", ",") }}%</td><td class="v">{{ formatear_moneda(oc.iva, oc.moneda.value) }}</td></tr>
     <tr class="tot"><td class="k">Total {{ oc.moneda.value }}</td><td class="v">{{ formatear_moneda(oc.total, oc.moneda.value) }}</td></tr>
+    {% endif %}
   </table>
 
-  {% if oc.tipo_documento == "BOLETA" %}
+  {#- Nota del documento tributario: una por tipo, ninguna para la factura
+      afecta (es el caso por defecto, no hay nada que advertir).
+      La de honorarios NO es decorativa: sin ella el documento dice que se
+      transfieren $X y calla que hay otro tanto que el mandante entera al
+      fisco, con lo que induce a error sobre quién paga el impuesto y por qué
+      monto tiene que emitir el prestador. -#}
+  {% if es_honorarios %}
+  <p class="nota-doc bloque">El prestador emite su boleta de honorarios electrónica por el monto <strong>bruto</strong>. La retención de {{ "%g"|format(oc.retencion_porcentaje|float)|replace(".", ",") }}% la declara y entera en arcas fiscales el mandante, por cuenta del prestador, conforme al artículo 74 N° 2 de la Ley sobre Impuesto a la Renta.</p>
+  {% elif es_exenta %}
+  <p class="nota-doc">Operación exenta de IVA conforme al Art. 12 del D.L. 825.</p>
+  {% elif oc.tipo_documento == "BOLETA" %}
   <p class="nota-doc">Documento de respaldo: <strong>boleta</strong> — sin derecho a crédito fiscal IVA.</p>
   {% endif %}
 
@@ -1028,8 +1126,13 @@
           <p class="lbl">Proveedor</p>
           <p class="val">{{ proveedor.razon_social }}</p>
         </td>
+        {# Mismo rótulo que la franja de la hoja 1, por la misma razón: una
+           hoja de firmas de honorarios que dijera "(IVA incl.)" sobre un
+           monto sin IVA sería falsa, y es la hoja que se escanea y se
+           archiva sola. El importe es el valor del contrato — lo que los
+           firmantes aprueban y lo que el mandante desembolsa en total. #}
         <td class="last">
-          <p class="lbl">Total {{ oc.moneda.value }} (IVA incl.)</p>
+          <p class="lbl">{{ total_label }}</p>
           <p class="val">{{ formatear_moneda(oc.total, oc.moneda.value) }}</p>
         </td>
       </tr>
