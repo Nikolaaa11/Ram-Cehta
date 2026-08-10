@@ -663,20 +663,36 @@ export interface paths {
         put?: never;
         /**
          * Generar Vouchers
-         * @description Genera UN voucher DRAFT por cada cuota en estado PENDIENTE.
+         * @description Genera UN voucher DRAFT por cada cuota en estado PENDIENTE, CON asiento.
          *
          *     Cada voucher queda linkeado a la cuota vía oc_cuotas.voucher_id.
-         *     Después de esta llamada, el operador edita cada voucher (cuentas,
-         *     áreas, proyecto) y los manda a aprobación de forma independiente.
+         *     Después de esta llamada, el operador completa lo que la OC no puede saber
+         *     (cuenta de gasto, proyecto, área) y lo manda a aprobación.
          *
          *     Convención del voucher generado:
          *       - tipo: EGRESO
          *       - empresa_codigo: heredada de la OC
          *       - contraparte_rut/nombre: proveedor de la OC
+         *       - doc_tributario_tipo: el tipo de documento de la OC
          *       - glosa: "OC #{numero_oc} · Cuota {n}/{total} · {descripcion}"
          *       - fecha_contable: fecha_vencimiento de la cuota
-         *       - status: DRAFT
-         *       - lines: vacío — el operador imputa al editar el voucher
+         *       - status: DRAFT — nada se auto-aprueba, siguen las 2 firmas
+         *       - lines: el asiento PRORRATEADO del hito
+         *
+         *     MEGAPROMPT VOUCHER-DESDE-OC — hasta esta ronda el voucher nacía sin
+         *     líneas y sin monto, y el operador armaba el asiento a mano once veces
+         *     para la misma OC. Dos cosas que este endpoint NO puede hacer y por qué:
+         *
+         *     · No copia el asiento de la OC completa en cada hito. `oc_cuotas.monto`
+         *       es una porción del LÍQUIDO (`total_a_pagar`), así que la retención y el
+         *       bruto del hito se prorratean. El reparto lo hace el motor sobre TODOS
+         *       los hitos —no sólo los pendientes— porque Σ(retenciones) es lo que se
+         *       entera al SII y tiene que dar exacto aunque haya hitos ya generados.
+         *     · No inventa la cuenta de gasto. La OC no guarda `cuenta_codigo`: en una
+         *       boleta de honorarios las tres cuentas se conocen y el asiento cierra
+         *       solo, pero en una factura/boleta la línea de gasto queda sin guardar y
+         *       el voucher nace DRAFT descuadrado por ese monto, a la espera de que el
+         *       operador elija la cuenta.
          */
         post: operations["generar_vouchers_api_v1_ordenes_compra__oc_id__cuotas_generar_vouchers_post"];
         delete?: never;
@@ -8010,8 +8026,10 @@ export interface paths {
          *       5. Cada línea con proyecto: proyecto existe + pertenece a empresa.
          *       6. Cada línea con área: área existe + aplica a empresa.
          *       7. Para líneas CORFO: cuenta es elegible y tipo_gasto está en eligible_types.
-         *       8. Genera código correlativo via core.next_voucher_code().
-         *       9. INSERT voucher + lines en commit atómico.
+         *       8. Si viene `oc_id`: la OC existe, es de la MISMA empresa, no está
+         *          cerrada y todavía no tiene voucher.
+         *       9. Genera código correlativo via core.next_voucher_code().
+         *      10. INSERT voucher + lines en commit atómico.
          */
         post: operations["create_voucher_api_v1_vouchers_post"];
         delete?: never;
@@ -8261,6 +8279,36 @@ export interface paths {
          *     Validación: scope check sobre la empresa del original.
          */
         post: operations["duplicate_voucher_api_v1_vouchers__voucher_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/voucher-propuesto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Voucher Propuesto Desde Oc
+         * @description Borrador del voucher de una OC (o de uno de sus hitos). NO crea nada.
+         *
+         *     Es una PROPUESTA: devuelve la cabecera y las líneas que el sistema puede
+         *     derivar, marca las que tiene que completar el operador y avisa si la OC ya
+         *     tiene voucher. El alta sigue siendo un POST explícito.
+         *
+         *     Con `cuota_id` el asiento sale PRORRATEADO sobre el hito. No es lo mismo
+         *     que copiar el de la OC completa: el `monto` del hito ya es una porción del
+         *     LÍQUIDO (`total_a_pagar`), así que la retención y el bruto de ese hito hay
+         *     que repartirlos, y el residuo de redondeo tiene que caer en un solo lugar
+         *     para que Σ(retenciones) siga dando exactamente lo que se entera al SII.
+         */
+        get: operations["voucher_propuesto_desde_oc_api_v1_ordenes_compra__oc_id__voucher_propuesto_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -15289,6 +15337,8 @@ export interface components {
             vouchers_creados: number;
             /** Vouchers Codigos */
             vouchers_codigos: string[];
+            /** Aviso Sin Asiento */
+            aviso_sin_asiento?: string | null;
         };
         /** GenerateAlertsReport */
         GenerateAlertsReport: {
@@ -16512,6 +16562,44 @@ export interface components {
             seguro_social?: number | string | null;
             /** Mutual */
             mutual?: number | string | null;
+        };
+        /**
+         * LineaVoucherPropuesta
+         * @description Una línea del asiento propuesto. NO está guardada: es una sugerencia.
+         */
+        LineaVoucherPropuesta: {
+            /** Line Number */
+            line_number: number;
+            /**
+             * Concepto
+             * @enum {string}
+             */
+            concepto: "GASTO" | "IVA_CREDITO" | "RETENCION" | "POR_PAGAR";
+            /** Cuenta Codigo */
+            cuenta_codigo?: string | null;
+            /** Cuenta Nombre */
+            cuenta_nombre?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /**
+             * Debit
+             * @default 0
+             */
+            debit: string;
+            /**
+             * Credit
+             * @default 0
+             */
+            credit: string;
+            /** Iva Tratamiento */
+            iva_tratamiento?: ("AFECTO" | "EXENTO" | "NO_GRAVADO" | "NA") | null;
+            /**
+             * Cuenta A Elegir
+             * @default false
+             */
+            cuenta_a_elegir: boolean;
+            /** Ayuda */
+            ayuda?: string | null;
         };
         /** LinesReplaceRequest */
         LinesReplaceRequest: {
@@ -21753,6 +21841,8 @@ export interface components {
             reversal_of?: number | null;
             /** Source */
             source?: string | null;
+            /** Oc Id */
+            oc_id?: number | null;
             /** Lines */
             lines: components["schemas"]["VoucherLineCreate"][];
         };
@@ -21965,6 +22055,94 @@ export interface components {
             moneda: string;
         };
         /**
+         * VoucherPropuestoRead
+         * @description Borrador de voucher derivado de una OC. NO crea nada.
+         *
+         *     El operador lo revisa, completa lo que la OC no puede saber (cuenta de
+         *     gasto, proyecto, área) y recién ahí hace el POST.
+         */
+        VoucherPropuestoRead: {
+            /** Oc Id */
+            oc_id: number;
+            /** Numero Oc */
+            numero_oc?: string | null;
+            /** Oc Estado */
+            oc_estado?: string | null;
+            /** Cuota Id */
+            cuota_id?: number | null;
+            /** Numero Cuota */
+            numero_cuota?: number | null;
+            /**
+             * Cuotas Totales
+             * @default 0
+             */
+            cuotas_totales: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Tipo
+             * @default EGRESO
+             * @enum {string}
+             */
+            tipo: "INGRESO" | "EGRESO" | "TRASPASO" | "COMPRA" | "VENTA" | "APERTURA" | "CIERRE" | "REVERSO";
+            /** Doc Tributario Tipo */
+            doc_tributario_tipo?: string | null;
+            /** Glosa */
+            glosa: string;
+            /**
+             * Moneda
+             * @default CLP
+             */
+            moneda: string;
+            /**
+             * Fecha Documento
+             * Format: date
+             */
+            fecha_documento: string;
+            /**
+             * Fecha Contable
+             * Format: date
+             */
+            fecha_contable: string;
+            /** Contraparte Rut */
+            contraparte_rut?: string | null;
+            /** Contraparte Nombre */
+            contraparte_nombre?: string | null;
+            /**
+             * Contraparte Tipo
+             * @default PROVEEDOR
+             * @enum {string}
+             */
+            contraparte_tipo: "PROVEEDOR" | "CLIENTE" | "EMPLEADO" | "BANCO" | "INTERNO" | "OTRO";
+            /** Neto */
+            neto: string;
+            /** Iva */
+            iva: string;
+            /** Total */
+            total: string;
+            /** Retencion Monto */
+            retencion_monto: string;
+            /** Total A Pagar */
+            total_a_pagar: string;
+            /** Lines */
+            lines: components["schemas"]["LineaVoucherPropuesta"][];
+            /** Total Debit */
+            total_debit: string;
+            /** Total Credit */
+            total_credit: string;
+            /**
+             * Completo
+             * @default true
+             */
+            completo: boolean;
+            /** Voucher Existente Id */
+            voucher_existente_id?: number | null;
+            /** Voucher Existente Codigo */
+            voucher_existente_codigo?: string | null;
+            /** Advertencias */
+            advertencias?: string[];
+        };
+        /**
          * VoucherRead
          * @description GET /vouchers/{id} — voucher con todas sus relaciones cargadas.
          */
@@ -22050,6 +22228,8 @@ export interface components {
             requested_by: string | null;
             /** Source */
             source?: string | null;
+            /** Oc Id */
+            oc_id?: number | null;
             /**
              * Created At
              * Format: date-time
@@ -37096,6 +37276,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VoucherRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    voucher_propuesto_desde_oc_api_v1_ordenes_compra__oc_id__voucher_propuesto_get: {
+        parameters: {
+            query?: {
+                /** @description Hito de pago del que se quiere el asiento. Sin esto la propuesta es la de la OC completa. */
+                cuota_id?: number | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoucherPropuestoRead"];
                 };
             };
             /** @description Validation Error */

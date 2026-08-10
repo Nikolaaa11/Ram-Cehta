@@ -162,6 +162,19 @@ class VoucherCreate(BaseModel):
     # /gastos no podía marcar sus borradores.
     source: str | None = Field(default=None, max_length=40)
 
+    # MEGAPROMPT VOUCHER DESDE OC — OC que origina el asiento. Opcional: la
+    # mayoría de los vouchers no vienen de una OC.
+    # `default=None` explícito y no `int | None` pelado: en Pydantic v2 un
+    # union con None SIN default queda REQUERIDO, y eso rompería con 422 todo
+    # POST /vouchers que hoy no manda el campo (que son todos).
+    # `ge=1` porque oc_id es BIGSERIAL: 0 y los negativos son ids inventados.
+    # No es la trampa del cero falso — acá el 0 no tiene lectura legítima
+    # porque es un identificador, no un monto.
+    # El schema NO puede validar que la OC exista ni de qué empresa es (no
+    # tiene BD): eso lo hace el endpoint, y tiene que hacerlo, porque aceptar
+    # una OC de otra empresa es fuga cross-tenant (invariante 7).
+    oc_id: int | None = Field(default=None, ge=1)
+
     # R152EEEEEE — Cap defensivo: voucher típico tiene 2-10 líneas, máximo
     # razonable son 50-100 para cierres complejos. Sin esto un POST con
     # 10.000 líneas bloqueaba el pool DB con N×3 round-trips de validación.
@@ -284,6 +297,13 @@ class VoucherRead(BaseModel):
     requested_by: str | None
     # V5++ ola CE — origen (manual/nubox_form/ai_import/csv/etc); NULL=legacy
     source: str | None = None
+    # MEGAPROMPT VOUCHER DESDE OC — OC de origen; NULL = voucher sin OC.
+    # `= None` explícito por lo mismo que en VoucherCreate, y acá además
+    # protege la lectura: si un objeto de origen no expone el atributo (mocks,
+    # filas de un SELECT parcial), sin default el GET moriría con 500 en vez
+    # de devolver el voucher. Ese 500 ya pasó una vez en este mismo schema
+    # con doc_tributario_tipo (ver Round 144 arriba).
+    oc_id: int | None = None
     created_at: datetime
     updated_at: datetime
     lines: list[VoucherLineRead]

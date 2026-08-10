@@ -99,6 +99,23 @@ class Voucher(Base):
     # NULL = legacy. Ver migration 0055_voucher_source.
     source: Mapped[str | None] = mapped_column(Text)
 
+    # MEGAPROMPT VOUCHER DESDE OC — orden de compra que origina este asiento.
+    # La columna y su FK existen en la BD desde 0068_oc_firmas, pero el ORM no
+    # las conocía: el único que escribía oc_id era oc_cuotas.py por SQL crudo,
+    # así que la API no podía ni guardarlo ni devolverlo y el detalle del
+    # voucher no sabía de qué OC venía.
+    # ON DELETE SET NULL y no CASCADE: borrar una OC no puede llevarse puesto
+    # el asiento contable que la respalda — el voucher queda huérfano, que es
+    # recuperable; borrado no.
+    # OJO: NO es único ni lo puede ser. Una OC con hitos genera un voucher por
+    # hito, así que varios vouchers comparten oc_id legítimamente. El
+    # anti-duplicado vive a nivel de hito (core.oc_cuotas.voucher_id es
+    # escalar) y en la API, no en un UNIQUE sobre esta columna.
+    oc_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("core.ordenes_compra.oc_id", ondelete="SET NULL"),
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

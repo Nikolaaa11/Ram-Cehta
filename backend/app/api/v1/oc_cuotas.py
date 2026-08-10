@@ -45,8 +45,23 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from app.api.deps import CurrentUser, DBSession
+
+# MEGAPROMPT VOUCHER-DESDE-OC — estos tres viven en el módulo de vouchers
+# porque son reglas del voucher, no de la forma de pago: la BD exige
+# `cuenta_codigo` NOT NULL, y el prorrateo y la validación de la OC tienen que
+# dar exactamente lo mismo acá que en `POST /vouchers`. El asiento en sí lo
+# arma el motor del dominio; acá sólo se decide QUÉ hitos se generan y se
+# persiste. No hay ciclo: vouchers.py no importa oc_cuotas.
+from app.api.v1.vouchers import (
+    OC_ESTADOS_CERRADOS,
+    VOUCHER_ESTADOS_SIN_EFECTO,
+    asientos_de_hitos,
+    lineas_persistibles,
+    montos_oc,
+)
 from app.core.security import AuthenticatedUser
 from app.services.audit_service import audit_log
 from app.services.empresa_scope_service import (
@@ -127,6 +142,11 @@ class GenerarVouchersResult(BaseModel):
     cuotas_procesadas: int
     vouchers_creados: int
     vouchers_codigos: list[str]
+    # Por qué los vouchers salieron SIN el asiento prellenado, cuando pasa.
+    # None = salieron con asiento. Se informa en vez de fallar: el operador
+    # tiene que enterarse de que le toca imputar a mano y de por qué, no
+    # descubrirlo abriendo el voucher.
+    aviso_sin_asiento: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -143,7 +163,7 @@ async def _get_oc_or_404(db, oc_id: int, user=None) -> dict[str, Any]:
         await db.execute(
             text(
                 """SELECT oc_id, numero_oc, empresa_codigo, proveedor_id,
-                          total, total_a_pagar, retencion_monto,
+                          neto, iva, total, total_a_pagar, retencion_monto,
                           tipo_documento, moneda, observaciones, estado
                    FROM core.ordenes_compra WHERE oc_id = :id"""
             ),
@@ -686,30 +706,49 @@ async def delete_cuota(
 async def generar_vouchers(
     user: CurrentUser, db: DBSession, oc_id: int
 ) -> GenerarVouchersResult:
-    """Genera UN voucher DRAFT por cada cuota en estado PENDIENTE.
+    """Genera UN voucher DRAFT por cada cuota en estado PENDIENTE, CON asiento.
 
     Cada voucher queda linkeado a la cuota vía oc_cuotas.voucher_id.
-    Después de esta llamada, el operador edita cada voucher (cuentas,
-    áreas, proyecto) y los manda a aprobación de forma independiente.
+    Después de esta llamada, el operador completa lo que la OC no puede saber
+    (cuenta de gasto, proyecto, área) y lo manda a aprobación.
 
     Convención del voucher generado:
       - tipo: EGRESO
       - empresa_codigo: heredada de la OC
       - contraparte_rut/nombre: proveedor de la OC
+      - doc_tributario_tipo: el tipo de documento de la OC
       - glosa: "OC #{numero_oc} · Cuota {n}/{total} · {descripcion}"
       - fecha_contable: fecha_vencimiento de la cuota
-      - status: DRAFT
-      - lines: vacío — el operador imputa al editar el voucher
+      - status: DRAFT — nada se auto-aprueba, siguen las 2 firmas
+      - lines: el asiento PRORRATEADO del hito
+
+    MEGAPROMPT VOUCHER-DESDE-OC — hasta esta ronda el voucher nacía sin
+    líneas y sin monto, y el operador armaba el asiento a mano once veces
+    para la misma OC. Dos cosas que este endpoint NO puede hacer y por qué:
+
+    · No copia el asiento de la OC completa en cada hito. `oc_cuotas.monto`
+      es una porción del LÍQUIDO (`total_a_pagar`), así que la retención y el
+      bruto del hito se prorratean. El reparto lo hace el motor sobre TODOS
+      los hitos —no sólo los pendientes— porque Σ(retenciones) es lo que se
+      entera al SII y tiene que dar exacto aunque haya hitos ya generados.
+    · No inventa la cuenta de gasto. La OC no guarda `cuenta_codigo`: en una
+      boleta de honorarios las tres cuentas se conocen y el asiento cierra
+      solo, pero en una factura/boleta la línea de gasto queda sin guardar y
+      el voucher nace DRAFT descuadrado por ese monto, a la espera de que el
+      operador elija la cuenta.
     """
     oc = await _get_oc_or_404(db, oc_id, user)
     emp_code = str(oc["empresa_codigo"])
+    # Las cinco cifras de la OC en el shape del motor. Si `neto` o `total`
+    # vienen en NULL levanta 422 acá, en vez de dejar N vouchers mal nacidos.
+    montos = montos_oc(oc)
 
     # R152AAAAA · P0 — validación de estado.
     # OCs cerradas (anuladas/pagadas/rechazadas) no deben generar vouchers
     # nuevos. Antes el endpoint pasaba por arriba y creaba vouchers DRAFT
     # sobre OCs ya cerradas, contablemente inconsistente.
     estado_oc = (oc.get("estado") or "").lower()
-    if estado_oc in ("anulada", "rechazada", "pagada", "cerrada"):
+    if estado_oc in OC_ESTADOS_CERRADOS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -751,6 +790,40 @@ async def generar_vouchers(
     ).fetchall()
     codigos_existentes = [r[0] for r in existing_rows]
 
+    # Guard del OTRO camino. El vínculo OC↔voucher es DOBLE: `oc_cuotas.voucher_id`
+    # ata un voucher a un hito, y `vouchers.oc_id` ata un voucher a la OC entera
+    # (es el que escribe "Crear voucher desde esta OC"). Esta función miraba sólo
+    # el primero, así que un voucher hecho por la OC completa dejaba los hitos en
+    # PENDIENTE y acá se emitían igual: 1 voucher por el total + N por los hitos.
+    # En una OC de 3 hitos son 4 vouchers y casi el doble del monto comprometido.
+    # Se busca el voucher de OC-completa (el que NO está atado a ningún hito) y,
+    # si vive, se corta.
+    huerfanos = (
+        await db.execute(
+            text(
+                """SELECT v.codigo
+                   FROM core.vouchers v
+                  WHERE v.oc_id = :id
+                    AND NOT (v.status = ANY(:muertos))
+                    AND NOT EXISTS (SELECT 1 FROM core.oc_cuotas c
+                                     WHERE c.voucher_id = v.voucher_id)
+                  ORDER BY v.voucher_id"""
+            ),
+            {"id": oc_id, "muertos": sorted(VOUCHER_ESTADOS_SIN_EFECTO)},
+        )
+    ).fetchall()
+    if huerfanos:
+        codigos = ", ".join(r[0] for r in huerfanos)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"La OC {oc.get('numero_oc')} ya tiene un voucher por el total "
+                f"({codigos}). Generar además un voucher por cada hito duplicaría "
+                "el compromiso de pago. Si querés pagar por hitos, anulá ese "
+                "voucher primero."
+            ),
+        )
+
     # R152DDDDD · Reemplazo del advisory_lock + COUNT(*) por la tabla
     # centralizada core.correlativos. UPSERT atomico con RETURNING garantiza
     # serialización a nivel row sin necesidad de lock externo.
@@ -763,21 +836,34 @@ async def generar_vouchers(
     #   - Sin riesgo de fugas de locks por crash mid-transaction.
     year = datetime.now().year
 
-    # Recargar cuotas pendientes — no necesitamos lock porque el correlativo
-    # ya está aislado en la tabla correlativos.
+    # Se cargan TODOS los hitos, no sólo los pendientes: el prorrateo de la
+    # retención se calcula sobre el reparto completo y después se emite sólo
+    # lo que falta. Calcularlo sólo sobre los pendientes haría que
+    # Σ(retenciones) dejara de dar la retención de la OC en cuanto hubiera un
+    # hito ya generado, y esa suma es la que se le entera al SII.
+    # No necesitamos lock acá porque el correlativo ya está aislado en la
+    # tabla correlativos.
     cuotas_rows = (
         await db.execute(
             text(
                 """SELECT cuota_id, numero_cuota, monto, fecha_vencimiento,
-                          descripcion
+                          descripcion, estado
                    FROM core.oc_cuotas
-                   WHERE oc_id = :id AND estado = 'PENDIENTE'
+                   WHERE oc_id = :id
                    ORDER BY numero_cuota"""
             ),
             {"id": oc_id},
         )
     ).mappings().all()
-    pendientes = [dict(r) for r in cuotas_rows]
+    todas_las_cuotas = [dict(r) for r in cuotas_rows]
+    # El índice se conserva: es la posición del hito dentro del reparto y es
+    # lo que después empareja cada pendiente con su asiento prorrateado.
+    pendientes_idx = [
+        i
+        for i, c in enumerate(todas_las_cuotas)
+        if str(c.get("estado") or "") == "PENDIENTE"
+    ]
+    pendientes = [todas_las_cuotas[i] for i in pendientes_idx]
     if not pendientes:
         # Nada que generar: se devuelven los códigos ya existentes para que
         # el frontend pueda mostrarlos (comportamiento idéntico al early-
@@ -808,11 +894,44 @@ async def generar_vouchers(
     # R152AAAAA · P2 — Total real de cuotas para la glosa.
     # Antes se usaba len(pendientes), que daba "1/3" cuando realmente hay
     # 11 cuotas pero 8 ya estaban generadas. La glosa confundía al operador.
-    total_cuotas_reales = await db.scalar(
-        text("SELECT COUNT(*) FROM core.oc_cuotas WHERE oc_id = :id"),
-        {"id": oc_id},
-    )
-    total_cuotas = int(total_cuotas_reales or len(pendientes))
+    # Ya lo tenemos en memoria: la query de COUNT(*) que había acá era un
+    # round-trip de más ahora que se cargan todos los hitos.
+    total_cuotas = len(todas_las_cuotas)
+
+    # ── El asiento de cada hito ──────────────────────────────────────
+    # Se calcula sobre TODOS los hitos y después se toman los pendientes por
+    # índice. El motor pone el residuo de redondeo en un solo lugar para que
+    # Σ(retenciones) == retención de la OC y Σ(líquidos) == total_a_pagar,
+    # exacto y por construcción.
+    # DEGRADAR, NO MORIR. `asientos_de_hitos` exige que Σ(montos de los hitos)
+    # == total_a_pagar de la OC, y hace bien: esa igualdad es lo que permite
+    # prorratear la retención de modo que Σ(retenciones) coincida EXACTO con lo
+    # que se entera al SII. Si no se cumple, el prorrateo daría cifras
+    # equivocadas y no hay que inventarlo.
+    #
+    # Pero hay estados legítimos donde la igualdad se rompe y el operador no
+    # tiene la culpa: borró un hito ya ejecutado, o cambió el tipo de documento
+    # de la OC (que re-deriva total_a_pagar sin tocar los montos de los hitos).
+    # Antes de este cambio el endpoint generaba los vouchers igual —vacíos— y
+    # matarlo con un 422 sin salida es una regresión: deja la OC sin forma de
+    # emitir sus pagos.
+    #
+    # Entonces: si el prorrateo no se puede calcular, se emiten los vouchers SIN
+    # líneas (exactamente como antes) y se avisa por qué. Ninguna cifra sale
+    # equivocada; lo único que se pierde es el prellenado del asiento.
+    asientos = None
+    motivo_sin_asiento: str | None = None
+    try:
+        asientos = asientos_de_hitos(oc, montos, todas_las_cuotas)
+    except (ValueError, HTTPException) as exc:
+        detalle = getattr(exc, "detail", None) or str(exc)
+        motivo_sin_asiento = str(detalle)
+        log_asiento = __import__("structlog").get_logger(__name__)
+        log_asiento.warning(
+            "oc_cuotas_sin_prorrateo",
+            oc_id=oc_id,
+            motivo=motivo_sin_asiento,
+        )
 
     # R152YYYY · Defensive: si user.sub viene vacío o no existe, pasar None.
     sub_raw = getattr(user, "sub", None)
@@ -850,7 +969,11 @@ async def generar_vouchers(
     # Speed-up típico: 10x para batches de 11 cuotas.
     rows_to_insert: list[dict] = []
     cuota_to_codigo: dict[int, str] = {}
-    for c in pendientes:
+    # Las líneas de cada voucher, indexadas por su código: el voucher_id recién
+    # se conoce después del INSERT con RETURNING.
+    lineas_por_codigo: dict[str, list[dict[str, Any]]] = {}
+    for idx in pendientes_idx:
+        c = todas_las_cuotas[idx]
         glosa = (
             f"OC #{oc['numero_oc']} · Cuota {c['numero_cuota']}/{total_cuotas} · "
             f"{c['descripcion'] or 'sin descripción'}"
@@ -858,11 +981,26 @@ async def generar_vouchers(
         codigo = f"{emp_code}-{year}-COM-{str(next_seq).zfill(5)}"
         next_seq += 1
         cuota_to_codigo[c["cuota_id"]] = codigo
+        # `asientos is None` = el prorrateo no se pudo calcular (ver arriba):
+        # el voucher se emite sin líneas, como se emitía antes de esta ronda.
+        filas = lineas_persistibles(asientos[idx]) if asientos is not None else []
+        lineas_por_codigo[codigo] = filas
         rows_to_insert.append({
             "codigo": codigo,
             "fecha": c["fecha_vencimiento"],
             "glosa": glosa[:500],
             "cuota_id": c["cuota_id"],
+            # Los totales del header son los de las líneas que efectivamente
+            # se guardan, no los del asiento completo. Si la línea de gasto
+            # quedó afuera por no conocerse la cuenta, el header tiene que
+            # decir la verdad de lo que hay adentro: el voucher está
+            # descuadrado y en DRAFT, que es exactamente su situación.
+            "total_debit": sum(
+                (f["debit"] for f in filas), start=Decimal("0")
+            ),
+            "total_credit": sum(
+                (f["credit"] for f in filas), start=Decimal("0")
+            ),
         })
 
     # 1 sola query INSERT con UNNEST de arrays.
@@ -874,6 +1012,7 @@ async def generar_vouchers(
                        fecha_documento, fecha_contable,
                        glosa, contraparte_rut, contraparte_nombre,
                        contraparte_tipo, moneda, status,
+                       doc_tributario_tipo, total_debit, total_credit,
                        forma_pago, created_by, oc_id
                    )
                    SELECT
@@ -888,6 +1027,9 @@ async def generar_vouchers(
                        'PROVEEDOR',
                        :moneda,
                        'DRAFT',
+                       :doc_tipo,
+                       u.total_debit::numeric,
+                       u.total_credit::numeric,
                        :forma,
                        CAST(:uid AS UUID),
                        CAST(:oc_link AS BIGINT)
@@ -895,8 +1037,11 @@ async def generar_vouchers(
                        CAST(:codigos AS TEXT[]),
                        CAST(:fechas AS DATE[]),
                        CAST(:glosas AS TEXT[]),
-                       CAST(:cuotas AS BIGINT[])
-                   ) AS u(codigo, fecha, glosa, cuota_id)
+                       CAST(:cuotas AS BIGINT[]),
+                       CAST(:debits AS TEXT[]),
+                       CAST(:credits AS TEXT[])
+                   ) AS u(codigo, fecha, glosa, cuota_id,
+                          total_debit, total_credit)
                    RETURNING voucher_id, codigo"""
             ),
             {
@@ -904,6 +1049,11 @@ async def generar_vouchers(
                 "rut": proveedor_rut,
                 "nombre": proveedor_nombre,
                 "moneda": oc.get("moneda") or "CLP",
+                # El tipo de documento de la OC viaja tal cual al voucher: el
+                # mapeo OC→voucher es la identidad a propósito (los dos usan
+                # el catálogo del SII). Antes se descartaba y el voucher no
+                # sabía si venía de una factura o de una boleta de honorarios.
+                "doc_tipo": oc.get("tipo_documento"),
                 "forma": "TRANSFERENCIA",
                 "uid": user_uid,
                 # MEGAPROMPT F3 — FK directa voucher↔OC (migración 0068).
@@ -912,12 +1062,97 @@ async def generar_vouchers(
                 "fechas": [r["fecha"] for r in rows_to_insert],
                 "glosas": [r["glosa"] for r in rows_to_insert],
                 "cuotas": [r["cuota_id"] for r in rows_to_insert],
+                # Los montos viajan como TEXT y se castean a NUMERIC en
+                # Postgres, igual que en `_guardar_hitos`: nunca float.
+                "debits": [str(r["total_debit"]) for r in rows_to_insert],
+                "credits": [str(r["total_credit"]) for r in rows_to_insert],
             },
         )
     ).fetchall()
     creados = [str(r[1]) for r in inserted_rows]
     # Mapeo codigo → voucher_id para el UPDATE bulk de cuotas.
     codigo_to_voucher_id = {str(r[1]): int(r[0]) for r in inserted_rows}
+
+    # ── Las líneas del asiento, en una sola query ────────────────────
+    # Un UNNEST por todas las líneas de todos los vouchers del batch. Con 11
+    # hitos de honorarios son 33 filas en un round-trip.
+    l_vids: list[int] = []
+    l_nums: list[int] = []
+    l_cuentas: list[str] = []
+    l_debits: list[str] = []
+    l_credits: list[str] = []
+    l_descs: list[str | None] = []
+    l_ivats: list[str | None] = []
+    for codigo, filas in lineas_por_codigo.items():
+        vid = codigo_to_voucher_id.get(codigo)
+        if vid is None:
+            # No puede pasar: el INSERT de arriba es uno solo y devuelve todos
+            # los códigos. Si pasara, seguir de largo dejaría un voucher con
+            # total en el header y sin una sola línea adentro — un monto sin
+            # asiento. Levanta y la transacción se va entera para atrás.
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=(
+                    f"El voucher {codigo} se insertó pero no volvió su id: no "
+                    "se pueden guardar sus líneas. No se generó nada."
+                ),
+            )
+        for f in filas:
+            l_vids.append(vid)
+            l_nums.append(int(f["line_number"]))
+            l_cuentas.append(str(f["cuenta_codigo"]))
+            l_debits.append(str(f["debit"]))
+            l_credits.append(str(f["credit"]))
+            l_descs.append(f.get("descripcion"))
+            l_ivats.append(f.get("iva_tratamiento"))
+
+    if l_vids:
+        try:
+            await db.execute(
+                text(
+                    """INSERT INTO core.voucher_lines (
+                           voucher_id, line_number, cuenta_codigo,
+                           debit, credit, descripcion, iva_tratamiento
+                       )
+                       SELECT u.vid, u.num, u.cuenta,
+                              u.debit::numeric, u.credit::numeric,
+                              u.descripcion, u.iva_trat
+                       FROM UNNEST(
+                           CAST(:vids AS BIGINT[]),
+                           CAST(:nums AS INTEGER[]),
+                           CAST(:cuentas AS TEXT[]),
+                           CAST(:debits AS TEXT[]),
+                           CAST(:credits AS TEXT[]),
+                           CAST(:descs AS TEXT[]),
+                           CAST(:ivats AS TEXT[])
+                       ) AS u(vid, num, cuenta, debit, credit,
+                              descripcion, iva_trat)"""
+                ),
+                {
+                    "vids": l_vids,
+                    "nums": l_nums,
+                    "cuentas": l_cuentas,
+                    "debits": l_debits,
+                    "credits": l_credits,
+                    "descs": l_descs,
+                    "ivats": l_ivats,
+                },
+            )
+        except DBAPIError as exc:
+            # Las redes de la BD sobre las líneas son el CHECK debit XOR credit
+            # y el trigger `enforce_cuenta_imputable` (la cuenta tiene que
+            # existir en el plan y ser de nivel 4). Si alguna salta, el batch
+            # entero se va para atrás — mejor cero vouchers que N vouchers a
+            # medio asentar — y el operador se entera de por qué.
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "La BD rechazó el asiento propuesto para los hitos de la OC "
+                    f"#{oc.get('numero_oc')}: {exc.orig}. No se generó ningún "
+                    "voucher."
+                ),
+            ) from exc
 
     # 1 sola query UPDATE bulk usando UNNEST.
     await db.execute(
@@ -945,6 +1180,7 @@ async def generar_vouchers(
         cuotas_procesadas=len(pendientes),
         vouchers_creados=len(creados),
         vouchers_codigos=codigos_existentes + creados,
+        aviso_sin_asiento=motivo_sin_asiento,
     )
 
 

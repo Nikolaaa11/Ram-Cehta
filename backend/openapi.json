@@ -2067,7 +2067,7 @@
           "oc-cuotas"
         ],
         "summary": "Generar Vouchers",
-        "description": "Genera UN voucher DRAFT por cada cuota en estado PENDIENTE.\n\nCada voucher queda linkeado a la cuota vía oc_cuotas.voucher_id.\nDespués de esta llamada, el operador edita cada voucher (cuentas,\náreas, proyecto) y los manda a aprobación de forma independiente.\n\nConvención del voucher generado:\n  - tipo: EGRESO\n  - empresa_codigo: heredada de la OC\n  - contraparte_rut/nombre: proveedor de la OC\n  - glosa: \"OC #{numero_oc} · Cuota {n}/{total} · {descripcion}\"\n  - fecha_contable: fecha_vencimiento de la cuota\n  - status: DRAFT\n  - lines: vacío — el operador imputa al editar el voucher",
+        "description": "Genera UN voucher DRAFT por cada cuota en estado PENDIENTE, CON asiento.\n\nCada voucher queda linkeado a la cuota vía oc_cuotas.voucher_id.\nDespués de esta llamada, el operador completa lo que la OC no puede saber\n(cuenta de gasto, proyecto, área) y lo manda a aprobación.\n\nConvención del voucher generado:\n  - tipo: EGRESO\n  - empresa_codigo: heredada de la OC\n  - contraparte_rut/nombre: proveedor de la OC\n  - doc_tributario_tipo: el tipo de documento de la OC\n  - glosa: \"OC #{numero_oc} · Cuota {n}/{total} · {descripcion}\"\n  - fecha_contable: fecha_vencimiento de la cuota\n  - status: DRAFT — nada se auto-aprueba, siguen las 2 firmas\n  - lines: el asiento PRORRATEADO del hito\n\nMEGAPROMPT VOUCHER-DESDE-OC — hasta esta ronda el voucher nacía sin\nlíneas y sin monto, y el operador armaba el asiento a mano once veces\npara la misma OC. Dos cosas que este endpoint NO puede hacer y por qué:\n\n· No copia el asiento de la OC completa en cada hito. `oc_cuotas.monto`\n  es una porción del LÍQUIDO (`total_a_pagar`), así que la retención y el\n  bruto del hito se prorratean. El reparto lo hace el motor sobre TODOS\n  los hitos —no sólo los pendientes— porque Σ(retenciones) es lo que se\n  entera al SII y tiene que dar exacto aunque haya hitos ya generados.\n· No inventa la cuenta de gasto. La OC no guarda `cuenta_codigo`: en una\n  boleta de honorarios las tres cuentas se conocen y el asiento cierra\n  solo, pero en una factura/boleta la línea de gasto queda sin guardar y\n  el voucher nace DRAFT descuadrado por ese monto, a la espera de que el\n  operador elija la cuenta.",
         "operationId": "generar_vouchers_api_v1_ordenes_compra__oc_id__cuotas_generar_vouchers_post",
         "parameters": [
           {
@@ -27825,7 +27825,7 @@
           "vouchers"
         ],
         "summary": "Create Voucher",
-        "description": "Crea voucher + líneas en una sola transacción.\n\nValidaciones (en orden):\n  1. Pydantic ya validó: line_number único+correlativo, debit XOR credit,\n     partida doble si !DRAFT, COMPRA/VENTA con doc tributario, REVERSO con\n     reversal_of.\n  2. Empresa existe + activa.\n  3. fecha_contable NO está en período cerrado.\n  4. Cada línea: cuenta existe + imputable + habilitada para empresa.\n  5. Cada línea con proyecto: proyecto existe + pertenece a empresa.\n  6. Cada línea con área: área existe + aplica a empresa.\n  7. Para líneas CORFO: cuenta es elegible y tipo_gasto está en eligible_types.\n  8. Genera código correlativo via core.next_voucher_code().\n  9. INSERT voucher + lines en commit atómico.",
+        "description": "Crea voucher + líneas en una sola transacción.\n\nValidaciones (en orden):\n  1. Pydantic ya validó: line_number único+correlativo, debit XOR credit,\n     partida doble si !DRAFT, COMPRA/VENTA con doc tributario, REVERSO con\n     reversal_of.\n  2. Empresa existe + activa.\n  3. fecha_contable NO está en período cerrado.\n  4. Cada línea: cuenta existe + imputable + habilitada para empresa.\n  5. Cada línea con proyecto: proyecto existe + pertenece a empresa.\n  6. Cada línea con área: área existe + aplica a empresa.\n  7. Para líneas CORFO: cuenta es elegible y tipo_gasto está en eligible_types.\n  8. Si viene `oc_id`: la OC existe, es de la MISMA empresa, no está\n     cerrada y todavía no tiene voucher.\n  9. Genera código correlativo via core.next_voucher_code().\n 10. INSERT voucher + lines en commit atómico.",
         "operationId": "create_voucher_api_v1_vouchers_post",
         "parameters": [
           {
@@ -28673,6 +28673,84 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VoucherRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/{oc_id}/voucher-propuesto": {
+      "get": {
+        "tags": [
+          "vouchers",
+          "vouchers"
+        ],
+        "summary": "Voucher Propuesto Desde Oc",
+        "description": "Borrador del voucher de una OC (o de uno de sus hitos). NO crea nada.\n\nEs una PROPUESTA: devuelve la cabecera y las líneas que el sistema puede\nderivar, marca las que tiene que completar el operador y avisa si la OC ya\ntiene voucher. El alta sigue siendo un POST explícito.\n\nCon `cuota_id` el asiento sale PRORRATEADO sobre el hito. No es lo mismo\nque copiar el de la OC completa: el `monto` del hito ya es una porción del\nLÍQUIDO (`total_a_pagar`), así que la retención y el bruto de ese hito hay\nque repartirlos, y el residuo de redondeo tiene que caer en un solo lugar\npara que Σ(retenciones) siga dando exactamente lo que se entera al SII.",
+        "operationId": "voucher_propuesto_desde_oc_api_v1_ordenes_compra__oc_id__voucher_propuesto_get",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "cuota_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Hito de pago del que se quiere el asiento. Sin esto la propuesta es la de la OC completa.",
+              "title": "Cuota Id"
+            },
+            "description": "Hito de pago del que se quiere el asiento. Sin esto la propuesta es la de la OC completa."
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoucherPropuestoRead"
                 }
               }
             }
@@ -49692,6 +49770,17 @@
             },
             "type": "array",
             "title": "Vouchers Codigos"
+          },
+          "aviso_sin_asiento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aviso Sin Asiento"
           }
         },
         "type": "object",
@@ -53532,6 +53621,109 @@
         "type": "object",
         "title": "LineaUpdate",
         "description": "Permite editar campos básicos de una línea del libro."
+      },
+      "LineaVoucherPropuesta": {
+        "properties": {
+          "line_number": {
+            "type": "integer",
+            "title": "Line Number"
+          },
+          "concepto": {
+            "type": "string",
+            "enum": [
+              "GASTO",
+              "IVA_CREDITO",
+              "RETENCION",
+              "POR_PAGAR"
+            ],
+            "title": "Concepto"
+          },
+          "cuenta_codigo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta Codigo"
+          },
+          "cuenta_nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta Nombre"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "debit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Debit",
+            "default": "0"
+          },
+          "credit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Credit",
+            "default": "0"
+          },
+          "iva_tratamiento": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "AFECTO",
+                  "EXENTO",
+                  "NO_GRAVADO",
+                  "NA"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iva Tratamiento"
+          },
+          "cuenta_a_elegir": {
+            "type": "boolean",
+            "title": "Cuenta A Elegir",
+            "default": false
+          },
+          "ayuda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ayuda"
+          }
+        },
+        "type": "object",
+        "required": [
+          "line_number",
+          "concepto"
+        ],
+        "title": "LineaVoucherPropuesta",
+        "description": "Una línea del asiento propuesto. NO está guardada: es una sugerencia."
       },
       "LinesReplaceRequest": {
         "properties": {
@@ -70154,6 +70346,18 @@
             ],
             "title": "Source"
           },
+          "oc_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oc Id"
+          },
           "lines": {
             "items": {
               "$ref": "#/components/schemas/VoucherLineCreate"
@@ -70724,6 +70928,241 @@
         ],
         "title": "VoucherNoConciliado"
       },
+      "VoucherPropuestoRead": {
+        "properties": {
+          "oc_id": {
+            "type": "integer",
+            "title": "Oc Id"
+          },
+          "numero_oc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Oc"
+          },
+          "oc_estado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oc Estado"
+          },
+          "cuota_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuota Id"
+          },
+          "numero_cuota": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numero Cuota"
+          },
+          "cuotas_totales": {
+            "type": "integer",
+            "title": "Cuotas Totales",
+            "default": 0
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "INGRESO",
+              "EGRESO",
+              "TRASPASO",
+              "COMPRA",
+              "VENTA",
+              "APERTURA",
+              "CIERRE",
+              "REVERSO"
+            ],
+            "title": "Tipo",
+            "default": "EGRESO"
+          },
+          "doc_tributario_tipo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc Tributario Tipo"
+          },
+          "glosa": {
+            "type": "string",
+            "title": "Glosa"
+          },
+          "moneda": {
+            "type": "string",
+            "title": "Moneda",
+            "default": "CLP"
+          },
+          "fecha_documento": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Documento"
+          },
+          "fecha_contable": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha Contable"
+          },
+          "contraparte_rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte Rut"
+          },
+          "contraparte_nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contraparte Nombre"
+          },
+          "contraparte_tipo": {
+            "type": "string",
+            "enum": [
+              "PROVEEDOR",
+              "CLIENTE",
+              "EMPLEADO",
+              "BANCO",
+              "INTERNO",
+              "OTRO"
+            ],
+            "title": "Contraparte Tipo",
+            "default": "PROVEEDOR"
+          },
+          "neto": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Neto"
+          },
+          "iva": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Iva"
+          },
+          "total": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total"
+          },
+          "retencion_monto": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Retencion Monto"
+          },
+          "total_a_pagar": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total A Pagar"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/LineaVoucherPropuesta"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "total_debit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Debit"
+          },
+          "total_credit": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Credit"
+          },
+          "completo": {
+            "type": "boolean",
+            "title": "Completo",
+            "default": true
+          },
+          "voucher_existente_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voucher Existente Id"
+          },
+          "voucher_existente_codigo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voucher Existente Codigo"
+          },
+          "advertencias": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Advertencias"
+          }
+        },
+        "type": "object",
+        "required": [
+          "oc_id",
+          "empresa_codigo",
+          "glosa",
+          "fecha_documento",
+          "fecha_contable",
+          "neto",
+          "iva",
+          "total",
+          "retencion_monto",
+          "total_a_pagar",
+          "lines",
+          "total_debit",
+          "total_credit"
+        ],
+        "title": "VoucherPropuestoRead",
+        "description": "Borrador de voucher derivado de una OC. NO crea nada.\n\nEl operador lo revisa, completa lo que la OC no puede saber (cuenta de\ngasto, proyecto, área) y recién ahí hace el POST."
+      },
       "VoucherRead": {
         "properties": {
           "voucher_id": {
@@ -71069,6 +71508,17 @@
               }
             ],
             "title": "Source"
+          },
+          "oc_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oc Id"
           },
           "created_at": {
             "type": "string",

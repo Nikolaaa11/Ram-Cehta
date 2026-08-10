@@ -26,7 +26,7 @@ import type { Route } from "next";
  * Si guardás como DRAFT, el descuadre es OK (terminás después).
  * Si enviás directamente a PENDING, el backend rechaza con error legible.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +34,7 @@ import { extractMontoFromText, extractRutFromText } from "@/lib/extract";
 import {
   ArrowLeft,
   CheckCircle2,
+  Link2,
   Plus,
   Save,
   Send,
@@ -43,16 +44,33 @@ import {
 import { apiClient, ApiError } from "@/lib/api/client";
 import { queueFeedback } from "@/components/feedback/PendingFeedbackPrompt";
 import { useSession } from "@/hooks/use-session";
+import { useApiQuery } from "@/hooks/use-api-query";
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning";
 import { useFormShortcuts } from "@/hooks/use-form-shortcuts";
 import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
+import { useProveedoresCache } from "@/hooks/use-proveedores-cache";
+import { Combobox } from "@/components/ui/combobox";
+import {
+  AvisoPropuesta,
+  HonorariosAsistente,
+  OcTypeahead,
+  TIPOS_DOCUMENTO_VOUCHER,
+  usePropuestaVoucherOc,
+  type AsientoHonorarios,
+  type LineaPropuesta,
+  type OcSeleccionada,
+} from "@/components/vouchers/VoucherDesdeOc";
 import { toast } from "@/components/ui/toast";
 import { handleSessionExpired } from "@/lib/api/session-handling";
 import { Currency } from "@/components/shared/Currency";
 import type {
   Area,
+  BalanceTreatment,
   ContraparteTipo,
   DocTributarioTipo,
+  IvaTratamiento,
+  OcListItem,
+  OcRead,
   PlanCuenta,
   ProyectoContable,
   VoucherTipo,
@@ -72,6 +90,24 @@ interface LineDraft {
   debit: string;
   credit: string;
   descripcion: string;
+  /**
+   * Campos fiscales que la tabla NO muestra pero que viajan al backend. Mismo
+   * criterio que VoucherLinesEditor, que los preserva sin pintarlos: si la
+   * línea de honorarios va con `iva_tratamiento` en null, el exportador a
+   * Nubox la trata como AFECTA a IVA.
+   */
+  iva_tratamiento: IvaTratamiento | null;
+  balance_treatment: BalanceTreatment;
+  /**
+   * De dónde salió la línea. Sólo las que vienen de una propuesta bloquean el
+   * guardado cuando les falta la cuenta — una línea en blanco que el operador
+   * acaba de agregar a mano no es un error, es una línea a medio llenar.
+   */
+  origen: "manual" | "propuesta";
+  /** La cuenta la tiene que elegir el operador (la OC no la trae). */
+  requiereCuenta: boolean;
+  /** Explicación corta que se muestra bajo el selector de cuenta. */
+  nota: string | null;
 }
 
 const TIPOS: { value: VoucherTipo; label: string; needsCounterparty: boolean; needsTaxDoc: boolean; needsBank: boolean }[] = [
@@ -92,6 +128,29 @@ const newLine = (): LineDraft => ({
   debit: "",
   credit: "",
   descripcion: "",
+  iva_tratamiento: null,
+  balance_treatment: "NA",
+  origen: "manual",
+  requiereCuenta: false,
+  nota: null,
+});
+
+/** Línea propuesta (por una OC o por el asistente de honorarios) → fila del
+ *  form. Se pinta EDITABLE: el operador tiene que ver el asiento antes de
+ *  guardar, porque es lo que después se firma. */
+const lineaDesdePropuesta = (l: LineaPropuesta): LineDraft => ({
+  localId: crypto.randomUUID(),
+  cuenta_codigo: l.cuenta_codigo,
+  proyecto_codigo: l.proyecto_codigo,
+  area_codigo: l.area_codigo,
+  debit: l.debit,
+  credit: l.credit,
+  descripcion: l.descripcion,
+  iva_tratamiento: l.iva_tratamiento,
+  balance_treatment: l.balance_treatment,
+  origen: "propuesta",
+  requiereCuenta: l.requiereCuenta,
+  nota: l.nota,
 });
 
 export default function NuevoVoucherPage() {
@@ -104,6 +163,12 @@ export default function NuevoVoucherPage() {
   const initialTipo = (params.get("tipo") as VoucherTipo) ?? "EGRESO";
   const initialGlosa = params.get("glosa") ?? "";
   const fromEmailId = params.get("from_email");
+  // `?oc_id=` — el deeplink de "Crear voucher desde esta OC" en el detalle
+  // de la orden. El otro camino (elegir la OC acá con el typeahead) termina
+  // en el mismo estado, así que hay un solo flujo de prellenado.
+  const ocIdParam = Number(params.get("oc_id"));
+  const initialOcId =
+    Number.isInteger(ocIdParam) && ocIdParam > 0 ? ocIdParam : null;
 
   // Header state
   const [tipo, setTipo] = useState<VoucherTipo>(initialTipo);
@@ -120,13 +185,38 @@ export default function NuevoVoucherPage() {
   const [documentoDropboxPath, setDocumentoDropboxPath] = useState("");
   const [proyectoCodigoGlobal, setProyectoCodigoGlobal] = useState("");
   const [glosa, setGlosa] = useState(initialGlosa);
+  // Moneda del voucher. Sigue siendo CLP por defecto y el campo está
+  // deshabilitado —acá no se elige a mano—, pero cuando el voucher nace de
+  // una OC hereda la de la OC. Antes iba "CLP" fijo en el payload: una OC en
+  // UF entraba como pesos con la cifra en UF, o sea ~39.000 veces menos plata
+  // de la que representa, y el error no se ve en ninguna pantalla.
+  const [moneda, setMoneda] = useState("CLP");
   const [contraparteRut, setContraparteRut] = useState("");
   const [contraparteNombre, setContraparteNombre] = useState("");
   const [contraparteTipo, setContraparteTipo] = useState<ContraparteTipo>("PROVEEDOR");
-  const [docTributarioTipo, setDocTributarioTipo] = useState<DocTributarioTipo>("FACTURA");
+  // El tipo de documento ya no vive encerrado en COMPRA/VENTA: una boleta de
+  // honorarios se paga casi siempre como EGRESO, y con el selector escondido
+  // el `doc_tributario_tipo` se guardaba en null y el documento quedaba sin
+  // identificar. Arranca en "NA" (sin documento) salvo que el tipo de voucher
+  // lo exija — así nadie termina con una FACTURA puesta por default.
+  const [docTributarioTipo, setDocTributarioTipo] = useState<DocTributarioTipo>(
+    () =>
+      TIPOS.find((t) => t.value === initialTipo)?.needsTaxDoc
+        ? "FACTURA"
+        : "NA",
+  );
   const [docTributarioFolio, setDocTributarioFolio] = useState("");
   const [banco, setBanco] = useState("");
   const [bancoCuentaAlias, setBancoCuentaAlias] = useState("");
+
+  // OC de origen. `ocId` es lo que viaja en el payload; `ocSeleccionada` es
+  // sólo para pintar el chip. Mientras haya OC, la empresa queda fija en la
+  // suya: tomar una OC de una empresa y colgarla de un voucher de otra es una
+  // fuga cross-tenant.
+  const [ocId, setOcId] = useState<number | null>(initialOcId);
+  const [ocSeleccionada, setOcSeleccionada] = useState<OcSeleccionada | null>(
+    null,
+  );
 
   // Lines state
   const [lines, setLines] = useState<LineDraft[]>([
@@ -309,6 +399,184 @@ export default function NuevoVoucherPage() {
     enabled: !!session && !!empresaCodigo,
   });
 
+  // ── OC de origen ───────────────────────────────────────────────────────
+  // Dos fuentes, un solo estado final:
+  //   1. `GET /ordenes-compra/{id}` — la cabecera (empresa, proveedor, tipo de
+  //      documento). Endpoint viejo y seguro.
+  //   2. `GET /ordenes-compra/{id}/voucher-propuesto` — el ASIENTO. Es la
+  //      ÚNICA fuente de montos: acá no se inventa ninguna cifra. Si no
+  //      responde, el operador igual queda con la OC linkeada y carga las
+  //      líneas a mano — lo que no pasa nunca es que aparezcan montos
+  //      adivinados por el frontend.
+  const ocDetalle = useApiQuery<OcRead>(
+    ["oc-para-voucher", String(ocId ?? "")],
+    `/ordenes-compra/${ocId}`,
+    ocId !== null,
+  );
+  const { query: propuestaQuery, resultado: propuesta } =
+    usePropuestaVoucherOc(ocId);
+
+  // Cabecera: sólo los HECHOS de la OC (empresa y tipo de documento). La
+  // prosa y los montos los pone la propuesta, más abajo.
+  const headerPrefillRef = useRef<number | null>(null);
+  useEffect(() => {
+    const oc = ocDetalle.data;
+    if (!oc || headerPrefillRef.current === oc.oc_id) return;
+    headerPrefillRef.current = oc.oc_id;
+    setOcSeleccionada(oc);
+    // Cambiar de empresa invalida las FKs de las líneas cargadas a mano.
+    if (empresaCodigo && empresaCodigo !== oc.empresa_codigo) {
+      setLines((prev) =>
+        prev.map((l) => ({
+          ...l,
+          cuenta_codigo: "",
+          proyecto_codigo: "",
+          area_codigo: "",
+        })),
+      );
+    }
+    setEmpresaCodigo(oc.empresa_codigo);
+    setDocTributarioTipo(oc.tipo_documento as DocTributarioTipo);
+    // intencional: corre una vez por OC (lo garantiza el ref), no en cada
+    // tecla que el operador toque en el resto del form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ocDetalle.data]);
+
+  // Contraparte desde el catálogo de proveedores. Sólo llena lo vacío.
+  const { data: proveedoresCache } = useProveedoresCache();
+  useEffect(() => {
+    const oc = ocDetalle.data;
+    if (!oc || oc.proveedor_id === null || !proveedoresCache) return;
+    const prov = proveedoresCache.find(
+      (p) => p.proveedor_id === oc.proveedor_id,
+    );
+    if (!prov) return;
+    setContraparteTipo("PROVEEDOR");
+    setContraparteNombre((prev) => prev || prov.razon_social);
+    setContraparteRut((prev) => prev || (prov.rut ?? ""));
+  }, [ocDetalle.data, proveedoresCache]);
+
+  // El asiento propuesto. Reemplaza las líneas de una: es la propuesta
+  // completa, no un merge. El operador la ve y la edita antes de guardar.
+  const propuestaPrefillRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (ocId === null || !propuesta?.ok) return;
+    if (propuestaPrefillRef.current === ocId) return;
+    propuestaPrefillRef.current = ocId;
+    const p = propuesta.propuesta;
+
+    if (p.empresaCodigo) setEmpresaCodigo(p.empresaCodigo);
+    if (p.tipo) setTipo(p.tipo);
+    if (p.docTributarioTipo) setDocTributarioTipo(p.docTributarioTipo);
+    if (p.docTributarioFolio) setDocTributarioFolio(p.docTributarioFolio);
+    if (p.fechaDocumento) setFechaDocumento(p.fechaDocumento);
+    if (p.fechaContable) setFechaContable(p.fechaContable);
+    if (p.fechaVencimiento) setFechaVencimiento(p.fechaVencimiento);
+    if (p.glosa) setGlosa(p.glosa);
+    if (p.contraparteTipo) setContraparteTipo(p.contraparteTipo);
+    if (p.contraparteNombre) setContraparteNombre(p.contraparteNombre);
+    if (p.contraparteRut) setContraparteRut(p.contraparteRut);
+    // La moneda sale de la OC, no se asume CLP. Una OC en UF o USD producía
+    // un voucher marcado en pesos con la cifra en moneda extranjera: el monto
+    // quedaba multiplicado por ~39.000 respecto de lo que representa.
+    if (p.moneda) setMoneda(p.moneda);
+    if (p.lineas.length > 0) setLines(p.lineas.map(lineaDesdePropuesta));
+  }, [ocId, propuesta]);
+
+  // Camino de respaldo: si la propuesta no llegó, la OC queda linkeada igual
+  // y ponemos una glosa mínima para que el operador no arranque de cero.
+  const fallbackPrefillRef = useRef<number | null>(null);
+  useEffect(() => {
+    const oc = ocDetalle.data;
+    const fallo = propuestaQuery.isError || propuesta?.ok === false;
+    if (!oc || ocId === null || !fallo) return;
+    if (fallbackPrefillRef.current === ocId) return;
+    fallbackPrefillRef.current = ocId;
+    setGlosa(
+      (prev) => prev || `OC ${oc.numero_oc} · imputación pendiente`.slice(0, 500),
+    );
+  }, [ocId, ocDetalle.data, propuestaQuery.isError, propuesta]);
+
+  const elegirOc = (oc: OcListItem) => {
+    setOcSeleccionada(oc);
+    setOcId(oc.oc_id);
+  };
+
+  const quitarOc = () => {
+    setOcId(null);
+    setOcSeleccionada(null);
+    headerPrefillRef.current = null;
+    propuestaPrefillRef.current = null;
+    fallbackPrefillRef.current = null;
+  };
+
+  /**
+   * Asiento propuesto por el asistente de honorarios (sin OC). Reemplaza las
+   * líneas, así que si había trabajo cargado se pregunta antes: perder seis
+   * líneas imputadas por un click es un mal trato.
+   */
+  const aplicarAsientoHonorarios = (asiento: AsientoHonorarios): boolean => {
+    const hayTrabajo = lines.some(
+      (l) => l.cuenta_codigo || l.debit || l.credit || l.descripcion.trim(),
+    );
+    if (
+      hayTrabajo &&
+      !window.confirm(
+        `Esto reemplaza las ${lines.length} líneas actuales por el asiento de ` +
+          `honorarios (${asiento.lineas.length} líneas). ¿Seguimos?`,
+      )
+    ) {
+      return false;
+    }
+    setLines(asiento.lineas.map(lineaDesdePropuesta));
+    return true;
+  };
+
+  const propuestaError =
+    propuesta?.ok === false
+      ? propuesta.error
+      : propuestaQuery.isError
+        ? (propuestaQuery.error?.message ??
+          "No se pudo traer la propuesta de asiento desde la OC.")
+        : null;
+
+  // Si la OC ya tiene voucher, no se crea otro: un voucher duplicado sobre la
+  // misma OC es un pago duplicado esperando. Se muestra el que existe.
+  const voucherExistenteId = propuesta?.ok
+    ? propuesta.propuesta.voucherExistenteId
+    : null;
+  const voucherExistenteCodigo = propuesta?.ok
+    ? propuesta.propuesta.voucherExistenteCodigo
+    : null;
+  const advertenciasPropuesta = propuesta?.ok
+    ? propuesta.propuesta.advertencias
+    : [];
+
+  // Requisito del contrato: una propuesta incompleta se marca y NO se guarda.
+  // Sólo bloquean las líneas que vinieron de una propuesta — una fila en
+  // blanco recién agregada a mano no es un error, es trabajo a medio hacer.
+  const lineasSinCuenta = useMemo(
+    () =>
+      lines
+        .map((l, i) => ({ l, numero: i + 1 }))
+        .filter(({ l }) => l.origen === "propuesta" && !l.cuenta_codigo),
+    [lines],
+  );
+  const bloqueoPorPropuesta = lineasSinCuenta.length > 0;
+
+  /**
+   * Los dos motivos por los que el guardado se corta en seco, con el texto que
+   * ve el operador. Los mismos que chequea `submit()` — acá viven para que el
+   * botón esté apagado ANTES del click, no para reemplazar la validación.
+   */
+  const motivoBloqueo =
+    voucherExistenteId !== null
+      ? `La OC ya tiene el voucher ${voucherExistenteCodigo ?? `#${voucherExistenteId}`}. Abrí ese en vez de crear otro.`
+      : bloqueoPorPropuesta
+        ? `Falta elegir la cuenta en ${lineasSinCuenta.length === 1 ? "la línea" : "las líneas"} ${lineasSinCuenta.map((x) => x.numero).join(", ")}.`
+        : null;
+  const guardadoBloqueado = motivoBloqueo !== null;
+
   // Sumas live
   const totalDebit = useMemo(
     () =>
@@ -381,6 +649,30 @@ export default function NuevoVoucherPage() {
       return;
     }
 
+    if (voucherExistenteId !== null) {
+      toast.error(
+        `La OC ${ocSeleccionada?.numero_oc ?? ""} ya tiene el voucher ` +
+          `${voucherExistenteCodigo ?? `#${voucherExistenteId}`}. ` +
+          "Abrilo en vez de crear otro: un voucher duplicado es un pago duplicado.",
+        { duration: 12_000 },
+      );
+      return;
+    }
+
+    // La propuesta que llega incompleta no se guarda a medias. La cuenta de
+    // gasto de una factura/boleta/exenta no se puede derivar de la OC (la OC
+    // no tiene `cuenta_codigo`) y proponer una inventada sería peor: se
+    // guardaría mal y nadie lo notaría.
+    if (bloqueoPorPropuesta) {
+      toast.error(
+        `Falta elegir la cuenta en ${lineasSinCuenta.length === 1 ? "la línea" : "las líneas"} ` +
+          `${lineasSinCuenta.map((x) => x.numero).join(", ")}. ` +
+          "La OC no trae la cuenta de gasto: la elige el operador.",
+        { duration: 8000 },
+      );
+      return;
+    }
+
     // Validar líneas: cuenta + debit XOR credit
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
@@ -406,6 +698,14 @@ export default function NuevoVoucherPage() {
         `Partida doble descuadrada · debe=${totalDebit.toLocaleString("es-CL")} ` +
           `vs haber=${totalCredit.toLocaleString("es-CL")}. ` +
           `Guarda como borrador o cuadrá las líneas antes de enviar.`,
+      );
+      return;
+    }
+
+    if (tipoMeta.needsTaxDoc && docTributarioTipo === "NA") {
+      toast.error(
+        `${tipoMeta.label}: elegí el tipo de documento tributario ` +
+          "(factura, boleta, boleta de honorarios…).",
       );
       return;
     }
@@ -450,15 +750,23 @@ export default function NuevoVoucherPage() {
         fecha_vencimiento: fechaVencimiento || null,
         documento_dropbox_path: documentoDropboxPath.trim() || null,
         glosa: glosa.trim(),
-        moneda: "CLP",
+        moneda,
         contraparte_rut: contraparteRut.trim() || null,
         contraparte_nombre: contraparteNombre.trim() || null,
         contraparte_tipo: tipoMeta.needsCounterparty ? contraparteTipo : null,
-        doc_tributario_tipo: tipoMeta.needsTaxDoc ? docTributarioTipo : null,
-        doc_tributario_folio: tipoMeta.needsTaxDoc ? docTributarioFolio.trim() : null,
+        // El tipo de documento ya no depende de que el voucher sea
+        // COMPRA/VENTA: una boleta de honorarios pagada como EGRESO también
+        // es un documento tributario y tiene que quedar identificada. "NA"
+        // (sin documento) viaja como null, que es lo que el backend espera.
+        doc_tributario_tipo:
+          docTributarioTipo === "NA" ? null : docTributarioTipo,
+        doc_tributario_folio: docTributarioFolio.trim() || null,
         banco: tipoMeta.needsBank ? banco.trim() || null : null,
         banco_cuenta_alias: tipoMeta.needsBank ? bancoCuentaAlias.trim() || null : null,
         threshold_aplicado: false, // backend lo recalcula en Fase 2
+        // La OC de origen. El backend valida que sea de la MISMA empresa y
+        // que no tenga ya un voucher vivo; acá sólo la mandamos.
+        oc_id: ocId,
         lines: lines.map((l, i) => ({
           line_number: i + 1,
           cuenta_codigo: l.cuenta_codigo,
@@ -470,7 +778,11 @@ export default function NuevoVoucherPage() {
           debit: l.debit === "" ? 0 : Number(l.debit),
           credit: l.credit === "" ? 0 : Number(l.credit),
           descripcion: l.descripcion.trim() || null,
-          balance_treatment: "NA",
+          // Campos fiscales que la tabla no muestra pero que la propuesta sí
+          // determina. Con `iva_tratamiento` en null el exportador a Nubox
+          // trata la línea como AFECTA, y una boleta de honorarios no lo es.
+          iva_tratamiento: l.iva_tratamiento,
+          balance_treatment: l.balance_treatment,
         })),
       };
 
@@ -554,7 +866,19 @@ export default function NuevoVoucherPage() {
               <Field label="Tipo de voucher" required>
                 <select
                   value={tipo}
-                  onChange={(e) => setTipo(e.target.value as VoucherTipo)}
+                  onChange={(e) => {
+                    const siguiente = e.target.value as VoucherTipo;
+                    setTipo(siguiente);
+                    // COMPRA/VENTA exigen documento tributario. Si venía en
+                    // "sin documento", lo dejamos en el más frecuente para que
+                    // el operador no descubra el error recién al guardar.
+                    if (
+                      TIPOS.find((t) => t.value === siguiente)?.needsTaxDoc &&
+                      docTributarioTipo === "NA"
+                    ) {
+                      setDocTributarioTipo("FACTURA");
+                    }
+                  }}
                   className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
                 >
                   {TIPOS.map((t) => (
@@ -581,7 +905,16 @@ export default function NuevoVoucherPage() {
                     );
                   }}
                   required
-                  className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                  // Con una OC enganchada la empresa queda fija en la suya:
+                  // colgar una OC de una empresa a un voucher de otra es una
+                  // fuga cross-tenant. Para cambiarla, se quita la OC.
+                  disabled={ocId !== null}
+                  title={
+                    ocId !== null
+                      ? "La empresa la fija la OC de origen. Quitá la OC para cambiarla."
+                      : undefined
+                  }
+                  className="w-full rounded-xl border-0 bg-ink-50 px-3 py-2 text-sm ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-500"
                 >
                   <option value="">— Elegir —</option>
                   {(empresas ?? []).map((e) => (
@@ -595,11 +928,70 @@ export default function NuevoVoucherPage() {
               <Field label="Moneda">
                 <input
                   type="text"
-                  value="CLP"
+                  value={moneda}
                   disabled
                   className="w-full rounded-xl border-0 bg-ink-100 px-3 py-2 text-sm text-ink-500 ring-1 ring-hairline"
                 />
               </Field>
+
+              {/* Orden de compra de origen. Los dos caminos —venir del detalle
+                  de la OC con `?oc_id=`, o elegirla acá— terminan en el mismo
+                  estado: llega la propuesta, se pinta EDITABLE, y recién
+                  entonces se guarda. */}
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Field label="Orden de compra de origen (opcional)">
+                  <OcTypeahead
+                    empresaCodigo={empresaCodigo}
+                    seleccionada={ocSeleccionada}
+                    onSelect={elegirOc}
+                    onClear={quitarOc}
+                  />
+                </Field>
+                {ocId !== null && (
+                  <div className="mt-2 space-y-2">
+                    {(ocDetalle.isLoading || propuestaQuery.isLoading) && (
+                      <p className="flex items-center gap-1.5 text-[11px] text-ink-500">
+                        <Link2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        Trayendo el asiento propuesto de la orden…
+                      </p>
+                    )}
+                    {voucherExistenteId !== null && (
+                      <AvisoPropuesta
+                        tono="error"
+                        titulo="Esta OC ya tiene voucher"
+                      >
+                        No se crea otro: un voucher duplicado sobre la misma OC
+                        es un pago duplicado esperando.{" "}
+                        <Link
+                          href={`/vouchers/${voucherExistenteId}` as Route}
+                          className="font-medium underline"
+                        >
+                          Abrir{" "}
+                          {voucherExistenteCodigo ?? `#${voucherExistenteId}`}
+                        </Link>
+                        .
+                      </AvisoPropuesta>
+                    )}
+                    {propuestaError && (
+                      <AvisoPropuesta titulo="No se pudo armar el asiento desde la OC">
+                        {propuestaError} La orden queda igual enganchada al
+                        voucher; las líneas las cargás vos. No prellenamos
+                        montos por nuestra cuenta: una cifra de plata inventada
+                        por el formulario es peor que un campo vacío.
+                      </AvisoPropuesta>
+                    )}
+                    {advertenciasPropuesta.length > 0 && (
+                      <AvisoPropuesta titulo="Revisá antes de guardar">
+                        <ul className="list-disc space-y-0.5 pl-4">
+                          {advertenciasPropuesta.map((a) => (
+                            <li key={a}>{a}</li>
+                          ))}
+                        </ul>
+                      </AvisoPropuesta>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <Field label="Fecha documento" required>
                 <input
@@ -774,44 +1166,76 @@ export default function NuevoVoucherPage() {
               </div>
             )}
 
-            {/* Doc tributario (si COMPRA/VENTA) */}
-            {tipoMeta.needsTaxDoc && (
-              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-2xl bg-amber-50/50 p-4 ring-1 ring-amber-200">
-                <p className="sm:col-span-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800">
-                  Documento tributario · obligatorio
-                </p>
-                <Field label="Tipo">
-                  <select
-                    value={docTributarioTipo}
-                    onChange={(e) => setDocTributarioTipo(e.target.value as DocTributarioTipo)}
-                    className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
-                  >
-                    <option value="FACTURA">FACTURA</option>
-                    <option value="BOLETA">BOLETA</option>
-                    <option value="NOTA_CREDITO">NOTA DE CREDITO</option>
-                    <option value="NOTA_DEBITO">NOTA DE DEBITO</option>
-                    <option value="HONORARIOS">BOLETA HONORARIOS</option>
-                  </select>
-                </Field>
-                <Field label="Folio" required>
-                  <input
-                    type="text"
-                    required={tipoMeta.needsTaxDoc}
-                    value={docTributarioFolio}
-                    onChange={(e) => setDocTributarioFolio(e.target.value)}
-                    placeholder="12345"
-                    className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            {/* Documento tributario — SIEMPRE visible.
+                Antes vivía encerrado en `needsTaxDoc` (sólo COMPRA/VENTA), así
+                que "Boleta de honorarios" estaba en el <select> pero era
+                inalcanzable: el bloque no se renderizaba y el submit mandaba
+                doc_tributario_tipo en null. Una boleta de honorarios pagada
+                como EGRESO quedaba sin identificar. Obligatorio en
+                COMPRA/VENTA, opcional en el resto. */}
+            <div
+              className={`mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3 rounded-2xl p-4 ${
+                tipoMeta.needsTaxDoc
+                  ? "bg-amber-50/50 ring-1 ring-amber-200"
+                  : "bg-ink-50/40"
+              }`}
+            >
+              <p
+                className={`sm:col-span-3 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                  tipoMeta.needsTaxDoc ? "text-amber-800" : "text-ink-500"
+                }`}
+              >
+                Documento tributario{" "}
+                <span className="font-normal normal-case tracking-normal">
+                  ·{" "}
+                  {tipoMeta.needsTaxDoc
+                    ? "obligatorio"
+                    : "opcional, pero es lo que identifica el documento"}
+                </span>
+              </p>
+              <Field label="Tipo" required={tipoMeta.needsTaxDoc}>
+                <Combobox
+                  items={TIPOS_DOCUMENTO_VOUCHER}
+                  value={docTributarioTipo}
+                  onValueChange={(v) =>
+                    setDocTributarioTipo(v as DocTributarioTipo)
+                  }
+                  placeholder="Elegí el documento"
+                  searchPlaceholder="Factura, honorarios, exenta…"
+                  triggerClassName="w-full"
+                />
+              </Field>
+              <Field label="Folio" required={tipoMeta.needsTaxDoc}>
+                <input
+                  type="text"
+                  required={tipoMeta.needsTaxDoc}
+                  value={docTributarioFolio}
+                  onChange={(e) => setDocTributarioFolio(e.target.value)}
+                  placeholder="12345"
+                  className="w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-hairline focus:outline-none focus:ring-2 focus:ring-cehta-green"
+                />
+              </Field>
+              <p className="sm:col-span-3 text-right text-[11px] text-ink-500">
+                Para los 15 tipos SII completos (FACTURA DE COMPRA, FACTURA ELECTRONICA, etc.) usá el{" "}
+                <Link href="/vouchers/nubox" className="font-medium text-cehta-green hover:underline">
+                  Form Nubox
+                </Link>
+                .
+              </p>
+
+              {/* Boleta de honorarios SIN OC: el bruto y la tasa los pone el
+                  operador y las tres cifras quedan a la vista antes de
+                  guardar. Con OC no aparece — ahí los montos salen de la
+                  propuesta del servidor, que es la fuente. */}
+              {docTributarioTipo === "HONORARIOS" && ocId === null && (
+                <div className="sm:col-span-3">
+                  <HonorariosAsistente
+                    fechaDocumento={fechaDocumento}
+                    onAplicar={aplicarAsientoHonorarios}
                   />
-                </Field>
-                <p className="sm:col-span-3 text-right text-[11px] text-ink-500">
-                  Para los 15 tipos SII completos (FACTURA DE COMPRA, FACTURA ELECTRONICA, etc.) usá el{" "}
-                  <Link href="/vouchers/nubox" className="font-medium text-cehta-green hover:underline">
-                    Form Nubox
-                  </Link>
-                  .
-                </p>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {/* Banco (si INGRESO/EGRESO) */}
             {tipoMeta.needsBank && (
@@ -877,6 +1301,37 @@ export default function NuevoVoucherPage() {
               </div>
             </details>
 
+            {/* El asiento propuesto se muestra EDITABLE. Nunca se guarda sin
+                que el operador lo vea: es lo que después se firma. */}
+            {lines.some((l) => l.origen === "propuesta") && (
+              <div className="mt-3">
+                <AvisoPropuesta
+                  tono="info"
+                  titulo="Asiento propuesto — revisalo antes de guardar"
+                >
+                  Las líneas se pueden editar, agregar y borrar. Lo que quede
+                  acá es lo que se manda a firma.
+                </AvisoPropuesta>
+              </div>
+            )}
+
+            {bloqueoPorPropuesta && (
+              <div className="mt-3">
+                <AvisoPropuesta
+                  titulo={
+                    lineasSinCuenta.length === 1
+                      ? `Falta la cuenta de la línea ${lineasSinCuenta[0]?.numero}`
+                      : `Faltan las cuentas de las líneas ${lineasSinCuenta.map((x) => x.numero).join(", ")}`
+                  }
+                >
+                  La OC no tiene cuenta contable, así que la línea de gasto se
+                  propone <strong>en blanco a propósito</strong>: una cuenta
+                  inventada se guarda mal y nadie lo nota. Hasta completarla no
+                  se puede guardar, ni como borrador.
+                </AvisoPropuesta>
+              </div>
+            )}
+
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="text-left text-[10px] font-semibold uppercase tracking-[0.16em] text-ink-500">
@@ -902,21 +1357,44 @@ export default function NuevoVoucherPage() {
                       <td className="py-2 text-xs text-ink-500 tabular-nums">
                         {idx + 1}
                       </td>
-                      <td className="py-2 pr-2">
-                        <select
-                          value={l.cuenta_codigo}
-                          onChange={(e) =>
-                            updateLine(l.localId, { cuenta_codigo: e.target.value })
-                          }
-                          className="w-full rounded-lg border-0 bg-ink-50 px-2 py-1.5 text-xs ring-1 ring-hairline focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green"
-                        >
-                          <option value="">— Elegir cuenta —</option>
-                          {(cuentas ?? []).map((c) => (
-                            <option key={c.codigo} value={c.codigo}>
-                              {c.codigo} · {c.nombre}
-                            </option>
-                          ))}
-                        </select>
+                      <td className="py-2 pr-2 align-top">
+                        {(() => {
+                          // Sólo se marca en rojo/ámbar la línea que vino de
+                          // una propuesta sin cuenta. Una fila en blanco que
+                          // el operador acaba de agregar no es un error.
+                          const falta =
+                            l.origen === "propuesta" && !l.cuenta_codigo;
+                          return (
+                            <select
+                              value={l.cuenta_codigo}
+                              onChange={(e) =>
+                                updateLine(l.localId, {
+                                  cuenta_codigo: e.target.value,
+                                })
+                              }
+                              aria-invalid={falta}
+                              className={`w-full rounded-lg border-0 px-2 py-1.5 text-xs ring-1 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cehta-green ${
+                                falta
+                                  ? "bg-amber-50 ring-amber-400"
+                                  : "bg-ink-50 ring-hairline"
+                              }`}
+                            >
+                              <option value="">
+                                {falta ? "⚠ Elegí la cuenta" : "— Elegir cuenta —"}
+                              </option>
+                              {(cuentas ?? []).map((c) => (
+                                <option key={c.codigo} value={c.codigo}>
+                                  {c.codigo} · {c.nombre}
+                                </option>
+                              ))}
+                            </select>
+                          );
+                        })()}
+                        {l.nota && (
+                          <p className="mt-1 text-[10px] leading-snug text-ink-500">
+                            {l.nota}
+                          </p>
+                        )}
                       </td>
                       {/* Round 132: <td> de Proyecto eliminado.
                           Se setea a nivel voucher en el header. */}
@@ -1038,8 +1516,9 @@ export default function NuevoVoucherPage() {
               <button
                 type="button"
                 onClick={() => submit("DRAFT")}
-                disabled={submitting}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50 disabled:opacity-60"
+                disabled={submitting || guardadoBloqueado}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-4 py-2 text-sm font-medium text-ink-700 hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-60"
+                title={motivoBloqueo ?? "Guardar como borrador"}
               >
                 <Save className="h-4 w-4" strokeWidth={1.75} />
                 Guardar borrador
@@ -1049,9 +1528,14 @@ export default function NuevoVoucherPage() {
               <button
                 type="button"
                 onClick={() => submit("PENDING")}
-                disabled={submitting || !isBalanced}
+                disabled={submitting || !isBalanced || guardadoBloqueado}
                 className="inline-flex items-center gap-1.5 rounded-xl bg-cehta-green px-4 py-2 text-sm font-semibold text-white shadow-card hover:bg-cehta-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                title={!isBalanced ? "Cuadrá las líneas antes de enviar" : "Enviar a aprobación"}
+                title={
+                  motivoBloqueo ??
+                  (!isBalanced
+                    ? "Cuadrá las líneas antes de enviar"
+                    : "Enviar a aprobación")
+                }
               >
                 <Send className="h-4 w-4" strokeWidth={1.75} />
                 Enviar a aprobación

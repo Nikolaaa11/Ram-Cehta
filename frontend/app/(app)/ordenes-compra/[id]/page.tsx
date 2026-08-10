@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { OcCuotasSection } from "@/components/ordenes-compra/OcCuotasSection";
 import { OcFirmasSection } from "@/components/ordenes-compra/OcFirmasSection";
+import { CrearVoucherDesdeOcButton } from "@/components/vouchers/VoucherDesdeOc";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { FileLink } from "@/components/shared/FileLink";
@@ -155,10 +156,20 @@ export default async function OcDetallePage({
               />
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <EntityHistoryDrawer
               entityType="orden_compra"
               entityId={String(oc.oc_id)}
+            />
+            {/* Va fuera de OcActions a propósito: no depende de
+                `allowed_actions` (que es sobre la OC) sino de si esta OC ya
+                generó voucher. Si lo tiene, el botón lleva AL QUE EXISTE —
+                un voucher duplicado sobre la misma OC es un pago duplicado
+                esperando. Cliente, porque tiene que consultar los hitos. */}
+            <CrearVoucherDesdeOcButton
+              ocId={oc.oc_id}
+              numeroOc={oc.numero_oc}
+              estado={oc.estado}
             />
             <OcActions
               ocId={oc.oc_id}
