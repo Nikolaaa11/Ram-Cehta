@@ -114,9 +114,14 @@ ponga en duda **se rechaza inmediatamente**, sin importar urgencia.
    del mes siguiente. El sistema avisa con **5 días** de antelación.
 9. **F22 anual obligatorio**: declaración antes del **30 de abril**.
    El sistema avisa con **30 días** de antelación.
-10. **Boletas de honorarios con retención 13.75%** (tabla 2026, sube
-    progresivamente hasta 17% en 2028). El sistema mantiene la tasa
-    actualizada en `core.tax_config`.
+10. **Boletas de honorarios con retención 15,25% en 2026** (Art. 74 N°2
+    LIR, Ley 21.133). Escala: 2024 13,75 · 2025 14,50 · **2026 15,25** ·
+    2027 16,00 · 2028 17,00. La tasa vive en `core.tax_config` con vigencia
+    POR FECHA — una OC con fecha 2027 trae 16% sin que nadie toque código, y
+    la tasa aplicada queda de snapshot en la OC (invariante 5).
+    ⚠️ Este invariante decía 13,75% y lo llamaba "tabla 2026": era la tasa
+    de 2024. Corregido 2026-08-10; hasta esa fecha `core.tax_config` ni
+    siquiera existía, así que la tasa no vivía en ningún lado.
 
 ### 1.3. Aprobación / control interno
 
