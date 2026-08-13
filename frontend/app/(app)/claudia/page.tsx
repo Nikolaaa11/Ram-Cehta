@@ -151,7 +151,18 @@ export default function ClaudiaHomePage() {
     (previewRevtech.data?.sin_mapeo ?? 0) +
     (previewTrongkai.data?.sin_mapeo ?? 0);
   const conMapeo = Math.max(0, totalDocs - sinMapeo);
-  const pctMapeado = totalDocs > 0 ? Math.round((conMapeo / totalDocs) * 100) : 100;
+  // `null` y no 100 cuando no hay documentos. Con el mes vacío, este KPI
+  // mostraba "100% mapeado" en verde con un tilde: le decía a Claudia que
+  // estaba todo listo cuando no había cargado nada todavía. Un porcentaje
+  // sobre cero documentos no es 100%, es "todavía no hay nada que medir" —
+  // y darlo por bueno es peor que no mostrarlo.
+  const pctMapeado =
+    totalDocs > 0 ? Math.round((conMapeo / totalDocs) * 100) : null;
+  // El mes está vacío de verdad (ya cargó la consulta y no hay documentos).
+  // Se distingue de "todavía cargando" para no mostrar el vacío mientras
+  // las dos queries están en vuelo.
+  const cargando = previewRevtech.isLoading || previewTrongkai.isLoading;
+  const mesVacio = !cargando && totalDocs === 0;
 
   // Saludo según hora del día
   const hour = new Date().getHours();
@@ -185,7 +196,7 @@ export default function ClaudiaHomePage() {
           <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 ring-1 ring-amber-200">
             <CircleDollarSign className="size-3.5 text-amber-700" strokeWidth={2} />
             <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-800">
-              Subsidio CORFO 2024-265638
+              {subsidio.data?.subsidio_codigo ?? "Subsidio CORFO"}
             </span>
           </div>
           <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-ink-900 sm:text-5xl">
@@ -242,6 +253,45 @@ export default function ClaudiaHomePage() {
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">
           Status del mes (REVTECH + TRONGKAI)
         </h2>
+        {mesVacio ? (
+          /* Con el mes vacío, los 4 KPI mostraban "0 documentos · $0 ·
+             0 sin mapeo · 100% mapeado" — este último en VERDE y con un
+             tilde. O sea: la pantalla le decía a Claudia que estaba todo
+             listo justo cuando no había cargado nada. Un tablero en cero no
+             es un tablero en verde: es un tablero que todavía no empezó, y
+             lo que corresponde ahí es decirle por dónde arrancar. */
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-6 shadow-card">
+            <p className="inline-flex items-center gap-2 text-sm font-semibold text-amber-900">
+              <AlertTriangle className="size-4" strokeWidth={2} />
+              Todavía no hay gastos cargados para {periodo}
+            </p>
+            <p className="mt-2 max-w-2xl text-sm text-ink-600">
+              No es un error: el período está vacío. Los indicadores aparecen
+              en cuanto cargues el primer gasto del subsidio, y desde ahí el
+              tablero te va mostrando cuánto llevás ejecutado y qué falta
+              mapear.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                href={"/vouchers/corfo" as Route}
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-700"
+              >
+                <Receipt className="size-4" strokeWidth={2} />
+                Cargar el primer gasto
+                <ArrowRight className="size-4" strokeWidth={2} />
+              </Link>
+              <Link
+                href={"/GUIA_VOUCHERS_ENCARGADOS.html" as Route}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-hairline bg-white px-4 py-2.5 text-sm font-semibold text-ink-700 transition hover:bg-ink-50"
+              >
+                <BookOpen className="size-4" strokeWidth={2} />
+                Ver cómo se hace
+              </Link>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
           <div className="rounded-2xl border border-hairline bg-white p-5 shadow-card">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">
@@ -287,15 +337,24 @@ export default function ClaudiaHomePage() {
             </p>
           </div>
           <div className="flex items-center justify-center rounded-2xl border border-hairline bg-white p-5 shadow-card">
-            <DonutKPI
-              value={pctMapeado}
-              total={100}
-              label="mapeado"
-              color={pctMapeado === 100 ? "#10B981" : "#F59E0B"}
-              size={110}
-            />
+            {pctMapeado === null ? (
+              <p className="text-center text-xs text-ink-500">
+                Sin documentos
+                <br />
+                que mapear
+              </p>
+            ) : (
+              <DonutKPI
+                value={pctMapeado}
+                total={100}
+                label="mapeado"
+                color={pctMapeado === 100 ? "#10B981" : "#F59E0B"}
+                size={110}
+              />
+            )}
           </div>
         </div>
+        )}
       </section>
 
       {/* Atajos a empresas */}

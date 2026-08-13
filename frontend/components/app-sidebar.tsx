@@ -526,6 +526,13 @@ const GROUPS: NavGroup[] = [
         external: true,
         isNew: true,
       },
+      {
+        href: "/GUIA_VOUCHERS_ENCARGADOS.html" as Route,
+        label: "Guía para encargados",
+        icon: Receipt,
+        external: true,
+        isNew: true,
+      },
       // MEGAPROMPT PREVOUCHER — flujo de trabajo + cargos + carpetas.
       {
         href: "/GUIA_FLUJO_CARGOS.html" as Route,
