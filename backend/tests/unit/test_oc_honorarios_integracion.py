@@ -175,3 +175,108 @@ def test_liquido_mas_retencion_da_exactamente_el_total(neto):
         retencion_porcentaje=Decimal("15.25"),
     )
     assert d["total_a_pagar"] + d["retencion_monto"] == d["total"]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# La UF lleva IVA (y con sus decimales)
+# ──────────────────────────────────────────────────────────────────────
+# Antes, toda moneda distinta de CLP salía con IVA 0. La UF no es moneda
+# extranjera: es una unidad de cuenta chilena, y una OC en UF es una
+# operación afecta como cualquier otra. Había una así en producción, sin IVA.
+
+
+def test_una_oc_en_uf_ahora_calcula_iva():
+    from app.api.v1.ordenes_compra import _derivar_totales_oc
+
+    d = _derivar_totales_oc(
+        neto=Decimal("100"),
+        moneda="UF",
+        tipo_documento="FACTURA",
+        iva_porcentaje=Decimal("19"),
+        retencion_porcentaje=Decimal("0"),
+    )
+    assert d["iva"] == Decimal("19"), "100 UF al 19% son 19 UF de IVA"
+    assert d["total"] == Decimal("119")
+    assert d["iva_porcentaje"] == Decimal("19"), "el % persistido tiene que decir la verdad"
+
+
+def test_el_iva_en_uf_conserva_los_decimales():
+    """El bug que el arreglo podría haber introducido si no se toca el redondeo.
+
+    `calcular_iva` redondeaba SIEMPRE a unidad entera (peso chileno). Aplicado
+    a la UF, 123,45 × 19% = 23,4555 se habría guardado como 23 UF: casi media
+    UF perdida, unos $17.000.
+    """
+    from app.api.v1.ordenes_compra import _derivar_totales_oc
+
+    d = _derivar_totales_oc(
+        neto=Decimal("123.45"),
+        moneda="UF",
+        tipo_documento="FACTURA",
+        iva_porcentaje=Decimal("19"),
+        retencion_porcentaje=Decimal("0"),
+    )
+    assert d["iva"] == Decimal("23.46"), f"esperaba 23.46 UF, salió {d['iva']}"
+    assert d["total"] == Decimal("146.91")
+
+
+def test_el_neto_en_uf_no_se_redondea_a_entero():
+    # El redondeo a peso entero es una regla del PESO. En UF los decimales son
+    # significativos y no se tocan.
+    from app.api.v1.ordenes_compra import _derivar_totales_oc
+
+    d = _derivar_totales_oc(
+        neto=Decimal("123.45"),
+        moneda="UF",
+        tipo_documento="FACTURA_EXENTA",
+        iva_porcentaje=Decimal("0"),
+        retencion_porcentaje=Decimal("0"),
+    )
+    assert d["neto"] == Decimal("123.45")
+
+
+def test_el_dolar_sigue_sin_iva_a_proposito():
+    # Una operación en USD suele ser exportación/importación, con tratamiento
+    # tributario distinto. Se deja como estaba: no se asume un criterio que
+    # nadie definió.
+    from app.api.v1.ordenes_compra import _derivar_totales_oc
+
+    d = _derivar_totales_oc(
+        neto=Decimal("1000"),
+        moneda="USD",
+        tipo_documento="FACTURA",
+        iva_porcentaje=Decimal("19"),
+        retencion_porcentaje=Decimal("0"),
+    )
+    assert d["iva"] == Decimal("0")
+    assert d["iva_porcentaje"] == Decimal("0"), "la fila tiene que ser coherente: 0% y 0"
+
+
+def test_honorarios_en_uf_retiene_con_decimales():
+    from app.api.v1.ordenes_compra import _derivar_totales_oc
+
+    d = _derivar_totales_oc(
+        neto=Decimal("123.45"),
+        moneda="UF",
+        tipo_documento="HONORARIOS",
+        iva_porcentaje=Decimal("0"),
+        retencion_porcentaje=Decimal("15.25"),
+    )
+    assert d["retencion_monto"] == Decimal("18.83")  # 123.45 * 0.1525 = 18.826125
+    assert d["total_a_pagar"] + d["retencion_monto"] == d["total"]
+
+
+def test_el_peso_sigue_redondeando_a_entero():
+    # Candado de no-regresión: el arreglo de la UF no puede haberle metido
+    # centavos al peso.
+    from app.api.v1.ordenes_compra import _derivar_totales_oc
+
+    d = _derivar_totales_oc(
+        neto=Decimal("123.45"),
+        moneda="CLP",
+        tipo_documento="FACTURA",
+        iva_porcentaje=Decimal("19"),
+        retencion_porcentaje=Decimal("0"),
+    )
+    for k in ("neto", "iva", "total", "total_a_pagar"):
+        assert d[k] == d[k].to_integral_value(), f"{k} quedó con centavos: {d[k]}"

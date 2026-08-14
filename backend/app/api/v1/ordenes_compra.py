@@ -32,6 +32,7 @@ from app.domain.value_objects.retencion import (
     TIPOS_AFECTOS,
     TIPOS_CON_RETENCION,
     calcular_totales,
+    paso_de_moneda,
     normalizar_porcentajes,
     porcentaje_retencion_por_fecha,
 )
@@ -195,15 +196,31 @@ def _derivar_totales_oc(
     """
     tipo = (tipo_documento or "FACTURA").upper()
 
-    # La regla de la moneda: en UF/USD la OC no calcula IVA porque el impuesto
-    # se liquida al convertir. Es preexistente y el motor la desconoce a
-    # propósito (está documentado en su docstring).
+    # La regla de la moneda. La UF **sí** lleva IVA: es una unidad de cuenta
+    # chilena —pesos indexados a la inflación—, no una moneda extranjera, y una
+    # OC pactada en UF (arriendos, construcción) es una operación afecta como
+    # cualquier otra. Antes se le forzaba IVA 0 junto con el dólar y las OC en
+    # UF salían sin impuesto: había una así en producción.
+    #
+    # El dólar SÍ queda afuera y a propósito: una operación en USD suele ser
+    # exportación o importación, con tratamiento tributario distinto (exenta, o
+    # el IVA lo liquida Aduana). Meterlas en la misma bolsa sería asumir un
+    # criterio tributario que nadie pidió. Si hace falta, se decide aparte.
     #
     # Se aplica sobre el PORCENTAJE y no sobre el monto: si se pisara el monto,
     # la fila quedaría con `iva_porcentaje = 19` e `iva = 0` y el PDF imprimiría
-    # "IVA 19% ......... 0" — que es exactamente lo que hace hoy. Pisando el
-    # porcentaje, la fila es coherente consigo misma y el PDF dice la verdad.
-    iva_pct_pedido = iva_porcentaje if moneda == "CLP" else Decimal("0")
+    # "IVA 19% ......... 0". Pisando el porcentaje, la fila es coherente consigo
+    # misma y el PDF dice la verdad.
+    MONEDAS_AFECTAS = ("CLP", "UF")
+    iva_pct_pedido = (
+        iva_porcentaje if moneda in MONEDAS_AFECTAS else Decimal("0")
+    )
+
+    # Unidad mínima de la moneda. En UF los decimales son plata: 123,45 UF al
+    # 19% da 23,4555 UF de IVA, y redondear eso a 23 UF pierde casi media UF
+    # (~$17.000). El motor por defecto redondea a peso entero, así que sin este
+    # paso el arreglo de arriba habría cambiado un error por otro.
+    paso = paso_de_moneda(moneda)
 
     # El peso chileno no tiene centavos. La suma del itemizado puede traerlos
     # igual —`precio_unitario` es NUMERIC(18,2) y una cantidad fraccionaria o
@@ -235,6 +252,7 @@ def _derivar_totales_oc(
             neto,
             iva_porcentaje=iva_pct,
             retencion_porcentaje=ret_pct,
+            paso=paso,
         )
     except ValueError as exc:
         # Tipo desconocido, porcentaje fuera de 0..100, retención en un tipo

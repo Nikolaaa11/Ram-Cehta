@@ -28,7 +28,7 @@ se descubre mirando: se descubre cuando el proveedor reclama.
 from __future__ import annotations
 
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Final, Literal, NamedTuple
 
 # Reusamos el redondeo y la conversión del módulo hermano en vez de copiarlos. El
@@ -37,8 +37,10 @@ from typing import Final, Literal, NamedTuple
 # pero público dentro de `value_objects`: nadie fuera de este paquete lo importa.
 from app.domain.value_objects.iva import (
     IVA_RATE,
+    PASO_CLP,
     _round_clp,
     calcular_iva,
+    paso_de_moneda,
     porcentaje_a_tasa,
 )
 
@@ -46,6 +48,7 @@ from app.domain.value_objects.iva import (
 # lo importan desde acá para no tener que saber que vive en `iva.py`. No es un
 # import muerto — sacarlo rompe `app/api/v1/ordenes_compra.py`.
 __all__ = [
+    "paso_de_moneda",
     "CLAVE_TAX_CONFIG_RETENCION",
     "ESCALA_RETENCION_HONORARIOS",
     "IVA_PORCENTAJE_GENERAL",
@@ -209,7 +212,9 @@ def _validar_porcentaje(nombre: str, porcentaje: Decimal) -> None:
 # ---------------------------------------------------------------------------
 
 
-def calcular_retencion(bruto: Decimal, tasa: Decimal) -> Decimal:
+def calcular_retencion(
+    bruto: Decimal, tasa: Decimal, paso: Decimal = PASO_CLP
+) -> Decimal:
     """Retención sobre el honorario BRUTO, redondeada a peso chileno.
 
     `tasa` es 0.1525, no 15.25 — la misma convención que `calcular_iva(neto, rate)`.
@@ -220,7 +225,7 @@ def calcular_retencion(bruto: Decimal, tasa: Decimal) -> Decimal:
     función no adivina y no tiene fallback (§3.4 del contrato).
     """
     _validar_tasa(tasa)
-    return _round_clp(bruto * tasa)
+    return (bruto * tasa).quantize(paso, rounding=ROUND_HALF_UP)
 
 
 def calcular_liquido(bruto: Decimal, tasa: Decimal) -> Decimal:
@@ -365,6 +370,7 @@ def calcular_totales(
     iva_porcentaje: Decimal | None = None,
     retencion_porcentaje: Decimal | None = None,
     fecha_emision: date | None = None,
+    paso: Decimal = PASO_CLP,
 ) -> TotalesOC:
     """Las cinco cifras de la OC a partir de `subtotal` = suma del itemizado (B).
 
@@ -395,9 +401,12 @@ def calcular_totales(
 
     OJO, una regla que este motor NO conoce: la API no calcula IVA cuando la moneda
     no es CLP (en UF/USD el impuesto se liquida al convertir). Esa decisión es del
-    llamador y vive en `app/api/v1/ordenes_compra.py`. Si alguna vez se reemplaza
-    ese wrapper por una llamada directa a esta función, hay que traer la regla de
-    la moneda con él o las OC en UF empiezan a facturar IVA.
+    llamador y vive en `app/api/v1/ordenes_compra.py`.
+
+    `paso` es la unidad mínima de la moneda: 1 en pesos, 0.01 en UF y USD. El
+    default de 1 mantiene el comportamiento histórico de los llamadores que no
+    lo pasan; quien trabaje en UF DEBE pasar `paso_de_moneda(moneda)` o el IVA
+    sale redondeado a la unidad entera, que en UF es casi $40.000.
     """
     iva_efectivo, retencion_efectiva = normalizar_porcentajes(
         tipo_documento,
@@ -409,13 +418,15 @@ def calcular_totales(
     total_neto = subtotal
     # Sin `if iva_efectivo`: con 0 % devuelve 0 igual, y la rama de más sería otra
     # oportunidad de confundir el cero con la ausencia.
-    iva = calcular_iva(total_neto, porcentaje_a_tasa(iva_efectivo))
+    iva = calcular_iva(total_neto, porcentaje_a_tasa(iva_efectivo), paso)
     total = total_neto + iva
 
     # La retención se calcula sobre el BRUTO (= el neto), no sobre el total con
     # IVA. En honorarios son el mismo número porque el IVA es 0, pero escribirlo
     # sobre el neto deja explícito cuál es la base imponible.
-    retencion_monto = calcular_retencion(total_neto, porcentaje_a_tasa(retencion_efectiva))
+    retencion_monto = calcular_retencion(
+        total_neto, porcentaje_a_tasa(retencion_efectiva), paso
+    )
     total_a_pagar = total - retencion_monto
 
     return TotalesOC(
