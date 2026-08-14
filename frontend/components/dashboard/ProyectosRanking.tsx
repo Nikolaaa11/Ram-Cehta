@@ -17,16 +17,19 @@ import { Surface } from "@/components/ui/surface";
 import { useDashboardQuery } from "@/lib/dashboard/use-dashboard-query";
 import { dashboardKeys } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
+import { chartQueryString, etiquetaVentana } from "@/lib/dashboard/periodo-range";
 import { toCLP } from "@/lib/format";
 import type { ProyectoRanking } from "@/lib/api/schema";
 import { ProyectosRankingSkeleton } from "./ProyectosRankingSkeleton";
 
 export function ProyectosRanking() {
   const { filters } = useDashboardFilters();
+  // R152kk — respeta el rango del PeriodoFilter; sin él, últimos 12 meses.
   const query = useDashboardQuery<ProyectoRanking[]>(
     dashboardKeys.projectsRanking(filters),
-    "/dashboard/proyectos-ranking?limit=5",
+    `/dashboard/proyectos-ranking${chartQueryString(filters, { limit: 5 })}`,
   );
+  const ventana = etiquetaVentana(filters, "últimos 12 meses");
 
   if (query.isLoading || query.isPending) return <ProyectosRankingSkeleton />;
 
@@ -50,7 +53,7 @@ export function ProyectosRanking() {
       <Surface>
         <Surface.Header divider>
           <Surface.Title>Top proyectos</Surface.Title>
-          <Surface.Subtitle>Por gasto · últimos 12 meses</Surface.Subtitle>
+          <Surface.Subtitle>Por gasto · {ventana}</Surface.Subtitle>
         </Surface.Header>
         <Surface.Body>
           <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
@@ -75,7 +78,7 @@ export function ProyectosRanking() {
     <Surface>
       <Surface.Header divider>
         <Surface.Title>Top proyectos</Surface.Title>
-        <Surface.Subtitle>Por gasto · últimos 12 meses</Surface.Subtitle>
+        <Surface.Subtitle>Por gasto · {ventana}</Surface.Subtitle>
       </Surface.Header>
       <Surface.Body>
         <ol className="space-y-3">

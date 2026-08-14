@@ -15,6 +15,7 @@ import { KpiCardSmall } from "./KpiCardSmall";
 import { StaggerReveal } from "./StaggerReveal";
 import { dashboardKeys, filtersToQueryString } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
+import { sufijoVentana } from "@/lib/dashboard/periodo-range";
 import { toCLPCompact, toRelative } from "@/lib/format";
 import {
   useComplianceGradeReport,
@@ -41,6 +42,9 @@ export function KpiSecondarySection({ initialData }: Props) {
     initialData,
   });
   const data = query.data ?? initialData;
+
+  // R152kk — "IVA del mes" sólo es cierto sin rango activo.
+  const ventana = sufijoVentana(filters);
 
   // V4 fase 7.13 — Cross-data: compliance + entregables
   const { data: criticalCount } = useCriticalCount();
@@ -99,7 +103,7 @@ export function KpiSecondarySection({ initialData }: Props) {
       </StaggerReveal>
       <StaggerReveal index={2} delay={0.06 + HERO_OFFSET_MS / 4}>
         <KpiCardSmall
-          label="IVA del mes"
+          label={`IVA ${ventana}`}
           value={toCLPCompact(data.iva_a_pagar_mes)}
           icon={Receipt}
         />

@@ -9,6 +9,7 @@ import { StaggerReveal } from "./StaggerReveal";
 import { CurrencyTooltip } from "@/components/shared/CurrencyTooltip";
 import { dashboardKeys, filtersToQueryString } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
+import { sufijoComparacion, sufijoVentana } from "@/lib/dashboard/periodo-range";
 import { toCLPCompact, toPct } from "@/lib/format";
 import type { DashboardKPIs } from "@/lib/api/schema";
 
@@ -51,6 +52,12 @@ export function KpiHeroSection({ initialData }: Props) {
   // Delta egreso (siempre presente desde backend)
   const egresoDelta = data.egreso_delta_pct;
 
+  // R152kk — con rango activo (?from=&to=) el backend agrega sobre la
+  // ventana elegida y compara contra la anterior del mismo largo: las
+  // etiquetas dejan de hablar del "mes" cuando el usuario pidió otra cosa.
+  const ventana = sufijoVentana(filters);
+  const comparacion = sufijoComparacion(filters);
+
   return (
     <section
       className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
@@ -77,7 +84,7 @@ export function KpiHeroSection({ initialData }: Props) {
         <CurrencyTooltip amount={Number(data.flujo_neto_mes)} currency="CLP">
           <div>
             <KpiCard
-              label="Flujo neto del mes"
+              label={`Flujo neto ${ventana}`}
               value={toCLPCompact(data.flujo_neto_mes)}
               icon={TrendingUp}
           tone={
@@ -89,7 +96,7 @@ export function KpiHeroSection({ initialData }: Props) {
           }
           delta={{
             value: toPct(data.abono_delta_pct, { signed: true }),
-            label: "abonos vs. mes anterior",
+            label: `abonos ${comparacion}`,
             direction:
               data.abono_delta_pct > 0
                 ? "up"
@@ -135,7 +142,7 @@ export function KpiHeroSection({ initialData }: Props) {
             Math.abs(egresoDelta) > 0.5
               ? {
                   value: toPct(egresoDelta, { signed: true }),
-                  label: "egreso vs. anterior",
+                  label: `egreso ${comparacion}`,
                   direction:
                     egresoDelta > 0
                       ? "up"

@@ -25,6 +25,15 @@ que miente.
 **Esfuerzo**: M (4h) si se implementa · S (1h) si se quita
 **Severidad**: P1 (bloqueante de confianza — control visible que no hace nada)
 
+> ✅ **RESUELTO 2026-08-14 (R152kk)** — se tomó la **Opción A (implementar)**, no la B.
+> `from`/`to` (YYYY-MM) los aceptan ahora `/kpis`, `/cashflow`, `/iva-trend`,
+> `/egresos-por-concepto` y `/proyectos-ranking`. En `/kpis` la ventana elegida se
+> compara contra la anterior **del mismo largo** (12 meses vs los 12 previos), y las
+> etiquetas del front dejan de decir "del mes" cuando el rango no es un mes
+> (`lib/dashboard/periodo-range.ts`). Saldos, OCs y F29 quedaron fuera del rango a
+> propósito: son fotos del presente, no series. El resto del finding queda como
+> registro de por qué se hizo.
+
 `PeriodoFilter` (en `DashboardHeader`) escribe `?from=YYYY-MM&to=YYYY-MM` en la URL
 vía `router.replace` (ver `use-dashboard-filters.ts`). `page.tsx:55-61` lee esos
 params y los reenvía a `/dashboard/kpis?from=…&to=…`. **Pero ningún endpoint del

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import re
 from collections.abc import Iterable
 from datetime import UTC, date, datetime
 from decimal import Decimal
@@ -86,6 +87,106 @@ def shift_periodo(periodo: str, months: int) -> str:
     new_year = total // 12
     new_month = total % 12 + 1
     return f"{new_month:02d}_{new_year % 100:02d}"
+
+
+# ---------------------------------------------------------------------
+# R152kk — Rango de período del dashboard (?from=YYYY-MM&to=YYYY-MM)
+#
+# El PeriodoFilter del header escribe `from`/`to` en la URL desde siempre,
+# pero ningún endpoint los declaraba: FastAPI los descartaba en silencio y
+# elegir "YTD" o "Últimos 3 meses" no movía una sola cifra (audit
+# docs/audits/AUDIT_dashboard_2026-07-06.md · F1 · P1).
+#
+# Los períodos en BD son 'MM_YY' (ver Periodo); la UI habla 'YYYY-MM'.
+# Traducimos acá y filtramos con listas explícitas de períodos: es más
+# barato que comparar strings 'MM_YY' con orden lexicográfico (que sería
+# incorrecto) y sirve igual para core.movimientos, v_flujo_caja y
+# v_iva_consolidado.
+# ---------------------------------------------------------------------
+_YM_RE = re.compile(r"^(?P<anio>\d{4})-(?P<mes>0[1-9]|1[0-2])$")
+
+# Tope duro de la ventana. Coincide con el `meses: le=36` de los charts.
+MAX_MESES_RANGO = 36
+
+
+def _ym_to_index(ym: str | None) -> int | None:
+    """'2026-07' → índice absoluto de mes (anio*12 + mes-1). None si no parsea."""
+    if not ym:
+        return None
+    match = _YM_RE.match(ym.strip())
+    if not match:
+        return None
+    return int(match.group("anio")) * 12 + int(match.group("mes")) - 1
+
+
+def _index_to_periodo(idx: int) -> str:
+    """Índice absoluto de mes → período 'MM_YY'."""
+    anio, mes = divmod(idx, 12)
+    return f"{mes + 1:02d}_{anio % 100:02d}"
+
+
+def periodos_en_rango(desde: str | None, hasta: str | None) -> list[str] | None:
+    """Lista inclusiva de períodos 'MM_YY' entre dos 'YYYY-MM'.
+
+    Devuelve None si falta alguno o no parsean (→ el endpoint mantiene su
+    comportamiento por defecto). Si vienen invertidos se ordenan; si el rango
+    excede MAX_MESES_RANGO se recorta a los últimos N meses.
+    """
+    ini = _ym_to_index(desde)
+    fin = _ym_to_index(hasta)
+    if ini is None or fin is None:
+        return None
+    if fin < ini:
+        ini, fin = fin, ini
+    if fin - ini + 1 > MAX_MESES_RANGO:
+        ini = fin - MAX_MESES_RANGO + 1
+    return [_index_to_periodo(i) for i in range(ini, fin + 1)]
+
+
+def ventanas_comparables(
+    desde: str | None, hasta: str | None
+) -> tuple[list[str], list[str]]:
+    """Ventana seleccionada + la inmediatamente anterior del mismo largo.
+
+    Sin rango válido → (mes actual, mes anterior), que es el comportamiento
+    histórico de /kpis.
+    """
+    periodos = periodos_en_rango(desde, hasta)
+    if not periodos:
+        actual = current_periodo()
+        return [actual], [shift_periodo(actual, -1)]
+    fin = _ym_to_index(hasta)
+    ini = _ym_to_index(desde)
+    if fin is None or ini is None:  # pragma: no cover — periodos ya validó
+        actual = current_periodo()
+        return [actual], [shift_periodo(actual, -1)]
+    if fin < ini:
+        ini, fin = fin, ini
+    largo = len(periodos)
+    ini_actual = fin - largo + 1
+    previos = [_index_to_periodo(i) for i in range(ini_actual - largo, ini_actual)]
+    return periodos, previos
+
+
+def rango_fechas(desde: str | None, hasta: str | None) -> tuple[date, date] | None:
+    """('2026-01','2026-03') → (2026-01-01, 2026-04-01) — fin EXCLUSIVO.
+
+    Se usa para filtrar por `fecha` (no por período) sin tener que calcular
+    el último día del mes.
+    """
+    periodos = periodos_en_rango(desde, hasta)
+    if not periodos:
+        return None
+    ini = _ym_to_index(desde)
+    fin = _ym_to_index(hasta)
+    if ini is None or fin is None:  # pragma: no cover
+        return None
+    if fin < ini:
+        ini, fin = fin, ini
+    ini = max(ini, fin - MAX_MESES_RANGO + 1)
+    anio_ini, mes_ini = divmod(ini, 12)
+    anio_fin, mes_fin = divmod(fin + 1, 12)
+    return date(anio_ini, mes_ini + 1, 1), date(anio_fin, mes_fin + 1, 1)
 
 
 def acumular_saldo(
@@ -354,6 +455,8 @@ async def get_kpis(
     scope: EmpresaScopeDep,
     response: Response,
     empresa_codigo: str | None = None,
+    desde: Annotated[str | None, Query(alias="from")] = None,
+    hasta: Annotated[str | None, Query(alias="to")] = None,
 ) -> DashboardKPIs:
     """V5++ ola CB+CC: KPIs solo de empresas en scope del user.
 
@@ -362,15 +465,24 @@ async def get_kpis(
     los gráficos cambiaban al elegir una empresa y las tarjetas KPI
     seguían mostrando cifras globales (engañoso).
 
+    R152kk — mismo cuento con ?from=&to= (YYYY-MM): ahora los flujos e IVA
+    se agregan sobre la ventana elegida y se comparan contra la ventana
+    inmediatamente anterior del mismo largo. Sin from/to el comportamiento
+    es el de siempre (mes actual vs mes anterior). Saldos, OCs y F29 son
+    fotos del presente, no series: el rango no los toca.
+
     Cache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan
     ser frescos al segundo. El browser/CDN devuelve cached por 60s y
     revalida en background.
     """
     response.headers["Cache-Control"] = "private, max-age=60, stale-while-revalidate=30"
-    periodo = current_periodo()
-    periodo_anterior = shift_periodo(periodo, -1)
+    periodos_now, periodos_prev = ventanas_comparables(desde, hasta)
 
-    scope_params: dict = {"p_now": periodo, "p_prev": periodo_anterior, "p": periodo}
+    scope_params: dict = {
+        "p_now": periodos_now,
+        "p_prev": periodos_prev,
+        "p_all": periodos_now + periodos_prev,
+    }
     scope_filter_emp = ""
     if empresa_codigo:
         # Filtro explícito del usuario, validado contra su scope.
@@ -403,17 +515,21 @@ async def get_kpis(
                      FROM core.v_saldos_actuales
                      WHERE 1=1 {scope_filter_emp}) AS saldos,
                     (SELECT json_build_array(
-                        COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_now), 0),
-                        COALESCE(SUM(egreso) FILTER (WHERE periodo = :p_prev), 0),
-                        COALESCE(SUM(abono)  FILTER (WHERE periodo = :p_now), 0),
-                        COALESCE(SUM(abono)  FILTER (WHERE periodo = :p_prev), 0))
+                        COALESCE(SUM(egreso) FILTER (
+                            WHERE periodo = ANY(CAST(:p_now AS text[]))), 0),
+                        COALESCE(SUM(egreso) FILTER (
+                            WHERE periodo = ANY(CAST(:p_prev AS text[]))), 0),
+                        COALESCE(SUM(abono)  FILTER (
+                            WHERE periodo = ANY(CAST(:p_now AS text[]))), 0),
+                        COALESCE(SUM(abono)  FILTER (
+                            WHERE periodo = ANY(CAST(:p_prev AS text[]))), 0))
                      FROM core.movimientos
                      WHERE real_proyectado = 'Real'
-                       AND periodo IN (:p_now, :p_prev)
+                       AND periodo = ANY(CAST(:p_all AS text[]))
                        {scope_filter_emp}) AS flujo,
                     (SELECT COALESCE(SUM(iva_a_pagar), 0)
                      FROM core.v_iva_consolidado
-                     WHERE periodo = :p
+                     WHERE periodo = ANY(CAST(:p_now AS text[]))
                        {scope_filter_emp}) AS iva,
                     (SELECT json_build_array(
                         COUNT(*) FILTER (WHERE estado = 'emitida'),
@@ -505,8 +621,14 @@ async def get_cashflow(
     response: Response,
     empresa_codigo: str | None = None,
     meses: Annotated[int, Query(ge=1, le=36)] = 12,
+    desde: Annotated[str | None, Query(alias="from")] = None,
+    hasta: Annotated[str | None, Query(alias="to")] = None,
 ) -> CashflowResponse:
-    """V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min."""
+    """V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min.
+
+    R152kk — ?from=&to= (YYYY-MM) acota la serie a esos meses; sin ellos
+    se mantiene la ventana de los últimos `meses`.
+    """
     response.headers["Cache-Control"] = "private, max-age=120, stale-while-revalidate=60"
     empresa_codes = scope.filter_codes(empresa_codigo)
     where_empresa = ""
@@ -514,6 +636,13 @@ async def get_cashflow(
     if empresa_codes is not None:
         where_empresa = "AND empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
         params["empresa_codes"] = empresa_codes
+
+    where_periodo = ""
+    periodos = periodos_en_rango(desde, hasta)
+    if periodos:
+        where_periodo = "AND periodo = ANY(CAST(:periodos AS text[]))"
+        params["periodos"] = periodos
+        params["meses"] = len(periodos)
 
     rows = (
         await db.execute(
@@ -531,7 +660,7 @@ async def get_cashflow(
                         SUM(total_egresos) FILTER (WHERE real_proyectado = 'Proyectado')
                             AS egreso_proy
                     FROM core.v_flujo_caja
-                    WHERE 1=1 {where_empresa}
+                    WHERE 1=1 {where_empresa} {where_periodo}
                     GROUP BY anio, periodo
                 )
                 SELECT
@@ -602,17 +731,26 @@ async def get_egresos_por_concepto(
     scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     periodo: str | None = None,
+    desde: Annotated[str | None, Query(alias="from")] = None,
+    hasta: Annotated[str | None, Query(alias="to")] = None,
 ) -> list[EgresoConcepto]:
-    """V5++ ola CB: top 10 conceptos egreso filtrado por scope."""
-    p = periodo or current_periodo()
-    try:
-        Periodo.parse(p)
-    except ValueError:
-        return []
+    """V5++ ola CB: top 10 conceptos egreso filtrado por scope.
+
+    R152kk — ?from=&to= (YYYY-MM) suma los conceptos sobre toda la ventana;
+    `periodo` explícito y el default (mes actual) siguen funcionando igual.
+    """
+    periodos = periodos_en_rango(desde, hasta)
+    if not periodos:
+        p = periodo or current_periodo()
+        try:
+            Periodo.parse(p)
+        except ValueError:
+            return []
+        periodos = [p]
 
     empresa_codes = scope.filter_codes(empresa_codigo)
     where_empresa = ""
-    params: dict = {"periodo": p}
+    params: dict = {"periodos": periodos}
     if empresa_codes is not None:
         where_empresa = "AND empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
         params["empresa_codes"] = empresa_codes
@@ -626,7 +764,7 @@ async def get_egresos_por_concepto(
                 SUM(egreso) AS total_egreso,
                 COUNT(*)    AS num_movimientos
             FROM core.movimientos
-            WHERE periodo = :periodo
+            WHERE periodo = ANY(CAST(:periodos AS text[]))
               AND egreso > 0
               AND real_proyectado = 'Real'
               {where_empresa}
@@ -742,16 +880,28 @@ async def get_iva_trend(
     scope: EmpresaScopeDep,
     empresa_codigo: str | None = None,
     meses: Annotated[int, Query(ge=1, le=36)] = 12,
+    desde: Annotated[str | None, Query(alias="from")] = None,
+    hasta: Annotated[str | None, Query(alias="to")] = None,
 ) -> list[IvaPoint]:
-    """V5++ ola CB: IVA trend filtrado por scope."""
+    """V5++ ola CB: IVA trend filtrado por scope.
+
+    R152kk — ?from=&to= (YYYY-MM) acota la serie a esos meses.
+    """
     empresa_codes = scope.filter_codes(empresa_codigo)
     where_empresa = ""
     params: dict = {"meses": meses}
     if empresa_codes is not None:
-        where_empresa = "WHERE empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
+        where_empresa = "AND empresa_codigo = ANY(CAST(:empresa_codes AS text[]))"
         params["empresa_codes"] = empresa_codes
 
-    # where_empresa es un literal server-side, no input de usuario.
+    where_periodo = ""
+    periodos = periodos_en_rango(desde, hasta)
+    if periodos:
+        where_periodo = "AND periodo = ANY(CAST(:periodos AS text[]))"
+        params["periodos"] = periodos
+        params["meses"] = len(periodos)
+
+    # where_empresa/where_periodo son literales server-side, no input de usuario.
     sql = f"""
         WITH agg AS (
             SELECT
@@ -761,7 +911,7 @@ async def get_iva_trend(
                 SUM(iva_debito)  AS debito,
                 SUM(iva_a_pagar) AS a_pagar
             FROM core.v_iva_consolidado
-            {where_empresa}
+            WHERE 1=1 {where_empresa} {where_periodo}
             GROUP BY anio, periodo
         )
         SELECT periodo, anio, credito, debito, a_pagar
@@ -804,14 +954,31 @@ async def get_proyectos_ranking(
     db: DBSession,
     scope: EmpresaScopeDep,
     limit: Annotated[int, Query(ge=1, le=50)] = 5,
+    empresa_codigo: str | None = None,
+    desde: Annotated[str | None, Query(alias="from")] = None,
+    hasta: Annotated[str | None, Query(alias="to")] = None,
 ) -> list[ProyectoRanking]:
-    """V5++ ola CB: ranking de proyectos filtrado por scope."""
+    """V5++ ola CB: ranking de proyectos filtrado por scope.
+
+    R152kk — ?from=&to= (YYYY-MM) reemplaza la ventana fija de 12 meses, y
+    ?empresa_codigo= acota el ranking a una empresa (el dashboard ya lo
+    mandaba; el endpoint lo descartaba en silencio, igual que /kpis antes
+    del R152UUUUUU). `filter_codes` valida el código contra el scope.
+    """
     scope_params: dict = {"limit": limit}
     scope_filter = ""
-    if not scope.is_global:
-        allowed = sorted(scope.allowed_codes or frozenset()) or ["__NO_EMPRESA__"]
-        scope_params["scope_codes"] = allowed
+    empresa_codes = scope.filter_codes(empresa_codigo)
+    if empresa_codes is not None:
+        scope_params["scope_codes"] = empresa_codes
         scope_filter = "AND empresa_codigo = ANY(CAST(:scope_codes AS text[]))"
+
+    ventana = rango_fechas(desde, hasta)
+    if ventana:
+        where_fecha = "AND fecha >= :fecha_desde AND fecha < :fecha_hasta"
+        scope_params["fecha_desde"], scope_params["fecha_hasta"] = ventana
+    else:
+        where_fecha = "AND fecha >= CURRENT_DATE - INTERVAL '12 months'"
+
     rows = (
         await db.execute(
             text(f"""
@@ -824,7 +991,7 @@ async def get_proyectos_ranking(
                 WHERE proyecto IS NOT NULL
                   AND egreso > 0
                   AND real_proyectado = 'Real'
-                  AND fecha >= CURRENT_DATE - INTERVAL '12 months'
+                  {where_fecha}
                   {scope_filter}
                 GROUP BY proyecto
                 ORDER BY total_egreso DESC

@@ -15,6 +15,7 @@ import { Surface } from "@/components/ui/surface";
 import { useDashboardQuery } from "@/lib/dashboard/use-dashboard-query";
 import { dashboardKeys } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
+import { chartQueryString, etiquetaVentana } from "@/lib/dashboard/periodo-range";
 import { formatM, formatPeriodo, formatPeriodoFull } from "@/lib/dashboard/format-chart";
 import { toCLP } from "@/lib/format";
 import { CashflowChartSkeleton } from "./CashflowChartSkeleton";
@@ -59,9 +60,8 @@ export function CashflowChart() {
   const { filters } = useDashboardFilters();
   const [tab, setTab] = React.useState<Tab>("real");
 
-  const qs = filters.empresa
-    ? `?empresa_codigo=${encodeURIComponent(filters.empresa)}&meses=12`
-    : `?meses=12`;
+  // R152kk — el rango del PeriodoFilter (from/to) reemplaza a `meses=12`.
+  const qs = chartQueryString(filters, { meses: 12 });
   const query = useDashboardQuery<CashflowResponse>(
     dashboardKeys.cashflow(filters),
     `/dashboard/cashflow${qs}`,
@@ -70,6 +70,7 @@ export function CashflowChart() {
   const subtitleSuffix = filters.empresa
     ? filters.empresa
     : "Consolidado";
+  const ventana = etiquetaVentana(filters);
 
   if (query.isLoading || (!query.data && !query.isError)) {
     return <CashflowChartSkeleton />;
@@ -96,7 +97,7 @@ export function CashflowChart() {
         <Surface.Header>
           <Surface.Title>Flujo de caja</Surface.Title>
           <Surface.Subtitle>
-            Últimos 12 meses · {subtitleSuffix}
+            {ventana} · {subtitleSuffix}
           </Surface.Subtitle>
         </Surface.Header>
         <Surface.Body className="flex h-[300px] flex-col items-center justify-center gap-2 text-center">
@@ -110,12 +111,12 @@ export function CashflowChart() {
   }
 
   return (
-    <Surface aria-label={`Flujo de caja últimos 12 meses, vista ${tab}`}>
+    <Surface aria-label={`Flujo de caja ${ventana}, vista ${tab}`}>
       <Surface.Header className="flex flex-row items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <Surface.Title>Flujo de caja</Surface.Title>
           <Surface.Subtitle>
-            Últimos 12 meses · {subtitleSuffix}
+            {ventana} · {subtitleSuffix}
           </Surface.Subtitle>
         </div>
         <div

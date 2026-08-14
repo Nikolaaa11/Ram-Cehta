@@ -11,10 +11,14 @@ from decimal import Decimal
 import pytest
 
 from app.api.v1.dashboard import (
+    MAX_MESES_RANGO,
     acumular_saldo,
     calc_delta_pct,
     periodo_to_fecha_inicio,
+    periodos_en_rango,
+    rango_fechas,
     shift_periodo,
+    ventanas_comparables,
 )
 
 
@@ -121,3 +125,78 @@ class TestAcumularSaldo:
         # Robustez: si una row trae NULL en abono o egreso no debe romper
         pares = [(None, Decimal("50")), (Decimal("100"), None)]  # type: ignore[list-item]
         assert acumular_saldo(pares) == [Decimal("-50"), Decimal("50")]
+
+
+# ---------------------------------------------------------------------
+# R152kk — rango de período del dashboard (?from=YYYY-MM&to=YYYY-MM)
+# ---------------------------------------------------------------------
+class TestPeriodosEnRango:
+    def test_rango_simple(self) -> None:
+        assert periodos_en_rango("2026-01", "2026-03") == ["01_26", "02_26", "03_26"]
+
+    def test_mismo_mes(self) -> None:
+        assert periodos_en_rango("2026-08", "2026-08") == ["08_26"]
+
+    def test_cruza_anio(self) -> None:
+        assert periodos_en_rango("2025-11", "2026-02") == [
+            "11_25",
+            "12_25",
+            "01_26",
+            "02_26",
+        ]
+
+    def test_invertido_se_ordena(self) -> None:
+        # El usuario puede tipear "desde" mayor que "hasta" en el custom range.
+        assert periodos_en_rango("2026-03", "2026-01") == ["01_26", "02_26", "03_26"]
+
+    def test_rango_gigante_se_recorta_a_los_ultimos_n(self) -> None:
+        out = periodos_en_rango("2015-01", "2026-08")
+        assert out is not None
+        assert len(out) == MAX_MESES_RANGO
+        assert out[-1] == "08_26"  # conserva el extremo reciente
+
+    @pytest.mark.parametrize(
+        "desde,hasta",
+        [
+            (None, "2026-02"),
+            ("2026-02", None),
+            ("2026-13", "2026-02"),  # mes inexistente
+            ("26-02", "2026-03"),  # año de 2 dígitos
+            ("", ""),
+            ("basura", "2026-03"),
+        ],
+    )
+    def test_entradas_invalidas_devuelven_none(
+        self, desde: str | None, hasta: str | None
+    ) -> None:
+        # None = "no hay rango usable" → el endpoint cae a su default.
+        assert periodos_en_rango(desde, hasta) is None
+
+
+class TestVentanasComparables:
+    def test_ventana_anterior_del_mismo_largo(self) -> None:
+        actual, previo = ventanas_comparables("2026-06", "2026-08")
+        assert actual == ["06_26", "07_26", "08_26"]
+        assert previo == ["03_26", "04_26", "05_26"]
+
+    def test_un_mes_compara_contra_el_anterior(self) -> None:
+        actual, previo = ventanas_comparables("2026-01", "2026-01")
+        assert actual == ["01_26"]
+        assert previo == ["12_25"]
+
+    def test_sin_rango_usa_mes_actual(self) -> None:
+        actual, previo = ventanas_comparables(None, None)
+        assert len(actual) == 1
+        assert len(previo) == 1
+        assert previo[0] == shift_periodo(actual[0], -1)
+
+
+class TestRangoFechas:
+    def test_fin_es_exclusivo_primer_dia_del_mes_siguiente(self) -> None:
+        assert rango_fechas("2026-01", "2026-03") == (date(2026, 1, 1), date(2026, 4, 1))
+
+    def test_diciembre_cruza_a_enero(self) -> None:
+        assert rango_fechas("2025-12", "2025-12") == (date(2025, 12, 1), date(2026, 1, 1))
+
+    def test_sin_rango_valido_devuelve_none(self) -> None:
+        assert rango_fechas(None, "2026-03") is None

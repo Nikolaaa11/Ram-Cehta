@@ -53,7 +53,7 @@ Formato:
 > (+test con montos) y endpoint+botón Reabrir REJECTED→DRAFT.
 
 - [M] (2h) **[TECH] Vía correo/PDF crea vouchers DRAFT sin líneas** que no pueden avanzar (submit exige líneas y no hay endpoint para agregarlas después). Decidir: ¿crear con líneas sugeridas, o botón "completar en formulario Nubox" que precargue?
-- [L] (1h) **[TECH] Filtro de período del dashboard (from/to) no lo consume ningún endpoint** — el PeriodoFilter no afecta nada en toda la página. Implementar o quitar el control.
+- [done 2026-08-14 · R152kk] **[TECH] Filtro de período del dashboard (from/to) no lo consume ningún endpoint** — resuelto por **Opción A (implementar)**, no por quitar el control: `/kpis`, `/cashflow`, `/iva-trend`, `/egresos-por-concepto` y `/proyectos-ranking` ahora aceptan `?from=YYYY-MM&to=YYYY-MM`. KPIs agregan sobre la ventana elegida y comparan contra la ventana anterior del **mismo largo**; las etiquetas de la UI dejan de decir "del mes" cuando el rango es otro. Saldos/OC/F29 son fotos del presente y no se tocaron. De yapa: `/proyectos-ranking` ahora sí respeta `?empresa_codigo=` (lo recibía y lo descartaba). Ver también el finding F1 del audit del dashboard.
 - [L] (30m) **[TECH] Scope per-empresa en mapeo CORFO** (`corfo_rendiciones.py`): gate solo por rol admin/finance, sin validar scope de REVTECH/TRONGKAI.
 - [L] (15m) **[TECH] Regenerar tipos OpenAPI del frontend** (`npm run gen:types`) — datan del 13-may, sin impuesto_especifico ni campos R152 nuevos.
 - [L] (5m) **[TECH] Comentario engañoso en app-sidebar.tsx:574** sobre redirect de /admin/oc-branding que no existe.

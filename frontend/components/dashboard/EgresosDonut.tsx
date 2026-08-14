@@ -6,6 +6,7 @@ import { Surface } from "@/components/ui/surface";
 import { useDashboardQuery } from "@/lib/dashboard/use-dashboard-query";
 import { dashboardKeys } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
+import { chartQueryString, etiquetaVentana } from "@/lib/dashboard/periodo-range";
 import { APPLE_PALETTE, colorAt } from "@/lib/dashboard/chart-palette";
 import { toCLP, toPct } from "@/lib/format";
 import { formatM } from "@/lib/dashboard/format-chart";
@@ -66,10 +67,10 @@ export function EgresosDonut() {
   const { filters } = useDashboardFilters();
   const [hoveredIdx, setHoveredIdx] = React.useState<number | null>(null);
 
-  // El backend usa current_periodo si no se pasa periodo. Sólo enviamos empresa.
-  const qs = filters.empresa
-    ? `?empresa_codigo=${encodeURIComponent(filters.empresa)}`
-    : "";
+  // El backend usa current_periodo si no se pasa periodo ni rango.
+  // R152kk — con from/to suma los conceptos de toda la ventana elegida.
+  const qs = chartQueryString(filters);
+  const ventana = etiquetaVentana(filters, "Mes actual");
   const query = useDashboardQuery<EgresoConcepto[]>(
     dashboardKeys.egresosPorConcepto(filters),
     `/dashboard/egresos-por-concepto${qs}`,
@@ -98,7 +99,7 @@ export function EgresosDonut() {
       <Surface aria-label="Egresos por concepto — sin datos">
         <Surface.Header>
           <Surface.Title>Egresos por concepto</Surface.Title>
-          <Surface.Subtitle>Sin egresos en el período actual</Surface.Subtitle>
+          <Surface.Subtitle>Sin egresos en {ventana}</Surface.Subtitle>
         </Surface.Header>
         <Surface.Body className="flex h-[300px] flex-col items-center justify-center gap-2 text-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100/40">
@@ -117,7 +118,8 @@ export function EgresosDonut() {
       <Surface.Header>
         <Surface.Title>Egresos por concepto</Surface.Title>
         <Surface.Subtitle>
-          {toCLP(total)} · {totalMovs} {totalMovs === 1 ? "movimiento" : "movimientos"}
+          {toCLP(total)} · {totalMovs} {totalMovs === 1 ? "movimiento" : "movimientos"} ·{" "}
+          {ventana}
         </Surface.Subtitle>
       </Surface.Header>
       <Surface.Body className="mt-4 h-[300px] flex flex-row items-center gap-4">

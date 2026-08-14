@@ -15,6 +15,7 @@ import { Surface } from "@/components/ui/surface";
 import { useDashboardQuery } from "@/lib/dashboard/use-dashboard-query";
 import { dashboardKeys } from "@/lib/dashboard/queries";
 import { useDashboardFilters } from "@/lib/dashboard/use-dashboard-filters";
+import { chartQueryString, etiquetaVentana } from "@/lib/dashboard/periodo-range";
 import { toCLP } from "@/lib/format";
 import { formatM, formatPeriodo, formatPeriodoFull } from "@/lib/dashboard/format-chart";
 import { IvaTrendChartSkeleton } from "./IvaTrendChartSkeleton";
@@ -46,15 +47,15 @@ const SERIES = [
 
 export function IvaTrendChart() {
   const { filters } = useDashboardFilters();
-  const qs = filters.empresa
-    ? `?empresa_codigo=${encodeURIComponent(filters.empresa)}&meses=12`
-    : `?meses=12`;
+  // R152kk — el rango del PeriodoFilter (from/to) reemplaza a `meses=12`.
+  const qs = chartQueryString(filters, { meses: 12 });
   const query = useDashboardQuery<IvaPoint[]>(
     dashboardKeys.ivaTrend(filters),
     `/dashboard/iva-trend${qs}`,
   );
 
   const subtitleSuffix = filters.empresa ?? "Consolidado";
+  const ventana = etiquetaVentana(filters);
 
   if (query.isLoading || (!query.data && !query.isError)) {
     return <IvaTrendChartSkeleton />;
@@ -81,7 +82,7 @@ export function IvaTrendChart() {
         <Surface.Header>
           <Surface.Title>IVA crédito vs débito</Surface.Title>
           <Surface.Subtitle>
-            Últimos 12 meses · {subtitleSuffix}
+            {ventana} · {subtitleSuffix}
           </Surface.Subtitle>
         </Surface.Header>
         <Surface.Body className="flex h-[300px] flex-col items-center justify-center gap-2 text-center">
@@ -99,7 +100,7 @@ export function IvaTrendChart() {
       <Surface.Header>
         <Surface.Title>IVA crédito vs débito</Surface.Title>
         <Surface.Subtitle>
-          Últimos 12 meses · {subtitleSuffix}
+          {ventana} · {subtitleSuffix}
         </Surface.Subtitle>
       </Surface.Header>
       <Surface.Body className="mt-4 h-[300px]">
