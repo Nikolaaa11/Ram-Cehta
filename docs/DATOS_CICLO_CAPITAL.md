@@ -20,6 +20,28 @@
 | **Fecha de constitución** | **FALTA** | — |
 | **Valor de la cuota (UF)** | **FALTA** | — |
 
+## 1.bis · LA SOCIEDAD OPERATIVA — ⚠️ NO CONFUNDIR CON EL FONDO
+
+Son **dos personas jurídicas distintas** que comparten nombre de fantasía y domicilio.
+El fondo (§1) es el vehículo de inversión; la SpA es la que **contrata, compra y emite
+documentos tributarios**. En un documento se pone el RUT de quien contrata.
+
+| Dato | Valor | Fuente |
+|---|---|---|
+| Razón social | **INVERSIONES CICLO CAPITAL SPA** | e-RUT SII, serie 202608549755, emitido 18-06-2026 |
+| RUT | **78.447.248-5** | mismo e-RUT |
+| Domicilio (casa matriz) | **A VESPUCIO SUR 80 OF 31, LAS CONDES** | mismo e-RUT, literal |
+| Usuario declarado del e-RUT | **Juan Pablo Velasco García**, cédula 14.137.989-5 | mismo e-RUT |
+| **Giro / actividad económica** | **FALTA** | el e-RUT trae la glosa **en blanco** |
+
+> **Ésta es la entidad que opera en la plataforma** (empresa `CICLO`): órdenes de compra,
+> vouchers, contabilidad y todo el resto. Confirmado por Nicolás el 17-08-2026.
+> Su régimen tributario es el de una sociedad normal, o sea **factura afecta al 19% por
+> defecto** — que es lo que quedó configurado. Esto deja sin efecto la observación del
+> megaprompt sobre FACTURA_EXENTA, que aplicaba al fondo y no a la SpA.
+>
+> El **RUT del fondo sigue FALTA** (§1). El de acá NO lo reemplaza.
+
 ## 2 · LA ADMINISTRADORA
 
 Todos estos datos están verificados contra el contrato de suscripción de cuotas de AFIS
@@ -78,10 +100,19 @@ Ciclo antes de firmar.**
 | Nombre | **Juan Pablo Velasco** | Encabezado de la plataforma y `lib/cerebro.ts` |
 | Email | **jpvelasco@ciclocapital.cl** | Confirmado por el usuario en sesión |
 | Rol | Principal del Fondo Ciclo | — |
-| **RUT** | **FALTA** | — |
+| **RUT** | **14.137.989-5** | e-RUT SII de Inversiones Ciclo Capital SpA (§1.bis) |
+| Usuario en la plataforma | `jpvelasco@ciclocapital.cl` — GG + DIRECTOR de `CICLO` | Alta del 17-08-2026 |
 | **Domicilio** | **FALTA** | — |
 | **Profesión** | **FALTA** | — |
 | **Personería para firmar por AFIS / el Fondo** | **FALTA** | — |
+
+> Aparece como **usuario declarado del e-RUT** de la SpA, lo que acredita que el SII lo
+> tiene autorizado para operar con ese RUT. **No es lo mismo que la personería**: para
+> firmar contratos por la sociedad hace falta la escritura de poderes con notaría y fecha,
+> que sigue FALTA.
+>
+> También hay un usuario viejo `jpvelasco@cehtacapital.com` (CEHTA · CONTADOR) que **nunca
+> entró**. Confirmar si se da de baja para no dejar dos cuentas de la misma persona.
 
 > ⚠️ **No confundir** con **Juan Pablo Chinchón Salgado** (RUT 10.485.442-7), que es el
 > representante de *Ingeniería Orbicorp Limitada* — el aportante del ejemplo de AFIS, no
@@ -141,11 +172,17 @@ Proviene de `Prueba.xlsx` y de la carta oficial. Única fuente en código: `lib/
 Estos son los datos que hoy salen en **amarillo** en las plantillas de
 `docs/Entrega_JuanPablo/`. Al tenerlos, se fijan en `tools/gen-contratos.js` y desaparecen:
 
-- [ ] RUT del Fondo de Inversión Privado Ciclo Capital
+- [ ] RUT del Fondo de Inversión Privado Ciclo Capital — **el 78.447.248-5 NO sirve: es de la SpA**
 - [ ] Fecha de constitución del Fondo
 - [ ] Valor de la cuota en UF
 - [ ] Quién firma por la Administradora (nombre, RUT, profesión)
 - [ ] Personería del firmante (fecha de escritura y notaría)
 - [ ] Domicilio correcto de AFIS para los contratos de Ciclo
 - [ ] Cuenta bancaria del Fondo para recibir aportes
-- [ ] RUT y domicilio de Juan Pablo Velasco, si va a firmar
+- [x] ~~RUT de Juan Pablo Velasco~~ → **14.137.989-5** (e-RUT, 18-06-2026)
+- [ ] Domicilio de Juan Pablo Velasco, si va a firmar
+- [ ] **Giro de Inversiones Ciclo Capital SpA** — el e-RUT viene con la glosa en blanco.
+      Se saca de "Mi SII → Actividades económicas". Hoy la empresa está sin giro en la
+      plataforma, que es lo correcto hasta tenerlo (mejor vacío que equivocado).
+- [ ] **Segundo firmante para `CICLO`** — con una sola persona no se puede aprobar ningún
+      voucher: la regla exige dos firmas de personas distintas.

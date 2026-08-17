@@ -64,13 +64,18 @@ ESCENARIOS = {
     # (codigo_empresa, razon_social, color) — el logo sale del código.
     "rho": ("RHO", "Rho Generación SpA", "#1A793B"),
     "afis": ("AFIS", "AFIS SpA", "#1F2937"),
-    # CICLO es el Fondo de Inversión Privado Ciclo Capital, administrado por
-    # AFIS. Su color es #111111 porque su logotipo es negro sobre blanco: darle
-    # el verde institucional que trae por DEFAULT la columna
+    # CICLO es INVERSIONES CICLO CAPITAL SPA, la sociedad que OPERA bajo el
+    # Fondo de Inversión Privado Ciclo Capital. El alta original describía al
+    # fondo; Nicolás confirmó (2026-08-17, con el e-RUT a la vista) que la que
+    # emite las OC es la SpA. Son dos personas jurídicas distintas y el bloque
+    # Mandante lleva la que contrata.
+    #
+    # Su color es #111111 porque su logotipo es negro sobre blanco: darle el
+    # verde institucional que trae por DEFAULT la columna
     # `empresas.oc_color_primario` dejaría un filete verde cerrando un logo
     # negro. La razón social va COMPLETA y literal — es la que se imprime en el
     # bloque Mandante de un documento que firma un tercero.
-    "ciclo": ("CICLO", "Fondo de Inversión Privado Ciclo Capital", "#111111"),
+    "ciclo": ("CICLO", "Inversiones Ciclo Capital SpA", "#111111"),
     "dte": ("DTE", "DTE Consulting & Development SpA", "#0A3A6B"),
     "revtech": ("REVTECH", "Revtech SpA", "#D97706"),
     "trongkai": ("TRONGKAI", "Trongkai SpA", "#2E7D32"),
@@ -132,35 +137,44 @@ _FICHA_DEFAULT: dict = {
 
 FICHAS: dict[str, dict] = {
     "CICLO": {
-        # FALTA en la ficha (§7): RUT del Fondo. No se inventa.
-        "rut": None,
-        "giro": "Fondo de inversión privado — financiamiento inmobiliario",
+        # e-RUT serie 202608549755, emitido 18/06/2026. Es el de la SPA, no el
+        # del fondo: el RUT del Fondo de Inversión Privado sigue marcado FALTA
+        # en la ficha (§1) y sigue sin inventarse — pero el que se imprime en
+        # una OC es el de quien contrata, y quien contrata es la SpA.
+        "rut": "78.447.248-5",
+        # El e-RUT trae la "GLOSA DE ACTIVIDAD ECONÓMICA" **en blanco**, así que
+        # no hay giro que copiar. El que había describía al fondo (Cap. V Ley
+        # 20.712) y para la SpA sería falso. El template omite la fila entera
+        # cuando el dato es falsy: un giro equivocado en un documento
+        # tributario es peor que ninguno.
+        "giro": None,
         "direccion": "Av. Américo Vespucio Sur 80, Oficina 31",
         "ciudad": "Las Condes",
-        # FALTA en la ficha: teléfono del fondo.
+        # FALTA en la ficha: teléfono.
         "telefono": None,
         # Único sitio verificado de la ficha (§3 · Plataforma). El dominio
         # ciclocapital.cl aparece SÓLO en los correos, nunca declarado como web:
         # ponerlo acá sería deducirlo, no leerlo.
         "pagina_web": "fondo-ciclo.vercel.app",
-        # FALTA en la ficha (§7): "Quién firma por la Administradora".
-        "representante_legal": None,
-        # Lista VACÍA a propósito, y no la nómina de muestra: hoy CICLO no tiene
-        # filas en core.empresa_equipo ni gerente_general_* cargado, así que su
-        # PDF real sale sin firmas del lado del mandante. Rellenarlo con los
-        # firmantes de RHO haría que la vista previa mintiera justo sobre el
-        # dato que la ficha marca como faltante. El template ya contempla el
-        # caso: omite el grupo "Por el mandante" entero.
-        "firmantes": [],
+        # Usuario declarado del e-RUT y, según Nicolás, administrador de todo
+        # Ciclo. La PERSONERÍA (escritura + notaría) sigue FALTA en la ficha:
+        # ser usuario de un e-RUT no prueba la representación legal.
+        "representante_legal": "Juan Pablo Velasco García",
+        # Un solo firmante, que es lo que hay cargado hoy en la empresa. NO se
+        # usa la nómina de muestra: rellenar con los firmantes de RHO haría que
+        # la vista previa mintiera justo sobre el dato que la ficha marca como
+        # incompleto.
+        "firmantes": [{"nombre": "Juan Pablo Velasco García",
+                       "cargo": "Gerente General"}],
         # Redacción con el verbo que la ley admite: "pactadas", nunca
         # "garantizadas" (art. 61 Ley 18.045). El texto de muestra tiene que
         # poder copiarse tal cual a una OC real sin generar un hallazgo legal.
         "observaciones": ("La presente Orden de Compra corresponde a los "
                           "servicios detallados a continuación, contratados "
-                          "por el Fondo para la operación de financiamiento "
-                          "inmobiliario individualizada en el expediente "
-                          "respectivo, conforme a las condiciones pactadas "
-                          "entre las partes."),
+                          "para la operación de financiamiento inmobiliario "
+                          "individualizada en el expediente respectivo, "
+                          "conforme a las condiciones pactadas entre las "
+                          "partes."),
         "hitos": ("Anticipo a la firma de la orden",
                   "Contra entrega del informe conforme"),
     },
