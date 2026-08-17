@@ -130,8 +130,14 @@ _FICHA_DEFAULT: dict = {
     "pagina_web": "rhogeneracion.com",
     "representante_legal": "Javier Álvarez Abarca",
     "firmantes": None,   # None = usa la nómina de firmantes de muestra
-    "observaciones": ("La presente Orden de Compra es por los servicios "
-                      "detallados a continuación para el proyecto Panimávida:"),
+    # Observación de VARIAS LÍNEAS a propósito. Es el caso real: de las tres
+    # observaciones que hay escritas en producción, dos son listas cortas
+    # ("- Proyecto Ptec / - CC BANCO CHILE 11125365"). Con una sola línea de
+    # muestra no se vería si `white-space: pre-line` está conservando los
+    # saltos que el operador tecleó en el textarea.
+    "observaciones": ("Se utilizó valor de UF del día 17-08-2026.\n"
+                      "Proyecto Panimávida — CC Banco de Chile 11125365.\n"
+                      "Los precios unitarios incluyen traslados a faena."),
     "hitos": ("Anticipo al inicio de la obra", "Contra entrega conforme"),
 }
 
@@ -169,12 +175,11 @@ FICHAS: dict[str, dict] = {
         # Redacción con el verbo que la ley admite: "pactadas", nunca
         # "garantizadas" (art. 61 Ley 18.045). El texto de muestra tiene que
         # poder copiarse tal cual a una OC real sin generar un hallazgo legal.
-        "observaciones": ("La presente Orden de Compra corresponde a los "
-                          "servicios detallados a continuación, contratados "
-                          "para la operación de financiamiento inmobiliario "
-                          "individualizada en el expediente respectivo, "
-                          "conforme a las condiciones pactadas entre las "
-                          "partes."),
+        "observaciones": ("Servicios contratados para la operación de "
+                          "financiamiento inmobiliario individualizada en el "
+                          "expediente respectivo, conforme a las condiciones "
+                          "pactadas entre las partes.\n"
+                          "Se utilizó valor de UF del día 17-08-2026."),
         "hitos": ("Anticipo a la firma de la orden",
                   "Contra entrega del informe conforme"),
     },

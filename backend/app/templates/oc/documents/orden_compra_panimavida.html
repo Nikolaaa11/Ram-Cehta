@@ -422,12 +422,23 @@
     /* `pre-line` conserva los saltos de línea reales de las descripciones y
        de la observación (el extractor los guarda con saltos de verdad) y
        sigue colapsando los espacios sobrantes. Sin esto sale todo corrido. */
-    p.intro {
+    /* Observaciones. El bloque entero se mantiene junto: un título
+       "OBSERVACIONES" al pie de una página con su texto en la siguiente es
+       peor que empujar las dos cosas. */
+    div.obs {
+      page-break-inside: avoid;
+      margin-bottom: 5mm;
+    }
+    p.obs-texto {
       font-size: 8.6pt;
-      color: #5A6675;
-      margin-bottom: 3mm;
-      text-align: justify;
+      color: #3C4655;
+      /* `pre-line` conserva los saltos que escribe el operador en el textarea:
+         la mitad de las observaciones reales son listas de varias líneas y
+         colapsarlas las vuelve un párrafo ilegible. */
       white-space: pre-line;
+      /* Alineado a la izquierda, NO justificado: justificar una lista de tres
+         renglones cortos abre ríos de espacio entre palabras. */
+      text-align: left;
     }
     table.items {
       width: 100%;
@@ -914,9 +925,6 @@
 
   {# ---------- 5. Itemizado ---------- #}
   <p class="sec"><span class="aside">{{ oc.items|length }} {% if oc.items|length == 1 %}ítem{% else %}ítems{% endif %}</span>Itemizado</p>
-  {% if oc.observaciones %}
-    <p class="intro">{{ oc.observaciones }}</p>
-  {% endif %}
 
   <table class="items">
     <thead>
@@ -1037,6 +1045,33 @@
       {% endfor %}
     </tbody>
   </table>
+  {% endif %}
+
+  {# ---------- 7.bis Observaciones ----------
+     Antes esto se imprimía como <p class="intro"> SIN TÍTULO, pegado bajo el
+     encabezado "Itemizado". Se leía como una bajada de la tabla, no como una
+     observación — y lo que la gente escribe ahí no son bajadas:
+
+         "Se utilizó valor de UF del día 17-08-2026."
+         "- Proyecto Ptec / - CC BANCO CHILE 11125365"
+         "Proyecto La Serena / Pago anticipo 30% / Pago ingreso 40% / ..."
+
+     Son notas sobre la operación, y algunas son listas de varias líneas. Sin
+     rótulo, una lista de hitos de pago aparecía como un bloque gris suelto
+     ARRIBA de los ítems, donde nadie la busca. El campo se llama
+     "Observaciones" en el formulario: el papel tiene que decir lo mismo.
+
+     Va DESPUÉS de los totales y de la forma de pago porque casi siempre
+     matiza la plata (qué UF se usó, a qué cuenta se paga, cómo se reparte), y
+     antes de las condiciones generales, que son texto fijo de contrato.
+
+     `page-break-inside: avoid` para que el título no quede huérfano al pie de
+     una página con el texto en la siguiente. #}
+  {% if oc.observaciones and oc.observaciones.strip() %}
+  <div class="obs">
+    <p class="sec">Observaciones</p>
+    <p class="obs-texto">{{ oc.observaciones.strip() }}</p>
+  </div>
   {% endif %}
 
   {# ---------- 9. Firmas ---------- #}
