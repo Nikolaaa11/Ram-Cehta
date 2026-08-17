@@ -16,9 +16,11 @@ previa sea representativa:
 Uso:
     python scripts/preview_oc.py                       # escenario por defecto (RHO)
     python scripts/preview_oc.py --escenario afis      # otra empresa/logo
+    python scripts/preview_oc.py --escenario ciclo     # el FIP: logo apaisado + ficha propia
     python scripts/preview_oc.py --items 25            # OC larga, para ver el corte
     python scripts/preview_oc.py --tipo honorarios     # bloque de totales con retención
     python scripts/preview_oc.py --tipo exenta         # factura exenta (sin fila de IVA)
+    python scripts/preview_oc.py --moneda uf           # importes en UF (con decimales)
 
 Deja el PDF y un PNG por página en scripts/_preview_oc/.
 """
@@ -36,7 +38,9 @@ from pathlib import Path
 _BACKEND = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_BACKEND))
 
+from app.domain.value_objects.iva import paso_de_moneda  # noqa: E402
 from app.services.oc_pdf_v2_service import (  # noqa: E402
+    _LOGOS_DIR,
     _env,
     _fecha_larga,
     _firma_font_data_uri,
@@ -60,11 +64,196 @@ ESCENARIOS = {
     # (codigo_empresa, razon_social, color) — el logo sale del código.
     "rho": ("RHO", "Rho Generación SpA", "#1A793B"),
     "afis": ("AFIS", "AFIS SpA", "#1F2937"),
+    # CICLO es el Fondo de Inversión Privado Ciclo Capital, administrado por
+    # AFIS. Su color es #111111 porque su logotipo es negro sobre blanco: darle
+    # el verde institucional que trae por DEFAULT la columna
+    # `empresas.oc_color_primario` dejaría un filete verde cerrando un logo
+    # negro. La razón social va COMPLETA y literal — es la que se imprime en el
+    # bloque Mandante de un documento que firma un tercero.
+    "ciclo": ("CICLO", "Fondo de Inversión Privado Ciclo Capital", "#111111"),
     "dte": ("DTE", "DTE Consulting & Development SpA", "#0A3A6B"),
     "revtech": ("REVTECH", "Revtech SpA", "#D97706"),
     "trongkai": ("TRONGKAI", "Trongkai SpA", "#2E7D32"),
     "sin-logo": ("PANIMAVIDA", "Panimávida Energy SpA", "#1A793B"),
 }
+
+# Logos que este banco carga a mano desde templates/oc/logos/.
+#
+# Por qué hace falta: `_logo_raw_bytes(codigo, None)` resuelve el archivo local
+# por el dict `_LOGO_LOCAL` de oc_pdf_v2_service, y CICLO todavía NO está en ese
+# dict. Sin esto la vista previa del fondo saldría con el wordmark tipográfico
+# en vez del logo y no probaría nada de lo que se vino a probar.
+#
+# Pasar los bytes a mano NO disimula el hueco: reproduce producción. Ahí el logo
+# llega por HTTP desde `empresas.logo_dropbox_path`
+# (https://cehta-capital.vercel.app/logos/ciclo.png), o sea que `logo_bytes` ya
+# viene lleno y el dict local ni se consulta. Ese dict es la RED para cuando el
+# fetch falla (cold start de Fly, miss del CDN de Vercel) y hoy no cubre a
+# CICLO — queda reportado, no se arregla acá: el servicio está fuera de la lista
+# de archivos de este agente.
+_LOGO_PRECARGADO: dict[str, str] = {"CICLO": "ciclo.png"}
+
+
+def _logo_del_escenario(codigo: str) -> bytes | None:
+    """Bytes del logo, por el mismo camino que producción."""
+    fname = _LOGO_PRECARGADO.get(codigo.upper())
+    # Si el archivo no estuviera, que reviente acá y no que imprima un PDF sin
+    # logo: en un banco de vista previa el silencio es lo único inservible.
+    precargado = (_LOGOS_DIR / fname).read_bytes() if fname else None
+    return _logo_raw_bytes(codigo, precargado)
+
+
+# Ficha del MANDANTE y redacción del encargo, por código de empresa.
+#
+# Hasta ahora el banco imprimía SIEMPRE los datos de RHO y sólo variaba código,
+# razón social y color: alcanzaba, porque los escenarios existentes son pruebas
+# de logo, de color y de paginación. CICLO no entra en esa categoría — su
+# dirección y su sitio salen impresos en el bloque Mandante y en el pie de TODAS
+# las páginas, así que tienen que ser los de su ficha
+# (docs/DATOS_CICLO_CAPITAL.md) y no los de una constructora de Providencia.
+#
+# Lo que está marcado FALTA en la ficha va en None y se queda en None: el
+# template omite la fila entera cuando el dato es falsy, que es exactamente el
+# comportamiento buscado. Un RUT inventado en el Mandante de una OC firmada no
+# es un dato de relleno, es un documento falso.
+_FICHA_DEFAULT: dict = {
+    "rut": "77.931.386-7",
+    "giro": "Ingeniería y construcción",
+    "direccion": "General del Canto 50 Of 301",
+    "ciudad": "Providencia",
+    "telefono": "+56 2 2345 6789",
+    "pagina_web": "rhogeneracion.com",
+    "representante_legal": "Javier Álvarez Abarca",
+    "firmantes": None,   # None = usa la nómina de firmantes de muestra
+    "observaciones": ("La presente Orden de Compra es por los servicios "
+                      "detallados a continuación para el proyecto Panimávida:"),
+    "hitos": ("Anticipo al inicio de la obra", "Contra entrega conforme"),
+}
+
+FICHAS: dict[str, dict] = {
+    "CICLO": {
+        # FALTA en la ficha (§7): RUT del Fondo. No se inventa.
+        "rut": None,
+        "giro": "Fondo de inversión privado — financiamiento inmobiliario",
+        "direccion": "Av. Américo Vespucio Sur 80, Oficina 31",
+        "ciudad": "Las Condes",
+        # FALTA en la ficha: teléfono del fondo.
+        "telefono": None,
+        # Único sitio verificado de la ficha (§3 · Plataforma). El dominio
+        # ciclocapital.cl aparece SÓLO en los correos, nunca declarado como web:
+        # ponerlo acá sería deducirlo, no leerlo.
+        "pagina_web": "fondo-ciclo.vercel.app",
+        # FALTA en la ficha (§7): "Quién firma por la Administradora".
+        "representante_legal": None,
+        # Lista VACÍA a propósito, y no la nómina de muestra: hoy CICLO no tiene
+        # filas en core.empresa_equipo ni gerente_general_* cargado, así que su
+        # PDF real sale sin firmas del lado del mandante. Rellenarlo con los
+        # firmantes de RHO haría que la vista previa mintiera justo sobre el
+        # dato que la ficha marca como faltante. El template ya contempla el
+        # caso: omite el grupo "Por el mandante" entero.
+        "firmantes": [],
+        # Redacción con el verbo que la ley admite: "pactadas", nunca
+        # "garantizadas" (art. 61 Ley 18.045). El texto de muestra tiene que
+        # poder copiarse tal cual a una OC real sin generar un hallazgo legal.
+        "observaciones": ("La presente Orden de Compra corresponde a los "
+                          "servicios detallados a continuación, contratados "
+                          "por el Fondo para la operación de financiamiento "
+                          "inmobiliario individualizada en el expediente "
+                          "respectivo, conforme a las condiciones pactadas "
+                          "entre las partes."),
+        "hitos": ("Anticipo a la firma de la orden",
+                  "Contra entrega del informe conforme"),
+    },
+}
+
+# Cada ficha declara TODAS las claves: se usa `FICHAS[codigo]` entera, sin merge
+# contra el default. Con merge, una clave olvidada caería en silencio a los datos
+# de RHO, y la dirección de otra empresa impresa en el bloque Mandante es
+# exactamente el error que este dict existe para evitar. Que falte una clave
+# tiene que romper al importar el módulo y no a mitad de un render.
+for _cod, _f in FICHAS.items():
+    _faltan = sorted(set(_FICHA_DEFAULT) - set(_f))
+    if _faltan:
+        raise RuntimeError(f"ficha {_cod}: faltan las claves {_faltan}")
+
+# Monedas del banco. Son las dos que hay que mirar en el papel: el peso NO tiene
+# centavos y la UF SÍ, y el bloque de totales es donde se ve si el paso de
+# redondeo está bien elegido. CICLO opera en UF, así que para el fondo la
+# corrida en UF no es un extra sino el caso principal.
+MONEDAS = ("CLP", "UF")
+
+# Itemizados de muestra. Se eligen por DOS ejes:
+#   · por FICHA   — qué compra esa empresa. Un fondo de inversión no contrata
+#     movimiento de tierras: si el itemizado no habla del mismo negocio que la
+#     observación de arriba, el documento se contradice a sí mismo y el que lo
+#     revisa deja de confiar en la vista previa entera.
+#   · por MONEDA  — cada catálogo trae sus precios en pesos y en UF, y no uno
+#     convertido del otro. Un tipo de cambio inventado no aportaría nada y las
+#     cifras en pesos leídas como UF serían absurdas (2.925.000 UF ≈ 117 mil
+#     millones de pesos), con lo que no se podría juzgar ni el ancho de las
+#     columnas ni el corte de página.
+# Los precios en UF llevan decimales NO redondos a propósito: un ,00 en cada
+# fila no probaría que el paso de redondeo decimal esté funcionando.
+# Son montos de muestra — el banco entero es data sintética. Lo que no se
+# inventa son los datos identificatorios del mandante, que salen de su ficha.
+_Item = tuple[str, str, Decimal, Decimal]
+
+_ITEMS_OBRA: dict[str, list[_Item]] = {
+    "CLP": [
+        ("Instalación de fosa séptica, cámaras de inspección y drenes",
+         "Gl", Decimal(1), Decimal(2_925_000)),
+        ("Apoyo de retroexcavadora", "Días", Decimal(3), Decimal(240_000)),
+        ("Suministro e instalación de tubería HDPE 110mm",
+         "ml", Decimal(120), Decimal(8_400)),
+        ("Movimiento de tierras y compactación de plataforma",
+         "m3", Decimal(45), Decimal(32_000)),
+        ("Ensayo de compactación Proctor modificado",
+         "Un", Decimal(6), Decimal(95_000)),
+    ],
+    "UF": [
+        ("Instalación de fosa séptica, cámaras de inspección y drenes",
+         "Gl", Decimal(1), Decimal("78.40")),
+        ("Apoyo de retroexcavadora", "Días", Decimal(3), Decimal("6.45")),
+        ("Suministro e instalación de tubería HDPE 110mm",
+         "ml", Decimal(120), Decimal("0.23")),
+        ("Movimiento de tierras y compactación de plataforma",
+         "m3", Decimal(45), Decimal("0.86")),
+        ("Ensayo de compactación Proctor modificado",
+         "Un", Decimal(6), Decimal("2.55")),
+    ],
+}
+
+# Servicios que un FIP inmobiliario sí contrata: los del expediente de una
+# operación de compraventa con pacto de retroventa.
+_ITEMS_FONDO: dict[str, list[_Item]] = {
+    "CLP": [
+        ("Tasación comercial de inmueble urbano",
+         "Un", Decimal(1), Decimal(1_060_000)),
+        ("Estudio de títulos e informe de dominio vigente",
+         "Gl", Decimal(1), Decimal(1_700_000)),
+        ("Gastos notariales e inscripción en el Conservador",
+         "Gl", Decimal(1), Decimal(2_320_000)),
+        ("Inspección técnica en terreno", "Mes", Decimal(3), Decimal(1_270_000)),
+        ("Custodia y administración documental",
+         "Mes", Decimal(12), Decimal(155_000)),
+    ],
+    "UF": [
+        ("Tasación comercial de inmueble urbano",
+         "Un", Decimal(1), Decimal("28.50")),
+        ("Estudio de títulos e informe de dominio vigente",
+         "Gl", Decimal(1), Decimal("45.75")),
+        ("Gastos notariales e inscripción en el Conservador",
+         "Gl", Decimal(1), Decimal("62.30")),
+        ("Inspección técnica en terreno", "Mes", Decimal(3), Decimal("34.20")),
+        ("Custodia y administración documental",
+         "Mes", Decimal(12), Decimal("4.15")),
+    ],
+}
+
+# Qué catálogo le toca a cada empresa. Va acá y no dentro de `FICHAS` sólo
+# porque los catálogos se definen más abajo que las fichas; se lee igual y se
+# actualiza en el mismo lugar donde se agrega el catálogo nuevo.
+_ITEMS_POR_EMPRESA: dict[str, dict[str, list[_Item]]] = {"CICLO": _ITEMS_FONDO}
 
 # Los 4 tipos de documento que la OC sabe emitir, en la forma en que los
 # guarda `core.ordenes_compra.tipo_documento` (tokens del catálogo SII).
@@ -81,29 +270,38 @@ TIPOS = {
 }
 
 
-def _clp(monto: Decimal) -> Decimal:
-    """Peso chileno, ROUND_HALF_UP — el mismo criterio que `calcular_iva`.
+def _redondear(monto: Decimal, paso: Decimal) -> Decimal:
+    """Redondeo al paso de la moneda, ROUND_HALF_UP — igual que `calcular_iva`.
 
-    `round()` de Python usa banker's rounding (redondea .5 al par), así que
-    con él la vista previa mostraría cifras que difieren en $1 de las que
-    calcula el servidor. En un banco cuyo trabajo es verificar un documento
-    de plata, ese peso de diferencia es exactamente lo que hace dudar.
+    Dos criterios, los dos importan:
+
+    · El PASO lo decide la moneda y lo trae `paso_de_moneda` del value object de
+      IVA, no una constante local: el peso redondea a 1 y la UF a 0,01. Fijar el
+      paso en 1 acá haría que la vista previa en UF mostrara un IVA entero donde
+      el servidor guarda dos decimales, y una OC de 288,95 UF perdería casi
+      media UF (~$17.000) en la diferencia.
+    · ROUND_HALF_UP y no `round()`, que usa banker's rounding (redondea .5 al
+      par): con él la vista previa mostraría cifras que difieren en $1 de las
+      que calcula el servidor. En un banco cuyo trabajo es verificar un
+      documento de plata, ese peso de diferencia es exactamente lo que hace
+      dudar.
     """
-    return Decimal(monto).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return Decimal(monto).quantize(paso, rounding=ROUND_HALF_UP)
 
 
-def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> dict:
+def construir_contexto(
+    escenario: str, n_items: int, folio: str, tipo: str, moneda: str
+) -> dict:
     codigo, razon, color = ESCENARIOS[escenario]
-    raw = _logo_raw_bytes(codigo, None)
+    ficha = FICHAS.get(codigo, _FICHA_DEFAULT)
+    raw = _logo_del_escenario(codigo)
+    # El paso de redondeo se calcula UNA vez y se usa en todas las cifras del
+    # documento (IVA, retención, hitos). Si cada bloque eligiera el suyo, la
+    # suma de los hitos dejaría de cerrar contra el total.
+    paso = paso_de_moneda(moneda)
 
     items = []
-    base = [
-        ("Instalación de fosa séptica, cámaras de inspección y drenes", "Gl", 1, 2_925_000),
-        ("Apoyo de retroexcavadora", "Días", 3, 240_000),
-        ("Suministro e instalación de tubería HDPE 110mm", "ml", 120, 8_400),
-        ("Movimiento de tierras y compactación de plataforma", "m3", 45, 32_000),
-        ("Ensayo de compactación Proctor modificado", "Un", 6, 95_000),
-    ]
+    base = _ITEMS_POR_EMPRESA.get(codigo, _ITEMS_OBRA)[moneda]
     for i in range(n_items):
         desc, un, cant, pu = base[i % len(base)]
         items.append(
@@ -112,9 +310,9 @@ def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> d
                 articulo=desc[:60],
                 descripcion=desc,
                 unidad=un,
-                cantidad=Decimal(cant),
-                precio_unitario=Decimal(pu),
-                total=Decimal(cant * pu),
+                cantidad=cant,
+                precio_unitario=pu,
+                total=cant * pu,
                 plazo=None,
             )
         )
@@ -125,13 +323,13 @@ def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> d
     # El líquido se obtiene POR RESTA y no redondeando aparte, para que
     # `total_a_pagar + retencion_monto == total` cierre exacto.
     token, iva_pct, ret_pct = TIPOS[tipo]
-    neto = Decimal(sum(int(i.total) for i in items))
-    iva = _clp(neto * iva_pct / 100)
+    neto = _redondear(sum((i.total for i in items), Decimal(0)), paso)
+    iva = _redondear(neto * iva_pct / 100, paso)
     total = neto + iva
-    retencion = _clp(neto * ret_pct / 100)
+    retencion = _redondear(neto * ret_pct / 100, paso)
     total_a_pagar = total - retencion
 
-    firmantes = [
+    firmantes_muestra = [
         {"nombre": "Javier Álvarez Abarca", "cargo": "Gerente General",
          "firmado_el": "29/07/2026 20:35 UTC", "hash_corto": "2ec7f0535fd3",
          "firma_visual": "Javier Alvarez", "empresa_firmante": None},
@@ -148,16 +346,20 @@ def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> d
          "firmado_el": "29/07/2026 20:35 UTC", "hash_corto": "2b9aa58decfe",
          "firma_visual": "Guido Rietta", "empresa_firmante": None},
     ]
+    # `firmantes` viene de la ficha: None = la nómina de muestra, lista vacía =
+    # la empresa NO tiene firmantes cargados y el documento sale así de verdad.
+    # No es lo mismo "todavía no lo poblé en el banco" que "en producción no
+    # hay nadie", y el PDF se ve distinto en cada caso.
+    firmantes = ficha["firmantes"] if ficha["firmantes"] is not None else firmantes_muestra
     externos = [{"nombre": "Octavio Parada Cancino", "cargo": "Representante Legal",
                  "empresa_firmante": "OCTAVIO PARADA CANCINO"}]
 
     oc = _obj(
         numero=folio, fecha_emision=date(2026, 7, 29),
-        moneda=_obj(value="CLP"), forma_pago="30% anticipo y 70% contra entrega",
+        moneda=_obj(value=moneda), forma_pago="30% anticipo y 70% contra entrega",
         plazo_pago="30 días", plazo_entrega="No aplica", lugar_entrega=None,
         garantia=None,
-        observaciones=("La presente Orden de Compra es por los servicios "
-                       "detallados a continuación para el proyecto Panimávida:"),
+        observaciones=ficha["observaciones"],
         gestiones_proveedor=None, emails_documentacion=None, emails_insumos=None,
         total_neto=neto, iva=iva,
         iva_porcentaje=iva_pct, tipo_documento=token,
@@ -167,10 +369,11 @@ def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> d
         estado=_obj(value="firmada"), items=items,
     )
     emp = _obj(
-        nombre_corto=codigo, razon_social=razon, rut="77.931.386-7",
-        giro="Ingeniería y construcción", direccion="General del Canto 50 Of 301",
-        ciudad="Providencia", telefono="+56 2 2345 6789", email=None,
-        pagina_web="rhogeneracion.com", representante_legal="Javier Álvarez Abarca",
+        nombre_corto=codigo, razon_social=razon, rut=ficha["rut"],
+        giro=ficha["giro"], direccion=ficha["direccion"],
+        ciudad=ficha["ciudad"], telefono=ficha["telefono"], email=None,
+        pagina_web=ficha["pagina_web"],
+        representante_legal=ficha["representante_legal"],
     )
     prov = _obj(
         razon_social="OCTAVIO PARADA CANCINO", rut="14.290.239-7",
@@ -181,11 +384,11 @@ def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> d
     # Los hitos se reparten sobre `total_a_pagar` (plata que sale), no sobre
     # el bruto, y el residuo de redondeo lo absorbe el último para que la suma
     # cierre exacto — igual que `_derivar_montos` en el backend.
-    _h1 = _clp(total_a_pagar * Decimal("30") / 100)
+    _h1 = _redondear(total_a_pagar * Decimal("30") / 100, paso)
     hitos = [
-        {"porcentaje": Decimal("30"), "descripcion": "Anticipo al inicio de la obra",
+        {"porcentaje": Decimal("30"), "descripcion": ficha["hitos"][0],
          "fecha": date(2026, 8, 15), "monto": _h1},
-        {"porcentaje": Decimal("70"), "descripcion": "Contra entrega conforme",
+        {"porcentaje": Decimal("70"), "descripcion": ficha["hitos"][1],
          "fecha": date(2026, 9, 30), "monto": total_a_pagar - _h1},
     ]
 
@@ -193,7 +396,16 @@ def construir_contexto(escenario: str, n_items: int, folio: str, tipo: str) -> d
         "titulo": f"Orden de Compra {folio}", "tipo_doc": "ORDEN DE COMPRA",
         "folio": folio, "fecha_emision_larga": _fecha_larga(oc.fecha_emision),
         "estado": oc.estado.value, "color_primario": color,
-        "footer_texto": "General del Canto 50 Of 301, Providencia   |   rhogeneracion.com",
+        # El pie se ARMA con los mismos campos que el bloque Mandante en vez de
+        # ir literal, que es lo que hace `oc_pdf_v2_service` en producción
+        # (`pie_pdf + " | " + razón social`). Con el literal, la dirección de
+        # RHO salía impresa al pie de TODAS las páginas de cualquier escenario
+        # —y habría salido al pie de la OC del fondo—. Para RHO el string
+        # resultante es idéntico al que había, así que ningún render anterior
+        # cambia.
+        "footer_texto": (
+            f"{ficha['direccion']}, {ficha['ciudad']}   |   {ficha['pagina_web']}"
+        ),
         "empresa": emp, "logo_data_uri": _logo_data_uri(raw),
         "logo_max_css": _logo_max_css(raw), "proveedor": prov, "cuenta": None,
         "tipo_cuenta_label": "Cuenta Corriente", "oc": oc,
@@ -238,6 +450,15 @@ def main() -> int:
               "exenta saca la fila de IVA."),
     )
     ap.add_argument(
+        "--moneda",
+        default="CLP",
+        type=str.upper,
+        choices=MONEDAS,
+        help=("Moneda de la OC. En CLP los importes se redondean al peso; en "
+              "UF a la centésima, que es lo que guarda la BD (NUMERIC 18,2) y "
+              "lo que corresponde para un fondo que opera en UF."),
+    )
+    ap.add_argument(
         "--prefix",
         default=None,
         help=("Prefijo de los archivos de salida. Sirve para comparar variantes "
@@ -245,15 +466,21 @@ def main() -> int:
     )
     args = ap.parse_args()
 
-    # El default histórico (factura) conserva el nombre de archivo de siempre
-    # para no invalidar las corridas ya guardadas; los tipos nuevos se sufijan
-    # solos, así `--tipo honorarios` sin `--prefix` no pisa la factura.
-    prefijo = args.prefix or (
-        args.escenario if args.tipo == "factura"
-        else f"{args.escenario}_{args.tipo}"
+    # Los defaults históricos (factura + CLP) conservan el nombre de archivo de
+    # siempre para no invalidar las corridas ya guardadas; lo que se aparta del
+    # default se sufija solo, así `--tipo honorarios` o `--moneda uf` sin
+    # `--prefix` no pisan la factura en pesos.
+    prefijo = args.prefix or "_".join(
+        p for p in (
+            args.escenario,
+            None if args.tipo == "factura" else args.tipo,
+            None if args.moneda == "CLP" else args.moneda.lower(),
+        ) if p
     )
     _OUT.mkdir(exist_ok=True)
-    ctx = construir_contexto(args.escenario, args.items, args.folio, args.tipo)
+    ctx = construir_contexto(
+        args.escenario, args.items, args.folio, args.tipo, args.moneda
+    )
     html = _env.get_template(args.template).render(**ctx)
 
     html_path = _OUT / f"{prefijo}.html"
