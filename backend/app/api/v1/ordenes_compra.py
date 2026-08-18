@@ -21,7 +21,7 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError, ProgrammingError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -1516,6 +1516,27 @@ _VOUCHER_ESTADOS_CON_PLATA = ("APPROVED", "EXECUTED", "SYNCED", "RECONCILED")
 # identificadores en SQL es la clase de patron que despues alguien copia con
 # una variable que si viene de afuera. Con tres tablas fijas no hay motivo
 # para abrir esa puerta.
+_SNAPSHOT_VOUCHERS = """
+    SELECT COALESCE(json_agg(json_build_object(
+               'voucher_id',   v.voucher_id,
+               'codigo',       v.codigo,
+               'status',       v.status,
+               'total_debit',  v.total_debit,
+               'total_credit', v.total_credit,
+               'via',          CASE WHEN v.oc_id = :id
+                                    THEN 'directo' ELSE 'cuota' END)),
+           '[]'::json)
+      FROM core.vouchers v
+     WHERE v.oc_id = :id
+        OR v.voucher_id IN (SELECT c.voucher_id FROM core.oc_cuotas c
+                             WHERE c.oc_id = :id AND c.voucher_id IS NOT NULL)
+"""
+
+_SNAPSHOT_CORREOS = (
+    "SELECT COALESCE(json_agg(m.inbox_id), '[]'::json) "
+    "FROM core.inbox_messages m WHERE m.linked_oc_id = :id"
+)
+
 _SNAPSHOT_TABLAS_HIJAS: dict[str, str] = {
     "cuotas": "SELECT COALESCE(json_agg(to_jsonb(t)), '[]'::json) "
               "FROM core.oc_cuotas t WHERE t.oc_id = :id",
@@ -1536,58 +1557,67 @@ async def _snapshot_completo_oc(
     para probar quién la había firmado. Eso era lo que se perdía cuando el
     único registro era el `before` del audit_log.
 
-    Las tablas hijas se serializan con `to_jsonb(t)` en vez de una lista de
-    columnas a mano: el día que a `oc_cuotas` le agreguen una columna, entra
-    sola. Una lista explícita se desactualiza en silencio y el hueco recién se
-    descubre cuando hace falta el dato, o sea nunca a tiempo.
+    Las tablas hijas se serializan con `to_jsonb(t)`: el día que a `oc_cuotas`
+    le agreguen una columna, entra sola.
+
+    # POR QUÉ CADA PIEZA VA EN UN SAVEPOINT
+
+    Nicolás pidió que una OC se pueda borrar SIEMPRE. La primera versión de
+    esto lo rompía por el lado que no se veía: consultaba `proveedores.nombre`
+    (la columna se llama `razon_social`) y `vouchers.total` (son `total_debit`
+    y `total_credit`), así que armar la copia tiraba un error de SQL, la
+    excepción subía sin filtro y el borrado devolvía 500. El bloqueo que se
+    había sacado por la puerta volvió a entrar por la ventana.
+
+    La leccion: **enriquecer la copia no puede tener poder de veto sobre el
+    borrado**. Cada pieza va en su propio SAVEPOINT; si una falla, se anota el
+    error DENTRO del snapshot y las demás siguen. Sin el savepoint, un error
+    de SQL deja la transacción envenenada y muere todo lo que venga después,
+    que es justo lo contrario de lo que se busca.
+
+    Lo que NO es tolerante a fallos es el INSERT del registro: si eso no se
+    puede guardar, la OC no se borra. La garantía es "no hay borrado sin
+    constancia", no "la constancia está siempre completa".
     """
-    cabecera = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
 
-    async def _filas(clave: str) -> list[dict[str, Any]]:
-        raw = await db.scalar(text(_SNAPSHOT_TABLAS_HIJAS[clave]), {"id": oc.oc_id})
-        return raw or []
+    async def _pieza(sql: str, etiqueta: str, default: Any) -> Any:
+        """Una consulta del snapshot, aislada: si falla, no arrastra al resto."""
+        try:
+            async with db.begin_nested():
+                raw = await db.scalar(text(sql), {"id": oc.oc_id})
+            return default if raw is None else raw
+        except SQLAlchemyError as exc:
+            # Queda escrito en la constancia: es preferible una copia con un
+            # agujero rotulado que ninguna copia, y que el agujero se vea.
+            return {"_error": f"no se pudo leer {etiqueta}: {exc}"}
 
-    # Los vouchers NO se borran (la FK es ON DELETE SET NULL), pero después
-    # del borrado quedan sin forma de saber de qué OC salieron. Guardar acá su
-    # identidad es lo que permite el camino inverso: desde un voucher
-    # huérfano, encontrar la OC que lo originó.
-    vouchers = await db.scalar(
-        text(
-            """
-            SELECT COALESCE(json_agg(json_build_object(
-                       'voucher_id', v.voucher_id,
-                       'status',     v.status,
-                       'total',      v.total,
-                       'via',        CASE WHEN v.oc_id = :id
-                                          THEN 'directo' ELSE 'cuota' END)),
-                   '[]'::json)
-              FROM core.vouchers v
-             WHERE v.oc_id = :id
-                OR v.voucher_id IN (SELECT c.voucher_id FROM core.oc_cuotas c
-                                     WHERE c.oc_id = :id
-                                       AND c.voucher_id IS NOT NULL)
-            """
-        ),
-        {"id": oc.oc_id},
-    )
-
-    # Los correos tampoco se borran: sólo pierden el vínculo. Se anotan para
-    # poder volver a atarlos si el borrado fue un error.
-    correos = await db.scalar(
-        text(
-            "SELECT COALESCE(json_agg(m.message_id), '[]'::json) "
-            "FROM core.inbox_messages m WHERE m.linked_oc_id = :id"
-        ),
-        {"id": oc.oc_id},
-    )
+    try:
+        cabecera: Any = (
+            await _to_read_con_unidades(db, user, oc)
+        ).model_dump(mode="json")
+    except Exception as exc:  # nunca puede frenar el borrado
+        cabecera = {
+            "_error": f"no se pudo serializar la cabecera: {exc}",
+            "numero_oc": oc.numero_oc,
+            "empresa_codigo": oc.empresa_codigo,
+            "total": str(oc.total),
+        }
 
     return {
         "oc": cabecera,
-        "cuotas": await _filas("oc_cuotas"),
-        "firmas": await _filas("oc_firmas"),
-        "attachments": await _filas("oc_attachments"),
-        "vouchers": vouchers or [],
-        "inbox_message_ids": correos or [],
+        "cuotas": await _pieza(_SNAPSHOT_TABLAS_HIJAS["cuotas"], "cuotas", []),
+        "firmas": await _pieza(_SNAPSHOT_TABLAS_HIJAS["firmas"], "firmas", []),
+        "attachments": await _pieza(
+            _SNAPSHOT_TABLAS_HIJAS["attachments"], "adjuntos", []
+        ),
+        # Los vouchers NO se borran (la FK es ON DELETE SET NULL), pero después
+        # del borrado quedan sin forma de saber de qué OC salieron. Guardar acá
+        # su identidad es lo que permite el camino inverso: desde un voucher
+        # huérfano, encontrar la OC que lo originó.
+        "vouchers": await _pieza(_SNAPSHOT_VOUCHERS, "vouchers", []),
+        # Los correos tampoco se borran: sólo pierden el vínculo. Se anota su
+        # PK para poder volver a atarlos si el borrado fue un error.
+        "inbox_ids": await _pieza(_SNAPSHOT_CORREOS, "correos", []),
         "_formato": 1,
     }
 
@@ -1799,7 +1829,7 @@ async def delete_oc(
 
     proveedor = (
         await db.execute(
-            text("SELECT nombre, rut FROM core.proveedores WHERE proveedor_id = :p"),
+            text("SELECT razon_social, rut FROM core.proveedores WHERE proveedor_id = :p"),
             {"p": oc.proveedor_id},
         )
     ).mappings().first() or {}
@@ -1837,7 +1867,7 @@ async def delete_oc(
                 "numero_oc": numero_oc,
                 "empresa_codigo": empresa_prev,
                 "estado_previo": estado_prev,
-                "proveedor_nombre": proveedor.get("nombre"),
+                "proveedor_nombre": proveedor.get("razon_social"),
                 "proveedor_rut": proveedor.get("rut"),
                 "fecha_emision": oc.fecha_emision,
                 "moneda": _valor("moneda"),
@@ -1860,17 +1890,24 @@ async def delete_oc(
                 "snapshot": json.dumps(snapshot, default=str),
             },
         )
-    except ProgrammingError as exc:
-        # La tabla no esta instalada (falta correr scripts/sql/oc_papelera.sql).
-        # Se corta ACA sin borrar nada: borrar sin poder registrar es
-        # exactamente lo que este endpoint existe para evitar.
+    except SQLAlchemyError as exc:
+        # CUALQUIER error guardando la constancia corta el borrado. Antes esto
+        # atrapaba solo ProgrammingError ("falta la tabla"); cualquier otra
+        # falla de BD subia como 500 opaco. Es el unico bloqueo que queda en
+        # pie, y es a proposito: la garantia no es "siempre se borra pase lo
+        # que pase", es "no hay borrado sin constancia".
+        #
+        # Armar la copia SI es tolerante a fallos (ver _snapshot_completo_oc):
+        # si una tabla hija no se puede leer, el agujero queda rotulado dentro
+        # del snapshot y el borrado sigue. Lo que no se negocia es la fila.
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "No se puede borrar la OC porque el registro de eliminaciones "
-                "no esta disponible, y no se borra nada sin dejar constancia. "
-                "Avisa a soporte: falta instalar core.oc_eliminadas."
+                "No se pudo guardar el registro de esta eliminacion, asi que "
+                "la OC NO se borro: no se borra nada sin dejar constancia. "
+                f"Detalle tecnico para soporte: {type(exc).__name__}: "
+                f"{str(exc)[:200]}"
             ),
         ) from exc
 

@@ -238,3 +238,105 @@ def test_los_contadores_en_cero_no_se_confunden_con_faltantes():
     item = OcEliminadaListItem(**(_fila_de_bd() | {"firmas_puestas": 0}))
     assert item.firmas_puestas == 0
     assert item.firmas_puestas is not None
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Las consultas del snapshot piden columnas que EXISTEN
+# ──────────────────────────────────────────────────────────────────────
+# El bug que rompió el borrado en produccion: las consultas pedian
+# `proveedores.nombre` (se llama `razon_social`), `vouchers.total` (son
+# `total_debit` y `total_credit`) y buscaban las tablas hijas con claves que
+# no estaban en el dict. Nada de eso se ve leyendo el codigo — revienta
+# recien contra Postgres, y como pasaba ANTES del try/except, salia 500 y la
+# OC no se borraba. El bloqueo que se habia sacado volvio por la ventana.
+#
+# Estos tests cruzan el SQL contra los modelos del ORM, que si declaran las
+# columnas reales. Habrian atrapado los tres.
+
+
+def _columnas_pedidas(sql: str, alias: str) -> set[str]:
+    """Nombres que el SQL pide como `alias.columna`."""
+    import re
+
+    return set(re.findall(rf"\b{alias}\.([a-z_]+)", sql))
+
+
+def test_las_consultas_de_tablas_hijas_apuntan_a_su_tabla():
+    from app.api.v1.ordenes_compra import _SNAPSHOT_TABLAS_HIJAS
+
+    esperado = {
+        "cuotas": "core.oc_cuotas",
+        "firmas": "core.oc_firmas",
+        "attachments": "core.oc_attachments",
+    }
+    assert set(_SNAPSHOT_TABLAS_HIJAS) == set(esperado)
+    for clave, tabla in esperado.items():
+        sql = _SNAPSHOT_TABLAS_HIJAS[clave]
+        assert tabla in sql, f"{clave} no consulta {tabla}"
+        assert ":id" in sql, f"{clave} no filtra por oc_id"
+
+
+def test_el_snapshot_busca_las_claves_que_el_dict_tiene():
+    """El KeyError que tiraba 500.
+
+    La funcion pedia `_SNAPSHOT_TABLAS_HIJAS["oc_cuotas"]` cuando la clave era
+    "cuotas". Se lee el codigo fuente y se comprueba que toda clave usada
+    exista, porque un typo aca no lo atrapa ningun otro test sin BD.
+    """
+    import inspect
+    import re
+
+    from app.api.v1.ordenes_compra import (
+        _SNAPSHOT_TABLAS_HIJAS,
+        _snapshot_completo_oc,
+    )
+
+    fuente = inspect.getsource(_snapshot_completo_oc)
+    usadas = set(re.findall(r'_SNAPSHOT_TABLAS_HIJAS\["([^"]+)"\]', fuente))
+    assert usadas, "no se encontro ninguna lectura del dict"
+    faltan = usadas - set(_SNAPSHOT_TABLAS_HIJAS)
+    assert not faltan, f"claves inexistentes: {faltan}"
+
+
+def test_las_columnas_de_vouchers_existen_en_el_modelo():
+    from app.api.v1.ordenes_compra import _SNAPSHOT_VOUCHERS
+    from app.models.voucher import Voucher
+
+    reales = {c.name for c in Voucher.__table__.columns}
+    pedidas = _columnas_pedidas(_SNAPSHOT_VOUCHERS, "v")
+    assert pedidas, "el SQL no pide ninguna columna de vouchers"
+    assert pedidas <= reales, (
+        f"columnas que core.vouchers NO tiene: {sorted(pedidas - reales)}. "
+        f"Ojo: el monto son total_debit/total_credit, no 'total'."
+    )
+
+
+def test_las_columnas_de_oc_cuotas_del_subselect():
+    """`oc_cuotas` no tiene modelo ORM, asi que aca no se puede cruzar contra
+    el esquema como con vouchers. Lo que si se puede fijar es la FORMA: el
+    subselect solo debe nombrar `oc_id` (el filtro) y `voucher_id` (el
+    amarre), que son las dos columnas verificadas contra produccion. Si
+    alguien agrega una tercera, este test la hace visible para que la
+    verifique a mano antes de que reviente en un borrado real.
+    """
+    from app.api.v1.ordenes_compra import _SNAPSHOT_VOUCHERS
+
+    pedidas = _columnas_pedidas(_SNAPSHOT_VOUCHERS, "c")
+    assert pedidas == {"oc_id", "voucher_id"}, (
+        f"columnas nuevas de oc_cuotas sin verificar: {sorted(pedidas)}"
+    )
+
+
+def test_las_tablas_hijas_se_copian_enteras():
+    """`to_jsonb(t)` y no una lista de columnas.
+
+    Nombrar columnas una por una es lo que produjo el bug: se desactualizan en
+    silencio. La unica columna que el SQL puede nombrar es el filtro.
+    """
+    from app.api.v1.ordenes_compra import _SNAPSHOT_TABLAS_HIJAS
+
+    for clave, sql in _SNAPSHOT_TABLAS_HIJAS.items():
+        assert "to_jsonb(t)" in sql, f"{clave} no copia la fila entera"
+        assert _columnas_pedidas(sql, "t") <= {"oc_id"}, (
+            f"{clave} nombra columnas de mas: {_columnas_pedidas(sql, 't')}"
+        )
