@@ -1,6 +1,8 @@
 """CRUD Órdenes de Compra — Session 2.5."""
 from __future__ import annotations
 
+import json
+
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any
@@ -19,7 +21,7 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, ProgrammingError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
@@ -51,6 +53,9 @@ from app.schemas.common import Page
 from app.schemas.orden_compra import (
     DuplicateOcRequest,
     EstadoUpdateRequest,
+    OcEliminadaListItem,
+    OcEliminadaRead,
+    OcEliminarRequest,
     OCDetalleCreate,
     OCDetalleRead,
     OrdenCompraCreate,
@@ -1504,8 +1509,183 @@ async def update_oc(
 # `borrador`, `emitida`, `en_firma` y `anulada`. Los estados posteriores
 # (`firmada`, `enviada_proveedor`, `facturada`) y los que implican pago
 # (`parcial`, `pagada`) quedan fuera: ahí el camino es anular, no borrar.
-_OC_ESTADOS_BORRABLES = ("borrador", "emitida", "en_firma", "anulada")
 _VOUCHER_ESTADOS_CON_PLATA = ("APPROVED", "EXECUTED", "SYNCED", "RECONCILED")
+
+# Tablas hijas que se copian al snapshot antes de borrar una OC. Son consultas
+# LITERALES, no un f-string con el nombre de tabla adentro: interpolar
+# identificadores en SQL es la clase de patron que despues alguien copia con
+# una variable que si viene de afuera. Con tres tablas fijas no hay motivo
+# para abrir esa puerta.
+_SNAPSHOT_TABLAS_HIJAS: dict[str, str] = {
+    "cuotas": "SELECT COALESCE(json_agg(to_jsonb(t)), '[]'::json) "
+              "FROM core.oc_cuotas t WHERE t.oc_id = :id",
+    "firmas": "SELECT COALESCE(json_agg(to_jsonb(t)), '[]'::json) "
+              "FROM core.oc_firmas t WHERE t.oc_id = :id",
+    "attachments": "SELECT COALESCE(json_agg(to_jsonb(t)), '[]'::json) "
+                   "FROM core.oc_attachments t WHERE t.oc_id = :id",
+}
+
+
+async def _snapshot_completo_oc(
+    db: DBSession, user: AuthenticatedUser, oc: OrdenCompra
+) -> dict[str, Any]:
+    """Todo lo que hay que guardar antes de borrar una OC.
+
+    `OrdenCompraRead` trae la cabecera y los ítems, pero NO las cuotas ni las
+    firmas — justo las dos cosas que harían falta para reconstruir la OC o
+    para probar quién la había firmado. Eso era lo que se perdía cuando el
+    único registro era el `before` del audit_log.
+
+    Las tablas hijas se serializan con `to_jsonb(t)` en vez de una lista de
+    columnas a mano: el día que a `oc_cuotas` le agreguen una columna, entra
+    sola. Una lista explícita se desactualiza en silencio y el hueco recién se
+    descubre cuando hace falta el dato, o sea nunca a tiempo.
+    """
+    cabecera = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
+
+    async def _filas(clave: str) -> list[dict[str, Any]]:
+        raw = await db.scalar(text(_SNAPSHOT_TABLAS_HIJAS[clave]), {"id": oc.oc_id})
+        return raw or []
+
+    # Los vouchers NO se borran (la FK es ON DELETE SET NULL), pero después
+    # del borrado quedan sin forma de saber de qué OC salieron. Guardar acá su
+    # identidad es lo que permite el camino inverso: desde un voucher
+    # huérfano, encontrar la OC que lo originó.
+    vouchers = await db.scalar(
+        text(
+            """
+            SELECT COALESCE(json_agg(json_build_object(
+                       'voucher_id', v.voucher_id,
+                       'status',     v.status,
+                       'total',      v.total,
+                       'via',        CASE WHEN v.oc_id = :id
+                                          THEN 'directo' ELSE 'cuota' END)),
+                   '[]'::json)
+              FROM core.vouchers v
+             WHERE v.oc_id = :id
+                OR v.voucher_id IN (SELECT c.voucher_id FROM core.oc_cuotas c
+                                     WHERE c.oc_id = :id
+                                       AND c.voucher_id IS NOT NULL)
+            """
+        ),
+        {"id": oc.oc_id},
+    )
+
+    # Los correos tampoco se borran: sólo pierden el vínculo. Se anotan para
+    # poder volver a atarlos si el borrado fue un error.
+    correos = await db.scalar(
+        text(
+            "SELECT COALESCE(json_agg(m.message_id), '[]'::json) "
+            "FROM core.inbox_messages m WHERE m.linked_oc_id = :id"
+        ),
+        {"id": oc.oc_id},
+    )
+
+    return {
+        "oc": cabecera,
+        "cuotas": await _filas("oc_cuotas"),
+        "firmas": await _filas("oc_firmas"),
+        "attachments": await _filas("oc_attachments"),
+        "vouchers": vouchers or [],
+        "inbox_message_ids": correos or [],
+        "_formato": 1,
+    }
+
+
+# Las dos rutas de la papelera van declaradas ANTES del DELETE por costumbre
+# de lectura, no por necesidad: `/{oc_id:int}` lleva convertidor int, así que
+# "eliminadas" nunca podría capturarlo.
+@router.get(
+    "/eliminadas",
+    response_model=Page[OcEliminadaListItem],
+    dependencies=[Depends(require_scope("oc:read"))],
+)
+async def list_oc_eliminadas(
+    user: CurrentUser,
+    db: DBSession,
+    empresas: EmpresaScopeDep,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    empresa_codigo: str | None = Query(None),
+) -> Page[OcEliminadaListItem]:
+    """La papelera: qué OC se borraron, quién y por qué.
+
+    Va con el MISMO scope multi-tenant que el listado de OC vivas — el
+    registro de un borrado contiene la OC entera, así que filtrarlo menos que
+    a la OC original sería una filtración por la puerta de atrás.
+    """
+    vacia = Page[OcEliminadaListItem](items=[], total=0, limit=limit, offset=offset)
+    if not empresas:
+        return vacia
+
+    visibles = list(empresas)
+    if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
+        visibles = [empresa_codigo]
+
+    total = (
+        await db.scalar(
+            text(
+                "SELECT COUNT(*) FROM core.oc_eliminadas "
+                "WHERE empresa_codigo = ANY(:empresas)"
+            ),
+            {"empresas": visibles},
+        )
+    ) or 0
+    filas = (
+        await db.execute(
+            text(
+                """
+                SELECT eliminacion_id, oc_id, numero_oc, empresa_codigo,
+                       estado_previo, proveedor_nombre, proveedor_rut,
+                       fecha_emision, moneda, tipo_documento, total,
+                       total_a_pagar, firmas_puestas, firmantes,
+                       vouchers_con_plata, voucher_ids, motivo,
+                       eliminado_por_email, eliminado_el
+                  FROM core.oc_eliminadas
+                 WHERE empresa_codigo = ANY(:empresas)
+                 ORDER BY eliminado_el DESC
+                 LIMIT :limit OFFSET :offset
+                """
+            ),
+            {"empresas": visibles, "limit": limit, "offset": offset},
+        )
+    ).mappings().all()
+    return Page[OcEliminadaListItem](
+        items=[OcEliminadaListItem(**dict(f)) for f in filas],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/eliminadas/{eliminacion_id:int}",
+    response_model=OcEliminadaRead,
+    dependencies=[Depends(require_scope("oc:read"))],
+)
+async def get_oc_eliminada(
+    user: CurrentUser,
+    db: DBSession,
+    eliminacion_id: int,
+) -> OcEliminadaRead:
+    """El detalle, con la copia completa de la OC que se borró."""
+    fila = (
+        await db.execute(
+            text("SELECT * FROM core.oc_eliminadas WHERE eliminacion_id = :id"),
+            {"id": eliminacion_id},
+        )
+    ).mappings().first()
+    if not fila:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ese registro de eliminación no existe.",
+        )
+    # El scope se chequea DESPUÉS de leer la fila porque hace falta saber de
+    # qué empresa era; devolver 404 antes de eso filtraría la existencia del
+    # registro por temporización. `assert_empresa_access` corta con 403.
+    await assert_empresa_access(user, db, fila["empresa_codigo"])
+    return OcEliminadaRead(**dict(fila))
 
 
 @router.delete(
@@ -1519,29 +1699,44 @@ async def delete_oc(
     db: DBSession,
     request: Request,
     oc_id: int,
+    body: OcEliminarRequest,
 ) -> Response:
-    """Borra fisicamente una OC mal cargada. Estados permitidos: borrador,
-    emitida, en_firma, anulada.
+    """Borra fisicamente una OC, en CUALQUIER estado, dejando registro.
 
-    Bloqueos (409, con explicacion de que hacer en su lugar):
-      · la OC tiene al menos una firma con status='FIRMADA' → documento
-        firmado, evidencia legal, se anula pero no se borra;
-      · la OC tiene vouchers APPROVED/EXECUTED/SYNCED/RECONCILED (directos
-        via vouchers.oc_id o via sus cuotas) → ya hay plata comprometida.
-    Ambas condiciones se chequean en UNA sola query (subselects), no una
-    query por condicion.
+    Antes esto rebotaba con 409 en dos casos —OC con firmas puestas, u OC con
+    vouchers APPROVED/EXECUTED/SYNCED/RECONCILED— y ademas exigia que el
+    estado fuera borrador/emitida/en_firma/anulada. Nicolas pidio explicito
+    que se pueda borrar SIEMPRE, "pero que quede un registro de que se
+    elimino". Los tres bloqueos se levantan y en su lugar queda una constancia
+    que no se puede perder ni editar.
+
+    El registro (`core.oc_eliminadas`) se escribe en la MISMA transaccion que
+    el DELETE y ANTES del commit. Esa es la parte que importa: si el insert
+    del registro falla, la transaccion entera se cae y la OC NO se borra. No
+    existe el camino "se borro y no quedo constancia". El `audit_log` no
+    servia para esto porque corre DESPUES del commit y es best-effort: si
+    fallaba, la OC ya no estaba.
+
+    Que queda guardado: la OC entera (cabecera, items, cuotas, firmas,
+    adjuntos), los vouchers que colgaban de ella, los correos que la
+    referenciaban, cuantas firmas tenia y de quien, quien la borro, desde que
+    IP, cuando y por que. El motivo es obligatorio (minimo 10 caracteres
+    reales) y la tabla es inmutable por trigger.
+
+    Lo que NO se borra, igual que antes: los vouchers (FK ON DELETE SET NULL)
+    y los correos de la bandeja. Solo pierden el vinculo, y sus ids quedan
+    anotados en el snapshot para poder rehacerlo.
 
     Borrado en cascada — verificado contra las FK reales:
-      · core.ordenes_compra_detalle  ON DELETE CASCADE (+ cascade ORM)
+      · core.ordenes_compra_detalle  ON DELETE CASCADE
       · core.oc_cuotas               ON DELETE CASCADE  → forma de pago
-      · core.oc_firmas               ON DELETE CASCADE  → firmantes pendientes
+      · core.oc_firmas               ON DELETE CASCADE  → firmantes
       · core.oc_attachments          ON DELETE CASCADE  → adjuntos del email
       · core.vouchers.oc_id          ON DELETE SET NULL → el voucher sobrevive
       · webhooks/eventos de email    ON DELETE SET NULL
     La excepcion es core.inbox_messages.linked_oc_id, cuya FK quedo SIN
     ON DELETE (NO ACTION): si la OC nacio de un email, Postgres abortaba el
-    DELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar —
-    mismo efecto que un SET NULL, el correo NO se borra.
+    DELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar.
 
     V5++ ola CJ — scope check sobre empresa.
     """
@@ -1552,20 +1747,11 @@ async def delete_oc(
             status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
         )
     await assert_empresa_access(user, db, oc.empresa_codigo)
-    if oc.estado not in _OC_ESTADOS_BORRABLES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"La OC {oc.numero_oc} esta en estado '{oc.estado}' y ya no se "
-                "puede borrar: solo se borran las que todavia no avanzaron "
-                "(borrador, emitida, en firma o anulada). Si esta mal cargada, "
-                "anulala — queda registrada como anulada y no se puede pagar."
-            ),
-        )
 
-    # UNA query: firmas puestas + quienes firmaron + vouchers con plata.
-    # Los vouchers se cuentan una sola vez aunque esten enlazados por los dos
-    # caminos (vouchers.oc_id directo y oc_cuotas.voucher_id).
+    # UNA query: firmas puestas + quienes firmaron + vouchers con plata + los
+    # ids de todos los vouchers atados. Ya no decide si se puede borrar —se
+    # puede siempre— sino QUE se anota en el registro. Es informacion que
+    # despues del DELETE no se puede reconstruir: las firmas se van con la OC.
     guard = (
         await db.execute(
             text(
@@ -1588,43 +1774,106 @@ async def delete_oc(
                                  SELECT c.voucher_id FROM core.oc_cuotas c
                                   WHERE c.oc_id = :id
                                     AND c.voucher_id IS NOT NULL)))
-                        AS vouchers
+                        AS vouchers,
+                    (SELECT COALESCE(
+                                ARRAY_AGG(v.voucher_id ORDER BY v.voucher_id),
+                                ARRAY[]::INT[])
+                       FROM core.vouchers v
+                      WHERE v.oc_id = :id
+                         OR v.voucher_id IN (
+                                 SELECT c.voucher_id FROM core.oc_cuotas c
+                                  WHERE c.oc_id = :id
+                                    AND c.voucher_id IS NOT NULL))
+                        AS voucher_ids
                 """
             ),
             {"id": oc_id, "estados_plata": list(_VOUCHER_ESTADOS_CON_PLATA)},
         )
     ).mappings().one()
 
-    if (guard["firmas"] or 0) > 0:
-        quienes = guard["firmantes"] or "un firmante"
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Esta OC ya la firmo {quienes}. Un documento firmado no se "
-                "puede borrar porque es respaldo legal de la operacion. "
-                f"Anulala en vez de borrarla: la OC {oc.numero_oc} queda como "
-                "anulada, sin efecto, y con el historial intacto."
-            ),
-        )
-    if (guard["vouchers"] or 0) > 0:
-        cantidad = guard["vouchers"]
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"Esta OC tiene {cantidad} voucher(s) aprobado(s) o pagado(s) "
-                "asociados: ya se comprometio o se movio la plata, y borrarla "
-                "dejaria esos pagos sin respaldo. Primero anula o revierte "
-                "esos vouchers; si igual queres dejarla sin efecto, anula la "
-                f"OC {oc.numero_oc}."
-            ),
-        )
-
     numero_oc = oc.numero_oc
     estado_prev = oc.estado
     empresa_prev = oc.empresa_codigo
-    # Snapshot completo (con unidades) ANTES de borrar: es lo unico que queda
-    # de la OC en el audit_log si despues hay que reconstruirla.
-    before = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
+    snapshot = await _snapshot_completo_oc(db, user, oc)
+    before = snapshot["oc"]
+
+    proveedor = (
+        await db.execute(
+            text("SELECT nombre, rut FROM core.proveedores WHERE proveedor_id = :p"),
+            {"p": oc.proveedor_id},
+        )
+    ).mappings().first() or {}
+
+    def _valor(campo: str) -> Any:
+        """Enum o escalar, lo mismo: la columna guarda el token."""
+        v = getattr(oc, campo, None)
+        return getattr(v, "value", v)
+
+    try:
+        # PRIMERO el registro, DESPUES el borrado, en la misma transaccion.
+        # Si esto revienta, el `db.delete` de abajo nunca corre.
+        await db.execute(
+            text(
+                """
+                INSERT INTO core.oc_eliminadas (
+                    oc_id, numero_oc, empresa_codigo, estado_previo,
+                    proveedor_nombre, proveedor_rut, fecha_emision, moneda,
+                    tipo_documento, total, total_a_pagar,
+                    firmas_puestas, firmantes, vouchers_con_plata, voucher_ids,
+                    motivo, eliminado_por_email, eliminado_por_id,
+                    ip, user_agent, snapshot
+                ) VALUES (
+                    :oc_id, :numero_oc, :empresa_codigo, :estado_previo,
+                    :proveedor_nombre, :proveedor_rut, :fecha_emision, :moneda,
+                    :tipo_documento, :total, :total_a_pagar,
+                    :firmas, :firmantes, :vouchers, :voucher_ids,
+                    :motivo, :email, CAST(:user_id AS UUID),
+                    :ip, :user_agent, CAST(:snapshot AS JSONB)
+                )
+                """
+            ),
+            {
+                "oc_id": oc_id,
+                "numero_oc": numero_oc,
+                "empresa_codigo": empresa_prev,
+                "estado_previo": estado_prev,
+                "proveedor_nombre": proveedor.get("nombre"),
+                "proveedor_rut": proveedor.get("rut"),
+                "fecha_emision": oc.fecha_emision,
+                "moneda": _valor("moneda"),
+                "tipo_documento": _valor("tipo_documento"),
+                "total": oc.total,
+                "total_a_pagar": getattr(oc, "total_a_pagar", None),
+                "firmas": guard["firmas"] or 0,
+                "firmantes": guard["firmantes"],
+                "vouchers": guard["vouchers"] or 0,
+                "voucher_ids": list(guard["voucher_ids"] or []),
+                "motivo": body.motivo.strip(),
+                "email": user.email,
+                "user_id": user.sub,
+                "ip": getattr(getattr(request, "client", None), "host", None),
+                "user_agent": (request.headers.get("user-agent") or "")[:500] or None,
+                # `default=str` porque el snapshot lleva Decimal y date, que
+                # json no serializa. Van como texto, que es lo que se quiere:
+                # un Decimal convertido a float perderia precision justo en
+                # los montos.
+                "snapshot": json.dumps(snapshot, default=str),
+            },
+        )
+    except ProgrammingError as exc:
+        # La tabla no esta instalada (falta correr scripts/sql/oc_papelera.sql).
+        # Se corta ACA sin borrar nada: borrar sin poder registrar es
+        # exactamente lo que este endpoint existe para evitar.
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=(
+                "No se puede borrar la OC porque el registro de eliminaciones "
+                "no esta disponible, y no se borra nada sin dejar constancia. "
+                "Avisa a soporte: falta instalar core.oc_eliminadas."
+            ),
+        ) from exc
+
     # Desligar los emails que apuntan a esta OC (la FK no tiene ON DELETE).
     # El correo queda en la bandeja, solo pierde el vinculo.
     await db.execute(
@@ -1638,8 +1887,9 @@ async def delete_oc(
         await db.delete(oc)
         await db.commit()
     except IntegrityError as exc:
-        # Alguna FK sin ON DELETE que no cubrimos: mejor un mensaje claro
-        # que un 500 opaco.
+        # Alguna FK sin ON DELETE que no cubrimos: mejor un mensaje claro que
+        # un 500 opaco. El rollback se lleva tambien el registro, que es lo
+        # correcto — no se borro nada, no hay nada que registrar.
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -1649,6 +1899,15 @@ async def delete_oc(
                 "borrarla, o avisa a soporte con este numero de OC."
             ),
         ) from exc
+
+    # El audit_log sigue, pero ahora es el canal SECUNDARIO: la constancia que
+    # importa ya esta commiteada arriba. Aca se anota para que el borrado
+    # aparezca en el feed de /admin/audit junto al resto de la actividad.
+    extra = ""
+    if guard["firmas"]:
+        extra += f", FIRMADA por {guard['firmantes']}"
+    if guard["vouchers"]:
+        extra += f", con {guard['vouchers']} voucher(s) con plata"
     await audit_log(
         db,
         request,
@@ -1657,7 +1916,10 @@ async def delete_oc(
         entity_type="orden_compra",
         entity_id=str(oc_id),
         entity_label=numero_oc,
-        summary=f"OC {numero_oc} eliminada (estado previo: {estado_prev}, empresa: {empresa_prev})",
+        summary=(
+            f"OC {numero_oc} eliminada (estado previo: {estado_prev}, "
+            f"empresa: {empresa_prev}{extra}). Motivo: {body.motivo.strip()}"
+        ),
         before=before,
         after=None,
     )

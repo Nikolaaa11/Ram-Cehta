@@ -33,14 +33,10 @@ const successBtn =
 const dangerBtn =
   "inline-flex items-center gap-2 rounded-xl bg-negative/10 px-3.5 py-2 text-sm font-medium text-negative ring-1 ring-negative/20 transition-colors hover:bg-negative/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-negative focus-visible:ring-offset-2";
 
-// Estados desde los que el backend acepta el DELETE (delete_oc →
-// _OC_ESTADOS_BORRABLES). Mas alla de estos, el camino es Anular.
-const ESTADOS_BORRABLES = new Set([
-  "borrador",
-  "emitida",
-  "en_firma",
-  "anulada",
-]);
+// Minimo de caracteres del motivo. Tiene que coincidir con
+// MOTIVO_ELIMINACION_MIN del backend (app/schemas/orden_compra.py): si el
+// front deja mandar menos, el usuario escribe, aprieta y recibe un 422.
+const MOTIVO_MIN = 10;
 
 export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
   const router = useRouter();
@@ -61,16 +57,17 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
   //     accion "update" en allowed_actions (emite download_pdf / approve /
   //     cancel / mark_paid / send_to_firma), asi que el boton Eliminar no
   //     aparecia NUNCA, en ningun estado;
-  //  2. el estado esta en la lista de borrables.
-  // El chequeo fino (firmas puestas, vouchers con plata, acceso a la
-  // empresa) lo hace el backend y devuelve 409 con la explicacion.
-  const canDelete =
-    (me?.allowed_actions?.includes("oc:update") ?? false) &&
-    ESTADOS_BORRABLES.has(estado ?? "");
+  //  2. (ya no hay condicion de estado). Nicolas pidio poder borrar SIEMPRE,
+  //     incluso una OC firmada o pagada, dejando registro. El backend ya no
+  //     bloquea por estado ni por firmas: guarda una copia completa de la OC
+  //     en core.oc_eliminadas —con quien la borro y por que— en la misma
+  //     transaccion que el DELETE.
+  // El acceso a la empresa lo sigue chequeando el backend (403).
+  const canDelete = me?.allowed_actions?.includes("oc:update") ?? false;
 
   const deleteMutation = useMutation({
-    mutationFn: () =>
-      apiClient.delete<void>(`/ordenes-compra/${ocId}`, session),
+    mutationFn: (motivo: string) =>
+      apiClient.delete<void>(`/ordenes-compra/${ocId}`, session, { motivo }),
     onSuccess: async () => {
       toast.success(`OC ${numeroOc} eliminada`);
       await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
@@ -292,26 +289,42 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
           title={`¿Eliminar la OC ${numeroOc}?`}
           description={
             <>
-              Vas a borrar la orden de compra{" "}
-              <span className="font-medium text-ink-900">{numeroOc}</span> de
-              forma definitiva: no se puede recuperar.
+              La orden de compra{" "}
+              <span className="font-medium text-ink-900">{numeroOc}</span> sale
+              del listado junto con sus ítems, su forma de pago y sus
+              firmantes. Los correos y vouchers relacionados no se borran:
+              solo dejan de estar asociados a esta OC.
               <br />
               <br />
-              Junto con la OC se borran también{" "}
               <span className="font-medium text-ink-900">
-                sus ítems, su forma de pago (cuotas) y sus firmantes
-              </span>
-              . Los correos y vouchers relacionados no se borran: solo dejan de
-              estar asociados a esta OC.
-              <br />
-              <br />
-              Si la OC ya está firmada o tiene pagos aprobados, el sistema no va
-              a dejar borrarla y te va a explicar por qué. En ese caso usá{" "}
-              <em>Anular</em>: la OC queda sin efecto pero con su historial.
+                Queda un registro permanente
+              </span>{" "}
+              en Órdenes de compra → Eliminadas, con una copia completa del
+              documento, tu nombre, la fecha y el motivo que escribas acá. Ese
+              registro no se puede editar ni borrar.
+              {estado === "firmada" || estado === "pagada" ? (
+                <>
+                  <br />
+                  <br />
+                  <span className="font-medium text-negative">
+                    Ojo: esta OC está {estado}.
+                  </span>{" "}
+                  Es el respaldo de un compromiso con un tercero. Si sólo
+                  querés dejarla sin efecto, <em>Anular</em> hace eso y la deja
+                  a la vista.
+                </>
+              ) : null}
             </>
           }
           confirmText="Eliminar definitivo"
-          onConfirm={() => deleteMutation.mutateAsync()}
+          motivo={{
+            label: "¿Por qué se elimina?",
+            placeholder:
+              "Ej: cargada con el proveedor equivocado, se reemplaza por la OC0046.",
+            minLength: MOTIVO_MIN,
+            hint: "Queda guardado para siempre. Es lo único que va a explicar este borrado.",
+          }}
+          onConfirm={(motivo) => deleteMutation.mutateAsync(motivo)}
         />
       )}
     </div>

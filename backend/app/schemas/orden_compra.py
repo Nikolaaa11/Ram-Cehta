@@ -316,3 +316,81 @@ class OrdenCompraUpdate(BaseModel):
                 "de documento HONORARIOS."
             )
         return self
+
+
+# ---------------------------------------------------------------------------
+# Papelera de OC — borrado con registro
+# ---------------------------------------------------------------------------
+# Nicolás pidió poder borrar cualquier OC, incluso firmada, dejando registro.
+# El registro vive en `core.oc_eliminadas` y se escribe en la MISMA
+# transacción que el DELETE: si no se puede guardar, la OC no se borra.
+
+#: Largo mínimo del motivo. No es un número mágico decorativo: con menos que
+#: esto entra "no", "error", "x" — que en el papel es lo mismo que no dejar
+#: motivo. El registro existe para que dentro de un año alguien entienda por
+#: qué desapareció un documento firmado.
+MOTIVO_ELIMINACION_MIN = 10
+
+
+class OcEliminarRequest(BaseModel):
+    """Cuerpo del DELETE. El motivo es obligatorio, no un extra."""
+
+    motivo: str = Field(
+        ...,
+        min_length=MOTIVO_ELIMINACION_MIN,
+        max_length=1000,
+        description=(
+            "Por qué se borra esta OC. Queda guardado para siempre junto con "
+            "la copia completa del documento."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def motivo_con_contenido(self) -> OcEliminarRequest:
+        # `min_length` cuenta caracteres crudos: "          " (diez espacios)
+        # pasa la validación de pydantic y rebota recién contra el CHECK de la
+        # BD, con un 500 opaco. Se corta acá, con un mensaje que se entiende.
+        if len(self.motivo.strip()) < MOTIVO_ELIMINACION_MIN:
+            raise ValueError(
+                f"El motivo tiene que tener al menos {MOTIVO_ELIMINACION_MIN} "
+                "caracteres de texto real. Escribí qué pasó con esta OC: "
+                "es lo único que va a quedar para explicar el borrado."
+            )
+        return self
+
+
+class OcEliminadaListItem(BaseModel):
+    """Una fila de la papelera. Los campos están denormalizados en la tabla
+    para que el listado no tenga que abrir el snapshot JSON."""
+
+    eliminacion_id: int
+    oc_id: int
+    numero_oc: str
+    empresa_codigo: str
+    estado_previo: str
+    proveedor_nombre: str | None = None
+    proveedor_rut: str | None = None
+    fecha_emision: date | None = None
+    moneda: str | None = None
+    tipo_documento: str | None = None
+    total: Decimal | None = None
+    total_a_pagar: Decimal | None = None
+    #: > 0 = se borró un documento firmado. Es el dato que hace que una fila
+    #: de esta lista importe o no.
+    firmas_puestas: int = 0
+    firmantes: str | None = None
+    vouchers_con_plata: int = 0
+    voucher_ids: list[int] = Field(default_factory=list)
+    motivo: str
+    eliminado_por_email: str | None = None
+    eliminado_el: datetime
+
+
+class OcEliminadaRead(OcEliminadaListItem):
+    """El detalle agrega la copia completa de la OC."""
+
+    #: Cabecera + ítems + cuotas + firmas + adjuntos + vouchers vinculados,
+    #: tal como estaban el segundo antes del borrado.
+    snapshot: dict
+    ip: str | None = None
+    user_agent: str | None = None

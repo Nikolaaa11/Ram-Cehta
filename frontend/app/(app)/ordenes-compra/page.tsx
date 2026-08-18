@@ -13,6 +13,7 @@ import {
   ExternalLink,
   FileDown,
   FileText,
+  FileX2,
   LayoutGrid,
   ListIcon,
   Loader2,
@@ -202,14 +203,14 @@ function OcRowActions({ oc }: { oc: OcListItem }) {
   // Si puede editar esta OC asumimos que puede crear en la misma empresa —
   // el backend revalida con require_scope igual.
   const canDuplicate = canEdit;
-  // Borrado físico: sólo 'emitida' (no pagada) o 'anulada'. El backend
-  // (DELETE /ordenes-compra/{id}) valida estricto; esto sólo decide si
-  // mostramos el botón.
-  const canDelete = canEdit && (oc.estado === "emitida" || oc.estado === "anulada");
+  // Borrado físico en CUALQUIER estado. Antes se limitaba a 'emitida' y
+  // 'anulada' porque el backend rebotaba el resto; ahora borra siempre y deja
+  // una copia completa en core.oc_eliminadas, con quién y por qué.
+  const canDelete = canEdit;
 
   const deleteMutation = useMutation({
-    mutationFn: () =>
-      apiClient.delete<void>(`/ordenes-compra/${oc.oc_id}`, session),
+    mutationFn: (motivo: string) =>
+      apiClient.delete<void>(`/ordenes-compra/${oc.oc_id}`, session, { motivo }),
     onSuccess: async () => {
       toast.success(`OC ${oc.numero_oc} eliminada`);
       // Prefijo: invalida todas las páginas/filtros del listado.
@@ -391,17 +392,25 @@ function OcRowActions({ oc }: { oc: OcListItem }) {
             title={`¿Eliminar la OC ${oc.numero_oc}?`}
             description={
               <>
-                La orden de compra se{" "}
-                <span className="font-medium text-ink-900">borra para siempre</span>{" "}
-                y no se puede recuperar. Sólo se permite si está{" "}
-                <span className="font-mono text-xs">emitida</span> o{" "}
-                <span className="font-mono text-xs">anulada</span>. Si lo que
-                querés es frenar el pago sin perder el rastro, entrá a la OC y
-                usá <em>Anular</em>.
+                La orden de compra sale del listado, pero{" "}
+                <span className="font-medium text-ink-900">
+                  queda un registro permanente
+                </span>{" "}
+                en Órdenes de compra → Eliminadas, con una copia completa del
+                documento, tu nombre, la fecha y el motivo. Si lo que querés es
+                frenar el pago dejándola a la vista, entrá a la OC y usá{" "}
+                <em>Anular</em>.
               </>
             }
             confirmText="Eliminar definitivo"
-            onConfirm={() => deleteMutation.mutateAsync()}
+            motivo={{
+              label: "¿Por qué se elimina?",
+              placeholder:
+                "Ej: cargada con el proveedor equivocado, se reemplaza por la OC0046.",
+              minLength: 10,
+              hint: "Queda guardado para siempre. Es lo único que va a explicar este borrado.",
+            }}
+            onConfirm={(motivo) => deleteMutation.mutateAsync(motivo)}
           />
         </>
       )}
@@ -679,6 +688,17 @@ export default function OrdenesCompraPage() {
           >
             <Sparkles className="h-4 w-4" strokeWidth={1.75} />
             Importar con IA
+          </Link>
+          {/* La papelera: sin este acceso, el registro de borrados existe pero
+              nadie lo encuentra, y un registro que no se mira no controla
+              nada. */}
+          <Link
+            href="/ordenes-compra/eliminadas"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
+            title="Registro de las OC eliminadas: quien, cuando y por que"
+          >
+            <FileX2 className="h-4 w-4" strokeWidth={1.75} />
+            Eliminadas
           </Link>
           <Link
             href="/ordenes-compra/desde-mensaje"

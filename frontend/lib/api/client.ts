@@ -262,10 +262,21 @@ export const apiClient = {
       { idempotencyKey: generateIdempotencyKey() },
     );
   },
-  delete<T>(path: string, session: Session | null): Promise<T> {
+  /**
+   * DELETE. `body` es opcional: lo usan los borrados que exigen dejar
+   * constancia (borrar una OC manda el motivo, que queda guardado para
+   * siempre en core.oc_eliminadas).
+   */
+  delete<T>(path: string, session: Session | null, body?: unknown): Promise<T> {
     return coreFetch<T>(
       path,
-      { method: "DELETE" },
+      body === undefined
+        ? { method: "DELETE" }
+        : {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
       session,
       { idempotencyKey: generateIdempotencyKey() },
     );
