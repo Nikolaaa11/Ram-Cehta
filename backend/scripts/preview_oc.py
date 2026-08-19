@@ -76,6 +76,17 @@ ESCENARIOS = {
     # negro. La razón social va COMPLETA y literal — es la que se imprime en el
     # bloque Mandante de un documento que firma un tercero.
     "ciclo": ("CICLO", "Inversiones Ciclo Capital SpA", "#111111"),
+    # TECMAVIDA es Tecnologia y Ecomateriales SpA — "tecmavida" es el nombre
+    # de fantasia, la razon social es la que va en el bloque Mandante.
+    #
+    # El color NO es el verde de marca (#91cc7a). Ese verde da 1,89:1 de
+    # contraste sobre blanco y el template lo usa para el TOTAL y para los
+    # filetes de seccion: el numero mas importante del documento saldria
+    # ilegible. #42762d es el MISMO verde —tono 103°, saturacion 45%— bajado
+    # a 32% de luminosidad: 5,44:1, casi identico al verde de RHO (5,47:1)
+    # que ya se lee bien en papel. El logotipo conserva los colores exactos
+    # de la marca; lo que se ajusta es el color de tinta del documento.
+    "tecmavida": ("TECMAVIDA", "Tecnología y Ecomateriales SpA", "#42762d"),
     "dte": ("DTE", "DTE Consulting & Development SpA", "#0A3A6B"),
     "revtech": ("REVTECH", "Revtech SpA", "#D97706"),
     "trongkai": ("TRONGKAI", "Trongkai SpA", "#2E7D32"),
@@ -96,7 +107,10 @@ ESCENARIOS = {
 # fetch falla (cold start de Fly, miss del CDN de Vercel) y hoy no cubre a
 # CICLO — queda reportado, no se arregla acá: el servicio está fuera de la lista
 # de archivos de este agente.
-_LOGO_PRECARGADO: dict[str, str] = {"CICLO": "ciclo.png"}
+_LOGO_PRECARGADO: dict[str, str] = {
+    "CICLO": "ciclo.png",
+    "TECMAVIDA": "tecmavida.png",
+}
 
 
 def _logo_del_escenario(codigo: str) -> bytes | None:
@@ -142,6 +156,31 @@ _FICHA_DEFAULT: dict = {
 }
 
 FICHAS: dict[str, dict] = {
+    "TECMAVIDA": {
+        # e-RUT 78343203-K, serie 202608636254, emitido 23-07-2026.
+        "rut": "78.343.203-K",
+        # Glosa literal del e-RUT y de la declaracion de inicio de
+        # actividades (folio 16657040, 20-07-2026). No se resume.
+        "giro": "Valorización de residuos industriales sólidos no peligrosos",
+        # Casa matriz declarada al SII. Es el MISMO predio que Panimavida
+        # Energy: Panimavida PC 3 Lote 3, rol 209-96, arrendado.
+        "direccion": "Panimávida PC 3 Lote 3",
+        "ciudad": "Colbún",
+        "telefono": "+56 9 8266 8731",
+        # FALTA: no hay sitio declarado en ningun documento. El pie del PDF
+        # omite la fila cuando es falsy.
+        "pagina_web": None,
+        # Constituyente y unico administrador segun el extracto del Diario
+        # Oficial N°44.342 del 07-01-2026 (escritura 22-12-2025, repertorio
+        # 4345-2025, Notaria de Talca de Pablo Andres Almendras Burgos).
+        "representante_legal": "José Antonio Maturana Coronado",
+        "firmantes": [{"nombre": "José Antonio Maturana Coronado",
+                       "cargo": "Representante Legal"}],
+        "observaciones": ("Servicios contratados para la operación de "
+                          "valorización de residuos en planta Panimávida."),
+        "hitos": ("Anticipo a la firma de la orden",
+                  "Contra recepción conforme en planta"),
+    },
     "CICLO": {
         # e-RUT serie 202608549755, emitido 18/06/2026. Es el de la SPA, no el
         # del fondo: el RUT del Fondo de Inversión Privado sigue marcado FALTA
@@ -422,8 +461,15 @@ def construir_contexto(
         # —y habría salido al pie de la OC del fondo—. Para RHO el string
         # resultante es idéntico al que había, así que ningún render anterior
         # cambia.
+        # Mismo criterio que produccion (`oc_pdf_v2_service`): si la empresa
+        # no tiene sitio declarado, el pie cierra con la razon social. El
+        # banco lo interpolaba sin filtrar y con `pagina_web=None` imprimia
+        # la palabra "None" en el pie de TODAS las paginas — un defecto de la
+        # vista previa, no del PDF real, pero que hacia desconfiar del banco
+        # justo cuando se lo usa para decidir si un diseno esta bien.
         "footer_texto": (
-            f"{ficha['direccion']}, {ficha['ciudad']}   |   {ficha['pagina_web']}"
+            f"{ficha['direccion']}, {ficha['ciudad']}   |   "
+            f"{ficha["pagina_web"] or razon}"
         ),
         "empresa": emp, "logo_data_uri": _logo_data_uri(raw),
         "logo_max_css": _logo_max_css(raw), "proveedor": prov, "cuenta": None,

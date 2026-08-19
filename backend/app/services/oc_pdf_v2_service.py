@@ -90,6 +90,12 @@ _LOGO_LOCAL: dict[str, str] = {
     "AFIS":      "afis.jpg",
     "FIP_CEHTA": "fip-cehta.png",
     "CEHTA":     "cehta.png",
+    # Las dos ultimas altas. Sin esta fila, si la descarga del logo por HTTP
+    # falla (cold start de Fly, miss del CDN de Vercel) la OC sale con el
+    # wordmark tipografico en vez del logotipo — y el proveedor recibe un
+    # documento distinto al de ayer sin que nadie se entere.
+    "CICLO":     "ciclo.png",
+    "TECMAVIDA": "tecmavida.png",
 }
 
 
