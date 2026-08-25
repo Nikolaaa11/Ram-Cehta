@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { ArrowLeft, Cloud, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Cloud, Plus, Trash2, Wand2 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
@@ -18,6 +18,8 @@ import { toast } from "@/components/ui/toast";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { toCLP } from "@/lib/format";
 import type { OcRead } from "@/lib/api/schema";
+import { TextareaAutosize } from "@/components/ui/textarea-autosize";
+import { parsearItemsPegados } from "@/lib/oc/pegar-items";
 
 interface ItemForm {
   descripcion: string;
@@ -200,6 +202,14 @@ export default function NuevaOcPage() {
 
   const [empresaCodigo, setEmpresaCodigo] = useState("");
   const [numeroOc, setNumeroOc] = useState("");
+  // Condiciones generales del PDF (las 4 clausulas de arbitraje). Arranca en
+  // true: es una clausula contractual, sacarla tiene que ser deliberado.
+  const [incluyeCondiciones, setIncluyeCondiciones] = useState(true);
+  // De donde salio el numero sugerido. Se muestra bajo el campo: una
+  // sugerencia que no explica su origen se acepta a ciegas, y aca lo que se
+  // acepta a ciegas es la identidad de un documento tributario.
+  const [motivoNumero, setMotivoNumero] = useState<string | null>(null);
+  const [sugiriendoNumero, setSugiriendoNumero] = useState(false);
   const [proveedorRut, setProveedorRut] = useState("");
   const [proveedorNombre, setProveedorNombre] = useState("");
   const [proveedorLookup, setProveedorLookup] = useState<ProveedorLookupState>({
@@ -253,6 +263,7 @@ export default function NuevaOcPage() {
       plazoPago,
       plazoEntrega,
       observaciones,
+      incluyeCondiciones,
       items,
       tipoDocumento,
       ivaPorcentaje,
@@ -271,6 +282,7 @@ export default function NuevaOcPage() {
       plazoPago,
       plazoEntrega,
       observaciones,
+      incluyeCondiciones,
       items,
       tipoDocumento,
       ivaPorcentaje,
@@ -420,6 +432,95 @@ export default function NuevaOcPage() {
   const updateItem = (idx: number, patch: Partial<ItemForm>) =>
     setItems(items.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
 
+  /**
+   * Pegar una planilla completa desde Excel.
+   *
+   * Se engancha en el campo de descripcion: es donde el operador hace clic
+   * primero y desde donde va a pegar. Si lo pegado NO tiene tabs ni varias
+   * filas, `parsearItemsPegados` devuelve lista vacia y se deja pasar el
+   * pegado normal del navegador — pegar una palabra suelta dentro del campo
+   * tiene que seguir funcionando como siempre.
+   *
+   * Las filas pegadas REEMPLAZAN desde la fila donde se pego hacia abajo, en
+   * vez de agregarse al final: si el operador esta parado en la fila 1 vacia
+   * y pega 8 items, quiere 8 items, no 1 vacio + 8.
+   */
+  const pegarItems = (idx: number, e: React.ClipboardEvent) => {
+    const texto = e.clipboardData.getData("text/plain");
+    const pegados = parsearItemsPegados(texto);
+    if (pegados.length === 0) return; // pegado comun: que lo maneje el browser
+    e.preventDefault();
+
+    const nuevos = [...items];
+    pegados.forEach((pg, i) => {
+      const destino = idx + i;
+      const previo = nuevos[destino] ?? {
+        descripcion: "",
+        unidad: "",
+        precio_unitario: "",
+        cantidad: "1",
+      };
+      nuevos[destino] = {
+        descripcion: pg.descripcion || previo.descripcion,
+        // Las columnas que la planilla no traiga NO pisan lo que ya habia
+        // cargado a mano: pegar 2 columnas sobre una fila con precio no
+        // puede borrar el precio.
+        unidad: pg.unidad || previo.unidad,
+        precio_unitario: pg.precio_unitario || previo.precio_unitario,
+        cantidad: pg.cantidad || previo.cantidad,
+      };
+    });
+    setItems(nuevos);
+    toast.success(
+      pegados.length === 1
+        ? "Se pegó 1 ítem"
+        : `Se pegaron ${pegados.length} ítems`,
+    );
+  };
+
+  /**
+   * Trae el proximo numero sugerido para la empresa elegida.
+   *
+   * Es una SUGERENCIA: el campo queda editable (Nicolas pidio "las dos
+   * formas"). Nunca pisa un numero que la persona ya escribio, salvo que
+   * apriete el boton a proposito (`forzar`).
+   */
+  const sugerirNumero = useCallback(
+    async (codigo: string, forzar: boolean) => {
+      if (!codigo) return;
+      if (!forzar && numeroOc.trim()) return;
+      setSugiriendoNumero(true);
+      try {
+        const r = await apiClient.get<{
+          numero: string;
+          motivo: string;
+          base: string | null;
+        }>(
+          `/ordenes-compra/siguiente-numero?empresa_codigo=${encodeURIComponent(codigo)}`,
+          session,
+        );
+        setNumeroOc(r.numero);
+        setMotivoNumero(r.motivo);
+      } catch {
+        // Que falle la sugerencia no puede frenar la carga de una OC: el
+        // campo queda como estaba y la persona escribe el numero.
+        setMotivoNumero(null);
+      } finally {
+        setSugiriendoNumero(false);
+      }
+    },
+    [numeroOc, session],
+  );
+
+  // Al elegir empresa se propone el numero que sigue. `forzar=false`: si la
+  // persona ya escribio uno, no se lo pisa.
+  useEffect(() => {
+    if (empresaCodigo) void sugerirNumero(empresaCodigo, false);
+    // `sugerirNumero` depende de `numeroOc`, que cambia con cada tecla: si
+    // entrara en las dependencias, esto se dispararia mientras se escribe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaCodigo]);
+
   const esHonorarios = tipoDocumento === "HONORARIOS";
   const esExenta = tipoDocumento === "FACTURA_EXENTA";
   const grossUp = esHonorarios && modoMonto === "LIQUIDO";
@@ -533,6 +634,9 @@ export default function NuevaOcPage() {
         validez_dias: Number(validezDias) || 30,
         forma_pago: formaPago || null,
         plazo_pago: plazoPago || null,
+        // Booleano puro: `|| true` convertiria un false explicito en true y
+        // la casilla no haria nada.
+        incluye_condiciones: incluyeCondiciones,
         plazo_entrega: plazoEntrega || null,
         observaciones: observaciones || null,
         tipo_documento: tipoDocumento,
@@ -689,15 +793,44 @@ export default function NuevaOcPage() {
                 <label className={labelBase} htmlFor="numero-oc">
                   Número OC {requiredMark}
                 </label>
-                <input
-                  id="numero-oc"
-                  type="text"
-                  value={numeroOc}
-                  onChange={(e) => setNumeroOc(e.target.value)}
-                  placeholder="OC-2026-001"
-                  required
-                  className={inputBase}
-                />
+                {/* Automático Y escribible, las dos formas: el correlativo se
+                    sugiere solo al elegir empresa, pero el campo queda
+                    editable. Ninguna empresa numera igual que otra, así que
+                    la sugerencia sale de aprender el formato que esa empresa
+                    ya usa — la deducción vive en el backend. */}
+                <div className="flex gap-2">
+                  <input
+                    id="numero-oc"
+                    type="text"
+                    value={numeroOc}
+                    onChange={(e) => {
+                      setNumeroOc(e.target.value);
+                      // Si lo edita a mano, el motivo de la sugerencia deja
+                      // de describir lo que hay en el campo.
+                      setMotivoNumero(null);
+                    }}
+                    placeholder="OC-2026-001"
+                    required
+                    className={`${inputBase} flex-1`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => sugerirNumero(empresaCodigo, true)}
+                    disabled={!empresaCodigo || sugiriendoNumero}
+                    title={
+                      empresaCodigo
+                        ? "Proponer el número que sigue"
+                        : "Elegí primero la empresa"
+                    }
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 text-sm font-medium text-ink-700 transition-colors hover:border-cehta-green/40 hover:text-cehta-green disabled:opacity-40"
+                  >
+                    <Wand2 className="h-4 w-4" strokeWidth={1.75} />
+                    {sugiriendoNumero ? "…" : "Sugerir"}
+                  </button>
+                </div>
+                {motivoNumero && (
+                  <p className="mt-1.5 text-xs text-ink-500">{motivoNumero}</p>
+                )}
               </div>
               <div>
                 <label className={labelBase} htmlFor="proveedor-rut">
@@ -1032,6 +1165,33 @@ export default function NuevaOcPage() {
                   className={inputBase}
                 />
               </div>
+
+              {/* Condiciones generales — las 4 cláusulas de arbitraje ante el
+                  Centro de Arbitraje y Mediación de Santiago que van al pie
+                  del PDF. Marcada por defecto: es una cláusula contractual,
+                  sacarla tiene que ser una decisión, no un olvido. */}
+              <div className="sm:col-span-2">
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={incluyeCondiciones}
+                    onChange={(e) => setIncluyeCondiciones(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-cehta-green focus:ring-cehta-green"
+                  />
+                  <span>
+                    <span className="text-sm font-medium text-ink-900">
+                      Incluir condiciones generales en el PDF
+                    </span>
+                    <span className="mt-0.5 block text-xs text-ink-500">
+                      Las 4 cláusulas de arbitraje del Centro de Arbitraje y
+                      Mediación de Santiago.{" "}
+                      {incluyeCondiciones
+                        ? "Se imprimen al final del documento."
+                        : "Esta OC va a salir SIN cláusula de arbitraje."}
+                    </span>
+                  </span>
+                </label>
+              </div>
             </div>
           </Surface.Body>
         </Surface>
@@ -1061,15 +1221,26 @@ export default function NuevaOcPage() {
                     <label className="sr-only" htmlFor={`item-desc-${idx}`}>
                       Descripción
                     </label>
-                    <input
+                    {/* Textarea y no input: las descripciones de OC son
+                        largas ("Desarrollo, revisión y actualización de
+                        procedimientos de trabajo seguro y documentación
+                        preventiva - PMGD Panimávida") y en una sola línea el
+                        operador escribe a ciegas. Crece con el texto.
+
+                        `onPaste` recibe una selección de Excel y la reparte
+                        en filas. Si lo pegado no es una planilla, el handler
+                        se hace a un lado y pega normal. */}
+                    <TextareaAutosize
                       id={`item-desc-${idx}`}
-                      type="text"
                       value={it.descripcion}
                       onChange={(e) =>
                         updateItem(idx, { descripcion: e.target.value })
                       }
-                      placeholder="Descripción"
+                      onPaste={(e) => pegarItems(idx, e)}
+                      placeholder="Descripción — o pegá desde Excel"
                       required
+                      minRows={1}
+                      maxRows={10}
                       className={inputBase}
                     />
                   </div>
@@ -1077,6 +1248,11 @@ export default function NuevaOcPage() {
                     <label className="sr-only" htmlFor={`item-price-${idx}`}>
                       Precio unitario
                     </label>
+                    {/* `step="any"` y no `0.01`: con un step fijo el
+                        navegador marca como inválido un precio con más
+                        decimales y empuja a mostrar ceros que nadie
+                        escribió. Nicolás: "si no tienen decimales que se vea
+                        sólo el número". Lo mismo en Cantidad. */}
                     <input
                       id={`item-price-${idx}`}
                       type="number"
@@ -1085,7 +1261,7 @@ export default function NuevaOcPage() {
                         updateItem(idx, { precio_unitario: e.target.value })
                       }
                       placeholder="P. Unit."
-                      step="0.01"
+                      step="any"
                       min="0"
                       required
                       className={`${inputBase} tabular-nums`}
@@ -1103,8 +1279,8 @@ export default function NuevaOcPage() {
                         updateItem(idx, { cantidad: e.target.value })
                       }
                       placeholder="Cant."
-                      step="0.01"
-                      min="0.01"
+                      step="any"
+                      min="0"
                       className={`${inputBase} tabular-nums`}
                     />
                   </div>

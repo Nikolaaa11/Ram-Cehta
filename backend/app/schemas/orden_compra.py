@@ -55,6 +55,11 @@ class OCDetalleRead(BaseModel):
 
 class OrdenCompraCreate(BaseModel):
     numero_oc: str = Field(..., min_length=1, max_length=50)
+    #: Si el PDF imprime la sección "Condiciones generales" (las 4 cláusulas
+    #: de arbitraje ante el Centro de Arbitraje y Mediación de Santiago).
+    #: Default True porque es una cláusula contractual: el silencio tiene que
+    #: dejar el documento como estaba, y sacarla debe ser deliberado.
+    incluye_condiciones: bool = True
     empresa_codigo: str
     proveedor_id: int | None = None
     # Opcionales: si no viene proveedor_id pero si proveedor_rut+nombre,
@@ -198,6 +203,11 @@ class OrdenCompraRead(BaseModel):
     # difieren en HONORARIOS, y una OC de honorarios no puede existir antes
     # de que la migración haya corrido.
     total_a_pagar: Decimal | None = None
+    #: Default True y no None: cubre la ventana entre el deploy y la
+    #: migración aplicada a mano. Si la columna todavía no existe, el
+    #: consumidor ve el comportamiento de siempre (con condiciones), que es
+    #: el correcto para las OC ya emitidas.
+    incluye_condiciones: bool = True
     estado: str
     pdf_url: str | None
     items: list[OCDetalleRead]
@@ -289,6 +299,11 @@ class OrdenCompraUpdate(BaseModel):
     retencion_porcentaje: Decimal | None = Field(default=None, ge=0, le=100)
 
     model_config = {"extra": "ignore"}
+
+    #: None = el PATCH no lo toca. `update_fields` usa
+    #: `model_dump(exclude_unset=True)`, así que un False explícito SÍ se
+    #: persiste — es la diferencia entre "no me pronuncio" y "sacalas".
+    incluye_condiciones: bool | None = None
 
     @model_validator(mode="after")
     def coherencia_tributaria(self) -> OrdenCompraUpdate:

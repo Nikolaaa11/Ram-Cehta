@@ -1174,7 +1174,15 @@
     </table>
 
   {# ---------- 8. Condiciones generales ----------
-       TEXTO LITERAL — cláusula contractual de arbitraje. No se toca. #}
+       TEXTO LITERAL — cláusula contractual de arbitraje. El texto NO se toca;
+       lo único que se decide por OC es si se imprime.
+
+       `oc.incluye_condiciones` llega ya normalizado desde el servicio: es
+       True salvo que el operador lo haya apagado explícitamente. Un
+       `{% if %}` sobre un valor ausente sería falsy y dejaría sin cláusula
+       de arbitraje a toda OC generada durante la ventana entre el deploy y
+       la migración — por eso la normalización vive en Python y no acá. #}
+    {% if oc.incluye_condiciones %}
     <p class="sec">Condiciones generales</p>
     <table class="notas">
       <tr>
@@ -1189,6 +1197,7 @@
         </td>
       </tr>
     </table>
+    {% endif %}
 
     <p class="sec">Firmas</p>
     <p class="firmas-grupo">Por el proveedor</p>

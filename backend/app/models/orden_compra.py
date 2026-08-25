@@ -3,7 +3,16 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, Text, func
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -61,6 +70,12 @@ class OrdenCompra(Base):
     # lugares a la vez. NOT NULL sin server_default a propósito: quien
     # inserta tiene que calcularlo, un 0 por omisión sería un monto falso.
     total_a_pagar: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
+    # Si el PDF imprime las "Condiciones generales" (las 4 clausulas de
+    # arbitraje). Default TRUE en BD: es una clausula contractual, el silencio
+    # tiene que dejar el documento como estaba. Sacarla es deliberado.
+    incluye_condiciones: Mapped[bool] = mapped_column(
+        Boolean, server_default="true", nullable=False
+    )
     estado: Mapped[str] = mapped_column(Text, server_default="emitida")
     pdf_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

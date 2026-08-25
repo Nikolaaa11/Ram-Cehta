@@ -119,6 +119,10 @@ class OrdenCompraRepository:
             # llamador que no derivó nada queda igual a como estaba antes de
             # este cambio, no en NULL.
             total_a_pagar=_der("total_a_pagar", total),
+            # Booleano puro, sin `_der` ni `or`: el schema ya lo trae con
+            # default True y un False explicito del operador tiene que
+            # sobrevivir. Con `or` un False se convertiria en el default.
+            incluye_condiciones=data.incluye_condiciones,
         )
         self._session.add(oc)
         await self._session.flush()

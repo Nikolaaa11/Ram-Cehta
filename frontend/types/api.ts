@@ -1495,6 +1495,12 @@ export interface paths {
          *     los gráficos cambiaban al elegir una empresa y las tarjetas KPI
          *     seguían mostrando cifras globales (engañoso).
          *
+         *     R152kk — mismo cuento con ?from=&to= (YYYY-MM): ahora los flujos e IVA
+         *     se agregan sobre la ventana elegida y se comparan contra la ventana
+         *     inmediatamente anterior del mismo largo. Sin from/to el comportamiento
+         *     es el de siempre (mes actual vs mes anterior). Saldos, OCs y F29 son
+         *     fotos del presente, no series: el rango no los toca.
+         *
          *     Cache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan
          *     ser frescos al segundo. El browser/CDN devuelve cached por 60s y
          *     revalida en background.
@@ -1518,6 +1524,9 @@ export interface paths {
         /**
          * Get Cashflow
          * @description V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min.
+         *
+         *     R152kk — ?from=&to= (YYYY-MM) acota la serie a esos meses; sin ellos
+         *     se mantiene la ventana de los últimos `meses`.
          */
         get: operations["get_cashflow_api_v1_dashboard_cashflow_get"];
         put?: never;
@@ -1538,6 +1547,9 @@ export interface paths {
         /**
          * Get Egresos Por Concepto
          * @description V5++ ola CB: top 10 conceptos egreso filtrado por scope.
+         *
+         *     R152kk — ?from=&to= (YYYY-MM) suma los conceptos sobre toda la ventana;
+         *     `periodo` explícito y el default (mes actual) siguen funcionando igual.
          */
         get: operations["get_egresos_por_concepto_api_v1_dashboard_egresos_por_concepto_get"];
         put?: never;
@@ -1578,6 +1590,8 @@ export interface paths {
         /**
          * Get Iva Trend
          * @description V5++ ola CB: IVA trend filtrado por scope.
+         *
+         *     R152kk — ?from=&to= (YYYY-MM) acota la serie a esos meses.
          */
         get: operations["get_iva_trend_api_v1_dashboard_iva_trend_get"];
         put?: never;
@@ -1598,6 +1612,11 @@ export interface paths {
         /**
          * Get Proyectos Ranking
          * @description V5++ ola CB: ranking de proyectos filtrado por scope.
+         *
+         *     R152kk — ?from=&to= (YYYY-MM) reemplaza la ventana fija de 12 meses, y
+         *     ?empresa_codigo= acota el ranking a una empresa (el dashboard ya lo
+         *     mandaba; el endpoint lo descartaba en silencio, igual que /kpis antes
+         *     del R152UUUUUU). `filter_codes` valida el código contra el scope.
          */
         get: operations["get_proyectos_ranking_api_v1_dashboard_proyectos_ranking_get"];
         put?: never;
@@ -1754,28 +1773,42 @@ export interface paths {
         post?: never;
         /**
          * Delete Oc
-         * @description Borra fisicamente una OC mal cargada. Estados permitidos: borrador,
-         *     emitida, en_firma, anulada.
+         * @description Borra fisicamente una OC, en CUALQUIER estado, dejando registro.
          *
-         *     Bloqueos (409, con explicacion de que hacer en su lugar):
-         *       · la OC tiene al menos una firma con status='FIRMADA' → documento
-         *         firmado, evidencia legal, se anula pero no se borra;
-         *       · la OC tiene vouchers APPROVED/EXECUTED/SYNCED/RECONCILED (directos
-         *         via vouchers.oc_id o via sus cuotas) → ya hay plata comprometida.
-         *     Ambas condiciones se chequean en UNA sola query (subselects), no una
-         *     query por condicion.
+         *     Antes esto rebotaba con 409 en dos casos —OC con firmas puestas, u OC con
+         *     vouchers APPROVED/EXECUTED/SYNCED/RECONCILED— y ademas exigia que el
+         *     estado fuera borrador/emitida/en_firma/anulada. Nicolas pidio explicito
+         *     que se pueda borrar SIEMPRE, "pero que quede un registro de que se
+         *     elimino". Los tres bloqueos se levantan y en su lugar queda una constancia
+         *     que no se puede perder ni editar.
+         *
+         *     El registro (`core.oc_eliminadas`) se escribe en la MISMA transaccion que
+         *     el DELETE y ANTES del commit. Esa es la parte que importa: si el insert
+         *     del registro falla, la transaccion entera se cae y la OC NO se borra. No
+         *     existe el camino "se borro y no quedo constancia". El `audit_log` no
+         *     servia para esto porque corre DESPUES del commit y es best-effort: si
+         *     fallaba, la OC ya no estaba.
+         *
+         *     Que queda guardado: la OC entera (cabecera, items, cuotas, firmas,
+         *     adjuntos), los vouchers que colgaban de ella, los correos que la
+         *     referenciaban, cuantas firmas tenia y de quien, quien la borro, desde que
+         *     IP, cuando y por que. El motivo es obligatorio (minimo 10 caracteres
+         *     reales) y la tabla es inmutable por trigger.
+         *
+         *     Lo que NO se borra, igual que antes: los vouchers (FK ON DELETE SET NULL)
+         *     y los correos de la bandeja. Solo pierden el vinculo, y sus ids quedan
+         *     anotados en el snapshot para poder rehacerlo.
          *
          *     Borrado en cascada — verificado contra las FK reales:
-         *       · core.ordenes_compra_detalle  ON DELETE CASCADE (+ cascade ORM)
+         *       · core.ordenes_compra_detalle  ON DELETE CASCADE
          *       · core.oc_cuotas               ON DELETE CASCADE  → forma de pago
-         *       · core.oc_firmas               ON DELETE CASCADE  → firmantes pendientes
+         *       · core.oc_firmas               ON DELETE CASCADE  → firmantes
          *       · core.oc_attachments          ON DELETE CASCADE  → adjuntos del email
          *       · core.vouchers.oc_id          ON DELETE SET NULL → el voucher sobrevive
          *       · webhooks/eventos de email    ON DELETE SET NULL
          *     La excepcion es core.inbox_messages.linked_oc_id, cuya FK quedo SIN
          *     ON DELETE (NO ACTION): si la OC nacio de un email, Postgres abortaba el
-         *     DELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar —
-         *     mismo efecto que un SET NULL, el correo NO se borra.
+         *     DELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar.
          *
          *     V5++ ola CJ — scope check sobre empresa.
          */
@@ -1874,6 +1907,85 @@ export interface paths {
          *     el flujo de export lo dispare).
          */
         post: operations["duplicate_oc_api_v1_ordenes_compra__oc_id__duplicate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/siguiente-numero": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Siguiente Numero
+         * @description Propone el próximo número de OC aprendiendo del formato de la empresa.
+         *
+         *     NO impone un formato: cada una de las 13 empresas numera distinto
+         *     (`OC0051-PAN001-...` con el contador adelante, `OC-T&E-0004` al final,
+         *     `OC-2026-020` donde 2026 es el año) y un formato impuesto desde el código
+         *     rompería la numeración de todas menos una. La deducción vive en
+         *     `domain/value_objects/correlativo_oc.py`, con tests contra los seis
+         *     formatos reales.
+         *
+         *     Se miran las OC vivas Y las eliminadas: un número que se usó y se borró
+         *     NO se reutiliza — el PDF pudo haber salido al proveedor, y que la fila ya
+         *     no esté no significa que el documento no exista en el mundo.
+         *
+         *     El resultado es una SUGERENCIA. El campo del formulario queda editable
+         *     (Nicolás pidió "las dos formas"), y la unicidad real la sigue garantizando
+         *     la constraint `(empresa_codigo, numero_oc)` en la BD, no esto.
+         */
+        get: operations["siguiente_numero_api_v1_ordenes_compra_siguiente_numero_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/eliminadas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Oc Eliminadas
+         * @description La papelera: qué OC se borraron, quién y por qué.
+         *
+         *     Va con el MISMO scope multi-tenant que el listado de OC vivas — el
+         *     registro de un borrado contiene la OC entera, así que filtrarlo menos que
+         *     a la OC original sería una filtración por la puerta de atrás.
+         */
+        get: operations["list_oc_eliminadas_api_v1_ordenes_compra_eliminadas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/eliminadas/{eliminacion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Oc Eliminada
+         * @description El detalle, con la copia completa de la OC que se borró.
+         */
+        get: operations["get_oc_eliminada_api_v1_ordenes_compra_eliminadas__eliminacion_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -18114,6 +18226,132 @@ export interface components {
             /** Auto Send Oc Emails */
             auto_send_oc_emails?: boolean | null;
         };
+        /**
+         * OcEliminadaListItem
+         * @description Una fila de la papelera. Los campos están denormalizados en la tabla
+         *     para que el listado no tenga que abrir el snapshot JSON.
+         */
+        OcEliminadaListItem: {
+            /** Eliminacion Id */
+            eliminacion_id: number;
+            /** Oc Id */
+            oc_id: number;
+            /** Numero Oc */
+            numero_oc: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Estado Previo */
+            estado_previo: string;
+            /** Proveedor Nombre */
+            proveedor_nombre?: string | null;
+            /** Proveedor Rut */
+            proveedor_rut?: string | null;
+            /** Fecha Emision */
+            fecha_emision?: string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /** Tipo Documento */
+            tipo_documento?: string | null;
+            /** Total */
+            total?: string | null;
+            /** Total A Pagar */
+            total_a_pagar?: string | null;
+            /**
+             * Firmas Puestas
+             * @default 0
+             */
+            firmas_puestas: number;
+            /** Firmantes */
+            firmantes?: string | null;
+            /**
+             * Vouchers Con Plata
+             * @default 0
+             */
+            vouchers_con_plata: number;
+            /** Voucher Ids */
+            voucher_ids?: number[];
+            /** Motivo */
+            motivo: string;
+            /** Eliminado Por Email */
+            eliminado_por_email?: string | null;
+            /**
+             * Eliminado El
+             * Format: date-time
+             */
+            eliminado_el: string;
+        };
+        /**
+         * OcEliminadaRead
+         * @description El detalle agrega la copia completa de la OC.
+         */
+        OcEliminadaRead: {
+            /** Eliminacion Id */
+            eliminacion_id: number;
+            /** Oc Id */
+            oc_id: number;
+            /** Numero Oc */
+            numero_oc: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Estado Previo */
+            estado_previo: string;
+            /** Proveedor Nombre */
+            proveedor_nombre?: string | null;
+            /** Proveedor Rut */
+            proveedor_rut?: string | null;
+            /** Fecha Emision */
+            fecha_emision?: string | null;
+            /** Moneda */
+            moneda?: string | null;
+            /** Tipo Documento */
+            tipo_documento?: string | null;
+            /** Total */
+            total?: string | null;
+            /** Total A Pagar */
+            total_a_pagar?: string | null;
+            /**
+             * Firmas Puestas
+             * @default 0
+             */
+            firmas_puestas: number;
+            /** Firmantes */
+            firmantes?: string | null;
+            /**
+             * Vouchers Con Plata
+             * @default 0
+             */
+            vouchers_con_plata: number;
+            /** Voucher Ids */
+            voucher_ids?: number[];
+            /** Motivo */
+            motivo: string;
+            /** Eliminado Por Email */
+            eliminado_por_email?: string | null;
+            /**
+             * Eliminado El
+             * Format: date-time
+             */
+            eliminado_el: string;
+            /** Snapshot */
+            snapshot: {
+                [key: string]: unknown;
+            };
+            /** Ip */
+            ip?: string | null;
+            /** User Agent */
+            user_agent?: string | null;
+        };
+        /**
+         * OcEliminarRequest
+         * @description Cuerpo del DELETE. El motivo es obligatorio, no un extra.
+         */
+        OcEliminarRequest: {
+            /**
+             * Motivo
+             * @description Por qué se borra esta OC. Queda guardado para siempre junto con la copia completa del documento.
+             */
+            motivo: string;
+        };
         /** OcExtractFromTextRequest */
         OcExtractFromTextRequest: {
             /** Empresa Codigo */
@@ -18292,6 +18530,11 @@ export interface components {
         OrdenCompraCreate: {
             /** Numero Oc */
             numero_oc: string;
+            /**
+             * Incluye Condiciones
+             * @default true
+             */
+            incluye_condiciones: boolean;
             /** Empresa Codigo */
             empresa_codigo: string;
             /** Proveedor Id */
@@ -18452,6 +18695,11 @@ export interface components {
             retencion_monto: string;
             /** Total A Pagar */
             total_a_pagar?: string | null;
+            /**
+             * Incluye Condiciones
+             * @default true
+             */
+            incluye_condiciones: boolean;
             /** Estado */
             estado: string;
             /** Pdf Url */
@@ -18517,6 +18765,8 @@ export interface components {
             iva_porcentaje?: number | string | null;
             /** Retencion Porcentaje */
             retencion_porcentaje?: number | string | null;
+            /** Incluye Condiciones */
+            incluye_condiciones?: boolean | null;
         };
         /** OwnerCount */
         OwnerCount: {
@@ -18684,6 +18934,19 @@ export interface components {
         Page_NotificationRead_: {
             /** Items */
             items: components["schemas"]["NotificationRead"][];
+            /** Total */
+            total: number;
+            /** Page */
+            page: number;
+            /** Size */
+            size: number;
+            /** Pages */
+            pages: number;
+        };
+        /** Page[OcEliminadaListItem] */
+        Page_OcEliminadaListItem_: {
+            /** Items */
+            items: components["schemas"]["OcEliminadaListItem"][];
             /** Total */
             total: number;
             /** Page */
@@ -20586,6 +20849,18 @@ export interface components {
              * @default 0
              */
             voucher_approved_ready_to_pay: number;
+        };
+        /**
+         * SiguienteNumeroResponse
+         * @description Sugerencia del próximo número de OC para una empresa.
+         */
+        SiguienteNumeroResponse: {
+            /** Numero */
+            numero: string;
+            /** Motivo */
+            motivo: string;
+            /** Base */
+            base?: string | null;
         };
         /** SiiDocRow */
         SiiDocRow: {
@@ -25155,6 +25430,8 @@ export interface operations {
         parameters: {
             query?: {
                 empresa_codigo?: string | null;
+                from?: string | null;
+                to?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -25189,6 +25466,8 @@ export interface operations {
             query?: {
                 empresa_codigo?: string | null;
                 meses?: number;
+                from?: string | null;
+                to?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -25223,6 +25502,8 @@ export interface operations {
             query?: {
                 empresa_codigo?: string | null;
                 periodo?: string | null;
+                from?: string | null;
+                to?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -25288,6 +25569,8 @@ export interface operations {
             query?: {
                 empresa_codigo?: string | null;
                 meses?: number;
+                from?: string | null;
+                to?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -25321,6 +25604,9 @@ export interface operations {
         parameters: {
             query?: {
                 limit?: number;
+                empresa_codigo?: string | null;
+                from?: string | null;
+                to?: string | null;
             };
             header?: {
                 authorization?: string | null;
@@ -25630,7 +25916,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OcEliminarRequest"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             204: {
@@ -25777,6 +26067,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrdenCompraRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    siguiente_numero_api_v1_ordenes_compra_siguiente_numero_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiguienteNumeroResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_oc_eliminadas_api_v1_ordenes_compra_eliminadas_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                empresa_codigo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_OcEliminadaListItem_"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_oc_eliminada_api_v1_ordenes_compra_eliminadas__eliminacion_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                eliminacion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcEliminadaRead"];
                 };
             };
             /** @description Validation Error */

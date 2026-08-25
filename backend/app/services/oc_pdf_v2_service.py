@@ -384,7 +384,8 @@ async def _load_context(
                               forma_pago, plazo_pago, plazo_entrega,
                               observaciones, estado,
                               atte_nombre, atte_cargo, tipo_documento, iva_porcentaje,
-                              retencion_porcentaje, retencion_monto, total_a_pagar
+                              retencion_porcentaje, retencion_monto, total_a_pagar,
+                              incluye_condiciones
                        FROM core.ordenes_compra
                        WHERE oc_id = :id"""
                 ),
@@ -618,6 +619,12 @@ async def _load_context(
         "lugar_entrega": None,
         "garantia": None,
         "observaciones": oc_row.get("observaciones"),
+        # Condiciones generales (las 4 clausulas de arbitraje). `is not False`
+        # y NO `.get(..., True)` ni `or True`: cubre los TRES casos de una
+        # sola vez —columna ausente (entorno pre-migracion) y valor NULL dan
+        # True, y solo un False explicito las saca—. Con `or True` un False
+        # se convertiria en True y la casilla del operador no haria nada.
+        "incluye_condiciones": oc_row.get("incluye_condiciones") is not False,
         "gestiones_proveedor": None,
         "emails_documentacion": None,
         "emails_insumos": None,

@@ -10,6 +10,7 @@ import { CrearVoucherDesdeOcButton } from "@/components/vouchers/VoucherDesdeOc"
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { FileLink } from "@/components/shared/FileLink";
+import { limpiarCeros } from "@/lib/oc/pegar-items";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate } from "@/lib/format";
@@ -339,7 +340,11 @@ export default async function OcDetallePage({
                       {toCLP(it.precio_unitario)}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
-                      {it.cantidad}
+                      {/* `cantidad` es NUMERIC(18,4) en BD y la API la manda
+                          como "50.0000". Impresa cruda, una cantidad entera
+                          se veía con cuatro decimales que nadie escribió.
+                          El PDF ya lo resolvía con "%g"; la pantalla no. */}
+                      {limpiarCeros(String(it.cantidad))}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-ink-900 tabular-nums">
                       {toCLP(it.total_linea)}

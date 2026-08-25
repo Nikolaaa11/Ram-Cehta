@@ -38,6 +38,7 @@ from app.domain.value_objects.retencion import (
     normalizar_porcentajes,
     porcentaje_retencion_por_fecha,
 )
+from app.domain.value_objects.correlativo_oc import siguiente_numero_oc
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
@@ -1620,6 +1621,90 @@ async def _snapshot_completo_oc(
         "inbox_ids": await _pieza(_SNAPSHOT_CORREOS, "correos", []),
         "_formato": 1,
     }
+
+
+class SiguienteNumeroResponse(BaseModel):
+    """Sugerencia del próximo número de OC para una empresa."""
+
+    numero: str
+    #: De dónde salió. La pantalla lo muestra bajo el campo: una sugerencia
+    #: que no explica su origen se acepta a ciegas, y acá lo que se acepta a
+    #: ciegas es la identidad de un documento tributario.
+    motivo: str
+    #: El número del que se dedujo. None si la empresa no tenía ninguno.
+    base: str | None = None
+
+
+@router.get(
+    "/siguiente-numero",
+    response_model=SiguienteNumeroResponse,
+    dependencies=[Depends(require_scope("oc:read"))],
+)
+async def siguiente_numero(
+    user: CurrentUser,
+    db: DBSession,
+    empresa_codigo: str = Query(..., min_length=1, max_length=30),
+) -> SiguienteNumeroResponse:
+    """Propone el próximo número de OC aprendiendo del formato de la empresa.
+
+    NO impone un formato: cada una de las 13 empresas numera distinto
+    (`OC0051-PAN001-...` con el contador adelante, `OC-T&E-0004` al final,
+    `OC-2026-020` donde 2026 es el año) y un formato impuesto desde el código
+    rompería la numeración de todas menos una. La deducción vive en
+    `domain/value_objects/correlativo_oc.py`, con tests contra los seis
+    formatos reales.
+
+    Se miran las OC vivas Y las eliminadas: un número que se usó y se borró
+    NO se reutiliza — el PDF pudo haber salido al proveedor, y que la fila ya
+    no esté no significa que el documento no exista en el mundo.
+
+    El resultado es una SUGERENCIA. El campo del formulario queda editable
+    (Nicolás pidió "las dos formas"), y la unicidad real la sigue garantizando
+    la constraint `(empresa_codigo, numero_oc)` en la BD, no esto.
+    """
+    await assert_empresa_access(user, db, empresa_codigo)
+
+    # Ordenados por fecha de creación descendente: `siguiente_numero_oc`
+    # compara los DOS más recientes para descubrir qué grupo de dígitos es el
+    # contador y cuál es un año o un código de centro.
+    filas = (
+        await db.execute(
+            text(
+                """
+                SELECT numero_oc, creado FROM (
+                    SELECT numero_oc, created_at AS creado
+                      FROM core.ordenes_compra
+                     WHERE empresa_codigo = :e
+                    UNION ALL
+                    SELECT numero_oc, eliminado_el AS creado
+                      FROM core.oc_eliminadas
+                     WHERE empresa_codigo = :e
+                ) t
+                ORDER BY creado DESC
+                LIMIT 200
+                """
+            ),
+            {"e": empresa_codigo},
+        )
+    ).mappings().all()
+
+    prefijo = await db.scalar(
+        text("SELECT oc_prefix FROM core.empresas WHERE codigo = :e"),
+        {"e": empresa_codigo},
+    )
+
+    s = siguiente_numero_oc([f["numero_oc"] for f in filas], prefijo)
+    if s is None:
+        # Sólo pasa si no hay hueco libre en 1000 intentos. Mejor no proponer
+        # que proponer un duplicado.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "No se pudo deducir el próximo número para esta empresa. "
+                "Escribilo a mano."
+            ),
+        )
+    return SiguienteNumeroResponse(numero=s.numero, motivo=s.motivo, base=s.base)
 
 
 # Las dos rutas de la papelera van declaradas ANTES del DELETE por costumbre

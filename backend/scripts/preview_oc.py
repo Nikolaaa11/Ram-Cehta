@@ -348,7 +348,8 @@ def _redondear(monto: Decimal, paso: Decimal) -> Decimal:
 
 
 def construir_contexto(
-    escenario: str, n_items: int, folio: str, tipo: str, moneda: str
+    escenario: str, n_items: int, folio: str, tipo: str, moneda: str,
+    incluye_condiciones: bool = True,
 ) -> dict:
     codigo, razon, color = ESCENARIOS[escenario]
     ficha = FICHAS.get(codigo, _FICHA_DEFAULT)
@@ -418,6 +419,10 @@ def construir_contexto(
         plazo_pago="30 días", plazo_entrega="No aplica", lugar_entrega=None,
         garantia=None,
         observaciones=ficha["observaciones"],
+        # Sin esta clave, `oc.incluye_condiciones` es undefined en Jinja ->
+        # falsy -> la vista previa mostraria SIEMPRE la OC sin clausulas,
+        # que es lo contrario de produccion (donde el default es True).
+        incluye_condiciones=incluye_condiciones,
         gestiones_proveedor=None, emails_documentacion=None, emails_insumos=None,
         total_neto=neto, iva=iva,
         iva_porcentaje=iva_pct, tipo_documento=token,
@@ -504,6 +509,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--escenario", default="rho", choices=sorted(ESCENARIOS))
     ap.add_argument("--items", type=int, default=2)
+    ap.add_argument(
+        "--sin-condiciones",
+        action="store_true",
+        help=("Imprime la OC SIN las clausulas de arbitraje, para ver el "
+              "efecto de la casilla nueva."),
+    )
     ap.add_argument("--folio", default="OC-FLUJO-COMPLETO-9901")
     ap.add_argument("--template", default="orden_compra_panimavida.html")
     ap.add_argument(
@@ -544,7 +555,8 @@ def main() -> int:
     )
     _OUT.mkdir(exist_ok=True)
     ctx = construir_contexto(
-        args.escenario, args.items, args.folio, args.tipo, args.moneda
+        args.escenario, args.items, args.folio, args.tipo, args.moneda,
+        incluye_condiciones=not args.sin_condiciones,
     )
     html = _env.get_template(args.template).render(**ctx)
 

@@ -4578,7 +4578,7 @@
           "dashboard"
         ],
         "summary": "Get Kpis",
-        "description": "V5++ ola CB+CC: KPIs solo de empresas en scope del user.\n\nR152UUUUUU — acepta ?empresa_codigo=: el EmpresaFilter del dashboard\nlo enviaba desde siempre pero el endpoint lo ignoraba en silencio —\nlos gráficos cambiaban al elegir una empresa y las tarjetas KPI\nseguían mostrando cifras globales (engañoso).\n\nCache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan\nser frescos al segundo. El browser/CDN devuelve cached por 60s y\nrevalida en background.",
+        "description": "V5++ ola CB+CC: KPIs solo de empresas en scope del user.\n\nR152UUUUUU — acepta ?empresa_codigo=: el EmpresaFilter del dashboard\nlo enviaba desde siempre pero el endpoint lo ignoraba en silencio —\nlos gráficos cambiaban al elegir una empresa y las tarjetas KPI\nseguían mostrando cifras globales (engañoso).\n\nR152kk — mismo cuento con ?from=&to= (YYYY-MM): ahora los flujos e IVA\nse agregan sobre la ventana elegida y se comparan contra la ventana\ninmediatamente anterior del mismo largo. Sin from/to el comportamiento\nes el de siempre (mes actual vs mes anterior). Saldos, OCs y F29 son\nfotos del presente, no series: el rango no los toca.\n\nCache HTTP 60s + stale-while-revalidate 30s. Los KPIs no necesitan\nser frescos al segundo. El browser/CDN devuelve cached por 60s y\nrevalida en background.",
         "operationId": "get_kpis_api_v1_dashboard_kpis_get",
         "parameters": [
           {
@@ -4595,6 +4595,38 @@
                 }
               ],
               "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {
@@ -4644,7 +4676,7 @@
           "dashboard"
         ],
         "summary": "Get Cashflow",
-        "description": "V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min.",
+        "description": "V5++ ola CB+CC: cashflow filtrado por scope. Cache 2min.\n\nR152kk — ?from=&to= (YYYY-MM) acota la serie a esos meses; sin ellos\nse mantiene la ventana de los últimos `meses`.",
         "operationId": "get_cashflow_api_v1_dashboard_cashflow_get",
         "parameters": [
           {
@@ -4673,6 +4705,38 @@
               "minimum": 1,
               "default": 12,
               "title": "Meses"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {
@@ -4722,7 +4786,7 @@
           "dashboard"
         ],
         "summary": "Get Egresos Por Concepto",
-        "description": "V5++ ola CB: top 10 conceptos egreso filtrado por scope.",
+        "description": "V5++ ola CB: top 10 conceptos egreso filtrado por scope.\n\nR152kk — ?from=&to= (YYYY-MM) suma los conceptos sobre toda la ventana;\n`periodo` explícito y el default (mes actual) siguen funcionando igual.",
         "operationId": "get_egresos_por_concepto_api_v1_dashboard_egresos_por_concepto_get",
         "parameters": [
           {
@@ -4755,6 +4819,38 @@
                 }
               ],
               "title": "Periodo"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {
@@ -4862,7 +4958,7 @@
           "dashboard"
         ],
         "summary": "Get Iva Trend",
-        "description": "V5++ ola CB: IVA trend filtrado por scope.",
+        "description": "V5++ ola CB: IVA trend filtrado por scope.\n\nR152kk — ?from=&to= (YYYY-MM) acota la serie a esos meses.",
         "operationId": "get_iva_trend_api_v1_dashboard_iva_trend_get",
         "parameters": [
           {
@@ -4891,6 +4987,38 @@
               "minimum": 1,
               "default": 12,
               "title": "Meses"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {
@@ -4944,7 +5072,7 @@
           "dashboard"
         ],
         "summary": "Get Proyectos Ranking",
-        "description": "V5++ ola CB: ranking de proyectos filtrado por scope.",
+        "description": "V5++ ola CB: ranking de proyectos filtrado por scope.\n\nR152kk — ?from=&to= (YYYY-MM) reemplaza la ventana fija de 12 meses, y\n?empresa_codigo= acota el ranking a una empresa (el dashboard ya lo\nmandaba; el endpoint lo descartaba en silencio, igual que /kpis antes\ndel R152UUUUUU). `filter_codes` valida el código contra el scope.",
         "operationId": "get_proyectos_ranking_api_v1_dashboard_proyectos_ranking_get",
         "parameters": [
           {
@@ -4957,6 +5085,54 @@
               "minimum": 1,
               "default": 5,
               "title": "Limit"
+            }
+          },
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "From"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "To"
             }
           },
           {
@@ -5581,7 +5757,7 @@
           "ordenes-compra"
         ],
         "summary": "Delete Oc",
-        "description": "Borra fisicamente una OC mal cargada. Estados permitidos: borrador,\nemitida, en_firma, anulada.\n\nBloqueos (409, con explicacion de que hacer en su lugar):\n  · la OC tiene al menos una firma con status='FIRMADA' → documento\n    firmado, evidencia legal, se anula pero no se borra;\n  · la OC tiene vouchers APPROVED/EXECUTED/SYNCED/RECONCILED (directos\n    via vouchers.oc_id o via sus cuotas) → ya hay plata comprometida.\nAmbas condiciones se chequean en UNA sola query (subselects), no una\nquery por condicion.\n\nBorrado en cascada — verificado contra las FK reales:\n  · core.ordenes_compra_detalle  ON DELETE CASCADE (+ cascade ORM)\n  · core.oc_cuotas               ON DELETE CASCADE  → forma de pago\n  · core.oc_firmas               ON DELETE CASCADE  → firmantes pendientes\n  · core.oc_attachments          ON DELETE CASCADE  → adjuntos del email\n  · core.vouchers.oc_id          ON DELETE SET NULL → el voucher sobrevive\n  · webhooks/eventos de email    ON DELETE SET NULL\nLa excepcion es core.inbox_messages.linked_oc_id, cuya FK quedo SIN\nON DELETE (NO ACTION): si la OC nacio de un email, Postgres abortaba el\nDELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar —\nmismo efecto que un SET NULL, el correo NO se borra.\n\nV5++ ola CJ — scope check sobre empresa.",
+        "description": "Borra fisicamente una OC, en CUALQUIER estado, dejando registro.\n\nAntes esto rebotaba con 409 en dos casos —OC con firmas puestas, u OC con\nvouchers APPROVED/EXECUTED/SYNCED/RECONCILED— y ademas exigia que el\nestado fuera borrador/emitida/en_firma/anulada. Nicolas pidio explicito\nque se pueda borrar SIEMPRE, \"pero que quede un registro de que se\nelimino\". Los tres bloqueos se levantan y en su lugar queda una constancia\nque no se puede perder ni editar.\n\nEl registro (`core.oc_eliminadas`) se escribe en la MISMA transaccion que\nel DELETE y ANTES del commit. Esa es la parte que importa: si el insert\ndel registro falla, la transaccion entera se cae y la OC NO se borra. No\nexiste el camino \"se borro y no quedo constancia\". El `audit_log` no\nservia para esto porque corre DESPUES del commit y es best-effort: si\nfallaba, la OC ya no estaba.\n\nQue queda guardado: la OC entera (cabecera, items, cuotas, firmas,\nadjuntos), los vouchers que colgaban de ella, los correos que la\nreferenciaban, cuantas firmas tenia y de quien, quien la borro, desde que\nIP, cuando y por que. El motivo es obligatorio (minimo 10 caracteres\nreales) y la tabla es inmutable por trigger.\n\nLo que NO se borra, igual que antes: los vouchers (FK ON DELETE SET NULL)\ny los correos de la bandeja. Solo pierden el vinculo, y sus ids quedan\nanotados en el snapshot para poder rehacerlo.\n\nBorrado en cascada — verificado contra las FK reales:\n  · core.ordenes_compra_detalle  ON DELETE CASCADE\n  · core.oc_cuotas               ON DELETE CASCADE  → forma de pago\n  · core.oc_firmas               ON DELETE CASCADE  → firmantes\n  · core.oc_attachments          ON DELETE CASCADE  → adjuntos del email\n  · core.vouchers.oc_id          ON DELETE SET NULL → el voucher sobrevive\n  · webhooks/eventos de email    ON DELETE SET NULL\nLa excepcion es core.inbox_messages.linked_oc_id, cuya FK quedo SIN\nON DELETE (NO ACTION): si la OC nacio de un email, Postgres abortaba el\nDELETE con un 500 opaco. Lo desligamos explicitamente antes de borrar.\n\nV5++ ola CJ — scope check sobre empresa.",
         "operationId": "delete_oc_api_v1_ordenes_compra__oc_id__delete",
         "parameters": [
           {
@@ -5610,6 +5786,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OcEliminarRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "Successful Response"
@@ -5798,6 +5984,215 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/siguiente-numero": {
+      "get": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Siguiente Numero",
+        "description": "Propone el próximo número de OC aprendiendo del formato de la empresa.\n\nNO impone un formato: cada una de las 13 empresas numera distinto\n(`OC0051-PAN001-...` con el contador adelante, `OC-T&E-0004` al final,\n`OC-2026-020` donde 2026 es el año) y un formato impuesto desde el código\nrompería la numeración de todas menos una. La deducción vive en\n`domain/value_objects/correlativo_oc.py`, con tests contra los seis\nformatos reales.\n\nSe miran las OC vivas Y las eliminadas: un número que se usó y se borró\nNO se reutiliza — el PDF pudo haber salido al proveedor, y que la fila ya\nno esté no significa que el documento no exista en el mundo.\n\nEl resultado es una SUGERENCIA. El campo del formulario queda editable\n(Nicolás pidió \"las dos formas\"), y la unicidad real la sigue garantizando\nla constraint `(empresa_codigo, numero_oc)` en la BD, no esto.",
+        "operationId": "siguiente_numero_api_v1_ordenes_compra_siguiente_numero_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 30,
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiguienteNumeroResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/eliminadas": {
+      "get": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "List Oc Eliminadas",
+        "description": "La papelera: qué OC se borraron, quién y por qué.\n\nVa con el MISMO scope multi-tenant que el listado de OC vivas — el\nregistro de un borrado contiene la OC entera, así que filtrarlo menos que\na la OC original sería una filtración por la puerta de atrás.",
+        "operationId": "list_oc_eliminadas_api_v1_ordenes_compra_eliminadas_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_OcEliminadaListItem_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/eliminadas/{eliminacion_id}": {
+      "get": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Get Oc Eliminada",
+        "description": "El detalle, con la copia completa de la OC que se borró.",
+        "operationId": "get_oc_eliminada_api_v1_ordenes_compra_eliminadas__eliminacion_id__get",
+        "parameters": [
+          {
+            "name": "eliminacion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Eliminacion Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcEliminadaRead"
                 }
               }
             }
@@ -59029,6 +59424,379 @@
         "type": "object",
         "title": "OcBrandingUpdate"
       },
+      "OcEliminadaListItem": {
+        "properties": {
+          "eliminacion_id": {
+            "type": "integer",
+            "title": "Eliminacion Id"
+          },
+          "oc_id": {
+            "type": "integer",
+            "title": "Oc Id"
+          },
+          "numero_oc": {
+            "type": "string",
+            "title": "Numero Oc"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "estado_previo": {
+            "type": "string",
+            "title": "Estado Previo"
+          },
+          "proveedor_nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Nombre"
+          },
+          "proveedor_rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Rut"
+          },
+          "fecha_emision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Emision"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "tipo_documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Documento"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "total_a_pagar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total A Pagar"
+          },
+          "firmas_puestas": {
+            "type": "integer",
+            "title": "Firmas Puestas",
+            "default": 0
+          },
+          "firmantes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmantes"
+          },
+          "vouchers_con_plata": {
+            "type": "integer",
+            "title": "Vouchers Con Plata",
+            "default": 0
+          },
+          "voucher_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Voucher Ids"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "eliminado_por_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eliminado Por Email"
+          },
+          "eliminado_el": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Eliminado El"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eliminacion_id",
+          "oc_id",
+          "numero_oc",
+          "empresa_codigo",
+          "estado_previo",
+          "motivo",
+          "eliminado_el"
+        ],
+        "title": "OcEliminadaListItem",
+        "description": "Una fila de la papelera. Los campos están denormalizados en la tabla\npara que el listado no tenga que abrir el snapshot JSON."
+      },
+      "OcEliminadaRead": {
+        "properties": {
+          "eliminacion_id": {
+            "type": "integer",
+            "title": "Eliminacion Id"
+          },
+          "oc_id": {
+            "type": "integer",
+            "title": "Oc Id"
+          },
+          "numero_oc": {
+            "type": "string",
+            "title": "Numero Oc"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "estado_previo": {
+            "type": "string",
+            "title": "Estado Previo"
+          },
+          "proveedor_nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Nombre"
+          },
+          "proveedor_rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proveedor Rut"
+          },
+          "fecha_emision": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Emision"
+          },
+          "moneda": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moneda"
+          },
+          "tipo_documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Documento"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "total_a_pagar": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total A Pagar"
+          },
+          "firmas_puestas": {
+            "type": "integer",
+            "title": "Firmas Puestas",
+            "default": 0
+          },
+          "firmantes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmantes"
+          },
+          "vouchers_con_plata": {
+            "type": "integer",
+            "title": "Vouchers Con Plata",
+            "default": 0
+          },
+          "voucher_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Voucher Ids"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "eliminado_por_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eliminado Por Email"
+          },
+          "eliminado_el": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Eliminado El"
+          },
+          "snapshot": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Snapshot"
+          },
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ip"
+          },
+          "user_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Agent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eliminacion_id",
+          "oc_id",
+          "numero_oc",
+          "empresa_codigo",
+          "estado_previo",
+          "motivo",
+          "eliminado_el",
+          "snapshot"
+        ],
+        "title": "OcEliminadaRead",
+        "description": "El detalle agrega la copia completa de la OC."
+      },
+      "OcEliminarRequest": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 10,
+            "title": "Motivo",
+            "description": "Por qué se borra esta OC. Queda guardado para siempre junto con la copia completa del documento."
+          }
+        },
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "OcEliminarRequest",
+        "description": "Cuerpo del DELETE. El motivo es obligatorio, no un extra."
+      },
       "OcExtractFromTextRequest": {
         "properties": {
           "empresa_codigo": {
@@ -59408,6 +60176,11 @@
             "maxLength": 50,
             "minLength": 1,
             "title": "Numero Oc"
+          },
+          "incluye_condiciones": {
+            "type": "boolean",
+            "title": "Incluye Condiciones",
+            "default": true
           },
           "empresa_codigo": {
             "type": "string",
@@ -59892,6 +60665,11 @@
             ],
             "title": "Total A Pagar"
           },
+          "incluye_condiciones": {
+            "type": "boolean",
+            "title": "Incluye Condiciones",
+            "default": true
+          },
           "estado": {
             "type": "string",
             "title": "Estado"
@@ -60108,6 +60886,17 @@
               }
             ],
             "title": "Retencion Porcentaje"
+          },
+          "incluye_condiciones": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Incluye Condiciones"
           }
         },
         "type": "object",
@@ -60620,6 +61409,42 @@
           "pages"
         ],
         "title": "Page[NotificationRead]"
+      },
+      "Page_OcEliminadaListItem_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OcEliminadaListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size"
+          },
+          "pages": {
+            "type": "integer",
+            "title": "Pages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "size",
+          "pages"
+        ],
+        "title": "Page[OcEliminadaListItem]"
       },
       "Page_OrdenCompraListItem_": {
         "properties": {
@@ -66595,6 +67420,36 @@
           "mailbox_pending"
         ],
         "title": "SidebarStateResponse"
+      },
+      "SiguienteNumeroResponse": {
+        "properties": {
+          "numero": {
+            "type": "string",
+            "title": "Numero"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          },
+          "base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base"
+          }
+        },
+        "type": "object",
+        "required": [
+          "numero",
+          "motivo"
+        ],
+        "title": "SiguienteNumeroResponse",
+        "description": "Sugerencia del próximo número de OC para una empresa."
       },
       "SiiDocRow": {
         "properties": {

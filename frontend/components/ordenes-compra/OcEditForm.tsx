@@ -41,6 +41,9 @@ interface FormState {
   proveedor_contacto_id: string;
   atte_nombre: string;
   atte_cargo: string;
+  //: Si el PDF imprime las 4 clausulas de arbitraje. Boolean y no string,
+  //: a diferencia del resto: no hay estado intermedio que representar.
+  incluye_condiciones: boolean;
 }
 
 // Mismos 4 tokens que el form de alta: el `value` es el del catálogo SII que
@@ -118,6 +121,10 @@ export function OcEditForm({ initialData }: Props) {
         : "",
       atte_nombre: initialData.atte_nombre ?? "",
       atte_cargo: initialData.atte_cargo ?? "",
+      // `!== false` y no `?? true`: cubre los dos casos de una vez —campo
+      // ausente (API vieja) y null— y solo un false explicito destilda la
+      // casilla. Una OC ya emitida tiene que verse tal cual salio.
+      incluye_condiciones: initialData.incluye_condiciones !== false,
     }),
     [initialData],
   );
@@ -146,6 +153,7 @@ export function OcEditForm({ initialData }: Props) {
     form.plazo_pago !== initial.plazo_pago ||
     form.validez_dias !== initial.validez_dias ||
     form.pdf_url !== initial.pdf_url ||
+    form.incluye_condiciones !== initial.incluye_condiciones ||
     form.tipo_documento !== initial.tipo_documento ||
     form.iva_porcentaje !== initial.iva_porcentaje ||
     form.retencion_porcentaje !== initial.retencion_porcentaje ||
@@ -168,8 +176,13 @@ export function OcEditForm({ initialData }: Props) {
     if (error) setError(null);
   }
 
-  const dirty = useMemo<Record<string, string | number | null>>(() => {
-    const out: Record<string, string | number | null> = {};
+  const dirty = useMemo<Record<string, string | number | boolean | null>>(() => {
+    const out: Record<string, string | number | boolean | null> = {};
+    // Booleano: se manda tal cual, sin el "" -> null del resto. Un false
+    // explicito ES el dato ("sacale las condiciones"), no un campo vacio.
+    if (form.incluye_condiciones !== initial.incluye_condiciones) {
+      out.incluye_condiciones = form.incluye_condiciones;
+    }
     if (form.observaciones !== initial.observaciones) {
       out.observaciones = form.observaciones === "" ? null : form.observaciones;
     }
@@ -610,6 +623,36 @@ export function OcEditForm({ initialData }: Props) {
                   disabled={locked}
                   className={inputBase}
                 />
+              </div>
+
+              {/* Condiciones generales — las 4 clausulas de arbitraje del
+                  pie del PDF. Se puede cambiar despues de emitida: la OC no
+                  cambia de monto ni de partes, solo deja de imprimir (o
+                  vuelve a imprimir) el texto contractual. */}
+              <div className="sm:col-span-2">
+                <label className="flex cursor-pointer items-start gap-2.5">
+                  <input
+                    type="checkbox"
+                    checked={form.incluye_condiciones}
+                    onChange={(e) =>
+                      update("incluye_condiciones", e.target.checked)
+                    }
+                    disabled={locked}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-cehta-green focus:ring-cehta-green disabled:opacity-50"
+                  />
+                  <span>
+                    <span className="text-sm font-medium text-ink-900">
+                      Incluir condiciones generales en el PDF
+                    </span>
+                    <span className="mt-0.5 block text-xs text-ink-500">
+                      Las 4 clausulas de arbitraje del Centro de Arbitraje y
+                      Mediacion de Santiago.{" "}
+                      {form.incluye_condiciones
+                        ? "Se imprimen al final del documento."
+                        : "Esta OC sale SIN clausula de arbitraje."}
+                    </span>
+                  </span>
+                </label>
               </div>
             </div>
           </Surface.Body>
