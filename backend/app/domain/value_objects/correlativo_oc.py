@@ -51,10 +51,14 @@ __all__ = [
 #: reemplazar exactamente ese tramo y no otro igual que aparezca antes.
 _DIGITOS: Final = re.compile(r"\d+")
 
-#: Separadores estructurales de un correlativo. Se usan para recortar la cola
-#: heredada hasta un borde limpio: de `-PAN001-E_Retamal ` queremos `-PAN001-`,
-#: no media descripción de la OC anterior.
-_SEPARADORES: Final = "-_./ "
+#: Separadores ESTRUCTURALES de un correlativo. Se usan para recortar la cola
+#: heredada hasta un borde limpio: de `-PAN001-E_Retamal ` queremos
+#: `-PAN001-`, no media descripción de la OC anterior.
+#:
+#: Ni `_` ni el espacio entran acá, aunque parezcan separadores: con `_` la
+#: cola se cortaba DENTRO de "E_Retamal" y quedaba `-PAN001-E_`, que no es un
+#: borde de nada.
+_SEPARADORES: Final = "-./"
 
 
 @dataclass(frozen=True)
@@ -121,6 +125,23 @@ def _cola_comun(actual: str, anterior: str, desde: int) -> str:
     return comun[: corte + 1] if corte >= 0 else comun
 
 
+def _esqueleto_hasta(numero: str, idx: int) -> str | None:
+    """La forma del número hasta el contador, con las cifras borradas.
+
+    `OC-EE.ADM.0015` con idx 0 -> `OC-EE.ADM.#`
+    `OC-2026-13`     con idx 0 -> `OC-#`
+    `OC0051-PAN001-loquesea` con idx 0 -> `OC#`
+
+    Sirve para decidir si dos números pertenecen a la misma serie sin exigir
+    que la COLA sea igual: en PANIMAVIDA cada OC termina con su propia
+    descripción y aun así todas cuentan.
+    """
+    g = _grupos(numero)
+    if len(g) <= idx:
+        return None
+    return _DIGITOS.sub("#", numero[: g[idx].end()])
+
+
 def siguiente_numero_oc(
     numeros: list[str],
     oc_prefix: str | None = None,
@@ -168,10 +189,19 @@ def siguiente_numero_oc(
     # carga con atraso—, seguir del más reciente propondría un 49 que ya
     # existe. En producción hay exactamente ese caso: OC0047..OC0051 el mismo
     # día, y una OC0023 cargada después.
+    # Sólo cuentan los números de la MISMA serie. EVOQUE tiene
+    # `OC-EE.ADM.0015` y, de una numeración vieja, `OC-2026-13`: mirando "el
+    # grupo número 0" de los dos, el 2026 del AÑO ganaba y la sugerencia
+    # saltaba a `OC-EE.ADM.2027`. Dos números son de la misma serie si su
+    # esqueleto HASTA el contador coincide (`OC-EE.ADM.#` ≠ `OC-#`); lo que
+    # venga DESPUÉS puede diferir libremente, que es lo que permite seguir
+    # contando a PANIMAVIDA aunque cada OC lleve su propia descripción.
+    esqueleto = _esqueleto_hasta(actual, idx)
+
     mayor = int(g.group())
     for n in limpios:
         gn = _grupos(n)
-        if len(gn) > idx:
+        if len(gn) > idx and _esqueleto_hasta(n, idx) == esqueleto:
             with contextlib.suppress(ValueError):
                 # El regex garantiza dígitos; el suppress cubre sólo un
                 # entero tan largo que no entre en int (no pasa en la
@@ -187,7 +217,9 @@ def siguiente_numero_oc(
     siguiente = mayor
     for _ in range(1000):
         siguiente += 1
-        propuesto = f"{cabeza}{siguiente:0{ancho}d}{cola}"
+        # `rstrip`: la cola heredada puede terminar en espacio y un número
+        # de documento que termina en blanco es una molestia para siempre.
+        propuesto = f"{cabeza}{siguiente:0{ancho}d}{cola}".rstrip()
         if propuesto.casefold() not in usados:
             return Sugerencia(
                 numero=propuesto,

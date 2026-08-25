@@ -73,7 +73,12 @@ def test_panimavida_no_arrastra_la_descripcion_de_la_oc_anterior():
     ])
     assert "Modulo Sanitario" not in s.numero
     assert "Estanque" not in s.numero
-    assert s.numero == "OC0052-PAN001-E_Retamal "  # prefijo común, hasta el separador
+    # Se conserva `-PAN001-`, que es la parte FIJA, y se corta ahí. El
+    # recorte usa sólo separadores estructurales (`-./`): incluyendo `_` la
+    # cola se cortaba dentro de "E_Retamal" y quedaba `-PAN001-E_`, que no
+    # es el borde de nada.
+    assert s.numero == "OC0052-PAN001-"
+    assert not s.numero.endswith(" "), "un número de documento no termina en blanco"
 
 
 def test_revtech_numero_simple():
@@ -188,3 +193,76 @@ def test_nunca_lanza():
     # cambio de empresa: una excepción acá dejaría la pantalla sin número.
     for entrada in ([], [""], ["---"], ["...."], ["0"], ["99999999999999999999"]):
         siguiente_numero_oc(entrada)  # no debe lanzar
+
+
+# ──────────────────────────────────────────────────────────────────────
+# El defecto que apareció al correrlo contra los datos reales
+# ──────────────────────────────────────────────────────────────────────
+
+
+def test_una_numeracion_VIEJA_de_la_misma_empresa_no_contamina_el_contador():
+    """El caso de EVOQUE, que la primera versión resolvía mal.
+
+    Hoy numera `OC-EE.ADM.0015`, pero arrastra una OC de una numeración
+    anterior: `OC-2026-13`. Buscando "el máximo del grupo 0" entre todos sus
+    números, el **2026 del año** ganaba y la sugerencia saltaba a
+    `OC-EE.ADM.2027`.
+
+    El máximo sólo puede salir de números de la MISMA serie: mismo esqueleto
+    hasta el contador (`OC-EE.ADM.#` ≠ `OC-#`).
+    """
+    s = siguiente_numero_oc(["OC-EE.ADM.0015", "OC-EE.ADM.0014", "OC-2026-13"])
+    assert s.numero == "OC-EE.ADM.0016", (
+        f"la numeración vieja contaminó el contador: salió {s.numero}"
+    )
+
+
+def test_la_serie_ignora_lo_que_venga_DESPUES_del_contador():
+    """Lo contrario del test anterior, y es lo que hace falta para PANIMAVIDA.
+
+    Ahí cada OC termina con su propia descripción, así que exigir que los
+    números sean idénticos dejaría fuera a todos y el contador nunca
+    avanzaría. Lo que tiene que coincidir es el esqueleto HASTA el contador.
+    """
+    s = siguiente_numero_oc([
+        "OC0049-PAN001-E_Retamal Radier Estanque",
+        "OC0051-PAN001-E_Retamal Modulo Sanitario",
+        "OC0023-PAN001-Geolem EIRL",
+        "OC0046-PAN001-Implementos SA",
+    ])
+    assert s.numero.startswith("OC0052")
+
+
+def test_los_formatos_reales_de_produccion_no_colisionan():
+    """Barrido sobre los números que hay hoy, empresa por empresa.
+
+    Es la prueba que encontró el defecto de EVOQUE: ningún caso sintético lo
+    mostraba, porque nadie inventa una empresa que cambió de formato de
+    numeración a mitad de camino.
+    """
+    produccion = {
+        "PANIMAVIDA": ["OC0049-PAN001-E_Retamal Radier Estanque",
+                       "OC0051-PAN001-E_Retamal Modulo Sanitario",
+                       "OC0023-PAN001-Geolem EIRL"],
+        "TECMAVIDA": ["OC-T&E-0004", "OC-T&E-0003", "OC-PRUEBA-TECMAVIDA"],
+        "EVOQUE": ["OC-EE.ADM.0015", "OC-EE.ADM.0014", "OC-2026-13"],
+        "DTE": ["OC-2026-020"],
+        "REVTECH": ["OC-100"],
+        "CICLO": ["0C-2"],
+        "RHO": ["OC-FLUJO-COMPLETO-9900", "OC-FLUJO-COMPLETO-9901"],
+        "AFIS": [],
+    }
+    esperado = {
+        "PANIMAVIDA": "OC0052-PAN001-",
+        "TECMAVIDA": "OC-T&E-0005",
+        "EVOQUE": "OC-EE.ADM.0016",
+        "DTE": "OC-2026-021",
+        "REVTECH": "OC-101",
+        "CICLO": "0C-3",
+        "RHO": "OC-FLUJO-COMPLETO-9902",
+        "AFIS": "OC-0001",
+    }
+    for empresa, numeros in produccion.items():
+        s = siguiente_numero_oc(numeros, "OC")
+        assert s.numero == esperado[empresa], f"{empresa}: salió {s.numero}"
+        assert s.numero not in numeros, f"{empresa}: propuso uno ya usado"
