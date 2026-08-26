@@ -16,6 +16,12 @@ import { ArrowLeft, AlertTriangle } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Surface } from "@/components/ui/surface";
+import {
+  ItemizadoEditor,
+  type ItemEditable,
+} from "@/components/ordenes-compra/ItemizadoEditor";
+import { TotalesPreview } from "@/components/ordenes-compra/TotalesPreview";
+import { limpiarCeros } from "@/lib/oc/pegar-items";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { toCLP } from "@/lib/format";
@@ -130,6 +136,73 @@ export function OcEditForm({ initialData }: Props) {
   );
 
   const [form, setForm] = useState<FormState>(initial);
+
+  // ── Itemizado ────────────────────────────────────────────────────────
+  // Hasta ahora esta pantalla NO mostraba los items y no habia endpoint para
+  // cambiarlos: cuando la extraccion con IA se equivocaba, la unica salida
+  // era borrar la OC y rehacerla a mano. Se editan aparte del resto del
+  // formulario porque van por otro endpoint (PUT /items, que recalcula todos
+  // los montos server-side) y porque una OC firmada admite cambiar la glosa
+  // pero NO el monto.
+  const [items, setItems] = useState<ItemEditable[]>(() =>
+    (initialData.items ?? []).map((it) => ({
+      descripcion: it.descripcion ?? "",
+      unidad: it.unidad ?? "",
+      // `limpiarCeros`: la API manda NUMERIC, o sea "50.0000". Sin esto el
+      // campo arranca lleno de ceros que nadie escribio.
+      precio_unitario: limpiarCeros(String(it.precio_unitario ?? "")),
+      cantidad: limpiarCeros(String(it.cantidad ?? "")),
+    })),
+  );
+  const [itemsIniciales] = useState<ItemEditable[]>(items);
+  const [guardandoItems, setGuardandoItems] = useState(false);
+  const itemsCambiaron =
+    JSON.stringify(items) !== JSON.stringify(itemsIniciales);
+
+  async function guardarItems() {
+    if (guardandoItems) return;
+    const limpios = items.filter((i) => i.descripcion.trim());
+    if (limpios.length === 0) {
+      toast.error("La OC necesita al menos un item con descripcion.");
+      return;
+    }
+    // El backend exige cantidad y precio > 0 (422). Se avisa aca con el
+    // numero de linea en vez de mandar y mostrar un error generico.
+    const mala = limpios.findIndex(
+      (i) => !(Number(i.cantidad) > 0) || !(Number(i.precio_unitario) > 0),
+    );
+    if (mala >= 0) {
+      toast.error(
+        `El item ${mala + 1} necesita cantidad y precio unitario mayores a 0.`,
+      );
+      return;
+    }
+    setGuardandoItems(true);
+    try {
+      await apiClient.put<OcRead>(
+        `/ordenes-compra/${initialData.oc_id}/items`,
+        {
+          items: limpios.map((i, idx) => ({
+            item: idx + 1,
+            descripcion: i.descripcion.trim(),
+            unidad: i.unidad.trim() || null,
+            precio_unitario: Number(i.precio_unitario),
+            cantidad: Number(i.cantidad),
+          })),
+        },
+        session,
+      );
+      toast.success("Itemizado actualizado. Los montos se recalcularon.");
+      await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
+      router.refresh();
+    } catch (err) {
+      const detalle =
+        err instanceof ApiError ? err.detail : "No se pudo guardar el itemizado";
+      toast.error(detalle);
+    } finally {
+      setGuardandoItems(false);
+    }
+  }
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -654,6 +727,56 @@ export function OcEditForm({ initialData }: Props) {
                   </span>
                 </label>
               </div>
+            </div>
+          </Surface.Body>
+        </Surface>
+
+        {/* ── Itemizado ────────────────────────────────────────────────
+            Va en su propia tarjeta y con su propio boton porque viaja por
+            otro endpoint: PUT /items recalcula neto, IVA, retencion y totales
+            server-side. Mezclarlo con "Guardar cambios" haria que un cambio
+            de glosa dispare un recalculo de montos, y al reves. */}
+        <Surface className="mt-6">
+          <Surface.Header divider>
+            <Surface.Title>Itemizado</Surface.Title>
+          </Surface.Header>
+          <Surface.Body className="space-y-4">
+            {locked ? (
+              <p className="rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-sm text-ink-700">
+                Esta OC ya esta firmada o tiene pagos aprobados, asi que su
+                itemizado no se puede cambiar: el firmante aprobo una cifra.
+                Si el monto esta mal, anulala y emiti una nueva.
+              </p>
+            ) : (
+              <p className="text-sm text-ink-500">
+                Podes corregir lo que la IA haya leido mal. Al guardar, el
+                neto, el IVA y los totales se recalculan solos.
+              </p>
+            )}
+
+            <ItemizadoEditor
+              items={items}
+              onChange={setItems}
+              disabled={locked || guardandoItems}
+            />
+
+            <TotalesPreview
+              items={items}
+              moneda={initialData.moneda ?? "CLP"}
+              tipoDocumento={form.tipo_documento}
+              ivaPorcentaje={form.iva_porcentaje}
+              retencionPorcentaje={form.retencion_porcentaje}
+            />
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={guardarItems}
+                disabled={locked || guardandoItems || !itemsCambiaron}
+                className="inline-flex items-center gap-2 rounded-xl bg-cehta-green px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 disabled:opacity-60"
+              >
+                {guardandoItems ? "Guardando…" : "Guardar itemizado"}
+              </button>
             </div>
           </Surface.Body>
         </Surface>

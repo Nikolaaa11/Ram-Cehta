@@ -6001,6 +6001,75 @@
         }
       }
     },
+    "/api/v1/ordenes-compra/{oc_id}/items": {
+      "put": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Reemplazar Items Oc",
+        "description": "Reemplaza el itemizado de una OC y recalcula todos sus montos.\n\nANTES DE ESTO NO SE PODIA. `PATCH /ordenes-compra/{id}` sólo toca campos\nno-críticos y su propio docstring dice \"NO permite tocar items\"; la\npantalla de edición tampoco los mostraba. O sea que cuando la extracción\ncon IA se equivocaba —que es lo esperable— la única salida era BORRAR la\nOC y rehacerla entera a mano. Nicolás pidió que después de hacerla con IA\nse pueda editar, y esto es lo que faltaba para que eso exista.\n\nLos montos NO se aceptan del cliente: se recalculan con\n`_derivar_totales_oc` a partir de la suma del itemizado y del tipo de\ndocumento y las tasas QUE YA TIENE LA OC. Cambiar el itemizado cambia el\nneto; cambiar el tratamiento tributario es otra operación (el PATCH), y\nmezclarlas dejaría que una edición de líneas convirtiera una factura en\nuna boleta de honorarios sin que nadie lo pidiera.\n\nBloqueos (409, reusando el mismo guard que el resto del módulo):\n  · OC con firmas puestas — el firmante aprobó una CIFRA. Cambiarle el\n    monto después convierte su firma en una firma sobre otra cosa.\n  · OC con vouchers APPROVED/EXECUTED/SYNCED/RECONCILED — la plata ya se\n    comprometió o se giró contra este total.\nEn los dos casos el camino es anular y emitir de nuevo.\n\nLas unidades se persisten aparte porque el ORM no mapea esa columna\n(`_persistir_unidades`), y va dentro de la misma transacción.",
+        "operationId": "reemplazar_items_oc_api_v1_ordenes_compra__oc_id__items_put",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReemplazarItemsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ordenes-compra/siguiente-numero": {
       "get": {
         "tags": [
@@ -41168,6 +41237,50 @@
         ],
         "title": "ConceptoDetallado"
       },
+      "Conciliacion": {
+        "properties": {
+          "neto_documento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neto Documento"
+          },
+          "neto_items": {
+            "type": "string",
+            "title": "Neto Items",
+            "default": "0"
+          },
+          "difieren": {
+            "type": "boolean",
+            "title": "Difieren",
+            "default": false
+          },
+          "diferencia": {
+            "type": "string",
+            "title": "Diferencia",
+            "default": "0"
+          },
+          "lineas_descuadradas": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Lineas Descuadradas",
+            "default": []
+          }
+        },
+        "type": "object",
+        "title": "Conciliacion",
+        "description": "Si lo que dice el documento cuadra con lo que suman sus líneas.\n\nLa IA extrae el `neto` del pie del documento Y las líneas del itemizado.\nEl backend recomputa el neto desde las líneas (bien), pero antes NADIE\ncomparaba los dos: si la IA se saltaba una línea de una cotización de 12\nítems, la OC salía por menos que el documento original y no había ninguna\nseñal. Ése es el \"no me cuadra\" del equipo.\n\nEsto NO elige por el operador: le muestra los dos números."
+      },
       "ConciliacionSummary": {
         "properties": {
           "no_conciliados": {
@@ -59929,6 +60042,11 @@
             "title": "Cantidad",
             "default": "1"
           },
+          "unidad": {
+            "type": "string",
+            "title": "Unidad",
+            "default": ""
+          },
           "precio_unitario": {
             "type": "string",
             "title": "Precio Unitario",
@@ -60022,12 +60140,41 @@
             "title": "Observaciones",
             "default": ""
           },
+          "tipo_documento": {
+            "type": "string",
+            "title": "Tipo Documento",
+            "default": "FACTURA"
+          },
+          "iva_porcentaje": {
+            "type": "string",
+            "title": "Iva Porcentaje",
+            "default": "19"
+          },
+          "retencion_porcentaje": {
+            "type": "string",
+            "title": "Retencion Porcentaje",
+            "default": "0"
+          },
+          "tipo_documento_motivo": {
+            "type": "string",
+            "title": "Tipo Documento Motivo",
+            "default": ""
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/OcExtractedItem"
             },
             "type": "array",
             "title": "Items"
+          },
+          "conciliacion": {
+            "$ref": "#/components/schemas/Conciliacion",
+            "default": {
+              "neto_items": "0",
+              "difieren": false,
+              "diferencia": "0",
+              "lineas_descuadradas": []
+            }
           }
         },
         "type": "object",
@@ -65425,6 +65572,24 @@
           "auto_match"
         ],
         "title": "ReconcileResponse"
+      },
+      "ReemplazarItemsRequest": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OCDetalleCreate"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "title": "ReemplazarItemsRequest",
+        "description": "Cuerpo del PUT de ítems: el itemizado COMPLETO, no un parche.\n\nReemplazo total y no incremental a propósito. Un PATCH por línea obliga a\nmanejar altas, bajas y renumeraciones en tres lugares, y cualquier hueco\ndeja el itemizado inconsistente con el total. Mandar la lista entera hace\nque el estado final sea siempre exactamente lo que se ve en pantalla."
       },
       "RefreshResult": {
         "properties": {

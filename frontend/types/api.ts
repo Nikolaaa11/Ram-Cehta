@@ -1913,6 +1913,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ordenes-compra/{oc_id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reemplazar Items Oc
+         * @description Reemplaza el itemizado de una OC y recalcula todos sus montos.
+         *
+         *     ANTES DE ESTO NO SE PODIA. `PATCH /ordenes-compra/{id}` sólo toca campos
+         *     no-críticos y su propio docstring dice "NO permite tocar items"; la
+         *     pantalla de edición tampoco los mostraba. O sea que cuando la extracción
+         *     con IA se equivocaba —que es lo esperable— la única salida era BORRAR la
+         *     OC y rehacerla entera a mano. Nicolás pidió que después de hacerla con IA
+         *     se pueda editar, y esto es lo que faltaba para que eso exista.
+         *
+         *     Los montos NO se aceptan del cliente: se recalculan con
+         *     `_derivar_totales_oc` a partir de la suma del itemizado y del tipo de
+         *     documento y las tasas QUE YA TIENE LA OC. Cambiar el itemizado cambia el
+         *     neto; cambiar el tratamiento tributario es otra operación (el PATCH), y
+         *     mezclarlas dejaría que una edición de líneas convirtiera una factura en
+         *     una boleta de honorarios sin que nadie lo pidiera.
+         *
+         *     Bloqueos (409, reusando el mismo guard que el resto del módulo):
+         *       · OC con firmas puestas — el firmante aprobó una CIFRA. Cambiarle el
+         *         monto después convierte su firma en una firma sobre otra cosa.
+         *       · OC con vouchers APPROVED/EXECUTED/SYNCED/RECONCILED — la plata ya se
+         *         comprometió o se giró contra este total.
+         *     En los dos casos el camino es anular y emitir de nuevo.
+         *
+         *     Las unidades se persisten aparte porque el ORM no mapea esa columna
+         *     (`_persistir_unidades`), y va dentro de la misma transacción.
+         */
+        put: operations["reemplazar_items_oc_api_v1_ordenes_compra__oc_id__items_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ordenes-compra/siguiente-numero": {
         parameters: {
             query?: never;
@@ -12444,6 +12488,44 @@ export interface components {
             /** Concepto General */
             concepto_general: string | null;
         };
+        /**
+         * Conciliacion
+         * @description Si lo que dice el documento cuadra con lo que suman sus líneas.
+         *
+         *     La IA extrae el `neto` del pie del documento Y las líneas del itemizado.
+         *     El backend recomputa el neto desde las líneas (bien), pero antes NADIE
+         *     comparaba los dos: si la IA se saltaba una línea de una cotización de 12
+         *     ítems, la OC salía por menos que el documento original y no había ninguna
+         *     señal. Ése es el "no me cuadra" del equipo.
+         *
+         *     Esto NO elige por el operador: le muestra los dos números.
+         */
+        Conciliacion: {
+            /** Neto Documento */
+            neto_documento?: string | null;
+            /**
+             * Neto Items
+             * @default 0
+             */
+            neto_items: string;
+            /**
+             * Difieren
+             * @default false
+             */
+            difieren: boolean;
+            /**
+             * Diferencia
+             * @default 0
+             */
+            diferencia: string;
+            /**
+             * Lineas Descuadradas
+             * @default []
+             */
+            lineas_descuadradas: {
+                [key: string]: string;
+            }[];
+        };
         /** ConciliacionSummary */
         ConciliacionSummary: {
             /** No Conciliados */
@@ -18397,6 +18479,11 @@ export interface components {
              */
             cantidad: string;
             /**
+             * Unidad
+             * @default
+             */
+            unidad: string;
+            /**
              * Precio Unitario
              * @default 0
              */
@@ -18473,8 +18560,37 @@ export interface components {
              * @default
              */
             observaciones: string;
+            /**
+             * Tipo Documento
+             * @default FACTURA
+             */
+            tipo_documento: string;
+            /**
+             * Iva Porcentaje
+             * @default 19
+             */
+            iva_porcentaje: string;
+            /**
+             * Retencion Porcentaje
+             * @default 0
+             */
+            retencion_porcentaje: string;
+            /**
+             * Tipo Documento Motivo
+             * @default
+             */
+            tipo_documento_motivo: string;
             /** Items */
             items: components["schemas"]["OcExtractedItem"][];
+            /**
+             * @default {
+             *       "neto_items": "0",
+             *       "difieren": false,
+             *       "diferencia": "0",
+             *       "lineas_descuadradas": []
+             *     }
+             */
+            conciliacion: components["schemas"]["Conciliacion"];
         };
         /** OcFirmasResponse */
         OcFirmasResponse: {
@@ -20156,6 +20272,19 @@ export interface components {
             fecha_movimiento: string;
             /** Auto Match */
             auto_match: boolean;
+        };
+        /**
+         * ReemplazarItemsRequest
+         * @description Cuerpo del PUT de ítems: el itemizado COMPLETO, no un parche.
+         *
+         *     Reemplazo total y no incremental a propósito. Un PATCH por línea obliga a
+         *     manejar altas, bajas y renumeraciones en tres lugares, y cualquier hueco
+         *     deja el itemizado inconsistente con el total. Mandar la lista entera hace
+         *     que el estado final sea siempre exactamente lo que se ve en pantalla.
+         */
+        ReemplazarItemsRequest: {
+            /** Items */
+            items: components["schemas"]["OCDetalleCreate"][];
         };
         /**
          * RefreshResult
@@ -26062,6 +26191,43 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrdenCompraRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reemplazar_items_oc_api_v1_ordenes_compra__oc_id__items_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReemplazarItemsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

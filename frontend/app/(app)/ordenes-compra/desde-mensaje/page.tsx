@@ -21,14 +21,17 @@ import {
   ClipboardCopy,
   Loader2,
   MessageSquare,
-  Plus,
   Sparkles,
-  Trash2,
 } from "lucide-react";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Surface } from "@/components/ui/surface";
+import { ItemizadoEditor } from "@/components/ordenes-compra/ItemizadoEditor";
+import {
+  TotalesPreview,
+  type ConciliacionIA,
+} from "@/components/ordenes-compra/TotalesPreview";
 import { Button } from "@/components/ui/button";
 import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 
@@ -40,6 +43,10 @@ interface Empresa {
 interface ExtractedItem {
   descripcion: string;
   cantidad: string;
+  // La unidad de medida existía en la BD, en el schema del POST y en el PDF,
+  // pero NO en este camino: toda OC creada con IA nacía con unidad NULL y el
+  // PDF imprimía "—". Es la queja 1 del equipo.
+  unidad: string;
   precio_unitario: string;
   total: string;
 }
@@ -59,6 +66,14 @@ interface OcSuggestion {
   forma_pago: string;
   plazo_pago: string;
   observaciones: string;
+  // Los cuatro campos que el backend ahora manda y que este camino no
+  // transportaba. Opcionales: durante la ventana entre el deploy del
+  // frontend y el del backend la respuesta vieja sigue funcionando.
+  tipo_documento?: string;
+  iva_porcentaje?: string;
+  retencion_porcentaje?: string;
+  tipo_documento_motivo?: string;
+  conciliacion?: ConciliacionIA | null;
   items: ExtractedItem[];
 }
 
@@ -124,6 +139,14 @@ export default function DesdeMensajeOcPage() {
   const [plazoPago, setPlazoPago] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [items, setItems] = useState<ExtractedItem[]>([]);
+  // Tipo de documento tributario. Sin esto TODA OC hecha con IA nacía
+  // FACTURA al 19 % y no había forma de emitir una boleta de honorarios.
+  const [tipoDocumento, setTipoDocumento] = useState("FACTURA");
+  const [ivaPorcentaje, setIvaPorcentaje] = useState("19");
+  const [retencionPorcentaje, setRetencionPorcentaje] = useState("0");
+  const [tipoMotivo, setTipoMotivo] = useState("");
+  // Qué decía el documento vs qué suman sus líneas.
+  const [conciliacion, setConciliacion] = useState<ConciliacionIA | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -173,9 +196,26 @@ export default function DesdeMensajeOcPage() {
     setObservaciones(s.observaciones);
     setItems(
       s.items.length > 0
-        ? s.items
-        : [{ descripcion: "", cantidad: "1", precio_unitario: "0", total: "0" }],
+        ? s.items.map((it) => ({ ...it, unidad: it.unidad ?? "" }))
+        : [
+            {
+              descripcion: "",
+              cantidad: "1",
+              unidad: "",
+              precio_unitario: "0",
+              total: "0",
+            },
+          ],
     );
+    // `??` y no `||`: un "0" de IVA sugerido a propósito (exenta, honorarios)
+    // es un dato, y con `||` volvía al 19 por ser string falsy... y además
+    // "0" no es falsy, pero "" sí: la sugerencia vacía tiene que caer al
+    // default, no dejar el campo en blanco.
+    setTipoDocumento(s.tipo_documento || "FACTURA");
+    setIvaPorcentaje(s.iva_porcentaje ?? "19");
+    setRetencionPorcentaje(s.retencion_porcentaje ?? "0");
+    setTipoMotivo(s.tipo_documento_motivo ?? "");
+    setConciliacion(s.conciliacion ?? null);
   }, []);
 
   async function handleExtract() {
@@ -231,22 +271,12 @@ export default function DesdeMensajeOcPage() {
       ),
     [items],
   );
-  const ivaCalculado = moneda === "CLP" ? totalNeto * 0.19 : 0;
-  const totalConIva = totalNeto + ivaCalculado;
+  // Los totales ya NO se calculan acá. `moneda === "CLP" ? neto * 0.19 : 0`
+  // ignoraba que el servidor aplica IVA también a la UF y que el % es
+  // editable por OC: una OC en UF mostraba IVA 0 y salía con 19 % en el PDF.
+  // Ahora los calcula <TotalesPreview/> con la regla espejada del backend,
+  // atada por un snapshot que verifican las dos suites.
 
-  function updateItem(idx: number, field: keyof ExtractedItem, value: string) {
-    setItems(items.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
-  }
-  function addItem() {
-    setItems([
-      ...items,
-      { descripcion: "", cantidad: "1", precio_unitario: "0", total: "0" },
-    ]);
-  }
-  function removeItem(idx: number) {
-    if (items.length === 1) return;
-    setItems(items.filter((_, i) => i !== idx));
-  }
 
   async function handleConfirm(e: React.FormEvent) {
     e.preventDefault();
@@ -273,11 +303,23 @@ export default function DesdeMensajeOcPage() {
         forma_pago: formaPago || null,
         plazo_pago: plazoPago || null,
         observaciones: observaciones || null,
+        // El tratamiento tributario, que antes no viajaba: sin esto el
+        // backend aplicaba su default y toda OC de IA salía factura al 19 %.
+        tipo_documento: tipoDocumento,
+        iva_porcentaje: Number(ivaPorcentaje) || 0,
+        retencion_porcentaje: Number(retencionPorcentaje) || 0,
         items: items.map((it, i) => ({
           item: i + 1,
           descripcion: it.descripcion,
+          // La unidad, que este camino nunca mandaba.
+          unidad: it.unidad?.trim() || null,
           precio_unitario: Number(it.precio_unitario) || 0,
-          cantidad: Number(it.cantidad) || 1,
+          // `?? 1` y NO `|| 1`: con `||` una cantidad de 0 —que es un dato,
+          // no una ausencia— se convertía en 1 y la línea sumaba plata que
+          // nadie pidió. Un 0 real lo rechaza el backend con 422, que es lo
+          // correcto: un error visible en vez de un monto cambiado en
+          // silencio.
+          cantidad: Number(it.cantidad),
         })),
       };
       const resp = await apiClient.post<{ oc_id: number; numero_oc: string }>(
@@ -528,6 +570,61 @@ export default function DesdeMensajeOcPage() {
                 </select>
               </div>
               <div>
+                <Label>Documento tributario *</Label>
+                {/* Los 4 tokens del catalogo SII. Sin este selector, TODA OC
+                    creada con IA salia FACTURA al 19 % y no habia forma de
+                    emitir una boleta de honorarios — la queja 2 del equipo. */}
+                <select
+                  value={tipoDocumento}
+                  onChange={(e) => {
+                    const t = e.target.value;
+                    setTipoDocumento(t);
+                    setTipoMotivo("");
+                    const afecto = t === "FACTURA" || t === "BOLETA";
+                    const conIvaPorMoneda = moneda === "CLP" || moneda === "UF";
+                    setIvaPorcentaje(afecto && conIvaPorMoneda ? "19" : "0");
+                    setRetencionPorcentaje(t === "HONORARIOS" ? "15.25" : "0");
+                  }}
+                  className="form-input"
+                >
+                  <option value="FACTURA">Factura</option>
+                  <option value="FACTURA_EXENTA">Factura exenta</option>
+                  <option value="BOLETA">Boleta</option>
+                  <option value="HONORARIOS">Boleta de honorarios</option>
+                </select>
+                {tipoMotivo && (
+                  <p className="mt-1 text-xs text-ink-500">{tipoMotivo}</p>
+                )}
+              </div>
+              {(tipoDocumento === "FACTURA" || tipoDocumento === "BOLETA") && (
+                <div>
+                  <Label>IVA %</Label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="100"
+                    value={ivaPorcentaje}
+                    onChange={(e) => setIvaPorcentaje(e.target.value)}
+                    className="form-input text-right"
+                  />
+                </div>
+              )}
+              {tipoDocumento === "HONORARIOS" && (
+                <div>
+                  <Label>Retencion %</Label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="100"
+                    value={retencionPorcentaje}
+                    onChange={(e) => setRetencionPorcentaje(e.target.value)}
+                    className="form-input text-right"
+                  />
+                </div>
+              )}
+              <div>
                 <Label>Forma de pago</Label>
                 <input
                   value={formaPago}
@@ -562,103 +659,24 @@ export default function DesdeMensajeOcPage() {
               <h2 className="text-lg font-medium text-ink-900">
                 Items
               </h2>
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                <Plus className="size-4 mr-1" /> Agregar item
-              </Button>
             </div>
-            <table className="w-full text-sm">
-              <thead className="text-ink-500 text-xs uppercase">
-                <tr>
-                  <th className="text-left px-2 py-1.5 w-12">#</th>
-                  <th className="text-left px-2 py-1.5">Descripción *</th>
-                  <th className="text-left px-2 py-1.5 w-24">Cantidad *</th>
-                  <th className="text-right px-2 py-1.5 w-36">P. unitario *</th>
-                  <th className="text-right px-2 py-1.5 w-36">Subtotal</th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-ink-100">
-                {items.map((line, idx) => {
-                  const subtotal =
-                    (parseFloat(line.precio_unitario) || 0) *
-                    (parseFloat(line.cantidad) || 0);
-                  return (
-                    <tr key={idx}>
-                      <td className="px-2 py-1.5 text-ink-500">{idx + 1}</td>
-                      <td className="px-2 py-1.5">
-                        <input
-                          required
-                          value={line.descripcion}
-                          onChange={(e) =>
-                            updateItem(idx, "descripcion", e.target.value)
-                          }
-                          className="form-input"
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input
-                          required
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={line.cantidad}
-                          onChange={(e) =>
-                            updateItem(idx, "cantidad", e.target.value)
-                          }
-                          className="form-input text-right"
-                        />
-                      </td>
-                      <td className="px-2 py-1.5">
-                        <input
-                          required
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={line.precio_unitario}
-                          onChange={(e) =>
-                            updateItem(idx, "precio_unitario", e.target.value)
-                          }
-                          className="form-input text-right"
-                        />
-                      </td>
-                      <td className="px-2 py-1.5 text-right font-mono text-ink-600">
-                        {moneda === "CLP" ? "$" : `${moneda} `}
-                        {subtotal.toLocaleString("es-CL", {
-                          maximumFractionDigits: 0,
-                        })}
-                      </td>
-                      <td className="px-2 py-1.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => removeItem(idx)}
-                          disabled={items.length === 1}
-                          className="text-ink-400 hover:text-red-500 disabled:opacity-30"
-                          aria-label="Quitar item"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <ItemizadoEditor
+              items={items}
+              onChange={(nuevos) => setItems(
+                nuevos.map((n) => ({ ...n, total: "0" })),
+              )}
+            />
           </Surface>
 
           <Surface className="p-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-              <Stat
-                label="Neto"
-                value={`${moneda === "CLP" ? "$" : moneda + " "}${totalNeto.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`}
-              />
-              <Stat
-                label={moneda === "CLP" ? "IVA (19%)" : "IVA (no aplica)"}
-                value={`${moneda === "CLP" ? "$" : moneda + " "}${ivaCalculado.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`}
-              />
-              <Stat
-                label="Total"
-                value={`${moneda === "CLP" ? "$" : moneda + " "}${totalConIva.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`}
-                tone="success"
+            <div className="mb-4">
+              <TotalesPreview
+                items={items}
+                moneda={moneda}
+                tipoDocumento={tipoDocumento}
+                ivaPorcentaje={ivaPorcentaje}
+                retencionPorcentaje={retencionPorcentaje}
+                conciliacion={conciliacion}
               />
             </div>
             <div className="flex items-center justify-between">
@@ -695,27 +713,5 @@ function Label({ children }: { children: React.ReactNode }) {
     <label className="block text-xs font-medium text-ink-700 mb-1">
       {children}
     </label>
-  );
-}
-function Stat({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "success" | "danger";
-}) {
-  const color =
-    tone === "success"
-      ? "text-cehta-green"
-      : tone === "danger"
-        ? "text-red-500"
-        : "text-ink-900";
-  return (
-    <div className="rounded border border-ink-200 p-3 bg-white">
-      <div className="text-xs text-ink-500">{label}</div>
-      <div className={`text-xl font-semibold mt-1 ${color}`}>{value}</div>
-    </div>
   );
 }
