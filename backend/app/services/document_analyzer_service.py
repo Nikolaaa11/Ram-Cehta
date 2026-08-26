@@ -177,10 +177,26 @@ SCHEMAS: dict[str, dict[str, str]] = {
         ),
         "plazo_pago": "Plazo de pago en texto libre (ej. '30 días', 'al recibir').",
         "observaciones": "Observaciones o términos especiales si aparecen.",
+        "tipo_documento": (
+            "Tipo de documento tributario que va a emitir el PROVEEDOR, uno de: "
+            "FACTURA (afecta a IVA, el caso normal) | FACTURA_EXENTA (dice "
+            "'exenta' o 'exento', o no tiene linea de IVA siendo una empresa) | "
+            "BOLETA (boleta de venta afecta) | HONORARIOS (boleta de HONORARIOS "
+            "de una persona natural: dice 'honorarios', suele tener 'retencion' "
+            "y NO tiene IVA). Si no se puede determinar, null."
+        ),
+        "retencion": (
+            "Monto de la retencion de segunda categoria si el documento la "
+            "muestra (solo en boletas de honorarios). Null si no aparece."
+        ),
         "items": (
             "Lista de items: cada uno {descripcion: string, cantidad: number, "
-            "precio_unitario: number, total: number}. Si solo hay un total agregado "
-            "sin desglose, devolvé [] y usa el campo 'total' general."
+            "unidad: string, precio_unitario: number, total: number}. "
+            "`unidad` es la unidad de medida de la linea tal como aparece en el "
+            "documento (Un, Gl, Dias, Hrs, m2, m3, ml, Kg, Ton, Global...); "
+            "null si el documento no la indica, NO la inventes. "
+            "Si solo hay un total agregado sin desglose, devolve [] y usa el "
+            "campo 'total' general."
         ),
     },
 }

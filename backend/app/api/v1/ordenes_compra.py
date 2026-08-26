@@ -19,7 +19,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
@@ -42,7 +42,7 @@ from app.domain.value_objects.correlativo_oc import siguiente_numero_oc
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
-from app.models.orden_compra import OrdenCompra
+from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
 from app.services.oc_filename_util import oc_pdf_content_disposition
 from app.schemas.proveedor import ProveedorCreate
 from app.schemas.bulk import (
@@ -1370,6 +1370,162 @@ async def duplicate_oc(
         },
     )
     return duplicada
+
+
+class ReemplazarItemsRequest(BaseModel):
+    """Cuerpo del PUT de ítems: el itemizado COMPLETO, no un parche.
+
+    Reemplazo total y no incremental a propósito. Un PATCH por línea obliga a
+    manejar altas, bajas y renumeraciones en tres lugares, y cualquier hueco
+    deja el itemizado inconsistente con el total. Mandar la lista entera hace
+    que el estado final sea siempre exactamente lo que se ve en pantalla.
+    """
+
+    items: list[OCDetalleCreate] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def items_numerados_sin_repetir(self) -> ReemplazarItemsRequest:
+        # `(oc_id, item)` es UNIQUE en la tabla: dos líneas con el mismo
+        # número reventarían el INSERT con un 500 opaco, y además dejarían
+        # ambigua la unidad (que se matchea por ese número).
+        numeros = [i.item for i in self.items]
+        if len(set(numeros)) != len(numeros):
+            raise ValueError(
+                "Hay dos ítems con el mismo número de línea. Cada línea tiene "
+                "que tener un número distinto."
+            )
+        return self
+
+
+@router.put(
+    "/{oc_id:int}/items",
+    response_model=OrdenCompraRead,
+    dependencies=[Depends(require_scope("oc:update"))],
+)
+async def reemplazar_items_oc(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:update"))],
+    db: DBSession,
+    request: Request,
+    oc_id: int,
+    body: ReemplazarItemsRequest,
+) -> OrdenCompraRead:
+    """Reemplaza el itemizado de una OC y recalcula todos sus montos.
+
+    ANTES DE ESTO NO SE PODIA. `PATCH /ordenes-compra/{id}` sólo toca campos
+    no-críticos y su propio docstring dice "NO permite tocar items"; la
+    pantalla de edición tampoco los mostraba. O sea que cuando la extracción
+    con IA se equivocaba —que es lo esperable— la única salida era BORRAR la
+    OC y rehacerla entera a mano. Nicolás pidió que después de hacerla con IA
+    se pueda editar, y esto es lo que faltaba para que eso exista.
+
+    Los montos NO se aceptan del cliente: se recalculan con
+    `_derivar_totales_oc` a partir de la suma del itemizado y del tipo de
+    documento y las tasas QUE YA TIENE LA OC. Cambiar el itemizado cambia el
+    neto; cambiar el tratamiento tributario es otra operación (el PATCH), y
+    mezclarlas dejaría que una edición de líneas convirtiera una factura en
+    una boleta de honorarios sin que nadie lo pidiera.
+
+    Bloqueos (409, reusando el mismo guard que el resto del módulo):
+      · OC con firmas puestas — el firmante aprobó una CIFRA. Cambiarle el
+        monto después convierte su firma en una firma sobre otra cosa.
+      · OC con vouchers APPROVED/EXECUTED/SYNCED/RECONCILED — la plata ya se
+        comprometió o se giró contra este total.
+    En los dos casos el camino es anular y emitir de nuevo.
+
+    Las unidades se persisten aparte porque el ORM no mapea esa columna
+    (`_persistir_unidades`), y va dentro de la misma transacción.
+    """
+    repo = OrdenCompraRepository(db)
+    oc = await repo.get(oc_id)
+    if not oc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
+        )
+    await assert_empresa_access(user, db, oc.empresa_codigo)
+
+    # Mismo guard que usa el cambio de tipo tributario: firmas puestas o
+    # plata girada. No se duplica la regla — si mañana se agrega una tercera
+    # condición, vale para los dos caminos.
+    await _assert_oc_sin_firmas(db, oc)
+
+    antes = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
+
+    # La B del contrato: la suma del itemizado nuevo.
+    neto = sum(
+        (it.precio_unitario * it.cantidad for it in body.items),
+        Decimal("0"),
+    )
+    derived = _derivar_totales_oc(
+        neto=neto,
+        moneda=getattr(oc.moneda, "value", oc.moneda) or "CLP",
+        # El tratamiento tributario NO se toca acá: se lee el que la OC ya
+        # tiene. Los porcentajes también, porque son el SNAPSHOT de la tasa
+        # que se le aplicó a esta OC (invariante 5) y no se releen de
+        # tax_config sólo porque se editó una línea.
+        tipo_documento=getattr(oc.tipo_documento, "value", oc.tipo_documento)
+        or "FACTURA",
+        iva_porcentaje=oc.iva_porcentaje
+        if oc.iva_porcentaje is not None
+        else IVA_PORCENTAJE_GENERAL,
+        retencion_porcentaje=oc.retencion_porcentaje
+        if oc.retencion_porcentaje is not None
+        else Decimal("0"),
+    )
+
+    # Reemplazo: se borran las líneas viejas y se insertan las nuevas. El
+    # DELETE va por SQL y no por el ORM para no depender de que la relación
+    # esté cargada, y arrastra las unidades viejas con la fila.
+    await db.execute(
+        text("DELETE FROM core.ordenes_compra_detalle WHERE oc_id = :id"),
+        {"id": oc_id},
+    )
+    for it in body.items:
+        db.add(
+            OrdenCompraDetalle(
+                oc_id=oc_id,
+                item=it.item,
+                descripcion=it.descripcion,
+                precio_unitario=it.precio_unitario,
+                cantidad=it.cantidad,
+            )
+        )
+    await db.flush()
+    await _persistir_unidades(db, oc_id, body.items)
+
+    for campo, valor in derived.items():
+        setattr(oc, campo, valor)
+    await db.flush()
+    await db.commit()
+
+    # `expire_all` y no `refresh(oc)`: la relación `items` quedó con las
+    # filas viejas en la identity map de la sesión, y un refresh del objeto
+    # no la invalida. Sin esto la respuesta devolvía el itemizado ANTERIOR
+    # aunque en la BD ya estuviera el nuevo.
+    db.expire_all()
+    oc = await repo.get(oc_id)
+    if oc is None:  # pragma: no cover — acaba de commitear
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
+        )
+    despues_read = await _to_read_con_unidades(db, user, oc)
+
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=oc.numero_oc,
+        summary=(
+            f"Itemizado de la OC {oc.numero_oc} reemplazado: "
+            f"{len(antes.get('items') or [])} -> {len(body.items)} ítem(s), "
+            f"neto {antes.get('neto')} -> {derived['neto']}"
+        ),
+        before=antes,
+        after=despues_read.model_dump(mode="json"),
+    )
+    return despues_read
 
 
 @router.patch("/{oc_id}", response_model=OrdenCompraRead)

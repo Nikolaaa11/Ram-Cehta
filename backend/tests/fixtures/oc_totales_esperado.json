@@ -1,0 +1,366 @@
+{
+  "_generado_por": "backend/scripts/gen_snapshot_totales_oc.py",
+  "_autoridad": "app.api.v1.ordenes_compra._derivar_totales_oc",
+  "casos": {
+    "clp_factura_19": {
+      "entrada": {
+        "neto": "1000000",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1000000",
+        "iva_porcentaje": "19",
+        "iva": "190000",
+        "total": "1190000",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1190000"
+      }
+    },
+    "clp_boleta_19": {
+      "entrada": {
+        "neto": "250000",
+        "moneda": "CLP",
+        "tipo_documento": "BOLETA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "250000",
+        "iva_porcentaje": "19",
+        "iva": "47500",
+        "total": "297500",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "297500"
+      }
+    },
+    "clp_neto_con_centavos": {
+      "entrada": {
+        "neto": "1179939.99",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1179940",
+        "iva_porcentaje": "19",
+        "iva": "224189",
+        "total": "1404129",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1404129"
+      }
+    },
+    "clp_neto_medio_peso": {
+      "entrada": {
+        "neto": "1000000.50",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1000001",
+        "iva_porcentaje": "19",
+        "iva": "190000",
+        "total": "1190001",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1190001"
+      }
+    },
+    "uf_factura_19": {
+      "entrada": {
+        "neto": "100",
+        "moneda": "UF",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "100",
+        "iva_porcentaje": "19",
+        "iva": "19.00",
+        "total": "119.00",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "119.00"
+      }
+    },
+    "uf_factura_decimales": {
+      "entrada": {
+        "neto": "123.45",
+        "moneda": "UF",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "123.45",
+        "iva_porcentaje": "19",
+        "iva": "23.46",
+        "total": "146.91",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "146.91"
+      }
+    },
+    "uf_neto_largo": {
+      "entrada": {
+        "neto": "1234.567",
+        "moneda": "UF",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1234.567",
+        "iva_porcentaje": "19",
+        "iva": "234.57",
+        "total": "1469.137",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "1469.137"
+      }
+    },
+    "usd_factura_sin_iva": {
+      "entrada": {
+        "neto": "1000",
+        "moneda": "USD",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1000",
+        "iva_porcentaje": "0",
+        "iva": "0.00",
+        "total": "1000.00",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "1000.00"
+      }
+    },
+    "clp_exenta": {
+      "entrada": {
+        "neto": "500000",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA_EXENTA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "500000",
+        "iva_porcentaje": "0",
+        "iva": "0",
+        "total": "500000",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "500000"
+      }
+    },
+    "uf_exenta": {
+      "entrada": {
+        "neto": "123.45",
+        "moneda": "UF",
+        "tipo_documento": "FACTURA_EXENTA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "123.45",
+        "iva_porcentaje": "0",
+        "iva": "0.00",
+        "total": "123.45",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "123.45"
+      }
+    },
+    "clp_honorarios_1525": {
+      "entrada": {
+        "neto": "3645000",
+        "moneda": "CLP",
+        "tipo_documento": "HONORARIOS",
+        "iva_porcentaje": "0",
+        "retencion_porcentaje": "15.25"
+      },
+      "esperado": {
+        "neto": "3645000",
+        "iva_porcentaje": "0",
+        "iva": "0",
+        "total": "3645000",
+        "retencion_porcentaje": "15.25",
+        "retencion_monto": "555863",
+        "total_a_pagar": "3089137"
+      }
+    },
+    "clp_honorarios_impar": {
+      "entrada": {
+        "neto": "1179941",
+        "moneda": "CLP",
+        "tipo_documento": "HONORARIOS",
+        "iva_porcentaje": "0",
+        "retencion_porcentaje": "15.25"
+      },
+      "esperado": {
+        "neto": "1179941",
+        "iva_porcentaje": "0",
+        "iva": "0",
+        "total": "1179941",
+        "retencion_porcentaje": "15.25",
+        "retencion_monto": "179941",
+        "total_a_pagar": "1000000"
+      }
+    },
+    "uf_honorarios": {
+      "entrada": {
+        "neto": "123.45",
+        "moneda": "UF",
+        "tipo_documento": "HONORARIOS",
+        "iva_porcentaje": "0",
+        "retencion_porcentaje": "15.25"
+      },
+      "esperado": {
+        "neto": "123.45",
+        "iva_porcentaje": "0",
+        "iva": "0.00",
+        "total": "123.45",
+        "retencion_porcentaje": "15.25",
+        "retencion_monto": "18.83",
+        "total_a_pagar": "104.62"
+      }
+    },
+    "clp_honorarios_ret_cero": {
+      "entrada": {
+        "neto": "1000000",
+        "moneda": "CLP",
+        "tipo_documento": "HONORARIOS",
+        "iva_porcentaje": "0",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1000000",
+        "iva_porcentaje": "0",
+        "iva": "0",
+        "total": "1000000",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1000000"
+      }
+    },
+    "clp_iva_pactado": {
+      "entrada": {
+        "neto": "1000000",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "12.5",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1000000",
+        "iva_porcentaje": "12.5",
+        "iva": "125000",
+        "total": "1125000",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1125000"
+      }
+    },
+    "clp_iva_cero_explicito": {
+      "entrada": {
+        "neto": "1000000",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "0",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1000000",
+        "iva_porcentaje": "0",
+        "iva": "0",
+        "total": "1000000",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1000000"
+      }
+    },
+    "clp_neto_cero": {
+      "entrada": {
+        "neto": "0",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "0",
+        "iva_porcentaje": "19",
+        "iva": "0",
+        "total": "0",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "0"
+      }
+    },
+    "clp_un_peso": {
+      "entrada": {
+        "neto": "1",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "1",
+        "iva_porcentaje": "19",
+        "iva": "0",
+        "total": "1",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1"
+      }
+    },
+    "clp_monto_grande": {
+      "entrada": {
+        "neto": "987654321",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "987654321",
+        "iva_porcentaje": "19",
+        "iva": "187654321",
+        "total": "1175308642",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "1175308642"
+      }
+    },
+    "uf_un_centesimo": {
+      "entrada": {
+        "neto": "0.01",
+        "moneda": "UF",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "0.01",
+        "iva_porcentaje": "19",
+        "iva": "0.00",
+        "total": "0.01",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "0.01"
+      }
+    }
+  }
+}
