@@ -262,6 +262,15 @@ const GROUPS: NavGroup[] = [
         isNew: true,
         requiresAccess: canSeeRRHH,
       },
+      // Sección Remuneraciones: calcula liquidaciones y las concilia contra
+      // el libro del contador. Mismo gate que RRHH (dato sensible).
+      {
+        href: "/remuneraciones" as Route,
+        label: "Remuneraciones",
+        icon: Wallet,
+        isNew: true,
+        requiresAccess: canSeeRRHH,
+      },
       // V5++ ola AV — Bandeja personal: vouchers que requieren tu acción
       { href: "/mis-pendientes" as Route, label: "Mis pendientes", icon: Inbox },
       // V5++ ola CI — Cola dedicada de aprobaciones (solo lo que requiere

@@ -511,6 +511,210 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/remuneraciones/parametros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Parametros
+         * @description Los parámetros del período. Crea el período copiando el anterior
+         *     (con UF/UTM vacías) si no existe — abrir el mes es automático.
+         */
+        get: operations["get_parametros_api_v1_remuneraciones_parametros_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/parametros/{periodo}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Parametros */
+        put: operations["put_parametros_api_v1_remuneraciones_parametros__periodo__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/calcular": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calcular
+         * @description Vista previa: calcula sin guardar. Los errores de parámetros salen
+         *     como 422 con el mensaje accionable del motor.
+         */
+        post: operations["calcular_api_v1_remuneraciones_calcular_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/ejemplos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ejemplos
+         * @description Los 5 ejemplos de la guía, calculados EN VIVO por el mismo motor.
+         *
+         *     Si el período pedido no tiene UF/UTM, se calculan con parámetros
+         *     ilustrativos redondos (UF 40.000 / UTM 70.000) y se dice — un ejemplo no
+         *     puede quedarse en blanco, pero tampoco fingir indicadores reales.
+         */
+        get: operations["ejemplos_api_v1_remuneraciones_ejemplos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/sugerencias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sugerencias */
+        get: operations["sugerencias_api_v1_remuneraciones_sugerencias_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/liquidaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Liquidaciones */
+        get: operations["listar_liquidaciones_api_v1_remuneraciones_liquidaciones_get"];
+        put?: never;
+        /** Crear Liquidacion */
+        post: operations["crear_liquidacion_api_v1_remuneraciones_liquidaciones_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/generar-mes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generar Mes
+         * @description El batch: BORRADORES para todos los empleados activos sin liquidación,
+         *     con la config sugerida. Los que no se puedan calcular (sin AFP, sin
+         *     sueldo) quedan reportados como pendientes, no tumban el resto.
+         */
+        post: operations["generar_mes_api_v1_remuneraciones_generar_mes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/liquidaciones/{liquidacion_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Liquidacion */
+        get: operations["get_liquidacion_api_v1_remuneraciones_liquidaciones__liquidacion_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Borrar Liquidacion
+         * @description Sólo BORRADOR: una confirmada primero se reabre — dos pasos a
+         *     propósito, para que borrar una liquidación cerrada no sea un clic.
+         */
+        delete: operations["borrar_liquidacion_api_v1_remuneraciones_liquidaciones__liquidacion_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/liquidaciones/{liquidacion_id}/estado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Cambiar Estado */
+        patch: operations["cambiar_estado_api_v1_remuneraciones_liquidaciones__liquidacion_id__estado_patch"];
+        trace?: never;
+    };
+    "/api/v1/remuneraciones/conciliacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conciliacion
+         * @description Mi cálculo vs el libro de MCG, columna por columna.
+         *
+         *     Es la definición operativa de "sin errores": dos fuentes independientes
+         *     que cierran. Cada diferencia dice el campo, mi número y el del contador —
+         *     la decisión de a quién creerle es humana, pero la diferencia no se
+         *     esconde.
+         */
+        get: operations["conciliacion_api_v1_remuneraciones_conciliacion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/empresas/{codigo}/oc-branding": {
         parameters: {
             query?: never;
@@ -12034,6 +12238,12 @@ export interface components {
                 [key: string]: number | string;
             };
         };
+        /** CalcularRequest */
+        CalcularRequest: {
+            /** Periodo */
+            periodo: string;
+            entrada: components["schemas"]["EntradaIn"];
+        };
         /** CalendarEventCreate */
         CalendarEventCreate: {
             /** Titulo */
@@ -13744,6 +13954,108 @@ export interface components {
              */
             backup_codes: string[];
         };
+        /**
+         * EntradaIn
+         * @description La entrada del cálculo, como la manda el formulario.
+         */
+        EntradaIn: {
+            /** Sueldo Base */
+            sueldo_base: number | string;
+            /**
+             * Dias Trabajados
+             * @default 30
+             */
+            dias_trabajados: number | string;
+            /**
+             * Horas Extra
+             * @default 0
+             */
+            horas_extra: number | string;
+            /**
+             * Recargo Horas Extra Pct
+             * @default 50
+             */
+            recargo_horas_extra_pct: number | string;
+            /**
+             * Comisiones
+             * @default 0
+             */
+            comisiones: number | string;
+            /**
+             * Bonos Imponibles
+             * @default 0
+             */
+            bonos_imponibles: number | string;
+            /**
+             * Gratificacion Tipo
+             * @default ART50_TOPE
+             */
+            gratificacion_tipo: string;
+            /**
+             * Gratificacion Monto Fijo
+             * @default 0
+             */
+            gratificacion_monto_fijo: number | string;
+            /**
+             * Colacion
+             * @default 0
+             */
+            colacion: number | string;
+            /**
+             * Movilizacion
+             * @default 0
+             */
+            movilizacion: number | string;
+            /**
+             * Viaticos
+             * @default 0
+             */
+            viaticos: number | string;
+            /**
+             * Otros No Imponibles
+             * @default 0
+             */
+            otros_no_imponibles: number | string;
+            /**
+             * Cargas Familiares
+             * @default 0
+             */
+            cargas_familiares: number;
+            /** Afp */
+            afp?: string | null;
+            /**
+             * Salud Sistema
+             * @default FONASA
+             */
+            salud_sistema: string;
+            /**
+             * Isapre Plan Uf
+             * @default 0
+             */
+            isapre_plan_uf: number | string;
+            /**
+             * Tipo Contrato
+             * @default INDEFINIDO
+             */
+            tipo_contrato: string;
+            /**
+             * Apv Mensual
+             * @default 0
+             */
+            apv_mensual: number | string;
+            /**
+             * Anticipos
+             * @default 0
+             */
+            anticipos: number | string;
+            /**
+             * Otros Descuentos
+             * @default 0
+             */
+            otros_descuentos: number | string;
+            /** Mutual Pct Override */
+            mutual_pct_override?: number | string | null;
+        };
         /** EntregableCreate */
         EntregableCreate: {
             /** Id Template */
@@ -14164,6 +14476,11 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** EstadoRequest */
+        EstadoRequest: {
+            /** Estado */
+            estado: string;
         };
         /** EstadoUpdateRequest */
         EstadoUpdateRequest: {
@@ -15460,6 +15777,13 @@ export interface components {
             /** Tipo */
             tipo: string;
         };
+        /** GenerarMesRequest */
+        GenerarMesRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+        };
         /**
          * GenerarSerieRequest
          * @description Genera N instancias de un template recurrente para un año dado.
@@ -15572,6 +15896,18 @@ export interface components {
             fecha_desde?: string | null;
             /** Fecha Hasta */
             fecha_hasta?: string | null;
+        };
+        /** GuardarRequest */
+        GuardarRequest: {
+            /** Periodo */
+            periodo: string;
+            entrada: components["schemas"]["EntradaIn"];
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Empleado Rut */
+            empleado_rut: string;
+            /** Empleado Nombre */
+            empleado_nombre: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -19162,6 +19498,36 @@ export interface components {
             size: number;
             /** Has More */
             has_more: boolean;
+        };
+        /**
+         * ParametrosUpdate
+         * @description PATCH de parámetros. None = no tocar. Sólo lo editable mes a mes.
+         */
+        ParametrosUpdate: {
+            /** Uf */
+            uf?: number | string | null;
+            /** Utm */
+            utm?: number | string | null;
+            /** Ingreso Minimo */
+            ingreso_minimo?: number | string | null;
+            /** Tope Imponible Uf */
+            tope_imponible_uf?: number | string | null;
+            /** Tope Afc Uf */
+            tope_afc_uf?: number | string | null;
+            /** Jornada Horas */
+            jornada_horas?: number | string | null;
+            /** Sis Pct */
+            sis_pct?: number | string | null;
+            /** Mutual Pct */
+            mutual_pct?: number | string | null;
+            /** Reforma Cuenta Individual Pct */
+            reforma_cuenta_individual_pct?: number | string | null;
+            /** Reforma Seguro Social Pct */
+            reforma_seguro_social_pct?: number | string | null;
+            /** Comisiones Afp */
+            comisiones_afp?: {
+                [key: string]: number | string;
+            } | null;
         };
         /** PerfResponse */
         PerfResponse: {
@@ -23932,6 +24298,439 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_parametros_api_v1_remuneraciones_parametros_get: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_parametros_api_v1_remuneraciones_parametros__periodo__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                periodo: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ParametrosUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    calcular_api_v1_remuneraciones_calcular_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalcularRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ejemplos_api_v1_remuneraciones_ejemplos_get: {
+        parameters: {
+            query: {
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sugerencias_api_v1_remuneraciones_sugerencias_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_liquidaciones_api_v1_remuneraciones_liquidaciones_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_liquidacion_api_v1_remuneraciones_liquidaciones_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuardarRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generar_mes_api_v1_remuneraciones_generar_mes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerarMesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_liquidacion_api_v1_remuneraciones_liquidaciones__liquidacion_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                liquidacion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_liquidacion_api_v1_remuneraciones_liquidaciones__liquidacion_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                liquidacion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cambiar_estado_api_v1_remuneraciones_liquidaciones__liquidacion_id__estado_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                liquidacion_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstadoRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    conciliacion_api_v1_remuneraciones_conciliacion_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                periodo: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

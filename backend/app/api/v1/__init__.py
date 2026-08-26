@@ -81,6 +81,7 @@ from app.api.v1 import stream as stream_router
 from app.api.v1 import change_management  # Round 152t/u/v
 from app.api.v1 import corfo_rendiciones  # Round 152w
 from app.api.v1 import rrhh  # R152vvv
+from app.api.v1 import remuneraciones  # seccion Remuneraciones
 from app.api.v1 import empresa_oc_branding  # R152www
 from app.api.v1 import oc_cuotas  # R152yyy
 from app.api.v1 import oc_equipo  # MEGAPROMPT OC — equipo firmante por empresa
@@ -98,6 +99,9 @@ api_router.include_router(change_management.router)
 api_router.include_router(corfo_rendiciones.router)
 # R152vvv — Módulo RRHH (Benja + Victoria + admin)
 api_router.include_router(rrhh.router, prefix="/rrhh", tags=["rrhh"])
+api_router.include_router(
+    remuneraciones.router, prefix="/remuneraciones", tags=["remuneraciones"]
+)
 # R152www — Branding/firmantes OC por empresa
 api_router.include_router(empresa_oc_branding.router, tags=["empresa-oc-branding"])
 # R152yyy — Split de OC en cuotas + generar vouchers DRAFT por cuota

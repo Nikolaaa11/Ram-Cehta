@@ -1598,6 +1598,774 @@
         }
       }
     },
+    "/api/v1/remuneraciones/parametros": {
+      "get": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Get Parametros",
+        "description": "Los parámetros del período. Crea el período copiando el anterior\n(con UF/UTM vacías) si no existe — abrir el mes es automático.",
+        "operationId": "get_parametros_api_v1_remuneraciones_parametros_get",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Parametros Api V1 Remuneraciones Parametros Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/parametros/{periodo}": {
+      "put": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Put Parametros",
+        "operationId": "put_parametros_api_v1_remuneraciones_parametros__periodo__put",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParametrosUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Put Parametros Api V1 Remuneraciones Parametros  Periodo  Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/calcular": {
+      "post": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Calcular",
+        "description": "Vista previa: calcula sin guardar. Los errores de parámetros salen\ncomo 422 con el mensaje accionable del motor.",
+        "operationId": "calcular_api_v1_remuneraciones_calcular_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalcularRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Calcular Api V1 Remuneraciones Calcular Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/ejemplos": {
+      "get": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Ejemplos",
+        "description": "Los 5 ejemplos de la guía, calculados EN VIVO por el mismo motor.\n\nSi el período pedido no tiene UF/UTM, se calculan con parámetros\nilustrativos redondos (UF 40.000 / UTM 70.000) y se dice — un ejemplo no\npuede quedarse en blanco, pero tampoco fingir indicadores reales.",
+        "operationId": "ejemplos_api_v1_remuneraciones_ejemplos_get",
+        "parameters": [
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Ejemplos Api V1 Remuneraciones Ejemplos Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/sugerencias": {
+      "get": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Sugerencias",
+        "operationId": "sugerencias_api_v1_remuneraciones_sugerencias_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Sugerencias Api V1 Remuneraciones Sugerencias Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/liquidaciones": {
+      "post": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Crear Liquidacion",
+        "operationId": "crear_liquidacion_api_v1_remuneraciones_liquidaciones_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GuardarRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Crear Liquidacion Api V1 Remuneraciones Liquidaciones Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Listar Liquidaciones",
+        "operationId": "listar_liquidaciones_api_v1_remuneraciones_liquidaciones_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Listar Liquidaciones Api V1 Remuneraciones Liquidaciones Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/generar-mes": {
+      "post": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Generar Mes",
+        "description": "El batch: BORRADORES para todos los empleados activos sin liquidación,\ncon la config sugerida. Los que no se puedan calcular (sin AFP, sin\nsueldo) quedan reportados como pendientes, no tumban el resto.",
+        "operationId": "generar_mes_api_v1_remuneraciones_generar_mes_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerarMesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Generar Mes Api V1 Remuneraciones Generar Mes Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/liquidaciones/{liquidacion_id}": {
+      "get": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Get Liquidacion",
+        "operationId": "get_liquidacion_api_v1_remuneraciones_liquidaciones__liquidacion_id__get",
+        "parameters": [
+          {
+            "name": "liquidacion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Liquidacion Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Liquidacion Api V1 Remuneraciones Liquidaciones  Liquidacion Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Borrar Liquidacion",
+        "description": "Sólo BORRADOR: una confirmada primero se reabre — dos pasos a\npropósito, para que borrar una liquidación cerrada no sea un clic.",
+        "operationId": "borrar_liquidacion_api_v1_remuneraciones_liquidaciones__liquidacion_id__delete",
+        "parameters": [
+          {
+            "name": "liquidacion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Liquidacion Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/liquidaciones/{liquidacion_id}/estado": {
+      "patch": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Cambiar Estado",
+        "operationId": "cambiar_estado_api_v1_remuneraciones_liquidaciones__liquidacion_id__estado_patch",
+        "parameters": [
+          {
+            "name": "liquidacion_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Liquidacion Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstadoRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Cambiar Estado Api V1 Remuneraciones Liquidaciones  Liquidacion Id  Estado Patch"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/remuneraciones/conciliacion": {
+      "get": {
+        "tags": [
+          "remuneraciones"
+        ],
+        "summary": "Conciliacion",
+        "description": "Mi cálculo vs el libro de MCG, columna por columna.\n\nEs la definición operativa de \"sin errores\": dos fuentes independientes\nque cierran. Cada diferencia dice el campo, mi número y el del contador —\nla decisión de a quién creerle es humana, pero la diferencia no se\nesconde.",
+        "operationId": "conciliacion_api_v1_remuneraciones_conciliacion_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Conciliacion Api V1 Remuneraciones Conciliacion Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/empresas/{codigo}/oc-branding": {
       "get": {
         "tags": [
@@ -39875,6 +40643,24 @@
         "title": "CEODigestPayload",
         "description": "Payload completo del digest semanal CEO.\n\nSe serializa como JSON para `/preview` y se renderiza vía\n`DigestService.build_html()` para el body del email."
       },
+      "CalcularRequest": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Periodo"
+          },
+          "entrada": {
+            "$ref": "#/components/schemas/EntradaIn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "entrada"
+        ],
+        "title": "CalcularRequest"
+      },
       "CalendarEventCreate": {
         "properties": {
           "titulo": {
@@ -44962,6 +45748,257 @@
         "title": "EnrollResponse",
         "description": "Respuesta de `POST /me/2fa/enroll` — única vez que el secret y los\nbackup codes salen del backend. El frontend los muestra al usuario y\nlos descarta. Si el usuario los pierde, hay que regenerar."
       },
+      "EntradaIn": {
+        "properties": {
+          "sueldo_base": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Sueldo Base"
+          },
+          "dias_trabajados": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Dias Trabajados",
+            "default": "30"
+          },
+          "horas_extra": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Horas Extra",
+            "default": "0"
+          },
+          "recargo_horas_extra_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Recargo Horas Extra Pct",
+            "default": "50"
+          },
+          "comisiones": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Comisiones",
+            "default": "0"
+          },
+          "bonos_imponibles": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Bonos Imponibles",
+            "default": "0"
+          },
+          "gratificacion_tipo": {
+            "type": "string",
+            "title": "Gratificacion Tipo",
+            "default": "ART50_TOPE"
+          },
+          "gratificacion_monto_fijo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Gratificacion Monto Fijo",
+            "default": "0"
+          },
+          "colacion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Colacion",
+            "default": "0"
+          },
+          "movilizacion": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Movilizacion",
+            "default": "0"
+          },
+          "viaticos": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Viaticos",
+            "default": "0"
+          },
+          "otros_no_imponibles": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Otros No Imponibles",
+            "default": "0"
+          },
+          "cargas_familiares": {
+            "type": "integer",
+            "title": "Cargas Familiares",
+            "default": 0
+          },
+          "afp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Afp"
+          },
+          "salud_sistema": {
+            "type": "string",
+            "title": "Salud Sistema",
+            "default": "FONASA"
+          },
+          "isapre_plan_uf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Isapre Plan Uf",
+            "default": "0"
+          },
+          "tipo_contrato": {
+            "type": "string",
+            "title": "Tipo Contrato",
+            "default": "INDEFINIDO"
+          },
+          "apv_mensual": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Apv Mensual",
+            "default": "0"
+          },
+          "anticipos": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Anticipos",
+            "default": "0"
+          },
+          "otros_descuentos": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Otros Descuentos",
+            "default": "0"
+          },
+          "mutual_pct_override": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mutual Pct Override"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sueldo_base"
+        ],
+        "title": "EntradaIn",
+        "description": "La entrada del cálculo, como la manda el formulario."
+      },
       "EntregableCreate": {
         "properties": {
           "id_template": {
@@ -46176,6 +47213,20 @@
         },
         "type": "object",
         "title": "EstadoFinancieroUpdate"
+      },
+      "EstadoRequest": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "pattern": "^(BORRADOR|CONFIRMADA)$",
+            "title": "Estado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado"
+        ],
+        "title": "EstadoRequest"
       },
       "EstadoUpdateRequest": {
         "properties": {
@@ -50103,6 +51154,25 @@
         ],
         "title": "GenExcelReq"
       },
+      "GenerarMesRequest": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Periodo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "periodo"
+        ],
+        "title": "GenerarMesRequest"
+      },
       "GenerarSerieRequest": {
         "properties": {
           "id_template": {
@@ -50375,6 +51445,39 @@
           "empresa_codigo"
         ],
         "title": "GenerateBatchRequest"
+      },
+      "GuardarRequest": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+            "title": "Periodo"
+          },
+          "entrada": {
+            "$ref": "#/components/schemas/EntradaIn"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "empleado_rut": {
+            "type": "string",
+            "title": "Empleado Rut"
+          },
+          "empleado_nombre": {
+            "type": "string",
+            "title": "Empleado Nombre"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "entrada",
+          "empresa_codigo",
+          "empleado_rut",
+          "empleado_nombre"
+        ],
+        "title": "GuardarRequest"
       },
       "HTTPValidationError": {
         "properties": {
@@ -61844,6 +62947,185 @@
           "has_more"
         ],
         "title": "PaginatedVouchersResponse"
+      },
+      "ParametrosUpdate": {
+        "properties": {
+          "uf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uf"
+          },
+          "utm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utm"
+          },
+          "ingreso_minimo": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ingreso Minimo"
+          },
+          "tope_imponible_uf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tope Imponible Uf"
+          },
+          "tope_afc_uf": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tope Afc Uf"
+          },
+          "jornada_horas": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jornada Horas"
+          },
+          "sis_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sis Pct"
+          },
+          "mutual_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mutual Pct"
+          },
+          "reforma_cuenta_individual_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reforma Cuenta Individual Pct"
+          },
+          "reforma_seguro_social_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reforma Seguro Social Pct"
+          },
+          "comisiones_afp": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comisiones Afp"
+          }
+        },
+        "type": "object",
+        "title": "ParametrosUpdate",
+        "description": "PATCH de parámetros. None = no tocar. Sólo lo editable mes a mes."
       },
       "PerfResponse": {
         "properties": {
