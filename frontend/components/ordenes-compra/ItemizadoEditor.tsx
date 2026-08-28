@@ -142,7 +142,7 @@ export function ItemizadoEditor({
               onPaste={(e) => pegar(idx, e)}
               placeholder="P. Unit."
               step="any"
-              min="0"
+              title="Un precio negativo resta: es una línea de descuento"
               disabled={disabled}
               className={`${inputBase} tabular-nums`}
             />

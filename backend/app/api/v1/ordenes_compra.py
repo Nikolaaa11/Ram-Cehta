@@ -186,6 +186,13 @@ def _derivar_totales_oc(
 ) -> dict[str, Decimal]:
     """Los seis números tributarios de una OC, calculados en el servidor.
 
+    Exige neto > 0. Todos los caminos de la API ya lo garantizan (las líneas
+    de descuento pueden ser negativas, pero la suma la validan el schema y el
+    PUT de items); este guard es defensa en profundidad para filas que hayan
+    entrado por fuera (el alta automática desde el inbox insertaba sin pasar
+    por el schema) — sin él, un PATCH sobre esa fila re-derivaba IVA, total y
+    retención NEGATIVOS en silencio.
+
     El cliente propone el tipo y las tasas; los montos los calcula el
     servidor y nunca se aceptan del body (§4.3). Devuelve un dict listo para
     el `derived=` del repositorio, con las TASAS ya normalizadas por el motor:
@@ -200,6 +207,16 @@ def _derivar_totales_oc(
     aporta lo único que el motor no puede saber — la moneda — y traduce los
     `ValueError` del motor a 422 en vez de dejarlos salir como 500.
     """
+    if neto <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El neto de la OC quedó en {neto:,.0f}: los descuentos "
+                "superan o igualan a los cargos. Una orden de compra tiene "
+                "que tener un total positivo."
+            ),
+        )
+
     tipo = (tipo_documento or "FACTURA").upper()
 
     # La regla de la moneda. La UF **sí** lleva IVA: es una unidad de cuenta
@@ -1450,11 +1467,21 @@ async def reemplazar_items_oc(
 
     antes = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
 
-    # La B del contrato: la suma del itemizado nuevo.
+    # La B del contrato: la suma del itemizado nuevo. Las líneas negativas
+    # (descuentos) restan; la suma tiene que seguir siendo positiva.
     neto = sum(
         (it.precio_unitario * it.cantidad for it in body.items),
         Decimal("0"),
     )
+    if neto <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                f"El total del itemizado quedó en {neto:,.0f}: los "
+                "descuentos superan o igualan a los cargos. Una OC tiene "
+                "que tener un total positivo."
+            ),
+        )
     derived = _derivar_totales_oc(
         neto=neto,
         moneda=getattr(oc.moneda, "value", oc.moneda) or "CLP",

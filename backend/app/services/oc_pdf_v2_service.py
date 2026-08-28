@@ -149,8 +149,14 @@ def _fmt_uf(monto: Any) -> str:
         d = Decimal(str(monto)).quantize(Decimal("0.01"))
     except Exception:
         return str(monto)
-    ent, dec = f"{d:.2f}".split(".")
-    return f"UF {int(ent):,}".replace(",", ".") + f",{dec}"
+    # El signo se decide sobre el Decimal y se formatea el valor ABSOLUTO.
+    # La versión anterior hacía int(ent) sobre el string: para -0,50 el
+    # entero es "-0", int("-0") == 0, y el signo DESAPARECÍA — un descuento
+    # de media UF se imprimía como cargo. Con montos < -1 el signo quedaba
+    # pegado al número ("UF -1,50"); ahora va adelante, como en _fmt_clp.
+    sign = "-" if d < 0 else ""
+    ent, dec = f"{abs(d):.2f}".split(".")
+    return f"{sign}UF {int(ent):,}".replace(",", ".") + f",{dec}"
 
 
 def _fmt_usd(monto: Any) -> str:
@@ -160,7 +166,9 @@ def _fmt_usd(monto: Any) -> str:
         d = Decimal(str(monto)).quantize(Decimal("0.01"))
     except Exception:
         return str(monto)
-    return f"US${d:,.2f}"
+    # Signo adelante del símbolo: "-US$500.00", no "US$-500.00".
+    sign = "-" if d < 0 else ""
+    return f"{sign}US${abs(d):,.2f}"
 
 
 def _formatear_moneda(monto: Any, moneda: str = "CLP") -> str:

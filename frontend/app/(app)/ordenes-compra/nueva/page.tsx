@@ -623,6 +623,21 @@ export default function NuevaOcPage() {
       setError("Cada ítem requiere descripción y precio unitario.");
       return;
     }
+    // Los precios negativos son descuentos válidos, pero la SUMA tiene que
+    // quedar positiva: una OC sin monto a favor del proveedor no existe.
+    // El backend también lo valida (422); acá se corta antes y más claro.
+    const sumaItems = items.reduce((acc, it) => {
+      const cant = toNum(it.cantidad, 1);
+      return acc + toNum(it.precio_unitario) * (cant > 0 ? cant : 1);
+    }, 0);
+    if (sumaItems <= 0) {
+      setError(
+        "El total de la OC quedó en " +
+          sumaItems.toLocaleString("es-CL") +
+          ": los descuentos superan o igualan a los cargos. Ajustá los montos.",
+      );
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -1262,7 +1277,7 @@ export default function NuevaOcPage() {
                       }
                       placeholder="P. Unit."
                       step="any"
-                      min="0"
+                      title="Un precio negativo resta: es una línea de descuento"
                       required
                       className={`${inputBase} tabular-nums`}
                     />

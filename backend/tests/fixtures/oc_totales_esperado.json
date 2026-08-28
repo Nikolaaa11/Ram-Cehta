@@ -290,24 +290,6 @@
         "total_a_pagar": "1000000"
       }
     },
-    "clp_neto_cero": {
-      "entrada": {
-        "neto": "0",
-        "moneda": "CLP",
-        "tipo_documento": "FACTURA",
-        "iva_porcentaje": "19",
-        "retencion_porcentaje": "0"
-      },
-      "esperado": {
-        "neto": "0",
-        "iva_porcentaje": "19",
-        "iva": "0",
-        "total": "0",
-        "retencion_porcentaje": "0",
-        "retencion_monto": "0",
-        "total_a_pagar": "0"
-      }
-    },
     "clp_un_peso": {
       "entrada": {
         "neto": "1",
@@ -324,6 +306,60 @@
         "retencion_porcentaje": "0",
         "retencion_monto": "0",
         "total_a_pagar": "1"
+      }
+    },
+    "clp_post_descuento_impar": {
+      "entrada": {
+        "neto": "437",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "437",
+        "iva_porcentaje": "19",
+        "iva": "83",
+        "total": "520",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "520"
+      }
+    },
+    "clp_post_descuento_centavos": {
+      "entrada": {
+        "neto": "99999.01",
+        "moneda": "CLP",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "99999",
+        "iva_porcentaje": "19",
+        "iva": "19000",
+        "total": "118999",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0",
+        "total_a_pagar": "118999"
+      }
+    },
+    "uf_post_descuento": {
+      "entrada": {
+        "neto": "0.07",
+        "moneda": "UF",
+        "tipo_documento": "FACTURA",
+        "iva_porcentaje": "19",
+        "retencion_porcentaje": "0"
+      },
+      "esperado": {
+        "neto": "0.07",
+        "iva_porcentaje": "19",
+        "iva": "0.01",
+        "total": "0.08",
+        "retencion_porcentaje": "0",
+        "retencion_monto": "0.00",
+        "total_a_pagar": "0.08"
       }
     },
     "clp_monto_grande": {

@@ -73,8 +73,20 @@ CASOS: list[tuple[str, str, str, str, str, str]] = [
     ("clp_iva_cero_explicito", "1000000", "CLP", "FACTURA", "0", "0"),
 
     # ── Bordes ───────────────────────────────────────────────────────────
-    ("clp_neto_cero", "0", "CLP", "FACTURA", "19", "0"),
+    # `clp_neto_cero` ya no existe: desde que las líneas admiten precios
+    # negativos (descuentos), _derivar_totales_oc RECHAZA neto <= 0 con 422
+    # ("los descuentos superan a los cargos"). El rechazo lo fija
+    # tests/unit/test_oc_descuentos.py; un snapshot sólo puede fijar salidas.
     ("clp_un_peso", "1", "CLP", "FACTURA", "19", "0"),
+
+    # ── Con descuento ────────────────────────────────────────────────────
+    # A este nivel un descuento es simplemente un neto MENOR (la resta pasa
+    # en la suma del itemizado, antes de derivar). Lo que estos casos fijan
+    # es que un neto "raro" post-descuento (impar, con centavos por una
+    # cantidad fraccionaria) deriva igual en las dos suites.
+    ("clp_post_descuento_impar", "437", "CLP", "FACTURA", "19", "0"),
+    ("clp_post_descuento_centavos", "99999.01", "CLP", "FACTURA", "19", "0"),
+    ("uf_post_descuento", "0.07", "UF", "FACTURA", "19", "0"),
     ("clp_monto_grande", "987654321", "CLP", "FACTURA", "19", "0"),
     ("uf_un_centesimo", "0.01", "UF", "FACTURA", "19", "0"),
 ]

@@ -166,14 +166,32 @@ export function OcEditForm({ initialData }: Props) {
       toast.error("La OC necesita al menos un item con descripcion.");
       return;
     }
-    // El backend exige cantidad y precio > 0 (422). Se avisa aca con el
-    // numero de linea en vez de mandar y mostrar un error generico.
+    // Cantidad > 0 siempre; el precio puede ser NEGATIVO (linea de
+    // descuento) o cero (bonificado) — lo que no puede es no ser un numero.
+    // La suma total si tiene que quedar positiva; el backend tambien lo
+    // valida (422), aca se corta antes y con el numero de linea.
     const mala = limpios.findIndex(
-      (i) => !(Number(i.cantidad) > 0) || !(Number(i.precio_unitario) > 0),
+      (i) =>
+        !(Number(i.cantidad) > 0) ||
+        !Number.isFinite(Number(i.precio_unitario)) ||
+        i.precio_unitario === "",
     );
     if (mala >= 0) {
       toast.error(
-        `El item ${mala + 1} necesita cantidad y precio unitario mayores a 0.`,
+        `El item ${mala + 1} necesita cantidad mayor a 0 y un precio ` +
+          "unitario numerico (puede ser negativo: es un descuento).",
+      );
+      return;
+    }
+    const suma = limpios.reduce(
+      (acc, i) => acc + Number(i.precio_unitario) * Number(i.cantidad),
+      0,
+    );
+    if (suma <= 0) {
+      toast.error(
+        "El total del itemizado quedo en " +
+          suma.toLocaleString("es-CL") +
+          ": los descuentos superan a los cargos. Ajusta los montos.",
       );
       return;
     }

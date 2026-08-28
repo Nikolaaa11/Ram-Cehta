@@ -261,6 +261,10 @@ _ITEMS_OBRA: dict[str, list[_Item]] = {
         ("Instalación de fosa séptica, cámaras de inspección y drenes",
          "Gl", Decimal(1), Decimal(2_925_000)),
         ("Apoyo de retroexcavadora", "Días", Decimal(3), Decimal(240_000)),
+        # Línea de DESCUENTO (precio negativo): existe desde que la OC admite
+        # restar. Va tercera para que `--items 3` la incluya y se VEA cómo
+        # imprime el PDF un monto negativo en la columna de totales.
+        ("Descuento por anticipo de obra", "Gl", Decimal(1), Decimal(-450_000)),
         ("Suministro e instalación de tubería HDPE 110mm",
          "ml", Decimal(120), Decimal(8_400)),
         ("Movimiento de tierras y compactación de plataforma",

@@ -33,7 +33,13 @@ class OCDetalleCreate(BaseModel):
     # el form ofrece sugerencias pero el operador puede escribir la suya.
     # Opcional con default: si no viene, el PDF imprime "—".
     unidad: str | None = Field(default=None, max_length=20)
-    precio_unitario: Decimal = Field(..., gt=0)
+    # SIN restricción de signo: un precio NEGATIVO es una línea de descuento
+    # ("Descuento anticipo: -500.000") y un 0 es un ítem bonificado. Lo que
+    # NO puede ser negativo es el NETO resultante de la OC — eso lo valida
+    # `neto_positivo` abajo, con un mensaje que explica qué pasó. La cantidad
+    # sí sigue > 0: el descuento va en el precio, y una cantidad negativa
+    # duplicaría el signo (-precio × -cantidad = cargo otra vez).
+    precio_unitario: Decimal
     cantidad: Decimal = Field(..., gt=0)
 
 
@@ -123,9 +129,20 @@ class OrdenCompraCreate(BaseModel):
             ),
             _D(0),
         )
-        # Siempre asignamos el computado: el campo neto persistido refleja
-        # los items, no lo que el FE haya enviado. Idempotente.
-        self.neto = items_total if items_total > 0 else (self.neto or _D(0))
+        # Siempre el computado: el neto persistido refleja los ítems, no lo
+        # que el FE haya mandado. Con descuentos (líneas negativas) la suma
+        # puede bajar — pero no a cero ni bajo cero: una OC sin monto a favor
+        # del proveedor no es una orden de compra. El mensaje dice QUÉ pasó,
+        # porque quien lo va a ver es un operador que cargó un descuento más
+        # grande que los cargos.
+        self.neto = items_total
+        if items_total <= 0:
+            raise ValueError(
+                "El total de la OC quedó en "
+                f"{items_total:,.0f}: los descuentos (líneas negativas) "
+                "superan o igualan a los cargos. Ajustá los montos — una "
+                "orden de compra tiene que tener un total positivo."
+            )
         return self
 
     @model_validator(mode="after")

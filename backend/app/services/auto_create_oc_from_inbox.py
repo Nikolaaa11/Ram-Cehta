@@ -558,6 +558,22 @@ async def _crear_oc(
             "total_linea": total_neto,
         })
 
+    # Guard de signo — este servicio inserta por SQL directo, SIN pasar por
+    # OCDetalleCreate, así que la regla del schema no lo cubre. Las líneas
+    # negativas (descuentos que la IA leyó del email) son válidas, pero el
+    # NETO tiene que ser positivo: una OC automática con total <= 0 no se
+    # crea — queda el email en la bandeja para carga manual, que es el
+    # comportamiento de todo lo que este servicio no entiende.
+    if total_neto <= 0:
+        # ValueError y no return: el caller (líneas ~168-179) captura la
+        # excepción, la guarda como auto_create_error en el email y devuelve
+        # ok=False — el mensaje queda visible en la bandeja para carga manual.
+        raise ValueError(
+            f"neto extraído {total_neto} <= 0: los descuentos superan a los "
+            "cargos o la extracción vino vacía. La OC no se crea sola — "
+            "cargala a mano desde el email."
+        )
+
     # R152UUUUUU — motor de IVA alineado con la vía manual (schemas/
     # orden_compra.py + domain/value_objects/iva.py): IVA solo si la moneda
     # es CLP, redondeado a PESO ENTERO con HALF_UP. Antes esta vía aplicaba
