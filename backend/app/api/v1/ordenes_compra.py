@@ -707,8 +707,42 @@ async def list_ocs(
         estado=estado,
         empresa_codigos_in=scoped_codes,
     )
+    lista = [_to_list_item(user, oc) for oc in items]
+
+    # Firmas de la página en UNA query agregada (nunca una por OC). El
+    # listado es la pantalla más golpeada del módulo: un N+1 acá se paga en
+    # cada tecleo del filtro.
+    if lista:
+        agregados = (
+            await db.execute(
+                text(
+                    """
+                    SELECT oc_id,
+                           count(*) AS total,
+                           count(*) FILTER (WHERE status = 'FIRMADA') AS firmadas,
+                           COALESCE(array_agg(
+                               COALESCE(firmante_nombre, firmante_email)
+                               ORDER BY orden)
+                               FILTER (WHERE status = 'PENDIENTE'),
+                               ARRAY[]::text[]) AS pendientes
+                      FROM core.oc_firmas
+                     WHERE oc_id = ANY(:ids)
+                     GROUP BY oc_id
+                    """
+                ),
+                {"ids": [it.oc_id for it in lista]},
+            )
+        ).mappings().all()
+        por_oc = {a["oc_id"]: a for a in agregados}
+        for it in lista:
+            a = por_oc.get(it.oc_id)
+            if a:
+                it.firmas_total = a["total"]
+                it.firmas_firmadas = a["firmadas"]
+                it.firmas_pendientes = list(a["pendientes"])
+
     return Page.build(
-        items=[_to_list_item(user, oc) for oc in items],
+        items=lista,
         total=total,
         page=page,
         size=size,

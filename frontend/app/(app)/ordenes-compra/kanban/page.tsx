@@ -54,7 +54,12 @@ const KANBAN_SET = new Set<string>(KANBAN_ESTADOS);
 /** Mapea una columna destino a la acción RBAC requerida (matching backend). */
 const ESTADO_ACTION: Record<KanbanEstado, string | null> = {
   emitida: null, // no hay vuelta atrás soportada en backend
-  aprobada: "approve", // backend aún no soporta — surface 422
+  // Las columnas de firma NO son destinos de drag: a en_firma se llega
+  // mandando a firmar desde la OC, y de ahí sale sola cuando firman todos.
+  // Arrastrar una card ahí sería fingir firmas.
+  en_firma: null,
+  firmada: null,
+  enviada_proveedor: null,
   pagada: "mark_paid",
   anulada: "cancel",
 };
@@ -120,7 +125,9 @@ export default function OrdenesCompraKanbanPage() {
   const byEstado = useMemo(() => {
     const groups: Record<KanbanEstado, OcListItem[]> = {
       emitida: [],
-      aprobada: [],
+      en_firma: [],
+      firmada: [],
+      enviada_proveedor: [],
       pagada: [],
       anulada: [],
     };

@@ -7920,6 +7920,191 @@
         }
       }
     },
+    "/api/v1/ordenes-compra/firmas-matriz": {
+      "get": {
+        "tags": [
+          "oc-firmas"
+        ],
+        "summary": "Firmas Matriz",
+        "description": "La matriz de firmas de UNA empresa: filas = OC, columnas = firmantes.\n\nEntran las OC que tienen firmantes asignados y no están anuladas, las\n`en_firma` primero (son las que duelen). Cada celda dice FIRMADA (con\nfecha), PENDIENTE, RECHAZADA o no-aplica (esa persona no firma esa OC).\nPor empresa a propósito: los firmantes se repiten dentro de una empresa\ny la matriz queda angosta; cruzar empresas la volvería un colador.",
+        "operationId": "firmas_matriz_api_v1_ordenes_compra_firmas_matriz_get",
+        "parameters": [
+          {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa Codigo"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 60,
+              "title": "Limite"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Firmas Matriz Api V1 Ordenes Compra Firmas Matriz Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/mis-firmas-pendientes": {
+      "get": {
+        "tags": [
+          "oc-firmas"
+        ],
+        "summary": "Mis Firmas Pendientes",
+        "description": "Las OC que esperan MI firma, para la bandeja personal.\n\nEs la respuesta directa a \"cuál me falta firmar a mí\": una consulta por\nmi email contra las firmas PENDIENTE de OC vivas. La pantalla de\nMis pendientes la muestra como sección propia.",
+        "operationId": "mis_firmas_pendientes_api_v1_ordenes_compra_mis_firmas_pendientes_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Mis Firmas Pendientes Api V1 Ordenes Compra Mis Firmas Pendientes Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/recordar-firmas": {
+      "post": {
+        "tags": [
+          "oc-firmas"
+        ],
+        "summary": "Recordar Firmas",
+        "description": "Dispara YA los recordatorios de firmas pendientes (el cron horario los\nmanda solo cada ~44 h; este botón es para el \"avisales ahora\").\n\nRespeta el mismo dedupe por `reminder_sent_at`: apretarlo dos veces\nseguidas no duplica correos — la segunda vez no hay nada vencido.",
+        "operationId": "recordar_firmas_api_v1_ordenes_compra_recordar_firmas_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordarFirmasRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Recordar Firmas Api V1 Ordenes Compra Recordar Firmas Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/prevouchers/cola": {
       "get": {
         "tags": [
@@ -60185,8 +60370,7 @@
           "precio_unitario": {
             "anyOf": [
               {
-                "type": "number",
-                "exclusiveMinimum": 0.0
+                "type": "number"
               },
               {
                 "type": "string",
@@ -61733,6 +61917,23 @@
             "type": "array",
             "title": "Allowed Actions",
             "default": []
+          },
+          "firmas_total": {
+            "type": "integer",
+            "title": "Firmas Total",
+            "default": 0
+          },
+          "firmas_firmadas": {
+            "type": "integer",
+            "title": "Firmas Firmadas",
+            "default": 0
+          },
+          "firmas_pendientes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Firmas Pendientes"
           }
         },
         "type": "object",
@@ -66854,6 +67055,28 @@
           "auto_match"
         ],
         "title": "ReconcileResponse"
+      },
+      "RecordarFirmasRequest": {
+        "properties": {
+          "empresa_codigo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Empresa Codigo"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "RecordarFirmasRequest"
       },
       "ReemplazarItemsRequest": {
         "properties": {

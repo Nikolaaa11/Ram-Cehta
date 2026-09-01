@@ -42,6 +42,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -1690,4 +1691,193 @@ async def marcar_facturada(
     await db.commit()
     return FirmarResponse(
         ok=True, estado="facturada", completamente_firmada=True, detalle=nota
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tablero de firmas — matriz OC x firmante, mis pendientes y recordatorios
+# ---------------------------------------------------------------------------
+# Nicolás: "al ser muchas se enredan en cuál les falta firmar... un cuadro
+# donde salgan en la vertical las OC y en la horizontal firmada por, por
+# empresa". Rutas ESTÁTICAS bajo /ordenes-compra — no chocan con /{oc_id:int}
+# (convertidor int) ni con las /{oc_id}/firmas de este router (dos segmentos).
+
+
+@router.get("/firmas-matriz")
+async def firmas_matriz(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:read"))],
+    db: DBSession,
+    empresa_codigo: str,
+    limite: int = 60,
+) -> dict[str, Any]:
+    """La matriz de firmas de UNA empresa: filas = OC, columnas = firmantes.
+
+    Entran las OC que tienen firmantes asignados y no están anuladas, las
+    `en_firma` primero (son las que duelen). Cada celda dice FIRMADA (con
+    fecha), PENDIENTE, RECHAZADA o no-aplica (esa persona no firma esa OC).
+    Por empresa a propósito: los firmantes se repiten dentro de una empresa
+    y la matriz queda angosta; cruzar empresas la volvería un colador.
+    """
+    await assert_empresa_access(user, db, empresa_codigo)
+    limite = max(1, min(limite, 200))
+
+    filas = (
+        await db.execute(
+            text(
+                """
+                SELECT o.oc_id, o.numero_oc, o.estado, o.moneda, o.total,
+                       o.fecha_emision, p.razon_social AS proveedor,
+                       f.firmante_email, f.firmante_nombre, f.firmante_cargo,
+                       f.es_externo, f.status, f.signed_at, f.orden
+                  FROM core.ordenes_compra o
+                  JOIN core.oc_firmas f ON f.oc_id = o.oc_id
+                  LEFT JOIN core.proveedores p
+                         ON p.proveedor_id = o.proveedor_id
+                 WHERE o.empresa_codigo = :e
+                   AND o.estado <> 'anulada'
+                   AND o.oc_id IN (
+                       SELECT o2.oc_id FROM core.ordenes_compra o2
+                        WHERE o2.empresa_codigo = :e AND o2.estado <> 'anulada'
+                          AND EXISTS (SELECT 1 FROM core.oc_firmas f2
+                                       WHERE f2.oc_id = o2.oc_id)
+                        ORDER BY (o2.estado = 'en_firma') DESC,
+                                 o2.fecha_emision DESC, o2.oc_id DESC
+                        LIMIT :lim)
+                 ORDER BY (o.estado = 'en_firma') DESC,
+                          o.fecha_emision DESC, o.oc_id DESC, f.orden
+                """
+            ),
+            {"e": empresa_codigo, "lim": limite},
+        )
+    ).mappings().all()
+
+    # Columnas: la unión de firmantes (por email), internos primero y en el
+    # orden en que suelen firmar. El nombre más reciente gana (una persona
+    # puede aparecer con mayúsculas distintas en OC viejas).
+    firmantes: dict[str, dict[str, Any]] = {}
+    ocs: dict[int, dict[str, Any]] = {}
+    for f in filas:
+        email = str(f["firmante_email"]).lower()
+        if email not in firmantes:
+            firmantes[email] = {
+                "email": email,
+                "nombre": f["firmante_nombre"] or email,
+                "cargo": f["firmante_cargo"],
+                "es_externo": bool(f["es_externo"]),
+                "sin_email": email.endswith(f"@{_SIN_EMAIL_DOMAIN}"),
+                "orden": f["orden"] or 99,
+            }
+        oc = ocs.setdefault(
+            f["oc_id"],
+            {
+                "oc_id": f["oc_id"],
+                "numero_oc": f["numero_oc"],
+                "estado": f["estado"],
+                "moneda": f["moneda"],
+                "total": str(f["total"]) if f["total"] is not None else None,
+                "fecha_emision": str(f["fecha_emision"]),
+                "proveedor": f["proveedor"],
+                "celdas": {},
+                "pendientes": [],
+            },
+        )
+        oc["celdas"][email] = {
+            "status": f["status"],
+            "signed_at": str(f["signed_at"]) if f["signed_at"] else None,
+        }
+        if f["status"] == "PENDIENTE":
+            oc["pendientes"].append(f["firmante_nombre"] or email)
+
+    columnas = sorted(
+        firmantes.values(), key=lambda x: (x["es_externo"], x["orden"], x["nombre"])
+    )
+    lista_ocs = list(ocs.values())
+    return {
+        "empresa_codigo": empresa_codigo,
+        "firmantes": columnas,
+        "ocs": lista_ocs,
+        "resumen": {
+            "en_firma": sum(1 for o in lista_ocs if o["estado"] == "en_firma"),
+            "con_pendientes": sum(1 for o in lista_ocs if o["pendientes"]),
+            "completas": sum(1 for o in lista_ocs if not o["pendientes"]),
+        },
+    }
+
+
+@router.get("/mis-firmas-pendientes")
+async def mis_firmas_pendientes(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:read"))],
+    db: DBSession,
+) -> dict[str, Any]:
+    """Las OC que esperan MI firma, para la bandeja personal.
+
+    Es la respuesta directa a "cuál me falta firmar a mí": una consulta por
+    mi email contra las firmas PENDIENTE de OC vivas. La pantalla de
+    Mis pendientes la muestra como sección propia.
+    """
+    email = await _user_email(db, user)
+    filas = (
+        await db.execute(
+            text(
+                """
+                SELECT f.firma_id, o.oc_id, o.numero_oc, o.empresa_codigo,
+                       o.moneda, o.total, o.fecha_emision,
+                       p.razon_social AS proveedor,
+                       GREATEST(1, (now()::date - COALESCE(
+                           f.notified_at, f.created_at)::date)) AS dias
+                  FROM core.oc_firmas f
+                  JOIN core.ordenes_compra o ON o.oc_id = f.oc_id
+                  LEFT JOIN core.proveedores p
+                         ON p.proveedor_id = o.proveedor_id
+                 WHERE lower(f.firmante_email) = :email
+                   AND f.status = 'PENDIENTE'
+                   AND o.estado IN ('en_firma', 'emitida')
+                 ORDER BY o.fecha_emision, o.oc_id
+                """
+            ),
+            {"email": email},
+        )
+    ).mappings().all()
+    return {
+        "total": len(filas),
+        "items": [
+            {
+                "oc_id": f["oc_id"],
+                "numero_oc": f["numero_oc"],
+                "empresa_codigo": f["empresa_codigo"],
+                "proveedor": f["proveedor"],
+                "moneda": f["moneda"],
+                "total": str(f["total"]) if f["total"] is not None else None,
+                "fecha_emision": str(f["fecha_emision"]),
+                "dias_esperando": int(f["dias"]),
+            }
+            for f in filas
+        ],
+    }
+
+
+class RecordarFirmasRequest(BaseModel):
+    empresa_codigo: str | None = None
+    #: True = contar y listar SIN enviar ni estampar (vista previa / e2e).
+    dry_run: bool = False
+
+
+@router.post("/recordar-firmas")
+async def recordar_firmas(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:update"))],
+    db: DBSession,
+    body: RecordarFirmasRequest,
+) -> dict[str, Any]:
+    """Dispara YA los recordatorios de firmas pendientes (el cron horario los
+    manda solo cada ~44 h; este botón es para el "avisales ahora").
+
+    Respeta el mismo dedupe por `reminder_sent_at`: apretarlo dos veces
+    seguidas no duplica correos — la segunda vez no hay nada vencido.
+    """
+    if body.empresa_codigo:
+        await assert_empresa_access(user, db, body.empresa_codigo)
+    from app.services.oc_firmas_recordatorio_service import enviar_recordatorios
+
+    return await enviar_recordatorios(
+        db, dry_run=body.dry_run, empresa_codigo=body.empresa_codigo
     )

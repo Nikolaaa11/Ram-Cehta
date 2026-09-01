@@ -45,6 +45,16 @@ interface Voucher {
   fecha_contable: string;
 }
 
+interface OcFirmaPendiente {
+  oc_id: number;
+  numero_oc: string;
+  empresa_codigo: string;
+  proveedor: string | null;
+  moneda: string | null;
+  total: string | null;
+  dias_esperando: number;
+}
+
 interface MyEmpresa {
   codigo: string;
   razon_social: string;
@@ -60,6 +70,9 @@ export default function MisPendientesPage() {
   // Faltaba esta categoría: el operador veía drafts+pending pero no los
   // APPROVED que ya esperan en /transferencias.
   const [approved, setApproved] = useState<Voucher[]>([]);
+  // OCs cuya firma me falta A MI — la otra mitad de "esperan tu firma" que
+  // esta pagina no mostraba: vouchers si, ordenes de compra no.
+  const [ocFirmas, setOcFirmas] = useState<OcFirmaPendiente[]>([]);
   const [empresas, setEmpresas] = useState<MyEmpresa[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<Error | null>(null);
@@ -70,7 +83,7 @@ export default function MisPendientesPage() {
     setLoadError(null);
     try {
       // Fetch en paralelo: drafts, pendientes, approved y empresas son indep.
-      const [draftRes, pendingRes, approvedRes, empResp] = await Promise.all([
+      const [draftRes, pendingRes, approvedRes, ocFirmasRes, empResp] = await Promise.all([
         apiClient.get<Voucher[]>(
           "/vouchers?status=DRAFT&limit=100",
           session,
@@ -83,6 +96,10 @@ export default function MisPendientesPage() {
           "/vouchers?status=APPROVED&limit=100",
           session,
         ),
+        apiClient.get<{ total: number; items: OcFirmaPendiente[] }>(
+          "/ordenes-compra/mis-firmas-pendientes",
+          session,
+        ),
         apiClient.get<{ empresas: MyEmpresa[] }>(
           "/me/empresas",
           session,
@@ -91,6 +108,7 @@ export default function MisPendientesPage() {
       setDrafts(draftRes);
       setPending(pendingRes);
       setApproved(approvedRes);
+      setOcFirmas(ocFirmasRes.items || []);
       setEmpresas(empResp.empresas || []);
     } catch (err) {
       // V5++ ola CJ + Round 1 polish — antes silenciado; ahora propagamos
@@ -232,6 +250,46 @@ export default function MisPendientesPage() {
           subtitle="Empresas donde puedes trabajar"
         />
       </div>
+
+      {/* OCs que esperan MI firma */}
+      {ocFirmas.length > 0 && (
+        <Surface className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <PenTool className="size-5 text-sf-purple" />
+              <h2 className="text-lg font-medium text-ink-900">
+                Órdenes de compra esperando tu firma ({ocFirmas.length})
+              </h2>
+            </div>
+            <Link
+              href={"/ordenes-compra/firmas" as Route}
+              className="text-sm text-cehta-green hover:underline flex items-center gap-1"
+            >
+              Ver tablero <ArrowRight className="size-3" />
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {ocFirmas.slice(0, 10).map((f) => (
+              <Link
+                key={f.oc_id}
+                href={`/ordenes-compra/${f.oc_id}` as Route}
+                className="flex items-center justify-between rounded-xl border border-hairline px-4 py-3 transition-colors hover:border-cehta-green/40"
+              >
+                <div>
+                  <span className="font-medium text-ink-900">{f.numero_oc}</span>
+                  <span className="ml-2 text-sm text-ink-500">
+                    {f.empresa_codigo}
+                    {f.proveedor ? ` · ${f.proveedor}` : ""}
+                  </span>
+                </div>
+                <span className="text-sm text-warning">
+                  hace {f.dias_esperando} día{f.dias_esperando !== 1 ? "s" : ""}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Surface>
+      )}
 
       {/* Vouchers PENDING (priority) */}
       {pending.length > 0 && (

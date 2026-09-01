@@ -132,6 +132,10 @@ app.add_middleware(
         "Idempotency-Key",
     ],
     max_age=600,
+    # Sin esto, el fetch cross-origin (Vercel -> Fly) NO puede leer estos
+    # headers: el nombre de archivo del export caia al fallback generico y
+    # x-total-rows/x-truncated quedaban invisibles para los toasts.
+    expose_headers=["Content-Disposition", "X-Total-Rows", "X-Truncated"],
 )
 
 # Gzip — comprime respuestas >500 bytes (60-80% reducción típica en JSON

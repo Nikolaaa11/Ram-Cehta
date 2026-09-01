@@ -16,6 +16,7 @@ Diseño:
 from __future__ import annotations
 
 import io
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated
@@ -39,6 +40,12 @@ _HEADER_ALIGN = Alignment(horizontal="left", vertical="center")
 # Mapa entity_type → (sql, params, columnas)
 _ENTITY_QUERIES: dict[str, dict] = {
     "ordenes_compra": {
+        # Columnas al día con la tabla real. Las que faltaban dolían:
+        #   · sin tipo_documento/retención/total_a_pagar, una OC de
+        #     HONORARIOS exportaba "Total" bruto y el Excel del operador no
+        #     cuadraba contra lo que se paga (el líquido);
+        #   · sin firmas, el Excel no servía para perseguir quién falta —
+        #     que es justo para lo que Nicolás lo exporta.
         "headers": [
             "OC ID",
             "Número OC",
@@ -46,10 +53,15 @@ _ENTITY_QUERIES: dict[str, dict] = {
             "Proveedor",
             "Fecha emisión",
             "Moneda",
+            "Tipo documento",
             "Neto",
             "IVA",
             "Total",
+            "Retención",
+            "Total a pagar",
             "Estado",
+            "Firmas",
+            "Faltan por firmar",
             "Forma pago",
             "Plazo pago",
             "Observaciones",
@@ -57,10 +69,26 @@ _ENTITY_QUERIES: dict[str, dict] = {
         "sql": """
             SELECT oc.oc_id, oc.numero_oc, oc.empresa_codigo,
                    COALESCE(p.razon_social, '—') AS proveedor,
-                   oc.fecha_emision, oc.moneda, oc.neto, oc.iva, oc.total,
-                   oc.estado, oc.forma_pago, oc.plazo_pago, oc.observaciones
+                   oc.fecha_emision, oc.moneda, oc.tipo_documento,
+                   oc.neto, oc.iva, oc.total,
+                   oc.retencion_monto,
+                   COALESCE(oc.total_a_pagar, oc.total) AS total_a_pagar,
+                   oc.estado,
+                   COALESCE(fi.firmadas, 0) || '/' || COALESCE(fi.total_f, 0)
+                       AS firmas,
+                   COALESCE(fi.pendientes, '') AS faltan,
+                   oc.forma_pago, oc.plazo_pago, oc.observaciones
             FROM core.ordenes_compra oc
             LEFT JOIN core.proveedores p ON p.proveedor_id = oc.proveedor_id
+            LEFT JOIN (
+                SELECT oc_id,
+                       count(*) AS total_f,
+                       count(*) FILTER (WHERE status = 'FIRMADA') AS firmadas,
+                       string_agg(COALESCE(firmante_nombre, firmante_email),
+                                  ', ' ORDER BY orden)
+                           FILTER (WHERE status = 'PENDIENTE') AS pendientes
+                  FROM core.oc_firmas GROUP BY oc_id
+            ) fi ON fi.oc_id = oc.oc_id
             WHERE (:empresa::text IS NULL OR oc.empresa_codigo = :empresa)
               AND (:estado::text IS NULL OR oc.estado = :estado)
             ORDER BY oc.fecha_emision DESC NULLS LAST
@@ -277,6 +305,13 @@ _ENTITY_QUERIES: dict[str, dict] = {
 }
 
 
+#: Caracteres de control prohibidos por el XML de Excel. openpyxl los
+#: rechaza con IllegalCharacterError y el export entero muere en 500 por UNA
+#: celda sucia — y las observaciones vienen de PDFs/emails parseados, donde
+#: estos bytes aparecen de verdad.
+_XML_ILEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
 def _serialize(value: object) -> object:
     """Convierte tipos que openpyxl no traga directamente."""
     if value is None:
@@ -285,6 +320,8 @@ def _serialize(value: object) -> object:
         return float(value)
     if isinstance(value, datetime | date):
         return value
+    if isinstance(value, str):
+        return _XML_ILEGAL.sub(" ", value)
     return value
 
 

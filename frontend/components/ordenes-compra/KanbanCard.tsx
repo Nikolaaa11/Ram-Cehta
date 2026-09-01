@@ -105,6 +105,18 @@ export function KanbanCard({ oc, draggable }: Props) {
           </span>
           <span className="tabular-nums">{toDate(oc.fecha_emision)}</span>
         </div>
+
+        {/* El motivo por el que la columna "En firma" existe: decir QUIEN
+            la tiene frenada sin abrir la OC. */}
+        {(oc.firmas_pendientes ?? []).length > 0 && (
+          <div
+            className="truncate text-[11px] font-medium text-warning"
+            title={`Faltan: ${(oc.firmas_pendientes ?? []).join(", ")}`}
+          >
+            ✍ {oc.firmas_firmadas}/{oc.firmas_total} · falta{" "}
+            {(oc.firmas_pendientes ?? []).join(", ")}
+          </div>
+        )}
       </div>
     </div>
   );

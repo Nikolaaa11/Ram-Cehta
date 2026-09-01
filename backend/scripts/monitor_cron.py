@@ -373,6 +373,21 @@ async def main() -> int:
             except Exception as exc:  # noqa: BLE001
                 outbox_retry = {"error": str(exc)[:200]}
 
+            # Recordatorio de firmas de OC pendientes — el "recordatorio de
+            # 48h" que la migración 0068 prometió y nunca existió: la
+            # columna reminder_sent_at estaba, nada la escribía, y las OC
+            # quedaban estancadas en firma sin que nadie supiera cuáles le
+            # faltaban a quién. UN correo por firmante con TODAS sus OC,
+            # cada ~44 h (el servicio dedupe por reminder_sent_at, así que
+            # correrlo por hora no spamea). Soft-fail, como el outbox.
+            try:
+                from app.services.oc_firmas_recordatorio_service import (
+                    enviar_recordatorios,
+                )
+                recordatorios = await enviar_recordatorios(db)
+            except Exception as exc:  # noqa: BLE001
+                recordatorios = {"error": str(exc)[:200]}
+
         elapsed_ms = int((datetime.now(timezone.utc) - started).total_seconds() * 1000)
         result = {
             "ok": True,
@@ -383,6 +398,7 @@ async def main() -> int:
             "anomalies_count": len(anomalies),
             "anomaly_categories": [a["category"] for a in anomalies],
             "email_outbox_retry": outbox_retry,
+            "recordatorios_firmas": recordatorios,
             "metrics": metrics,
         }
         print(json.dumps(result, default=str))

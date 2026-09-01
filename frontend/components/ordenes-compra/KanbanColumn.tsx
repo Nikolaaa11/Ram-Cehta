@@ -21,21 +21,27 @@ interface Props {
 
 const ESTADO_LABEL: Record<KanbanEstado, string> = {
   emitida: "Emitida",
-  aprobada: "Aprobada",
+  en_firma: "En firma",
+  firmada: "Firmada",
+  enviada_proveedor: "Enviada al proveedor",
   pagada: "Pagada",
   anulada: "Anulada",
 };
 
 const ESTADO_DOT: Record<KanbanEstado, string> = {
   emitida: "bg-warning",
-  aprobada: "bg-sf-blue",
+  en_firma: "bg-sf-purple",
+  firmada: "bg-sf-blue",
+  enviada_proveedor: "bg-sf-teal",
   pagada: "bg-positive",
   anulada: "bg-ink-300",
 };
 
 const ESTADO_RING_OVER: Record<KanbanEstado, string> = {
   emitida: "ring-warning/40 bg-warning/5",
-  aprobada: "ring-sf-blue/40 bg-sf-blue/5",
+  en_firma: "ring-sf-purple/40 bg-sf-purple/5",
+  firmada: "ring-sf-blue/40 bg-sf-blue/5",
+  enviada_proveedor: "ring-sf-teal/40 bg-sf-teal/5",
   pagada: "ring-positive/40 bg-positive/5",
   anulada: "ring-ink-300/60 bg-ink-100/40",
 };

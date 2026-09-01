@@ -204,7 +204,11 @@ async def _try_send_outbox_row(
     # nunca lo regeneraba: el GG recibía "Adjuntamos la OC" SIN adjunto.
     oc_id_ref: int | None = None
     ent = str(row.get("triggered_by_entity") or "")
-    if ent.startswith("oc:"):
+    # Dos prefijos: 'oc:{id}' (envío al proveedor/GG) y 'ocfirma:{id}' (la
+    # invitación a firmar, que TAMBIÉN promete el PDF adjunto en el cuerpo).
+    # El chequeo original sólo miraba 'oc:' y un retry de invitación salía
+    # sin el adjunto prometido.
+    if ent.startswith(("oc:", "ocfirma:")):
         try:
             oc_id_ref = int(ent.split(":", 1)[1])
         except ValueError:

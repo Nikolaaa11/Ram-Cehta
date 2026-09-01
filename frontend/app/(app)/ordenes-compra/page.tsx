@@ -14,6 +14,7 @@ import {
   FileDown,
   FileText,
   FileX2,
+  PenLine,
   LayoutGrid,
   ListIcon,
   Loader2,
@@ -76,13 +77,18 @@ function EstadoBadge({ estado }: { estado: string }) {
   return <Badge variant={variant}>{ocStatusLabel(estado)}</Badge>;
 }
 
+// Los estados REALES del flujo (la lista vieja ofrecia "pendiente",
+// "aprobada" y "rechazada", que el backend no usa: filtrar por ellos daba
+// SIEMPRE cero resultados y parecia un bug).
 const ESTADOS = [
+  "borrador",
   "emitida",
+  "en_firma",
+  "firmada",
+  "enviada_proveedor",
+  "parcial",
   "pagada",
   "anulada",
-  "pendiente",
-  "aprobada",
-  "rechazada",
 ];
 
 // Biblioteca de OC — se agrega "Proveedor" porque el buscador filtra por
@@ -90,13 +96,10 @@ const ESTADOS = [
 // El nombre sale del cache de proveedores (1 sola query compartida), no
 // de un fetch por fila.
 //
-// NO hay columna de firmas a propósito: `OrdenCompraListItem` (backend,
-// app/schemas/orden_compra.py) sólo trae oc_id, numero_oc, empresa_codigo,
-// proveedor_id, fecha_emision, moneda, neto, total, estado, pdf_url y
-// allowed_actions. Para mostrar el avance de firmas haría falta que el
-// backend agregue el conteo agregado (ej. firmas_total + firmas_firmadas
-// con un LEFT JOIN a core.oc_firmas en el listado). Resolverlo desde el
-// frontend sería un fetch por fila (N+1) y no se hace.
+// Columna "Firmas": el backend ahora agrega firmas_total/firmadas/
+// pendientes al listado con UNA query agregada por pagina (no N+1). La
+// celda dice "2/3" y QUIENES faltan — que era el enredo de Nicolas: "al
+// ser muchas se enredan en cual les falta firmar".
 const COLUMNS = [
   "select",
   "N° OC",
@@ -106,6 +109,7 @@ const COLUMNS = [
   "Moneda",
   "Total",
   "Estado",
+  "Firmas",
   "",
 ];
 
@@ -693,6 +697,14 @@ export default function OrdenesCompraPage() {
               nadie lo encuentra, y un registro que no se mira no controla
               nada. */}
           <Link
+            href="/ordenes-compra/firmas"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
+            title="Matriz de firmas: quien firmo y quien falta, OC por OC"
+          >
+            <PenLine className="h-4 w-4" strokeWidth={1.75} />
+            Firmas
+          </Link>
+          <Link
             href="/ordenes-compra/eliminadas"
             className="inline-flex items-center gap-1.5 rounded-xl border border-hairline bg-white px-3 py-2 text-sm font-medium text-ink-700 hover:border-cehta-green/40 hover:text-cehta-green"
             title="Registro de las OC eliminadas: quien, cuando y por que"
@@ -1064,6 +1076,23 @@ export default function OrdenesCompraPage() {
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <EstadoBadge estado={oc.estado} />
+                        </td>
+                        <td className="max-w-[13rem] px-4 py-3">
+                          {(oc.firmas_total ?? 0) === 0 ? (
+                            <span className="text-ink-300">—</span>
+                          ) : (oc.firmas_pendientes ?? []).length === 0 ? (
+                            <span className="text-sm font-medium text-cehta-green">
+                              {oc.firmas_firmadas}/{oc.firmas_total} ✓
+                            </span>
+                          ) : (
+                            <span
+                              className="block truncate text-sm text-warning"
+                              title={`Faltan: ${(oc.firmas_pendientes ?? []).join(", ")}`}
+                            >
+                              {oc.firmas_firmadas}/{oc.firmas_total} · falta{" "}
+                              {(oc.firmas_pendientes ?? []).join(", ")}
+                            </span>
+                          )}
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
                           <OcRowActions oc={oc} />

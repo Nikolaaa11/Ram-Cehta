@@ -2544,6 +2544,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ordenes-compra/firmas-matriz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Firmas Matriz
+         * @description La matriz de firmas de UNA empresa: filas = OC, columnas = firmantes.
+         *
+         *     Entran las OC que tienen firmantes asignados y no están anuladas, las
+         *     `en_firma` primero (son las que duelen). Cada celda dice FIRMADA (con
+         *     fecha), PENDIENTE, RECHAZADA o no-aplica (esa persona no firma esa OC).
+         *     Por empresa a propósito: los firmantes se repiten dentro de una empresa
+         *     y la matriz queda angosta; cruzar empresas la volvería un colador.
+         */
+        get: operations["firmas_matriz_api_v1_ordenes_compra_firmas_matriz_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/mis-firmas-pendientes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mis Firmas Pendientes
+         * @description Las OC que esperan MI firma, para la bandeja personal.
+         *
+         *     Es la respuesta directa a "cuál me falta firmar a mí": una consulta por
+         *     mi email contra las firmas PENDIENTE de OC vivas. La pantalla de
+         *     Mis pendientes la muestra como sección propia.
+         */
+        get: operations["mis_firmas_pendientes_api_v1_ordenes_compra_mis_firmas_pendientes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/recordar-firmas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recordar Firmas
+         * @description Dispara YA los recordatorios de firmas pendientes (el cron horario los
+         *     manda solo cada ~44 h; este botón es para el "avisales ahora").
+         *
+         *     Respeta el mismo dedupe por `reminder_sent_at`: apretarlo dos veces
+         *     seguidas no duplica correos — la segunda vez no hay nada vencido.
+         */
+        post: operations["recordar_firmas_api_v1_ordenes_compra_recordar_firmas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/prevouchers/cola": {
         parameters: {
             query?: never;
@@ -19085,6 +19159,18 @@ export interface components {
              * @default []
              */
             allowed_actions: string[];
+            /**
+             * Firmas Total
+             * @default 0
+             */
+            firmas_total: number;
+            /**
+             * Firmas Firmadas
+             * @default 0
+             */
+            firmas_firmadas: number;
+            /** Firmas Pendientes */
+            firmas_pendientes?: string[];
         };
         /** OrdenCompraRead */
         OrdenCompraRead: {
@@ -20638,6 +20724,16 @@ export interface components {
             fecha_movimiento: string;
             /** Auto Match */
             auto_match: boolean;
+        };
+        /** RecordarFirmasRequest */
+        RecordarFirmasRequest: {
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
         };
         /**
          * ReemplazarItemsRequest
@@ -27603,6 +27699,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FirmarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    firmas_matriz_api_v1_ordenes_compra_firmas_matriz_get: {
+        parameters: {
+            query: {
+                empresa_codigo: string;
+                limite?: number;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mis_firmas_pendientes_api_v1_ordenes_compra_mis_firmas_pendientes_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recordar_firmas_api_v1_ordenes_compra_recordar_firmas_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordarFirmasRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

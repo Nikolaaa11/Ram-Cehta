@@ -257,6 +257,16 @@ class OrdenCompraListItem(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    # ── Firmas, para que el listado diga QUIÉN falta sin abrir cada OC ──
+    # Nicolás: "al ser muchas se enredan en cuál les falta firmar". Total y
+    # firmadas cuentan TODAS las filas de oc_firmas; `firmas_pendientes` trae
+    # los NOMBRES de quienes faltan (los placeholders sin correo también:
+    # su firma en papel también falta). Defaults en 0/vacío: una OC sin
+    # firmantes asignados muestra "—", no un error.
+    firmas_total: int = 0
+    firmas_firmadas: int = 0
+    firmas_pendientes: list[str] = Field(default_factory=list)
+
 
 class EstadoUpdateRequest(BaseModel):
     estado: Literal["emitida", "pagada", "anulada", "parcial"]
