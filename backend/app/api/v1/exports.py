@@ -89,8 +89,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
                            FILTER (WHERE status = 'PENDIENTE') AS pendientes
                   FROM core.oc_firmas GROUP BY oc_id
             ) fi ON fi.oc_id = oc.oc_id
-            WHERE (:empresa::text IS NULL OR oc.empresa_codigo = :empresa)
-              AND (:estado::text IS NULL OR oc.estado = :estado)
+            WHERE (CAST(:empresa AS TEXT) IS NULL OR oc.empresa_codigo = :empresa)
+              AND (CAST(:estado AS TEXT) IS NULL OR oc.estado = :estado)
             ORDER BY oc.fecha_emision DESC NULLS LAST
             LIMIT :lim
         """,
@@ -109,8 +109,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
             SELECT f29_id, empresa_codigo, periodo_tributario, fecha_vencimiento,
                    monto_a_pagar, fecha_pago, estado
             FROM core.f29_obligaciones
-            WHERE (:empresa::text IS NULL OR empresa_codigo = :empresa)
-              AND (:estado::text IS NULL OR estado = :estado)
+            WHERE (CAST(:empresa AS TEXT) IS NULL OR empresa_codigo = :empresa)
+              AND (CAST(:estado AS TEXT) IS NULL OR estado = :estado)
             ORDER BY fecha_vencimiento DESC NULLS LAST
             LIMIT :lim
         """,
@@ -132,8 +132,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
             SELECT proveedor_id, razon_social, rut, giro, email, telefono,
                    banco, tipo_cuenta, numero_cuenta, activo
             FROM core.proveedores
-            WHERE (:empresa::text IS NULL)  -- proveedores son globales
-              AND (:estado::text IS NULL)
+            WHERE (CAST(:empresa AS TEXT) IS NULL)  -- proveedores son globales
+              AND (CAST(:estado AS TEXT) IS NULL)
             ORDER BY razon_social
             LIMIT :lim
         """,
@@ -158,8 +158,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
                    email, telefono, fecha_ingreso, fecha_egreso, sueldo_bruto,
                    tipo_contrato, estado
             FROM core.trabajadores
-            WHERE (:empresa::text IS NULL OR empresa_codigo = :empresa)
-              AND (:estado::text IS NULL OR estado = :estado)
+            WHERE (CAST(:empresa AS TEXT) IS NULL OR empresa_codigo = :empresa)
+              AND (CAST(:estado AS TEXT) IS NULL OR estado = :estado)
             ORDER BY empresa_codigo, nombre_completo
             LIMIT :lim
         """,
@@ -183,8 +183,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
                    nombre, contraparte, fecha_vigencia_desde, fecha_vigencia_hasta,
                    monto, moneda, estado
             FROM core.legal_documents
-            WHERE (:empresa::text IS NULL OR empresa_codigo = :empresa)
-              AND (:estado::text IS NULL OR estado = :estado)
+            WHERE (CAST(:empresa AS TEXT) IS NULL OR empresa_codigo = :empresa)
+              AND (CAST(:estado AS TEXT) IS NULL OR estado = :estado)
             ORDER BY empresa_codigo, uploaded_at DESC
             LIMIT :lim
         """,
@@ -210,8 +210,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
                    concepto_general, concepto_detallado, abono, egreso,
                    proyecto, fuente, banco, tipo_documento, numero_documento
             FROM core.movimientos
-            WHERE (:empresa::text IS NULL OR empresa_codigo = :empresa)
-              AND (:estado::text IS NULL OR real_proyectado = :estado)
+            WHERE (CAST(:empresa AS TEXT) IS NULL OR empresa_codigo = :empresa)
+              AND (CAST(:estado AS TEXT) IS NULL OR real_proyectado = :estado)
             ORDER BY fecha DESC NULLS LAST
             LIMIT :lim
         """,
@@ -232,8 +232,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
             SELECT suscripcion_id, empresa_codigo, fecha_recibo, acciones_pagadas,
                    monto_uf, monto_clp, contrato_ref, firmado, fecha_firma
             FROM core.suscripciones_acciones
-            WHERE (:empresa::text IS NULL OR empresa_codigo = :empresa)
-              AND (:estado::text IS NULL)
+            WHERE (CAST(:empresa AS TEXT) IS NULL OR empresa_codigo = :empresa)
+              AND (CAST(:estado AS TEXT) IS NULL)
             ORDER BY fecha_recibo DESC NULLS LAST
             LIMIT :lim
         """,
@@ -257,8 +257,8 @@ _ENTITY_QUERIES: dict[str, dict] = {
                    ticket_min_usd, ticket_max_usd, estado_outreach,
                    fecha_proximo_contacto, contacto_email, website
             FROM core.fondos
-            WHERE (:empresa::text IS NULL)  -- fondos son globales
-              AND (:estado::text IS NULL OR estado_outreach = :estado)
+            WHERE (CAST(:empresa AS TEXT) IS NULL)  -- fondos son globales
+              AND (CAST(:estado AS TEXT) IS NULL OR estado_outreach = :estado)
             ORDER BY nombre
             LIMIT :lim
         """,
@@ -293,11 +293,11 @@ _ENTITY_QUERIES: dict[str, dict] = {
                    COALESCE(extra->>'empresa_codigo', subcategoria) AS empresa
             FROM app.entregables_regulatorios
             WHERE (
-                :empresa::text IS NULL
+                CAST(:empresa AS TEXT) IS NULL
                 OR subcategoria = :empresa
                 OR extra->>'empresa_codigo' = :empresa
             )
-              AND (:estado::text IS NULL OR estado = :estado)
+              AND (CAST(:estado AS TEXT) IS NULL OR estado = :estado)
             ORDER BY fecha_limite ASC
             LIMIT :lim
         """,
