@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.value_objects.rut import format_rut, validate_rut
@@ -17,6 +17,7 @@ class ProveedorRepository:
         page: int = 1,
         size: int = 20,
         search: str | None = None,
+        empresa_codigo: str | None = None,
     ) -> tuple[list[Proveedor], int]:
         q = select(Proveedor).where(Proveedor.activo.is_(True))
         if search:
@@ -26,6 +27,23 @@ class ProveedorRepository:
                     Proveedor.razon_social.ilike(pattern),
                     Proveedor.rut.ilike(pattern),
                 )
+            )
+        if empresa_codigo:
+            # "Los proveedores DE una empresa": los proveedores son globales
+            # (core.proveedores no tiene empresa_codigo), asi que la
+            # pertenencia se deriva del USO REAL — tiene OCs de esa empresa,
+            # o vouchers de esa empresa con su RUT de contraparte. Un
+            # proveedor recien creado sin movimientos no aparece en ningun
+            # filtro de empresa: aparece en "Todas", que es la verdad.
+            q = q.where(
+                text(
+                    """(EXISTS (SELECT 1 FROM core.ordenes_compra oc
+                                 WHERE oc.proveedor_id = proveedores.proveedor_id
+                                   AND oc.empresa_codigo = :emp_filtro)
+                        OR EXISTS (SELECT 1 FROM core.vouchers v
+                                    WHERE v.contraparte_rut = proveedores.rut
+                                      AND v.empresa_codigo = :emp_filtro))"""
+                ).bindparams(emp_filtro=empresa_codigo)
             )
         count_q = select(func.count()).select_from(q.subquery())
         total = await self._session.scalar(count_q) or 0

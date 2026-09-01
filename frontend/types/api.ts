@@ -25781,6 +25781,7 @@ export interface operations {
                 size?: number;
                 search?: string | null;
                 with_counts?: boolean;
+                empresa_codigo?: string | null;
             };
             header?: {
                 authorization?: string | null;

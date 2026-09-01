@@ -15,6 +15,7 @@ import {
   GitMerge,
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useCatalogoEmpresas } from "@/hooks/use-catalogos";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSession } from "@/hooks/use-session";
 import { apiClient, ApiError } from "@/lib/api/client";
@@ -102,19 +103,30 @@ type Tab = "catalogo" | "duplicados";
 
 export default function ProveedoresPage() {
   const [tab, setTab] = useState<Tab>("catalogo");
+  const { data: empresasCatalogo = [] } = useCatalogoEmpresas();
   const [search, setSearch] = useState("");
+  // Filtro por empresa. Los proveedores son GLOBALES (no tienen empresa):
+  // la pertenencia se deriva del uso real — el backend filtra por "tiene
+  // OCs o vouchers de esa empresa". Un proveedor nuevo sin movimientos
+  // solo aparece en "Todas", que es la verdad.
+  const [empresa, setEmpresa] = useState("");
   const [page, setPage] = useState(1);
   const SIZE = 20;
 
   const debouncedSearch = useDebounce(search, 300);
 
-  const queryPath = debouncedSearch
-    ? `/proveedores?page=${page}&size=${SIZE}&search=${encodeURIComponent(debouncedSearch)}&with_counts=true`
-    : `/proveedores?page=${page}&size=${SIZE}&with_counts=true`;
+  const qs = new URLSearchParams({
+    page: String(page),
+    size: String(SIZE),
+    with_counts: "true",
+  });
+  if (debouncedSearch) qs.set("search", debouncedSearch);
+  if (empresa) qs.set("empresa_codigo", empresa);
+  const queryPath = `/proveedores?${qs.toString()}`;
 
   const { data, isLoading, isError, error } = useApiQuery<
     Page<ProveedorEnriched>
-  >(["proveedores", String(page), debouncedSearch, "counts"], queryPath);
+  >(["proveedores", String(page), debouncedSearch, empresa, "counts"], queryPath);
 
   const {
     data: duplicates,
@@ -253,6 +265,22 @@ export default function ProveedoresPage() {
                 className="w-full rounded-lg border-0 bg-white px-3 py-2 pl-9 text-sm text-ink-900 ring-1 ring-hairline placeholder:text-ink-300 transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green"
               />
             </div>
+            <select
+              value={empresa}
+              onChange={(e) => {
+                setEmpresa(e.target.value);
+                setPage(1);
+              }}
+              aria-label="Filtrar por empresa"
+              className="rounded-lg border-0 bg-white px-3 py-2 text-sm text-ink-900 ring-1 ring-hairline transition-shadow focus:outline-none focus:ring-2 focus:ring-cehta-green"
+            >
+              <option value="">Todas las empresas</option>
+              {empresasCatalogo.map((e) => (
+                <option key={e.codigo} value={e.codigo}>
+                  {e.codigo}
+                </option>
+              ))}
+            </select>
             <SavedViewsMenu
               page="proveedores"
               currentFilters={{ search }}

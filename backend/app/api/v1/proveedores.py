@@ -17,7 +17,10 @@ from app.schemas.common import Page
 from app.schemas.proveedor import ProveedorCreate, ProveedorRead, ProveedorUpdate
 from app.schemas.proveedor_contacto import ContactoCreate, ContactoRead, ContactoUpdate
 from app.services.audit_service import audit_log
-from app.services.empresa_scope_service import EmpresaScopeDep
+from app.services.empresa_scope_service import (
+    EmpresaScopeDep,
+    assert_empresa_access,
+)
 
 router = APIRouter()
 
@@ -94,6 +97,7 @@ async def list_proveedores(
     size: Annotated[int, Query(ge=1, le=100)] = 20,
     search: str | None = None,
     with_counts: bool = False,
+    empresa_codigo: str | None = None,
 ) -> Page[ProveedorRead]:
     """Lista proveedores activos paginados. Si `with_counts=true`, agrega
     `vouchers_count` y `ordenes_compra_count` a cada item (1 query extra
@@ -104,7 +108,13 @@ async def list_proveedores(
     para evitar leak de usage patterns cross-tenant.
     """
     repo = ProveedorRepository(db)
-    items, total = await repo.list(page=page, size=size, search=search)
+    # Filtro por empresa: pertenencia derivada del uso real (OCs o vouchers
+    # de esa empresa). Ver el comentario en el repositorio.
+    if empresa_codigo:
+        await assert_empresa_access(user, db, empresa_codigo)
+    items, total = await repo.list(
+        page=page, size=size, search=search, empresa_codigo=empresa_codigo
+    )
     counts_map: dict[int, dict[str, int]] = {}
     if with_counts and items:
         scoped_codes = scope.filter_codes(None)

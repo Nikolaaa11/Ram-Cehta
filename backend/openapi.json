@@ -4129,6 +4129,22 @@
             }
           },
           {
+            "name": "empresa_codigo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Empresa Codigo"
+            }
+          },
+          {
             "name": "authorization",
             "in": "header",
             "required": false,
