@@ -80,6 +80,7 @@ from app.api.v1 import (
 from app.api.v1 import stream as stream_router
 from app.api.v1 import change_management  # Round 152t/u/v
 from app.api.v1 import corfo_rendiciones  # Round 152w
+from app.api.v1 import claudia_egresos  # Registro de egresos CORFO (la sección de Claudia)
 from app.api.v1 import rrhh  # R152vvv
 from app.api.v1 import remuneraciones  # seccion Remuneraciones
 from app.api.v1 import empresa_oc_branding  # R152www
@@ -97,6 +98,8 @@ api_router.include_router(health.router, tags=["health"])
 api_router.include_router(change_management.router)
 # Round 152w — Rendiciones CORFO (REVTECH + TRONGKAI)
 api_router.include_router(corfo_rendiciones.router)
+# Registro de egresos CORFO — la sección de Claudia (grilla, ficha, reparto, Carga_Gastos)
+api_router.include_router(claudia_egresos.router)
 # R152vvv — Módulo RRHH (Benja + Victoria + admin)
 api_router.include_router(rrhh.router, prefix="/rrhh", tags=["rrhh"])
 api_router.include_router(

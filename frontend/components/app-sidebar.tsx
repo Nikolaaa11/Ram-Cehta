@@ -47,6 +47,7 @@ import {
   FileCheck,
   FileSpreadsheet,
   Image as ImageIcon,
+  Table2,
   type LucideIcon,
 } from "lucide-react";
 import { useMe } from "@/hooks/use-me";
@@ -112,6 +113,11 @@ type NavItem = {
    * Se renderiza con <a target="_blank"> en vez de <Link> de Next, porque
    * no es una ruta del App Router. */
   external?: boolean;
+  /** Registro de egresos (2026-09) — si true, el item se marca activo SÓLO
+   * con la URL exacta, no con sus sub-rutas. Sin esto, en /claudia/egresos
+   * quedaban activos "Mi workspace" (/claudia) y "Registro de egresos" a
+   * la vez (dos aria-current="page"). */
+  exact?: boolean;
 };
 
 type NavGroup = {
@@ -365,6 +371,20 @@ const GROUPS: NavGroup[] = [
           "Tu panel principal de coordinación: acciones rápidas, status del " +
           "mes, guía del flujo CORFO en 5 pasos y botón de sugerencias.",
         isNew: true,
+        exact: true,
+      },
+      // Registro de egresos (2026-09) — la planilla de Claudia adentro de la
+      // plataforma: grilla editable como Excel, ficha con columnas CORFO,
+      // reparto por fuente e historial. Spec: docs/MEGAPROMPT_REGISTRO_EGRESOS_CLAUDIA.md
+      {
+        href: "/claudia/egresos" as Route,
+        label: "Registro de egresos",
+        icon: Table2,
+        isNew: true,
+        title:
+          "La planilla de gastos de Claudia dentro de la plataforma: grilla " +
+          "editable como Excel, ficha completa por gasto con las columnas " +
+          "oficiales CORFO, reparto por fuente y historial.",
       },
       // Dashboard ejecución subsidio (R89 — "donde están las platas").
       {
@@ -920,7 +940,7 @@ export function AppSidebar({ email }: AppSidebarProps) {
                 const Icon = item.icon;
                 const isActive =
                   pathname === item.href ||
-                  pathname.startsWith(`${item.href}/`);
+                  (!item.exact && pathname.startsWith(`${item.href}/`));
                 const showUnreadBadge =
                   String(item.href) === "/notificaciones" &&
                   unreadCount > 0;

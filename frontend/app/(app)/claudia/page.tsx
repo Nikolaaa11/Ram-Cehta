@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   BookOpen,
   PlayCircle,
+  Table2,
 } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { useSession } from "@/hooks/use-session";
@@ -57,10 +58,10 @@ function currentPeriodo(): string {
 const CLAUDIA_FLUJO_STEPS = [
   {
     n: 1,
-    title: "Crear voucher CORFO",
-    desc: "Por cada gasto del subsidio, crea un voucher en el form especializado. El sistema reparte automáticamente entre CORFO / P-tec / Empresa.",
-    icon: Receipt,
-    href: "/vouchers/corfo" as Route,
+    title: "Anotar el gasto en el Registro de egresos",
+    desc: "Cada gasto del mes va a la grilla (como en tu Excel): documento, montos y el reparto Subsidio / P-tec / Cehta por % o por $. Al hacer click en la fila ves la ficha completa con las columnas que pide CORFO.",
+    icon: Table2,
+    href: "/claudia/egresos" as Route,
   },
   {
     n: 2,
@@ -216,7 +217,17 @@ export default function ClaudiaHomePage() {
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">
           Acciones rápidas
         </h2>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
+          {/* Registro de egresos (2026-09): la planilla de Claudia adentro de
+              la plataforma. Va primero porque es donde vive su operación
+              real; los vouchers son el paso siguiente, no el punto de partida. */}
+          <QuickAction
+            href={"/claudia/egresos" as Route}
+            icon={Table2}
+            title="Registro de egresos"
+            desc="Tu planilla, como Excel"
+            tone="emerald"
+          />
           <QuickAction
             href={"/vouchers/corfo" as Route}
             icon={Receipt}

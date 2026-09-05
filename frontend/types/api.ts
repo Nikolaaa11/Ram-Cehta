@@ -297,6 +297,179 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/claudia/egresos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Egresos
+         * @description Lista del mes (o de todo) para la grilla. Tope 2000, `truncado` avisa.
+         */
+        get: operations["listar_egresos_api_v1_claudia_egresos_get"];
+        put?: never;
+        /** Crear Egreso */
+        post: operations["crear_egreso_api_v1_claudia_egresos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/periodos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Periodos
+         * @description Los chips de meses: cuántos gastos, cuánta plata y si hay algo que resolver.
+         */
+        get: operations["listar_periodos_api_v1_claudia_egresos_periodos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumen Egresos
+         * @description KPIs del mes: total, por fuente, por estado, % pagado, por tipo de documento.
+         */
+        get: operations["resumen_egresos_api_v1_claudia_egresos_resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/catalogos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogos Egresos
+         * @description Dropdowns de la ficha + autocompletar con lo que esa empresa ya usó.
+         */
+        get: operations["catalogos_egresos_api_v1_claudia_egresos_catalogos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Crear Egresos Batch
+         * @description Pegado desde Excel: se validan TODAS las filas y recién después se
+         *     insertan en una sola transacción (todo o nada). `origen='PASTE'`.
+         */
+        post: operations["crear_egresos_batch_api_v1_claudia_egresos_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/importar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Importar Excel
+         * @description Importa la hoja `Registro de Egresos` (idempotente por `import_natural_key`).
+         *
+         *     Las filas idénticas del mismo Excel entran todas (son pagos distintos:
+         *     cuotas a co-ejecutores, peajes), cada una con huella propia; el conteo
+         *     `duplicadas_en_excel` dice cuántas entraron con observación para revisar.
+         *     `leidas` son las filas con datos del Excel (cargables + saltadas), no
+         *     sólo las cargables.
+         */
+        post: operations["importar_excel_api_v1_claudia_egresos_importar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/exportar.xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar Xlsx
+         * @description Registro de Egresos (17 columnas) + Carga_Gastos (21 oficiales).
+         */
+        get: operations["exportar_xlsx_api_v1_claudia_egresos_exportar_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/claudia/egresos/{egreso_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener Egreso
+         * @description La ficha: el gasto + historial con diff campo a campo.
+         */
+        get: operations["obtener_egreso_api_v1_claudia_egresos__egreso_id__get"];
+        /** Actualizar Egreso */
+        put: operations["actualizar_egreso_api_v1_claudia_egresos__egreso_id__put"];
+        post?: never;
+        /**
+         * Borrar Egreso
+         * @description Borrado lógico con motivo: la fila desaparece de la grilla, no de la BD.
+         */
+        delete: operations["borrar_egreso_api_v1_claudia_egresos__egreso_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rrhh/access": {
         parameters: {
             query?: never;
@@ -11909,6 +12082,22 @@ export interface components {
              */
             dry_run: boolean;
         };
+        /** Body_importar_excel_api_v1_claudia_egresos_importar_post */
+        Body_importar_excel_api_v1_claudia_egresos_importar_post: {
+            /**
+             * Archivo
+             * Format: binary
+             * @description Excel de Claudia (.xlsx)
+             */
+            archivo: string;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Dry Run
+             * @default false
+             */
+            dry_run: boolean;
+        };
         /** Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post */
         Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post: {
             /**
@@ -12424,6 +12613,15 @@ export interface components {
             /** Completado */
             completado?: boolean | null;
         };
+        /** CambioHistorial */
+        CambioHistorial: {
+            /** Campo */
+            campo: string;
+            /** Antes */
+            antes?: string | null;
+            /** Despues */
+            despues?: string | null;
+        };
         /** CancelBatchRequest */
         CancelBatchRequest: {
             /** Razon */
@@ -12519,6 +12717,13 @@ export interface components {
             empresa_codigo: string | null;
             /** Points */
             points: components["schemas"]["CashflowPoint"][];
+        };
+        /** CatalogoItem */
+        CatalogoItem: {
+            /** Codigo */
+            codigo: string;
+            /** Label */
+            label: string;
         };
         /** CatalogosResp */
         CatalogosResp: {
@@ -12646,6 +12851,24 @@ export interface components {
             action_url?: string | null;
             /** Action Label */
             action_label?: string | null;
+        };
+        /**
+         * ClaudiaCatalogosResponse
+         * @description Con prefijo a propósito: `schemas/catalogo.py` ya tiene `CatalogosResponse`
+         *     y dos clases con el mismo nombre en el OpenAPI hacen que `gen:types`
+         *     genere `app__schemas__…__CatalogosResponse` y rompa el `tsc` del front.
+         */
+        ClaudiaCatalogosResponse: {
+            /** Tipos Documento */
+            tipos_documento: components["schemas"]["CatalogoItem"][];
+            /** Estados Pago */
+            estados_pago: components["schemas"]["CatalogoItem"][];
+            /** Fuentes */
+            fuentes: components["schemas"]["CatalogoItem"][];
+            /** Formas Pago */
+            formas_pago: components["schemas"]["CatalogoItem"][];
+            corfo: components["schemas"]["CorfoCatalogos"];
+            sugerencias: components["schemas"]["Sugerencias"];
         };
         /** CleanupResponse */
         CleanupResponse: {
@@ -12970,6 +13193,72 @@ export interface components {
             rate_used: string | null;
             /** Date Used */
             date_used: string | null;
+        };
+        /** CorfoCatalogos */
+        CorfoCatalogos: {
+            /** Cuenta Gastos */
+            cuenta_gastos: string[];
+            /** Item Gastos */
+            item_gastos: string[];
+            /** Etapa */
+            etapa: string[];
+            /** Tipo Doc Gastos */
+            tipo_doc_gastos: string[];
+            /** Fuente Financiamiento Sugeridas */
+            fuente_financiamiento_sugeridas: string[];
+        };
+        /**
+         * CorfoIn
+         * @description Las 11 columnas oficiales de Carga_Gastos; todas opcionales (sub-objeto parcial).
+         */
+        CorfoIn: {
+            /** Cuenta */
+            cuenta?: string | null;
+            /** Item */
+            item?: string | null;
+            /** Fuente Financiamiento */
+            fuente_financiamiento?: string | null;
+            /** Etapa */
+            etapa?: string | null;
+            /** Fecha Recepcion */
+            fecha_recepcion?: string | null;
+            /** Monto Rendir */
+            monto_rendir?: number | string | null;
+            /** Monto Cancelado */
+            monto_cancelado?: number | string | null;
+            /** Forma Pago */
+            forma_pago?: string | null;
+            /** Glosa */
+            glosa?: string | null;
+            /** Receptor Rut */
+            receptor_rut?: string | null;
+            /** Receptor Nombre */
+            receptor_nombre?: string | null;
+        };
+        /** CorfoRead */
+        CorfoRead: {
+            /** Cuenta */
+            cuenta?: string | null;
+            /** Item */
+            item?: string | null;
+            /** Fuente Financiamiento */
+            fuente_financiamiento?: string | null;
+            /** Etapa */
+            etapa?: string | null;
+            /** Fecha Recepcion */
+            fecha_recepcion?: string | null;
+            /** Monto Rendir */
+            monto_rendir?: string | null;
+            /** Monto Cancelado */
+            monto_cancelado?: string | null;
+            /** Forma Pago */
+            forma_pago?: string | null;
+            /** Glosa */
+            glosa?: string | null;
+            /** Receptor Rut */
+            receptor_rut?: string | null;
+            /** Receptor Nombre */
+            receptor_nombre?: string | null;
         };
         /** CostoHistorico */
         CostoHistorico: {
@@ -13544,6 +13833,25 @@ export interface components {
             /** Glosa */
             glosa: string | null;
         };
+        /** EgresoBatchRequest */
+        EgresoBatchRequest: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /**
+             * Filas
+             * @description Filas EgresoBatchFila (EgresoCreate sin empresa_codigo). Máx 500.
+             */
+            filas: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** EgresoBatchResponse */
+        EgresoBatchResponse: {
+            /** Creados */
+            creados: components["schemas"]["EgresoRead"][];
+            /** N */
+            n: number;
+        };
         /** EgresoConcepto */
         EgresoConcepto: {
             /** Concepto General */
@@ -13557,6 +13865,151 @@ export interface components {
             /** Num Movimientos */
             num_movimientos: number;
         };
+        /** EgresoCreate */
+        EgresoCreate: {
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Rut Emisor */
+            rut_emisor?: string | null;
+            /**
+             * Tipo Documento
+             * @enum {string}
+             */
+            tipo_documento: "FACTURA" | "FACTURA_EXENTA" | "BOLETA" | "BOLETA_HONORARIO" | "LIQUIDACION" | "CO_EJECUTOR" | "INVOICE" | "OTRO";
+            /** Folio */
+            folio?: string | null;
+            /** Monto Neto */
+            monto_neto?: number | string | null;
+            /** Impuesto */
+            impuesto?: number | string | null;
+            /** Total */
+            total: number | string;
+            /** Tipo Egreso */
+            tipo_egreso?: string | null;
+            /** Fuente */
+            fuente?: string | null;
+            /** Proyecto */
+            proyecto?: string | null;
+            /**
+             * Estado Pago
+             * @default PENDIENTE
+             * @enum {string}
+             */
+            estado_pago: "PAGADO" | "PARCIAL" | "PENDIENTE";
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            reparto?: components["schemas"]["RepartoIn"] | null;
+            reparto_pct?: components["schemas"]["RepartoIn"] | null;
+            corfo?: components["schemas"]["CorfoIn"] | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Adjunto Dropbox Path */
+            adjunto_dropbox_path?: string | null;
+            /**
+             * Origen
+             * @default UI
+             * @enum {string}
+             */
+            origen: "UI" | "PASTE";
+            /** Empresa Codigo */
+            empresa_codigo: string;
+        };
+        /** EgresoDeleteRequest */
+        EgresoDeleteRequest: {
+            /** Motivo */
+            motivo: string;
+        };
+        /** EgresoDeleteResponse */
+        EgresoDeleteResponse: {
+            /** Egreso Id */
+            egreso_id: number;
+            /**
+             * Deleted At
+             * Format: date-time
+             */
+            deleted_at: string;
+        };
+        /** EgresoDetail */
+        EgresoDetail: {
+            /** Egreso Id */
+            egreso_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Rut Emisor */
+            rut_emisor?: string | null;
+            /** Tipo Documento */
+            tipo_documento: string;
+            /** Folio */
+            folio?: string | null;
+            /** Monto Neto */
+            monto_neto: string;
+            /** Impuesto */
+            impuesto: string;
+            /** Total */
+            total: string;
+            /** Tipo Egreso */
+            tipo_egreso?: string | null;
+            /** Fuente */
+            fuente?: string | null;
+            /** Proyecto */
+            proyecto?: string | null;
+            /** Estado Pago */
+            estado_pago: string;
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            reparto?: components["schemas"]["RepartoRead"] | null;
+            reparto_pct?: components["schemas"]["RepartoRead"] | null;
+            /** Reparto Estado */
+            reparto_estado: string;
+            corfo: components["schemas"]["CorfoRead"];
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Adjunto Dropbox Path */
+            adjunto_dropbox_path?: string | null;
+            /** Origen */
+            origen: string;
+            /** Neto Mas Impuesto Cuadra */
+            neto_mas_impuesto_cuadra: boolean;
+            /** Created At */
+            created_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Version */
+            version: number;
+            /** Historial */
+            historial: components["schemas"]["HistorialItem"][];
+        };
+        /** EgresoListResponse */
+        EgresoListResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo?: string | null;
+            /** Items */
+            items: components["schemas"]["EgresoRead"][];
+            /** N */
+            n: number;
+            /** Truncado */
+            truncado: boolean;
+        };
         /** EgresoProyectoItem */
         EgresoProyectoItem: {
             /** Proyecto */
@@ -13567,6 +14020,67 @@ export interface components {
             transaction_count: number;
             /** Porcentaje */
             porcentaje: number;
+        };
+        /** EgresoRead */
+        EgresoRead: {
+            /** Egreso Id */
+            egreso_id: number;
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo: string;
+            /**
+             * Fecha
+             * Format: date
+             */
+            fecha: string;
+            /** Descripcion */
+            descripcion: string;
+            /** Rut Emisor */
+            rut_emisor?: string | null;
+            /** Tipo Documento */
+            tipo_documento: string;
+            /** Folio */
+            folio?: string | null;
+            /** Monto Neto */
+            monto_neto: string;
+            /** Impuesto */
+            impuesto: string;
+            /** Total */
+            total: string;
+            /** Tipo Egreso */
+            tipo_egreso?: string | null;
+            /** Fuente */
+            fuente?: string | null;
+            /** Proyecto */
+            proyecto?: string | null;
+            /** Estado Pago */
+            estado_pago: string;
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            reparto?: components["schemas"]["RepartoRead"] | null;
+            reparto_pct?: components["schemas"]["RepartoRead"] | null;
+            /** Reparto Estado */
+            reparto_estado: string;
+            corfo: components["schemas"]["CorfoRead"];
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Adjunto Dropbox Path */
+            adjunto_dropbox_path?: string | null;
+            /** Origen */
+            origen: string;
+            /** Neto Mas Impuesto Cuadra */
+            neto_mas_impuesto_cuadra: boolean;
+            /** Created At */
+            created_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+            /** Version */
+            version: number;
         };
         /** EgresoTipoItem */
         EgresoTipoItem: {
@@ -13580,6 +14094,51 @@ export interface components {
             porcentaje: number;
             /** Color */
             color: string;
+        };
+        /**
+         * EgresoUpdate
+         * @description PATCH-like vía PUT: sólo se toca lo que viene (`model_fields_set`).
+         *
+         *     Mandar `reparto: null` o `reparto: {}` deja el gasto SIN CLASIFICAR;
+         *     omitir `reparto` lo deja como estaba. Lo mismo con `corfo` (sub-objeto
+         *     parcial: se funde campo a campo).
+         */
+        EgresoUpdate: {
+            /** Empresa Codigo */
+            empresa_codigo?: string | null;
+            /** Fecha */
+            fecha?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Rut Emisor */
+            rut_emisor?: string | null;
+            /** Tipo Documento */
+            tipo_documento?: ("FACTURA" | "FACTURA_EXENTA" | "BOLETA" | "BOLETA_HONORARIO" | "LIQUIDACION" | "CO_EJECUTOR" | "INVOICE" | "OTRO") | null;
+            /** Folio */
+            folio?: string | null;
+            /** Monto Neto */
+            monto_neto?: number | string | null;
+            /** Impuesto */
+            impuesto?: number | string | null;
+            /** Total */
+            total?: number | string | null;
+            /** Tipo Egreso */
+            tipo_egreso?: string | null;
+            /** Fuente */
+            fuente?: string | null;
+            /** Proyecto */
+            proyecto?: string | null;
+            /** Estado Pago */
+            estado_pago?: ("PAGADO" | "PARCIAL" | "PENDIENTE") | null;
+            /** Fecha Pago */
+            fecha_pago?: string | null;
+            reparto?: components["schemas"]["RepartoIn"] | null;
+            reparto_pct?: components["schemas"]["RepartoIn"] | null;
+            corfo?: components["schemas"]["CorfoIn"] | null;
+            /** Observaciones */
+            observaciones?: string | null;
+            /** Adjunto Dropbox Path */
+            adjunto_dropbox_path?: string | null;
         };
         /** EjecucionPorEmpresa */
         EjecucionPorEmpresa: {
@@ -14556,6 +15115,13 @@ export interface components {
             /** Estado */
             estado: string;
         };
+        /** EstadoResumen */
+        EstadoResumen: {
+            /** N */
+            n: number;
+            /** Monto */
+            monto: string;
+        };
         /** EstadoUpdateRequest */
         EstadoUpdateRequest: {
             /**
@@ -15066,6 +15632,13 @@ export interface components {
             last_comments: {
                 [key: string]: unknown;
             }[];
+        };
+        /** FilaSaltada */
+        FilaSaltada: {
+            /** Fila Excel */
+            fila_excel: number;
+            /** Motivo */
+            motivo: string;
         };
         /** FirmaRead */
         FirmaRead: {
@@ -16013,6 +16586,19 @@ export interface components {
             /** Color */
             color: string;
         };
+        /** HistorialItem */
+        HistorialItem: {
+            /** Version */
+            version: number;
+            /** Accion */
+            accion: string;
+            /** Changed At */
+            changed_at?: string | null;
+            /** Changed By */
+            changed_by?: string | null;
+            /** Cambios */
+            cambios: components["schemas"]["CambioHistorial"][];
+        };
         /**
          * HitoConContexto
          * @description Hito con metadata del proyecto + empresa para mostrar cross-portfolio.
@@ -16308,6 +16894,33 @@ export interface components {
             row_index: number;
             /** Detail */
             detail: string;
+        };
+        /** ImportarResponse */
+        ImportarResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Dry Run */
+            dry_run: boolean;
+            /**
+             * Leidas
+             * @description Filas con datos leídas del Excel (cargables + saltadas).
+             */
+            leidas: number;
+            /** Creadas */
+            creadas: number;
+            /** Omitidas Existentes */
+            omitidas_existentes: number;
+            /**
+             * Duplicadas En Excel
+             * @description Filas idénticas a otra del mismo Excel que se cargaron igual (son pagos distintos), con huella propia y observación para revisar.
+             */
+            duplicadas_en_excel: number;
+            /** Saltadas */
+            saltadas: components["schemas"]["FilaSaltada"][];
+            /** Descuadradas */
+            descuadradas: number;
+            /** Sin Clasificar */
+            sin_clasificar: number;
         };
         /** IndexStatus */
         IndexStatus: {
@@ -19645,6 +20258,30 @@ export interface components {
                 [key: string]: unknown;
             } | null;
         };
+        /** PeriodoItem */
+        PeriodoItem: {
+            /** Periodo */
+            periodo: string;
+            /** N */
+            n: number;
+            /** Total */
+            total: string;
+            /** Pendiente */
+            pendiente: string;
+            /** Sin Clasificar */
+            sin_clasificar: number;
+            /** Descuadrados */
+            descuadrados: number;
+        };
+        /** PeriodosResponse */
+        PeriodosResponse: {
+            /** Items */
+            items: components["schemas"]["PeriodoItem"][];
+            /** N Total */
+            n_total: number;
+            /** Total General */
+            total_general: string;
+        };
         /** PlanCuentaEmpresaRead */
         PlanCuentaEmpresaRead: {
             /** Cuenta Codigo */
@@ -19888,6 +20525,25 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /** PorEstadoResumen */
+        PorEstadoResumen: {
+            PAGADO: components["schemas"]["EstadoResumen"];
+            PARCIAL: components["schemas"]["EstadoResumen"];
+            PENDIENTE: components["schemas"]["EstadoResumen"];
+        };
+        /** PorFuenteResumen */
+        PorFuenteResumen: {
+            /** Subsidio */
+            subsidio: string;
+            /** Cehta Ptec */
+            cehta_ptec: string;
+            /** Cehta */
+            cehta: string;
+            /** Trewaox */
+            trewaox: string;
+            /** Sin Clasificar */
+            sin_clasificar: string;
         };
         /** PortfolioCompanyRow */
         PortfolioCompanyRow: {
@@ -20924,6 +21580,31 @@ export interface components {
             /** Configuracion Completa */
             configuracion_completa: boolean;
         };
+        /**
+         * RepartoIn
+         * @description Montos (pesos) o porcentajes por fuente, según el campo donde viaje.
+         */
+        RepartoIn: {
+            /** Subsidio */
+            subsidio?: number | string | null;
+            /** Cehta Ptec */
+            cehta_ptec?: number | string | null;
+            /** Cehta */
+            cehta?: number | string | null;
+            /** Trewaox */
+            trewaox?: number | string | null;
+        };
+        /** RepartoRead */
+        RepartoRead: {
+            /** Subsidio */
+            subsidio: string;
+            /** Cehta Ptec */
+            cehta_ptec: string;
+            /** Cehta */
+            cehta: string;
+            /** Trewaox */
+            trewaox: string;
+        };
         /** ReplyRequest */
         ReplyRequest: {
             /** Body Html */
@@ -21064,6 +21745,27 @@ export interface components {
             total_impuesto: number;
             /** Total Aportes Patronales */
             total_aportes_patronales: number;
+        };
+        /** ResumenResponse */
+        ResumenResponse: {
+            /** Empresa Codigo */
+            empresa_codigo: string;
+            /** Periodo */
+            periodo?: string | null;
+            /** N */
+            n: number;
+            /** Total */
+            total: string;
+            por_fuente: components["schemas"]["PorFuenteResumen"];
+            por_estado: components["schemas"]["PorEstadoResumen"];
+            /** Pct Pagado */
+            pct_pagado: string;
+            /** Por Tipo Documento */
+            por_tipo_documento: components["schemas"]["TipoDocumentoResumen"][];
+            /** Descuadrados */
+            descuadrados: number;
+            /** Sin Clasificar */
+            sin_clasificar: number;
         };
         /** RiesgoCreate */
         RiesgoCreate: {
@@ -21624,6 +22326,15 @@ export interface components {
             /** Notas */
             notas: string | null;
         };
+        /** Sugerencias */
+        Sugerencias: {
+            /** Tipo Egreso */
+            tipo_egreso: string[];
+            /** Fuente */
+            fuente: string[];
+            /** Proyecto */
+            proyecto: string[];
+        };
         /** SuscripcionCreate */
         SuscripcionCreate: {
             /** Empresa Codigo */
@@ -21931,6 +22642,15 @@ export interface components {
             message: string;
             /** Error Type */
             error_type?: string | null;
+        };
+        /** TipoDocumentoResumen */
+        TipoDocumentoResumen: {
+            /** Tipo Documento */
+            tipo_documento: string;
+            /** N */
+            n: number;
+            /** Monto */
+            monto: string;
         };
         /** TipoDteBreakdown */
         TipoDteBreakdown: {
@@ -23980,6 +24700,390 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_egresos_api_v1_claudia_egresos_get: {
+        parameters: {
+            query: {
+                /** @description REVTECH o TRONGKAI */
+                empresa: string;
+                periodo?: string | null;
+                q?: string | null;
+                estado_pago?: ("PAGADO" | "PARCIAL" | "PENDIENTE") | null;
+                reparto_estado?: ("SIN_CLASIFICAR" | "OK" | "DESCUADRADO") | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_egreso_api_v1_claudia_egresos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EgresoCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_periodos_api_v1_claudia_egresos_periodos_get: {
+        parameters: {
+            query: {
+                empresa: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeriodosResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_egresos_api_v1_claudia_egresos_resumen_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                periodo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResumenResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogos_egresos_api_v1_claudia_egresos_catalogos_get: {
+        parameters: {
+            query: {
+                empresa: string;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaudiaCatalogosResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    crear_egresos_batch_api_v1_claudia_egresos_batch_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EgresoBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoBatchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    importar_excel_api_v1_claudia_egresos_importar_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_importar_excel_api_v1_claudia_egresos_importar_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportarResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    exportar_xlsx_api_v1_claudia_egresos_exportar_xlsx_get: {
+        parameters: {
+            query: {
+                empresa: string;
+                periodo?: string | null;
+            };
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_egreso_api_v1_claudia_egresos__egreso_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                egreso_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    actualizar_egreso_api_v1_claudia_egresos__egreso_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                egreso_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EgresoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    borrar_egreso_api_v1_claudia_egresos__egreso_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                egreso_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EgresoDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EgresoDeleteResponse"];
                 };
             };
             /** @description Validation Error */

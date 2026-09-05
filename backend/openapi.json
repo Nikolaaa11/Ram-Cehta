@@ -785,6 +785,780 @@
         }
       }
     },
+    "/api/v1/claudia/egresos": {
+      "get": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Listar Egresos",
+        "description": "Lista del mes (o de todo) para la grilla. Tope 2000, `truncado` avisa.",
+        "operationId": "listar_egresos_api_v1_claudia_egresos_get",
+        "parameters": [
+          {
+            "name": "empresa",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "REVTECH o TRONGKAI",
+              "title": "Empresa"
+            },
+            "description": "REVTECH o TRONGKAI"
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "name": "estado_pago",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PAGADO",
+                    "PARCIAL",
+                    "PENDIENTE"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Estado Pago"
+            }
+          },
+          {
+            "name": "reparto_estado",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "SIN_CLASIFICAR",
+                    "OK",
+                    "DESCUADRADO"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reparto Estado"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgresoListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Crear Egreso",
+        "operationId": "crear_egreso_api_v1_claudia_egresos_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EgresoCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgresoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/periodos": {
+      "get": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Listar Periodos",
+        "description": "Los chips de meses: cuántos gastos, cuánta plata y si hay algo que resolver.",
+        "operationId": "listar_periodos_api_v1_claudia_egresos_periodos_get",
+        "parameters": [
+          {
+            "name": "empresa",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeriodosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/resumen": {
+      "get": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Resumen Egresos",
+        "description": "KPIs del mes: total, por fuente, por estado, % pagado, por tipo de documento.",
+        "operationId": "resumen_egresos_api_v1_claudia_egresos_resumen_get",
+        "parameters": [
+          {
+            "name": "empresa",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResumenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/catalogos": {
+      "get": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Catalogos Egresos",
+        "description": "Dropdowns de la ficha + autocompletar con lo que esa empresa ya usó.",
+        "operationId": "catalogos_egresos_api_v1_claudia_egresos_catalogos_get",
+        "parameters": [
+          {
+            "name": "empresa",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaudiaCatalogosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/batch": {
+      "post": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Crear Egresos Batch",
+        "description": "Pegado desde Excel: se validan TODAS las filas y recién después se\ninsertan en una sola transacción (todo o nada). `origen='PASTE'`.",
+        "operationId": "crear_egresos_batch_api_v1_claudia_egresos_batch_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EgresoBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgresoBatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/importar": {
+      "post": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Importar Excel",
+        "description": "Importa la hoja `Registro de Egresos` (idempotente por `import_natural_key`).\n\nLas filas idénticas del mismo Excel entran todas (son pagos distintos:\ncuotas a co-ejecutores, peajes), cada una con huella propia; el conteo\n`duplicadas_en_excel` dice cuántas entraron con observación para revisar.\n`leidas` son las filas con datos del Excel (cargables + saltadas), no\nsólo las cargables.",
+        "operationId": "importar_excel_api_v1_claudia_egresos_importar_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_importar_excel_api_v1_claudia_egresos_importar_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportarResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/exportar.xlsx": {
+      "get": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Exportar Xlsx",
+        "description": "Registro de Egresos (17 columnas) + Carga_Gastos (21 oficiales).",
+        "operationId": "exportar_xlsx_api_v1_claudia_egresos_exportar_xlsx_get",
+        "parameters": [
+          {
+            "name": "empresa",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Empresa"
+            }
+          },
+          {
+            "name": "periodo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Periodo"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/claudia/egresos/{egreso_id}": {
+      "get": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Obtener Egreso",
+        "description": "La ficha: el gasto + historial con diff campo a campo.",
+        "operationId": "obtener_egreso_api_v1_claudia_egresos__egreso_id__get",
+        "parameters": [
+          {
+            "name": "egreso_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Egreso Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgresoDetail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Actualizar Egreso",
+        "operationId": "actualizar_egreso_api_v1_claudia_egresos__egreso_id__put",
+        "parameters": [
+          {
+            "name": "egreso_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Egreso Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EgresoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgresoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "claudia-egresos"
+        ],
+        "summary": "Borrar Egreso",
+        "description": "Borrado lógico con motivo: la fila desaparece de la grilla, no de la BD.",
+        "operationId": "borrar_egreso_api_v1_claudia_egresos__egreso_id__delete",
+        "parameters": [
+          {
+            "name": "egreso_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Egreso Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EgresoDeleteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgresoDeleteResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/rrhh/access": {
       "get": {
         "tags": [
@@ -39965,6 +40739,33 @@
         ],
         "title": "Body_import_vouchers_csv_api_v1_vouchers_import_csv_post"
       },
+      "Body_importar_excel_api_v1_claudia_egresos_importar_post": {
+        "properties": {
+          "archivo": {
+            "type": "string",
+            "format": "binary",
+            "title": "Archivo",
+            "description": "Excel de Claudia (.xlsx)"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 2,
+            "title": "Empresa Codigo"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "archivo",
+          "empresa_codigo"
+        ],
+        "title": "Body_importar_excel_api_v1_claudia_egresos_importar_post"
+      },
       "Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post": {
         "properties": {
           "file": {
@@ -41245,6 +42046,41 @@
         "type": "object",
         "title": "CalendarEventUpdate"
       },
+      "CambioHistorial": {
+        "properties": {
+          "campo": {
+            "type": "string",
+            "title": "Campo"
+          },
+          "antes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Antes"
+          },
+          "despues": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Despues"
+          }
+        },
+        "type": "object",
+        "required": [
+          "campo"
+        ],
+        "title": "CambioHistorial"
+      },
       "CancelBatchRequest": {
         "properties": {
           "razon": {
@@ -41538,6 +42374,24 @@
           "points"
         ],
         "title": "CashflowResponse"
+      },
+      "CatalogoItem": {
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "title": "Codigo"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "codigo",
+          "label"
+        ],
+        "title": "CatalogoItem"
       },
       "CatalogosResp": {
         "properties": {
@@ -41921,6 +42775,55 @@
           "detail"
         ],
         "title": "CheckResult"
+      },
+      "ClaudiaCatalogosResponse": {
+        "properties": {
+          "tipos_documento": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogoItem"
+            },
+            "type": "array",
+            "title": "Tipos Documento"
+          },
+          "estados_pago": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogoItem"
+            },
+            "type": "array",
+            "title": "Estados Pago"
+          },
+          "fuentes": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogoItem"
+            },
+            "type": "array",
+            "title": "Fuentes"
+          },
+          "formas_pago": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogoItem"
+            },
+            "type": "array",
+            "title": "Formas Pago"
+          },
+          "corfo": {
+            "$ref": "#/components/schemas/CorfoCatalogos"
+          },
+          "sugerencias": {
+            "$ref": "#/components/schemas/Sugerencias"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipos_documento",
+          "estados_pago",
+          "fuentes",
+          "formas_pago",
+          "corfo",
+          "sugerencias"
+        ],
+        "title": "ClaudiaCatalogosResponse",
+        "description": "Con prefijo a propósito: `schemas/catalogo.py` ya tiene `CatalogosResponse`\ny dos clases con el mismo nombre en el OpenAPI hacen que `gen:types`\ngenere `app__schemas__…__CatalogosResponse` y rompa el `tsc` del front."
       },
       "CleanupResponse": {
         "properties": {
@@ -42764,6 +43667,328 @@
           "date_used"
         ],
         "title": "ConversionResult"
+      },
+      "CorfoCatalogos": {
+        "properties": {
+          "cuenta_gastos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cuenta Gastos"
+          },
+          "item_gastos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Item Gastos"
+          },
+          "etapa": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Etapa"
+          },
+          "tipo_doc_gastos": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tipo Doc Gastos"
+          },
+          "fuente_financiamiento_sugeridas": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fuente Financiamiento Sugeridas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "cuenta_gastos",
+          "item_gastos",
+          "etapa",
+          "tipo_doc_gastos",
+          "fuente_financiamiento_sugeridas"
+        ],
+        "title": "CorfoCatalogos"
+      },
+      "CorfoIn": {
+        "properties": {
+          "cuenta": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "fuente_financiamiento": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente Financiamiento"
+          },
+          "etapa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etapa"
+          },
+          "fecha_recepcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Recepcion"
+          },
+          "monto_rendir": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Rendir"
+          },
+          "monto_cancelado": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Cancelado"
+          },
+          "forma_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forma Pago"
+          },
+          "glosa": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glosa"
+          },
+          "receptor_rut": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receptor Rut"
+          },
+          "receptor_nombre": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receptor Nombre"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CorfoIn",
+        "description": "Las 11 columnas oficiales de Carga_Gastos; todas opcionales (sub-objeto parcial)."
+      },
+      "CorfoRead": {
+        "properties": {
+          "cuenta": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuenta"
+          },
+          "item": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item"
+          },
+          "fuente_financiamiento": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente Financiamiento"
+          },
+          "etapa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etapa"
+          },
+          "fecha_recepcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Recepcion"
+          },
+          "monto_rendir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Rendir"
+          },
+          "monto_cancelado": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Cancelado"
+          },
+          "forma_pago": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Forma Pago"
+          },
+          "glosa": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Glosa"
+          },
+          "receptor_rut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receptor Rut"
+          },
+          "receptor_nombre": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receptor Nombre"
+          }
+        },
+        "type": "object",
+        "title": "CorfoRead"
       },
       "CostoHistorico": {
         "properties": {
@@ -44257,6 +45482,54 @@
         ],
         "title": "DuplicateVoucherHit"
       },
+      "EgresoBatchRequest": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 2,
+            "title": "Empresa Codigo"
+          },
+          "filas": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Filas",
+            "description": "Filas EgresoBatchFila (EgresoCreate sin empresa_codigo). Máx 500."
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "filas"
+        ],
+        "title": "EgresoBatchRequest"
+      },
+      "EgresoBatchResponse": {
+        "properties": {
+          "creados": {
+            "items": {
+              "$ref": "#/components/schemas/EgresoRead"
+            },
+            "type": "array",
+            "title": "Creados"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          }
+        },
+        "type": "object",
+        "required": [
+          "creados",
+          "n"
+        ],
+        "title": "EgresoBatchResponse"
+      },
       "EgresoConcepto": {
         "properties": {
           "concepto_general": {
@@ -44298,6 +45571,557 @@
         ],
         "title": "EgresoConcepto"
       },
+      "EgresoCreate": {
+        "properties": {
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha"
+          },
+          "descripcion": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Descripcion"
+          },
+          "rut_emisor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut Emisor"
+          },
+          "tipo_documento": {
+            "type": "string",
+            "enum": [
+              "FACTURA",
+              "FACTURA_EXENTA",
+              "BOLETA",
+              "BOLETA_HONORARIO",
+              "LIQUIDACION",
+              "CO_EJECUTOR",
+              "INVOICE",
+              "OTRO"
+            ],
+            "title": "Tipo Documento"
+          },
+          "folio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio"
+          },
+          "monto_neto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Neto"
+          },
+          "impuesto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impuesto"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Total"
+          },
+          "tipo_egreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proyecto"
+          },
+          "estado_pago": {
+            "type": "string",
+            "enum": [
+              "PAGADO",
+              "PARCIAL",
+              "PENDIENTE"
+            ],
+            "title": "Estado Pago",
+            "default": "PENDIENTE"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "reparto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reparto_pct": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corfo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorfoIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "adjunto_dropbox_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adjunto Dropbox Path"
+          },
+          "origen": {
+            "type": "string",
+            "enum": [
+              "UI",
+              "PASTE"
+            ],
+            "title": "Origen",
+            "default": "UI"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 2,
+            "title": "Empresa Codigo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fecha",
+          "descripcion",
+          "tipo_documento",
+          "total",
+          "empresa_codigo"
+        ],
+        "title": "EgresoCreate"
+      },
+      "EgresoDeleteRequest": {
+        "properties": {
+          "motivo": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 5,
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "motivo"
+        ],
+        "title": "EgresoDeleteRequest"
+      },
+      "EgresoDeleteResponse": {
+        "properties": {
+          "egreso_id": {
+            "type": "integer",
+            "title": "Egreso Id"
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Deleted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "egreso_id",
+          "deleted_at"
+        ],
+        "title": "EgresoDeleteResponse"
+      },
+      "EgresoDetail": {
+        "properties": {
+          "egreso_id": {
+            "type": "integer",
+            "title": "Egreso Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "rut_emisor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut Emisor"
+          },
+          "tipo_documento": {
+            "type": "string",
+            "title": "Tipo Documento"
+          },
+          "folio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio"
+          },
+          "monto_neto": {
+            "type": "string",
+            "title": "Monto Neto"
+          },
+          "impuesto": {
+            "type": "string",
+            "title": "Impuesto"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "tipo_egreso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proyecto"
+          },
+          "estado_pago": {
+            "type": "string",
+            "title": "Estado Pago"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "reparto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reparto_pct": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reparto_estado": {
+            "type": "string",
+            "title": "Reparto Estado"
+          },
+          "corfo": {
+            "$ref": "#/components/schemas/CorfoRead"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "adjunto_dropbox_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adjunto Dropbox Path"
+          },
+          "origen": {
+            "type": "string",
+            "title": "Origen"
+          },
+          "neto_mas_impuesto_cuadra": {
+            "type": "boolean",
+            "title": "Neto Mas Impuesto Cuadra"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "historial": {
+            "items": {
+              "$ref": "#/components/schemas/HistorialItem"
+            },
+            "type": "array",
+            "title": "Historial"
+          }
+        },
+        "type": "object",
+        "required": [
+          "egreso_id",
+          "empresa_codigo",
+          "periodo",
+          "fecha",
+          "descripcion",
+          "tipo_documento",
+          "monto_neto",
+          "impuesto",
+          "total",
+          "estado_pago",
+          "reparto_estado",
+          "corfo",
+          "origen",
+          "neto_mas_impuesto_cuadra",
+          "version",
+          "historial"
+        ],
+        "title": "EgresoDetail"
+      },
+      "EgresoListResponse": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Periodo"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EgresoRead"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "truncado": {
+            "type": "boolean",
+            "title": "Truncado"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "items",
+          "n",
+          "truncado"
+        ],
+        "title": "EgresoListResponse"
+      },
       "EgresoProyectoItem": {
         "properties": {
           "proyecto": {
@@ -44326,6 +46150,244 @@
           "porcentaje"
         ],
         "title": "EgresoProyectoItem"
+      },
+      "EgresoRead": {
+        "properties": {
+          "egreso_id": {
+            "type": "integer",
+            "title": "Egreso Id"
+          },
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "fecha": {
+            "type": "string",
+            "format": "date",
+            "title": "Fecha"
+          },
+          "descripcion": {
+            "type": "string",
+            "title": "Descripcion"
+          },
+          "rut_emisor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut Emisor"
+          },
+          "tipo_documento": {
+            "type": "string",
+            "title": "Tipo Documento"
+          },
+          "folio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio"
+          },
+          "monto_neto": {
+            "type": "string",
+            "title": "Monto Neto"
+          },
+          "impuesto": {
+            "type": "string",
+            "title": "Impuesto"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "tipo_egreso": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proyecto"
+          },
+          "estado_pago": {
+            "type": "string",
+            "title": "Estado Pago"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "reparto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reparto_pct": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reparto_estado": {
+            "type": "string",
+            "title": "Reparto Estado"
+          },
+          "corfo": {
+            "$ref": "#/components/schemas/CorfoRead"
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "adjunto_dropbox_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adjunto Dropbox Path"
+          },
+          "origen": {
+            "type": "string",
+            "title": "Origen"
+          },
+          "neto_mas_impuesto_cuadra": {
+            "type": "boolean",
+            "title": "Neto Mas Impuesto Cuadra"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "egreso_id",
+          "empresa_codigo",
+          "periodo",
+          "fecha",
+          "descripcion",
+          "tipo_documento",
+          "monto_neto",
+          "impuesto",
+          "total",
+          "estado_pago",
+          "reparto_estado",
+          "corfo",
+          "origen",
+          "neto_mas_impuesto_cuadra",
+          "version"
+        ],
+        "title": "EgresoRead"
       },
       "EgresoTipoItem": {
         "properties": {
@@ -44360,6 +46422,255 @@
           "color"
         ],
         "title": "EgresoTipoItem"
+      },
+      "EgresoUpdate": {
+        "properties": {
+          "empresa_codigo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Empresa Codigo"
+          },
+          "fecha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "rut_emisor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rut Emisor"
+          },
+          "tipo_documento": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "FACTURA",
+                  "FACTURA_EXENTA",
+                  "BOLETA",
+                  "BOLETA_HONORARIO",
+                  "LIQUIDACION",
+                  "CO_EJECUTOR",
+                  "INVOICE",
+                  "OTRO"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Documento"
+          },
+          "folio": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folio"
+          },
+          "monto_neto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monto Neto"
+          },
+          "impuesto": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impuesto"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "tipo_egreso": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proyecto"
+          },
+          "estado_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "PAGADO",
+                  "PARCIAL",
+                  "PENDIENTE"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estado Pago"
+          },
+          "fecha_pago": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fecha Pago"
+          },
+          "reparto": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reparto_pct": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepartoIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corfo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorfoIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observaciones": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observaciones"
+          },
+          "adjunto_dropbox_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Adjunto Dropbox Path"
+          }
+        },
+        "type": "object",
+        "title": "EgresoUpdate",
+        "description": "PATCH-like vía PUT: sólo se toca lo que viene (`model_fields_set`).\n\nMandar `reparto: null` o `reparto: {}` deja el gasto SIN CLASIFICAR;\nomitir `reparto` lo deja como estaba. Lo mismo con `corfo` (sub-objeto\nparcial: se funde campo a campo)."
       },
       "EjecucionPorEmpresa": {
         "properties": {
@@ -47429,6 +49740,24 @@
         ],
         "title": "EstadoRequest"
       },
+      "EstadoResumen": {
+        "properties": {
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "monto": {
+            "type": "string",
+            "title": "Monto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n",
+          "monto"
+        ],
+        "title": "EstadoResumen"
+      },
       "EstadoUpdateRequest": {
         "properties": {
           "estado": {
@@ -48808,6 +51137,24 @@
           "last_comments"
         ],
         "title": "FeedbackSummary"
+      },
+      "FilaSaltada": {
+        "properties": {
+          "fila_excel": {
+            "type": "integer",
+            "title": "Fila Excel"
+          },
+          "motivo": {
+            "type": "string",
+            "title": "Motivo"
+          }
+        },
+        "type": "object",
+        "required": [
+          "fila_excel",
+          "motivo"
+        ],
+        "title": "FilaSaltada"
       },
       "FirmaRead": {
         "properties": {
@@ -51740,6 +54087,55 @@
         "title": "HeatmapCell",
         "description": "Celda del heatmap empresa × KPI.\n\n`kpi` ∈ {saldo, flujo, oc, f29, etl, audit}\n`value` 0-100\n`color` ∈ {green, yellow, red}"
       },
+      "HistorialItem": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "accion": {
+            "type": "string",
+            "title": "Accion"
+          },
+          "changed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "cambios": {
+            "items": {
+              "$ref": "#/components/schemas/CambioHistorial"
+            },
+            "type": "array",
+            "title": "Cambios"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "accion",
+          "cambios"
+        ],
+        "title": "HistorialItem"
+      },
       "HitoConContexto": {
         "properties": {
           "hito_id": {
@@ -52649,6 +55045,64 @@
           "detail"
         ],
         "title": "ImportRowError"
+      },
+      "ImportarResponse": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "leidas": {
+            "type": "integer",
+            "title": "Leidas",
+            "description": "Filas con datos leídas del Excel (cargables + saltadas)."
+          },
+          "creadas": {
+            "type": "integer",
+            "title": "Creadas"
+          },
+          "omitidas_existentes": {
+            "type": "integer",
+            "title": "Omitidas Existentes"
+          },
+          "duplicadas_en_excel": {
+            "type": "integer",
+            "title": "Duplicadas En Excel",
+            "description": "Filas idénticas a otra del mismo Excel que se cargaron igual (son pagos distintos), con huella propia y observación para revisar."
+          },
+          "saltadas": {
+            "items": {
+              "$ref": "#/components/schemas/FilaSaltada"
+            },
+            "type": "array",
+            "title": "Saltadas"
+          },
+          "descuadradas": {
+            "type": "integer",
+            "title": "Descuadradas"
+          },
+          "sin_clasificar": {
+            "type": "integer",
+            "title": "Sin Clasificar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "dry_run",
+          "leidas",
+          "creadas",
+          "omitidas_existentes",
+          "duplicadas_en_excel",
+          "saltadas",
+          "descuadradas",
+          "sin_clasificar"
+        ],
+        "title": "ImportarResponse"
       },
       "IndexStatus": {
         "properties": {
@@ -63446,6 +65900,70 @@
         ],
         "title": "PerfResponse"
       },
+      "PeriodoItem": {
+        "properties": {
+          "periodo": {
+            "type": "string",
+            "title": "Periodo"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "pendiente": {
+            "type": "string",
+            "title": "Pendiente"
+          },
+          "sin_clasificar": {
+            "type": "integer",
+            "title": "Sin Clasificar"
+          },
+          "descuadrados": {
+            "type": "integer",
+            "title": "Descuadrados"
+          }
+        },
+        "type": "object",
+        "required": [
+          "periodo",
+          "n",
+          "total",
+          "pendiente",
+          "sin_clasificar",
+          "descuadrados"
+        ],
+        "title": "PeriodoItem"
+      },
+      "PeriodosResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PeriodoItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "n_total": {
+            "type": "integer",
+            "title": "N Total"
+          },
+          "total_general": {
+            "type": "string",
+            "title": "Total General"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "n_total",
+          "total_general"
+        ],
+        "title": "PeriodosResponse"
+      },
       "PlanCuentaEmpresaRead": {
         "properties": {
           "cuenta_codigo": {
@@ -64250,6 +66768,59 @@
         },
         "type": "object",
         "title": "PolicyFondoUpdate"
+      },
+      "PorEstadoResumen": {
+        "properties": {
+          "PAGADO": {
+            "$ref": "#/components/schemas/EstadoResumen"
+          },
+          "PARCIAL": {
+            "$ref": "#/components/schemas/EstadoResumen"
+          },
+          "PENDIENTE": {
+            "$ref": "#/components/schemas/EstadoResumen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "PAGADO",
+          "PARCIAL",
+          "PENDIENTE"
+        ],
+        "title": "PorEstadoResumen"
+      },
+      "PorFuenteResumen": {
+        "properties": {
+          "subsidio": {
+            "type": "string",
+            "title": "Subsidio"
+          },
+          "cehta_ptec": {
+            "type": "string",
+            "title": "Cehta Ptec"
+          },
+          "cehta": {
+            "type": "string",
+            "title": "Cehta"
+          },
+          "trewaox": {
+            "type": "string",
+            "title": "Trewaox"
+          },
+          "sin_clasificar": {
+            "type": "string",
+            "title": "Sin Clasificar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subsidio",
+          "cehta_ptec",
+          "cehta",
+          "trewaox",
+          "sin_clasificar"
+        ],
+        "title": "PorFuenteResumen"
       },
       "PortfolioCompanyRow": {
         "properties": {
@@ -67718,6 +70289,102 @@
         "title": "RepartoDefault",
         "description": "Devuelve los % default y cuentas que el frontend usa para auto-poblar\nel reparto de un voucher (F.E o F.A) que se imputa a este proyecto."
       },
+      "RepartoIn": {
+        "properties": {
+          "subsidio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subsidio"
+          },
+          "cehta_ptec": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cehta Ptec"
+          },
+          "cehta": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cehta"
+          },
+          "trewaox": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trewaox"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RepartoIn",
+        "description": "Montos (pesos) o porcentajes por fuente, según el campo donde viaje."
+      },
+      "RepartoRead": {
+        "properties": {
+          "subsidio": {
+            "type": "string",
+            "title": "Subsidio"
+          },
+          "cehta_ptec": {
+            "type": "string",
+            "title": "Cehta Ptec"
+          },
+          "cehta": {
+            "type": "string",
+            "title": "Cehta"
+          },
+          "trewaox": {
+            "type": "string",
+            "title": "Trewaox"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subsidio",
+          "cehta_ptec",
+          "cehta",
+          "trewaox"
+        ],
+        "title": "RepartoRead"
+      },
       "ReplyRequest": {
         "properties": {
           "body_html": {
@@ -68047,6 +70714,71 @@
           "total_aportes_patronales"
         ],
         "title": "ResumenRemuneraciones"
+      },
+      "ResumenResponse": {
+        "properties": {
+          "empresa_codigo": {
+            "type": "string",
+            "title": "Empresa Codigo"
+          },
+          "periodo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Periodo"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "total": {
+            "type": "string",
+            "title": "Total"
+          },
+          "por_fuente": {
+            "$ref": "#/components/schemas/PorFuenteResumen"
+          },
+          "por_estado": {
+            "$ref": "#/components/schemas/PorEstadoResumen"
+          },
+          "pct_pagado": {
+            "type": "string",
+            "title": "Pct Pagado"
+          },
+          "por_tipo_documento": {
+            "items": {
+              "$ref": "#/components/schemas/TipoDocumentoResumen"
+            },
+            "type": "array",
+            "title": "Por Tipo Documento"
+          },
+          "descuadrados": {
+            "type": "integer",
+            "title": "Descuadrados"
+          },
+          "sin_clasificar": {
+            "type": "integer",
+            "title": "Sin Clasificar"
+          }
+        },
+        "type": "object",
+        "required": [
+          "empresa_codigo",
+          "n",
+          "total",
+          "por_fuente",
+          "por_estado",
+          "pct_pagado",
+          "por_tipo_documento",
+          "descuadrados",
+          "sin_clasificar"
+        ],
+        "title": "ResumenResponse"
       },
       "RiesgoCreate": {
         "properties": {
@@ -69627,6 +72359,38 @@
         ],
         "title": "SubsidioRead"
       },
+      "Sugerencias": {
+        "properties": {
+          "tipo_egreso": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tipo Egreso"
+          },
+          "fuente": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fuente"
+          },
+          "proyecto": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Proyecto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo_egreso",
+          "fuente",
+          "proyecto"
+        ],
+        "title": "Sugerencias"
+      },
       "SuscripcionCreate": {
         "properties": {
           "empresa_codigo": {
@@ -70503,6 +73267,29 @@
           "message"
         ],
         "title": "TestResponse"
+      },
+      "TipoDocumentoResumen": {
+        "properties": {
+          "tipo_documento": {
+            "type": "string",
+            "title": "Tipo Documento"
+          },
+          "n": {
+            "type": "integer",
+            "title": "N"
+          },
+          "monto": {
+            "type": "string",
+            "title": "Monto"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tipo_documento",
+          "n",
+          "monto"
+        ],
+        "title": "TipoDocumentoResumen"
       },
       "TipoDteBreakdown": {
         "properties": {

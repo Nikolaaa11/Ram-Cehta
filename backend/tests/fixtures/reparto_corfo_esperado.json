@@ -1,0 +1,355 @@
+{
+  "fuentes": [
+    "subsidio",
+    "cehta_ptec",
+    "cehta",
+    "trewaox"
+  ],
+  "casos": [
+    {
+      "nombre": "default proyecto 50/20/30 con residuo HALF_UP",
+      "total": "1000001",
+      "pcts": {
+        "subsidio": "50",
+        "cehta_ptec": "20",
+        "cehta": "30"
+      },
+      "esperado_montos": {
+        "subsidio": "500001.00",
+        "cehta_ptec": "200000.00",
+        "cehta": "300000.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "50.00",
+        "cehta_ptec": "20.00",
+        "cehta": "30.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "33.33 x3: el residuo va a la fuente mayor",
+      "total": "100",
+      "pcts": {
+        "subsidio": "33.33",
+        "cehta_ptec": "33.33",
+        "cehta": "33.34"
+      },
+      "esperado_montos": {
+        "subsidio": "33.00",
+        "cehta_ptec": "33.00",
+        "cehta": "34.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "33.00",
+        "cehta_ptec": "33.00",
+        "cehta": "34.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "centavos del total los absorbe la mayor (CAMILO SALAZAR ene-2026)",
+      "total": "5645105.9504",
+      "pcts": {
+        "subsidio": "35.43",
+        "cehta_ptec": "60.05",
+        "cehta": "4.52"
+      },
+      "esperado_montos": {
+        "subsidio": "2000061.00",
+        "cehta_ptec": "3389885.95",
+        "cehta": "255159.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "35.43",
+        "cehta_ptec": "60.05",
+        "cehta": "4.52",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "100% subsidio (PROGARANTIA)",
+      "total": "9935822",
+      "pcts": {
+        "subsidio": "100"
+      },
+      "esperado_montos": {
+        "subsidio": "9935822.00",
+        "cehta_ptec": "0.00",
+        "cehta": "0.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "100.00",
+        "cehta_ptec": "0.00",
+        "cehta": "0.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "empate 50/50 sobre $1 desempata por orden canonico",
+      "total": "1",
+      "pcts": {
+        "subsidio": "50",
+        "cehta": "50"
+      },
+      "esperado_montos": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "1.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "100.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "cuatro fuentes TRONGKAI (CENTRO TECNOLOGICO nov-2025)",
+      "total": "2828673",
+      "pcts": {
+        "trewaox": "84.03",
+        "cehta": "15.97"
+      },
+      "esperado_montos": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "451739.00",
+        "trewaox": "2376934.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "15.97",
+        "trewaox": "84.03"
+      }
+    },
+    {
+      "nombre": "total cero reparte ceros",
+      "total": "0",
+      "pcts": {
+        "subsidio": "100"
+      },
+      "esperado_montos": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "0.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "0.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "tolerancia 99.99",
+      "total": "300",
+      "pcts": {
+        "subsidio": "33.33",
+        "cehta_ptec": "33.33",
+        "cehta": "33.33"
+      },
+      "esperado_montos": {
+        "subsidio": "100.00",
+        "cehta_ptec": "100.00",
+        "cehta": "100.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "33.34",
+        "cehta_ptec": "33.33",
+        "cehta": "33.33",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "montos OK (PROYECTA SPA dic-2025)",
+      "total": "590777",
+      "montos": {
+        "subsidio": "496451",
+        "cehta": "94326"
+      },
+      "esperado_normalizados": {
+        "subsidio": "496451.00",
+        "cehta_ptec": "0.00",
+        "cehta": "94326.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "84.03",
+        "cehta_ptec": "0.00",
+        "cehta": "15.97",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "montos descuadrados: los % NO se maquillan",
+      "total": "1000",
+      "montos": {
+        "subsidio": "500",
+        "cehta": "400"
+      },
+      "esperado_normalizados": {
+        "subsidio": "500.00",
+        "cehta_ptec": "0.00",
+        "cehta": "400.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "DESCUADRADO",
+      "esperado_pcts": {
+        "subsidio": "50.00",
+        "cehta_ptec": "0.00",
+        "cehta": "40.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "sin clasificar",
+      "total": "1000",
+      "montos": null,
+      "esperado_normalizados": {
+        "subsidio": null,
+        "cehta_ptec": null,
+        "cehta": null,
+        "trewaox": null
+      },
+      "esperado_estado": "SIN_CLASIFICAR",
+      "esperado_pcts": null
+    },
+    {
+      "nombre": "montos con 3 fuentes y centavos (CAMILO SALAZAR ene-2026)",
+      "total": "5645105.9504",
+      "montos": {
+        "subsidio": "2000000",
+        "cehta_ptec": "3390000",
+        "cehta": "255105.9504"
+      },
+      "esperado_normalizados": {
+        "subsidio": "2000000.00",
+        "cehta_ptec": "3390000.00",
+        "cehta": "255105.95",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "35.43",
+        "cehta_ptec": "60.05",
+        "cehta": "4.52",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "una sola fuente con valor: las otras pasan a 0",
+      "total": "94352",
+      "montos": {
+        "cehta": "94352"
+      },
+      "esperado_normalizados": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "94352.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK",
+      "esperado_pcts": {
+        "subsidio": "0.00",
+        "cehta_ptec": "0.00",
+        "cehta": "100.00",
+        "trewaox": "0.00"
+      }
+    },
+    {
+      "nombre": "escalar PROYECTA de 590777 a 496451 (residuo a la mayor)",
+      "total": "590777",
+      "montos": {
+        "subsidio": "496451",
+        "cehta": "94326"
+      },
+      "escalar_a": "496451",
+      "esperado_escalado": {
+        "subsidio": "417185.00",
+        "cehta_ptec": "0.00",
+        "cehta": "79266.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK"
+    },
+    {
+      "nombre": "escalar de vuelta 496451 -> 590777 mueve a lo sumo $1",
+      "total": "496451",
+      "montos": {
+        "subsidio": "417185",
+        "cehta": "79266"
+      },
+      "escalar_a": "590777",
+      "esperado_escalado": {
+        "subsidio": "496450.00",
+        "cehta_ptec": "0.00",
+        "cehta": "94327.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK"
+    },
+    {
+      "nombre": "escalar 3 fuentes con centavos (CAMILO SALAZAR) a 1000000",
+      "total": "5645105.9504",
+      "montos": {
+        "subsidio": "2000000",
+        "cehta_ptec": "3390000",
+        "cehta": "255105.9504"
+      },
+      "escalar_a": "1000000",
+      "esperado_escalado": {
+        "subsidio": "354289.00",
+        "cehta_ptec": "600520.00",
+        "cehta": "45191.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK"
+    },
+    {
+      "nombre": "escalar sin clasificar sigue sin clasificar",
+      "total": "1000",
+      "montos": null,
+      "escalar_a": "2000",
+      "esperado_escalado": {
+        "subsidio": null,
+        "cehta_ptec": null,
+        "cehta": null,
+        "trewaox": null
+      },
+      "esperado_estado": "SIN_CLASIFICAR"
+    },
+    {
+      "nombre": "escalar al mismo total no toca nada",
+      "total": "590777",
+      "montos": {
+        "subsidio": "496451",
+        "cehta": "94326"
+      },
+      "escalar_a": "590777",
+      "esperado_escalado": {
+        "subsidio": "496451.00",
+        "cehta_ptec": "0.00",
+        "cehta": "94326.00",
+        "trewaox": "0.00"
+      },
+      "esperado_estado": "OK"
+    }
+  ]
+}

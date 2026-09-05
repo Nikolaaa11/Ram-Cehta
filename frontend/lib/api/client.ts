@@ -169,10 +169,22 @@ async function coreFetch<T>(
           // FastAPI/Pydantic 422 — detail es array de objetos
           // { loc: ["body","campo"], msg: "Field required", type: "missing" }
           // Lo formateamos como "campo: msg · otroCampo: msg".
+          //
+          // Los batch de la plataforma (ej. POST /claudia/egresos/batch)
+          // devuelven en cambio [{ fila, error }]: se formatea como
+          // "Fila N: error" (o el error solo si no trae fila) en vez de
+          // caer en el "error" genérico que no dice nada.
           const lines = rawDetail
             .map((e: unknown) => {
               if (typeof e !== "object" || e === null) return String(e);
-              const obj = e as { loc?: unknown[]; msg?: string };
+              const obj = e as { loc?: unknown[]; msg?: string; fila?: unknown; error?: unknown };
+              if (typeof obj.error === "string") {
+                const fila = obj.fila;
+                const tieneFila =
+                  (typeof fila === "number" && Number.isFinite(fila)) ||
+                  (typeof fila === "string" && fila !== "");
+                return tieneFila ? `Fila ${fila}: ${obj.error}` : obj.error;
+              }
               const field = Array.isArray(obj.loc)
                 ? obj.loc.filter((p) => p !== "body").join(".")
                 : "";
