@@ -22,8 +22,17 @@ class AuthorizationService:
             "emitida", "parcial", "borrador", "en_firma",
         }:
             actions.append("cancel")
+        # `en_firma` y `parcial` entran el 2026-09-21. Antes quedaban fuera y
+        # una OC ya pagada al proveedor no se podía registrar como pagada:
+        #  · en_firma — pasa cuando un firmante nunca firmó en la plataforma
+        #    (TECMAVIDA: tres OC trabadas así). El endpoint exige un MOTIVO
+        #    si quedan firmas pendientes y lo deja en la auditoría; las
+        #    firmas no se tocan (se registra que faltaron, no se inventan).
+        #  · parcial — una OC con pago parcial NUNCA podía cerrarse: marcar
+        #    parcial era un callejón sin salida.
         if user.has_scope("oc:mark_paid") and estado in {
-            "emitida", "firmada", "enviada_proveedor", "facturada",
+            "emitida", "en_firma", "firmada", "enviada_proveedor",
+            "facturada", "parcial",
         }:
             actions.append("mark_paid")
         # Enviar a firma / gestionar firmantes (flujo F3).

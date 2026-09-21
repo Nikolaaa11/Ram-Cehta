@@ -12368,6 +12368,8 @@ export interface components {
             ids: number[];
             /** Estado */
             estado: string;
+            /** Motivo */
+            motivo?: string | null;
         };
         /**
          * BulkUpdateRequest
@@ -15129,6 +15131,8 @@ export interface components {
              * @enum {string}
              */
             estado: "emitida" | "pagada" | "anulada" | "parcial";
+            /** Motivo */
+            motivo?: string | null;
         };
         /** EtlRunRead */
         EtlRunRead: {

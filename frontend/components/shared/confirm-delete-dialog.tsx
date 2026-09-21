@@ -21,6 +21,10 @@
  *                   habilitar el botón. Se usa para acciones que dejan
  *                   registro permanente (borrar una OC): el motivo es lo
  *                   único que va a explicar después por qué se hizo.
+ *  - open / onOpenChange: modo controlado, para abrirlo desde código (p.ej.
+ *                   al soltar una card en el kanban o cuando el backend
+ *                   contesta que falta un motivo). Sin ellos se abre con
+ *                   `trigger`, como siempre.
  */
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
@@ -44,7 +48,8 @@ interface MotivoConfig {
 }
 
 interface ConfirmDeleteDialogProps {
-  trigger: React.ReactNode;
+  /** Opcional sólo en modo controlado (`open` + `onOpenChange`). */
+  trigger?: React.ReactNode;
   title: string;
   description: React.ReactNode;
   confirmText?: string;
@@ -52,6 +57,8 @@ interface ConfirmDeleteDialogProps {
   onConfirm: (motivo: string) => Promise<unknown> | void;
   tone?: "destructive" | "neutral";
   motivo?: MotivoConfig;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ConfirmDeleteDialog({
@@ -63,8 +70,15 @@ export function ConfirmDeleteDialog({
   onConfirm,
   tone = "destructive",
   motivo,
+  open: openControlado,
+  onOpenChange,
 }: ConfirmDeleteDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [openInterno, setOpenInterno] = useState(false);
+  const open = openControlado ?? openInterno;
+  const setOpen = (valor: boolean) => {
+    if (openControlado === undefined) setOpenInterno(valor);
+    onOpenChange?.(valor);
+  };
   const [pending, setPending] = useState(false);
   const [texto, setTexto] = useState("");
 
@@ -103,7 +117,9 @@ export function ConfirmDeleteDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      {trigger != null && (
+        <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      )}
       <AlertDialogContent>
         <div className="flex gap-4">
           <span

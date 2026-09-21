@@ -137,6 +137,10 @@ api_router.include_router(ordenes_compra.router, prefix="/ordenes-compra", tags=
 from app.api.v1 import oc_firmas  # noqa: E402
 
 api_router.include_router(oc_firmas.router, prefix="/ordenes-compra", tags=["oc-firmas"])
+# Anexos de OC subidos a mano (2026-09-21) — core.oc_attachments.
+from app.api.v1 import oc_anexos  # noqa: E402
+
+api_router.include_router(oc_anexos.router, prefix="/ordenes-compra", tags=["oc-anexos"])
 # MEGAPROMPT PREVOUCHER — cola de pre-vouchers + edición de líneas de DRAFT.
 # Sin prefix: los paths completos viven en el router (patrón oc_cuotas).
 from app.api.v1 import prevouchers  # noqa: E402

@@ -20,6 +20,9 @@ class BulkUpdateEstadoRequest(BaseModel):
 
     ids: list[int] = Field(..., min_length=1, max_length=200)
     estado: str = Field(..., min_length=1)
+    #: Opcional. Hoy sólo lo usa el bulk de OC: marcar pagada una OC con
+    #: firmas pendientes exige motivo (ver `EstadoUpdateRequest.motivo`).
+    motivo: str | None = Field(default=None, max_length=500)
 
 
 class BulkDeleteRequest(BaseModel):

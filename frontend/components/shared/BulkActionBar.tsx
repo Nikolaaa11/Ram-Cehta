@@ -73,10 +73,22 @@ export function BulkActionBar({
           `${ok} ${ok === 1 ? entityLabel.singular : entityLabel.plural} actualizad${ok === 1 ? "a" : "as"}`,
         );
       } else if (ok === 0) {
-        toast.error(`Falló: ${result.failed[0]?.detail ?? "razón desconocida"}`);
+        toast.error(`Falló: ${result.failed[0]?.detail ?? "razón desconocida"}`, {
+          duration: 12_000,
+        });
       } else {
+        // El detalle del primer fallo dice qué hacer (p.ej. "OC-T&E-0002
+        // tiene 1 firma pendiente: márcala desde su ficha indicando el
+        // motivo"). Los fallos no quedan en la auditoría: sólo acá.
         toast.warning(
-          `${ok} actualizad${ok === 1 ? "a" : "as"}, ${failed} fallaron — revisa la auditoría`,
+          `${ok} actualizad${ok === 1 ? "a" : "as"}, ${failed} no se pudieron cambiar`,
+          {
+            description: result.failed
+              .slice(0, 3)
+              .map((f) => f.detail)
+              .join(" · "),
+            duration: 12_000,
+          },
         );
       }
       // Invalidar todas las queries afectadas

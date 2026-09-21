@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { OcCuotasSection } from "@/components/ordenes-compra/OcCuotasSection";
 import { OcFirmasSection } from "@/components/ordenes-compra/OcFirmasSection";
+import { OcAnexosSection } from "@/components/ordenes-compra/OcAnexosSection";
 import { CrearVoucherDesdeOcButton } from "@/components/vouchers/VoucherDesdeOc";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
@@ -356,6 +357,10 @@ export default async function OcDetallePage({
           </div>
         </Surface>
       )}
+
+      {/* Anexos (2026-09-21) — van antes de Firmas: salen al final del PDF,
+          así que son parte de lo que se firma. Cliente. */}
+      <OcAnexosSection ocId={ocId} estado={oc.estado} />
 
       {/* OC-FIRMANTES-EXTERNOS — picker de firmantes (equipo + externos).
           Va antes de Cuotas porque en el flujo real primero se firma la OC y

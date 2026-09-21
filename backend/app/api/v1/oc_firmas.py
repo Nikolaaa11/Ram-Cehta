@@ -1594,6 +1594,14 @@ async def rechazar_firma(
 ) -> FirmarResponse:
     """El firmante rechaza con motivo → la OC vuelve a 'emitida' para corregir."""
     oc = await _get_oc_full(db, oc_id, user, for_update=True)
+    # Mismo guard que `firmar`. Sin él, alguien con la firma todavía
+    # PENDIENTE en una OC que ya se marcó pagada (con motivo, porque nunca
+    # firmó) podía "rechazar" y devolverla a 'emitida' — des-pagándola.
+    if oc["estado"] not in {"en_firma", "emitida"}:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"La OC está en estado '{oc['estado']}' — ya no admite rechazar la firma.",
+        )
     my_email = await _user_email(db, user)
     updated = (
         await db.execute(

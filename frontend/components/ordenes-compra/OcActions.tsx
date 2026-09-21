@@ -6,6 +6,7 @@
  * Muestra Editar/Marcar pagada/Anular según `oc.allowed_actions` (computado
  * server-side combinando rbac.ROLE_SCOPES + estado de la OC).
  */
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle, Copy, Edit, FileDown, Trash2, XCircle } from "lucide-react";
@@ -18,6 +19,7 @@ import { apiClient, ApiError } from "@/lib/api/client";
 import { ocPdfFilename } from "@/lib/oc-filename";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 import { DuplicateOcDialog } from "@/components/ordenes-compra/DuplicateOcDialog";
+import { MotivoPagoDialog } from "@/components/ordenes-compra/MotivoPagoDialog";
 
 interface Props {
   ocId: number;
@@ -88,14 +90,25 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
     },
   });
 
+  // Marcar pagada con firmas pendientes pide motivo. Se abre directo si la
+  // OC está en_firma, o cuando el backend contesta 422 pidiéndolo (una OC
+  // `emitida` también puede tener firmantes invitados que no firmaron).
+  const [motivoPagoOpen, setMotivoPagoOpen] = useState(false);
+
   const estadoMutation = useMutation({
-    mutationFn: (estado: "pagada" | "anulada") =>
+    mutationFn: ({
+      estado,
+      motivo,
+    }: {
+      estado: "pagada" | "anulada";
+      motivo?: string;
+    }) =>
       apiClient.patch<unknown>(
         `/ordenes-compra/${ocId}/estado`,
-        { estado },
+        motivo ? { estado, motivo } : { estado },
         session,
       ),
-    onSuccess: async (_data, estado) => {
+    onSuccess: async (_data, { estado }) => {
       toast.success(
         estado === "pagada"
           ? `OC ${numeroOc} marcada como pagada`
@@ -105,13 +118,24 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
       await queryClient.invalidateQueries({ queryKey: ["solicitudes-pago"] });
       router.refresh();
     },
-    onError: (err) => {
+    onError: (err, { estado, motivo }) => {
+      if (
+        err instanceof ApiError &&
+        err.status === 422 &&
+        estado === "pagada" &&
+        !motivo &&
+        /firma/i.test(err.detail)
+      ) {
+        setMotivoPagoOpen(true);
+        return;
+      }
       toast.error(
         err instanceof ApiError
           ? err.detail
           : err instanceof Error
             ? err.message
             : "Error al actualizar la OC",
+        { duration: 10_000 },
       );
     },
   });
@@ -242,15 +266,30 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
       {canMarkPaid && (
         <button
           type="button"
-          onClick={() => estadoMutation.mutate("pagada")}
+          onClick={() =>
+            estado === "en_firma"
+              ? setMotivoPagoOpen(true)
+              : estadoMutation.mutate({ estado: "pagada" })
+          }
           disabled={estadoMutation.isPending}
           className={successBtn}
         >
           <CheckCircle className="h-4 w-4" strokeWidth={1.5} />
-          {estadoMutation.isPending && estadoMutation.variables === "pagada"
+          {estadoMutation.isPending &&
+          estadoMutation.variables?.estado === "pagada"
             ? "Guardando…"
             : "Marcar pagada"}
         </button>
+      )}
+      {canMarkPaid && (
+        <MotivoPagoDialog
+          open={motivoPagoOpen}
+          onOpenChange={setMotivoPagoOpen}
+          numeroOc={numeroOc}
+          onConfirm={(motivo) =>
+            estadoMutation.mutateAsync({ estado: "pagada", motivo })
+          }
+        />
       )}
       {canCancel && (
         <ConfirmDeleteDialog
@@ -270,7 +309,7 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
             </>
           }
           confirmText="Anular OC"
-          onConfirm={() => estadoMutation.mutateAsync("anulada")}
+          onConfirm={() => estadoMutation.mutateAsync({ estado: "anulada" })}
         />
       )}
       {canDelete && (

@@ -2265,6 +2265,50 @@ async def delete_oc(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# Marcar pagada/parcial una OC con firmas PENDIENTES (2026-09-21).
+# Pasa en la vida real: el proveedor ya cobró y un firmante nunca entró a la
+# plataforma (TECMAVIDA tenía tres OC trabadas en `en_firma`). Se permite,
+# pero NO en silencio: exige un motivo que queda en la auditoría junto a los
+# nombres de quienes no firmaron. Las firmas quedan PENDIENTE tal cual — se
+# deja constancia de que faltaron, no se fingen.
+_MOTIVO_PAGO_SIN_FIRMAS_MIN = 10
+
+
+async def _firmas_pendientes_oc(db: DBSession, oc_id: int) -> list[str]:
+    """Nombres (o correo si no hay nombre) de los firmantes que no firmaron."""
+    filas = (
+        await db.execute(
+            text(
+                """SELECT COALESCE(NULLIF(trim(firmante_nombre), ''), firmante_email)
+                     FROM core.oc_firmas
+                    WHERE oc_id = :id AND status = 'PENDIENTE'
+                    ORDER BY orden NULLS LAST, firma_id"""
+            ),
+            {"id": oc_id},
+        )
+    ).scalars().all()
+    return [str(f) for f in filas]
+
+
+def _motivo_pago_sin_firmas_invalido(
+    motivo: str | None, pendientes: list[str], estado: str
+) -> str | None:
+    """Mensaje de error si falta el motivo; None si está bien (o no hace falta)."""
+    if not pendientes:
+        return None
+    if len((motivo or "").strip()) >= _MOTIVO_PAGO_SIN_FIRMAS_MIN:
+        return None
+    n = len(pendientes)
+    quienes = ", ".join(pendientes[:5]) + ("…" if n > 5 else "")
+    plural = "s" if n != 1 else ""
+    return (
+        f"Esta OC tiene {n} firma{plural} pendiente{plural} ({quienes}). "
+        f"Para marcarla {estado} igual, escribe el motivo (mínimo "
+        f"{_MOTIVO_PAGO_SIN_FIRMAS_MIN} caracteres): queda registrado en el "
+        "historial de la OC."
+    )
+
+
 @router.patch("/{oc_id}/estado", response_model=OrdenCompraRead)
 async def update_estado(
     user: CurrentUser,
@@ -2334,6 +2378,21 @@ async def update_estado(
                 ),
             )
 
+    pendientes: list[str] = []
+    motivo_pago: str | None = None
+    if body.estado in {"pagada", "parcial"}:
+        pendientes = await _firmas_pendientes_oc(db, oc_id)
+        error_motivo = _motivo_pago_sin_firmas_invalido(
+            body.motivo, pendientes, body.estado
+        )
+        if error_motivo:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=error_motivo,
+            )
+        if pendientes:
+            motivo_pago = (body.motivo or "").strip()
+
     estado_before = oc.estado
     updated = await repo.update_estado(oc, body.estado)
     await db.commit()
@@ -2351,9 +2410,25 @@ async def update_estado(
         entity_type="orden_compra",
         entity_id=str(oc_id),
         entity_label=updated.numero_oc,
-        summary=f"OC {updated.numero_oc}: {estado_before} -> {body.estado}",
+        summary=(
+            f"OC {updated.numero_oc}: {estado_before} -> {body.estado}"
+            + (
+                f" con {len(pendientes)} firma(s) pendiente(s) "
+                f"({', '.join(pendientes)}). Motivo: {motivo_pago}"
+                if motivo_pago
+                else ""
+            )
+        ),
         before={"estado": estado_before},
-        after={"estado": body.estado},
+        after=(
+            {
+                "estado": body.estado,
+                "motivo": motivo_pago,
+                "firmas_pendientes": pendientes,
+            }
+            if motivo_pago
+            else {"estado": body.estado}
+        ),
     )
     # Webhook: mapea estado interno (español) → event type registrado (inglés).
     # `pagada`/`parcial` → oc.paid (con partial_payment flag). `anulada` →
@@ -2418,6 +2493,10 @@ async def bulk_update_estado(
     succeeded = 0
     _ESTADO_ACTION = {"pagada": "mark_paid", "anulada": "cancel", "parcial": "mark_paid"}
     required_action = _ESTADO_ACTION.get(body.estado)
+    # OC marcadas pagadas con firmas pendientes: cada una lleva además su
+    # propio audit (el del bulk es agregado y no aparece en el historial de
+    # la OC, que filtra por entity_id).
+    pagadas_sin_firmas: list[tuple[int, str, str, list[str]]] = []
 
     for oc_id in body.ids:
         # R152JJJJJJ — Row lock por OC (mismo patrón que el PATCH single).
@@ -2478,6 +2557,23 @@ async def bulk_update_estado(
                 ))
                 continue
 
+        if body.estado in {"pagada", "parcial"}:
+            pendientes = await _firmas_pendientes_oc(db, oc_id)
+            if _motivo_pago_sin_firmas_invalido(body.motivo, pendientes, body.estado):
+                n = len(pendientes)
+                failed.append(BulkItemError(
+                    id=oc_id,
+                    detail=(
+                        f"{oc.numero_oc} tiene {n} firma(s) pendiente(s): "
+                        "márcala desde su ficha indicando el motivo"
+                    ),
+                ))
+                continue
+            if pendientes:
+                pagadas_sin_firmas.append(
+                    (oc_id, oc.numero_oc, oc.estado, pendientes)
+                )
+
         await repo.update_estado(oc, body.estado)
         succeeded += 1
 
@@ -2498,6 +2594,28 @@ async def bulk_update_estado(
             before=None,
             after={"estado": body.estado, "ids": body.ids[:50]},
         )
+        motivo_bulk = (body.motivo or "").strip()
+        for oc_id, numero, estado_prev, pendientes in pagadas_sin_firmas:
+            await audit_log(
+                db,
+                request,
+                user,
+                action="approve" if body.estado == "pagada" else "update",
+                entity_type="orden_compra",
+                entity_id=str(oc_id),
+                entity_label=numero,
+                summary=(
+                    f"OC {numero}: {estado_prev} -> {body.estado} (masivo) con "
+                    f"{len(pendientes)} firma(s) pendiente(s) "
+                    f"({', '.join(pendientes)}). Motivo: {motivo_bulk}"
+                ),
+                before={"estado": estado_prev},
+                after={
+                    "estado": body.estado,
+                    "motivo": motivo_bulk,
+                    "firmas_pendientes": pendientes,
+                },
+            )
 
     return BulkUpdateResult(
         operation="update_estado",

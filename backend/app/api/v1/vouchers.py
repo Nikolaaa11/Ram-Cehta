@@ -3168,8 +3168,10 @@ async def get_voucher_attachment_url(
     row = (
         await db.execute(
             text(
-                "SELECT a.attachment_id, a.dropbox_path, a.file_name "
+                "SELECT a.attachment_id, a.dropbox_path, a.file_name, "
+                "       v.empresa_codigo "
                 "FROM core.voucher_attachments a "
+                "JOIN core.vouchers v ON v.voucher_id = a.voucher_id "
                 "WHERE a.attachment_id = :a AND a.voucher_id = :v"
             ),
             {"a": attachment_id, "v": voucher_id},
@@ -3179,6 +3181,10 @@ async def get_voucher_attachment_url(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Adjunto no encontrado"
         )
+    # 2026-09-21 — faltaba el scope: cualquier usuario logueado obtenía un
+    # link público de 4 h al adjunto de un voucher de CUALQUIER empresa con
+    # sólo enumerar ids (el listado sí lo chequeaba desde QA 14/05).
+    await assert_empresa_access(user, db, row["empresa_codigo"])
 
     dbx = await _get_dropbox_service(db)
     try:
@@ -3217,7 +3223,7 @@ async def delete_voucher_attachment(
         await db.execute(
             text(
                 """
-                SELECT a.dropbox_path, v.status
+                SELECT a.dropbox_path, v.status, v.empresa_codigo
                 FROM core.voucher_attachments a
                 INNER JOIN core.vouchers v ON v.voucher_id = a.voucher_id
                 WHERE a.attachment_id = :a AND a.voucher_id = :v
@@ -3230,6 +3236,9 @@ async def delete_voucher_attachment(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Adjunto no encontrado"
         )
+    # 2026-09-21 — scope: sin esto, legal:write de la empresa A borraba
+    # adjuntos de vouchers DRAFT de la empresa B enumerando ids.
+    await assert_empresa_access(user, db, row["empresa_codigo"])
     if row["status"] not in ("DRAFT", "PENDING"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

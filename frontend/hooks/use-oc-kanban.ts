@@ -61,6 +61,8 @@ export function useOcKanban(empresa: string) {
 export interface UpdateEstadoArgs {
   ocId: number;
   estado: KanbanEstado;
+  /** Obligatorio al marcar pagada una OC con firmas pendientes. */
+  motivo?: string;
 }
 
 export function useUpdateOcEstado() {
@@ -68,10 +70,10 @@ export function useUpdateOcEstado() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ ocId, estado }: UpdateEstadoArgs) =>
+    mutationFn: ({ ocId, estado, motivo }: UpdateEstadoArgs) =>
       apiClient.patch<unknown>(
         `/ordenes-compra/${ocId}/estado`,
-        { estado },
+        motivo ? { estado, motivo } : { estado },
         session,
       ),
     onSettled: async () => {

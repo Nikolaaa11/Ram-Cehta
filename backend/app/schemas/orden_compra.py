@@ -270,6 +270,10 @@ class OrdenCompraListItem(BaseModel):
 
 class EstadoUpdateRequest(BaseModel):
     estado: Literal["emitida", "pagada", "anulada", "parcial"]
+    #: Obligatorio (mín. 10 caracteres) sólo cuando se marca pagada/parcial
+    #: una OC que todavía tiene firmas PENDIENTES: queda en la auditoría
+    #: junto a quiénes no firmaron. En cualquier otro caso se ignora.
+    motivo: str | None = Field(default=None, max_length=500)
 
 
 class DuplicateOcRequest(BaseModel):

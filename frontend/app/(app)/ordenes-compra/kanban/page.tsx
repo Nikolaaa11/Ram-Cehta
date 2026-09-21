@@ -47,6 +47,7 @@ import {
 } from "@/hooks/use-oc-kanban";
 import { ApiError } from "@/lib/api/client";
 import { KanbanColumn } from "@/components/ordenes-compra/KanbanColumn";
+import { MotivoPagoDialog } from "@/components/ordenes-compra/MotivoPagoDialog";
 import type { OcListItem } from "@/lib/api/schema";
 
 const KANBAN_SET = new Set<string>(KANBAN_ESTADOS);
@@ -109,6 +110,10 @@ export default function OrdenesCompraKanbanPage() {
   useEffect(() => {
     if (data) setItems(data.items);
   }, [data]);
+
+  // OC soltada en "pagada" a la que le faltan firmas: la card NO se mueve
+  // hasta que se escriba el motivo (el backend lo exige y lo audita).
+  const [pagoSinFirmas, setPagoSinFirmas] = useState<OcListItem | null>(null);
 
   const empresaItems = useMemo<ComboboxItem[]>(
     () => [
@@ -178,14 +183,29 @@ export default function OrdenesCompraKanbanPage() {
       return;
     }
 
+    if (toEstado === "pagada" && (oc.firmas_pendientes?.length ?? 0) > 0) {
+      setPagoSinFirmas(oc);
+      return;
+    }
+
+    await moverOc(oc, toEstado).catch(() => undefined);
+  };
+
+  const moverOc = async (
+    oc: OcListItem,
+    toEstado: KanbanEstado,
+    motivo?: string,
+  ) => {
     // Optimistic update — mover la card a la nueva columna.
     const prev = items;
     setItems((curr) =>
-      curr.map((i) => (i.oc_id === ocId ? { ...i, estado: toEstado } : i)),
+      curr.map((i) =>
+        i.oc_id === oc.oc_id ? { ...i, estado: toEstado } : i,
+      ),
     );
 
     try {
-      await mutation.mutateAsync({ ocId, estado: toEstado });
+      await mutation.mutateAsync({ ocId: oc.oc_id, estado: toEstado, motivo });
       toast.success(`OC ${oc.numero_oc} movida a ${toEstado}`);
     } catch (err) {
       // Revert
@@ -196,7 +216,9 @@ export default function OrdenesCompraKanbanPage() {
           : err instanceof Error
             ? err.message
             : "Error al mover la OC";
-      toast.error(detail);
+      toast.error(detail, { duration: 10_000 });
+      // Re-lanzar: el dialog del motivo se queda abierto para reintentar.
+      throw err;
     }
   };
 
@@ -282,6 +304,20 @@ export default function OrdenesCompraKanbanPage() {
           </div>
         </DndContext>
       )}
+
+      <MotivoPagoDialog
+        open={pagoSinFirmas !== null}
+        onOpenChange={(open) => {
+          if (!open) setPagoSinFirmas(null);
+        }}
+        numeroOc={pagoSinFirmas?.numero_oc ?? ""}
+        pendientes={pagoSinFirmas?.firmas_pendientes}
+        onConfirm={(motivo) =>
+          pagoSinFirmas
+            ? moverOc(pagoSinFirmas, "pagada", motivo)
+            : Promise.resolve()
+        }
+      />
     </div>
   );
 }

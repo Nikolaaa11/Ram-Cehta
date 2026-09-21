@@ -87,16 +87,26 @@ def test_admin_cancel_not_available_for_pagada_or_anulada(svc: AuthorizationServ
 
 
 # ---------------------------------------------------------------------------
-# mark_paid — only available for emitida
+# mark_paid — cualquier OC viva que ya salió de borrador
 # ---------------------------------------------------------------------------
+# 2026-09-21: `en_firma` (firmante que nunca firmó en la plataforma; el
+# endpoint exige motivo) y `parcial` (antes era un callejón sin salida).
 
 
-def test_admin_mark_paid_available_for_emitida(svc: AuthorizationService) -> None:
-    actions = svc.allowed_actions_for_oc(_user("admin"), "emitida")
+@pytest.mark.parametrize(
+    "estado",
+    ["emitida", "en_firma", "firmada", "enviada_proveedor", "facturada", "parcial"],
+)
+def test_admin_mark_paid_available(svc: AuthorizationService, estado: str) -> None:
+    actions = svc.allowed_actions_for_oc(_user("admin"), estado)
     assert "mark_paid" in actions
 
 
-@pytest.mark.parametrize("estado", ["pagada", "anulada", "parcial"])
-def test_admin_mark_paid_not_available_for_non_emitida(svc: AuthorizationService, estado: str) -> None:
+@pytest.mark.parametrize("estado", ["pagada", "anulada", "borrador"])
+def test_admin_mark_paid_not_available(svc: AuthorizationService, estado: str) -> None:
     actions = svc.allowed_actions_for_oc(_user("admin"), estado)
     assert "mark_paid" not in actions
+
+
+def test_viewer_never_mark_paid_even_en_firma(svc: AuthorizationService) -> None:
+    assert "mark_paid" not in svc.allowed_actions_for_oc(_user("viewer"), "en_firma")
