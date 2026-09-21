@@ -179,11 +179,75 @@ def test_contenido_que_no_calza_se_rechaza(nombre, contenido, pista):
     assert pista in e.value.detail
 
 
-def test_imagen_de_resolucion_absurda_se_rechaza(monkeypatch):
-    monkeypatch.setattr(oc_anexos, "_MAX_PIXELES", 100)
+def test_imagen_que_no_cabe_en_memoria_se_rechaza():
+    """Un PNG de pocos KB puede pedir >1 GB al renderizarse: se mide por los
+    bytes decodificados (el mismo criterio que usa el PDF)."""
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGBA", (5000, 4000), (0, 0, 0, 0)).save(out, format="PNG")
+    assert len(out.getvalue()) < 1_000_000  # pesa poco...
     with pytest.raises(HTTPException) as e:
-        _verificar("grande.png", _png(20, 20))
-    assert "demasiado grande" in e.value.detail
+        _verificar("plano.png", out.getvalue())  # ...pero son 80 MB decodificado
+    assert "resolución demasiado alta" in e.value.detail
+
+
+def test_foto_mpo_de_iphone_o_camara_se_acepta_como_jpeg():
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (400, 300), (1, 2, 3)).save(
+        out, format="MPO", save_all=True, append_images=[Image.new("RGB", (80, 60))]
+    )
+    assert _verificar("IMG_1234.JPG", out.getvalue()) == "image/jpeg"
+
+
+def test_jpeg_cortado_se_rechaza_antes_de_llegar_al_pdf():
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (800, 600), (120, 30, 30)).save(out, format="JPEG", quality=95)
+    cortado = out.getvalue()[: len(out.getvalue()) // 3]
+    with pytest.raises(HTTPException) as e:
+        _verificar("foto.jpg", cortado)
+    assert e.value.status_code == 400
+
+
+def test_docx_de_word_web_con_document2_se_acepta():
+    out = io.BytesIO()
+    with zipfile.ZipFile(out, "w") as z:
+        z.writestr("[Content_Types].xml", "<Types/>")
+        z.writestr(
+            "_rels/.rels",
+            '<Relationships><Relationship Id="rId1" '
+            'Type="http://schemas.openxmlformats.org/officeDocument/2006/'
+            'relationships/officeDocument" Target="word/document2.xml"/>'
+            "</Relationships>",
+        )
+        z.writestr("word/document2.xml", "<document/>")
+    assert _verificar("acta.docx", out.getvalue()).endswith("wordprocessingml.document")
+
+
+def test_doc_antiguo_con_macros_se_rechaza():
+    ole = oc_anexos._OLE_MAGIC + b"\x00" * 200 + "_VBA_PROJECT".encode("utf-16-le")
+    with pytest.raises(HTTPException) as e:
+        _verificar("viejo.doc", ole)
+    assert "macros" in e.value.detail
+
+
+def test_xls_que_en_verdad_es_html_explica_que_hacer():
+    with pytest.raises(HTTPException) as e:
+        _verificar("cartola.xls", b"<html><table><tr><td>1</td></tr></table></html>")
+    assert "HTML" in e.value.detail and ".xlsx" in e.value.detail
+
+
+@pytest.mark.parametrize(
+    ("mime", "esperado"),
+    [("application/pdf", True), ("image/png", True), ("image/gif", False),
+     ("image/heic", False), ("application/vnd.ms-excel", False), (None, False)],
+)
+def test_en_el_pdf_sigue_al_render(mime, esperado):
+    assert oc_anexos._en_el_pdf(mime) is esperado
 
 
 # ──────────────────────────────────────────────────────────────────────

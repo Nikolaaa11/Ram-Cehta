@@ -78,9 +78,9 @@ _MB = 1024 * 1024
 _MAX_BYTES_ARCHIVO = 10 * _MB
 _MAX_BYTES_TOTAL = 20 * _MB
 _MAX_ANEXOS_POR_OC = 15
-# Una foto de celular anda en 12-50 MP; más que esto es un escaneo absurdo o
-# una "bomba" de descompresión (pocos KB que piden GB de RAM al renderizar).
-_MAX_PIXELES = 60_000_000
+# El tope de resolución/memoria de las imágenes es el MISMO que usa el render
+# del PDF (voucher_pdf_service._imagen_cabe_en_memoria): lo que se acepta acá
+# es exactamente lo que después entra al PDF sin arriesgar la VM.
 
 # Mientras nadie firmó. `firmada` en adelante (y `anulada`) quedan fuera.
 _ESTADOS_MODIFICABLES = {"borrador", "emitida", "en_firma"}
@@ -106,7 +106,20 @@ _TIPOS: dict[str, tuple[str, str]] = {
 # Para archivos sin extensión reconocible: el mime que manda el navegador
 # sirve sólo como PISTA de qué verificar (igual se verifica el contenido).
 _EXT_POR_MIME = {mime: ext for ext, (mime, _) in _TIPOS.items()}
-_FORMATOS_IMAGEN = {"JPEG": "image/jpeg", "PNG": "image/png", "WEBP": "image/webp"}
+# MPO = JPEG con imágenes extra (fotos HDR de iPhone, cámaras con preview).
+_FORMATOS_IMAGEN = {
+    "JPEG": "image/jpeg",
+    "MPO": "image/jpeg",
+    "PNG": "image/png",
+    "WEBP": "image/webp",
+}
+_MIMES_EN_EL_PDF = {"application/pdf", "image/jpeg", "image/png", "image/webp"}
+# Nombre del stream de macros VBA en un .doc/.xls (OLE), en UTF-16LE.
+_OLE_VBA = "_VBA_PROJECT".encode("utf-16-le")
+_RE_OFFICE_DOC = re.compile(
+    rb'<Relationship\b[^>]*Type="[^"]*/officeDocument"[^>]*>', re.IGNORECASE
+)
+_RE_TARGET = re.compile(rb'Target="([^"]+)"')
 _OLE_MAGIC = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 _TIPOS_TEXTO = "PDF, imagen (JPG, PNG o WebP), Excel (.xlsx/.xls) o Word (.docx/.doc)"
 
@@ -170,8 +183,9 @@ def _mb(n: int) -> str:
 
 
 def _en_el_pdf(mime: str | None) -> bool:
-    m = (mime or "").lower()
-    return m == "application/pdf" or m.startswith("image/")
+    # Mismo criterio que el render (voucher_pdf_service._is_pdf/_is_image):
+    # un GIF o HEIC que llegó por correo NO va dentro del PDF.
+    return (mime or "").lower() in _MIMES_EN_EL_PDF
 
 
 def _anexo(fila: Any) -> OcAnexoRead:
@@ -231,45 +245,75 @@ def _verificar_contenido(familia: str, mime: str, contenido: bytes, nombre: str)
         return mime
 
     if familia == "imagen":
+        from app.services.voucher_pdf_service import (
+            _image_bytes_to_pdf_page,
+            _imagen_cabe_en_memoria,
+        )
+
         try:
             from PIL import Image
 
             with Image.open(io.BytesIO(contenido)) as img:
                 formato = img.format
                 ancho, alto = img.size
-            with Image.open(io.BytesIO(contenido)) as img:
-                img.verify()
+                cabe = _imagen_cabe_en_memoria(img)
         except Exception as exc:
             log.info("oc_anexo.imagen_ilegible", archivo=nombre, error=str(exc))
             raise rechazo("la imagen está dañada o no es una imagen.") from exc
         if formato not in _FORMATOS_IMAGEN:
             raise rechazo(f"formato de imagen no aceptado ({formato}). Usa JPG, PNG o WebP.")
-        if ancho * alto > _MAX_PIXELES:
+        if not cabe:
             raise rechazo(
-                f"la imagen es demasiado grande ({ancho}x{alto} px). "
-                "Redúcela a una resolución normal y vuelve a subirla."
+                f"la imagen tiene una resolución demasiado alta ({ancho}x{alto} px) "
+                "para incluirla en el PDF. Expórtala como JPG, a menor resolución, "
+                "o como PDF."
+            )
+        # La prueba de verdad: renderizarla como la va a renderizar el PDF.
+        # Si no se puede (JPEG cortado, datos corruptos), se rechaza ahora y
+        # no aparece después como una hoja en blanco en el PDF firmado.
+        if _image_bytes_to_pdf_page(contenido, nombre) is None:
+            raise rechazo(
+                "la imagen está incompleta o dañada y no se puede incluir en el PDF."
             )
         return _FORMATOS_IMAGEN[formato]
 
     if familia == "ooxml":
         if contenido[:4] != b"PK\x03\x04":
             raise rechazo("no es un archivo de Office válido.")
+        es_excel = mime.endswith("spreadsheetml.sheet")
         try:
             with zipfile.ZipFile(io.BytesIO(contenido)) as z:
                 nombres = set(z.namelist())
+                principal = _parte_principal_ooxml(z, nombres)
+                tipos = (
+                    z.read("[Content_Types].xml")
+                    if "[Content_Types].xml" in nombres
+                    else b""
+                )
         except Exception as exc:
             raise rechazo("el archivo de Office está dañado.") from exc
-        if any(n.endswith("vbaProject.bin") for n in nombres):
+        con_macros = any(n.lower().endswith("vbaproject.bin") for n in nombres)
+        if con_macros or b"macroEnabled" in tipos:
             raise rechazo("el archivo tiene macros; no se aceptan. Guárdalo sin macros.")
-        es_excel = mime.endswith("spreadsheetml.sheet")
-        esperado = "xl/workbook.xml" if es_excel else "word/document.xml"
-        if esperado not in nombres:
-            raise rechazo("el contenido no corresponde a la extensión del archivo.")
+        prefijo = "xl/" if es_excel else "word/"
+        if not principal or not principal.startswith(prefijo):
+            raise rechazo(
+                "el contenido no corresponde a la extensión del archivo "
+                f"(no es un {'Excel' if es_excel else 'Word'})."
+            )
         return mime
 
     if familia == "ole":
         if contenido[:8] != _OLE_MAGIC:
+            inicio = contenido.lstrip()[:5].lower()
+            if inicio in (b"<html", b"<?xml") or inicio.startswith(b"{\\rtf"):
+                raise rechazo(
+                    "no es un Excel/Word real (es una exportación HTML, XML o RTF). "
+                    "Ábrelo y guárdalo como .xlsx/.docx, o súbelo como PDF."
+                )
             raise rechazo("no es un archivo de Office válido.")
+        if _OLE_VBA in contenido:
+            raise rechazo("el archivo tiene macros; no se aceptan. Guárdalo sin macros.")
         return mime
 
     raise rechazo("formato no aceptado.")  # no debería ocurrir
@@ -278,6 +322,22 @@ def _verificar_contenido(familia: str, mime: str, contenido: bytes, nombre: str)
 _SQL_OC = """SELECT oc_id, numero_oc, empresa_codigo, estado, fecha_emision
                FROM core.ordenes_compra WHERE oc_id = :id"""
 _SQL_OC_BLOQUEANDO = _SQL_OC + " FOR UPDATE"
+
+
+def _parte_principal_ooxml(z: zipfile.ZipFile, nombres: set[str]) -> str | None:
+    """Ruta de la parte principal según _rels/.rels (relación officeDocument).
+    Word para la web a veces la llama word/document2.xml, no document.xml."""
+    if "_rels/.rels" in nombres:
+        rels = z.read("_rels/.rels")
+        rel = _RE_OFFICE_DOC.search(rels)
+        target = _RE_TARGET.search(rel.group(0)) if rel else None
+        if target:
+            ruta = target.group(1).decode("utf-8", "ignore").lstrip("/")
+            return ruta if ruta in nombres else None
+    for fallback in ("word/document.xml", "xl/workbook.xml"):
+        if fallback in nombres:
+            return fallback
+    return None
 
 
 async def _oc_con_scope(

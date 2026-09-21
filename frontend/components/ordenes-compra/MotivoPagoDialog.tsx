@@ -17,9 +17,10 @@
  */
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 
-// Tiene que coincidir con _MOTIVO_PAGO_SIN_FIRMAS_MIN del backend
-// (app/api/v1/ordenes_compra.py).
+// Tienen que coincidir con el backend: _MOTIVO_PAGO_SIN_FIRMAS_MIN
+// (app/api/v1/ordenes_compra.py) y EstadoUpdateRequest.motivo max_length.
 export const MOTIVO_PAGO_MIN = 10;
+export const MOTIVO_PAGO_MAX = 500;
 
 interface Props {
   open: boolean;
@@ -84,6 +85,7 @@ export function MotivoPagoDialog({
         placeholder:
           "Ej: transferido el 15-09 (comprobante en Dropbox); José Maturana aprobó por correo y no usa la plataforma.",
         minLength: MOTIVO_PAGO_MIN,
+        maxLength: MOTIVO_PAGO_MAX,
         hint: "Queda registrado en el historial de la OC.",
       }}
       onConfirm={onConfirm}

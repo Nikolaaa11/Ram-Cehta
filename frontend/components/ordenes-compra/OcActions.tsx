@@ -118,6 +118,10 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
       );
       await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
       await queryClient.invalidateQueries({ queryKey: ["solicitudes-pago"] });
+      // La sección de firmas es cliente y tiene su propia caché: sin esto
+      // seguía mostrando "Te toca firmar" en una OC recién marcada pagada.
+      await queryClient.invalidateQueries({ queryKey: ["oc-firmas", String(ocId)] });
+      await queryClient.invalidateQueries({ queryKey: ["oc-kanban"] });
       router.refresh();
     },
     onError: (err, { estado, motivo }) => {

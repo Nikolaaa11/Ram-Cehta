@@ -1764,12 +1764,17 @@ def _append_attachment(writer: PdfWriter, att: dict[str, Any]) -> None:
 
     # Other formats — placeholder
     ext = _file_ext(name) or "?"
+    tipo = (
+        "Documento Excel/Word"
+        if ext in {"xlsx", "xls", "docx", "doc"}
+        else "Archivo"
+    )
     _append_placeholder_page(
         writer,
         name,
-        f"Documento .{ext} (Excel/Word) adjunto a este documento. Su contenido no "
-        "se reproduce en el PDF: el archivo original está guardado en la "
-        "plataforma y en Dropbox.",
+        f"{tipo} .{ext} adjunto a este documento. Su contenido no se reproduce "
+        "en el PDF: el archivo original está guardado en la plataforma y en "
+        "Dropbox.",
     )
 
 
@@ -1777,45 +1782,94 @@ def _append_attachment(writer: PdfWriter, att: dict[str, Any]) -> None:
 # perfecto impresa y una foto de 48 MP no infla el PDF (que viaja por correo)
 # ni la memoria de la máquina (512 MB).
 _IMG_LADO_MAX = 2400
-# Más que esto es un escaneo absurdo o una bomba de descompresión: no se
-# decodifica (la página queda como placeholder).
-_IMG_PIXELES_MAX = 80_000_000
+# La RAM la manda la imagen DECODIFICADA (ancho x alto x bytes por píxel),
+# no el peso del archivo: un PNG de 250 KB puede pedir 1 GB. PNG/WebP no se
+# pueden decodificar reducidos, así que se limitan por esos bytes. JPEG sí
+# (draft): decodifica a escala y aguanta mucha más resolución.
+_IMG_BYTES_DECODIFICADOS_MAX = 48 * 1024 * 1024
+_IMG_PIXELES_JPEG_MAX = 80_000_000
+_BYTES_POR_PIXEL = {
+    "1": 1, "L": 1, "P": 1, "LA": 2, "RGB": 3, "YCbCr": 3, "LAB": 3,
+    "HSV": 3, "RGBA": 4, "RGBa": 4, "CMYK": 4, "I": 4, "F": 4,
+    "I;16": 2, "I;16L": 2, "I;16B": 2, "I;16N": 2,
+}
+# Orientación EXIF → transposición (lo mismo que ImageOps.exif_transpose,
+# aplicado DESPUÉS de achicar para no copiar la imagen a tamaño completo).
+_EXIF_TRANSPOSE = {2: 0, 3: 3, 4: 1, 5: 5, 6: 4, 7: 6, 8: 2}
+
+
+def _imagen_cabe_en_memoria(img: Any) -> bool:
+    """¿Se puede renderizar sin arriesgar la VM? `img` recién abierta (lazy)."""
+    ancho, alto = img.size
+    if img.format in ("JPEG", "MPO"):
+        return ancho * alto <= _IMG_PIXELES_JPEG_MAX
+    bpp = _BYTES_POR_PIXEL.get(img.mode, 4)
+    return ancho * alto * bpp <= _IMG_BYTES_DECODIFICADOS_MAX
 
 
 def _image_bytes_to_pdf_page(data: bytes, name: str) -> bytes | None:
     """Renderiza una imagen como página A4 con aspecto preservado, centrada.
 
-    Respeta la orientación EXIF (las fotos de celular venían acostadas), la
-    achica a `_IMG_LADO_MAX` y dibuja ESA versión — antes reportlab volvía a
-    decodificar el original a resolución completa.
+    Orden pensado para la memoria (VM de 512 MB): se achica ANTES de rotar y
+    de convertir, así las copias que siguen ya son chicas; los JPEG se
+    decodifican directo a escala (draft). Respeta la orientación EXIF (las
+    fotos de celular venían acostadas) y dibuja la versión achicada — antes
+    reportlab volvía a decodificar el original a resolución completa.
     """
     try:
         from PIL import Image as PILImage
-        from PIL import ImageOps
     except Exception as exc:
         log.warning("voucher_pdf.pillow_missing", extra={"err": str(exc)})
         return None
     try:
         with PILImage.open(io.BytesIO(data)) as original:
-            if original.width * original.height > _IMG_PIXELES_MAX:
+            if not _imagen_cabe_en_memoria(original):
                 log.warning(
                     "voucher_pdf.image_too_large",
-                    extra={"file": name, "size": original.size},
+                    extra={"file": name, "size": original.size, "mode": original.mode},
                 )
                 return None
-            # JPEG: decodifica directo a una escala reducida (mucha menos RAM).
+            orientacion = 0
             with contextlib.suppress(Exception):
-                original.draft("RGB", (_IMG_LADO_MAX, _IMG_LADO_MAX))
-            img = ImageOps.exif_transpose(original)
-            # Normalize to RGB for JPEGs/RGBA/PNG with alpha
-            if img.mode in ("RGBA", "P", "LA"):
+                orientacion = int(original.getexif().get(0x0112) or 0)
+            ancho, alto = original.size
+            factor = _IMG_LADO_MAX / max(ancho, alto)
+            if original.format in ("JPEG", "MPO") and factor < 1:
+                # JPEG: decodifica directo a (casi) el tamaño final.
+                with contextlib.suppress(Exception):
+                    original.draft(
+                        "RGB",
+                        (max(1, round(ancho * factor)), max(1, round(alto * factor))),
+                    )
+            img = original
+            # 16 bits (escáner "16-bit grayscale"): escalar a 8 bits. Con un
+            # convert directo se recorta a 255 y la hoja sale en blanco.
+            if img.mode.startswith("I;16") or img.mode in ("I", "F"):
+                img = img.convert("I").point(lambda v: v * (1 / 257)).convert("L")
+            elif img.mode == "P":
+                img = img.convert("RGBA" if "transparency" in img.info else "RGB")
+            elif img.mode == "1":
+                img = img.convert("L")
+            # Achicar primero (thumbnail no agranda imágenes chicas).
+            if img is original:
+                img = original.copy() if factor >= 1 else original.resize(
+                    (max(1, round(ancho * factor)), max(1, round(alto * factor))),
+                    PILImage.Resampling.LANCZOS,
+                    reducing_gap=3.0,
+                )
+            else:
+                img.thumbnail((_IMG_LADO_MAX, _IMG_LADO_MAX))
+            metodo = _EXIF_TRANSPOSE.get(orientacion)
+            if metodo is not None:
+                img = img.transpose(PILImage.Transpose(metodo))
+            # Transparencia → fondo blanco.
+            if img.mode in ("RGBA", "LA", "RGBa"):
                 rgba = img.convert("RGBA")
                 bg = PILImage.new("RGB", img.size, (255, 255, 255))
                 bg.paste(rgba, mask=rgba.split()[3])
                 img = bg
-            elif img.mode != "RGB":
+            elif img.mode not in ("RGB", "L"):
                 img = img.convert("RGB")
-            img.thumbnail((_IMG_LADO_MAX, _IMG_LADO_MAX))
             iw, ih = img.size
             procesada = io.BytesIO()
             img.save(procesada, format="JPEG", quality=88, optimize=True)

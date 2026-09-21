@@ -43,6 +43,8 @@ interface MotivoConfig {
   placeholder?: string;
   /** Mínimo de caracteres NO vacíos. Debe coincidir con el del backend. */
   minLength: number;
+  /** Máximo de caracteres (el del backend). Muestra el contador cerca del tope. */
+  maxLength?: number;
   /** Línea de ayuda bajo el campo: qué se hace con lo que se escriba. */
   hint?: React.ReactNode;
 }
@@ -148,10 +150,16 @@ export function ConfirmDeleteDialog({
               value={texto}
               onChange={(e) => setTexto(e.target.value)}
               rows={3}
+              maxLength={motivo.maxLength}
               placeholder={motivo.placeholder}
               disabled={pending}
               className="mt-1.5 w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-ink-400 focus:outline-none focus:ring-2 focus:ring-ink-900/10 disabled:opacity-60"
             />
+            {motivo.maxLength != null && texto.length > motivo.maxLength * 0.8 && (
+              <p className="mt-1 text-right text-[11px] tabular-nums text-ink-500">
+                {texto.length}/{motivo.maxLength}
+              </p>
+            )}
             <p className="mt-1.5 text-xs text-ink-500">
               {faltan > 0
                 ? `Faltan ${faltan} caracteres.`

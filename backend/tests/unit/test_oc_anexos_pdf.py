@@ -71,20 +71,73 @@ def test_la_foto_respeta_la_orientacion_exif():
     assert img.height > img.width
 
 
-def test_una_imagen_gigante_se_achica_antes_de_entrar_al_pdf():
-    grande = io.BytesIO()
-    Image.new("RGB", (6000, 4000), (200, 200, 200)).save(grande, format="PNG")
-    pagina = vps._image_bytes_to_pdf_page(grande.getvalue(), "plano.png")
+def _primera_imagen(pagina: bytes):
     primera = next(iter(PdfReader(io.BytesIO(pagina)).pages[0].images))
-    img = Image.open(io.BytesIO(primera.data))
+    return Image.open(io.BytesIO(primera.data))
+
+
+def test_un_jpeg_grande_se_achica_antes_de_entrar_al_pdf():
+    grande = io.BytesIO()
+    Image.new("RGB", (6000, 4000), (200, 200, 200)).save(grande, format="JPEG")
+    pagina = vps._image_bytes_to_pdf_page(grande.getvalue(), "foto.jpg")
+    assert max(_primera_imagen(pagina).size) <= vps._IMG_LADO_MAX
+
+
+def test_una_panoramica_jpeg_tambien_se_achica():
+    pano = io.BytesIO()
+    Image.new("RGB", (9000, 2000), (10, 10, 10)).save(pano, format="JPEG")
+    img = _primera_imagen(vps._image_bytes_to_pdf_page(pano.getvalue(), "pano.jpg"))
     assert max(img.size) <= vps._IMG_LADO_MAX
 
 
+def test_png_que_no_cabe_en_memoria_no_se_decodifica():
+    """72 MB decodificado (6000x4000 RGB): va como hoja, no tumba la VM."""
+    grande = io.BytesIO()
+    Image.new("RGB", (6000, 4000), (200, 200, 200)).save(grande, format="PNG")
+    assert vps._image_bytes_to_pdf_page(grande.getvalue(), "plano.png") is None
+
+
+def test_png_con_transparencia_sale_con_fondo_blanco():
+    png = io.BytesIO()
+    Image.new("RGBA", (300, 200), (0, 0, 0, 0)).save(png, format="PNG")
+    img = _primera_imagen(vps._image_bytes_to_pdf_page(png.getvalue(), "logo.png"))
+    assert img.convert("L").getextrema()[0] > 240  # blanco, no negro
+
+
+def test_escaneo_de_16_bits_no_sale_en_blanco():
+    esc = Image.new("I;16", (400, 300), 60000)
+    for x in range(100, 300):
+        for y in range(140, 160):
+            esc.putpixel((x, y), 4000)  # "texto" oscuro
+    out = io.BytesIO()
+    esc.save(out, format="PNG")
+    img = _primera_imagen(vps._image_bytes_to_pdf_page(out.getvalue(), "escaneo.png"))
+    minimo, maximo = img.convert("L").getextrema()
+    assert minimo < 60 and maximo > 200
+
+
+def test_mpo_de_camara_se_trata_como_jpeg():
+    base = Image.new("RGB", (400, 300), (50, 90, 200))
+    out = io.BytesIO()
+    base.save(out, format="MPO", save_all=True, append_images=[Image.new("RGB", (160, 120))])
+    assert Image.open(io.BytesIO(out.getvalue())).format == "MPO"
+    assert vps._image_bytes_to_pdf_page(out.getvalue(), "IMG_1234.JPG") is not None
+
+
 def test_una_imagen_absurda_no_se_decodifica(monkeypatch):
-    monkeypatch.setattr(vps, "_IMG_PIXELES_MAX", 100)
+    monkeypatch.setattr(vps, "_IMG_BYTES_DECODIFICADOS_MAX", 100)
     chica = io.BytesIO()
     Image.new("RGB", (20, 20)).save(chica, format="PNG")
     assert vps._image_bytes_to_pdf_page(chica.getvalue(), "x.png") is None
+
+
+def test_otros_archivos_no_se_presentan_como_excel_word():
+    out = vps._merge_cover_with_attachments(
+        _pdf(1),
+        [{"file_name": "factura.xml", "mime_type": "application/xml", "bytes": b"<DTE/>"}],
+    )
+    texto = _texto(out)
+    assert "factura.xml" in texto and "Excel/Word" not in texto
 
 
 def test_errores_no_filtran_detalles_tecnicos_al_pdf():

@@ -113,6 +113,22 @@ describe("Marcar pagada", () => {
     expect(screen.queryByLabelText(/Por qué se marca pagada/)).not.toBeInTheDocument();
   });
 
+  it("después de marcar pagada refresca la sección de firmas (no más 'Te toca firmar')", async () => {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    });
+    const spy = vi.spyOn(qc, "invalidateQueries");
+    render(
+      <QueryClientProvider client={qc}>
+        <OcActions ocId={59} numeroOc="OC-T&E-0002" estado="firmada" allowedActions={["mark_paid"]} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Marcar pagada/ }));
+    await waitFor(() =>
+      expect(spy).toHaveBeenCalledWith({ queryKey: ["oc-firmas", "59"] }),
+    );
+  });
+
   it("OC firmada: marca pagada directo, sin motivo", async () => {
     montar("firmada");
     fireEvent.click(screen.getByRole("button", { name: /Marcar pagada/ }));

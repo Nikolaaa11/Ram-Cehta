@@ -77,6 +77,21 @@ export const toDate = (value: Date | string): string =>
 export const toDateTime = (value: Date | string): string =>
   DATETIME.format(typeof value === "string" ? new Date(value) : value);
 
+// Hora de CHILE explícita. Los server components corren en Vercel (UTC): sin
+// timeZone, algo registrado a las 22:30 en Chile salía con la fecha del día
+// siguiente. Usar para constancias que se muestran desde el servidor.
+const DATETIME_CL = new Intl.DateTimeFormat("es-CL", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "America/Santiago",
+});
+export const toDateTimeCL = (value: Date | string): string =>
+  DATETIME_CL.format(typeof value === "string" ? new Date(value) : value);
+
 /**
  * Formatea un porcentaje. El backend ya entrega el valor con su signo
  * (positivo o negativo); aquí solo presentamos.

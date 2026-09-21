@@ -14,7 +14,7 @@ import { FileLink } from "@/components/shared/FileLink";
 import { limpiarCeros } from "@/lib/oc/pegar-items";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
-import { toCLP, toDate } from "@/lib/format";
+import { toCLP, toDate, toDateTimeCL } from "@/lib/format";
 import { ocStatusLabel } from "@/lib/voucher-status";
 import type { OcRead } from "@/lib/api/schema";
 
@@ -418,7 +418,7 @@ function PagoSinFirmasAviso({
       )}
       <p className="mt-1 text-xs text-ink-500">
         {texto("por_email") ? `Registrado por ${texto("por_email")}` : "Registrado"}
-        {cuando ? ` el ${toDate(cuando)}` : ""}.
+        {cuando ? ` el ${toDateTimeCL(cuando)} (hora de Chile)` : ""}.
       </p>
     </div>
   );

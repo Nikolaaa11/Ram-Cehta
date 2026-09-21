@@ -81,6 +81,7 @@ export function useUpdateOcEstado() {
       // estén consistentes apenas vuelve la respuesta.
       await queryClient.invalidateQueries({ queryKey: ["oc-kanban"] });
       await queryClient.invalidateQueries({ queryKey: ["ordenes-compra"] });
+      await queryClient.invalidateQueries({ queryKey: ["oc-firmas"] });
     },
   });
 }
