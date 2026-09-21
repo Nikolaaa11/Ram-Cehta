@@ -344,7 +344,11 @@ async def _respuesta(
         firmas=firmas,
         sugeridos=_sugeridos_de(oc),
         equipo=await _equipo_de(db, oc["empresa_codigo"]),
-        puedo_firmar=any(f.es_mi_firma and f.status == "PENDIENTE" for f in firmas),
+        # Sólo si la OC todavía admite firmas (mismo guard que `firmar`): una
+        # OC marcada pagada con firmas pendientes no debe mostrarle "Te toca
+        # firmar" al que no firmó — los botones responderían 409.
+        puedo_firmar=(estado or oc["estado"]) in {"en_firma", "emitida"}
+        and any(f.es_mi_firma and f.status == "PENDIENTE" for f in firmas),
         # Los externos sin correo (proveedor/cliente sin cuenta) firman a MANO
         # sobre el PDF impreso, no en la plataforma: no cuentan como
         # "pendiente de firma electrónica" o la OC nunca se ve como completa

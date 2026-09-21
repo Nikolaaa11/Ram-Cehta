@@ -13,6 +13,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -39,6 +40,12 @@ class OrdenCompra(Base):
     # "Plazo de Entrega: No aplica") y el PDF los imprime en filas separadas.
     plazo_entrega: Mapped[str | None] = mapped_column(Text)
     observaciones: Mapped[str | None] = mapped_column(Text)
+    # Constancia de "marcada pagada/parcial con firmas PENDIENTE" (motivo,
+    # quiénes faltaban, quién y cuándo). Se escribe en la MISMA transacción
+    # que el cambio de estado — audit_log es best-effort y post-commit, no
+    # alcanza para una constancia obligatoria. SQL:
+    # scripts/sql/oc_pago_sin_firmas_2026_09.sql (aplicado 2026-09-21).
+    pago_sin_firmas: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     # Encargado del proveedor a quien va dirigida la OC ("Atte. Señor/a" en
     # el PDF). Snapshot al crear/editar — no se re-deriva del catálogo
     # proveedor_contactos, así una OC ya emitida no cambia de destinatario

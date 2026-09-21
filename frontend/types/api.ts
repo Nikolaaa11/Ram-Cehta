@@ -19876,6 +19876,10 @@ export interface components {
              * @default []
              */
             allowed_actions: string[];
+            /** Pago Sin Firmas */
+            pago_sin_firmas?: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * OrdenCompraUpdate

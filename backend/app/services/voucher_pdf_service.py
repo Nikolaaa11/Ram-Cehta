@@ -442,7 +442,13 @@ async def _fetch_attachment_bytes(
                 "voucher_pdf.attachment_download_failed",
                 extra={"path": att.get("dropbox_path"), "err": str(exc)},
             )
-            out.append({**att, "bytes": None, "error": str(exc)})
+            # El detalle técnico va al log, no al PDF: este PDF puede salir a
+            # un tercero (proveedor) y el texto del SDK de Dropbox no le sirve.
+            out.append({
+                **att,
+                "bytes": None,
+                "error": "No se pudo descargar este anexo de Dropbox al generar el PDF.",
+            })
     return out
 
 
@@ -1709,7 +1715,8 @@ def _merge_cover_with_attachments(
             with contextlib.suppress(Exception):
                 _append_placeholder_page(
                     writer, att.get("file_name") or "?",
-                    f"No se pudo procesar este adjunto: {exc}",
+                    "No se pudo incluir este anexo en el PDF. El archivo original "
+                    "está guardado en la plataforma.",
                 )
 
     out = io.BytesIO()
@@ -1737,7 +1744,9 @@ def _append_attachment(writer: PdfWriter, att: dict[str, Any]) -> None:
                 extra={"file": name, "err": str(exc)},
             )
             _append_placeholder_page(
-                writer, name, f"PDF corrupto, no se pudo incrustar: {exc}"
+                writer, name,
+                "Este PDF no se pudo incluir (está dañado o protegido con "
+                "contraseña). El archivo original está guardado en la plataforma.",
             )
             return
 
@@ -1758,31 +1767,59 @@ def _append_attachment(writer: PdfWriter, att: dict[str, Any]) -> None:
     _append_placeholder_page(
         writer,
         name,
-        f"Archivo .{ext} no se puede embedir — descargá desde el enlace en el sistema.",
+        f"Documento .{ext} (Excel/Word) adjunto a este documento. Su contenido no "
+        "se reproduce en el PDF: el archivo original está guardado en la "
+        "plataforma y en Dropbox.",
     )
 
 
+# Lado mayor con que una imagen entra al PDF. A4 a ~200 dpi: se lee
+# perfecto impresa y una foto de 48 MP no infla el PDF (que viaja por correo)
+# ni la memoria de la máquina (512 MB).
+_IMG_LADO_MAX = 2400
+# Más que esto es un escaneo absurdo o una bomba de descompresión: no se
+# decodifica (la página queda como placeholder).
+_IMG_PIXELES_MAX = 80_000_000
+
+
 def _image_bytes_to_pdf_page(data: bytes, name: str) -> bytes | None:
-    """Renderiza una imagen como página A4 con aspecto preservado, centrada."""
+    """Renderiza una imagen como página A4 con aspecto preservado, centrada.
+
+    Respeta la orientación EXIF (las fotos de celular venían acostadas), la
+    achica a `_IMG_LADO_MAX` y dibuja ESA versión — antes reportlab volvía a
+    decodificar el original a resolución completa.
+    """
     try:
         from PIL import Image as PILImage
+        from PIL import ImageOps
     except Exception as exc:
         log.warning("voucher_pdf.pillow_missing", extra={"err": str(exc)})
         return None
     try:
-        with PILImage.open(io.BytesIO(data)) as img:
+        with PILImage.open(io.BytesIO(data)) as original:
+            if original.width * original.height > _IMG_PIXELES_MAX:
+                log.warning(
+                    "voucher_pdf.image_too_large",
+                    extra={"file": name, "size": original.size},
+                )
+                return None
+            # JPEG: decodifica directo a una escala reducida (mucha menos RAM).
+            with contextlib.suppress(Exception):
+                original.draft("RGB", (_IMG_LADO_MAX, _IMG_LADO_MAX))
+            img = ImageOps.exif_transpose(original)
             # Normalize to RGB for JPEGs/RGBA/PNG with alpha
             if img.mode in ("RGBA", "P", "LA"):
+                rgba = img.convert("RGBA")
                 bg = PILImage.new("RGB", img.size, (255, 255, 255))
-                if img.mode == "RGBA":
-                    bg.paste(img, mask=img.split()[3])
-                else:
-                    bg.paste(img.convert("RGBA"),
-                             mask=img.convert("RGBA").split()[3])
+                bg.paste(rgba, mask=rgba.split()[3])
                 img = bg
             elif img.mode != "RGB":
                 img = img.convert("RGB")
+            img.thumbnail((_IMG_LADO_MAX, _IMG_LADO_MAX))
             iw, ih = img.size
+            procesada = io.BytesIO()
+            img.save(procesada, format="JPEG", quality=88, optimize=True)
+            data = procesada.getvalue()
     except Exception as exc:
         log.warning(
             "voucher_pdf.image_open_failed",

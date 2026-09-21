@@ -183,6 +183,11 @@ export default async function OcDetallePage({
         </div>
       </header>
 
+      {/* Constancia de "pagada sin todas las firmas" (2026-09-21). Se guarda
+          en la misma transacción que el cambio de estado; acá se muestra
+          para que nadie crea que la OC se firmó completa. */}
+      <PagoSinFirmasAviso constancia={oc.pago_sin_firmas} />
+
       {/* KPI cards — el bloque cambia según el tipo de documento, no son
           filas escondidas. La card verde es SIEMPRE la plata que se gira:
           con honorarios eso es el líquido, no el bruto. */}
@@ -376,6 +381,45 @@ export default async function OcDetallePage({
       <Surface>
         <OcCuotasSection ocId={ocId} totalOc={totalAPagar} />
       </Surface>
+    </div>
+  );
+}
+
+
+function PagoSinFirmasAviso({
+  constancia,
+}: {
+  constancia?: { [key: string]: unknown } | null;
+}) {
+  if (!constancia) return null;
+  const texto = (k: string) =>
+    typeof constancia[k] === "string" ? (constancia[k] as string) : "";
+  const pendientes = Array.isArray(constancia.firmas_pendientes)
+    ? (constancia.firmas_pendientes as unknown[]).map(String)
+    : [];
+  const cuando = texto("el");
+  return (
+    <div
+      role="note"
+      className="rounded-2xl bg-warning/10 p-4 text-sm text-ink-800 ring-1 ring-warning/30"
+    >
+      <p className="font-medium text-ink-900">
+        Marcada {texto("estado_nuevo") || "pagada"} sin todas las firmas
+      </p>
+      {pendientes.length > 0 && (
+        <p className="mt-1">
+          No firmaron: <span className="font-medium">{pendientes.join(", ")}</span>.
+        </p>
+      )}
+      {texto("motivo") && (
+        <p className="mt-1">
+          Motivo: <span className="italic">«{texto("motivo")}»</span>
+        </p>
+      )}
+      <p className="mt-1 text-xs text-ink-500">
+        {texto("por_email") ? `Registrado por ${texto("por_email")}` : "Registrado"}
+        {cuando ? ` el ${toDate(cuando)}` : ""}.
+      </p>
     </div>
   );
 }

@@ -2,8 +2,10 @@
  * "Marcar pagada" con firmas pendientes — la pantalla.
  *
  * Caso real: TECMAVIDA, OC en_firma porque un firmante nunca firmó en la
- * plataforma, pero el proveedor ya cobró. El botón tiene que pedir el
- * motivo (mín. 10 caracteres) y mandarlo; el backend lo exige y lo audita.
+ * plataforma, pero el proveedor ya cobró. Quién decide si hace falta motivo
+ * es el BACKEND (422): la pantalla intenta sin motivo y, si se lo piden,
+ * abre el diálogo con ese mensaje. Así los externos que firman en papel
+ * (que no cuentan como pendientes) no piden motivo por error.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -36,6 +38,9 @@ vi.mock("@/components/ordenes-compra/DuplicateOcDialog", () => ({
 import { ApiError } from "@/lib/api/client";
 import { OcActions } from "../OcActions";
 
+const PIDE_MOTIVO =
+  "Esta OC tiene 1 firma pendiente (José Antonio Maturana). Para marcarla pagada igual, escribe el motivo (mínimo 10 caracteres): queda registrado en el historial de la OC.";
+
 function montar(estado: string) {
   const qc = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -58,16 +63,25 @@ beforeEach(() => {
 });
 
 describe("Marcar pagada", () => {
-  it("OC en_firma: pide el motivo y lo manda", async () => {
+  it("con firmas pendientes: el backend pide motivo, se abre el diálogo y se manda", async () => {
+    api.patch.mockRejectedValueOnce(new ApiError(422, PIDE_MOTIVO));
     montar("en_firma");
     fireEvent.click(screen.getByRole("button", { name: /Marcar pagada/ }));
 
-    // No se manda nada hasta escribir el motivo.
-    expect(api.patch).not.toHaveBeenCalled();
-    const confirmar = await screen.findByRole("button", { name: "Marcar pagada" , hidden: false });
-    const textarea = screen.getByLabelText(/Por qué se marca pagada/);
-    expect(screen.getByText(/Faltan 10 caracteres/)).toBeInTheDocument();
+    // Primer intento, sin motivo.
+    await waitFor(() =>
+      expect(api.patch).toHaveBeenCalledWith(
+        "/ordenes-compra/59/estado",
+        { estado: "pagada" },
+        expect.anything(),
+      ),
+    );
+    // Se abre el diálogo con el mensaje del backend (dice quién falta), sin toast de error.
+    const textarea = await screen.findByLabelText(/Por qué se marca pagada/);
+    expect(screen.getByText(/José Antonio Maturana/)).toBeInTheDocument();
+    expect(toast.error).not.toHaveBeenCalled();
 
+    const confirmar = screen.getByRole("button", { name: "Marcar pagada" });
     fireEvent.change(textarea, { target: { value: "corto" } });
     expect(confirmar).toBeDisabled();
 
@@ -78,7 +92,7 @@ describe("Marcar pagada", () => {
     fireEvent.click(confirmar);
 
     await waitFor(() =>
-      expect(api.patch).toHaveBeenCalledWith(
+      expect(api.patch).toHaveBeenLastCalledWith(
         "/ordenes-compra/59/estado",
         { estado: "pagada", motivo: "Transferido el 15-09; José aprobó por correo" },
         expect.anything(),
@@ -87,6 +101,16 @@ describe("Marcar pagada", () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith("OC OC-T&E-0002 marcada como pagada"),
     );
+  });
+
+  it("en_firma pero sin firmas pendientes que cuenten: marca pagada directo, sin diálogo", async () => {
+    montar("en_firma");
+    fireEvent.click(screen.getByRole("button", { name: /Marcar pagada/ }));
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("OC OC-T&E-0002 marcada como pagada"),
+    );
+    expect(api.patch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText(/Por qué se marca pagada/)).not.toBeInTheDocument();
   });
 
   it("OC firmada: marca pagada directo, sin motivo", async () => {
@@ -102,16 +126,11 @@ describe("Marcar pagada", () => {
     expect(screen.queryByLabelText(/Por qué se marca pagada/)).not.toBeInTheDocument();
   });
 
-  it("si el backend contesta que faltan firmas, abre el motivo en vez de un error", async () => {
-    api.patch.mockRejectedValueOnce(
-      new ApiError(
-        422,
-        "Esta OC tiene 1 firma pendiente (José Maturana). Para marcarla pagada igual, escribe el motivo…",
-      ),
-    );
+  it("otros errores del backend se muestran como error, sin diálogo", async () => {
+    api.patch.mockRejectedValueOnce(new ApiError(403, "No tienes permiso para cambiar estado a 'pagada'"));
     montar("emitida");
     fireEvent.click(screen.getByRole("button", { name: /Marcar pagada/ }));
-    expect(await screen.findByLabelText(/Por qué se marca pagada/)).toBeInTheDocument();
-    expect(toast.error).not.toHaveBeenCalled();
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(screen.queryByLabelText(/Por qué se marca pagada/)).not.toBeInTheDocument();
   });
 });

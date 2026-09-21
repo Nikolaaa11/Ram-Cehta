@@ -90,10 +90,12 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
     },
   });
 
-  // Marcar pagada con firmas pendientes pide motivo. Se abre directo si la
-  // OC está en_firma, o cuando el backend contesta 422 pidiéndolo (una OC
-  // `emitida` también puede tener firmantes invitados que no firmaron).
+  // Marcar pagada con firmas pendientes pide motivo. Lo decide el BACKEND:
+  // se intenta sin motivo y, si contesta 422 pidiéndolo, se abre el diálogo
+  // con su mensaje (dice quiénes faltan). Adivinarlo acá por el estado
+  // fallaba con los externos que firman en papel, que no cuentan.
   const [motivoPagoOpen, setMotivoPagoOpen] = useState(false);
+  const [motivoPagoDetalle, setMotivoPagoDetalle] = useState<string | null>(null);
 
   const estadoMutation = useMutation({
     mutationFn: ({
@@ -126,6 +128,7 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
         !motivo &&
         /firma/i.test(err.detail)
       ) {
+        setMotivoPagoDetalle(err.detail);
         setMotivoPagoOpen(true);
         return;
       }
@@ -266,11 +269,7 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
       {canMarkPaid && (
         <button
           type="button"
-          onClick={() =>
-            estado === "en_firma"
-              ? setMotivoPagoOpen(true)
-              : estadoMutation.mutate({ estado: "pagada" })
-          }
+          onClick={() => estadoMutation.mutate({ estado: "pagada" })}
           disabled={estadoMutation.isPending}
           className={successBtn}
         >
@@ -286,6 +285,7 @@ export function OcActions({ ocId, numeroOc, estado, allowedActions }: Props) {
           open={motivoPagoOpen}
           onOpenChange={setMotivoPagoOpen}
           numeroOc={numeroOc}
+          detalle={motivoPagoDetalle}
           onConfirm={(motivo) =>
             estadoMutation.mutateAsync({ estado: "pagada", motivo })
           }

@@ -9,8 +9,11 @@
  * de quienes no firmaron. Las firmas NO se marcan como hechas: queda la
  * constancia de que faltaron.
  *
- * Controlado (open/onOpenChange): lo abren el botón "Marcar pagada" de la
- * ficha, el drop en el kanban y el 422 del backend cuando pide el motivo.
+ * Controlado (open/onOpenChange). Quien decide si hace falta es el BACKEND:
+ * la ficha y el kanban intentan marcar pagada sin motivo y, si responde 422
+ * pidiéndolo, abren este diálogo con ese mismo mensaje (`detalle`), que ya
+ * dice quiénes no firmaron. Así los externos que firman en papel —que el
+ * backend no cuenta como pendientes— no disparan el diálogo por error.
  */
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 
@@ -22,7 +25,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   numeroOc: string;
-  /** Nombres de quienes no firmaron, si se conocen (el listado los trae). */
+  /** Mensaje del backend (422) que explica quiénes faltan. Tiene prioridad. */
+  detalle?: string | null;
+  /** Nombres de quienes no firmaron, si se conocen. */
   pendientes?: string[] | null;
   /** "pagada" o "parcial". */
   estado?: "pagada" | "parcial";
@@ -33,6 +38,7 @@ export function MotivoPagoDialog({
   open,
   onOpenChange,
   numeroOc,
+  detalle,
   pendientes,
   estado = "pagada",
   onConfirm,
@@ -45,6 +51,13 @@ export function MotivoPagoDialog({
       tone="neutral"
       title={`¿Marcar ${estado} la OC ${numeroOc} sin todas las firmas?`}
       description={
+        detalle ? (
+          <>
+            {detalle} Las firmas quedan como{" "}
+            <span className="font-medium text-ink-900">no firmadas</span>; el motivo queda con tu
+            nombre y la fecha.
+          </>
+        ) : (
         <>
           {n > 0 ? (
             <>
@@ -63,6 +76,7 @@ export function MotivoPagoDialog({
           y el motivo que escribas queda en el historial de la OC, con tu
           nombre y la fecha.
         </>
+        )
       }
       confirmText={estado === "pagada" ? "Marcar pagada" : "Marcar parcial"}
       motivo={{

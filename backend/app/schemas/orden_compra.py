@@ -231,6 +231,9 @@ class OrdenCompraRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     allowed_actions: list[str] = []
+    #: Si se marcó pagada/parcial con firmas PENDIENTE: motivo, quiénes
+    #: faltaban, quién y cuándo. None = no aplica. La ficha lo muestra.
+    pago_sin_firmas: dict | None = None
 
     model_config = {"from_attributes": True}
 

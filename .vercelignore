@@ -1,0 +1,17 @@
+# Vercel sube la RAÍZ del repo (proyecto enlazado vía .vercel/repo.json con
+# directory=frontend y "sourceFilesOutsideRootDirectory"). Sin este archivo,
+# `vercel deploy` subía backend/.env (DATABASE_URL, service role, llave
+# Fernet, tokens de Dropbox) como fuente del deployment. El build del
+# frontend (`next build` dentro de frontend/) no necesita nada de esto.
+backend/
+docs/
+.claude/
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/.next
+**/__pycache__
+**/.venv
+**/.pytest_cache
+**/.ruff_cache

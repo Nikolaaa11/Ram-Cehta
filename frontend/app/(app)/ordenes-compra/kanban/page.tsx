@@ -111,9 +111,14 @@ export default function OrdenesCompraKanbanPage() {
     if (data) setItems(data.items);
   }, [data]);
 
-  // OC soltada en "pagada" a la que le faltan firmas: la card NO se mueve
-  // hasta que se escriba el motivo (el backend lo exige y lo audita).
-  const [pagoSinFirmas, setPagoSinFirmas] = useState<OcListItem | null>(null);
+  // OC soltada en "pagada" a la que le faltan firmas: el backend responde
+  // 422 pidiendo motivo, la card vuelve a su columna y se abre el diálogo
+  // con ese mensaje. No se decide acá con `firmas_pendientes` del listado:
+  // ese campo incluye a los externos que firman en papel, que no cuentan.
+  const [pagoSinFirmas, setPagoSinFirmas] = useState<{
+    oc: OcListItem;
+    detalle: string;
+  } | null>(null);
 
   const empresaItems = useMemo<ComboboxItem[]>(
     () => [
@@ -176,15 +181,16 @@ export default function OrdenesCompraKanbanPage() {
     if (!oc) return;
 
     const requiredAction = ESTADO_ACTION[toEstado];
-    if (!requiredAction || !oc.allowed_actions.includes(requiredAction)) {
-      toast.error(
-        `No tienes permiso para mover esa OC a ${toEstado}`,
+    if (!requiredAction) {
+      // en_firma / firmada / enviada_proveedor / emitida: se llega por el
+      // flujo (mandar a firmar, firmar), no arrastrando. No es un permiso.
+      toast.info(
+        `A la columna «${toEstado.replace("_", " ")}» se llega por el flujo de firma, no arrastrando la tarjeta.`,
       );
       return;
     }
-
-    if (toEstado === "pagada" && (oc.firmas_pendientes?.length ?? 0) > 0) {
-      setPagoSinFirmas(oc);
+    if (!oc.allowed_actions.includes(requiredAction)) {
+      toast.error(`No tienes permiso para mover esa OC a ${toEstado}`);
       return;
     }
 
@@ -210,6 +216,16 @@ export default function OrdenesCompraKanbanPage() {
     } catch (err) {
       // Revert
       setItems(prev);
+      if (
+        err instanceof ApiError &&
+        err.status === 422 &&
+        toEstado === "pagada" &&
+        !motivo &&
+        /firma/i.test(err.detail)
+      ) {
+        setPagoSinFirmas({ oc, detalle: err.detail });
+        return;
+      }
       const detail =
         err instanceof ApiError
           ? err.detail
@@ -310,11 +326,11 @@ export default function OrdenesCompraKanbanPage() {
         onOpenChange={(open) => {
           if (!open) setPagoSinFirmas(null);
         }}
-        numeroOc={pagoSinFirmas?.numero_oc ?? ""}
-        pendientes={pagoSinFirmas?.firmas_pendientes}
+        numeroOc={pagoSinFirmas?.oc.numero_oc ?? ""}
+        detalle={pagoSinFirmas?.detalle}
         onConfirm={(motivo) =>
           pagoSinFirmas
-            ? moverOc(pagoSinFirmas, "pagada", motivo)
+            ? moverOc(pagoSinFirmas.oc, "pagada", motivo)
             : Promise.resolve()
         }
       />

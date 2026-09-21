@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, ExternalLink, Wallet, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -99,6 +100,7 @@ function TableSkeleton() {
 export default function SolicitudesPagoPage() {
   const { session } = useSession();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { data, isLoading, error, refetch } = useApiQuery<Page<OcListItem>>(
     QUERY_KEY,
@@ -122,6 +124,25 @@ export default function SolicitudesPagoPage() {
           : "OC anulada",
       );
     } catch (err) {
+      // Firmas pendientes: el backend pide un motivo que esta pantalla no
+      // tiene dónde escribir. La ficha de la OC sí (diálogo de motivo).
+      if (
+        err instanceof ApiError &&
+        err.status === 422 &&
+        nuevoEstado === "pagada" &&
+        /firma/i.test(err.detail)
+      ) {
+        toast.error("A esta OC le faltan firmas", {
+          description:
+            "Para marcarla pagada igual hay que escribir el motivo en su ficha.",
+          action: {
+            label: "Abrir la OC",
+            onClick: () => router.push(`/ordenes-compra/${id}`),
+          },
+          duration: 12_000,
+        });
+        return;
+      }
       toast.error(
         err instanceof ApiError
           ? err.detail

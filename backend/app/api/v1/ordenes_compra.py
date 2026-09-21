@@ -24,6 +24,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.api.deps import CurrentUser, DBSession, require_scope
+from app.api.v1.oc_firmas import _SIN_EMAIL_DOMAIN
 from app.core.security import AuthenticatedUser
 # Motor de cálculo de la OC. La aritmética de los cuatro tipos de documento
 # vive ahí y NO se reimplementa acá: este módulo decide qué tasa corresponde
@@ -574,6 +575,7 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
         created_at=oc.created_at,
         updated_at=oc.updated_at,
         allowed_actions=_authz.allowed_actions_for_oc(user, oc.estado),
+        pago_sin_firmas=getattr(oc, "pago_sin_firmas", None),
     )
 
 
@@ -2275,19 +2277,54 @@ _MOTIVO_PAGO_SIN_FIRMAS_MIN = 10
 
 
 async def _firmas_pendientes_oc(db: DBSession, oc_id: int) -> list[str]:
-    """Nombres (o correo si no hay nombre) de los firmantes que no firmaron."""
+    """Nombres (o correo si no hay nombre) de los firmantes que no firmaron.
+
+    Excluye a los externos SIN correo (placeholder @sin-correo…): firman a
+    mano sobre el papel y quedan PENDIENTE para siempre por diseño. Es el
+    mismo criterio con que `firmar` da la OC por completa (oc_firmas.py);
+    contarlos acá hacía que OC ya firmadas pidieran motivo para pagarse.
+    """
     filas = (
         await db.execute(
             text(
                 """SELECT COALESCE(NULLIF(trim(firmante_nombre), ''), firmante_email)
                      FROM core.oc_firmas
                     WHERE oc_id = :id AND status = 'PENDIENTE'
+                      AND firmante_email NOT LIKE '%@' || :dom
                     ORDER BY orden NULLS LAST, firma_id"""
             ),
-            {"id": oc_id},
+            {"id": oc_id, "dom": _SIN_EMAIL_DOMAIN},
         )
     ).scalars().all()
     return [str(f) for f in filas]
+
+
+async def _constancia_pago_sin_firmas(
+    db: DBSession,
+    user: AuthenticatedUser,
+    *,
+    motivo: str,
+    pendientes: list[str],
+    estado_previo: str,
+    estado_nuevo: str,
+    via: str,
+) -> dict[str, Any]:
+    """JSON que se guarda en ordenes_compra.pago_sin_firmas (misma transacción)."""
+    email = await db.scalar(
+        text("SELECT email FROM auth.users WHERE id = CAST(:uid AS UUID)"),
+        {"uid": user.sub},
+    )
+    ahora = await db.scalar(text("SELECT now()"))
+    return {
+        "motivo": motivo,
+        "firmas_pendientes": pendientes,
+        "estado_previo": estado_previo,
+        "estado_nuevo": estado_nuevo,
+        "por_user_id": str(user.sub),
+        "por_email": email,
+        "el": ahora.isoformat() if ahora else None,
+        "via": via,
+    }
 
 
 def _motivo_pago_sin_firmas_invalido(
@@ -2394,6 +2431,15 @@ async def update_estado(
             motivo_pago = (body.motivo or "").strip()
 
     estado_before = oc.estado
+    if motivo_pago:
+        # MISMA transacción que el cambio de estado: si esto no queda, la OC
+        # tampoco queda pagada. audit_log (más abajo) es post-commit y
+        # best-effort; no alcanza para una constancia obligatoria.
+        oc.pago_sin_firmas = await _constancia_pago_sin_firmas(
+            db, user,
+            motivo=motivo_pago, pendientes=pendientes,
+            estado_previo=estado_before, estado_nuevo=body.estado, via="ficha",
+        )
     updated = await repo.update_estado(oc, body.estado)
     await db.commit()
     # `anulada` mapea a 'reject', el resto a 'approve' / 'update' según semántica.
@@ -2572,6 +2618,11 @@ async def bulk_update_estado(
             if pendientes:
                 pagadas_sin_firmas.append(
                     (oc_id, oc.numero_oc, oc.estado, pendientes)
+                )
+                oc.pago_sin_firmas = await _constancia_pago_sin_firmas(
+                    db, user,
+                    motivo=(body.motivo or "").strip(), pendientes=pendientes,
+                    estado_previo=oc.estado, estado_nuevo=body.estado, via="masivo",
                 )
 
         await repo.update_estado(oc, body.estado)

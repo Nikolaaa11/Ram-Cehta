@@ -4,12 +4,15 @@
  * Anexos de la OC — subir, ver y quitar (2026-09-21).
  *
  * Nicolás: "que se pueda adjuntar anexo a las oc". Los anexos viven en
- * Dropbox (01-Empresas/{COD}/06-Adjuntos-OCs/{año}/{OC}/) y salen al final
- * del PDF de la OC, en el orden de esta lista — el mismo PDF de "Descargar
- * PDF" y el que se le manda al proveedor.
+ * Dropbox (01-Empresas/{COD}/06-Adjuntos-OCs/{año}/{OC}/). Los PDF e
+ * imágenes se agregan al final del PDF de la OC, en el orden de esta lista —
+ * el de "Descargar PDF", el de la invitación a firmar y el que se le manda al
+ * proveedor. Excel y Word quedan guardados; en el PDF aparece una hoja que
+ * los nombra.
  *
- * Lo firmado no se toca: un anexo que ya estaba cuando alguien firmó muestra
- * un candado en vez del botón quitar (el backend igual lo bloquea con 409).
+ * Un anexo es parte del documento que se firma: se agregan y se quitan sólo
+ * mientras nadie firmó. El backend dice si se puede y por qué no
+ * (`se_pueden_modificar` / `motivo_bloqueo`); la pantalla lo muestra tal cual.
  *
  * Los tipos se declaran acá (espejo de app/api/v1/oc_anexos.py):
  * `types/api.ts` se regenera aparte.
@@ -23,6 +26,7 @@ import {
   FileSpreadsheet,
   FileText,
   Image as ImageIcon,
+  Info,
   Loader2,
   Lock,
   Mail,
@@ -37,7 +41,6 @@ import { useSession } from "@/hooks/use-session";
 import { toast } from "@/components/ui/toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Surface } from "@/components/ui/surface";
-import { SimpleTooltip } from "@/components/ui/tooltip";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-delete-dialog";
 
 interface OcAnexo {
@@ -50,7 +53,18 @@ interface OcAnexo {
   descripcion: string | null;
   subido_por_email: string | null;
   created_at: string;
-  se_puede_quitar: boolean;
+  /** PDF e imágenes: sí. Excel/Word: aparecen sólo como una hoja que los nombra. */
+  en_el_pdf: boolean;
+}
+
+interface OcAnexosResponse {
+  anexos: OcAnexo[];
+  se_pueden_modificar: boolean;
+  motivo_bloqueo: string | null;
+  usado_bytes: number;
+  limite_total_bytes: number;
+  limite_archivo_bytes: number;
+  max_anexos: number;
 }
 
 interface OcAnexoLink {
@@ -59,11 +73,10 @@ interface OcAnexoLink {
   url: string;
 }
 
-// Espejo de _MAX_BYTES / _MIME_PERMITIDOS del backend: avisar antes de subir
-// ahorra esperar 25 MB para recibir un 413.
-const MAX_MB = 25;
+// Espejo de _TIPOS del backend (que igual verifica el contenido).
 const ACCEPT =
   ".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc,application/pdf,image/jpeg,image/png,image/webp";
+const MB = 1024 * 1024;
 
 function iconoPara(mime: string | null) {
   if (mime?.startsWith("image/")) return ImageIcon;
@@ -71,10 +84,14 @@ function iconoPara(mime: string | null) {
   return FileText;
 }
 
+function mb(bytes: number): string {
+  return `${(bytes / MB).toLocaleString("es-CL", { maximumFractionDigits: 1 })} MB`;
+}
+
 function tamano(bytes: number | null): string {
   if (!bytes) return "—";
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toLocaleString("es-CL", { maximumFractionDigits: 1 })} MB`;
+  if (bytes < MB) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return mb(bytes);
 }
 
 function fecha(iso: string): string {
@@ -100,27 +117,38 @@ export function OcAnexosSection({ ocId, estado }: Props) {
   const [subiendo, setSubiendo] = useState<string | null>(null);
   const [arrastrando, setArrastrando] = useState(false);
 
-  const queryKey = ["oc-anexos", String(ocId)];
-  const q = useApiQuery<OcAnexo[]>(queryKey, `/ordenes-compra/${ocId}/anexos`);
-  const anexos = q.data ?? [];
+  const queryKey = ["oc-anexos", String(ocId), estado];
+  const q = useApiQuery<OcAnexosResponse>(queryKey, `/ordenes-compra/${ocId}/anexos`);
+  const datos = q.data;
+  const anexos = datos?.anexos ?? [];
 
-  // Mismo criterio que el backend: scope global oc:update (la empresa la
-  // valida el endpoint con 403) y OC no anulada.
-  const puedeEditar = (me?.allowed_actions?.includes("oc:update") ?? false) && estado !== "anulada";
+  // Permiso (scope global oc:update; la empresa la valida el endpoint con
+  // 403) Y regla del documento (nadie firmó), que decide el backend.
+  const tienePermiso = me?.allowed_actions?.includes("oc:update") ?? false;
+  const puedeEditar = tienePermiso && (datos?.se_pueden_modificar ?? false);
 
   const refrescar = async () => {
-    await qc.invalidateQueries({ queryKey });
+    await qc.invalidateQueries({ queryKey: ["oc-anexos", String(ocId)] });
     // El PDF de la OC y su historial cambian con cada anexo.
     router.refresh();
   };
 
   const subir = async (archivos: File[]) => {
-    if (!session || archivos.length === 0) return;
-    const grandes = archivos.filter((f) => f.size > MAX_MB * 1024 * 1024);
+    if (!session || !datos || archivos.length === 0) return;
+    const limiteArchivo = datos.limite_archivo_bytes;
+    const grandes = archivos.filter((f) => f.size > limiteArchivo);
     if (grandes.length > 0) {
       toast.error(
-        `${grandes.map((f) => f.name).join(", ")} pesa más de ${MAX_MB} MB. Comprímelo o divídelo.`,
-        { duration: 8000 },
+        `${grandes.map((f) => f.name).join(", ")} pesa más de ${mb(limiteArchivo)}. Comprímelo o divídelo: el PDF de la OC viaja por correo.`,
+        { duration: 10_000 },
+      );
+      return;
+    }
+    const total = archivos.reduce((s, f) => s + f.size, 0);
+    if (datos.usado_bytes + total > datos.limite_total_bytes) {
+      toast.error(
+        `No caben: la OC ya usa ${mb(datos.usado_bytes)} de ${mb(datos.limite_total_bytes)} en anexos. Comprime los archivos o quita alguno.`,
+        { duration: 10_000 },
       );
       return;
     }
@@ -143,7 +171,7 @@ export function OcAnexosSection({ ocId, estado }: Props) {
                 : err instanceof Error
                   ? err.message
                   : "Error desconocido",
-            duration: 10_000,
+            duration: 12_000,
           });
         }
       }
@@ -154,8 +182,10 @@ export function OcAnexosSection({ ocId, estado }: Props) {
     if (ok > 0) {
       toast.success(ok === 1 ? "Anexo agregado a la OC" : `${ok} anexos agregados a la OC`);
       setDescripcion("");
-      await refrescar();
     }
+    // Aunque haya fallado: un 409 (alguien firmó mientras tanto) cambia lo
+    // que la sección debe mostrar.
+    await refrescar();
   };
 
   const quitarMut = useMutation({
@@ -165,10 +195,11 @@ export function OcAnexosSection({ ocId, estado }: Props) {
       toast.success("Anexo quitado de la OC");
       await refrescar();
     },
-    onError: (err) => {
+    onError: async (err) => {
       toast.error(err instanceof ApiError ? err.detail : "No se pudo quitar el anexo", {
         duration: 10_000,
       });
+      await refrescar();
     },
   });
 
@@ -209,14 +240,20 @@ export function OcAnexosSection({ ocId, estado }: Props) {
               )}
             </h2>
             <p className="mt-1 text-xs text-ink-500">
-              Cotizaciones, especificaciones técnicas, contratos, planos… Se agregan al final del
-              PDF de la OC, en este orden, y se guardan en la carpeta de Dropbox de la empresa.
+              Cotizaciones, especificaciones técnicas, contratos, planos… Los PDF e imágenes se
+              agregan al final del PDF de la OC, en este orden. Todo queda guardado en la carpeta
+              de Dropbox de la empresa.
             </p>
           </div>
+          {datos && anexos.length > 0 && (
+            <p className="text-[11px] tabular-nums text-ink-500">
+              {mb(datos.usado_bytes)} de {mb(datos.limite_total_bytes)}
+            </p>
+          )}
         </div>
 
-        {q.isLoading ? (
-          <div className="space-y-2">
+        {!datos && !q.isError ? (
+          <div className="space-y-2" aria-label="Cargando anexos">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
@@ -266,6 +303,11 @@ export function OcAnexosSection({ ocId, estado }: Props) {
                         <>subido</>
                       )}{" "}
                       el {fecha(a.created_at)}
+                      {!a.en_el_pdf && (
+                        <span className="ml-1 rounded bg-ink-100 px-1.5 py-0.5 text-[10px] text-ink-700">
+                          no va dentro del PDF
+                        </span>
+                      )}
                     </p>
                   </div>
                   <button
@@ -276,104 +318,115 @@ export function OcAnexosSection({ ocId, estado }: Props) {
                   >
                     <ExternalLink className="h-4 w-4" strokeWidth={1.5} />
                   </button>
-                  {puedeEditar &&
-                    (a.se_puede_quitar ? (
-                      <ConfirmDeleteDialog
-                        trigger={
-                          <button
-                            type="button"
-                            aria-label={`Quitar ${a.file_name}`}
-                            disabled={quitarMut.isPending}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative hover:bg-negative/10 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-4 w-4" strokeWidth={1.5} />
-                          </button>
-                        }
-                        title="¿Quitar este anexo de la OC?"
-                        description={
-                          <>
-                            <span className="font-medium text-ink-900">{a.file_name}</span> deja de
-                            salir en el PDF de la OC. El archivo no se borra de Dropbox y el cambio
-                            queda en el historial.
-                          </>
-                        }
-                        confirmText="Quitar anexo"
-                        onConfirm={() => quitarMut.mutateAsync(a.attachment_id)}
-                      />
-                    ) : (
-                      <SimpleTooltip content="Ya estaba cuando firmaron la OC: es parte de lo firmado y no se puede quitar.">
-                        <span className="text-ink-400 inline-flex h-8 w-8 items-center justify-center">
-                          <Lock className="h-4 w-4" strokeWidth={1.5} />
-                        </span>
-                      </SimpleTooltip>
-                    ))}
+                  {puedeEditar && (
+                    <ConfirmDeleteDialog
+                      trigger={
+                        <button
+                          type="button"
+                          aria-label={`Quitar ${a.file_name}`}
+                          disabled={quitarMut.isPending || subiendo !== null}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-negative hover:bg-negative/10 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                        </button>
+                      }
+                      title="¿Quitar este anexo de la OC?"
+                      description={
+                        <>
+                          <span className="font-medium text-ink-900">{a.file_name}</span> deja de
+                          salir en el PDF de la OC. El archivo no se borra de Dropbox y el cambio
+                          queda en el historial.
+                        </>
+                      }
+                      confirmText="Quitar anexo"
+                      onConfirm={() => quitarMut.mutateAsync(a.attachment_id)}
+                    />
+                  )}
                 </li>
               );
             })}
           </ol>
         )}
 
-        {puedeEditar && (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setArrastrando(true);
-            }}
-            onDragLeave={() => setArrastrando(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setArrastrando(false);
-              if (!subiendo) void subir(Array.from(e.dataTransfer.files));
-            }}
-            className={`flex flex-col gap-3 rounded-2xl border border-dashed p-4 transition-colors sm:flex-row sm:items-center ${
-              arrastrando ? "border-cehta-green bg-cehta-green/5" : "bg-ink-50/30 border-hairline"
-            }`}
-          >
-            <input
-              type="text"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              maxLength={300}
-              placeholder="Descripción (opcional) — ej: Cotización firmada del proveedor"
-              disabled={subiendo !== null}
-              className="border-ink-200 placeholder:text-ink-400 focus:border-ink-400 min-w-0 flex-1 rounded-xl border bg-white px-3 py-2 text-sm text-ink-900 focus:outline-none focus:ring-2 focus:ring-ink-900/10 disabled:opacity-60"
-            />
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept={ACCEPT}
-              className="hidden"
-              onChange={(e) => void subir(Array.from(e.target.files ?? []))}
-            />
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              disabled={subiendo !== null}
-              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 disabled:opacity-60"
-            >
-              {subiendo ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
-                  <span className="max-w-[12rem] truncate">Subiendo {subiendo}…</span>
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4" strokeWidth={1.5} />
-                  Adjuntar anexo
-                </>
-              )}
-            </button>
-            <p className="text-[11px] text-ink-500 sm:hidden">
-              PDF, imagen, Excel o Word · hasta {MAX_MB} MB
-            </p>
-          </div>
-        )}
-        {puedeEditar && (
-          <p className="hidden text-[11px] text-ink-500 sm:block">
-            Arrastra archivos al recuadro o usa el botón · PDF, imagen (JPG/PNG), Excel o Word ·
-            hasta {MAX_MB} MB cada uno.
+        {tienePermiso && datos && !datos.se_pueden_modificar && datos.motivo_bloqueo && (
+          <p className="flex items-start gap-2 rounded-xl bg-ink-50 p-3 text-xs text-ink-700 ring-1 ring-hairline">
+            <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.5} />
+            {datos.motivo_bloqueo}
           </p>
+        )}
+
+        {puedeEditar && datos && (
+          <>
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!subiendo) setArrastrando(true);
+              }}
+              onDragLeave={(e) => {
+                // Pasar sobre el input o el botón (hijos) no es "salir".
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setArrastrando(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setArrastrando(false);
+                if (subiendo) {
+                  toast.info("Espera a que termine la subida en curso y vuelve a soltar el archivo.");
+                  return;
+                }
+                void subir(Array.from(e.dataTransfer.files));
+              }}
+              className={`flex flex-col gap-3 rounded-2xl border border-dashed p-4 transition-colors sm:flex-row sm:items-center ${
+                arrastrando ? "border-cehta-green bg-cehta-green/5" : "bg-ink-50/30 border-hairline"
+              }`}
+            >
+              <input
+                type="text"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+                maxLength={300}
+                placeholder="Descripción (opcional) — ej: Cotización firmada del proveedor"
+                disabled={subiendo !== null}
+                className="border-ink-200 placeholder:text-ink-400 focus:border-ink-400 min-w-0 flex-1 rounded-xl border bg-white px-3 py-2 text-sm text-ink-900 focus:outline-none focus:ring-2 focus:ring-ink-900/10 disabled:opacity-60"
+              />
+              <input
+                ref={fileRef}
+                type="file"
+                multiple
+                accept={ACCEPT}
+                className="hidden"
+                onChange={(e) => void subir(Array.from(e.target.files ?? []))}
+              />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={subiendo !== null}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-cehta-green px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cehta-green-700 disabled:opacity-60"
+              >
+                {subiendo ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.5} />
+                    <span className="max-w-[12rem] truncate">Subiendo {subiendo}…</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" strokeWidth={1.5} />
+                    Adjuntar anexo
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="flex items-start gap-1.5 text-[11px] text-ink-500">
+              <Info className="mt-px h-3 w-3 shrink-0" strokeWidth={1.5} />
+              <span>
+                Arrastra archivos al recuadro o usa el botón. PDF o imagen (JPG, PNG, WebP) — van
+                dentro del PDF de la OC; Excel o Word — quedan guardados aquí. Hasta{" "}
+                {mb(datos.limite_archivo_bytes)} por archivo y {mb(datos.limite_total_bytes)} en
+                total. Una vez que alguien firma, los anexos ya no se pueden cambiar.
+              </span>
+            </p>
+          </>
         )}
       </section>
     </Surface>
