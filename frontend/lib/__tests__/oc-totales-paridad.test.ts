@@ -95,12 +95,29 @@ describe("sumarItemizado", () => {
   it("suma cantidad × precio sin error de coma flotante", () => {
     // 0.1 + 0.2 en float da 0.30000000000000004. Con tres líneas de 0,1 el
     // reduce ingenuo daba 0.30000000000000004 y el neto salía con basura.
+    // En UF, que sí tiene decimales (en pesos no existe media unidad).
+    expect(
+      sumarItemizado(
+        [
+          { cantidad: "1", precio_unitario: "0.1" },
+          { cantidad: "1", precio_unitario: "0.2" },
+        ],
+        "UF",
+      ),
+    ).toBe("0.3");
+  });
+
+  it("en pesos cada línea se redondea ANTES de sumar (la columna manda)", () => {
+    // Las 3 primeras líneas de la OC 96: 134285,72 + 54453,76 + 4873,95.
+    // Sumar y redondear da 193.613; redondear y sumar, 193.614 — y esto
+    // último es lo que suma quien lee la columna impresa.
     expect(
       sumarItemizado([
-        { cantidad: "1", precio_unitario: "0.1" },
-        { cantidad: "1", precio_unitario: "0.2" },
+        { cantidad: "2", precio_unitario: "67142.86" },
+        { cantidad: "1", precio_unitario: "54453.76" },
+        { cantidad: "1", precio_unitario: "4873.95" },
       ]),
-    ).toBe("0.3");
+    ).toBe("193614");
   });
 
   it("un caso real de la planilla", () => {
@@ -113,9 +130,13 @@ describe("sumarItemizado", () => {
   });
 
   it("cantidades fraccionarias", () => {
+    // En pesos, al peso; en UF, a dos decimales.
     expect(
       sumarItemizado([{ cantidad: "2.5", precio_unitario: "40855.33" }]),
-    ).toBe("102138.325");
+    ).toBe("102138");
+    expect(
+      sumarItemizado([{ cantidad: "2.5", precio_unitario: "40855.33" }], "UF"),
+    ).toBe("102138.33");
   });
 
   it("la lista vacía suma cero, no NaN", () => {

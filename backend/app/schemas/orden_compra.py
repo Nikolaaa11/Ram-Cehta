@@ -120,15 +120,14 @@ class OrdenCompraCreate(BaseModel):
         # Disciplina 2: si el FE no manda neto (lo recomendado), lo computamos
         # del único source-of-truth (items). Si manda algo distinto a la suma,
         # ignoramos el valor del FE y usamos el server-side.
-        from decimal import Decimal as _D
+        #
+        # Suma de las líneas YA REDONDEADAS al paso de la moneda, no la suma
+        # cruda: el documento lo lee gente que suma la columna impresa, y
+        # redondear al final dejaba el neto descuadrado contra esa columna
+        # (OC0059-PAN001: $336.387 contra $336.377). Ver domain/itemizado.py.
+        from app.domain.value_objects.itemizado import subtotal_itemizado
 
-        items_total = sum(
-            (
-                (it.precio_unitario or _D(0)) * (it.cantidad or _D(1))
-                for it in self.items
-            ),
-            _D(0),
-        )
+        items_total = subtotal_itemizado(self.items, self.moneda)
         # Siempre el computado: el neto persistido refleja los ítems, no lo
         # que el FE haya mandado. Con descuentos (líneas negativas) la suma
         # puede bajar — pero no a cero ni bajo cero: una OC sin monto a favor

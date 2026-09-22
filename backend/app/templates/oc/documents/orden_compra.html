@@ -63,7 +63,7 @@
           {% if item.plazo %}<div class="plazo">{{ item.plazo }}</div>{% endif %}
         </td>
         <td class="num-col">{{ item.cantidad }}</td>
-        <td class="num-col">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
+        <td class="num-col">{{ formatear_precio_unitario(item.precio_unitario, oc.moneda.value) }}</td>
         <td class="num-col">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
       </tr>
       {% endfor %}

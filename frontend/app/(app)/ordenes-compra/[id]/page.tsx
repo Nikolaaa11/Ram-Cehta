@@ -12,6 +12,7 @@ import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { FileLink } from "@/components/shared/FileLink";
 import { limpiarCeros } from "@/lib/oc/pegar-items";
+import { importeLinea, precioUnitario } from "@/lib/oc/itemizado";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate, toDateTimeCL } from "@/lib/format";
@@ -343,7 +344,10 @@ export default async function OcDetallePage({
                       {it.descripcion}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
-                      {toCLP(it.precio_unitario)}
+                      {/* Con decimales si los tiene: un precio neto sacado de
+                          un total con IVA es $67.142,86, y redondeado no
+                          cuadra al multiplicarlo por la cantidad. */}
+                      {precioUnitario(it.precio_unitario)}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
                       {/* `cantidad` es NUMERIC(18,4) en BD y la API la manda
@@ -353,7 +357,12 @@ export default async function OcDetallePage({
                       {limpiarCeros(String(it.cantidad))}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-ink-900 tabular-nums">
-                      {toCLP(it.total_linea)}
+                      {/* Fallback calculado: hasta el 2026-09-22 el backend
+                          nunca guardaba `total_linea`, y las OC de antes
+                          siguen con la columna en NULL. Sin esto la ficha
+                          imprime "$0" en cada línea con el total correcto
+                          abajo — el "no suman" que reportó Nicolás. */}
+                      {toCLP(importeLinea(it))}
                     </td>
                   </tr>
                 ))}

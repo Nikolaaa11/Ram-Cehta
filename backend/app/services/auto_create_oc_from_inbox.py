@@ -32,6 +32,8 @@ import structlog
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.value_objects.itemizado import total_linea
+
 log = structlog.get_logger(__name__)
 
 IVA_TASA = Decimal("0.19")
@@ -525,7 +527,10 @@ async def _crear_oc(
         try:
             precio = Decimal(str(it.get("precio_unitario") or 0))
             cantidad = Decimal(str(it.get("cantidad") or 1))
-            item_total = (precio * cantidad).quantize(Decimal("0.01"))
+            # Misma regla que la pantalla (domain/itemizado.py): en CLP la
+            # línea es un importe en pesos, sin centavos, y el neto es la
+            # suma de esas líneas.
+            item_total = total_linea(cantidad, precio, "CLP")
         except Exception:
             precio = Decimal("0")
             cantidad = Decimal("1")

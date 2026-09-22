@@ -40,6 +40,7 @@ from app.domain.value_objects.retencion import (
     porcentaje_retencion_por_fecha,
 )
 from app.domain.value_objects.correlativo_oc import siguiente_numero_oc
+from app.domain.value_objects.itemizado import subtotal_itemizado, total_linea
 from app.domain.value_objects.rut import format_rut, validate_rut
 from app.infrastructure.repositories.orden_compra_repository import OrdenCompraRepository
 from app.infrastructure.repositories.proveedor_repository import ProveedorRepository
@@ -1058,7 +1059,13 @@ async def get_oc_html(
             "descripcion": d.descripcion,
             "cantidad": str(d.cantidad),
             "precio_unitario": str(d.precio_unitario),
-            "total_linea": str(d.total_linea) if d.total_linea else "0",
+            # Fallback para las OC viejas (columna NULL antes del
+            # 2026-09-22): se calcula, no se imprime "0".
+            "total_linea": str(
+                d.total_linea
+                if d.total_linea is not None
+                else total_linea(d.cantidad, d.precio_unitario, oc.moneda)
+            ),
         }
         for d in (oc.items or [])
     ]
@@ -1503,12 +1510,12 @@ async def reemplazar_items_oc(
 
     antes = (await _to_read_con_unidades(db, user, oc)).model_dump(mode="json")
 
-    # La B del contrato: la suma del itemizado nuevo. Las líneas negativas
-    # (descuentos) restan; la suma tiene que seguir siendo positiva.
-    neto = sum(
-        (it.precio_unitario * it.cantidad for it in body.items),
-        Decimal("0"),
-    )
+    # La B del contrato: la suma del itemizado nuevo, con cada línea ya
+    # redondeada al paso de la moneda (la columna que se imprime tiene que
+    # sumar exactamente este número). Las líneas negativas (descuentos)
+    # restan; la suma tiene que seguir siendo positiva.
+    moneda_oc = getattr(oc.moneda, "value", oc.moneda) or "CLP"
+    neto = subtotal_itemizado(body.items, moneda_oc)
     if neto <= 0:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -1520,7 +1527,7 @@ async def reemplazar_items_oc(
         )
     derived = _derivar_totales_oc(
         neto=neto,
-        moneda=getattr(oc.moneda, "value", oc.moneda) or "CLP",
+        moneda=moneda_oc,
         # El tratamiento tributario NO se toca acá: se lee el que la OC ya
         # tiene. Los porcentajes también, porque son el SNAPSHOT de la tasa
         # que se le aplicó a esta OC (invariante 5) y no se releen de
@@ -1550,6 +1557,7 @@ async def reemplazar_items_oc(
                 descripcion=it.descripcion,
                 precio_unitario=it.precio_unitario,
                 cantidad=it.cantidad,
+                total_linea=total_linea(it.cantidad, it.precio_unitario, moneda_oc),
             )
         )
     await db.flush()

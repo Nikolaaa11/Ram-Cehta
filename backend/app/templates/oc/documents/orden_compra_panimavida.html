@@ -953,7 +953,7 @@
         {# %g quita los ceros de relleno; la coma es el separador decimal
            chileno, igual que en la columna de porcentajes. #}
         <td class="r">{{ "%g"|format(item.cantidad|float)|replace(".", ",") }}</td>
-        <td class="r">{{ formatear_moneda(item.precio_unitario, oc.moneda.value) }}</td>
+        <td class="r">{{ formatear_precio_unitario(item.precio_unitario, oc.moneda.value) }}</td>
         <td class="r">{{ formatear_moneda(item.total, oc.moneda.value) }}</td>
       </tr>
       {% endfor %}

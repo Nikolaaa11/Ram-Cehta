@@ -241,20 +241,26 @@ function contarDecimales(neto: string | number): number {
 }
 
 /**
- * Suma del itemizado: Σ(cantidad × precio unitario), exacta.
+ * Suma del itemizado: Σ de las líneas YA REDONDEADAS al paso de la moneda.
  *
- * Es la "B" del contrato — la base de todo lo demás. Se calcula acá y no con
- * `reduce` sobre floats por la misma razón que el resto del archivo.
+ * Es la "B" del contrato — la base de todo lo demás. Espejo de
+ * backend/app/domain/value_objects/itemizado.py.
+ *
+ * Redondear cada línea y después sumar NO da lo mismo que sumar y redondear
+ * al final, que es lo que se hacía hasta el 2026-09-22: el documento lo lee
+ * gente que suma la columna impresa con una calculadora, y en
+ * OC0059-PAN001-Comercializadora los Canelos esa columna daba $336.377
+ * contra un neto de $336.387. Manda la columna.
  */
 export function sumarItemizado(
   items: readonly { cantidad: string | number; precio_unitario: string | number }[],
+  moneda: string = "CLP",
 ): string {
+  const decimales = decimalesDeMoneda(moneda);
   let acc = 0n;
   for (const it of items) {
-    acc += mul(aDec(it.cantidad), aDec(it.precio_unitario));
+    acc += redondear(mul(aDec(it.cantidad), aDec(it.precio_unitario)), decimales);
   }
-  // 10 decimales y después se recorta lo que no aporta: el consumidor manda
-  // esto a `calcularTotalesOC`, que redondea según la moneda.
   const t = aTexto(acc, 10).replace(/0+$/, "").replace(/\.$/, "");
   return t === "" || t === "-" ? "0" : t;
 }

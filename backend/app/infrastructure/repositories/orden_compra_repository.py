@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.value_objects.itemizado import total_linea
 from app.models.orden_compra import OrdenCompra, OrdenCompraDetalle
 from app.schemas.orden_compra import OrdenCompraCreate, OrdenCompraUpdate
 
@@ -134,6 +135,13 @@ class OrdenCompraRepository:
                 descripcion=item_data.descripcion,
                 precio_unitario=item_data.precio_unitario,
                 cantidad=item_data.cantidad,
+                # Se guarda SIEMPRE: hasta 2026-09-22 quedaba en NULL y la
+                # ficha imprimía "$0" en cada línea con el total correcto
+                # abajo ("las OC no suman"). Es el mismo número que suma el
+                # neto (domain/itemizado.py), así la columna cuadra.
+                total_linea=total_linea(
+                    item_data.cantidad, item_data.precio_unitario, data.moneda
+                ),
             )
             self._session.add(detalle)
 

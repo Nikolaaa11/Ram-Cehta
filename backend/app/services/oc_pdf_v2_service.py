@@ -32,7 +32,7 @@ import contextlib
 import io
 import logging
 from datetime import UTC, date, datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -135,11 +135,35 @@ def _fmt_clp(monto: Any) -> str:
     if monto is None:
         return "$0"
     try:
-        n = int(Decimal(str(monto)))
+        # REDONDEA, no trunca. `int(Decimal)` tiraba los centavos hacia
+        # abajo y la columna impresa sumaba menos que el neto impreso
+        # (OC0059-PAN001: 10 pesos de diferencia en 19 líneas).
+        n = int(Decimal(str(monto)).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
     except Exception:
         return str(monto)
     sign = "-" if n < 0 else ""
     return f"{sign}${abs(n):,}".replace(",", ".")
+
+
+def _fmt_clp_unitario(monto: Any) -> str:
+    """Precio unitario en pesos: con decimales si los tiene.
+
+    Un precio neto sacado de un total con IVA casi nunca es entero
+    ($67.142,86). Imprimirlo redondeado deja al lector multiplicando
+    $67.143 x 2 y obteniendo otra cosa que la línea. Con los decimales a la
+    vista, la multiplicación cuadra.
+    """
+    if monto is None:
+        return "$0"
+    try:
+        d = Decimal(str(monto))
+    except Exception:
+        return str(monto)
+    if d == d.to_integral_value():
+        return _fmt_clp(d)
+    sign = "-" if d < 0 else ""
+    ent, dec = f"{abs(d.quantize(Decimal('0.01'))):.2f}".split(".")
+    return f"{sign}${int(ent):,}".replace(",", ".") + f",{dec}"
 
 
 def _fmt_uf(monto: Any) -> str:
@@ -169,6 +193,17 @@ def _fmt_usd(monto: Any) -> str:
     # Signo adelante del símbolo: "-US$500.00", no "US$-500.00".
     sign = "-" if d < 0 else ""
     return f"{sign}US${abs(d):,.2f}"
+
+
+def _formatear_precio_unitario(monto: Any, moneda: str = "CLP") -> str:
+    """Como `formatear_moneda`, pero en CLP conserva los decimales del precio.
+
+    Sólo para la columna "Precio unit." del itemizado: así el lector puede
+    multiplicar por la cantidad y llegar al importe de la línea.
+    """
+    if (moneda or "CLP").upper() == "CLP":
+        return _fmt_clp_unitario(monto)
+    return _formatear_moneda(monto, moneda)
 
 
 def _formatear_moneda(monto: Any, moneda: str = "CLP") -> str:
@@ -898,6 +933,7 @@ async def _load_context(
         "tipo_cuenta_label": "Cuenta Corriente",
         "oc": oc_ctx,
         "formatear_moneda": _formatear_moneda,
+        "formatear_precio_unitario": _formatear_precio_unitario,
         "qr_data_uri": _qr_placeholder_svg(),
         "verify_url": verify_url,
         "hash_verificacion": f"oc-{oc_id}-{generated_by_email or 'anon'}"[:60],

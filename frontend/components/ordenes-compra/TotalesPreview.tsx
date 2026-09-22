@@ -57,7 +57,7 @@ export function TotalesPreview({
   retencionPorcentaje,
   conciliacion,
 }: Props) {
-  const neto = sumarItemizado(items);
+  const neto = sumarItemizado(items, moneda);
   const t = calcularTotalesOC({
     neto,
     moneda,
