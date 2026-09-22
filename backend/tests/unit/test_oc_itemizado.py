@@ -34,8 +34,10 @@ def _items(pares):
         (1, "0.5", "CLP", "1"),                # medio peso sube (HALF_UP)
         (1, "-0.5", "CLP", "-1"),              # descuento: simétrico
         (1, "-500000", "CLP", "-500000"),      # línea de descuento entera
-        (3, "1.005", "UF", "3.02"),            # UF: dos decimales
-        (2, "10.125", "USD", "20.25"),
+        # El precio se guarda con 2 decimales (NUMERIC(18,2)): 1,005 queda
+        # como 1,01 en la BD, así que la línea sale de ESE número.
+        (3, "1.005", "UF", "3.03"),
+        (2, "10.125", "USD", "20.26"),
         (7, 0, "CLP", "0"),                    # ítem bonificado
     ],
 )

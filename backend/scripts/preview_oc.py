@@ -45,6 +45,7 @@ from app.services.oc_pdf_v2_service import (  # noqa: E402
     _fecha_larga,
     _firma_font_data_uri,
     _formatear_moneda,
+    _formatear_precio_unitario,
     _logo_data_uri,
     _logo_max_css,
     _logo_raw_bytes,
@@ -483,7 +484,11 @@ def construir_contexto(
         "empresa": emp, "logo_data_uri": _logo_data_uri(raw),
         "logo_max_css": _logo_max_css(raw), "proveedor": prov, "cuenta": None,
         "tipo_cuenta_label": "Cuenta Corriente", "oc": oc,
-        "formatear_moneda": _formatear_moneda, "qr_data_uri": _qr_placeholder_svg(),
+        "formatear_moneda": _formatear_moneda,
+        # El template lo usa para el precio unitario desde 2026-09-22; sin
+        # esto el preview moria con UndefinedError.
+        "formatear_precio_unitario": _formatear_precio_unitario,
+        "qr_data_uri": _qr_placeholder_svg(),
         "verify_url": "https://cehta-capital.vercel.app/ordenes-compra/28",
         "hash_verificacion": "oc-28-preview", "watermark": None, "css": "",
         "firmantes": firmantes, "firmantes_externos": externos,

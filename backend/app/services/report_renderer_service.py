@@ -1243,6 +1243,85 @@ def render_cierre_mensual_html(
 # =====================================================================
 # V5++ ola CG — Orden de Compra branded (PDF-ready HTML)
 # =====================================================================
+def _fmt_cantidad(valor: Decimal) -> str:
+    """Cantidad como la imprime el PDF: sin ceros de relleno, coma decimal.
+
+    `Decimal.normalize()` imprimía una cantidad de 20 como "2E+1".
+    """
+    d = valor.normalize()
+    if d == d.to_integral_value():
+        # `20.0000` normaliza a 2E+1: hay que devolverlo a notación normal
+        # ANTES de formatear, o el documento imprime "2E+1" (o "2" si se le
+        # recortan los ceros a la derecha de un entero).
+        d = d.quantize(Decimal("1"))
+        return f"{d:,f}".replace(",", ".")
+    texto = f"{d:,f}".rstrip("0").rstrip(".")
+    entero, _, decimales = texto.partition(".")
+    entero = entero.replace(",", ".")
+    return f"{entero},{decimales}" if decimales else entero
+
+
+def _fmt_monto_oc(valor: Decimal, moneda: str, *, unitario: bool = False) -> str:
+    """Importe de una OC con el formato de su moneda (espejo del PDF v2)."""
+    if moneda == "CLP":
+        if unitario and valor != valor.to_integral_value():
+            entero, _, dec = f"{valor.quantize(Decimal('0.01')):,.2f}".partition(".")
+            return f"${entero.replace(',', '.')},{dec}"
+        n = int(valor.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+        return f"${n:,}".replace(",", ".")
+    d = valor.quantize(Decimal("0.01"))
+    entero, _, dec = f"{d:,.2f}".partition(".")
+    cuerpo = f"{entero.replace(',', '.')},{dec}"
+    return f"US${cuerpo}" if moneda == "USD" else f"{moneda} {cuerpo}"
+
+
+def _fila_total(etiqueta: str, valor: str, *, fuerte: bool = False) -> str:
+    peso = "700" if fuerte else "500"
+    tam = "12pt" if fuerte else "inherit"
+    color = ' color: #1d6f42;' if fuerte else ""
+    borde = ' style="border-top: 1px solid #e5e7eb;"' if fuerte else ""
+    return f"""<tr{borde}>
+          <td style="padding: 0.5em 1em; text-align: right; font-weight: {peso};">{etiqueta}</td>
+          <td class="num" style="padding: 0.5em 1em; font-weight: {peso}; font-size: {tam};{color}">{valor}</td>
+        </tr>"""
+
+
+def _bloque_totales_oc(
+    tipo_doc: str,
+    moneda: str,
+    neto: Decimal,
+    iva: Decimal,
+    total: Decimal,
+    retencion_pct: Decimal,
+    retencion_monto: Decimal,
+    total_a_pagar: Decimal,
+) -> str:
+    """Los totales según el tipo de documento, como el PDF.
+
+    Una boleta de honorarios impresa como si fuera factura (sin retención y
+    con el bruto como total a pagar) es plata mal informada: la OC 74
+    mostraba $159.292 sin mencionar los $24.292 que retiene el mandante.
+    """
+    m = lambda v: _fmt_monto_oc(v, moneda)  # noqa: E731
+    if tipo_doc == "HONORARIOS":
+        pct = f"{retencion_pct.normalize():f}".replace(".", ",")
+        return (
+            _fila_total("Honorarios brutos", m(neto))
+            + _fila_total(f"Retención {pct}%", f"-{m(retencion_monto)}")
+            + _fila_total(f"Líquido a pagar {moneda}", m(total_a_pagar), fuerte=True)
+        )
+    if tipo_doc == "FACTURA_EXENTA":
+        return (
+            _fila_total("Neto exento", m(neto))
+            + _fila_total(f"TOTAL {moneda}", m(total), fuerte=True)
+        )
+    return (
+        _fila_total("Neto", m(neto))
+        + _fila_total("IVA", m(iva))
+        + _fila_total(f"TOTAL {moneda}", m(total), fuerte=True)
+    )
+
+
 def render_orden_compra_html(
     *,
     oc: dict,
@@ -1289,25 +1368,31 @@ def render_orden_compra_html(
     </div>
     """
 
-    # Items table
+    # Items table — mismas reglas que el PDF (oc_pdf_v2_service): importes
+    # con separador chileno, precio unitario con decimales si los tiene (si
+    # no, cantidad x precio impresos no dan el importe impreso) y cantidad
+    # sin notación científica (`.normalize()` imprimía 20 como "2E+1").
     items_html = ""
-    moneda = oc.get("moneda", "CLP")
-    sign = "$" if moneda == "CLP" else f"{moneda} "
+    moneda = (oc.get("moneda") or "CLP").upper()
     for it in items:
         cantidad = Decimal(str(it.get("cantidad", 1)))
         precio = Decimal(str(it.get("precio_unitario", 0)))
-        total_linea = Decimal(str(it.get("total_linea") or cantidad * precio))
+        importe = Decimal(str(it.get("total_linea") or cantidad * precio))
         items_html += f"""<tr>
           <td class="num">{_esc(it.get('item', ''))}</td>
           <td>{_esc(it.get('descripcion', ''))}</td>
-          <td class="num">{cantidad.normalize()}</td>
-          <td class="num">{sign}{precio:,.0f}</td>
-          <td class="num">{sign}{total_linea:,.0f}</td>
+          <td class="num">{_fmt_cantidad(cantidad)}</td>
+          <td class="num">{_fmt_monto_oc(precio, moneda, unitario=True)}</td>
+          <td class="num">{_fmt_monto_oc(importe, moneda)}</td>
         </tr>"""
 
     neto = Decimal(str(oc.get("neto", 0)))
     iva = Decimal(str(oc.get("iva", 0)))
     total = Decimal(str(oc.get("total", 0)))
+    tipo_doc = (oc.get("tipo_documento") or "FACTURA").upper()
+    retencion_monto = Decimal(str(oc.get("retencion_monto") or 0))
+    retencion_pct = Decimal(str(oc.get("retencion_porcentaje") or 0))
+    total_a_pagar = Decimal(str(oc.get("total_a_pagar") or total))
 
     proveedor_html = ""
     if proveedor:
@@ -1392,20 +1477,10 @@ def render_orden_compra_html(
     <!-- Totales -->
     <div style="margin-top: 1.5em; display: flex; justify-content: flex-end;">
       <table style="width: 320px; border-top: 2px solid #111827;">
-        <tr>
-          <td style="padding: 0.4em 1em; text-align: right; font-weight: 500;">Neto</td>
-          <td class="num" style="padding: 0.4em 1em; font-weight: 500;">{sign}{neto:,.0f}</td>
-        </tr>
-        <tr>
-          <td style="padding: 0.4em 1em; text-align: right;">IVA</td>
-          <td class="num" style="padding: 0.4em 1em;">{sign}{iva:,.0f}</td>
-        </tr>
-        <tr style="border-top: 1px solid #e5e7eb;">
-          <td style="padding: 0.6em 1em; text-align: right; font-weight: 700; font-size: 12pt;">TOTAL</td>
-          <td class="num" style="padding: 0.6em 1em; font-weight: 700; font-size: 12pt; color: #1d6f42;">
-            {sign}{total:,.0f}
-          </td>
-        </tr>
+        {_bloque_totales_oc(
+            tipo_doc, moneda, neto, iva, total, retencion_pct,
+            retencion_monto, total_a_pagar,
+        )}
       </table>
     </div>
 

@@ -23,6 +23,7 @@ from pydantic import BaseModel
 
 from app.api.deps import CurrentUser, DBSession, require_scope
 from app.core.security import AuthenticatedUser
+from app.domain.value_objects.itemizado import total_linea
 from app.domain.value_objects.retencion import (
     IVA_PORCENTAJE_GENERAL,
     porcentaje_retencion_por_fecha,
@@ -382,6 +383,7 @@ def _build_oc_suggestion(
     items_raw = fields.get("items")
     items: list[OcExtractedItem] = []
     lineas_descuadradas: list[dict[str, str]] = []
+    lineas_calculadas: list[Decimal] = []
     if isinstance(items_raw, list) and items_raw:
         for idx, item in enumerate(items_raw[:30], start=1):
             if not isinstance(item, dict):
@@ -396,7 +398,11 @@ def _build_oc_suggestion(
             qty = qty_leida if qty_leida is not None else Decimal("1")
             price = _parse_amount(item.get("precio_unitario"))
             total_doc = _parse_amount(item.get("total"))
-            calculado = qty * (price if price is not None else Decimal("0"))
+            # El importe de la línea con la MISMA regla con que se va a
+            # guardar (redondeado al paso de la moneda), para comparar
+            # contra el documento manzanas con manzanas.
+            calculado = total_linea(qty, price if price is not None else Decimal("0"), moneda)
+            lineas_calculadas.append(calculado)
 
             # Si el documento declara un total de línea y NO es cantidad ×
             # precio, uno de los tres números se leyó mal. No se elige: se
@@ -432,13 +438,21 @@ def _build_oc_suggestion(
             precio_unitario=neto_str,
             total=neto_str,
         )]
+        # Esa línea inventada también cuenta para la conciliación: si no,
+        # la pantalla avisaría "no cuadran" contra una suma de 0.
+        lineas_calculadas = [
+            total_linea(Decimal("1"), _parse_amount(neto_str) or Decimal("0"), moneda)
+        ]
 
     # ── Conciliación: ¿el documento cuadra con sus líneas? ───────────────
-    suma_items = sum(
-        (_parse_amount(i.cantidad) or Decimal("0"))
-        * (_parse_amount(i.precio_unitario) or Decimal("0"))
-        for i in items
-    ) or Decimal("0")
+    # La MISMA suma que se va a persistir: las líneas YA redondeadas al
+    # paso de la moneda. Comparar el documento contra la suma cruda hacía
+    # saltar el aviso "no cuadran" justo cuando el documento sí cuadra con
+    # la OC que se va a crear, porque la cotización también redondea por
+    # línea. (Se usan los importes calculados arriba y no se vuelve a
+    # parsear `items`: esos strings ya están normalizados y `_parse_amount`
+    # los leería de nuevo con las reglas chilenas — "100.50" sería 10.050.)
+    suma_items = sum(lineas_calculadas, Decimal("0"))
     neto_doc = _parse_amount(fields.get("neto"))
     difieren = (
         neto_doc is not None

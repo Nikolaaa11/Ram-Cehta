@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { importeLinea, precioUnitario, sumaItemizado } from "@/lib/oc/itemizado";
+import { importeLinea, montoLinea, precioUnitario, sumaItemizado } from "@/lib/oc/itemizado";
 
 // Las 19 líneas reales de OC0059-PAN001-Comercializadora los Canelos.
 const OC96 = [
@@ -45,5 +45,24 @@ describe("precioUnitario", () => {
 
   it("no inventa decimales cuando el precio es entero", () => {
     expect(precioUnitario("600000")).toBe("$600.000");
+  });
+});
+
+describe("redondeo simétrico y monedas", () => {
+  it("un descuento de medio peso redondea como el backend (-1, no -0)", () => {
+    expect(importeLinea({ cantidad: "1", precio_unitario: "-0.5" })).toBe(-1);
+    expect(importeLinea({ cantidad: "1", precio_unitario: "-1.5" })).toBe(-2);
+  });
+
+  it("en UF conserva los centésimos", () => {
+    expect(importeLinea({ cantidad: "1", precio_unitario: "12.45" }, "UF")).toBe(12.45);
+    expect(sumaItemizado([{ cantidad: "2", precio_unitario: "1.005" }], "UF")).toBe(2.01);
+  });
+
+  it("muestra cada moneda con su símbolo", () => {
+    expect(montoLinea(4.5, "UF")).toBe("UF 4,50");
+    expect(montoLinea(1234, "CLP")).toBe("$1.234");
+    expect(montoLinea(19.99, "USD")).toBe("US$19,99");
+    expect(precioUnitario("4.5", "UF")).toBe("UF 4,50");
   });
 });

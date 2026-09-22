@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowLeft, Cloud, Plus, Trash2, Wand2 } from "lucide-react";
 import { Surface } from "@/components/ui/surface";
+import { sumarItemizado } from "@/lib/oc/totales";
 import { Combobox, type ComboboxItem } from "@/components/ui/combobox";
 import { ProveedorTypeaheadCached } from "@/components/proveedores/ProveedorTypeaheadCached";
 import type { ProveedorContacto } from "@/components/proveedores/ProveedorContactosPanel";
@@ -573,10 +574,19 @@ export default function NuevaOcPage() {
     return escaladas;
   }, [items, grossUp, retPct]);
 
-  // B del contrato = Σ(precio × cantidad) de lo que efectivamente se manda.
-  const baseImponible = lineasAGuardar.reduce(
-    (acc, l) => acc + l.precio * l.cantidad,
-    0,
+  // B del contrato = la suma de las líneas YA REDONDEADAS al paso de la
+  // moneda, la misma regla que el servidor (lib/oc/totales.ts ->
+  // backend/app/domain/value_objects/itemizado.py). Con la suma cruda, el
+  // itemizado de la OC 96 mostraba IVA $63.913 antes de guardar y $63.914
+  // después: un peso que aparecía recién al apretar Guardar.
+  const baseImponible = Number(
+    sumarItemizado(
+      lineasAGuardar.map((l) => ({
+        cantidad: String(l.cantidad),
+        precio_unitario: String(l.precio),
+      })),
+      moneda,
+    ),
   );
   const totales = derivarTotales({
     base: baseImponible,

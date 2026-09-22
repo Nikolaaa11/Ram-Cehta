@@ -12,7 +12,7 @@ import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
 import { FileLink } from "@/components/shared/FileLink";
 import { limpiarCeros } from "@/lib/oc/pegar-items";
-import { importeLinea, precioUnitario } from "@/lib/oc/itemizado";
+import { importeLinea, montoLinea, precioUnitario } from "@/lib/oc/itemizado";
 import { serverApiGet } from "@/lib/api/server";
 import { ApiError } from "@/lib/api/client";
 import { toCLP, toDate, toDateTimeCL } from "@/lib/format";
@@ -347,7 +347,7 @@ export default async function OcDetallePage({
                       {/* Con decimales si los tiene: un precio neto sacado de
                           un total con IVA es $67.142,86, y redondeado no
                           cuadra al multiplicarlo por la cantidad. */}
-                      {precioUnitario(it.precio_unitario)}
+                      {precioUnitario(it.precio_unitario, oc.moneda)}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
                       {/* `cantidad` es NUMERIC(18,4) en BD y la API la manda
@@ -362,7 +362,7 @@ export default async function OcDetallePage({
                           siguen con la columna en NULL. Sin esto la ficha
                           imprime "$0" en cada línea con el total correcto
                           abajo — el "no suman" que reportó Nicolás. */}
-                      {toCLP(importeLinea(it))}
+                      {montoLinea(importeLinea(it, oc.moneda), oc.moneda)}
                     </td>
                   </tr>
                 ))}

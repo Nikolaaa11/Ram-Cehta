@@ -26,7 +26,8 @@
 -- Idempotente. Verifica y reporta al final.
 -- ============================================================================
 
-\set ON_ERROR_STOP on
+-- (sin \set: este archivo también lo corre apply_pending_migrations.py,
+--  que ejecuta SQL plano y no entiende los meta-comandos de psql.)
 
 BEGIN;
 

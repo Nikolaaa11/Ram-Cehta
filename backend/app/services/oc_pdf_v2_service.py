@@ -588,6 +588,23 @@ async def _load_context(
             })()
         )
 
+    # Cinturón: el neto de la cabecera tiene que ser la suma de la columna
+    # que este mismo PDF va a imprimir (domain/itemizado.py). Si no cuadra,
+    # el documento saldría con una columna que no suma su total: se emite
+    # igual (no se le niega el PDF a nadie) pero queda el grito en el log.
+    _suma_columna = sum((Decimal(str(i.total)) for i in items), Decimal("0"))
+    _neto_fila = Decimal(str(oc_row.get("neto") or 0))
+    if items and _suma_columna != _neto_fila:
+        log.warning(
+            "oc_pdf.itemizado_descuadrado",
+            extra={
+                "oc_id": oc_id,
+                "suma_columna": str(_suma_columna),
+                "neto": str(_neto_fila),
+                "diferencia": str(_neto_fila - _suma_columna),
+            },
+        )
+
     # Fetch logo (best-effort via Dropbox shared)
     logo_bytes = None
     try:

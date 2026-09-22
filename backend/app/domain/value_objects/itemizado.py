@@ -40,16 +40,26 @@ def _dec(valor: Any, por_defecto: str = "0") -> Decimal:
     return valor if isinstance(valor, Decimal) else Decimal(str(valor))
 
 
+# Precisión con la que la BD guarda cada campo (core.ordenes_compra_detalle:
+# precio_unitario NUMERIC(18,2), cantidad NUMERIC(18,4)). Se multiplica con
+# estos valores y no con los que llegan: si el formulario manda 0,33333 de
+# cantidad, la BD guarda 0,3333 y el importe tiene que salir de ESE número o
+# el PDF imprime una multiplicación que no da.
+_PASO_PRECIO = Decimal("0.01")
+_PASO_CANTIDAD = Decimal("0.0001")
+
+
 def total_linea(
     cantidad: Any, precio_unitario: Any, moneda: str | None = "CLP"
 ) -> Decimal:
     """Importe de UNA línea, redondeado al paso de la moneda (ROUND_HALF_UP).
 
     Acepta negativos: una línea de descuento es un importe negativo y se
-    redondea igual (−0,5 va a −1, simétrico).
+    redondea igual (-0,5 va a -1, simétrico).
     """
-    bruto = _dec(cantidad, "1") * _dec(precio_unitario)
-    return bruto.quantize(paso_de_moneda(moneda), rounding=ROUND_HALF_UP)
+    c = _dec(cantidad, "1").quantize(_PASO_CANTIDAD, rounding=ROUND_HALF_UP)
+    p = _dec(precio_unitario).quantize(_PASO_PRECIO, rounding=ROUND_HALF_UP)
+    return (c * p).quantize(paso_de_moneda(moneda), rounding=ROUND_HALF_UP)
 
 
 def subtotal_itemizado(items: Iterable[Any], moneda: str | None = "CLP") -> Decimal:

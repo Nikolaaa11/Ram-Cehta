@@ -529,8 +529,10 @@ async def _crear_oc(
             cantidad = Decimal(str(it.get("cantidad") or 1))
             # Misma regla que la pantalla (domain/itemizado.py): en CLP la
             # línea es un importe en pesos, sin centavos, y el neto es la
-            # suma de esas líneas.
-            item_total = total_linea(cantidad, precio, "CLP")
+            # suma de esas líneas. La moneda es la de ESTA OC: con "CLP"
+            # clavado, una OC en UF perdía los centésimos de cada línea
+            # (UF 12,45 -> UF 12), que en pesos son decenas de miles.
+            item_total = total_linea(cantidad, precio, moneda)
         except Exception:
             precio = Decimal("0")
             cantidad = Decimal("1")
@@ -551,6 +553,7 @@ async def _crear_oc(
             total_neto = Decimal(str(neto_str))
         except Exception:
             total_neto = Decimal("0")
+        total_neto = total_linea(Decimal("1"), total_neto, moneda)
         item_rows.append({
             "item": 1,
             "descripcion": (

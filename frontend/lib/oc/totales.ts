@@ -135,6 +135,19 @@ export interface TotalesOC {
 }
 
 /** Decimales de la moneda: el peso no tiene centavos, la UF y el dólar sí. */
+/**
+ * Redondeo HALF_UP simétrico de un número JS al paso de la moneda.
+ *
+ * Para quien no trabaja con los Dec internos de este módulo: `Math.round`
+ * no sirve porque en los empates negativos redondea hacia +infinito
+ * (Math.round(-0,5) = -0) y el backend usa ROUND_HALF_UP simétrico (-1).
+ */
+export function redondearMonto(valor: number, moneda: string = "CLP"): number {
+  const factor = 10 ** decimalesDeMoneda(moneda);
+  const r = Math.round(Math.abs(valor) * factor) / factor;
+  return valor < 0 ? -r : r;
+}
+
 export function decimalesDeMoneda(moneda: string): number {
   return (moneda || "CLP").toUpperCase() === "CLP" ? 0 : 2;
 }

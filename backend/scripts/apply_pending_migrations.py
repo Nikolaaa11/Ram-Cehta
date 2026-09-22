@@ -45,15 +45,61 @@ url = re.sub(r"\+asyncpg|\+psycopg(?!2)", "+psycopg2", url_raw)
 # Si la URL es transaction pooler (port 6543), usar driver normal sin prep stmts
 is_txn_pooler = ":6543" in url
 
-# Round → (archivo SQL, tabla canónica para detección de "ya aplicada")
-# Si la tabla existe, el round se considera aplicado y se skipea.
+# Round → (archivo SQL, objeto canónico para detectar "ya aplicada").
+# El objeto puede ser una TABLA ("tabla", schema, nombre), una COLUMNA
+# ("columna", schema, tabla, columna) o una FUNCIÓN ("funcion", schema,
+# nombre): no toda migración crea una tabla — las de 2026-09 agregan
+# columnas y un trigger, y sin esto quedaban fuera del aplicador (un
+# entorno nuevo o una restauración nacían sin ellas).
 MIGRATIONS = [
-    ("115", "round115_migration.sql", ("core", "empresa_credenciales")),
-    ("117", "round117_sii_migration.sql", ("core", "sii_documentos")),
-    ("123", "round123_nubox_migration.sql", ("core", "nubox_remuneraciones")),
-    ("124", "round124_nubox_api_migration.sql", ("core", "nubox_api_credenciales")),
-    ("126", "round126_monitor_migration.sql", ("core", "system_health_checks")),
+    ("115", "round115_migration.sql", ("tabla", "core", "empresa_credenciales")),
+    ("117", "round117_sii_migration.sql", ("tabla", "core", "sii_documentos")),
+    ("123", "round123_nubox_migration.sql", ("tabla", "core", "nubox_remuneraciones")),
+    ("124", "round124_nubox_api_migration.sql", ("tabla", "core", "nubox_api_credenciales")),
+    ("126", "round126_monitor_migration.sql", ("tabla", "core", "system_health_checks")),
+    # 2026-09 — anexos de OC, constancia de pago sin firmas y cuadratura
+    # del itemizado. Ver el encabezado de cada archivo.
+    ("2609a", "oc_anexos_2026_09.sql",
+     ("columna", "core", "oc_attachments", "subido_por_email")),
+    ("2609b", "oc_pago_sin_firmas_2026_09.sql",
+     ("columna", "core", "ordenes_compra", "pago_sin_firmas")),
+    ("2609c", "oc_total_linea_2026_09.sql", ("funcion", "core", "oc_detalle_completar_total_linea")),
+    # Sin objeto propio (arregla la función anterior y cuadra datos): es
+    # idempotente, así que se corre siempre.
+    ("2609d", "oc_itemizado_cuadratura_2026_09.sql", ("siempre",)),
 ]
+
+
+def objeto_existe(conn, spec: tuple) -> bool:
+    """¿Ya está aplicada? Según el tipo de objeto que crea la migración."""
+    tipo = spec[0]
+    if tipo == "siempre":
+        return False
+    if tipo == "tabla":
+        return table_exists(conn, spec[1], spec[2])
+    if tipo == "columna":
+        return bool(
+            conn.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM information_schema.columns "
+                    "WHERE table_schema = :s AND table_name = :t "
+                    "AND column_name = :c)"
+                ),
+                {"s": spec[1], "t": spec[2], "c": spec[3]},
+            ).scalar()
+        )
+    if tipo == "funcion":
+        return bool(
+            conn.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_proc p "
+                    "JOIN pg_namespace n ON n.oid = p.pronamespace "
+                    "WHERE n.nspname = :s AND p.proname = :f)"
+                ),
+                {"s": spec[1], "f": spec[2]},
+            ).scalar()
+        )
+    raise ValueError(f"tipo de objeto desconocido: {tipo}")
 
 
 def table_exists(conn, schema: str, table: str) -> bool:
@@ -94,7 +140,8 @@ def run() -> int:
     # En migraciones DDL no necesitamos rollback granular (cada archivo
     # SQL ya tiene BEGIN/COMMIT internos si los necesita).
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as conn:
-        for round_num, filename, (schema, canonical_table) in MIGRATIONS:
+        for round_num, filename, spec in MIGRATIONS:
+            etiqueta = ".".join(str(x) for x in spec[1:]) or "siempre"
             sql_path = sql_dir / filename
             if not sql_path.exists():
                 print(f"⚠ Round {round_num}: archivo no encontrado ({filename}) — skip")
@@ -102,14 +149,14 @@ def run() -> int:
 
             # Detectar si ya está aplicado
             try:
-                already = table_exists(conn, schema, canonical_table)
+                already = objeto_existe(conn, spec)
             except Exception as exc:
                 print(f"✗ Round {round_num}: error consultando schema — {exc}")
                 failed += 1
                 break
 
             if already:
-                print(f"⊙ Round {round_num}: ya aplicado (tabla {schema}.{canonical_table} existe) — skip")
+                print(f"⊙ Round {round_num}: ya aplicado ({etiqueta} existe) — skip")
                 skipped += 1
                 continue
 
@@ -130,14 +177,13 @@ def run() -> int:
                 finally:
                     cur.close()
                 # Re-verificar
-                if table_exists(conn, schema, canonical_table):
+                if spec[0] == "siempre" or objeto_existe(conn, spec):
                     print(f"✓ Round {round_num}: aplicado OK")
                     applied += 1
                 else:
                     print(
-                        f"⚠ Round {round_num}: SQL ejecutado pero tabla "
-                        f"{schema}.{canonical_table} no apareció. "
-                        "Revisar manualmente."
+                        f"⚠ Round {round_num}: SQL ejecutado pero {etiqueta} "
+                        "no apareció. Revisar manualmente."
                     )
                     failed += 1
                     break

@@ -245,7 +245,12 @@ CREATE TABLE IF NOT EXISTS core.ordenes_compra_detalle (
     descripcion     TEXT NOT NULL,
     precio_unitario NUMERIC(18,2) NOT NULL,
     cantidad        NUMERIC(18,4) NOT NULL,
-    total_linea     NUMERIC(18,2) GENERATED ALWAYS AS (precio_unitario * cantidad) STORED,
+    -- Columna COMUN, no generada: el importe de la linea se calcula en la
+    -- app (domain/value_objects/itemizado.py) redondeado al paso de la
+    -- moneda, y una columna GENERATED impondria el producto crudo y ademas
+    -- haria fallar todo INSERT que la mande. Produccion siempre la tuvo
+    -- comun; esto alinea el schema declarado con la realidad.
+    total_linea     NUMERIC(18,2),
     UNIQUE (oc_id, item)
 );
 
