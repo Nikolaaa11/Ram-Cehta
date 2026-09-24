@@ -33,9 +33,11 @@ import io
 import logging
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any
+
+from collections.abc import Callable
 
 from jinja2 import Environment, FileSystemLoader, Undefined, select_autoescape
 from sqlalchemy import text
@@ -195,15 +197,40 @@ def _fmt_usd(monto: Any) -> str:
     return f"{sign}US${abs(d):,.2f}"
 
 
-def _formatear_precio_unitario(monto: Any, moneda: str = "CLP") -> str:
+def _formatear_precio_unitario(
+    monto: Any, moneda: str = "CLP", con_decimales: bool = True
+) -> str:
     """Como `formatear_moneda`, pero en CLP conserva los decimales del precio.
 
     Sólo para la columna "Precio unit." del itemizado: así el lector puede
     multiplicar por la cantidad y llegar al importe de la línea.
+
+    `con_decimales=False` (OC con el interruptor apagado) imprime el precio
+    redondeado a peso. Es presentación pura: el importe de la línea y los
+    totales NO se mueven, pero cantidad x precio deja de dar exacto — el
+    operador lo elige sabiendo eso. Fuera de CLP se ignora: en UF y USD los
+    centésimos son plata.
     """
     if (moneda or "CLP").upper() == "CLP":
-        return _fmt_clp_unitario(monto)
+        return _fmt_clp_unitario(monto) if con_decimales else _fmt_clp(monto)
     return _formatear_moneda(monto, moneda)
+
+
+def _helper_precio_unitario(mostrar_decimales: Any) -> Callable[..., str]:
+    """El `formatear_precio_unitario` que ve el template, ATADO a esta OC.
+
+    El template llama `formatear_precio_unitario(monto, moneda)` con dos
+    argumentos y el interruptor viaja en el partial, así ninguna plantilla
+    tiene que acordarse de pasarlo (y agregar un tercer posicional en el
+    template rompería el render: hay un test que lo vigila).
+
+    `is not False` cubre de una sola vez la columna ausente (ventana entre
+    el deploy y el SQL aplicado a mano) y el NULL: los dos significan "como
+    siempre", con decimales.
+    """
+    return partial(
+        _formatear_precio_unitario, con_decimales=mostrar_decimales is not False
+    )
 
 
 def _formatear_moneda(monto: Any, moneda: str = "CLP") -> str:
@@ -427,8 +454,7 @@ async def _load_context(
                               forma_pago, plazo_pago, plazo_entrega,
                               observaciones, estado,
                               atte_nombre, atte_cargo, tipo_documento, iva_porcentaje,
-                              retencion_porcentaje, retencion_monto, total_a_pagar,
-                              incluye_condiciones
+                              retencion_porcentaje, retencion_monto, total_a_pagar
                        FROM core.ordenes_compra
                        WHERE oc_id = :id"""
                 ),
@@ -474,6 +500,37 @@ async def _load_context(
             )
     if oc_row is None:
         return None
+
+    # Banderas de PRESENTACIÓN (cómo se imprime, no cuánto vale): se leen
+    # APARTE y best-effort, a propósito.
+    #
+    # Si viajaran en el SELECT de arriba, una columna que la BD todavía no
+    # tiene —el deploy NO corre migraciones, el SQL se aplica a mano— tiraría
+    # todo el render al SELECT reducido, que no trae las columnas de
+    # retención: una OC de honorarios dejaría de emitir PDF por culpa de un
+    # formato, con un mensaje de error que apunta a otra migración. Acá, si
+    # esta query falla, el documento sale exactamente como salía antes (con
+    # cláusulas y con decimales) y queda el warning.
+    presentacion: dict[str, Any] = {}
+    try:
+        _fila_pres = (
+            await db.execute(
+                text(
+                    """SELECT incluye_condiciones, mostrar_decimales
+                       FROM core.ordenes_compra WHERE oc_id = :id"""
+                ),
+                {"id": oc_id},
+            )
+        ).mappings().first()
+        presentacion = dict(_fila_pres) if _fila_pres else {}
+    except Exception:
+        with contextlib.suppress(Exception):
+            await db.rollback()
+        log.warning(
+            "oc_pdf.presentacion_no_leida oc_id=%s — el PDF sale con el "
+            "formato por defecto (con cláusulas y con decimales)",
+            oc_id,
+        )
 
     # Empresa (best-effort en columnas nuevas)
     empresa_row = None
@@ -684,7 +741,11 @@ async def _load_context(
         # sola vez —columna ausente (entorno pre-migracion) y valor NULL dan
         # True, y solo un False explicito las saca—. Con `or True` un False
         # se convertiria en True y la casilla del operador no haria nada.
-        "incluye_condiciones": oc_row.get("incluye_condiciones") is not False,
+        "incluye_condiciones": presentacion.get("incluye_condiciones") is not False,
+        # Precio unitario con decimales (default) o redondeado a peso. Mismo
+        # `is not False`: valor NULL o query que no se pudo leer => como
+        # siempre.
+        "mostrar_decimales": presentacion.get("mostrar_decimales") is not False,
         "gestiones_proveedor": None,
         "emails_documentacion": None,
         "emails_insumos": None,
@@ -950,7 +1011,9 @@ async def _load_context(
         "tipo_cuenta_label": "Cuenta Corriente",
         "oc": oc_ctx,
         "formatear_moneda": _formatear_moneda,
-        "formatear_precio_unitario": _formatear_precio_unitario,
+        "formatear_precio_unitario": _helper_precio_unitario(
+            presentacion.get("mostrar_decimales")
+        ),
         "qr_data_uri": _qr_placeholder_svg(),
         "verify_url": verify_url,
         "hash_verificacion": f"oc-{oc_id}-{generated_by_email or 'anon'}"[:60],

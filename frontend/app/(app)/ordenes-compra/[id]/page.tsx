@@ -7,6 +7,7 @@ import { OcActions } from "@/components/ordenes-compra/OcActions";
 import { OcCuotasSection } from "@/components/ordenes-compra/OcCuotasSection";
 import { OcFirmasSection } from "@/components/ordenes-compra/OcFirmasSection";
 import { OcAnexosSection } from "@/components/ordenes-compra/OcAnexosSection";
+import { OcDecimalesToggle } from "@/components/ordenes-compra/OcDecimalesToggle";
 import { CrearVoucherDesdeOcButton } from "@/components/vouchers/VoucherDesdeOc";
 import { EntityHistoryDrawer } from "@/components/audit/EntityHistoryDrawer";
 import { MonedaDisplay } from "@/components/shared/MonedaDisplay";
@@ -127,6 +128,11 @@ export default async function OcDetallePage({
   const esExenta = oc.tipo_documento === "FACTURA_EXENTA";
   const monedaKpi =
     oc.moneda === "UF" || oc.moneda === "USD" ? oc.moneda : "CLP";
+  // Interruptor de la OC (`mostrar_decimales`): si el precio unitario se
+  // muestra como es ($67.142,86) o redondeado a peso ($67.143). `!== false`
+  // y no `?? true`: en la ventana entre el deploy del frontend y el del
+  // backend el campo no viene, y el default es con decimales.
+  const conDecimales = oc.mostrar_decimales !== false;
 
   return (
     <div className="space-y-6">
@@ -305,10 +311,20 @@ export default async function OcDetallePage({
       {/* Items */}
       {oc.items && oc.items.length > 0 && (
         <Surface padding="none" className="overflow-hidden">
-          <div className="border-b border-hairline px-6 py-4">
+          <div className="flex flex-col gap-3 border-b border-hairline px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
             <h2 className="text-base font-semibold tracking-tight text-ink-900">
               Ítems
             </h2>
+            {/* Con decimales / sin decimales en el precio unitario. Cliente:
+                el server component no puede mutar. Se renderiza a sí mismo
+                como null en UF/USD, en OC anuladas y sin permiso. */}
+            <OcDecimalesToggle
+              ocId={ocId}
+              numeroOc={oc.numero_oc}
+              moneda={oc.moneda}
+              estado={oc.estado}
+              mostrarDecimales={conDecimales}
+            />
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-hairline text-sm">
@@ -347,7 +363,11 @@ export default async function OcDetallePage({
                       {/* Con decimales si los tiene: un precio neto sacado de
                           un total con IVA es $67.142,86, y redondeado no
                           cuadra al multiplicarlo por la cantidad. */}
-                      {precioUnitario(it.precio_unitario, oc.moneda)}
+                      {precioUnitario(
+                        it.precio_unitario,
+                        oc.moneda,
+                        conDecimales,
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-ink-900 tabular-nums">
                       {/* `cantidad` es NUMERIC(18,4) en BD y la API la manda

@@ -67,6 +67,8 @@ MIGRATIONS = [
     # Sin objeto propio (arregla la función anterior y cuadra datos): es
     # idempotente, así que se corre siempre.
     ("2609d", "oc_itemizado_cuadratura_2026_09.sql", ("siempre",)),
+    ("2609e", "oc_mostrar_decimales_2026_09.sql",
+     ("columna", "core", "ordenes_compra", "mostrar_decimales")),
 ]
 
 

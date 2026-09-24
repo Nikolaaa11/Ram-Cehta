@@ -7628,6 +7628,75 @@
         }
       }
     },
+    "/api/v1/ordenes-compra/{oc_id}/formato": {
+      "patch": {
+        "tags": [
+          "ordenes-compra"
+        ],
+        "summary": "Update Formato Oc",
+        "description": "El precio unitario del itemizado: con decimales o redondeado a peso.\n\nSólo aplica en CLP — en UF y USD los centésimos son plata y se muestran\nsiempre. Con `false` el precio sale redondeado, así que cantidad x\nprecio puede no dar el importe de la línea: el importe y los totales no\ncambian, es la columna del medio la que deja de cuadrar a la vista.",
+        "operationId": "update_formato_oc_api_v1_ordenes_compra__oc_id__formato_patch",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OcFormatoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrdenCompraRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/ordenes-compra/siguiente-numero": {
       "get": {
         "tags": [
@@ -8881,6 +8950,259 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/{oc_id}/anexos": {
+      "get": {
+        "tags": [
+          "oc-anexos"
+        ],
+        "summary": "Listar Anexos",
+        "description": "Anexos en el orden en que salen en el PDF (más antiguo primero) + si se\npueden modificar y por qué no.",
+        "operationId": "listar_anexos_api_v1_ordenes_compra__oc_id__anexos_get",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcAnexosResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "oc-anexos"
+        ],
+        "summary": "Subir Anexo",
+        "operationId": "subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcAnexoRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/{oc_id}/anexos/{attachment_id}/url": {
+      "get": {
+        "tags": [
+          "oc-anexos"
+        ],
+        "summary": "Url Anexo",
+        "description": "Link temporal de Dropbox (4 h) para abrir el anexo.",
+        "operationId": "url_anexo_api_v1_ordenes_compra__oc_id__anexos__attachment_id__url_get",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Attachment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OcAnexoLink"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordenes-compra/{oc_id}/anexos/{attachment_id}": {
+      "delete": {
+        "tags": [
+          "oc-anexos"
+        ],
+        "summary": "Quitar Anexo",
+        "operationId": "quitar_anexo_api_v1_ordenes_compra__oc_id__anexos__attachment_id__delete",
+        "parameters": [
+          {
+            "name": "oc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Oc Id"
+            }
+          },
+          {
+            "name": "attachment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Attachment Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -40793,6 +41115,33 @@
         ],
         "title": "Body_oc_extract_from_upload_api_v1_ordenes_compra_extract_from_upload_post"
       },
+      "Body_subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File",
+            "description": "Cotización, especificación, contrato…"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post"
+      },
       "Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post": {
         "properties": {
           "tipo": {
@@ -41319,6 +41668,18 @@
             "type": "string",
             "minLength": 1,
             "title": "Estado"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
           }
         },
         "type": "object",
@@ -49769,6 +50130,18 @@
               "parcial"
             ],
             "title": "Estado"
+          },
+          "motivo": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo"
           }
         },
         "type": "object",
@@ -63071,6 +63444,175 @@
         "title": "ObligationItem",
         "description": "Item del timeline unificado de obligaciones (V3 fase 9).\n\nAgrega 5 fuentes en un único contrato:\n\n  * `f29`        — F29 con `fecha_vencimiento` y `estado != 'pagado'`\n  * `legal`      — documentos legales `vigente` con `fecha_vigencia_hasta`\n  * `oc`         — OC `emitida`/`aprobada` (no pagada/anulada)\n  * `suscripcion`— suscripciones de acciones por firmar\n  * `event`      — eventos manuales del calendario (`core.calendar_events`)\n\nEl `id` es compuesto (`f\"{tipo}:{entity_id}\"`) para evitar colisiones\nentre fuentes y permitir keys estables en el frontend."
       },
+      "OcAnexoLink": {
+        "properties": {
+          "attachment_id": {
+            "type": "integer",
+            "title": "Attachment Id"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "expires_in_seconds": {
+            "type": "integer",
+            "title": "Expires In Seconds",
+            "default": 14400
+          }
+        },
+        "type": "object",
+        "required": [
+          "attachment_id",
+          "file_name",
+          "url"
+        ],
+        "title": "OcAnexoLink"
+      },
+      "OcAnexoRead": {
+        "properties": {
+          "attachment_id": {
+            "type": "integer",
+            "title": "Attachment Id"
+          },
+          "oc_id": {
+            "type": "integer",
+            "title": "Oc Id"
+          },
+          "file_name": {
+            "type": "string",
+            "title": "File Name"
+          },
+          "mime_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mime Type"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "descripcion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Descripcion"
+          },
+          "subido_por_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subido Por Email"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "en_el_pdf": {
+            "type": "boolean",
+            "title": "En El Pdf",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "attachment_id",
+          "oc_id",
+          "file_name",
+          "created_at"
+        ],
+        "title": "OcAnexoRead"
+      },
+      "OcAnexosResponse": {
+        "properties": {
+          "anexos": {
+            "items": {
+              "$ref": "#/components/schemas/OcAnexoRead"
+            },
+            "type": "array",
+            "title": "Anexos"
+          },
+          "se_pueden_modificar": {
+            "type": "boolean",
+            "title": "Se Pueden Modificar"
+          },
+          "motivo_bloqueo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motivo Bloqueo"
+          },
+          "usado_bytes": {
+            "type": "integer",
+            "title": "Usado Bytes"
+          },
+          "limite_total_bytes": {
+            "type": "integer",
+            "title": "Limite Total Bytes",
+            "default": 20971520
+          },
+          "limite_archivo_bytes": {
+            "type": "integer",
+            "title": "Limite Archivo Bytes",
+            "default": 10485760
+          },
+          "max_anexos": {
+            "type": "integer",
+            "title": "Max Anexos",
+            "default": 15
+          }
+        },
+        "type": "object",
+        "required": [
+          "anexos",
+          "se_pueden_modificar",
+          "usado_bytes"
+        ],
+        "title": "OcAnexosResponse"
+      },
       "OcBrandingRead": {
         "properties": {
           "codigo": {
@@ -63999,6 +64541,20 @@
         ],
         "title": "OcFirmasResponse"
       },
+      "OcFormatoUpdate": {
+        "properties": {
+          "mostrar_decimales": {
+            "type": "boolean",
+            "title": "Mostrar Decimales"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mostrar_decimales"
+        ],
+        "title": "OcFormatoUpdate",
+        "description": "Body de PATCH /ordenes-compra/{id}/formato.\n\nUn solo campo y endpoint propio porque NO es una edición de la OC: no\nmueve un peso. Por eso funciona en estados donde el PATCH general está\ncerrado (borrador, en_firma, firmada, pagada) — lo único que cambia es\ncómo se imprime el precio unitario."
+      },
       "OcImportCsvResponse": {
         "properties": {
           "total_rows": {
@@ -64084,6 +64640,11 @@
           "incluye_condiciones": {
             "type": "boolean",
             "title": "Incluye Condiciones",
+            "default": true
+          },
+          "mostrar_decimales": {
+            "type": "boolean",
+            "title": "Mostrar Decimales",
             "default": true
           },
           "empresa_codigo": {
@@ -64591,6 +65152,11 @@
             "title": "Incluye Condiciones",
             "default": true
           },
+          "mostrar_decimales": {
+            "type": "boolean",
+            "title": "Mostrar Decimales",
+            "default": true
+          },
           "estado": {
             "type": "string",
             "title": "Estado"
@@ -64630,6 +65196,18 @@
             "type": "array",
             "title": "Allowed Actions",
             "default": []
+          },
+          "pago_sin_firmas": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pago Sin Firmas"
           }
         },
         "type": "object",
@@ -64818,6 +65396,17 @@
               }
             ],
             "title": "Incluye Condiciones"
+          },
+          "mostrar_decimales": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mostrar Decimales"
           }
         },
         "type": "object",

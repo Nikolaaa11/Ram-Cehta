@@ -18,6 +18,10 @@ _NO_NULEABLES = frozenset(
         "iva_porcentaje",
         "retencion_porcentaje",
         "validez_dias",
+        # Booleanos NOT NULL DEFAULT TRUE: un `null` explicito los tumbaba
+        # con NotNullViolation (500 opaco). None = "no me pronuncio".
+        "incluye_condiciones",
+        "mostrar_decimales",
     }
 )
 
@@ -124,6 +128,9 @@ class OrdenCompraRepository:
             # default True y un False explicito del operador tiene que
             # sobrevivir. Con `or` un False se convertiria en el default.
             incluye_condiciones=data.incluye_condiciones,
+            # Mismo criterio: booleano puro, sin `or`. Solo presentacion del
+            # precio unitario (ver models/orden_compra.py).
+            mostrar_decimales=data.mostrar_decimales,
         )
         self._session.add(oc)
         await self._session.flush()

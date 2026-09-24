@@ -59,6 +59,7 @@ from app.schemas.orden_compra import (
     OcEliminadaListItem,
     OcEliminadaRead,
     OcEliminarRequest,
+    OcFormatoUpdate,
     OCDetalleCreate,
     OCDetalleRead,
     OrdenCompraCreate,
@@ -577,6 +578,19 @@ def _to_read(user: AuthenticatedUser, oc: OrdenCompra) -> OrdenCompraRead:
         updated_at=oc.updated_at,
         allowed_actions=_authz.allowed_actions_for_oc(user, oc.estado),
         pago_sin_firmas=getattr(oc, "pago_sin_firmas", None),
+        # `is not False` y no `.get(..., True)`: cubre NULL y True con una
+        # sola expresion y solo un False explicito apaga los decimales. Ojo:
+        # NO cubre la columna ausente en la BD — con la columna sin crear, el
+        # SELECT del ORM revienta antes de llegar aca (por eso el SQL va
+        # SIEMPRE antes del deploy).
+        mostrar_decimales=getattr(oc, "mostrar_decimales", True) is not False,
+        # Preexistente hasta 2026-09-24: `_to_read` NUNCA mandaba este campo,
+        # asi que la API respondia siempre el default True del schema. El PDF
+        # nunca se vio afectado (lee la columna directo), pero el formulario
+        # de edicion mostraba la casilla marcada en una OC que se imprime SIN
+        # clausulas, y como compara contra ese valor inicial, tampoco se
+        # podian volver a prender.
+        incluye_condiciones=getattr(oc, "incluye_condiciones", True) is not False,
     )
 
 
@@ -1050,6 +1064,10 @@ async def get_oc_html(
         "forma_pago": oc.forma_pago or "",
         "plazo_pago": oc.plazo_pago or "",
         "observaciones": oc.observaciones or "",
+        # Presentacion del precio unitario: el Ctrl+P tiene que verse igual
+        # que el PDF, si no el mismo documento sale de dos formas distintas
+        # segun por donde se imprima.
+        "mostrar_decimales": getattr(oc, "mostrar_decimales", True) is not False,
     }
 
     # Items
@@ -1338,6 +1356,12 @@ async def duplicate_oc(
         tipo_documento=original.tipo_documento,
         iva_porcentaje=original.iva_porcentaje,
         retencion_porcentaje=retencion_pct_dup,
+        # La copia sale como el original tambien en lo que se IMPRIME. Sin
+        # esto, duplicar una OC sin condiciones generales devolvia una CON
+        # las 4 clausulas de arbitraje, y una sin decimales, con decimales:
+        # el operador duplica justamente para no volver a elegir.
+        incluye_condiciones=original.incluye_condiciones,
+        mostrar_decimales=getattr(original, "mostrar_decimales", True) is not False,
         items=[
             OCDetalleCreate(
                 item=d.item,
@@ -1719,6 +1743,90 @@ async def update_oc(
     )
     # Con unidades: el PATCH no las toca, pero la respuesta alimenta la
     # pantalla de detalle y no pueden "desaparecer" tras editar la cabecera.
+    return await _to_read_con_unidades(db, user, refreshed)
+
+
+# =====================================================================
+# PATCH /ordenes-compra/{oc_id}/formato — con o sin decimales
+# =====================================================================
+#
+# Endpoint propio y NO un campo más del PATCH general por dos motivos:
+#
+#  1. No es una edición de la OC. No toca `precio_unitario`, `total_linea`,
+#     neto, IVA ni total: el mismo documento con TRUE y con FALSE tiene
+#     exactamente los mismos montos. Lo único que cambia es si el precio
+#     unitario se imprime $67.142,86 o $67.143.
+#  2. Por eso mismo funciona donde el PATCH general está cerrado
+#     (`_OC_EDITABLE_ESTADOS` = emitida/parcial). Una OC en borrador, en
+#     firma o ya pagada también se imprime, y el operador tiene que poder
+#     elegir cómo sale. La única excepción es `anulada`: un documento
+#     anulado no se retoca, ni siquiera en la presentación.
+#
+# Queda en la auditoría como cualquier otro cambio: es una decisión sobre
+# el papel que se le manda al proveedor.
+
+
+@router.patch("/{oc_id:int}/formato", response_model=OrdenCompraRead)
+async def update_formato_oc(
+    user: Annotated[AuthenticatedUser, Depends(require_scope("oc:update"))],
+    db: DBSession,
+    request: Request,
+    oc_id: int,
+    body: OcFormatoUpdate,
+) -> OrdenCompraRead:
+    """El precio unitario del itemizado: con decimales o redondeado a peso.
+
+    Sólo aplica en CLP — en UF y USD los centésimos son plata y se muestran
+    siempre. Con `false` el precio sale redondeado, así que cantidad x
+    precio puede no dar el importe de la línea: el importe y los totales no
+    cambian, es la columna del medio la que deja de cuadrar a la vista.
+    """
+    repo = OrdenCompraRepository(db)
+    oc = await repo.get(oc_id)
+    if not oc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="OC no encontrada"
+        )
+    await assert_empresa_access(user, db, oc.empresa_codigo)
+    if oc.estado == "anulada":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"La OC {oc.numero_oc} está anulada: no se le cambia el "
+                "formato. Si hay que emitirla de nuevo, duplicala."
+            ),
+        )
+
+    antes = getattr(oc, "mostrar_decimales", True) is not False
+    if antes == body.mostrar_decimales:
+        # Idempotente: ni commit ni entrada de auditoría por un click que no
+        # cambia nada (el toggle puede llegar dos veces por doble click).
+        return await _to_read_con_unidades(db, user, oc)
+
+    oc.mostrar_decimales = body.mostrar_decimales  # type: ignore[assignment]
+    await db.commit()
+    refreshed = await repo.get(oc_id)
+    if not refreshed:  # pragma: no cover — invariante
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                f"OC #{oc_id} actualizada pero no se pudo recargar. "
+                "Refrescá la página para ver el cambio."
+            ),
+        )
+    como = "con decimales" if body.mostrar_decimales else "sin decimales"
+    await audit_log(
+        db,
+        request,
+        user,
+        action="update",
+        entity_type="orden_compra",
+        entity_id=str(oc_id),
+        entity_label=refreshed.numero_oc,
+        summary=f"OC {refreshed.numero_oc}: precio unitario {como}",
+        before={"mostrar_decimales": antes},
+        after={"mostrar_decimales": body.mostrar_decimales},
+    )
     return await _to_read_con_unidades(db, user, refreshed)
 
 

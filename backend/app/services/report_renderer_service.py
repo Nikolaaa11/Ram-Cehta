@@ -1261,10 +1261,21 @@ def _fmt_cantidad(valor: Decimal) -> str:
     return f"{entero},{decimales}" if decimales else entero
 
 
-def _fmt_monto_oc(valor: Decimal, moneda: str, *, unitario: bool = False) -> str:
-    """Importe de una OC con el formato de su moneda (espejo del PDF v2)."""
+def _fmt_monto_oc(
+    valor: Decimal,
+    moneda: str,
+    *,
+    unitario: bool = False,
+    con_decimales: bool = True,
+) -> str:
+    """Importe de una OC con el formato de su moneda (espejo del PDF v2).
+
+    `con_decimales=False` sólo afecta al precio unitario en pesos (la OC con
+    el interruptor apagado): el importe de la línea y los totales se
+    imprimen igual. Fuera de CLP se ignora — ahí los centésimos son plata.
+    """
     if moneda == "CLP":
-        if unitario and valor != valor.to_integral_value():
+        if unitario and con_decimales and valor != valor.to_integral_value():
             entero, _, dec = f"{valor.quantize(Decimal('0.01')):,.2f}".partition(".")
             return f"${entero.replace(',', '.')},{dec}"
         n = int(valor.quantize(Decimal("1"), rounding=ROUND_HALF_UP))
@@ -1374,15 +1385,21 @@ def render_orden_compra_html(
     # sin notación científica (`.normalize()` imprimía 20 como "2E+1").
     items_html = ""
     moneda = (oc.get("moneda") or "CLP").upper()
+    # El interruptor de la OC (core.ordenes_compra.mostrar_decimales). Este
+    # HTML también termina impreso (está pensado para Ctrl+P): si no lo
+    # respetara, el mismo documento saldría distinto según por dónde se
+    # imprima. `is not False`: ausente o NULL => con decimales, como siempre.
+    con_decimales = oc.get("mostrar_decimales") is not False
     for it in items:
         cantidad = Decimal(str(it.get("cantidad", 1)))
         precio = Decimal(str(it.get("precio_unitario", 0)))
         importe = Decimal(str(it.get("total_linea") or cantidad * precio))
+        unit = _fmt_monto_oc(precio, moneda, unitario=True, con_decimales=con_decimales)
         items_html += f"""<tr>
           <td class="num">{_esc(it.get('item', ''))}</td>
           <td>{_esc(it.get('descripcion', ''))}</td>
           <td class="num">{_fmt_cantidad(cantidad)}</td>
-          <td class="num">{_fmt_monto_oc(precio, moneda, unitario=True)}</td>
+          <td class="num">{unit}</td>
           <td class="num">{_fmt_monto_oc(importe, moneda)}</td>
         </tr>"""
 

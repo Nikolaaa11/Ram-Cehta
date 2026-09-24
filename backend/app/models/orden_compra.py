@@ -83,6 +83,20 @@ class OrdenCompra(Base):
     incluye_condiciones: Mapped[bool] = mapped_column(
         Boolean, server_default="true", nullable=False
     )
+    # SOLO PRESENTACION: si el precio unitario se imprime con sus decimales
+    # ($67.142,86) o redondeado a peso ($67.143). No mueve un peso —
+    # `total_linea`, neto, IVA y total son los mismos con TRUE y con FALSE—,
+    # y en UF/USD se ignora (ahi los centesimos son plata). Default TRUE en
+    # BD: con decimales cantidad x precio da exactamente el importe de la
+    # linea, que es como quedo el documento el 2026-09-22; sacarlos es una
+    # decision explicita de quien emite.
+    # SQL: scripts/sql/oc_mostrar_decimales_2026_09.sql, que hay que aplicar
+    # ANTES de desplegar este modelo: SQLAlchemy pide las columnas mapeadas
+    # por nombre, asi que con la columna ausente NO falla el boton nuevo —
+    # falla TODO el modulo de OC (listado, ficha, alta, PDF) con un 500.
+    mostrar_decimales: Mapped[bool] = mapped_column(
+        Boolean, server_default="true", nullable=False
+    )
     estado: Mapped[str] = mapped_column(Text, server_default="emitida")
     pdf_url: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

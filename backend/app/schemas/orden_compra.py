@@ -66,6 +66,12 @@ class OrdenCompraCreate(BaseModel):
     #: Default True porque es una cláusula contractual: el silencio tiene que
     #: dejar el documento como estaba, y sacarla debe ser deliberado.
     incluye_condiciones: bool = True
+    #: Si el precio unitario se imprime con sus decimales ($67.142,86) o
+    #: redondeado a peso ($67.143). SOLO PRESENTACION y sólo en CLP: el
+    #: importe de la línea y los totales son los mismos en los dos casos.
+    #: Default True — así cantidad x precio da exactamente el importe de la
+    #: línea y el documento cuadra solo.
+    mostrar_decimales: bool = True
     empresa_codigo: str
     proveedor_id: int | None = None
     # Opcionales: si no viene proveedor_id pero si proveedor_rut+nombre,
@@ -224,6 +230,10 @@ class OrdenCompraRead(BaseModel):
     #: consumidor ve el comportamiento de siempre (con condiciones), que es
     #: el correcto para las OC ya emitidas.
     incluye_condiciones: bool = True
+    #: Default True: un consumidor viejo que no manda el campo (o una
+    #: respuesta armada antes de este cambio) ve el comportamiento de
+    #: siempre, con decimales.
+    mostrar_decimales: bool = True
     estado: str
     pdf_url: str | None
     items: list[OCDetalleRead]
@@ -276,6 +286,18 @@ class EstadoUpdateRequest(BaseModel):
     #: una OC que todavía tiene firmas PENDIENTES: queda en la auditoría
     #: junto a quiénes no firmaron. En cualquier otro caso se ignora.
     motivo: str | None = Field(default=None, max_length=500)
+
+
+class OcFormatoUpdate(BaseModel):
+    """Body de PATCH /ordenes-compra/{id}/formato.
+
+    Un solo campo y endpoint propio porque NO es una edición de la OC: no
+    mueve un peso. Por eso funciona en estados donde el PATCH general está
+    cerrado (borrador, en_firma, firmada, pagada) — lo único que cambia es
+    cómo se imprime el precio unitario.
+    """
+
+    mostrar_decimales: bool
 
 
 class DuplicateOcRequest(BaseModel):
@@ -337,6 +359,12 @@ class OrdenCompraUpdate(BaseModel):
     #: `model_dump(exclude_unset=True)`, así que un False explícito SÍ se
     #: persiste — es la diferencia entre "no me pronuncio" y "sacalas".
     incluye_condiciones: bool | None = None
+    #: Idem: None = el PATCH no lo toca; un False explícito sí se persiste.
+    #: Las dos pantallas que lo tocan son el alta (`/ordenes-compra/nueva`,
+    #: vía `OrdenCompraCreate`) y el botón de la ficha, que usa el endpoint
+    #: dedicado `PATCH /{id}/formato` —funciona en más estados porque esto es
+    #: presentación, no plata—. Acá queda para quien use la API directo.
+    mostrar_decimales: bool | None = None
 
     @model_validator(mode="after")
     def coherencia_tributaria(self) -> OrdenCompraUpdate:

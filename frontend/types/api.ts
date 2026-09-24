@@ -2334,6 +2334,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ordenes-compra/{oc_id}/formato": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Formato Oc
+         * @description El precio unitario del itemizado: con decimales o redondeado a peso.
+         *
+         *     Sólo aplica en CLP — en UF y USD los centésimos son plata y se muestran
+         *     siempre. Con `false` el precio sale redondeado, así que cantidad x
+         *     precio puede no dar el importe de la línea: el importe y los totales no
+         *     cambian, es la columna del medio la que deja de cuadrar a la vista.
+         */
+        patch: operations["update_formato_oc_api_v1_ordenes_compra__oc_id__formato_patch"];
+        trace?: never;
+    };
     "/api/v1/ordenes-compra/siguiente-numero": {
         parameters: {
             query?: never;
@@ -2786,6 +2811,65 @@ export interface paths {
          */
         post: operations["recordar_firmas_api_v1_ordenes_compra_recordar_firmas_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/anexos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Anexos
+         * @description Anexos en el orden en que salen en el PDF (más antiguo primero) + si se
+         *     pueden modificar y por qué no.
+         */
+        get: operations["listar_anexos_api_v1_ordenes_compra__oc_id__anexos_get"];
+        put?: never;
+        /** Subir Anexo */
+        post: operations["subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/anexos/{attachment_id}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Url Anexo
+         * @description Link temporal de Dropbox (4 h) para abrir el anexo.
+         */
+        get: operations["url_anexo_api_v1_ordenes_compra__oc_id__anexos__attachment_id__url_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ordenes-compra/{oc_id}/anexos/{attachment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Quitar Anexo */
+        delete: operations["quitar_anexo_api_v1_ordenes_compra__oc_id__anexos__attachment_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -12114,6 +12198,17 @@ export interface components {
              */
             save_to_dropbox: boolean;
         };
+        /** Body_subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post */
+        Body_subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post: {
+            /**
+             * File
+             * Format: binary
+             * @description Cotización, especificación, contrato…
+             */
+            file: string;
+            /** Descripcion */
+            descripcion?: string | null;
+        };
         /** Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post */
         Body_upload_documento_api_v1_trabajadores__trabajador_id__documentos_post: {
             /**
@@ -19284,6 +19379,75 @@ export interface components {
             /** Link */
             link: string;
         };
+        /** OcAnexoLink */
+        OcAnexoLink: {
+            /** Attachment Id */
+            attachment_id: number;
+            /** File Name */
+            file_name: string;
+            /** Url */
+            url: string;
+            /**
+             * Expires In Seconds
+             * @default 14400
+             */
+            expires_in_seconds: number;
+        };
+        /** OcAnexoRead */
+        OcAnexoRead: {
+            /** Attachment Id */
+            attachment_id: number;
+            /** Oc Id */
+            oc_id: number;
+            /** File Name */
+            file_name: string;
+            /** Mime Type */
+            mime_type?: string | null;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Source */
+            source?: string | null;
+            /** Descripcion */
+            descripcion?: string | null;
+            /** Subido Por Email */
+            subido_por_email?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * En El Pdf
+             * @default true
+             */
+            en_el_pdf: boolean;
+        };
+        /** OcAnexosResponse */
+        OcAnexosResponse: {
+            /** Anexos */
+            anexos: components["schemas"]["OcAnexoRead"][];
+            /** Se Pueden Modificar */
+            se_pueden_modificar: boolean;
+            /** Motivo Bloqueo */
+            motivo_bloqueo?: string | null;
+            /** Usado Bytes */
+            usado_bytes: number;
+            /**
+             * Limite Total Bytes
+             * @default 20971520
+             */
+            limite_total_bytes: number;
+            /**
+             * Limite Archivo Bytes
+             * @default 10485760
+             */
+            limite_archivo_bytes: number;
+            /**
+             * Max Anexos
+             * @default 15
+             */
+            max_anexos: number;
+        };
         /** OcBrandingRead */
         OcBrandingRead: {
             /** Codigo */
@@ -19638,6 +19802,19 @@ export interface components {
             /** Pendientes */
             pendientes: number;
         };
+        /**
+         * OcFormatoUpdate
+         * @description Body de PATCH /ordenes-compra/{id}/formato.
+         *
+         *     Un solo campo y endpoint propio porque NO es una edición de la OC: no
+         *     mueve un peso. Por eso funciona en estados donde el PATCH general está
+         *     cerrado (borrador, en_firma, firmada, pagada) — lo único que cambia es
+         *     cómo se imprime el precio unitario.
+         */
+        OcFormatoUpdate: {
+            /** Mostrar Decimales */
+            mostrar_decimales: boolean;
+        };
         /** OcImportCsvResponse */
         OcImportCsvResponse: {
             /** Total Rows */
@@ -19678,6 +19855,11 @@ export interface components {
              * @default true
              */
             incluye_condiciones: boolean;
+            /**
+             * Mostrar Decimales
+             * @default true
+             */
+            mostrar_decimales: boolean;
             /** Empresa Codigo */
             empresa_codigo: string;
             /** Proveedor Id */
@@ -19855,6 +20037,11 @@ export interface components {
              * @default true
              */
             incluye_condiciones: boolean;
+            /**
+             * Mostrar Decimales
+             * @default true
+             */
+            mostrar_decimales: boolean;
             /** Estado */
             estado: string;
             /** Pdf Url */
@@ -19926,6 +20113,8 @@ export interface components {
             retencion_porcentaje?: number | string | null;
             /** Incluye Condiciones */
             incluye_condiciones?: boolean | null;
+            /** Mostrar Decimales */
+            mostrar_decimales?: boolean | null;
         };
         /** OwnerCount */
         OwnerCount: {
@@ -28254,6 +28443,43 @@ export interface operations {
             };
         };
     };
+    update_formato_oc_api_v1_ordenes_compra__oc_id__formato_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OcFormatoUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrdenCompraRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     siguiente_numero_api_v1_ordenes_compra_siguiente_numero_get: {
         parameters: {
             query: {
@@ -28919,6 +29145,142 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_anexos_api_v1_ordenes_compra__oc_id__anexos_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcAnexosResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_subir_anexo_api_v1_ordenes_compra__oc_id__anexos_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcAnexoRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    url_anexo_api_v1_ordenes_compra__oc_id__anexos__attachment_id__url_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+                attachment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OcAnexoLink"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    quitar_anexo_api_v1_ordenes_compra__oc_id__anexos__attachment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                oc_id: number;
+                attachment_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

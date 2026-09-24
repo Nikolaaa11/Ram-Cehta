@@ -58,15 +58,23 @@ export function montoLinea(valor: number, moneda: string = "CLP"): string {
  * Un precio neto sacado de un total con IVA es $67.142,86: redondeado a
  * $67.143, el que multiplica por la cantidad no llega al importe de la
  * línea. Con los decimales a la vista, la cuenta cuadra.
+ *
+ * `conDecimales = false` es el interruptor de la OC
+ * (`mostrar_decimales`, 2026-09-24): imprime el precio redondeado a peso.
+ * Sólo cambia lo que se ve del precio — el importe de la línea y los
+ * totales son los mismos— pero entonces cantidad x precio puede no dar el
+ * importe de la línea. En UF y USD se ignora: ahí los centésimos son plata.
  */
 export function precioUnitario(
   valor: string | number | null | undefined,
   moneda: string = "CLP",
+  conDecimales: boolean = true,
 ): string {
   const n = Number(valor ?? 0);
   if (Number.isNaN(n)) return montoLinea(0, moneda);
   const m = (moneda || "CLP").toUpperCase();
   if (m !== "CLP") return montoLinea(n, m);
+  if (!conDecimales) return montoLinea(redondearMonto(n, m), m);
   const decimales = Number.isInteger(n) ? 0 : 2;
   return `$${n.toLocaleString("es-CL", {
     minimumFractionDigits: decimales,

@@ -66,3 +66,38 @@ describe("redondeo simétrico y monedas", () => {
     expect(precioUnitario("4.5", "UF")).toBe("UF 4,50");
   });
 });
+
+// El interruptor de la OC (mostrar_decimales, 2026-09-24). Es presentación:
+// el importe de la línea y la suma NO se mueven, sólo el precio impreso.
+describe("con decimales / sin decimales", () => {
+  it("apagado, el precio sale redondeado a peso", () => {
+    expect(precioUnitario("67142.86", "CLP", false)).toBe("$67.143");
+    expect(precioUnitario("420.17", "CLP", false)).toBe("$420");
+    expect(precioUnitario("0.5", "CLP", false)).toBe("$1");
+  });
+
+  it("el default sigue siendo con decimales", () => {
+    expect(precioUnitario("67142.86", "CLP")).toBe("$67.142,86");
+    expect(precioUnitario("67142.86", "CLP", true)).toBe("$67.142,86");
+  });
+
+  it("un precio entero se ve igual en los dos modos", () => {
+    expect(precioUnitario("600000", "CLP", false)).toBe("$600.000");
+    expect(precioUnitario("600000", "CLP", true)).toBe("$600.000");
+  });
+
+  it("en UF y USD se ignora: los centésimos son plata", () => {
+    expect(precioUnitario("12.45", "UF", false)).toBe("UF 12,45");
+    expect(precioUnitario("19.99", "USD", false)).toBe("US$19,99");
+  });
+
+  it("no toca el importe de la línea ni la suma de la columna", () => {
+    // El interruptor es un parámetro de `precioUnitario` y de nada más: la
+    // columna de importes sigue sumando el mismo neto.
+    expect(sumaItemizado(OC96)).toBe(336387);
+    // `!` por `noUncheckedIndexedAccess` del tsconfig: OC96[0] existe, pero
+    // el tipo dice `... | undefined` y `tsc --noEmit` (CI + build de Vercel)
+    // lo rechaza. Misma convención que lib/__tests__/pegar-items.test.ts.
+    expect(importeLinea(OC96[0]!)).toBe(134286);
+  });
+});

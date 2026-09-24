@@ -206,6 +206,10 @@ export default function NuevaOcPage() {
   // Condiciones generales del PDF (las 4 clausulas de arbitraje). Arranca en
   // true: es una clausula contractual, sacarla tiene que ser deliberado.
   const [incluyeCondiciones, setIncluyeCondiciones] = useState(true);
+  // Precio unitario con decimales ($67.142,86) o redondeado a peso
+  // ($67.143). Presentación pura: no cambia el importe de la línea ni los
+  // totales. Se puede dar vuelta después desde la ficha.
+  const [mostrarDecimales, setMostrarDecimales] = useState(true);
   // De donde salio el numero sugerido. Se muestra bajo el campo: una
   // sugerencia que no explica su origen se acepta a ciegas, y aca lo que se
   // acepta a ciegas es la identidad de un documento tributario.
@@ -265,6 +269,7 @@ export default function NuevaOcPage() {
       plazoEntrega,
       observaciones,
       incluyeCondiciones,
+      mostrarDecimales,
       items,
       tipoDocumento,
       ivaPorcentaje,
@@ -284,6 +289,7 @@ export default function NuevaOcPage() {
       plazoEntrega,
       observaciones,
       incluyeCondiciones,
+      mostrarDecimales,
       items,
       tipoDocumento,
       ivaPorcentaje,
@@ -662,6 +668,7 @@ export default function NuevaOcPage() {
         // Booleano puro: `|| true` convertiria un false explicito en true y
         // la casilla no haria nada.
         incluye_condiciones: incluyeCondiciones,
+        mostrar_decimales: mostrarDecimales,
         plazo_entrega: plazoEntrega || null,
         observaciones: observaciones || null,
         tipo_documento: tipoDocumento,
@@ -1217,6 +1224,35 @@ export default function NuevaOcPage() {
                   </span>
                 </label>
               </div>
+
+              {/* Decimales del precio unitario. Presentación pura: el importe
+                  de cada línea y los totales son los mismos en los dos casos.
+                  Sólo aplica en pesos — en UF y USD los centésimos son plata
+                  y se imprimen siempre. Se puede dar vuelta después desde la
+                  ficha de la OC. */}
+              {moneda === "CLP" && (
+                <div className="sm:col-span-2">
+                  <label className="flex cursor-pointer items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={mostrarDecimales}
+                      onChange={(e) => setMostrarDecimales(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 text-cehta-green focus:ring-cehta-green"
+                    />
+                    <span>
+                      <span className="text-sm font-medium text-ink-900">
+                        Precio unitario con decimales
+                      </span>
+                      <span className="mt-0.5 block text-xs text-ink-500">
+                        {mostrarDecimales
+                          ? "Se imprime como es ($67.142,86): cantidad x precio da exacto el importe de la línea."
+                          : "Se imprime redondeado ($67.143): más limpio, pero cantidad x precio puede no dar el importe de la línea."}{" "}
+                        Los montos no cambian, sólo cómo se ve el precio.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           </Surface.Body>
         </Surface>

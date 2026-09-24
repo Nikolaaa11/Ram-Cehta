@@ -45,7 +45,7 @@ from app.services.oc_pdf_v2_service import (  # noqa: E402
     _fecha_larga,
     _firma_font_data_uri,
     _formatear_moneda,
-    _formatear_precio_unitario,
+    _helper_precio_unitario,
     _logo_data_uri,
     _logo_max_css,
     _logo_raw_bytes,
@@ -355,6 +355,7 @@ def _redondear(monto: Decimal, paso: Decimal) -> Decimal:
 def construir_contexto(
     escenario: str, n_items: int, folio: str, tipo: str, moneda: str,
     incluye_condiciones: bool = True,
+    mostrar_decimales: bool = True,
 ) -> dict:
     codigo, razon, color = ESCENARIOS[escenario]
     ficha = FICHAS.get(codigo, _FICHA_DEFAULT)
@@ -428,6 +429,9 @@ def construir_contexto(
         # falsy -> la vista previa mostraria SIEMPRE la OC sin clausulas,
         # que es lo contrario de produccion (donde el default es True).
         incluye_condiciones=incluye_condiciones,
+        # Presentacion del precio unitario (interruptor de la OC). Aca abajo
+        # se ata al helper; la clave queda igual por si el template la mira.
+        mostrar_decimales=mostrar_decimales,
         gestiones_proveedor=None, emails_documentacion=None, emails_insumos=None,
         total_neto=neto, iva=iva,
         iva_porcentaje=iva_pct, tipo_documento=token,
@@ -487,7 +491,9 @@ def construir_contexto(
         "formatear_moneda": _formatear_moneda,
         # El template lo usa para el precio unitario desde 2026-09-22; sin
         # esto el preview moria con UndefinedError.
-        "formatear_precio_unitario": _formatear_precio_unitario,
+        # El MISMO cableado que produccion (_load_context lo arma con este
+        # helper): si alguien lo desata alla, el preview lo refleja aca.
+        "formatear_precio_unitario": _helper_precio_unitario(mostrar_decimales),
         "qr_data_uri": _qr_placeholder_svg(),
         "verify_url": "https://cehta-capital.vercel.app/ordenes-compra/28",
         "hash_verificacion": "oc-28-preview", "watermark": None, "css": "",
@@ -518,6 +524,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--escenario", default="rho", choices=sorted(ESCENARIOS))
     ap.add_argument("--items", type=int, default=2)
+    ap.add_argument(
+        "--sin-decimales",
+        action="store_true",
+        help=("Imprime el precio unitario redondeado a peso, para ver el "
+              "efecto del interruptor de la OC."),
+    )
     ap.add_argument(
         "--sin-condiciones",
         action="store_true",
@@ -566,6 +578,7 @@ def main() -> int:
     ctx = construir_contexto(
         args.escenario, args.items, args.folio, args.tipo, args.moneda,
         incluye_condiciones=not args.sin_condiciones,
+        mostrar_decimales=not args.sin_decimales,
     )
     html = _env.get_template(args.template).render(**ctx)
 
